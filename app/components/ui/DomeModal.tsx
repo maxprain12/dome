@@ -99,7 +99,7 @@ export default function DomeModal({
             aria-label={t('common.close')}
             onClick={onClose}
           >
-            <X className="h-4 w-4" />
+            <X className="size-4" />
           </DomeButton>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[var(--primary-text)]">

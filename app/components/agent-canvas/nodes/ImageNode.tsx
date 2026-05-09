@@ -94,10 +94,10 @@ export default function ImageNode({
         style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
       >
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+          className="size-6 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'var(--warning)' }}
         >
-          <Image className="w-3.5 h-3.5 text-white" />
+          <Image className="size-3.5 text-white" />
         </div>
         <span className="text-xs font-semibold leading-tight truncate" style={{ color: 'var(--dome-text)' }}>
           {data.label}
@@ -111,9 +111,9 @@ export default function ImageNode({
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
           >
             {data.resourceUrl ? (
-              <img src={data.resourceUrl} alt={data.resourceTitle ?? ''} className="w-8 h-8 object-cover rounded-md" />
+              <img src={data.resourceUrl} alt={data.resourceTitle ?? ''} className="size-8 object-cover rounded-md" />
             ) : (
-              <Image className="w-4 h-4 shrink-0" style={{ color: 'var(--warning)' }} />
+              <Image className="size-4 shrink-0" style={{ color: 'var(--warning)' }} />
             )}
             <span className="flex-1 text-xs truncate" style={{ color: 'var(--dome-text)' }}>
               {data.resourceTitle}
@@ -121,10 +121,10 @@ export default function ImageNode({
             <button
               type="button"
               onClick={clearResource}
-              className="nodrag w-7 h-7 rounded-md flex items-center justify-center hover:opacity-70 transition-opacity"
+              className="nodrag size-7 rounded-md flex items-center justify-center hover:opacity-70 transition-opacity"
               style={{ color: 'var(--dome-text-muted)' }}
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="size-3.5" />
             </button>
           </div>
         ) : (
@@ -138,9 +138,9 @@ export default function ImageNode({
               color: 'var(--dome-text-muted)',
             }}
           >
-            <Search className="w-3.5 h-3.5 shrink-0" />
+            <Search className="size-3.5 shrink-0" />
             <span className="truncate">{t('canvas.select_image')}</span>
-            <ChevronDown className="w-3.5 h-3.5 ml-auto shrink-0" />
+            <ChevronDown className="size-3.5 ml-auto shrink-0" />
           </button>
         )}
       </div>
@@ -159,7 +159,7 @@ export default function ImageNode({
           <div className="p-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
             <div className="relative">
               <Search
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5"
                 style={{ color: 'var(--dome-text-muted)' }}
               />
               <input
@@ -194,10 +194,10 @@ export default function ImageNode({
                     title={r.title}
                   >
                     {r.thumbnail_data ? (
-                      <img src={r.thumbnail_data} alt={r.title} className="w-full h-full object-cover" />
+                      <img src={r.thumbnail_data} alt={r.title} className="size-full object-cover" />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center" style={{ background: 'var(--dome-bg)' }}>
-                        <Image className="w-5 h-5" style={{ color: 'var(--dome-text-muted)' }} />
+                      <div className="size-full flex items-center justify-center" style={{ background: 'var(--dome-bg)' }}>
+                        <Image className="size-5" style={{ color: 'var(--dome-text-muted)' }} />
                       </div>
                     )}
                   </button>

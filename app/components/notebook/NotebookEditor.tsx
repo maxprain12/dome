@@ -415,7 +415,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
                   handleMoveCell(idx, idx + 1);
                 }
               }}
-              className={`flex items-center justify-center w-9 h-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-grab active:cursor-grabbing select-none shrink-0 ${
+              className={`flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-grab active:cursor-grabbing select-none shrink-0 ${
                 prefersReducedMotion ? '' : 'hover:bg-[var(--bg-hover)]'
               }`}
               style={{
@@ -431,7 +431,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
             <button
               type="button"
               onClick={() => handleAddCell('code', idx)}
-              className="flex items-center justify-center w-9 h-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]"
+              className="flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]"
               style={{
                 background: 'var(--bg-secondary)',
                 borderColor: 'var(--border)',
@@ -445,7 +445,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
             <button
               type="button"
               onClick={() => handleAddCell('markdown', idx)}
-              className="flex items-center justify-center w-9 h-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]"
+              className="flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--bg-hover)] hover:border-[var(--border-hover)]"
               style={{
                 background: 'var(--bg-secondary)',
                 borderColor: 'var(--border)',
@@ -460,7 +460,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
               <button
                 type="button"
                 onClick={() => handleDeleteCell(idx)}
-                className="flex items-center justify-center w-9 h-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--error-bg)] hover:border-[var(--error)]"
+                className="flex items-center justify-center size-9 rounded-md border transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 cursor-pointer hover:bg-[var(--error-bg)] hover:border-[var(--error)]"
                 style={{
                   background: 'var(--bg-secondary)',
                   borderColor: 'var(--border)',

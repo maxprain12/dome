@@ -569,19 +569,19 @@ function getStepUsageShort(step: PersistentRunStep, locale: string): string | nu
 function StepStatusIcon({ step }: { step: PersistentRunStep }) {
   const muted = 'var(--dome-text-muted)';
   if (step.status === 'failed' || step.status === 'error' || getStepVisualKind(step) === 'error') {
-    return <XCircle className="w-3 h-3 shrink-0" style={{ color: 'var(--error)' }} aria-hidden />;
+    return <XCircle className="size-3 shrink-0" style={{ color: 'var(--error)' }} aria-hidden />;
   }
   if (step.status === 'cancelled') {
-    return <XCircle className="w-3 h-3 shrink-0 opacity-60" style={{ color: muted }} aria-hidden />;
+    return <XCircle className="size-3 shrink-0 opacity-60" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'waiting_approval') {
-    return <Clock className="w-3 h-3 shrink-0 opacity-80" style={{ color: muted }} aria-hidden />;
+    return <Clock className="size-3 shrink-0 opacity-80" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'running') {
-    return <Loader2 className="w-3 h-3 shrink-0 animate-spin" style={{ color: muted }} aria-hidden />;
+    return <Loader2 className="size-3 shrink-0 animate-spin" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'completed' || step.status === 'done') {
-    return <CheckCircle2 className="w-3 h-3 shrink-0 opacity-70" style={{ color: muted }} aria-hidden />;
+    return <CheckCircle2 className="size-3 shrink-0 opacity-70" style={{ color: muted }} aria-hidden />;
   }
   return null;
 }
@@ -1214,7 +1214,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
 
           {/* Mobile: overview below list */}
           <div className="shrink-0 border-t lg:hidden" style={{ borderColor: 'var(--dome-border)' }}>
-            <div className="max-h-[45vh] overflow-y-auto px-3 py-3">
+            <div className="max-h-[45vh] overflow-y-auto p-3">
               {!hasExecutionContent && sortedSteps.length === 0 ? null : (
                 <RunRightOverview
                   run={run}
@@ -1238,7 +1238,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
           )}
           style={{ background: 'var(--dome-bg)' }}
         >
-          <div className="flex shrink-0 items-center gap-2 border-b px-2 py-2 lg:hidden" style={{ borderColor: 'var(--dome-border)' }}>
+          <div className="flex shrink-0 items-center gap-2 border-b p-2 lg:hidden" style={{ borderColor: 'var(--dome-border)' }}>
             <DomeButton
               type="button"
               variant="ghost"
@@ -1246,7 +1246,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
               className="gap-1"
               onClick={handleMobileBackToList}
             >
-              <ArrowLeft className="w-4 h-4" aria-hidden />
+              <ArrowLeft className="size-4" aria-hidden />
               {t('runLog.detail_back_list')}
             </DomeButton>
           </div>
@@ -1501,7 +1501,7 @@ function RunsTab() {
         style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
       >
         <div className="flex items-center gap-1.5 flex-wrap">
-          <Filter className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+          <Filter className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
           <DomeFilterChipGroup
             dense
             options={ownerFilters.map(({ key, label }) => ({
@@ -1535,7 +1535,7 @@ function RunsTab() {
           <HubListState
             variant="empty"
             compact
-            icon={<Activity className="w-7 h-7" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />}
+            icon={<Activity className="size-7" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />}
             title={t('runLog.empty_runs')}
             description={t('runLog.empty_runs_hint')}
           />
@@ -1576,7 +1576,7 @@ function RunsTab() {
                         <span>{ownerLabel}</span>
                         <span aria-hidden>·</span>
                         <span className="inline-flex items-center gap-0.5">
-                          <Clock className="w-3 h-3 shrink-0" aria-hidden />
+                          <Clock className="size-3 shrink-0" aria-hidden />
                           {formatHubDate(run.updatedAt, t('runLog.never'))}
                         </span>
                         {stepLine ? (
@@ -1607,9 +1607,9 @@ function RunsTab() {
                         onClick={() => void handleDelete(run.id)}
                       >
                         {deletingId === run.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                          <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
                         ) : (
-                          <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                          <Trash2 className="size-3.5" aria-hidden />
                         )}
                       </DomeButton>
                     }

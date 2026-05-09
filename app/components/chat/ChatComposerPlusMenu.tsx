@@ -24,10 +24,10 @@ function MenuPillButton({
       className="group flex min-h-[36px] w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
     >
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
+        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
         aria-hidden
       >
-        <Icon className="h-4 w-4" strokeWidth={1.75} />
+        <Icon className="size-4" strokeWidth={1.75} />
       </span>
       <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
     </button>
@@ -53,13 +53,13 @@ function MenuNavRow({
       className="group flex min-h-[36px] w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors hover:bg-[var(--bg-hover)] disabled:opacity-50"
     >
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
+        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] text-[var(--secondary-text)] transition-colors group-hover:border-[var(--border-hover)] group-hover:bg-[var(--bg)]"
         aria-hidden
       >
-        <Icon className="h-4 w-4" strokeWidth={1.75} />
+        <Icon className="size-4" strokeWidth={1.75} />
       </span>
       <span className="min-w-0 flex-1 text-[12px] font-medium leading-snug text-[var(--primary-text)]">{label}</span>
-      <ChevronRight className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" aria-hidden />
+      <ChevronRight className="size-4 shrink-0 text-[var(--tertiary-text)]" aria-hidden />
     </button>
   );
 }
@@ -78,9 +78,9 @@ export function ManyCapabilitiesToggles(p: ManyCapabilitiesBlockProps) {
   const { t } = useTranslation();
   return (
     <div className="space-y-1 px-1">
-      <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--bg-hover)]">
+      <div className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[var(--bg-hover)]">
         <div className="flex min-w-0 items-center gap-2.5 text-[13px] font-medium text-[var(--primary-text)]">
-          <Database className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+          <Database className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
           <span className="truncate">{t('chat.capability_resources')}</span>
         </div>
         <ChatInputToggle
@@ -88,17 +88,17 @@ export function ManyCapabilitiesToggles(p: ManyCapabilitiesBlockProps) {
           onChange={() => p.setResourceToolsEnabled(!p.resourceToolsEnabled)}
         />
       </div>
-      <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--bg-hover)]">
+      <div className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[var(--bg-hover)]">
         <div className="flex min-w-0 items-center gap-2.5 text-[13px] font-medium text-[var(--primary-text)]">
-          <Search className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+          <Search className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
           <span className="truncate">{t('chat.capability_web')}</span>
         </div>
         <ChatInputToggle checked={p.toolsEnabled} onChange={() => p.setToolsEnabled(!p.toolsEnabled)} />
       </div>
       {p.hasMcp ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-3 transition-colors hover:bg-[var(--bg-hover)]">
+        <div className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[var(--bg-hover)]">
           <div className="flex min-w-0 items-center gap-2.5 text-[13px] font-medium text-[var(--primary-text)]">
-            <Plug2 className="h-4 w-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+            <Plug2 className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
             <span className="truncate">{t('chat.capability_mcp')}</span>
           </div>
           <ChatInputToggle checked={p.mcpEnabled} onChange={() => p.setMcpEnabled(!p.mcpEnabled)} />
@@ -330,10 +330,10 @@ export function ChatComposerPlusMenuContent({
       }}
     >
       {view !== 'root' ? (
-        <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] px-2 py-2">
+        <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] p-2">
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+            className="flex size-8 items-center justify-center rounded-lg text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
             onClick={() => setView('root')}
             aria-label={t('chat.plus_menu_back')}
           >
@@ -343,7 +343,7 @@ export function ChatComposerPlusMenuContent({
           {onCloseMenu ? (
             <button
               type="button"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
+              className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
               onClick={onCloseMenu}
               aria-label={t('common.close')}
             >
@@ -355,7 +355,7 @@ export function ChatComposerPlusMenuContent({
         <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-0.5">
           <button
             type="button"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
+            className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
             onClick={onCloseMenu}
             aria-label={t('common.close')}
           >

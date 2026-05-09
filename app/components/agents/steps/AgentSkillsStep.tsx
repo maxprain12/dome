@@ -79,7 +79,7 @@ export default function AgentSkillsStep({ selectedIds, onChange }: AgentSkillsSt
         {skills.map((s) => (
           <label
             key={s.id}
-            className="flex items-start gap-2 cursor-pointer py-2 px-2 rounded-lg hover:bg-[var(--bg-hover)]"
+            className="flex items-start gap-2 cursor-pointer p-2 rounded-lg hover:bg-[var(--bg-hover)]"
           >
             <input
               type="checkbox"

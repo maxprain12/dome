@@ -12,6 +12,142 @@ export function isSafeCalculatorFormula(formula: string): boolean {
   return /^[0-9a-zA-Z_+\-*/().,\s]+$/.test(formula) && !/\b(?:constructor|prototype|__)\b/.test(formula);
 }
 
+type CalcTok =
+  | { t: 'num'; v: number }
+  | { t: 'id'; n: string }
+  | { t: 'op'; o: '+' | '-' | '*' | '/' }
+  | { t: '(' }
+  | { t: ')' };
+
+function tokenizeCalculatorFormula(formula: string): CalcTok[] | null {
+  const out: CalcTok[] = [];
+  let i = 0;
+  while (i < formula.length) {
+    const c = formula[i]!;
+    if (/\s/.test(c)) {
+      i++;
+      continue;
+    }
+    if (c === '(') {
+      out.push({ t: '(' });
+      i++;
+      continue;
+    }
+    if (c === ')') {
+      out.push({ t: ')' });
+      i++;
+      continue;
+    }
+    if (c === '+' || c === '-' || c === '*' || c === '/') {
+      out.push({ t: 'op', o: c });
+      i++;
+      continue;
+    }
+    if (/[0-9.]/.test(c) || (c === ',' && i + 1 < formula.length && /[0-9]/.test(formula[i + 1]!))) {
+      let j = i;
+      while (j < formula.length && /[0-9.,]/.test(formula[j]!)) j++;
+      const raw = formula.slice(i, j).replace(/,/g, '');
+      const v = Number.parseFloat(raw);
+      if (!Number.isFinite(v)) return null;
+      out.push({ t: 'num', v });
+      i = j;
+      continue;
+    }
+    if (/[a-zA-Z_]/.test(c)) {
+      let j = i + 1;
+      while (j < formula.length && /[a-zA-Z0-9_]/.test(formula[j]!)) j++;
+      out.push({ t: 'id', n: formula.slice(i, j) });
+      i = j;
+      continue;
+    }
+    return null;
+  }
+  return out;
+}
+
+function parsePrimary(
+  toks: CalcTok[],
+  i: number,
+  env: Record<string, number>,
+): { v: number; i: number } | null {
+  if (i >= toks.length) return null;
+  const tok = toks[i]!;
+  if (tok.t === 'num') return { v: tok.v, i: i + 1 };
+  if (tok.t === 'id') {
+    const v = env[tok.n];
+    if (typeof v !== 'number' || !Number.isFinite(v)) return null;
+    return { v, i: i + 1 };
+  }
+  if (tok.t === '(') {
+    const inner = parseExpr(toks, i + 1, env);
+    if (!inner) return null;
+    if (inner.i >= toks.length || toks[inner.i]!.t !== ')') return null;
+    return { v: inner.v, i: inner.i + 1 };
+  }
+  return null;
+}
+
+function parseUnary(
+  toks: CalcTok[],
+  i: number,
+  env: Record<string, number>,
+): { v: number; i: number } | null {
+  if (i >= toks.length) return null;
+  const tok = toks[i]!;
+  if (tok.t === 'op' && tok.o === '+') return parseUnary(toks, i + 1, env);
+  if (tok.t === 'op' && tok.o === '-') {
+    const r = parseUnary(toks, i + 1, env);
+    return r ? { v: -r.v, i: r.i } : null;
+  }
+  return parsePrimary(toks, i, env);
+}
+
+function parseTerm(
+  toks: CalcTok[],
+  i: number,
+  env: Record<string, number>,
+): { v: number; i: number } | null {
+  let cur = parseUnary(toks, i, env);
+  if (!cur) return null;
+  while (cur.i < toks.length) {
+    const op = toks[cur.i]!;
+    if (op.t !== 'op' || (op.o !== '*' && op.o !== '/')) break;
+    const right = parseUnary(toks, cur.i + 1, env);
+    if (!right) return null;
+    if (op.o === '*') cur = { v: cur.v * right.v, i: right.i };
+    else cur = { v: cur.v / right.v, i: right.i };
+  }
+  return cur;
+}
+
+function parseExpr(
+  toks: CalcTok[],
+  i: number,
+  env: Record<string, number>,
+): { v: number; i: number } | null {
+  let cur = parseTerm(toks, i, env);
+  if (!cur) return null;
+  while (cur.i < toks.length) {
+    const op = toks[cur.i]!;
+    if (op.t !== 'op' || (op.o !== '+' && op.o !== '-')) break;
+    const right = parseTerm(toks, cur.i + 1, env);
+    if (!right) return null;
+    if (op.o === '+') cur = { v: cur.v + right.v, i: right.i };
+    else cur = { v: cur.v - right.v, i: right.i };
+  }
+  return cur;
+}
+
+/** Evaluate a calculator formula using only arithmetic and env identifiers (no `Function`). */
+export function evaluateSafeCalculatorFormula(formula: string, env: Record<string, number>): number {
+  if (!isSafeCalculatorFormula(formula)) return NaN;
+  const toks = tokenizeCalculatorFormula(formula);
+  if (!toks || toks.length === 0) return NaN;
+  const r = parseExpr(toks, 0, env);
+  if (!r || r.i !== toks.length) return NaN;
+  return r.v;
+}
+
 const calcInputSchema = z.object({
   id: nonEmptyString,
   label: nonEmptyString,

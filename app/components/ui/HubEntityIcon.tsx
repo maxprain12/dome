@@ -13,7 +13,7 @@ export interface HubEntityIconProps {
 
 /** Consistent agent / workflow glyphs for hub lists (uses dome tokens, no hardcoded purple/blue). */
 export default function HubEntityIcon({ kind, size = 'sm' }: HubEntityIconProps) {
-  const iconSz = size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4';
+  const iconSz = size === 'sm' ? 'size-3.5' : 'size-4';
   const bg = kind === 'agent' ? AGENT_TINT : WF_TINT;
 
   return (

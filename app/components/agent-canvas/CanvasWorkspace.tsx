@@ -45,6 +45,41 @@ function bezierPath(x1: number, y1: number, x2: number, y2: number): string {
   return `M ${x1},${y1} C ${x1},${y1 + dy} ${x2},${y2 - dy} ${x2},${y2}`;
 }
 
+function installWorkflowCanvasZoom(
+  container: HTMLDivElement,
+  viewport: HTMLDivElement,
+  transformRef: { current: { x: number; y: number; k: number } },
+): () => void {
+  const zoomed = (event: { transform: { x: number; y: number; k: number } }) => {
+    const tr = event.transform;
+    transformRef.current = { x: tr.x, y: tr.y, k: tr.k };
+    viewport.style.transform = `translate(${tr.x}px,${tr.y}px) scale(${tr.k})`;
+  };
+
+  const zoomBehavior = d3Zoom<HTMLDivElement, unknown>()
+    .scaleExtent([0.2, 2])
+    .filter((event) => {
+      const el = event.target as HTMLElement;
+      if (el.closest('.wf-no-zoom-pan')) return false;
+      if (el.closest('.nodrag') || el.closest('textarea') || el.closest('input')) {
+        return event.type === 'wheel';
+      }
+      if (event.type === 'wheel' && el.closest('.nowheel')) return false;
+      if (event.type === 'mousedown' && (event as MouseEvent).button !== 0) return false;
+      return true;
+    })
+    .on('zoom', zoomed);
+
+  const sel = select(container);
+  sel.call(zoomBehavior as never);
+  sel.call(zoomBehavior.transform as never, zoomIdentity);
+
+  return function cleanupWorkflowCanvasZoom() {
+    zoomBehavior.on('zoom', null);
+    sel.on('.zoom', null);
+  };
+}
+
 interface CanvasWorkspaceProps {
   selectedNodeId: string | null;
   onNodeSelect: (nodeId: string | null) => void;
@@ -149,34 +184,7 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
     const container = containerRef.current;
     const viewport = viewportRef.current;
     if (!container || !viewport) return undefined;
-
-    const zoomed = (event: { transform: { x: number; y: number; k: number } }) => {
-      const tr = event.transform;
-      transformRef.current = { x: tr.x, y: tr.y, k: tr.k };
-      viewport.style.transform = `translate(${tr.x}px,${tr.y}px) scale(${tr.k})`;
-    };
-
-    const zoomBehavior = d3Zoom<HTMLDivElement, unknown>()
-      .scaleExtent([0.2, 2])
-      .filter((event) => {
-        const el = event.target as HTMLElement;
-        if (el.closest('.wf-no-zoom-pan')) return false;
-        if (el.closest('.nodrag') || el.closest('textarea') || el.closest('input')) {
-          return event.type === 'wheel';
-        }
-        if (event.type === 'wheel' && el.closest('.nowheel')) return false;
-        if (event.type === 'mousedown' && (event as MouseEvent).button !== 0) return false;
-        return true;
-      })
-      .on('zoom', zoomed);
-
-    const sel = select(container);
-    sel.call(zoomBehavior as never);
-    sel.call(zoomBehavior.transform as never, zoomIdentity);
-
-    return () => {
-      sel.on('.zoom', null);
-    };
+    return installWorkflowCanvasZoom(container, viewport, transformRef);
   }, []);
 
   const onNodePointerDown = useCallback(

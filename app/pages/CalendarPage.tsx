@@ -304,7 +304,7 @@ export default function CalendarPage() {
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
                 title={t('calendarPage.open_settings')}
               >
-                <Link2 className="h-4 w-4" />
+                <Link2 className="size-4" />
                 <span className="hidden sm:inline">{t('calendarPage.google_settings')}</span>
               </button>
               <button
@@ -313,7 +313,7 @@ export default function CalendarPage() {
                 className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-[var(--dome-surface)]"
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
-                <Upload className="h-4 w-4" />
+                <Upload className="size-4" />
                 <span className="hidden sm:inline">{t('calendarPage.import_ics')}</span>
               </button>
               <button
@@ -324,7 +324,7 @@ export default function CalendarPage() {
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
                 title={t('calendarPage.sync')}
               >
-                <RefreshCw className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{t('calendarPage.sync')}</span>
               </button>
               <button
@@ -337,7 +337,7 @@ export default function CalendarPage() {
                 className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                 style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
               >
-                <Plus className="w-4 h-4" strokeWidth={2} />
+                <Plus className="size-4" strokeWidth={2} />
                 {t('calendarPage.new_event')}
               </button>
             </div>
@@ -374,7 +374,7 @@ export default function CalendarPage() {
             <div className="flex-1 min-h-0 min-w-0">
               {loading ? (
                 <div className="flex items-center justify-center h-64">
-                  <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                  <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
                 </div>
               ) : (
                 <div
@@ -423,7 +423,7 @@ export default function CalendarPage() {
                       >
                         <div className="flex items-start gap-2">
                           <div
-                            className="w-2.5 h-2.5 rounded-full mt-1.5 shrink-0 ring-1 ring-[var(--dome-border)]"
+                            className="size-2.5 rounded-full mt-1.5 shrink-0 ring-1 ring-[var(--dome-border)]"
                             style={{ background: event.calendar_color ?? 'var(--dome-accent)' }}
                           />
                           <div className="min-w-0">
@@ -504,7 +504,7 @@ export default function CalendarPage() {
                 className="px-4 py-2 text-sm rounded-lg font-medium"
                 style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
               >
-                {importBusy ? <Loader2 className="w-4 h-4 animate-spin inline" /> : t('calendarPage.import_confirm')}
+                {importBusy ? <Loader2 className="size-4 animate-spin inline" /> : t('calendarPage.import_confirm')}
               </button>
             </div>
           </div>

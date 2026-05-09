@@ -330,10 +330,10 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
         onClick={() => handleOpen(wf)}
         icon={
           <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
+            className="size-10 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: 'var(--dome-accent-bg)' }}
           >
-            <Workflow className="w-5 h-5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+            <Workflow className="size-5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
           </div>
         }
         title={
@@ -354,7 +354,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
             {desc ? <span>{graphSummary}</span> : null}
             <span className="inline-flex items-center gap-1 shrink-0">
               {desc ? <span aria-hidden>·</span> : null}
-              <Clock className="w-3 h-3 shrink-0" aria-hidden />
+              <Clock className="size-3 shrink-0" aria-hidden />
               {formatDate(wf.updatedAt)}
             </span>
           </div>
@@ -371,7 +371,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                 aria-label={t('agents.automations')}
                 onClick={() => onShowAutomations(wf.id, wf.name)}
               >
-                <Zap className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+                <Zap className="size-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
               </DomeButton>
             ) : null}
             <DomeButton
@@ -383,7 +383,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               aria-label={t('hubExport.title_export_workflow')}
               onClick={() => void handleExportWorkflow(wf)}
             >
-              <Download className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+              <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
             </DomeButton>
             <DomeButton
               type="button"
@@ -397,9 +397,9 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               onClick={() => void handleDelete(wf.id)}
             >
               {deletingId === wf.id ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
               ) : (
-                <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                <Trash2 className="size-3.5" aria-hidden />
               )}
             </DomeButton>
           </div>
@@ -431,7 +431,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
     return (
       <div key={folder.id} className="flex flex-col gap-2">
         <div
-          className="flex items-center gap-2 rounded-xl border px-2 py-2 transition-colors"
+          className="flex items-center gap-2 rounded-xl border p-2 transition-colors"
           style={{
             marginLeft: pad,
             borderColor: dragOverFolderId === folder.id ? 'var(--dome-accent)' : 'var(--dome-border)',
@@ -449,12 +449,12 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
             aria-expanded={isOpen}
           >
             {isOpen ? (
-              <ChevronDown className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronDown className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             ) : (
-              <ChevronRight className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <ChevronRight className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             )}
           </button>
-          <FolderOpen className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+          <FolderOpen className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
           <span className="flex-1 min-w-0 text-sm font-medium break-words" style={{ color: 'var(--dome-text)' }}>
             {folder.name}
           </span>
@@ -465,7 +465,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)]"
               title={t('filter.new_folder')}
             >
-              <FolderPlus className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <FolderPlus className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
             <button
               type="button"
@@ -473,7 +473,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)]"
               title={t('canvas.workflow_folder_actions')}
             >
-              <MoreHorizontal className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+              <MoreHorizontal className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             </button>
             {menuFolderId === folder.id ? (
               <div
@@ -584,7 +584,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               size="xs"
               disabled={importingBundle}
               onClick={() => handlePickWorkflowImport()}
-              leftIcon={<Upload className="w-3 h-3" aria-hidden />}
+              leftIcon={<Upload className="size-3" aria-hidden />}
             >
               {t('hubExport.import_workflow')}
             </DomeButton>
@@ -593,7 +593,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               variant="outline"
               size="xs"
               onClick={() => void handleNewRootFolder()}
-              leftIcon={<FolderPlus className="w-3 h-3" aria-hidden />}
+              leftIcon={<FolderPlus className="size-3" aria-hidden />}
             >
               {t('filter.new_folder')}
             </DomeButton>
@@ -603,7 +603,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               size="xs"
               onClick={handleNew}
               className="!bg-[var(--dome-accent)] !text-white border-transparent hover:opacity-90"
-              leftIcon={<Plus className="w-3 h-3" aria-hidden />}
+              leftIcon={<Plus className="size-3" aria-hidden />}
             >
               {t('canvas.new_workflow')}
             </DomeButton>
@@ -632,7 +632,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
         ) : workflows.length === 0 ? (
           <HubListState
             variant="empty"
-            icon={<Workflow className="w-7 h-7" style={{ color: 'var(--dome-accent)' }} />}
+            icon={<Workflow className="size-7" style={{ color: 'var(--dome-accent)' }} />}
             title={t('canvas.no_workflows_saved_title')}
             description={t('canvas.no_workflows_saved_desc')}
             action={
@@ -642,7 +642,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                 size="sm"
                 onClick={handleNew}
                 className="mt-1 !bg-[var(--dome-accent)]"
-                leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}
+                leftIcon={<Plus className="size-3.5" aria-hidden />}
               >
                 {t('canvas.create_first_workflow')}
               </DomeButton>

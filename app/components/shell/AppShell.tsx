@@ -338,7 +338,7 @@ export default function AppShell() {
         {needsHeadlessMany && (
           <div
             aria-hidden
-            className="fixed top-0 left-0 w-px h-px overflow-hidden opacity-0 pointer-events-none"
+            className="fixed top-0 left-0 size-px overflow-hidden opacity-0 pointer-events-none"
             style={{ zIndex: -10 }}
           >
             <div style={{ width: manyWidth, minHeight: 1 }}>

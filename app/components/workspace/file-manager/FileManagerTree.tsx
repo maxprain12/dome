@@ -39,7 +39,7 @@ interface FileManagerTreeProps {
   onRefresh?: () => void;
 }
 
-function getResourceIcon(type: string, className: string = "w-4 h-4") {
+function getResourceIcon(type: string, className: string = "size-4") {
   switch (type) {
     case 'notebook':
       return <BookOpen className={className} strokeWidth={1.75} />;
@@ -122,7 +122,7 @@ function TreeNodeComponent({
 
   const paddingLeft = compact ? 8 + depth * 12 : 12 + depth * 16;
   const height = compact ? 28 : 32;
-  const iconSize = compact ? "w-3.5 h-3.5" : "w-4 h-4";
+  const iconSize = compact ? "size-3.5" : "size-4";
 
   return (
     <div>
@@ -172,9 +172,9 @@ function TreeNodeComponent({
         <span className="shrink-0 flex items-center justify-center" style={{ width: 14, height: 14 }}>
           {isFolder ? (
             hasChildren || isExpanded ? (
-              <ChevronDown className="w-3 h-3" strokeWidth={2.5} />
+              <ChevronDown className="size-3" strokeWidth={2.5} />
             ) : (
-              <ChevronRight className="w-3 h-3" strokeWidth={2.5} />
+              <ChevronRight className="size-3" strokeWidth={2.5} />
             )
           ) : (
             <span style={{ width: 12 }} />
@@ -231,14 +231,14 @@ function ContextMenu({ state, onClose, onAction }: {
 
   const isFolder = state.node.type === 'folder';
   const menuItems = [
-    { action: 'rename', label: 'Rename', icon: <Edit3 className="w-3.5 h-3.5" /> },
-    { action: 'duplicate', label: 'Duplicate', icon: <Copy className="w-3.5 h-3.5" /> },
-    { action: 'move-to-project', label: t('selection.move_to_project'), icon: <FolderInput className="w-3.5 h-3.5" /> },
+    { action: 'rename', label: 'Rename', icon: <Edit3 className="size-3.5" /> },
+    { action: 'duplicate', label: 'Duplicate', icon: <Copy className="size-3.5" /> },
+    { action: 'move-to-project', label: t('selection.move_to_project'), icon: <FolderInput className="size-3.5" /> },
     ...(isFolder ? [
-      { action: 'new-folder', label: 'New Folder', icon: <FolderPlus className="w-3.5 h-3.5" /> },
-      { action: 'new-file', label: 'New File', icon: <FilePlus className="w-3.5 h-3.5" /> },
+      { action: 'new-folder', label: 'New Folder', icon: <FolderPlus className="size-3.5" /> },
+      { action: 'new-file', label: 'New File', icon: <FilePlus className="size-3.5" /> },
     ] : []),
-    { action: 'delete', label: 'Delete', icon: <Trash2 className="w-3.5 h-3.5" />, danger: true },
+    { action: 'delete', label: 'Delete', icon: <Trash2 className="size-3.5" />, danger: true },
   ];
 
   return (
@@ -507,7 +507,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <RefreshCw className="w-5 h-5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+        <RefreshCw className="size-5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
       </div>
     );
   }
@@ -524,7 +524,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
               border: '1px solid var(--dome-border)',
             }}
           >
-            <Search className="w-3 h-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
+            <Search className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
             <input
               type="text"
               value={searchQuery}
@@ -595,7 +595,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
               (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
             }}
           >
-            <RefreshCw className="w-3.5 h-3.5" />
+            <RefreshCw className="size-3.5" />
             <span>{t('workspace.refresh')}</span>
           </button>
         </div>

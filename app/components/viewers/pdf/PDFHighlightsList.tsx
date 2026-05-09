@@ -86,7 +86,7 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
           <div key={color} className="flex flex-col gap-1">
             <div className="flex items-center gap-2 px-2">
               <div
-                className="w-3 h-3 rounded-sm shrink-0"
+                className="size-3 rounded-sm shrink-0"
                 style={{ background: color, opacity: 0.8 }}
               />
               <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>

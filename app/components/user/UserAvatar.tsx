@@ -13,10 +13,10 @@ interface UserAvatarProps {
 }
 
 const sizeClasses = {
-  sm: 'w-8 h-8 text-xs',
-  md: 'w-10 h-10 text-sm',
-  lg: 'w-12 h-12 text-base',
-  xl: 'w-16 h-16 text-lg',
+  sm: 'size-8 text-xs',
+  md: 'size-10 text-sm',
+  lg: 'size-12 text-base',
+  xl: 'size-16 text-lg',
 };
 
 export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', className = '' }: UserAvatarProps) {
@@ -99,7 +99,7 @@ export default function UserAvatar({ name, avatarData, avatarPath, size = 'md', 
         <img
           src={avatarUrl}
           alt={name}
-          className="w-full h-full rounded-full object-cover"
+          className="size-full rounded-full object-cover"
           onError={handleImageError}
         />
       ) : (

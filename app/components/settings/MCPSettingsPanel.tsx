@@ -73,7 +73,13 @@ export default function MCPSettingsPanel() {
     setError(null);
     try {
       const loadedServers = await loadMcpServersSetting();
-      setServers(loadedServers.map((server) => ({ ...server, enabled: server.enabled !== false })));
+      setServers(
+        loadedServers.map((server) => ({
+          ...server,
+          enabled: server.enabled !== false,
+          listRowId: server.listRowId ?? crypto.randomUUID(),
+        })),
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : t('settings.mcp.error_load'));
       setServers([]);
@@ -102,7 +108,9 @@ export default function MCPSettingsPanel() {
     setError(null);
     setSaved(false);
     try {
-      const result = await saveMcpServersSetting(servers);
+      const result = await saveMcpServersSetting(
+        servers.map(({ listRowId: _rowId, ...config }) => config),
+      );
       if (result.success) {
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
@@ -117,14 +125,23 @@ export default function MCPSettingsPanel() {
   };
 
   const addServer = () => {
-    setServers((prev) => [...prev, { name: '', type: 'stdio', command: '', args: [], enabled: true }]);
+    setServers((prev) => [
+      ...prev,
+      { name: '', type: 'stdio', command: '', args: [], enabled: true, listRowId: crypto.randomUUID() },
+    ]);
   };
 
   const handleImport = () => {
     try {
       const list = parseMcpServersSetting(importJson);
       if (list.length > 0) {
-        setServers(list.map((server) => ({ ...server, enabled: server.enabled !== false })));
+        setServers(
+          list.map((server) => ({
+            ...server,
+            enabled: server.enabled !== false,
+            listRowId: server.listRowId ?? crypto.randomUUID(),
+          })),
+        );
         setShowImport(false);
         setImportJson('');
         setError(null);
@@ -186,7 +203,7 @@ export default function MCPSettingsPanel() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title="MCP"
         subtitle={t('settings.mcp.subtitle')}
       />
@@ -221,11 +238,11 @@ export default function MCPSettingsPanel() {
                 setError(null);
                 setImportJson('');
               }}
-              leftIcon={<FileJson className="w-3.5 h-3.5" aria-hidden />}
+              leftIcon={<FileJson className="size-3.5" aria-hidden />}
             >
               {t('settings.mcp.import_json')}
             </DomeButton>
-            <DomeButton type="button" variant="primary" size="sm" onClick={addServer} leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}>
+            <DomeButton type="button" variant="primary" size="sm" onClick={addServer} leftIcon={<Plus className="size-3.5" aria-hidden />}>
               {t('settings.mcp.add_server')}
             </DomeButton>
           </div>
@@ -238,7 +255,7 @@ export default function MCPSettingsPanel() {
         ) : (
           <div className="space-y-3">
             {servers.map((server, index) => (
-              <DomeCard key={index} className="p-4">
+              <DomeCard key={server.listRowId ?? index} className="p-4">
                 <div className="flex items-start gap-3 min-w-0">
                   <div className="flex-1 min-w-0 space-y-3 overflow-hidden">
                     {/* Row 1: toggle + name + type */}
@@ -282,7 +299,7 @@ export default function MCPSettingsPanel() {
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="flex items-center gap-1.5">
-                            <Server className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+                            <Server className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
                             <DomeInput
                               type="text"
                               placeholder={t('settings.mcp.field_command')}
@@ -335,7 +352,7 @@ export default function MCPSettingsPanel() {
                     ) : (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <Globe className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+                          <Globe className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
                           <DomeInput
                             type="url"
                             placeholder="URL (http:// o https://)"
@@ -422,7 +439,7 @@ export default function MCPSettingsPanel() {
                             <DomeCheckbox
                               key={tool.id}
                               reverse
-                              className="px-2 py-2 rounded-lg cursor-pointer"
+                              className="p-2 rounded-lg cursor-pointer"
                               label={tool.name}
                               description={tool.description || undefined}
                               checked={tool.enabled !== false}
@@ -445,9 +462,9 @@ export default function MCPSettingsPanel() {
                         disabled={serverTestStatus[index] === 'testing'}
                         leftIcon={
                           serverTestStatus[index] === 'testing' ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                            <Loader2 className="size-3.5 animate-spin" aria-hidden />
                           ) : (
-                            <Wifi className="w-3.5 h-3.5" aria-hidden />
+                            <Wifi className="size-3.5" aria-hidden />
                           )
                         }
                       >
@@ -465,7 +482,7 @@ export default function MCPSettingsPanel() {
                     aria-label={t('settings.mcp.delete_server')}
                     className="shrink-0 text-[var(--dome-text-muted)]"
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="size-3.5" />
                   </DomeButton>
                 </div>
               </DomeCard>
@@ -484,9 +501,9 @@ export default function MCPSettingsPanel() {
           disabled={saving}
           leftIcon={
             saving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
             ) : (
-              <Save className="w-3.5 h-3.5" aria-hidden />
+              <Save className="size-3.5" aria-hidden />
             )
           }
         >
@@ -494,7 +511,7 @@ export default function MCPSettingsPanel() {
         </DomeButton>
         {saved && (
           <span className="flex items-center gap-1.5 text-xs animate-in fade-in" style={{ color: 'var(--dome-accent)' }}>
-            <CheckCircle2 className="w-3.5 h-3.5" />
+            <CheckCircle2 className="size-3.5" />
             {t('settings.mcp.saved')}
           </span>
         )}

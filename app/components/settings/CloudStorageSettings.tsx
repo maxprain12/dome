@@ -110,7 +110,7 @@ export default function CloudStorageSettings() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title="Cloud Storage"
         subtitle="Conecta Google Drive para explorar e importar archivos directamente en Dome."
       />
@@ -127,7 +127,7 @@ export default function CloudStorageSettings() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <DomeIconBox size="md" className="!w-8 !h-8" background={DOME_GREEN_LIGHT}>
-                      <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} />
+                      <Cloud className="size-4" style={{ color: DOME_GREEN }} />
                     </DomeIconBox>
                     <div>
                       <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
@@ -147,7 +147,7 @@ export default function CloudStorageSettings() {
                       className="text-[var(--dome-text-muted)]"
                       title={t('settings.cloud.disconnect')}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="size-3.5" />
                     </DomeButton>
                   </div>
                 </div>
@@ -170,9 +170,9 @@ export default function CloudStorageSettings() {
           leftIcon={
             <DomeIconBox size="md" className="!w-8 !h-8" background="var(--dome-bg-hover)">
               {connecting === 'google' ? (
-                <Loader2 className="w-4 h-4 animate-spin" style={{ color: DOME_GREEN }} aria-hidden />
+                <Loader2 className="size-4 animate-spin" style={{ color: DOME_GREEN }} aria-hidden />
               ) : (
-                <Cloud className="w-4 h-4" style={{ color: DOME_GREEN }} aria-hidden />
+                <Cloud className="size-4" style={{ color: DOME_GREEN }} aria-hidden />
               )}
             </DomeIconBox>
           }

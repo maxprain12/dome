@@ -191,7 +191,7 @@ export default function WhatsAppSettingsPanel() {
         subtitle={t('settings.whatsapp.subtitle')}
         trailing={
           <DomeIconBox size="md" className="!w-10 !h-10">
-            <MessageCircle className="w-5 h-5 text-[var(--accent)]" aria-hidden />
+            <MessageCircle className="size-5 text-[var(--accent)]" aria-hidden />
           </DomeIconBox>
         }
         className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
@@ -203,12 +203,12 @@ export default function WhatsAppSettingsPanel() {
         <DomeCard>
           {/* Status header */}
           <div
-            className="px-4 py-4 flex items-center justify-between rounded-t-xl"
+            className="p-4 flex items-center justify-between rounded-t-xl"
             style={{ backgroundColor: cfg.bg, borderBottom: '1px solid var(--dome-border)' }}
           >
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+                className="size-10 rounded-full flex items-center justify-center shrink-0"
                 style={{
                   backgroundColor:
                     connectionState === 'connected'
@@ -217,11 +217,11 @@ export default function WhatsAppSettingsPanel() {
                 }}
               >
                 {connectionState === 'connected' ? (
-                  <Wifi className="w-5 h-5 text-[var(--success)]" />
+                  <Wifi className="size-5 text-[var(--success)]" />
                 ) : connectionState === 'pending' ? (
-                  <Scan className="w-5 h-5 animate-pulse text-[var(--warning)]" />
+                  <Scan className="size-5 animate-pulse text-[var(--warning)]" />
                 ) : (
-                  <WifiOff className="w-5 h-5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                  <WifiOff className="size-5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
                 )}
               </div>
               <div>
@@ -243,9 +243,9 @@ export default function WhatsAppSettingsPanel() {
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
               style={{ backgroundColor: 'var(--dome-surface)', color: cfg.color, border: '1px solid var(--dome-border)' }}
             >
-              {connectionState === 'connected' ? <Check className="w-3 h-3" />
-                : connectionState === 'pending' ? <RefreshCw className="w-3 h-3 animate-spin" />
-                : <X className="w-3 h-3" />}
+              {connectionState === 'connected' ? <Check className="size-3" />
+                : connectionState === 'pending' ? <RefreshCw className="size-3 animate-spin" />
+                : <X className="size-3" />}
               {connectionState === 'connected' ? t('settings.whatsapp.badge_active') : connectionState === 'pending' ? t('settings.whatsapp.badge_pending') : t('settings.whatsapp.badge_inactive')}
             </span>
           </div>
@@ -282,7 +282,7 @@ export default function WhatsAppSettingsPanel() {
                   borderColor: 'color-mix(in srgb, var(--accent) 25%, var(--border))',
                 }}
               >
-                <Smartphone className="w-4 h-4 shrink-0 text-[var(--accent)]" />
+                <Smartphone className="size-4 shrink-0 text-[var(--accent)]" />
                 <div>
                   <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{t('settings.whatsapp.session_saved')}</p>
                   <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.whatsapp.reconnect')}</p>
@@ -298,7 +298,7 @@ export default function WhatsAppSettingsPanel() {
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs border text-[var(--error)]"
                 style={{ backgroundColor: 'var(--error-bg)' }}
               >
-                <X className="w-3.5 h-3.5 shrink-0" />
+                <X className="size-3.5 shrink-0" />
                 {error}
               </div>
             </div>
@@ -312,7 +312,7 @@ export default function WhatsAppSettingsPanel() {
                   type="button"
                   variant="outline"
                   size="sm"
-                  leftIcon={<Power className="w-3.5 h-3.5" />}
+                  leftIcon={<Power className="size-3.5" />}
                   loading={isLoading}
                   onClick={() => void handleDisconnect()}
                 >
@@ -322,7 +322,7 @@ export default function WhatsAppSettingsPanel() {
                   type="button"
                   variant="danger"
                   size="sm"
-                  leftIcon={<LogOut className="w-3.5 h-3.5" />}
+                  leftIcon={<LogOut className="size-3.5" />}
                   loading={isLoading}
                   onClick={() => void handleLogout()}
                 >
@@ -336,7 +336,7 @@ export default function WhatsAppSettingsPanel() {
                 size="sm"
                 loading={isLoading}
                 leftIcon={
-                  isLoading ? undefined : <MessageCircle className="w-3.5 h-3.5" />
+                  isLoading ? undefined : <MessageCircle className="size-3.5" />
                 }
                 onClick={() => void handleConnect()}
               >
@@ -356,7 +356,7 @@ export default function WhatsAppSettingsPanel() {
               aria-label={t('settings.whatsapp.refresh')}
               onClick={() => void loadStatus()}
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="size-3.5" />
             </DomeButton>
           </div>
         </DomeCard>
@@ -369,7 +369,7 @@ export default function WhatsAppSettingsPanel() {
           <div className="p-4" style={{ borderBottom: '1px solid var(--dome-border)' }}>
             <div className="flex items-center gap-3">
               <DomeIconBox size="sm" className="!rounded-lg">
-                <Shield className="w-3.5 h-3.5 text-[var(--accent)]" />
+                <Shield className="size-3.5 text-[var(--accent)]" />
               </DomeIconBox>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
                 {allowlist.length === 0
@@ -399,7 +399,7 @@ export default function WhatsAppSettingsPanel() {
                 variant="primary"
                 size="sm"
                 disabled={!newNumber.trim()}
-                leftIcon={<Plus className="w-3.5 h-3.5" />}
+                leftIcon={<Plus className="size-3.5" />}
                 onClick={() => void handleAddNumber()}
               >
                 {t('settings.whatsapp.add_number')}
@@ -417,10 +417,10 @@ export default function WhatsAppSettingsPanel() {
                   >
                     <div className="flex items-center gap-2.5">
                       <div
-                        className="w-7 h-7 rounded-full flex items-center justify-center"
+                        className="size-7 rounded-full flex items-center justify-center"
                         style={{ backgroundColor: 'color-mix(in srgb, var(--success) 20%, transparent)' }}
                       >
-                        <Smartphone className="w-3.5 h-3.5 text-[var(--success)]" />
+                        <Smartphone className="size-3.5 text-[var(--success)]" />
                       </div>
                       <span className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>{formatPhoneNumber(number)}</span>
                     </div>
@@ -433,7 +433,7 @@ export default function WhatsAppSettingsPanel() {
                       aria-label={t('common.delete')}
                       onClick={() => void handleRemoveNumber(number)}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="size-3.5" />
                     </DomeButton>
                   </div>
                 ))}
@@ -442,7 +442,7 @@ export default function WhatsAppSettingsPanel() {
               <DomeListState
                 variant="empty"
                 compact
-                icon={<Shield className="w-7 h-7 text-[var(--tertiary-text)] opacity-40" aria-hidden />}
+                icon={<Shield className="size-7 text-[var(--tertiary-text)] opacity-40" aria-hidden />}
                 title={t('settings.whatsapp.empty_list')}
               />
             )}
@@ -462,7 +462,7 @@ export default function WhatsAppSettingsPanel() {
             <span className="text-sm font-medium text-[var(--primary-text)]">{t('settings.whatsapp.instructions_title')}</span>
             <ChevronDown
               className={cn(
-                'w-4 h-4 transition-transform duration-200 text-[var(--tertiary-text)]',
+                'size-4 transition-transform duration-200 text-[var(--tertiary-text)]',
                 showInstructions && 'rotate-180',
               )}
             />
@@ -488,19 +488,19 @@ export default function WhatsAppSettingsPanel() {
                     </li>
                   ))}
                   <li className="flex items-start gap-2">
-                    <Mic className="w-4 h-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                    <Mic className="size-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
                     <span className="text-xs text-[var(--dome-text-muted,var(--tertiary-text))]">
                       {t('settings.whatsapp.instructions_audio')}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Paperclip className="w-4 h-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                    <Paperclip className="size-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
                     <span className="text-xs text-[var(--dome-text-muted,var(--tertiary-text))]">
                       {t('settings.whatsapp.instructions_attachments')}
                     </span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <MapPin className="w-4 h-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
+                    <MapPin className="size-4 shrink-0 mt-0.5 text-[var(--dome-text-muted,var(--tertiary-text))]" />
                     <span className="text-xs text-[var(--dome-text-muted,var(--tertiary-text))]">
                       {t('settings.whatsapp.instructions_location')}
                     </span>

@@ -58,16 +58,16 @@ export function DashboardActivityContinue({
                 disabled={item.kind === 'resource' ? !item.resourceId : !item.sessionId}
               >
                 <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                  className="flex size-8 shrink-0 items-center justify-center rounded-lg"
                   style={{
                     background: 'var(--dome-bg, var(--bg))',
                     color: 'var(--dome-accent, var(--accent))',
                   }}
                 >
                   {item.kind === 'resource' ? (
-                    <FileText className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    <FileText className="size-4" strokeWidth={2} aria-hidden />
                   ) : (
-                    <MessageSquare className="h-4 w-4" strokeWidth={2} aria-hidden />
+                    <MessageSquare className="size-4" strokeWidth={2} aria-hidden />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
@@ -83,7 +83,7 @@ export function DashboardActivityContinue({
                 <span className="shrink-0 tabular-nums text-xs" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
                   {formatDistanceToNow(item.timestamp)}
                 </span>
-                <ArrowRight className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} aria-hidden />
+                <ArrowRight className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} aria-hidden />
               </button>
             </li>
           ))}

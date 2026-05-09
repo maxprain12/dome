@@ -201,7 +201,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
         style={{ background: 'var(--bg)' }}
       >
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--accent)' }} />
+          <Loader2 className="size-8 animate-spin" style={{ color: 'var(--accent)' }} />
           <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading video...</p>
         </div>
       </div>
@@ -214,7 +214,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
         className="flex flex-col items-center justify-center min-h-full p-8"
         style={{ background: 'var(--bg)' }}
       >
-        <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--error)' }} />
+        <AlertCircle className="size-12 mb-4" style={{ color: 'var(--error)' }} />
         <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
           Error
         </h2>
@@ -256,7 +256,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
           {!embedUrl ? (
             <div className="flex flex-col items-center justify-center flex-1 p-8">
               {(metadata?.processing_status === 'processing' || isProcessing) && (
-                <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
+                <Loader2 className="size-12 animate-spin mb-4" style={{ color: 'var(--accent)' }} />
               )}
               <p className="text-sm mb-4" style={{ color: 'var(--secondary-text)' }}>
                 {isProcessing ? 'Fetching video metadata...' : 'Video not ready yet.'}
@@ -294,7 +294,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
                   aria-label="Open in YouTube"
                   title="Open in YouTube"
                 >
-                  <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
+                  <ExternalLink className="size-4 shrink-0" aria-hidden />
                   Open in YouTube
                 </button>
               </div>
@@ -310,7 +310,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
                     title="YouTube video"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
-                    className="w-full h-full rounded-lg"
+                    className="size-full rounded-lg"
                     style={{
                       border: '1px solid var(--border)',
                       backgroundColor: 'var(--bg-secondary)',

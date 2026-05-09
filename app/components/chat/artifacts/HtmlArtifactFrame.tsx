@@ -156,7 +156,7 @@ export default function HtmlArtifactFrame({
             setShowSource((s) => !s);
           }}
           className="gap-1"
-          leftIcon={<Code className="w-3 h-3" aria-hidden />}
+          leftIcon={<Code className="size-3" aria-hidden />}
         >
           {showSource ? t('chat.artifact_source_hide') : t('chat.artifact_source_show')}
         </DomeButton>
@@ -166,7 +166,7 @@ export default function HtmlArtifactFrame({
           size="xs"
           onClick={openInDomeTab}
           className="gap-1"
-          leftIcon={<PanelRight className="w-3 h-3" aria-hidden />}
+          leftIcon={<PanelRight className="size-3" aria-hidden />}
         >
           {t('chat.open_in_tab')}
         </DomeButton>
@@ -177,7 +177,7 @@ export default function HtmlArtifactFrame({
             size="xs"
             onClick={() => onOpenNewWindow(srcdoc)}
             className="gap-1"
-            leftIcon={<ExternalLink className="w-3 h-3" aria-hidden />}
+            leftIcon={<ExternalLink className="size-3" aria-hidden />}
           >
             {t('chat.artifact_open_window')}
           </DomeButton>

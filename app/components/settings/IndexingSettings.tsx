@@ -150,7 +150,7 @@ export default function IndexingSettings() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title={t('settings.indexing.title')}
         subtitle={t('settings.indexing.subtitle')}
       />
@@ -212,9 +212,9 @@ export default function IndexingSettings() {
             onClick={() => void handleFullSync()}
             leftIcon={
               fullSyncBusy ? (
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden />
+                <Loader2 className="size-4 animate-spin" aria-hidden />
               ) : (
-                <Layers className="w-4 h-4" aria-hidden />
+                <Layers className="size-4" aria-hidden />
               )
             }
           >
@@ -230,14 +230,14 @@ export default function IndexingSettings() {
       {/* Embeddings locales (Nomic / resource_chunks) */}
       <div className="pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
         <DomeSubpageHeader
-          className="!border-0 px-0 py-0 bg-transparent mt-2"
+          className="!border-0 p-0 bg-transparent mt-2"
           title={t('settings.embeddings.section_title')}
           subtitle={t('settings.embeddings.section_hint')}
         />
 
         {embedLoading ? (
           <p className="text-xs mt-3 flex items-center gap-2" style={{ color: 'var(--dome-text-muted)' }}>
-            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" aria-hidden />
+            <Loader2 className="size-3.5 animate-spin shrink-0" aria-hidden />
             {t('settings.embeddings.loading')}
           </p>
         ) : null}
@@ -296,7 +296,7 @@ export default function IndexingSettings() {
                       color: 'var(--dome-text-muted)',
                     }}
                   >
-                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" style={{ color: DOME_GREEN }} />
+                    <CheckCircle2 className="size-3.5 shrink-0" style={{ color: DOME_GREEN }} />
                     {t('settings.embeddings.all_indexed')}
                   </div>
                 ) : (
@@ -329,7 +329,7 @@ export default function IndexingSettings() {
                 void loadEmbedStatus();
               }}
               disabled={libraryBusy}
-              leftIcon={<RefreshCw className="w-3.5 h-3.5" aria-hidden />}
+              leftIcon={<RefreshCw className="size-3.5" aria-hidden />}
             >
               {t('settings.embeddings.refresh')}
             </DomeButton>
@@ -341,9 +341,9 @@ export default function IndexingSettings() {
               disabled={libraryBusy}
               leftIcon={
                 embedReindexBusy ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden />
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5" aria-hidden />
+                  <Sparkles className="size-3.5" aria-hidden />
                 )
               }
             >

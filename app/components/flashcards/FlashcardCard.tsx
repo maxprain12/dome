@@ -15,7 +15,7 @@ export default function FlashcardCard({ question, answer, isFlipped, onFlip }: F
     >
       <div className={`flashcard-flip ${isFlipped ? 'flipped' : ''}`}>
         <div className="flashcard-face flashcard-front">
-          <div className="flex flex-col items-center justify-center w-full h-full max-h-full overflow-hidden">
+          <div className="flex flex-col items-center justify-center size-full max-h-full overflow-hidden">
             <p
               className="text-xs font-medium uppercase tracking-wider mb-4 shrink-0"
               style={{ color: 'var(--tertiary-text)' }}
@@ -39,7 +39,7 @@ export default function FlashcardCard({ question, answer, isFlipped, onFlip }: F
           </div>
         </div>
         <div className="flashcard-face flashcard-back">
-          <div className="flex flex-col items-center justify-center w-full h-full max-h-full overflow-hidden">
+          <div className="flex flex-col items-center justify-center size-full max-h-full overflow-hidden">
             <p
               className="text-xs font-medium uppercase tracking-wider mb-4 shrink-0"
               style={{ color: 'var(--accent)' }}

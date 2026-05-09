@@ -70,9 +70,9 @@ export function AIComposerAttachmentTray({ attachments, onRemove }: AIComposerAt
           className="inline-flex max-w-[200px] items-center gap-1 rounded-md border border-[var(--border)] bg-[var(--bg)] px-1.5 py-0.5 text-[11px] text-[var(--secondary-text)]"
         >
           {attachment.kind === 'image' ? (
-            <img src={attachment.dataUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover" />
+            <img src={attachment.dataUrl} alt="" className="size-6 shrink-0 rounded object-cover" />
           ) : (
-            <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <FileText className="size-3.5 shrink-0" aria-hidden />
           )}
           <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
           <button
@@ -82,7 +82,7 @@ export function AIComposerAttachmentTray({ attachments, onRemove }: AIComposerAt
             aria-label={t('chat.remove_attachment')}
             title={t('chat.remove_attachment')}
           >
-            <X className="h-3.5 w-3.5" aria-hidden />
+            <X className="size-3.5" aria-hidden />
           </button>
         </div>
       ))}
@@ -160,7 +160,7 @@ export function AIComposerIconButton({
       onPointerLeave={onPointerLeave}
       disabled={disabled}
       className={cn(
-        'flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all',
+        'flex size-9 shrink-0 items-center justify-center rounded-full transition-all',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
         active
           ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'

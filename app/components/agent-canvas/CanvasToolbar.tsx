@@ -51,8 +51,8 @@ export default function CanvasToolbar({
         title={t('canvas.rename_workflow')}
       >
         <span className="truncate">{activeWorkflowName}</span>
-        {isDirty && <span className="w-1.5 h-1.5 rounded-full bg-[var(--dome-accent)] shrink-0" />}
-        <Pencil className="w-3 h-3 shrink-0 opacity-40" />
+        {isDirty && <span className="size-1.5 rounded-full bg-[var(--dome-accent)] shrink-0" />}
+        <Pencil className="size-3 shrink-0 opacity-40" />
       </button>
 
       <div className="w-px h-5 mx-0.5 shrink-0" style={{ background: 'var(--dome-border)' }} />
@@ -68,7 +68,7 @@ export default function CanvasToolbar({
             border: '1px solid var(--dome-border)',
           }}
         >
-          <Square className="w-3.5 h-3.5" />
+          <Square className="size-3.5" />
           {t('canvas.stop')}
         </button>
       ) : (
@@ -82,26 +82,26 @@ export default function CanvasToolbar({
             boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
           }}
         >
-          <Play className="w-3.5 h-3.5" />
+          <Play className="size-3.5" />
           {t('canvas.run')}
         </button>
       )}
 
       {executionStatus === 'running' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+          <Loader2 className="size-3.5 animate-spin" />
           <span>{t('canvas.running_workflow')}</span>
         </div>
       )}
       {executionStatus === 'done' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--success)' }}>
-          <CheckCircle2 className="w-3.5 h-3.5" />
+          <CheckCircle2 className="size-3.5" />
           <span>{t('canvas.completed')}</span>
         </div>
       )}
       {executionStatus === 'error' && (
         <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--error)' }}>
-          <AlertCircle className="w-3.5 h-3.5" />
+          <AlertCircle className="size-3.5" />
           <span>{t('canvas.execution_error')}</span>
         </div>
       )}
@@ -109,7 +109,7 @@ export default function CanvasToolbar({
       <div className="flex-1 min-w-2" />
 
       <button type="button" onClick={onBackToLibrary} className={ghostBtn} style={ghostBtnStyle} title={t('canvas.back_to_library')}>
-        <ArrowLeft className="w-3.5 h-3.5" />
+        <ArrowLeft className="size-3.5" />
         <span>{t('canvas.workflow_library')}</span>
       </button>
 
@@ -123,12 +123,12 @@ export default function CanvasToolbar({
         }}
         title={t('canvas.save_workflow')}
       >
-        <Save className="w-3.5 h-3.5" />
+        <Save className="size-3.5" />
         <span>{t('canvas.save')}</span>
       </button>
 
       <button type="button" onClick={onClear} className={ghostBtn} style={ghostBtnStyle} title={t('canvas.clear_canvas')}>
-        <Trash2 className="w-3.5 h-3.5" />
+        <Trash2 className="size-3.5" />
         <span>{t('canvas.clear_canvas')}</span>
       </button>
     </div>

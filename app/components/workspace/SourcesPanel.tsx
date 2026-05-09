@@ -117,7 +117,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
     >
       {/* Header */}
       <div
-        className="flex items-center justify-between px-3 py-3 border-b"
+        className="flex items-center justify-between p-3 border-b"
         style={{ borderColor: 'var(--border)' }}
       >
         <h3
@@ -128,7 +128,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
         </h3>
         <button
           onClick={handleToggleAll}
-          className="flex items-center justify-center w-6 h-6 rounded transition-colors duration-150"
+          className="flex items-center justify-center size-6 rounded transition-colors duration-150"
           style={{ color: 'var(--secondary-text)' }}
           title={allSelected ? t('common.deselect_all') : t('common.select_all')}
           aria-label={allSelected ? t('common.deselect_all') : t('common.select_all')}
@@ -224,7 +224,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
       >
         <button
           onClick={handleAddSource}
-          className="flex items-center gap-2 w-full px-2 py-2 rounded-md text-xs font-medium transition-colors duration-150"
+          className="flex items-center gap-2 w-full p-2 rounded-md text-xs font-medium transition-colors duration-150"
           style={{
             color: 'var(--accent)',
             background: 'transparent',

@@ -97,10 +97,10 @@ export default function DocumentNode({
         style={{ background: 'var(--dome-bg)', borderBottom: '1px solid var(--dome-border)' }}
       >
         <div
-          className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0"
+          className="size-6 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'var(--success)' }}
         >
-          <FileText className="w-3.5 h-3.5 text-white" />
+          <FileText className="size-3.5 text-white" />
         </div>
         <span className="text-xs font-semibold leading-tight truncate" style={{ color: 'var(--dome-text)' }}>
           {data.label}
@@ -113,17 +113,17 @@ export default function DocumentNode({
             className="flex items-center gap-2 px-2.5 py-2 rounded-lg"
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
           >
-            <FileText className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--success)' }} />
+            <FileText className="size-3.5 shrink-0" style={{ color: 'var(--success)' }} />
             <span className="flex-1 text-xs truncate" style={{ color: 'var(--dome-text)' }}>
               {data.resourceTitle}
             </span>
             <button
               type="button"
               onClick={clearResource}
-              className="nodrag w-7 h-7 rounded-md flex items-center justify-center hover:opacity-70 transition-opacity"
+              className="nodrag size-7 rounded-md flex items-center justify-center hover:opacity-70 transition-opacity"
               style={{ color: 'var(--dome-text-muted)' }}
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="size-3.5" />
             </button>
           </div>
         ) : (
@@ -137,9 +137,9 @@ export default function DocumentNode({
               color: 'var(--dome-text-muted)',
             }}
           >
-            <Search className="w-3.5 h-3.5 shrink-0" />
+            <Search className="size-3.5 shrink-0" />
             <span className="truncate">{t('canvas.select_document')}</span>
-            <ChevronDown className="w-3.5 h-3.5 ml-auto shrink-0" />
+            <ChevronDown className="size-3.5 ml-auto shrink-0" />
           </button>
         )}
       </div>
@@ -158,7 +158,7 @@ export default function DocumentNode({
           <div className="p-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
             <div className="relative">
               <Search
-                className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                className="absolute left-2 top-1/2 -translate-y-1/2 size-3.5"
                 style={{ color: 'var(--dome-text-muted)' }}
               />
               <input
@@ -189,7 +189,7 @@ export default function DocumentNode({
                   onClick={() => selectResource(r)}
                   className="nodrag w-full flex items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-[var(--dome-accent-bg)]"
                 >
-                  <FileText className="w-4 h-4 shrink-0" style={{ color: 'var(--success)' }} />
+                  <FileText className="size-4 shrink-0" style={{ color: 'var(--success)' }} />
                   <span className="flex-1 text-xs truncate" style={{ color: 'var(--dome-text)' }}>
                     {r.title}
                   </span>

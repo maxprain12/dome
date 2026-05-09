@@ -26,6 +26,98 @@ interface WorkspaceLayoutProps {
   initialPage?: number;
 }
 
+function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource; initialPage?: number }) {
+  switch (resource.type) {
+    case 'pdf':
+      return <PDFViewer resource={resource} initialPage={initialPage} />;
+    case 'video':
+      return <VideoPlayer resource={resource} />;
+    case 'audio':
+      return <AudioPlayer resource={resource} />;
+    case 'image':
+      return <ImageViewer resource={resource} />;
+    case 'excel':
+      return <SpreadsheetViewer resource={resource} />;
+    case 'ppt':
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <Loader2 className="size-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            Abriendo presentación...
+          </p>
+        </div>
+      );
+    case 'artifact':
+      return (
+        <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
+          <ArtifactWorkspaceClient resourceId={resource.id} />
+        </div>
+      );
+    case 'url':
+    case 'notebook': {
+      const metadata = typeof resource.metadata === 'string'
+        ? (() => { try { return JSON.parse(resource.metadata || '{}'); } catch { return {}; } })()
+        : (resource.metadata || {});
+      const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
+
+      const routeMap: Record<string, string> = {
+        url: isYouTube ? `/workspace/youtube?id=${resource.id}` : `/workspace/url?id=${resource.id}`,
+        notebook: `/workspace/notebook?id=${resource.id}`,
+      };
+      const route = routeMap[resource.type] || `/workspace?id=${resource.id}`;
+
+      if (typeof window !== 'undefined') {
+        window.location.hash = `#${route}`;
+      }
+
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <Loader2 className="size-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            Redirecting to {resource.type} viewer...
+          </p>
+        </div>
+      );
+    }
+    case 'document': {
+      const mime = resource.file_mime_type || '';
+      const name = (resource.original_filename || resource.title || '').toLowerCase();
+      if (mime.includes('spreadsheetml') || /\.(xlsx|xls|csv)$/.test(name)) {
+        return <SpreadsheetViewer resource={resource} />;
+      }
+      if (mime.includes('wordprocessingml') || /\.(docx|doc)$/.test(name)) {
+        return <DocxViewer resource={resource} />;
+      }
+      if (mime.includes('presentationml') || /\.(pptx|ppt)$/.test(name)) {
+        return <PptViewerLazy resource={resource} activeIndex={0} />;
+      }
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
+          <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
+            Unsupported file type
+          </p>
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            This resource type ({resource.type}) cannot be previewed in the workspace.
+          </p>
+        </div>
+      );
+    }
+    default:
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
+          <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
+            Unsupported file type
+          </p>
+          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+            This resource type ({resource.type}) cannot be previewed in the workspace.
+          </p>
+        </div>
+      );
+  }
+}
+
 export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLayoutProps) {
   const [resource, setResource] = useState<Resource | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -173,108 +265,15 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   const renderViewer = () => {
     if (!resource) return null;
 
-    const ViewerComponent = () => {
-      switch (resource.type) {
-        case 'pdf':
-          return <PDFViewer resource={resource} initialPage={initialPage} />;
-        case 'video':
-          return <VideoPlayer resource={resource} />;
-        case 'audio':
-          return <AudioPlayer resource={resource} />;
-        case 'image':
-          return <ImageViewer resource={resource} />;
-        case 'excel':
-          return <SpreadsheetViewer resource={resource} />;
-        case 'ppt':
-          return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                Abriendo presentación...
-              </p>
-            </div>
-          );
-        case 'artifact':
-          return (
-            <div className="flex flex-col h-full min-h-0 w-full overflow-hidden">
-              <ArtifactWorkspaceClient resourceId={resource.id} />
-            </div>
-          );
-        case 'url':
-        case 'notebook': {
-          const metadata = typeof resource.metadata === 'string'
-            ? (() => { try { return JSON.parse(resource.metadata || '{}'); } catch { return {}; } })()
-            : (resource.metadata || {});
-          const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
-
-          const routeMap: Record<string, string> = {
-            url: isYouTube ? `/workspace/youtube?id=${resource.id}` : `/workspace/url?id=${resource.id}`,
-            notebook: `/workspace/notebook?id=${resource.id}`,
-          };
-          const route = routeMap[resource.type] || `/workspace?id=${resource.id}`;
-
-          if (typeof window !== 'undefined') {
-            window.location.hash = `#${route}`;
-          }
-
-          return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: 'var(--dome-accent)' }} />
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                Redirecting to {resource.type} viewer...
-              </p>
-            </div>
-          );
-        }
-        case 'document': {
-          const mime = resource.file_mime_type || '';
-          const name = (resource.original_filename || resource.title || '').toLowerCase();
-          if (mime.includes('spreadsheetml') || /\.(xlsx|xls|csv)$/.test(name)) {
-            return <SpreadsheetViewer resource={resource} />;
-          }
-          if (mime.includes('wordprocessingml') || /\.(docx|doc)$/.test(name)) {
-            return <DocxViewer resource={resource} />;
-          }
-          if (mime.includes('presentationml') || /\.(pptx|ppt)$/.test(name)) {
-            return <PptViewerLazy resource={resource} activeIndex={0} />;
-          }
-          // genuinely unsupported document (txt, rtf, etc.)
-          return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
-              <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
-                Unsupported file type
-              </p>
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                This resource type ({resource.type}) cannot be previewed in the workspace.
-              </p>
-            </div>
-          );
-        }
-        default:
-          return (
-            <div className="flex flex-col items-center justify-center h-full p-8">
-              <AlertCircle className="w-12 h-12 mb-4" style={{ color: 'var(--dome-text-muted)' }} />
-              <p className="text-lg font-medium" style={{ color: 'var(--dome-text)' }}>
-                Unsupported file type
-              </p>
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                This resource type ({resource.type}) cannot be previewed in the workspace.
-              </p>
-            </div>
-          );
-      }
-    };
-
     return (
       <Suspense
         fallback={
           <div className="flex items-center justify-center h-full">
-            <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
           </div>
         }
       >
-        <ViewerComponent />
+        <WorkspaceResourceViewer resource={resource} initialPage={initialPage} />
       </Suspense>
     );
   };
@@ -287,7 +286,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
       >
         <div className="flex flex-col items-center gap-5 animate-slide-up">
           <Loader2
-            className="w-10 h-10 animate-spin"
+            className="size-10 animate-spin"
             style={{ color: 'var(--dome-accent)' }}
           />
           <p className="text-sm font-medium" style={{ color: 'var(--dome-text-muted)' }}>
@@ -305,7 +304,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         style={{ background: 'var(--dome-bg)' }}
       >
         <div className="flex flex-col items-center gap-5 animate-slide-up">
-          <AlertCircle className="w-16 h-16 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <AlertCircle className="size-16 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
           <h1 className="text-xl font-display font-semibold text-center" style={{ color: 'var(--dome-text)' }}>
             Failed to load resource
           </h1>

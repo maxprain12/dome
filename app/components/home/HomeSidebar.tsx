@@ -79,15 +79,15 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
   );
 
   const allNavItems: NavItem[] = [
-    { id: 'library', label: t('nav.library'), icon: <Home className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'library' },
-    { id: 'calendar', label: t('nav.calendar'), icon: <Calendar className="w-5 h-5" strokeWidth={1.5} />, action: 'navigate', path: '/calendar' },
-    { id: 'studio', label: t('nav.studio'), icon: <Sparkles className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
-    { id: 'flashcards', label: t('nav.flashcards'), icon: <WalletCards className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
-    { id: 'tags', label: t('nav.tags'), icon: <Tag className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
+    { id: 'library', label: t('nav.library'), icon: <Home className="size-5" strokeWidth={1.5} />, action: 'section', section: 'library' },
+    { id: 'calendar', label: t('nav.calendar'), icon: <Calendar className="size-5" strokeWidth={1.5} />, action: 'navigate', path: '/calendar' },
+    { id: 'studio', label: t('nav.studio'), icon: <Sparkles className="size-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
+    { id: 'flashcards', label: t('nav.flashcards'), icon: <WalletCards className="size-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
+    { id: 'tags', label: t('nav.tags'), icon: <Tag className="size-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
     {
       id: 'automations-hub',
       label: t('nav.agents_flows'),
-      icon: <Zap className="w-5 h-5" strokeWidth={1.5} />,
+      icon: <Zap className="size-5" strokeWidth={1.5} />,
       action: 'section',
       section: 'automations-hub',
       isActive: (s) =>
@@ -97,7 +97,7 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
         s.toString().startsWith('agent:') ||
         s.toString().startsWith('workflow:'),
     },
-    { id: 'marketplace', label: t('nav.marketplace'), icon: <Store className="w-5 h-5" strokeWidth={1.5} />, action: 'section', section: 'marketplace' },
+    { id: 'marketplace', label: t('nav.marketplace'), icon: <Store className="size-5" strokeWidth={1.5} />, action: 'section', section: 'marketplace' },
   ];
 
   const getIsActive = (item: NavItem) => {
@@ -140,7 +140,7 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
         className="flex items-center justify-center shrink-0 mb-4"
         style={{ padding: '0 8px' }}
       >
-        <div className="w-8 h-8 shrink-0 start-item" title="Dome" style={{ filter: 'var(--dome-logo-filter)' }}>
+        <div className="size-8 shrink-0 start-item" title="Dome" style={{ filter: 'var(--dome-logo-filter)' }}>
           <img
             src="/many.png"
             alt="Dome"
@@ -192,14 +192,14 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
           className="flex items-center justify-center w-[40px] h-[40px] rounded-lg opacity-80 hover:opacity-100 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)] transition-colors duration-200"
           title={t('settings.settings')}
         >
-          <Settings className="w-5 h-5" strokeWidth={1.5} />
+          <Settings className="size-5" strokeWidth={1.5} />
         </button>
         <button
           onClick={() => startDomeTour()}
           className="flex items-center justify-center w-[40px] h-[40px] rounded-lg opacity-80 hover:opacity-100 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)] transition-colors duration-200"
           title={t('common.help_tour')}
         >
-          <HelpCircle className="w-5 h-5" strokeWidth={1.5} />
+          <HelpCircle className="size-5" strokeWidth={1.5} />
         </button>
       </div >
 

@@ -263,7 +263,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                       type="button"
                       onClick={handlePrevSlide}
                       disabled={activeSlideIndex <= 0}
-                      className="flex items-center justify-center w-7 h-7 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
+                      className="flex items-center justify-center size-7 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
                       style={{ color: 'rgba(255,255,255,0.85)' }}
                       aria-label="Diapositiva anterior"
                     >
@@ -281,7 +281,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
                       type="button"
                       onClick={handleNextSlide}
                       disabled={activeSlideIndex >= slideCount - 1}
-                      className="flex items-center justify-center w-7 h-7 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
+                      className="flex items-center justify-center size-7 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/40"
                       style={{ color: 'rgba(255,255,255,0.85)' }}
                       aria-label="Diapositiva siguiente"
                     >

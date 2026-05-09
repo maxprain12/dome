@@ -259,7 +259,7 @@ export function DashboardCanvas({
               borderBottom: '1px solid color-mix(in srgb, var(--dome-accent, var(--accent)) 20%, var(--dome-border, var(--border)))',
             }}
           >
-            <Pencil className="h-3.5 w-3.5 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} aria-hidden />
+            <Pencil className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} aria-hidden />
             <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--dome-accent, var(--accent))' }}>
               {t('dashboard.edit_mode_hint')}
             </p>
@@ -270,7 +270,7 @@ export function DashboardCanvas({
 
             {/* ── Left: Sections order & visibility ── */}
             <div
-              className="px-4 py-4"
+              className="p-4"
               style={{ borderRight: '1px solid var(--dome-border, var(--border))' }}
             >
               <PanelHeading count={reorderableVisible.length}>
@@ -298,12 +298,12 @@ export function DashboardCanvas({
                       }}
                     >
                       <GripVertical
-                        className="h-3.5 w-3.5 shrink-0"
+                        className="size-3.5 shrink-0"
                         style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
                         aria-hidden
                       />
                       <span
-                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md"
+                        className="flex size-5 shrink-0 items-center justify-center rounded-md"
                         style={{
                           background: isVisible
                             ? 'color-mix(in srgb, var(--dome-accent, var(--accent)) 12%, transparent)'
@@ -311,7 +311,7 @@ export function DashboardCanvas({
                         }}
                       >
                         <Icon
-                          className="h-3 w-3"
+                          className="size-3"
                           style={{ color: isVisible ? 'var(--dome-accent, var(--accent))' : 'var(--dome-text-muted)' }}
                           aria-hidden
                         />
@@ -333,7 +333,7 @@ export function DashboardCanvas({
                               aria-label={t('dashboard.move_up')}
                               style={{ color: 'var(--dome-text-secondary)' }}
                             >
-                              <ChevronUp className="h-3.5 w-3.5" />
+                              <ChevronUp className="size-3.5" />
                             </button>
                             <button
                               type="button"
@@ -343,7 +343,7 @@ export function DashboardCanvas({
                               aria-label={t('dashboard.move_down')}
                               style={{ color: 'var(--dome-text-secondary)' }}
                             >
-                              <ChevronDown className="h-3.5 w-3.5" />
+                              <ChevronDown className="size-3.5" />
                             </button>
                           </>
                         )}
@@ -359,7 +359,7 @@ export function DashboardCanvas({
                             aria-label={isVisible ? t('dashboard.hide_widget') : t('dashboard.show_widget')}
                             style={{ color: isVisible ? 'var(--dome-text-muted)' : 'var(--dome-accent, var(--accent))' }}
                           >
-                            {isVisible ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                            {isVisible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
                           </button>
                         )}
                       </div>
@@ -377,7 +377,7 @@ export function DashboardCanvas({
             </div>
 
             {/* ── Right: Quick actions ── */}
-            <div className="px-4 py-4">
+            <div className="p-4">
               <PanelHeading count={preferences.quickActions.length}>
                 {t('dashboard.customize_quick_actions')}
               </PanelHeading>
@@ -393,12 +393,12 @@ export function DashboardCanvas({
                       style={{ borderColor: 'var(--dome-border, var(--border))', background: 'var(--dome-bg, var(--bg))' }}
                     >
                       <GripVertical
-                        className="h-3.5 w-3.5 shrink-0"
+                        className="size-3.5 shrink-0"
                         style={{ color: 'var(--dome-text-muted)' }}
                         aria-hidden
                       />
                       <Icon
-                        className="h-3.5 w-3.5 shrink-0"
+                        className="size-3.5 shrink-0"
                         style={{ color: 'var(--dome-accent, var(--accent))' }}
                         aria-hidden
                       />
@@ -417,7 +417,7 @@ export function DashboardCanvas({
                           aria-label={t('dashboard.move_up')}
                           style={{ color: 'var(--dome-text-secondary)' }}
                         >
-                          <ChevronUp className="h-3.5 w-3.5" />
+                          <ChevronUp className="size-3.5" />
                         </button>
                         <button
                           type="button"
@@ -427,7 +427,7 @@ export function DashboardCanvas({
                           aria-label={t('dashboard.move_down')}
                           style={{ color: 'var(--dome-text-secondary)' }}
                         >
-                          <ChevronDown className="h-3.5 w-3.5" />
+                          <ChevronDown className="size-3.5" />
                         </button>
                         <button
                           type="button"
@@ -436,7 +436,7 @@ export function DashboardCanvas({
                           aria-label={t('dashboard.hide_widget')}
                           style={{ color: 'var(--dome-text-muted)' }}
                         >
-                          <EyeOff className="h-3.5 w-3.5" />
+                          <EyeOff className="size-3.5" />
                         </button>
                       </div>
                     </li>
@@ -462,8 +462,8 @@ export function DashboardCanvas({
                         className="flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-sm transition-colors"
                         style={{ borderColor: 'var(--dome-border)', borderStyle: 'dashed', color: 'var(--dome-text-secondary)' }}
                       >
-                        <Plus className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden />
-                        <Icon className="h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
+                        <Plus className="size-3.5 shrink-0 opacity-50" aria-hidden />
+                        <Icon className="size-3.5 shrink-0 opacity-60" aria-hidden />
                         <span className="font-medium opacity-70">{t(`dashboard.action_label_${id}`)}</span>
                       </button>
                     );
@@ -511,7 +511,7 @@ export function DashboardCanvas({
                     className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
                     style={{ color: 'var(--dome-accent, var(--accent))' }}
                   >
-                    <GripVertical className="h-3.5 w-3.5 opacity-60" aria-hidden />
+                    <GripVertical className="size-3.5 opacity-60" aria-hidden />
                     {t(`dashboard.layout_label_${id}`)}
                   </span>
                   <div className="flex items-center gap-1">
@@ -523,7 +523,7 @@ export function DashboardCanvas({
                       aria-label={t('dashboard.move_up')}
                       style={{ color: 'var(--dome-text-secondary)', border: '1px solid var(--dome-border)' }}
                     >
-                      <ChevronUp className="h-3.5 w-3.5" />
+                      <ChevronUp className="size-3.5" />
                     </button>
                     <button
                       type="button"
@@ -533,7 +533,7 @@ export function DashboardCanvas({
                       aria-label={t('dashboard.move_down')}
                       style={{ color: 'var(--dome-text-secondary)', border: '1px solid var(--dome-border)' }}
                     >
-                      <ChevronDown className="h-3.5 w-3.5" />
+                      <ChevronDown className="size-3.5" />
                     </button>
                     {canHide && (
                       <button
@@ -546,7 +546,7 @@ export function DashboardCanvas({
                           background: 'var(--dome-bg, var(--bg))',
                         }}
                       >
-                        <EyeOff className="h-3 w-3" aria-hidden />
+                        <EyeOff className="size-3" aria-hidden />
                         {t('dashboard.hide_widget')}
                       </button>
                     )}

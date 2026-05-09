@@ -121,7 +121,7 @@ export default function UserMenu() {
               }}
               aria-label={t('userMenu.open_settings')}
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="size-4" />
               <span className="text-sm">{t('userMenu.settings')}</span>
             </button>
 
@@ -141,7 +141,7 @@ export default function UserMenu() {
                 e.currentTarget.style.backgroundColor = 'transparent';
               }}
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="size-4" />
               <span className="text-sm">{isSigningOut ? t('userMenu.signingOut') : t('userMenu.signOut')}</span>
             </button>
           </div>

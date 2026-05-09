@@ -120,7 +120,7 @@ export default function ExecutionLog({
         style={{ background: 'var(--dome-bg)' }}
       >
         <div
-          className={`w-2 h-2 rounded-full shrink-0 ${isLiveRunning ? 'animate-pulse' : ''}`}
+          className={`size-2 rounded-full shrink-0 ${isLiveRunning ? 'animate-pulse' : ''}`}
           style={{ background: statusColor }}
         />
         <span className="text-xs font-semibold" style={{ color: statusColor }}>
@@ -133,7 +133,7 @@ export default function ExecutionLog({
         )}
         {isDone && displayStartTime && !isLiveRunning && (
           <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-            <Clock className="w-3 h-3 inline mr-0.5 -mt-0.5" />
+            <Clock className="size-3 inline mr-0.5 -mt-0.5" />
             {formatElapsedFromRange(displayStartTime, selectedExecution?.finishedAt)}
           </span>
         )}
@@ -166,9 +166,9 @@ export default function ExecutionLog({
           </select>
         )}
         {collapsed ? (
-          <ChevronUp className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <ChevronUp className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
         ) : (
-          <ChevronDown className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+          <ChevronDown className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
         )}
       </button>
 
@@ -196,7 +196,7 @@ export default function ExecutionLog({
                 <span className="shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)', fontSize: 10 }}>
                   {time}
                 </span>
-                <EntryIcon className="w-3 h-3 shrink-0 mt-0.5" style={{ color: meta.color }} />
+                <EntryIcon className="size-3 shrink-0 mt-0.5" style={{ color: meta.color }} />
                 <span className="font-semibold shrink-0" style={{ color: meta.color }}>
                   [{entry.nodeLabel}]
                 </span>

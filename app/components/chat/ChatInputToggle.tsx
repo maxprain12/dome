@@ -13,7 +13,7 @@ export function ChatInputToggle({ checked, onChange }: { checked: boolean; onCha
       }`}
     >
       <span
-        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
+        className={`pointer-events-none inline-block size-4 transform rounded-full bg-white shadow-sm transition-transform mt-0.5 ${
           checked ? 'translate-x-4' : 'translate-x-0.5'
         }`}
       />

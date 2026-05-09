@@ -99,10 +99,10 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
         style={{ borderBottom: '1px solid var(--dome-border)' }}
       >
         <div
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          className="size-9 rounded-xl flex items-center justify-center shrink-0"
           style={{ background: meta.color }}
         >
-          <meta.Icon className="w-4 h-4 text-white" />
+          <meta.Icon className="size-4 text-white" />
         </div>
         <span className="flex-1 text-sm font-semibold leading-tight" style={{ color: 'var(--dome-text)' }}>
           {meta.label}
@@ -112,7 +112,7 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
           onClick={onClose}
           className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)] transition-colors shrink-0"
         >
-          <X className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />
+          <X className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
         </button>
       </div>
 
@@ -310,7 +310,7 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium transition-colors border border-[var(--dome-border)] bg-transparent hover:bg-[var(--error-bg)]"
           style={{ color: 'var(--error)' }}
         >
-          <Trash2 className="w-3.5 h-3.5" />
+          <Trash2 className="size-3.5" />
           {t('canvas.prop_delete_node')}
         </button>
       </div>

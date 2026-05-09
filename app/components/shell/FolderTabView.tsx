@@ -30,7 +30,7 @@ function getFolderColor(folder: Resource): string {
 }
 
 function ResourceTypeIcon({ type, className }: { type: string; className?: string }) {
-  const cls = className ?? 'w-4 h-4 shrink-0';
+  const cls = className ?? 'size-4 shrink-0';
   switch (type) {
     case 'note':     return <FileEdit className={cls} />;
     case 'notebook': return <BookOpen className={cls} />;
@@ -94,7 +94,7 @@ function ColorPickerPopover({
             key={color}
             type="button"
             onClick={() => { onSave(color); onClose(); }}
-            className="w-6 h-6 rounded-md transition-all hover:scale-110"
+            className="size-6 rounded-md transition-all hover:scale-110"
             style={{
               backgroundColor: color,
               border: currentColor.toLowerCase() === color.toLowerCase()
@@ -217,7 +217,7 @@ function SubfolderCard({
       {/* Main clickable area */}
       {renaming ? (
         <div className="flex items-center gap-2 px-3 py-2.5">
-          <Folder className="w-4 h-4 shrink-0" style={{ color }} />
+          <Folder className="size-4 shrink-0" style={{ color }} />
           <input
             ref={renameRef}
             type="text"
@@ -233,11 +233,11 @@ function SubfolderCard({
           />
           <button type="button" onClick={(e) => { e.stopPropagation(); commitRename(); }}
             style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Check className="w-3.5 h-3.5" />
+            <Check className="size-3.5" />
           </button>
           <button type="button" onClick={(e) => { e.stopPropagation(); setRenaming(false); setRenameValue(folder.title ?? ''); }}
             style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X className="w-3.5 h-3.5" />
+            <X className="size-3.5" />
           </button>
         </div>
       ) : (
@@ -259,7 +259,7 @@ function SubfolderCard({
             paddingLeft: showSelectionChrome ? 36 : undefined,
           }}
         >
-          <Folder className="w-4 h-4 shrink-0" style={{ color }} />
+          <Folder className="size-4 shrink-0" style={{ color }} />
           <span className="text-sm font-medium truncate flex-1 min-w-0" style={{ color: 'var(--dome-text)' }}>
             {folder.title}
           </span>
@@ -273,12 +273,12 @@ function SubfolderCard({
             ref={menuBtnRef}
             type="button"
             onClick={openMenu}
-            className="flex items-center justify-center w-5 h-5 rounded-md transition-colors"
+            className="flex items-center justify-center size-5 rounded-md transition-colors"
             style={{ color: 'var(--dome-text-muted)', background: menuOpen ? 'var(--dome-bg-hover)' : 'none', border: 'none', cursor: 'pointer' }}
             onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
             onMouseLeave={(e) => { if (!menuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
           >
-            <MoreVertical className="w-3 h-3" />
+            <MoreVertical className="size-3" />
           </button>
 
           {menuOpen && menuPos && (
@@ -287,16 +287,16 @@ function SubfolderCard({
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {menuItem(<Pencil className="w-3 h-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(folder.title ?? ''); })}
-              {menuItem(<Palette className="w-3 h-3" />, t('folder.changeColor', 'Cambiar color'), () => {
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(folder.title ?? ''); })}
+              {menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
                 if (menuBtnRef.current) {
                   const rect = menuBtnRef.current.getBoundingClientRect();
                   setColorPickerPos({ top: rect.bottom + 4, left: Math.max(4, rect.right - 220) });
                 }
               })}
-              {menuItem(<FolderInput className="w-3 h-3" />, t('selection.move_to_project'), onMoveToProject)}
+              {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
               <div style={{ height: 1, background: 'var(--dome-border)', margin: '3px 0' }} />
-              {menuItem(<Trash2 className="w-3 h-3" />, t('folder.delete'), onDelete, true)}
+              {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
             </div>
           )}
         </div>
@@ -389,7 +389,7 @@ function FileRow({
           aria-label={t('selection.deselect')}
         />
       ) : null}
-      <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: typeColor }} />
+      <div className="size-1.5 rounded-full shrink-0" style={{ background: typeColor }} />
       <div style={{ color: typeColor }}>
         <ResourceTypeIcon type={file.type} />
       </div>
@@ -409,10 +409,10 @@ function FileRow({
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)' }}
           />
           <button type="button" onClick={commitRename} style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Check className="w-3.5 h-3.5" />
+            <Check className="size-3.5" />
           </button>
           <button type="button" onClick={() => setRenaming(false)} style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-            <X className="w-3.5 h-3.5" />
+            <X className="size-3.5" />
           </button>
         </div>
       ) : (
@@ -462,7 +462,7 @@ function FileRow({
             className="flex items-center justify-center rounded p-0.5"
             style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           >
-            <MoreVertical className="w-3.5 h-3.5" />
+            <MoreVertical className="size-3.5" />
           </button>
           {menuOpen && menuPos && (
             <div
@@ -478,7 +478,7 @@ function FileRow({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
-                <Pencil className="w-3 h-3" /> {t('folder.rename')}
+                <Pencil className="size-3" /> {t('folder.rename')}
               </button>
               <button
                 type="button"
@@ -488,7 +488,7 @@ function FileRow({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
-                <FolderInput className="w-3 h-3" /> {t('selection.move_to_project')}
+                <FolderInput className="size-3" /> {t('selection.move_to_project')}
               </button>
               <button
                 type="button"
@@ -498,7 +498,7 @@ function FileRow({
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
-                <Trash2 className="w-3 h-3" /> {t('folder.delete')}
+                <Trash2 className="size-3" /> {t('folder.delete')}
               </button>
             </div>
           )}
@@ -525,7 +525,7 @@ function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) =>
       style={{ border: '1.5px dashed var(--dome-border)', background: 'var(--dome-surface)' }}
     >
       <div className="flex items-center gap-2 px-3 py-2.5 min-w-0">
-        <Folder className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
+        <Folder className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
         <input
           ref={inputRef}
           type="text"
@@ -548,22 +548,22 @@ function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (name: string) =>
           type="button"
           onClick={handleConfirm}
           disabled={!value.trim()}
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors disabled:opacity-40"
+          className="flex items-center justify-center size-6 rounded-md transition-colors disabled:opacity-40"
           style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: value.trim() ? 'pointer' : 'default' }}
           onMouseEnter={(e) => { if (value.trim()) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,111,205,0.1)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
         >
-          <Check className="w-3.5 h-3.5" />
+          <Check className="size-3.5" />
         </button>
         <button
           type="button"
           onClick={onCancel}
-          className="flex items-center justify-center w-6 h-6 rounded-md transition-colors"
+          className="flex items-center justify-center size-6 rounded-md transition-colors"
           style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
         >
-          <X className="w-3.5 h-3.5" />
+          <X className="size-3.5" />
         </button>
       </div>
     </div>
@@ -624,9 +624,9 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
           boxShadow: '0 2px 8px rgba(124,111,205,0.35)',
         }}
       >
-        <Plus className="w-3.5 h-3.5" />
+        <Plus className="size-3.5" />
         {t('folder.addBtn', 'Añadir')}
-        <ChevronDown className={`w-3 h-3 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`size-3 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open && (
@@ -635,11 +635,11 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
           className="absolute right-0 top-full mt-1.5 z-[var(--z-popover)] rounded-xl shadow-xl py-1.5 min-w-[200px]"
           style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
         >
-          {item(<FileText className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />, t('toolbar.note', 'Nueva nota'), onNewNote)}
-          {item(<Upload className="w-4 h-4" style={{ color: 'var(--accent)' }} />, t('toolbar.import', 'Subir archivo'), onUpload)}
-          {item(<Link2 className="w-4 h-4" style={{ color: 'var(--success)' }} />, t('toolbar.link', 'Añadir enlace'), onAddUrl)}
+          {item(<FileText className="size-4" style={{ color: 'var(--dome-accent)' }} />, t('toolbar.note', 'Nueva nota'), onNewNote)}
+          {item(<Upload className="size-4" style={{ color: 'var(--accent)' }} />, t('toolbar.import', 'Subir archivo'), onUpload)}
+          {item(<Link2 className="size-4" style={{ color: 'var(--success)' }} />, t('toolbar.link', 'Añadir enlace'), onAddUrl)}
           <div className="my-1" style={{ height: 1, background: 'var(--dome-border)' }} />
-          {item(<Folder className="w-4 h-4" style={{ color: 'var(--dome-text-muted)' }} />, t('folder.newFolderBtn', 'Nueva carpeta'), onNewFolder)}
+          {item(<Folder className="size-4" style={{ color: 'var(--dome-text-muted)' }} />, t('folder.newFolderBtn', 'Nueva carpeta'), onNewFolder)}
         </div>
       )}
     </div>
@@ -872,7 +872,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
-        <div className="w-5 h-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--dome-border)', borderTopColor: 'var(--dome-accent)' }} />
+        <div className="size-5 border-2 rounded-full animate-spin" style={{ borderColor: 'var(--dome-border)', borderTopColor: 'var(--dome-accent)' }} />
       </div>
     );
   }
@@ -891,12 +891,12 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             className="flex items-center gap-1 hover:text-[var(--dome-text)] transition-colors"
             style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}
           >
-            <Home className="w-3 h-3" />
+            <Home className="size-3" />
             <span>{t('common.home')}</span>
           </button>
           {breadcrumb.map((folder) => (
             <>
-              <ChevronRight key={`sep-${folder.id}`} className="w-3 h-3 shrink-0" />
+              <ChevronRight key={`sep-${folder.id}`} className="size-3 shrink-0" />
               <button
                 key={folder.id}
                 type="button"
@@ -909,7 +909,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               </button>
             </>
           ))}
-          {breadcrumb.length > 0 && <ChevronRight className="w-3 h-3 shrink-0" />}
+          {breadcrumb.length > 0 && <ChevronRight className="size-3 shrink-0" />}
           <span style={{ color: 'var(--dome-text)' }}>{currentFolder?.title ?? folderTitle}</span>
         </nav>
 
@@ -926,7 +926,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               type="button"
               onClick={openCurrentFolderColorPicker}
               title={t('folder.changeColor', 'Cambiar color')}
-              className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all"
+              className="size-12 rounded-2xl flex items-center justify-center shrink-0 transition-all"
               style={{
                 background: folderColorHex ? `${folderColorHex}20` : 'var(--dome-bg-hover)',
                 border: 'none',
@@ -937,7 +937,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = folderColorHex ? `${folderColorHex}35` : 'var(--dome-bg-hover)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = folderColorHex ? `${folderColorHex}20` : 'var(--dome-bg-hover)'; }}
             >
-              <FolderOpen className="w-6 h-6" style={{ color: folderColor }} />
+              <FolderOpen className="size-6" style={{ color: folderColor }} />
             </button>
 
             <div>
@@ -956,14 +956,14 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     style={{ color: 'var(--dome-text)', background: 'var(--dome-bg)', border: '1.5px solid var(--dome-accent)' }}
                   />
                   <button type="button" onClick={commitTitle}
-                    className="flex items-center justify-center w-7 h-7 rounded-md"
+                    className="flex items-center justify-center size-7 rounded-md"
                     style={{ color: 'var(--dome-accent)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    <Check className="w-4 h-4" />
+                    <Check className="size-4" />
                   </button>
                   <button type="button" onClick={() => setEditingTitle(false)}
-                    className="flex items-center justify-center w-7 h-7 rounded-md"
+                    className="flex items-center justify-center size-7 rounded-md"
                     style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    <X className="w-4 h-4" />
+                    <X className="size-4" />
                   </button>
                 </div>
               ) : (
@@ -976,12 +976,12 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                       type="button"
                       onClick={startEditTitle}
                       title={t('folder.rename')}
-                      className="flex items-center justify-center w-6 h-6 rounded-md transition-colors opacity-60 hover:opacity-100"
+                      className="flex items-center justify-center size-6 rounded-md transition-colors opacity-60 hover:opacity-100"
                       style={{ color: 'var(--dome-text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                       onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                       onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
                     >
-                      <Pencil className="w-3.5 h-3.5" />
+                      <Pencil className="size-3.5" />
                     </button>
                   )}
                 </div>
@@ -1025,8 +1025,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         {/* ── Empty state ── */}
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
-            <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-surface)' }}>
-              <FolderOpen className="w-8 h-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
+            <div className="size-16 rounded-2xl flex items-center justify-center" style={{ background: 'var(--dome-surface)' }}>
+              <FolderOpen className="size-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
             </div>
             <div className="text-center">
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{t('folder.emptyFolder')}</p>
@@ -1039,7 +1039,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all"
                 style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)', border: 'none', cursor: 'pointer', boxShadow: '0 2px 8px rgba(124,111,205,0.3)' }}
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="size-3.5" />
                 {t('toolbar.note', 'Nueva nota')}
               </button>
               <button
@@ -1050,7 +1050,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-accent)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)'; }}
               >
-                <Upload className="w-3.5 h-3.5" />
+                <Upload className="size-3.5" />
                 {t('toolbar.import', 'Subir archivo')}
               </button>
             </div>

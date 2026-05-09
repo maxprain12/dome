@@ -191,7 +191,7 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
         aria-expanded={open}
       >
         <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
-        <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+        <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
       </button>
       {open && portalAnchor && typeof document !== 'undefined'
         ? createPortal(
@@ -218,7 +218,7 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
                     style={{ color: 'var(--primary-text)' }}
                     onClick={() => void pickModel(o.id)}
                   >
-                    {sel ? <Check className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" aria-hidden /> : (
+                    {sel ? <Check className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden /> : (
                       <span className="w-3.5 shrink-0" aria-hidden />
                     )}
                     <span className="min-w-0 flex-1 truncate">{o.label}</span>
@@ -226,7 +226,7 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
                 );
               })}
               {allowCustom ? (
-                <div className="border-t border-[var(--border)] px-2 py-2">
+                <div className="border-t border-[var(--border)] p-2">
                   {addingCustom ? (
                     <div className="flex flex-col gap-1.5">
                       <input

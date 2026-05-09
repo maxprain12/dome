@@ -50,7 +50,7 @@ function KbBadge({ value }: { value: 'inherit' | 'enabled' | 'disabled' }) {
   if (value === 'enabled') return (
     <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
       style={{ background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)', color: 'var(--dome-accent)' }}>
-      <Brain className="w-2.5 h-2.5" /> {t('projects.kb_llm_on')}
+      <Brain className="size-2.5" /> {t('projects.kb_llm_on')}
     </span>
   );
   if (value === 'disabled') return (
@@ -309,7 +309,7 @@ export default function ProjectsDashboard({
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto px-8 py-8">
+      <div className="flex-1 overflow-y-auto p-8">
         <div className="mx-auto flex max-w-5xl flex-col gap-7">
 
           {/* ── Header ─────────────────────────────────────────────────────── */}
@@ -331,8 +331,8 @@ export default function ProjectsDashboard({
                     className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs"
                     style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
                   >
-                    <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border transition-colors ${allSelected ? 'border-[var(--dome-accent)] bg-[var(--dome-accent)]' : 'border-[var(--dome-border)]'}`}>
-                      {allSelected && <Check className="w-2.5 h-2.5" style={{ color: 'var(--base-text)' }} />}
+                    <span className={`size-3.5 rounded flex items-center justify-center border transition-colors ${allSelected ? 'border-[var(--dome-accent)] bg-[var(--dome-accent)]' : 'border-[var(--dome-border)]'}`}>
+                      {allSelected && <Check className="size-2.5" style={{ color: 'var(--base-text)' }} />}
                     </span>
                     {allSelected ? t('common.deselect_all') : t('common.select_all')}
                   </button>
@@ -343,7 +343,7 @@ export default function ProjectsDashboard({
                       className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
                       style={{ background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)', color: 'var(--dome-error)' }}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="size-3.5" />
                       {t('common.delete')} ({selectedIds.size})
                     </button>
                   )}
@@ -383,7 +383,7 @@ export default function ProjectsDashboard({
                     className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
                     style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="size-3.5" />
                     {t('projects.create_project')}
                   </button>
                 </>
@@ -405,7 +405,7 @@ export default function ProjectsDashboard({
                     <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
                       {card.label}
                     </span>
-                    <Icon className="w-3.5 h-3.5" style={{ color: card.color }} />
+                    <Icon className="size-3.5" style={{ color: card.color }} />
                   </div>
                   <span className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--dome-text)' }}>
                     {card.value}
@@ -457,7 +457,7 @@ export default function ProjectsDashboard({
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
                   style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="size-3.5" />
                   {creating ? t('projects.creating') : t('projects.create_project')}
                 </button>
               </div>
@@ -481,7 +481,7 @@ export default function ProjectsDashboard({
                 className="flex items-center gap-1 text-xs"
                 style={{ color: 'var(--dome-accent)' }}
               >
-                <FolderOpen className="w-3.5 h-3.5" />
+                <FolderOpen className="size-3.5" />
                 {t('projects.open_library')}
               </button>
             </div>
@@ -496,7 +496,7 @@ export default function ProjectsDashboard({
             ) : projects.length === 0 ? (
               <div className="rounded-xl border border-dashed py-12 flex flex-col items-center gap-3"
                 style={{ borderColor: 'var(--dome-border)' }}>
-                <Layers3 className="w-8 h-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
+                <Layers3 className="size-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
                 <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                   {t('projects.empty')}
                 </p>
@@ -506,7 +506,7 @@ export default function ProjectsDashboard({
                   className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
                   style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="size-3.5" />
                   {t('projects.create_project')}
                 </button>
               </div>
@@ -541,7 +541,7 @@ export default function ProjectsDashboard({
                         <button
                           type="button"
                           onClick={() => toggleSelect(project.id)}
-                          className="absolute top-3 left-3 z-10 w-5 h-5 rounded flex items-center justify-center border-2 transition-colors"
+                          className="absolute top-3 left-3 z-10 size-5 rounded flex items-center justify-center border-2 transition-colors"
                           style={{
                             borderColor: isSelected ? 'var(--dome-accent)' : 'var(--dome-border)',
                             background: isSelected ? 'var(--dome-accent)' : 'var(--dome-bg)',
@@ -549,7 +549,7 @@ export default function ProjectsDashboard({
                           aria-checked={isSelected}
                           aria-label={t('projects.select_project_aria', { name: project.name })}
                         >
-                          {isSelected && <Check className="w-3 h-3" style={{ color: 'var(--base-text)' }} />}
+                          {isSelected && <Check className="size-3" style={{ color: 'var(--base-text)' }} />}
                         </button>
                       )}
 
@@ -584,13 +584,13 @@ export default function ProjectsDashboard({
                             )}
                             <div className="mt-2.5 flex items-center gap-3">
                               <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-                                <Layers3 className="w-3 h-3" />
+                                <Layers3 className="size-3" />
                                 {projectResources.length}
                               </span>
                             </div>
                           </div>
                           {!selectionMode && (
-                            <ArrowRight className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-60 transition-opacity mt-0.5"
+                            <ArrowRight className="size-4 shrink-0 opacity-0 group-hover:opacity-60 transition-opacity mt-0.5"
                               style={{ color: 'var(--dome-text-muted)' }} />
                           )}
                         </div>
@@ -608,14 +608,14 @@ export default function ProjectsDashboard({
                               className="flex items-center gap-1 text-[11px] pt-2"
                               style={{ color: 'var(--dome-text-muted)' }}
                             >
-                              <Brain className="w-3 h-3" />
+                              <Brain className="size-3" />
                               <span>{t('projects.kb_llm')}:</span>
                               <span className="font-medium">
                                 {kbOverrides[project.id] === 'enabled' ? t('projects.kb_llm_on')
                                   : kbOverrides[project.id] === 'disabled' ? t('projects.kb_llm_off')
                                     : t('projects.kb_llm_inherit')}
                               </span>
-                              <ChevronDown className="w-2.5 h-2.5" />
+                              <ChevronDown className="size-2.5" />
                             </button>
                             {kbMenuFor === project.id && (
                               <div
@@ -640,7 +640,7 @@ export default function ProjectsDashboard({
                                     }}
                                   >
                                     {val === 'inherit' ? t('projects.kb_llm_inherit') : val === 'enabled' ? t('projects.kb_llm_on') : t('projects.kb_llm_off')}
-                                    {(kbOverrides[project.id] ?? 'inherit') === val && <Check className="w-3 h-3 opacity-70" />}
+                                    {(kbOverrides[project.id] ?? 'inherit') === val && <Check className="size-3 opacity-70" />}
                                   </button>
                                 ))}
                               </div>
@@ -655,7 +655,7 @@ export default function ProjectsDashboard({
                               className="shrink-0 p-1.5 rounded-lg mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[color-mix(in_srgb,var(--dome-error)_10%,transparent)]"
                               style={{ color: 'var(--dome-error)' }}
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="size-3.5" />
                             </button>
                           )}
                         </div>

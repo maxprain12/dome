@@ -82,7 +82,7 @@ export default function UpdateAlertBanner() {
                 border: '1px solid rgba(255,255,255,0.4)',
               }}
             >
-              <Download className="w-4 h-4" />
+              <Download className="size-4" />
               {t('updateBanner.download')}
             </button>
             <button
@@ -125,7 +125,7 @@ export default function UpdateAlertBanner() {
                 border: '1px solid rgba(255,255,255,0.4)',
               }}
             >
-              <RotateCw className="w-4 h-4" />
+              <RotateCw className="size-4" />
               {t('updateBanner.restart_to_install')}
             </button>
           </>
@@ -137,7 +137,7 @@ export default function UpdateAlertBanner() {
         className="shrink-0 p-1 rounded hover:bg-[rgba(255,255,255,0.2)] transition-colors"
         aria-label={t('common.close')}
       >
-        <X className="w-4 h-4" />
+        <X className="size-4" />
       </button>
     </div>
   );

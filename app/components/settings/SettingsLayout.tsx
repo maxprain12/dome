@@ -46,46 +46,46 @@ const NAV_GROUPS: NavGroup[] = [
   {
     labelKey: 'settings.groups.preferences',
     items: [
-      { id: 'general',    icon: <User className="w-3.5 h-3.5" /> },
-      { id: 'appearance', icon: <Palette className="w-3.5 h-3.5" /> },
-      { id: 'language',   icon: <Globe className="w-3.5 h-3.5" /> },
+      { id: 'general',    icon: <User className="size-3.5" /> },
+      { id: 'appearance', icon: <Palette className="size-3.5" /> },
+      { id: 'language',   icon: <Globe className="size-3.5" /> },
     ],
   },
   {
     labelKey: 'settings.groups.ai_voice',
     items: [
-      { id: 'ai',           icon: <Brain className="w-3.5 h-3.5" /> },
-      { id: 'transcription', icon: <Mic className="w-3.5 h-3.5" /> },
+      { id: 'ai',           icon: <Brain className="size-3.5" /> },
+      { id: 'transcription', icon: <Mic className="size-3.5" /> },
     ],
   },
   {
     labelKey: 'settings.groups.integrations',
     items: [
-      { id: 'whatsapp', icon: <MessageCircle className="w-3.5 h-3.5" /> },
-      { id: 'cloud',    icon: <Cloud className="w-3.5 h-3.5" /> },
-      { id: 'calendar', icon: <Calendar className="w-3.5 h-3.5" /> },
-      { id: 'mcp',      icon: <Plug2 className="w-3.5 h-3.5" /> },
-      { id: 'dome_mcp', icon: <Server className="w-3.5 h-3.5" /> },
+      { id: 'whatsapp', icon: <MessageCircle className="size-3.5" /> },
+      { id: 'cloud',    icon: <Cloud className="size-3.5" /> },
+      { id: 'calendar', icon: <Calendar className="size-3.5" /> },
+      { id: 'mcp',      icon: <Plug2 className="size-3.5" /> },
+      { id: 'dome_mcp', icon: <Server className="size-3.5" /> },
     ],
   },
   {
     labelKey: 'settings.groups.knowledge',
     items: [
-      { id: 'indexing', icon: <Database className="w-3.5 h-3.5" /> },
-      { id: 'kb_llm',   icon: <BookMarked className="w-3.5 h-3.5" /> },
+      { id: 'indexing', icon: <Database className="size-3.5" /> },
+      { id: 'kb_llm',   icon: <BookMarked className="size-3.5" /> },
     ],
   },
   {
     labelKey: 'settings.groups.extensions',
     items: [
-      { id: 'skills',  icon: <Wand2 className="w-3.5 h-3.5" /> },
-      { id: 'plugins', icon: <Puzzle className="w-3.5 h-3.5" /> },
+      { id: 'skills',  icon: <Wand2 className="size-3.5" /> },
+      { id: 'plugins', icon: <Puzzle className="size-3.5" /> },
     ],
   },
   {
     labelKey: 'settings.groups.system',
     items: [
-      { id: 'advanced', icon: <SettingsIcon className="w-3.5 h-3.5" /> },
+      { id: 'advanced', icon: <SettingsIcon className="size-3.5" /> },
     ],
   },
 ];
@@ -150,7 +150,7 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
 
       {/* ── Content area ── */}
       <main className="flex-1 overflow-y-auto overflow-x-hidden">
-        <div className="max-w-2xl mx-auto px-8 py-8 pb-20">
+        <div className="max-w-2xl mx-auto p-8 pb-20">
           {children}
         </div>
       </main>

@@ -143,7 +143,7 @@ export default function RelationChip({
           aria-label="Remove"
         >
           {removeDisabled ? (
-            <span className="inline-block w-3.5 h-3.5 border border-current border-t-transparent rounded-full animate-spin" />
+            <span className="inline-block size-3.5 border border-current border-t-transparent rounded-full animate-spin" />
           ) : (
             <X size={14} />
           )}

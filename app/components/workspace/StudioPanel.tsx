@@ -204,7 +204,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
               {/* Icon */}
               <span className="leading-none shrink-0 flex items-center" style={{ color: 'var(--secondary-text)' }}>
                 {isGenerating && generatingType === tile.type ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="size-4 animate-spin" />
                 ) : (
                   tile.icon
                 )}
@@ -325,7 +325,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
         {loadingOutputs && (
           <div className="flex items-center justify-center py-4">
             <Loader2
-              className="w-4 h-4 animate-spin"
+              className="size-4 animate-spin"
               style={{ color: 'var(--tertiary-text)' }}
             />
             <span

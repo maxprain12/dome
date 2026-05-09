@@ -135,7 +135,7 @@ function renderToolSuccessHighlight(
         }}
       >
         <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
-          <Calendar className="w-3.5 h-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
+          <Calendar className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
           <span className="truncate">{cal.title || t('chat.calendar_event_untitled', { defaultValue: 'Evento' })}</span>
         </div>
         {cal.startLabel ? (
@@ -176,7 +176,7 @@ function renderToolSuccessHighlight(
         }}
       >
         <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
-          <Layers className="w-3.5 h-3.5 shrink-0 text-[var(--success)]" aria-hidden />
+          <Layers className="size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
           <span className="truncate">{title}</span>
         </div>
         <p className="text-[11px]" style={{ color: 'var(--secondary-text)' }}>
@@ -196,7 +196,7 @@ function renderToolSuccessHighlight(
         className="rounded-md border p-2.5 flex gap-2 items-start"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
       >
-        <FileText className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--accent)]" aria-hidden />
+        <FileText className="size-3.5 shrink-0 mt-0.5 text-[var(--accent)]" aria-hidden />
         <div className="min-w-0">
           <p className="text-xs font-semibold truncate" style={{ color: 'var(--primary-text)' }}>
             {title}
@@ -616,7 +616,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
                   }}
                   title={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
                   aria-label={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
-                  className="!p-0 w-5 h-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
+                  className="!p-0 size-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
                 >
                   {isPinned ? (
                     <CheckCircle2 className="w-[13px] h-[13px]" />
@@ -695,7 +695,7 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
         triggerClassName="!px-2 !py-1.5 rounded-r-md"
         trigger={
           <>
-            <div className="flex shrink-0 w-4 h-4 items-center justify-center">
+            <div className="flex shrink-0 size-4 items-center justify-center">
               {isPending ? (
                 <Loader2 className="w-[13px] h-[13px] animate-spin" style={{ color: accentColor }} />
               ) : toolCall.status === 'error' ? (
@@ -784,7 +784,7 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
         triggerClassName="!px-2 !py-1.5 rounded-r-md"
         trigger={
           <>
-            <div className="flex shrink-0 w-4 h-4 items-center justify-center">
+            <div className="flex shrink-0 size-4 items-center justify-center">
               {hasPending ? (
                 <Loader2 className="w-[13px] h-[13px] animate-spin" style={{ color: accentColor }} />
               ) : hasError ? (

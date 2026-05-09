@@ -65,7 +65,7 @@ export default function ProfileStep({
       {/* Avatar preview */}
       <div className="flex items-center gap-4">
         <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 transition-all"
+          className="size-14 rounded-2xl flex items-center justify-center shrink-0 transition-all"
           style={{
             background: initials
               ? 'linear-gradient(135deg, var(--dome-accent) 0%, #998eec 100%)'
@@ -76,7 +76,7 @@ export default function ProfileStep({
           {initials ? (
             <span className="text-white font-bold text-lg select-none">{initials}</span>
           ) : (
-            <User className="w-6 h-6" style={{ color: 'var(--dome-text-muted)' }} />
+            <User className="size-6" style={{ color: 'var(--dome-text-muted)' }} />
           )}
         </div>
         <div>
@@ -96,7 +96,7 @@ export default function ProfileStep({
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none" style={{ color: nameError ? 'var(--dome-error, #ef4444)' : nameValid && touched.name ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-            <User className="w-4 h-4" />
+            <User className="size-4" />
           </span>
           <input
             id="profile-name"
@@ -137,15 +137,15 @@ export default function ProfileStep({
           {touched.name && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2">
               {nameValid
-                ? <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
-                : <AlertCircle className="w-4 h-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+                ? <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent)' }} />
+                : <AlertCircle className="size-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
               }
             </span>
           )}
         </div>
         {nameError && (
           <p className="text-xs flex items-center gap-1" style={{ color: 'var(--dome-error, #ef4444)' }}>
-            <AlertCircle className="w-3 h-3 shrink-0" />{nameError}
+            <AlertCircle className="size-3 shrink-0" />{nameError}
           </p>
         )}
       </div>
@@ -157,7 +157,7 @@ export default function ProfileStep({
         </label>
         <div className="relative">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none" style={{ color: emailError ? 'var(--dome-error, #ef4444)' : emailValid && touched.email ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-            <Mail className="w-4 h-4" />
+            <Mail className="size-4" />
           </span>
           <input
             id="profile-email"
@@ -199,15 +199,15 @@ export default function ProfileStep({
           {touched.email && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2">
               {emailValid
-                ? <CheckCircle2 className="w-4 h-4" style={{ color: 'var(--dome-accent)' }} />
-                : <AlertCircle className="w-4 h-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+                ? <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent)' }} />
+                : <AlertCircle className="size-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
               }
             </span>
           )}
         </div>
         {emailError && (
           <p className="text-xs flex items-center gap-1" style={{ color: 'var(--dome-error, #ef4444)' }}>
-            <AlertCircle className="w-3 h-3 shrink-0" />{emailError}
+            <AlertCircle className="size-3 shrink-0" />{emailError}
           </p>
         )}
       </div>

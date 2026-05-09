@@ -31,20 +31,20 @@ interface SearchResult {
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  note:         <FileText     className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  notebook:     <Notebook     className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  pdf:          <File         className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  video:        <Video        className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  audio:        <Music        className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  image:        <ImageIcon    className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  url:          <Link2        className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  ppt:          <Presentation className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  document:     <File         className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  folder:       <FolderOpen   className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  chat:         <MessageSquare className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  annotation:   <FileText     className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  studio:       <Sparkles     className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
-  graph:        <GitBranch    className="h-4 w-4 shrink-0" strokeWidth={1.5} />,
+  note:         <FileText     className="size-4 shrink-0" strokeWidth={1.5} />,
+  notebook:     <Notebook     className="size-4 shrink-0" strokeWidth={1.5} />,
+  pdf:          <File         className="size-4 shrink-0" strokeWidth={1.5} />,
+  video:        <Video        className="size-4 shrink-0" strokeWidth={1.5} />,
+  audio:        <Music        className="size-4 shrink-0" strokeWidth={1.5} />,
+  image:        <ImageIcon    className="size-4 shrink-0" strokeWidth={1.5} />,
+  url:          <Link2        className="size-4 shrink-0" strokeWidth={1.5} />,
+  ppt:          <Presentation className="size-4 shrink-0" strokeWidth={1.5} />,
+  document:     <File         className="size-4 shrink-0" strokeWidth={1.5} />,
+  folder:       <FolderOpen   className="size-4 shrink-0" strokeWidth={1.5} />,
+  chat:         <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />,
+  annotation:   <FileText     className="size-4 shrink-0" strokeWidth={1.5} />,
+  studio:       <Sparkles     className="size-4 shrink-0" strokeWidth={1.5} />,
+  graph:        <GitBranch    className="size-4 shrink-0" strokeWidth={1.5} />,
 };
 
 interface UseSimpleSearchOptions {
@@ -227,7 +227,7 @@ export function SearchButton({ onClick }: { onClick: () => void }) {
         color: 'var(--dome-text-muted)',
       }}
     >
-      <Search className="h-3.5 w-3.5" strokeWidth={1.5} />
+      <Search className="size-3.5" strokeWidth={1.5} />
       <span>{t('common.search_placeholder')}</span>
       <kbd
         className="ml-2 rounded border px-1.5 py-0.5 text-xs"
@@ -287,7 +287,7 @@ export function SearchModal({
           className="flex items-center gap-3 border-b px-4 py-3"
           style={{ borderColor: 'var(--dome-border)' }}
         >
-          <Search className="h-4 w-4 shrink-0" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
+          <Search className="size-4 shrink-0" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
           <input
             ref={inputRef}
             type="text"
@@ -300,7 +300,7 @@ export function SearchModal({
           />
           {isSearching && (
             <div
-              className="h-4 w-4 animate-spin rounded-full border-2 border-t-transparent"
+              className="size-4 animate-spin rounded-full border-2 border-t-transparent"
               style={{ borderColor: 'var(--dome-accent)', borderTopColor: 'transparent' }}
             />
           )}
@@ -310,7 +310,7 @@ export function SearchModal({
               onClick={() => setQuery('')}
               className="rounded p-0.5 hover:bg-[var(--dome-surface)]"
             >
-              <X className="h-4 w-4" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
+              <X className="size-4" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
             </button>
           )}
           <button
@@ -335,7 +335,7 @@ export function SearchModal({
                 className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:border-[var(--dome-accent)]"
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
               >
-                <Plus className="h-4 w-4" strokeWidth={1.5} style={{ color: 'var(--dome-accent)' }} />
+                <Plus className="size-4" strokeWidth={1.5} style={{ color: 'var(--dome-accent)' }} />
                 New Note
               </button>
               <button
@@ -344,7 +344,7 @@ export function SearchModal({
                 className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:border-[var(--dome-accent)]"
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
               >
-                <Upload className="h-4 w-4" strokeWidth={1.5} style={{ color: 'var(--dome-accent)' }} />
+                <Upload className="size-4" strokeWidth={1.5} style={{ color: 'var(--dome-accent)' }} />
                 Upload
               </button>
               <button
@@ -353,7 +353,7 @@ export function SearchModal({
                 className="flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors hover:border-[var(--dome-accent)]"
                 style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
               >
-                <Link2 className="h-4 w-4" strokeWidth={1.5} style={{ color: 'var(--dome-accent)' }} />
+                <Link2 className="size-4" strokeWidth={1.5} style={{ color: 'var(--dome-accent)' }} />
                 Add URL
               </button>
             </div>
@@ -370,7 +370,7 @@ export function SearchModal({
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--dome-surface)]"
               >
                 <span style={{ color: 'var(--dome-text-muted)' }}>
-                  {TYPE_ICONS[result.type] || <File className="h-4 w-4 shrink-0" strokeWidth={1.5} />}
+                  {TYPE_ICONS[result.type] || <File className="size-4 shrink-0" strokeWidth={1.5} />}
                 </span>
                 <span className="flex-1 truncate text-sm" style={{ color: 'var(--dome-text)' }}>
                   {result.title || 'Untitled'}
@@ -387,7 +387,7 @@ export function SearchModal({
 
         {query && !isSearching && results.length === 0 && (
           <div className="p-8 text-center">
-            <Search className="mx-auto h-8 w-8 mb-2" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
+            <Search className="mx-auto size-8 mb-2" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
             <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
               No results found
             </p>
@@ -715,7 +715,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         }}
       >
         <Search
-          className="h-4 w-4 shrink-0"
+          className="size-4 shrink-0"
           strokeWidth={1.5}
           style={{ color: isFocused ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}
         />
@@ -732,7 +732,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         />
         {isSearching ? (
           <div
-            className="h-4 w-4 shrink-0 animate-spin rounded-full border-2"
+            className="size-4 shrink-0 animate-spin rounded-full border-2"
             style={{ borderColor: 'var(--dome-accent)', borderTopColor: 'transparent' }}
           />
         ) : query ? (
@@ -741,7 +741,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
             onClick={() => { setQuery(''); setGroups({}); inputRef.current?.focus(); }}
             className="rounded p-0.5 hover:bg-[var(--dome-bg)]"
           >
-            <X className="h-4 w-4" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
+            <X className="size-4" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
           </button>
         ) : (
           <kbd
@@ -761,7 +761,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
         >
           {!isSearching && totalResults === 0 ? (
             <div className="px-4 py-8 text-center">
-              <Search className="mx-auto mb-2 h-7 w-7" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
+              <Search className="mx-auto mb-2 size-7" strokeWidth={1.5} style={{ color: 'var(--dome-text-muted)' }} />
               <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
                 Sin resultados para <strong>«{query}»</strong>
               </p>
@@ -806,10 +806,10 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
                               : (TYPE_META[result.type] ?? DEFAULT_TYPE_META).bg;
                             return (
                               <span
-                                className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                                className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg"
                                 style={{ background: iconBg, color: iconColor }}
                               >
-                                {TYPE_ICONS[result.type] ?? <File className="h-4 w-4 shrink-0" strokeWidth={1.5} />}
+                                {TYPE_ICONS[result.type] ?? <File className="size-4 shrink-0" strokeWidth={1.5} />}
                               </span>
                             );
                           })()}

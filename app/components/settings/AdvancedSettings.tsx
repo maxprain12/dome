@@ -103,7 +103,7 @@ export default function AdvancedSettings() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
-        className="!border-0 px-0 py-0 bg-transparent"
+        className="!border-0 p-0 bg-transparent"
         title={t('settings.advanced.title')}
         subtitle={t('settings.advanced.subtitle')}
       />
@@ -126,19 +126,19 @@ export default function AdvancedSettings() {
                 variant="outline"
                 size="sm"
                 onClick={() => void handleCheckUpdate()}
-                leftIcon={<RefreshCw className="w-3 h-3" aria-hidden />}
+                leftIcon={<RefreshCw className="size-3" aria-hidden />}
               >
                 {t('settings.advanced.check_updates')}
               </DomeButton>
             ) : null}
             {updaterState.status === 'checking' && (
               <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                <RefreshCw className="w-3 h-3 animate-spin" /> {t('settings.advanced.checking')}
+                <RefreshCw className="size-3 animate-spin" /> {t('settings.advanced.checking')}
               </span>
             )}
             {updaterState.status === 'not-available' && (
               <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--dome-accent)' }}>
-                <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.advanced.up_to_date')}
+                <CheckCircle2 className="size-3.5" /> {t('settings.advanced.up_to_date')}
               </span>
             )}
             {updaterState.status === 'available' ? (
@@ -148,7 +148,7 @@ export default function AdvancedSettings() {
                   variant="primary"
                   size="sm"
                   onClick={() => window.electron?.updater?.download()}
-                  leftIcon={<Download className="w-3 h-3" aria-hidden />}
+                  leftIcon={<Download className="size-3" aria-hidden />}
                 >
                   {t('settings.advanced.download_version', { version: updaterState.version })}
                 </DomeButton>
@@ -173,7 +173,7 @@ export default function AdvancedSettings() {
                 variant="primary"
                 size="sm"
                 onClick={() => window.electron?.updater?.install()}
-                leftIcon={<RotateCw className="w-3 h-3" aria-hidden />}
+                leftIcon={<RotateCw className="size-3" aria-hidden />}
               >
                 {t('settings.advanced.restart_install')}
               </DomeButton>
@@ -257,7 +257,7 @@ export default function AdvancedSettings() {
                   if (r?.success) alert(t('settings.advanced.export_completed', { path: r.path }));
                   else if (!r?.cancelled) alert('Error: ' + (r?.error || t('common.unknown_error')));
                 }}
-                leftIcon={<ArrowDownToLine className="w-3.5 h-3.5" aria-hidden />}
+                leftIcon={<ArrowDownToLine className="size-3.5" aria-hidden />}
               >
                 {t('settings.advanced.export_data')}
               </DomeButton>
@@ -272,7 +272,7 @@ export default function AdvancedSettings() {
                     if (r.restartRequired) window.location.reload();
                   } else if (!r?.cancelled) alert('Error: ' + (r?.error || t('common.unknown_error')));
                 }}
-                leftIcon={<Upload className="w-3.5 h-3.5" aria-hidden />}
+                leftIcon={<Upload className="size-3.5" aria-hidden />}
               >
                 {t('settings.advanced.import_data')}
               </DomeButton>
@@ -303,14 +303,14 @@ export default function AdvancedSettings() {
                   size="sm"
                   onClick={() => void handleMigrateNotes()}
                   disabled={notesMigrating}
-                  leftIcon={<FileStack className="w-3.5 h-3.5" aria-hidden />}
+                  leftIcon={<FileStack className="size-3.5" aria-hidden />}
                 >
                   {notesMigrating ? t('settings.advanced.migrating') : t('settings.advanced.migrate_notes')}
                 </DomeButton>
               </div>
             ) : notesMigrationStatus?.pendingMigrations === 0 ? (
               <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
-                <CheckCircle2 className="w-3.5 h-3.5" /> {t('settings.advanced.all_migrated')}
+                <CheckCircle2 className="size-3.5" /> {t('settings.advanced.all_migrated')}
               </span>
             ) : null}
           </DomeCard>

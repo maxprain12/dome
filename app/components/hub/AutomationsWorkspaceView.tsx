@@ -136,7 +136,7 @@ function AutomationEditDrawer({
 }: AutomationEditDrawerProps) {
   const { t } = useTranslation();
   const formFields = (
-    <div className={embedded ? 'flex flex-col gap-4' : 'px-5 py-5 flex flex-col gap-4'}>
+    <div className={embedded ? 'flex flex-col gap-4' : 'p-5 flex flex-col gap-4'}>
 
         {/* Target — only shown when creating */}
         {isNew ? (
@@ -146,8 +146,8 @@ function AutomationEditDrawer({
               size="sm"
               aria-label={t('automation.destination')}
               options={[
-                { value: 'agent', label: t('automation.agent'), icon: <Bot className="w-3.5 h-3.5" aria-hidden /> },
-                { value: 'workflow', label: t('automation.workflow'), icon: <Workflow className="w-3.5 h-3.5" aria-hidden /> },
+                { value: 'agent', label: t('automation.agent'), icon: <Bot className="size-3.5" aria-hidden /> },
+                { value: 'workflow', label: t('automation.workflow'), icon: <Workflow className="size-3.5" aria-hidden /> },
               ]}
               value={draft.targetType}
               onChange={(v) => onDraftChange({ targetType: v as 'agent' | 'workflow', targetId: '' })}
@@ -298,7 +298,7 @@ function AutomationEditDrawer({
           style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
         >
           <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+            <Layers className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
             <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>
               {t('automation.artifact_sink_section')}
             </span>
@@ -309,7 +309,7 @@ function AutomationEditDrawer({
 
           {draft.artifactBindings.map((b, idx) => (
             <div
-              key={idx}
+              key={b.id ?? `draft-binding-${idx}`}
               className="flex flex-col gap-2 rounded-lg p-2"
               style={{ border: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
             >
@@ -431,6 +431,7 @@ function AutomationEditDrawer({
                 artifactBindings: [
                   ...draft.artifactBindings,
                   {
+                    id: crypto.randomUUID(),
                     artifactResourceId: hubArtifacts[0]?.resourceId ?? '',
                     slot: 'default',
                     updatePolicy: 'replace',
@@ -511,7 +512,7 @@ function AutomationEditDrawer({
             aria-label={t('ui.close')}
             className="text-[var(--dome-text-muted)]"
           >
-            <X className="w-4 h-4" aria-hidden />
+            <X className="size-4" aria-hidden />
           </DomeButton>
         </div>
       }
@@ -578,26 +579,27 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   const [hubArtifacts, setHubArtifacts] = useState<Array<{ resourceId: string; title: string }>>([]);
 
   useEffect(() => {
-    if (formMode === 'hidden') return;
     let cancelled = false;
-    void (async () => {
-      try {
-        const res = await window.electron?.artifacts?.list(projectId);
-        if (cancelled) return;
-        if (res?.success && Array.isArray(res.data)) {
-          setHubArtifacts(
-            res.data.map((a) => ({
-              resourceId: a.resourceId,
-              title: (a.title && String(a.title).trim()) ? String(a.title) : a.resourceId,
-            })),
-          );
-        } else {
-          setHubArtifacts([]);
+    if (formMode !== 'hidden') {
+      void (async () => {
+        try {
+          const res = await window.electron?.artifacts?.list(projectId);
+          if (cancelled) return;
+          if (res?.success && Array.isArray(res.data)) {
+            setHubArtifacts(
+              res.data.map((a) => ({
+                resourceId: a.resourceId,
+                title: (a.title && String(a.title).trim()) ? String(a.title) : a.resourceId,
+              })),
+            );
+          } else {
+            setHubArtifacts([]);
+          }
+        } catch {
+          if (!cancelled) setHubArtifacts([]);
         }
-      } catch {
-        if (!cancelled) setHubArtifacts([]);
-      }
-    })();
+      })();
+    }
     return () => {
       cancelled = true;
     };
@@ -609,20 +611,20 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   }, [initialFilter]);
 
   useEffect(() => {
+    let cancelled = false;
     if (appProject?.id === projectId) {
       setScopeProjectName(appProject.name ?? null);
-      return;
+    } else {
+      void (async () => {
+        try {
+          const res = await window.electron?.db?.projects?.getById(projectId);
+          if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
+          else if (!cancelled) setScopeProjectName(null);
+        } catch {
+          if (!cancelled) setScopeProjectName(null);
+        }
+      })();
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await window.electron?.db?.projects?.getById(projectId);
-        if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
-        else if (!cancelled) setScopeProjectName(null);
-      } catch {
-        if (!cancelled) setScopeProjectName(null);
-      }
-    })();
     return () => {
       cancelled = true;
     };
@@ -866,7 +868,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
           />
         }
       >
-        <div className="max-w-2xl mx-auto px-6 py-6">
+        <div className="max-w-2xl mx-auto p-6">
           <AutomationEditDrawer
             draft={draft}
             agents={agents}
@@ -928,7 +930,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                 disabled={importingAutomationBundle}
                 onClick={() => handlePickAutomationImport()}
                 className="shrink-0 border-[var(--dome-border)] text-[var(--dome-text)]"
-                leftIcon={<Upload className="w-3 h-3" aria-hidden />}
+                leftIcon={<Upload className="size-3" aria-hidden />}
               >
                 {t('hubExport.import_automation')}
               </DomeButton>
@@ -949,7 +951,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                 data-ui-target="automations-hub-new"
                 onClick={handleNew}
                 className="shrink-0 !bg-[var(--dome-accent)] hover:!brightness-110"
-                leftIcon={<Plus className="w-3 h-3" aria-hidden />}
+                leftIcon={<Plus className="size-3" aria-hidden />}
               >
                 {t('automation.button_new')}
               </DomeButton>
@@ -980,7 +982,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
             <HubListState
               variant="empty"
               compact
-              icon={<Zap className="w-7 h-7" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />}
+              icon={<Zap className="size-7" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />}
               title={t('automation.no_automations')}
               description={t('automation.empty_list_hint')}
               action={
@@ -991,7 +993,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                   data-ui-target="automations-empty-create"
                   onClick={handleNew}
                   className="mt-1 !bg-[var(--dome-accent)]"
-                  leftIcon={<Plus className="w-3.5 h-3.5" aria-hidden />}
+                  leftIcon={<Plus className="size-3.5" aria-hidden />}
                 >
                   {t('automation.empty_create_cta')}
                 </DomeButton>
@@ -1058,7 +1060,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                           {desc ? <span className="min-w-0 max-w-full break-words">{targetLine}</span> : null}
                           <span className="inline-flex min-w-0 max-w-full flex-wrap items-center gap-x-1 gap-y-1">
                             {desc ? <span aria-hidden>·</span> : null}
-                            <Clock className="w-3 h-3 shrink-0" aria-hidden />
+                            <Clock className="size-3 shrink-0" aria-hidden />
                             <span className="min-w-0 break-words">
                               {t('automation.last_run')} {formatHubDate(a.lastRunAt, t('automation.never'))}
                             </span>
@@ -1084,7 +1086,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             aria-label={t('hubExport.title_export_automation')}
                             onClick={() => void handleExportAutomation(a)}
                           >
-                            <Download className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                            <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
                           </DomeButton>
                           <DomeButton
                             type="button"
@@ -1095,7 +1097,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             aria-label={t('automation.title_edit')}
                             onClick={() => handleEdit(a)}
                           >
-                            <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                            <Pencil className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
                           </DomeButton>
                           <DomeButton
                             type="button"
@@ -1108,9 +1110,9 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             onClick={() => void handleRun(a.id)}
                           >
                             {runningId === a.id ? (
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                              <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
                             ) : (
-                              <Play className="w-3.5 h-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+                              <Play className="size-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
                             )}
                           </DomeButton>
                           <DomeButton
@@ -1123,7 +1125,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             className="!text-[var(--error)] hover:!bg-[var(--error-bg)]"
                             onClick={() => void handleDelete(a.id)}
                           >
-                            <Trash2 className="w-3.5 h-3.5" aria-hidden />
+                            <Trash2 className="size-3.5" aria-hidden />
                           </DomeButton>
                         </div>
                       }

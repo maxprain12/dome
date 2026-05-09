@@ -19,10 +19,10 @@ export default function PdfRegionBanner({ pending, onDismiss }: PdfRegionBannerP
       }}
     >
       <div
-        className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border"
+        className="size-14 shrink-0 overflow-hidden rounded-lg border"
         style={{ borderColor: 'var(--border)', background: 'var(--bg)' }}
       >
-        <img src={pending.imageDataUrl} alt="" className="h-full w-full object-contain" />
+        <img src={pending.imageDataUrl} alt="" className="size-full object-contain" />
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-[13px] font-medium text-[var(--primary-text)]">{t('many.pdf_region_banner_title')}</p>

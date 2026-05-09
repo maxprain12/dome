@@ -10,8 +10,8 @@ export interface DomeIconBoxProps extends HTMLAttributes<HTMLDivElement> {
 }
 
 const boxSize: Record<DomeIconBoxSize, string> = {
-  sm: 'w-7 h-7 rounded-md',
-  md: 'w-8 h-8 rounded-lg',
+  sm: 'size-7 rounded-md',
+  md: 'size-8 rounded-lg',
 };
 
 /**

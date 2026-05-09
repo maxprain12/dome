@@ -54,7 +54,7 @@ export default memo(function FolderColorPicker({ value, onSave }: FolderColorPic
             key={color}
             type="button"
             onClick={() => setLocalColor(color)}
-            className="w-6 h-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+            className="size-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{
               backgroundColor: color,
               borderColor:
@@ -69,7 +69,7 @@ export default memo(function FolderColorPicker({ value, onSave }: FolderColorPic
       </div>
       <div className="flex items-center gap-2 mb-2">
         <div
-          className="w-8 h-8 rounded border shrink-0"
+          className="size-8 rounded border shrink-0"
           style={{
             backgroundColor: localColor,
             borderColor: 'var(--border)',

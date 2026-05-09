@@ -56,7 +56,7 @@ export default function WindowControls() {
         style={{ color: 'var(--dome-text)' }}
         aria-label="Minimizar"
       >
-        <Minus className="w-4 h-4" strokeWidth={2.5} />
+        <Minus className="size-4" strokeWidth={2.5} />
       </button>
       <button
         type="button"
@@ -65,7 +65,7 @@ export default function WindowControls() {
         style={{ color: 'var(--dome-text)' }}
         aria-label="Maximizar"
       >
-        <Square className="w-3.5 h-3.5" strokeWidth={2} fill="none" />
+        <Square className="size-3.5" strokeWidth={2} fill="none" />
       </button>
       <button
         type="button"
@@ -74,7 +74,7 @@ export default function WindowControls() {
         style={{ color: 'var(--dome-text)' }}
         aria-label="Cerrar"
       >
-        <X className="w-4 h-4" strokeWidth={2.5} />
+        <X className="size-4" strokeWidth={2.5} />
       </button>
     </div>
   );

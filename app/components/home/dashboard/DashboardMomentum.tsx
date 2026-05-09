@@ -28,13 +28,13 @@ function MiniStat({
       className="rounded-[20px] border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))]"
     >
       <span
-        className="flex h-8 w-8 items-center justify-center rounded-lg"
+        className="flex size-8 items-center justify-center rounded-lg"
         style={{
           background: `color-mix(in srgb, var(--dome-accent, var(--accent)) ${mix}, var(--dome-bg, var(--bg)))`,
           color: 'var(--dome-accent, var(--accent))',
         }}
       >
-        <Icon className="h-4 w-4 shrink-0" strokeWidth={2.5} />
+        <Icon className="size-4 shrink-0" strokeWidth={2.5} />
       </span>
       <div className="mt-2">
         {loading ? (

@@ -115,7 +115,7 @@ export default function SidePanel({
       }}
     >
       <div
-        className="flex flex-col gap-2 px-3 py-3 border-b shrink-0"
+        className="flex flex-col gap-2 p-3 border-b shrink-0"
         style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
       >
         <div className="flex items-center justify-between gap-2">
@@ -199,7 +199,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
     return (
       <div className="flex items-center justify-center h-full">
         <div
-          className="animate-spin w-5 h-5 border-2 border-current border-t-transparent rounded-full"
+          className="animate-spin size-5 border-2 border-current border-t-transparent rounded-full"
           style={{ color: 'var(--dome-text-muted)' }}
         />
       </div>

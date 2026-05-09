@@ -10,7 +10,7 @@ export function CalendarEventArtifact({ artifact }: { artifact: CalendarEventArt
       style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--accent) 6%, var(--bg-tertiary))' }}
     >
       <div className="flex items-center gap-2 min-w-0">
-        <Calendar className="w-4 h-4 shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
+        <Calendar className="size-4 shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
         <span className="font-semibold text-sm truncate" style={{ color: 'var(--primary-text)' }}>
           {artifact.title}
         </span>
@@ -42,7 +42,7 @@ export function FlashcardDeckArtifact({ artifact }: { artifact: FlashcardDeckArt
       style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
     >
       <div className="flex items-center gap-2">
-        <Layers className="w-4 h-4 shrink-0" style={{ color: 'var(--success)' }} aria-hidden />
+        <Layers className="size-4 shrink-0" style={{ color: 'var(--success)' }} aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-sm truncate" style={{ color: 'var(--primary-text)' }}>
             {artifact.title}

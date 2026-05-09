@@ -95,13 +95,13 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Plug2 className="w-4 h-4" style={{ color: 'var(--secondary-text)' }} />
+                  <Plug2 className="size-4" style={{ color: 'var(--secondary-text)' }} />
                   <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
                     {s.name}
                   </span>
                   {selectedSet.has(s.name) ? (
                     <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium" style={{ backgroundColor: 'var(--primary-subtle)', color: 'var(--accent)' }}>
-                      <CheckCircle2 className="w-3 h-3" />
+                      <CheckCircle2 className="size-3" />
                       Activo en este agente
                     </span>
                   ) : null}

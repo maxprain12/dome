@@ -16,18 +16,18 @@ function statusIcon(step: PersistentRunStep) {
     case 'queued':
     case 'pending':
     case 'waiting_approval':
-      return <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--accent)]" aria-hidden />;
+      return <Loader2 className="size-3.5 animate-spin text-[var(--accent)]" aria-hidden />;
     case 'completed':
     case 'done':
-      return <CheckCircle2 className="h-3.5 w-3.5 text-[var(--success)]" aria-hidden />;
+      return <CheckCircle2 className="size-3.5 text-[var(--success)]" aria-hidden />;
     case 'failed':
     case 'error':
     case 'cancelled':
-      return <XCircle className="h-3.5 w-3.5 text-[var(--error)]" aria-hidden />;
+      return <XCircle className="size-3.5 text-[var(--error)]" aria-hidden />;
     default: {
       const exhaustive: never = step.status;
       void exhaustive;
-      return <Circle className="h-3.5 w-3.5 text-[var(--tertiary-text)]" aria-hidden />;
+      return <Circle className="size-3.5 text-[var(--tertiary-text)]" aria-hidden />;
     }
   }
 }
@@ -72,7 +72,7 @@ export default function AgentRunTimeline({ steps, className }: AgentRunTimelineP
         aria-expanded={expanded}
       >
         <ChevronRight
-          className={cn('h-3.5 w-3.5 text-[var(--tertiary-text)] transition-transform', expanded && 'rotate-90')}
+          className={cn('size-3.5 text-[var(--tertiary-text)] transition-transform', expanded && 'rotate-90')}
           aria-hidden
         />
         <span className="text-[12px] font-semibold text-[var(--secondary-text)]">
@@ -93,7 +93,10 @@ export default function AgentRunTimeline({ steps, className }: AgentRunTimelineP
                 <p className="mt-1 line-clamp-3 text-[11px] leading-snug text-[var(--secondary-text)]">{step.content}</p>
               ) : null}
             </div>
-            <time className="mt-0.5 shrink-0 text-[10px] tabular-nums text-[var(--tertiary-text)]">
+            <time
+              suppressHydrationWarning
+              className="mt-0.5 shrink-0 text-[10px] tabular-nums text-[var(--tertiary-text)]"
+            >
               {new Date(step.updatedAt || step.createdAt).toLocaleTimeString(getDateTimeLocaleTag(), {
                 hour: '2-digit',
                 minute: '2-digit',

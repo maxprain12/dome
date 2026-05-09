@@ -15,6 +15,8 @@ export interface MCPToolConfig {
 
 export interface MCPServerConfig {
   name: string;
+  /** Stable row id for React lists in settings UI; strip before persisting. */
+  listRowId?: string;
   type: 'stdio' | 'http' | 'sse';
   command?: string;
   args?: string[];

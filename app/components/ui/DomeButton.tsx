@@ -91,7 +91,7 @@ const DomeButton = forwardRef<HTMLButtonElement, DomeButtonProps>(function DomeB
       {...rest}
     >
       {loading ? (
-        <Loader2 className={cn('shrink-0 animate-spin', size === 'xs' ? 'w-3 h-3' : 'w-4 h-4')} aria-hidden />
+        <Loader2 className={cn('shrink-0 animate-spin', size === 'xs' ? 'size-3' : 'size-4')} aria-hidden />
       ) : (
         <>
           {leftIcon}

@@ -113,9 +113,9 @@ export default function CreateDeckModal({ onClose, onCreated }: CreateDeckModalP
             className="btn btn-primary flex items-center gap-2"
           >
             {isCreating ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="size-4 animate-spin" />
             ) : (
-              <Plus className="w-4 h-4" />
+              <Plus className="size-4" />
             )}
             {t('flashcard.create_deck', 'Crear mazo')}
           </button>

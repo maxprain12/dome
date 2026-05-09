@@ -99,7 +99,7 @@ export default function GeneralSettings() {
               </DomeButton>
               {isSaved && (
                 <span className="flex items-center gap-1.5 text-xs animate-in fade-in text-[var(--accent)]">
-                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden />
+                  <CheckCircle2 className="size-3.5" aria-hidden />
                   {t('settings.general.saved')}
                 </span>
               )}

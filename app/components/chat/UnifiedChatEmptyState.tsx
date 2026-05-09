@@ -16,7 +16,7 @@ export const UnifiedChatEmptyState = memo(function UnifiedChatEmptyState({
 }: UnifiedChatEmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center h-full min-h-0 gap-4 text-center px-4 py-8">
-      <div className="w-14 h-14 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 bg-[var(--bg-secondary)] border border-[var(--border)]">
+      <div className="size-14 rounded-2xl overflow-hidden flex items-center justify-center shrink-0 bg-[var(--bg-secondary)] border border-[var(--border)]">
         {avatar}
       </div>
       <div className="min-w-0">

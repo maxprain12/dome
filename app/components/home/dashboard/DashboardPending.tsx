@@ -16,7 +16,7 @@ export function DashboardPending({
   const { t } = useTranslation();
 
   function iconFor(kind: PendingTodayItem['kind']) {
-    const cls = 'h-4 w-4 shrink-0';
+    const cls = 'size-4 shrink-0';
     switch (kind) {
       case 'flashcards':
         return <WalletCards className={cls} strokeWidth={2} aria-hidden />;
@@ -85,7 +85,7 @@ export function DashboardPending({
                 }}
               >
                 <span
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+                  className="flex size-9 shrink-0 items-center justify-center rounded-lg"
                   style={{
                     background: 'var(--dome-bg, var(--bg))',
                     color: 'var(--dome-accent, var(--accent))',
@@ -104,7 +104,7 @@ export function DashboardPending({
                   ) : null}
                 </div>
                 <ChevronRight
-                  className="h-4 w-4 shrink-0"
+                  className="size-4 shrink-0"
                   style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
                   aria-hidden
                 />

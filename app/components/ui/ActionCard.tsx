@@ -41,7 +41,7 @@ export default function ActionCard({
       }}
     >
       <Icon
-        className="h-5 w-5 shrink-0"
+        className="size-5 shrink-0"
         strokeWidth={1.5}
         style={{ color: isPrimary ? 'var(--base-text)' : 'var(--dome-accent)' }}
       />

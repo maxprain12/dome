@@ -60,7 +60,7 @@ export function DashboardQuickActions({
               variant={isPrimary ? 'primary' : 'outline'}
               size="md"
               className="h-auto min-h-[4.25rem] w-full justify-start gap-3 py-3.5 text-left"
-              leftIcon={<Icon className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden />}
+              leftIcon={<Icon className="size-5 shrink-0" strokeWidth={2} aria-hidden />}
               onClick={() => onAction(id)}
             >
               <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
