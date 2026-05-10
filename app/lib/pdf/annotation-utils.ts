@@ -243,7 +243,7 @@ function renderNote(
 
   // Draw note border
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = resolveCssColor('var(--warning)') || 'var(--warning)';
+  ctx.strokeStyle = resolveCssColor('var(--warning)') ?? 'var(--warning)';
   ctx.lineWidth = 2;
   ctx.strokeRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
