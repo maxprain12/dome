@@ -18,7 +18,7 @@ interface AnnotationLayerProps {
   annotations: PDFAnnotation[];
   activeTool: AnnotationType | null;
   color: string;
-  _strokeWidth: number;
+  strokeWidth: number;
   onAnnotationCreate: (annotation: Omit<PDFAnnotation, 'id'>) => void;
   onAnnotationSelect?: (annotation: PDFAnnotation | null) => void;
 }
@@ -30,7 +30,7 @@ export default function AnnotationLayer({
   annotations,
   activeTool,
   color,
-  _strokeWidth,
+  strokeWidth,
   onAnnotationCreate,
   onAnnotationSelect,
 }: AnnotationLayerProps) {
@@ -258,7 +258,7 @@ export default function AnnotationLayer({
           style: {
             color,
             opacity: 0.3,
-            strokeWidth: _strokeWidth,
+            strokeWidth,
           },
           selectedText: selectedText || undefined,
         };
@@ -276,7 +276,7 @@ export default function AnnotationLayer({
       startPoint,
       pageIndex,
       color,
-      _strokeWidth,
+      strokeWidth,
       onAnnotationCreate,
       getCanvasCoordinates,
       page,
