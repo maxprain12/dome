@@ -11,6 +11,8 @@ const HEX_TO_VAR_MAP: Record<string, string> = {
   '#596037': 'var(--accent)',
   '#A4AD7A': 'var(--accent)',
   '#E88585': 'var(--error)',
+  '#ef4444': 'var(--error)',
+  '#0ea5e9': 'var(--accent)',
 };
 
 function normalizeColor(color: string | undefined): string {
