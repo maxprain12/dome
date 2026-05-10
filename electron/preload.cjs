@@ -289,12 +289,6 @@ const ALLOWED_CHANNELS = {
     'ollama:generate-embedding',
     'ollama:generate-summary',
     'ollama:chat',
-    // Ollama Manager (Native Integration)
-    'ollama:manager:start',
-    'ollama:manager:stop',
-    'ollama:manager:status',
-    'ollama:manager:download',
-    'ollama:manager:versions',
     // Legacy vector DB / LanceDB IPC removed — semantic index is SQLite + Nomic (see `db:semantic:*`)
     // WhatsApp
     'whatsapp:status',
@@ -558,10 +552,6 @@ const ALLOWED_CHANNELS = {
     'tts:error',
     // Auto-updater events
     'updater:status',
-    // Ollama Manager events
-    'ollama:download-progress',
-    'ollama:server-log',
-    'ollama:status-changed',
     // Studio events
     'studio:outputCreated',
     // Deep link: open studio output from dome://studio/ID
@@ -1543,42 +1533,6 @@ const electronHandler = {
 
     // Chat
     chat: (messages, model) => ipcRenderer.invoke('ollama:chat', { messages, model }),
-
-    // Native Ollama Manager (binary management and lifecycle)
-    manager: {
-      // Start Ollama server (downloads if needed)
-      start: (version) => ipcRenderer.invoke('ollama:manager:start', version),
-
-      // Stop Ollama server
-      stop: () => ipcRenderer.invoke('ollama:manager:stop'),
-
-      // Get status
-      status: () => ipcRenderer.invoke('ollama:manager:status'),
-
-      // Download version without starting
-      download: (version) => ipcRenderer.invoke('ollama:manager:download', version),
-
-      // Get list of downloaded versions
-      versions: () => ipcRenderer.invoke('ollama:manager:versions'),
-
-      // Listen to download progress
-      onDownloadProgress: (callback) => {
-        ipcRenderer.on('ollama:download-progress', (event, data) => callback(data));
-        return () => ipcRenderer.removeAllListeners('ollama:download-progress');
-      },
-
-      // Listen to server logs
-      onServerLog: (callback) => {
-        ipcRenderer.on('ollama:server-log', (event, message) => callback(message));
-        return () => ipcRenderer.removeAllListeners('ollama:server-log');
-      },
-
-      // Listen to status changes
-      onStatusChanged: (callback) => {
-        ipcRenderer.on('ollama:status-changed', (event, status) => callback(status));
-        return () => ipcRenderer.removeAllListeners('ollama:status-changed');
-      },
-    },
   },
 
   // ============================================
