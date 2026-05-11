@@ -289,6 +289,12 @@ const ALLOWED_CHANNELS = {
     'ollama:generate-embedding',
     'ollama:generate-summary',
     'ollama:chat',
+    // Ollama manager (native integration)
+    'ollama:manager:start',
+    'ollama:manager:stop',
+    'ollama:manager:status',
+    'ollama:manager:download',
+    'ollama:manager:versions',
     // Legacy vector DB / LanceDB IPC removed — semantic index is SQLite + Nomic (see `db:semantic:*`)
     // WhatsApp
     'whatsapp:status',
