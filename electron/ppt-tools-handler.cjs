@@ -2,8 +2,8 @@
 /**
  * PPT Tools Handler - Main Process
  *
- * Provides functions to create, read, and export PowerPoint (PPTX) resources.
- * Uses document-generator (Python + python-pptx) for creation and extraction.
+ * PPTX creation: PptxGenJS (JSON spec in main process; agent scripts via Node runner).
+ * Slide text extraction: Python extract_ppt.py (venv).
  */
 
 const fs = require('fs');
@@ -43,24 +43,39 @@ function getFullPathForResource(resource) {
   return fs.existsSync(fullPath) ? fullPath : null;
 }
 
+function looksLikePythonPptScript(script) {
+  if (!script || typeof script !== 'string') return false;
+  const s = script;
+  return (
+    /from\s+pptx\s+import/i.test(s) ||
+    /\bimport\s+pptx\b/i.test(s) ||
+    /prs\.save\s*\(\s*os\.environ/i.test(s) ||
+    /\bpython-pptx\b/i.test(s)
+  );
+}
+
 /**
- * Create a new PPT resource from a JSON spec or Python/python-pptx script.
+ * Create a new PPT resource from a JSON spec or PptxGenJS script.
  * @param {string} projectId - Project ID
  * @param {string} title - Resource title
- * @param {Object} spec - { title, slides: [...] } (used when script is not provided)
- * @param {Object} [options] - { folder_id?, script? } - script: Python/python-pptx code
+ * @param {Object} spec - { title, slides: [...] } when script is not provided
+ * @param {Object} [options] - { folder_id?, script? }
  * @returns {Promise<Object>}
  */
 async function pptCreate(projectId, title, spec = {}, options = {}) {
   try {
     let result;
     if (options.script && typeof options.script === 'string') {
-      const isJsScript = /require\(['"]pptxgenjs['"]\)|new pptxgen\(|pptxGenJs/i.test(options.script);
-      result = isJsScript
-        ? await documentGenerator.generatePptFromNodeScript(options.script)
-        : await documentGenerator.generatePptFromPythonScript(options.script);
+      if (looksLikePythonPptScript(options.script)) {
+        return {
+          success: false,
+          error:
+            'Python/python-pptx is not supported for ppt_create. Use a PptxGenJS script (require("pptxgenjs"), await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })) or pass spec (JSON) without script.',
+        };
+      }
+      result = await documentGenerator.generatePptFromNodeScript(options.script);
     } else {
-      result = await documentGenerator.generatePpt(spec);
+      result = await documentGenerator.generatePptFromSpec(spec);
     }
     if (!result.success || !result.buffer) {
       return { success: false, error: result.error || 'Failed to generate PPT' };

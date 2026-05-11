@@ -29,8 +29,8 @@ import { buildManyFloatingPrompt, getPartOfDay } from '@/lib/prompts/loader';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
+import ManyMinimalStatusRow from './ManyMinimalStatusRow';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
-import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
@@ -1438,6 +1438,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         <UnifiedChatMessageArea
           ref={messagesContainerRef}
           className="many-panel-messages py-6"
+          dataSurface="many"
           style={{ paddingLeft: isFullscreen ? '10%' : '16px', paddingRight: isFullscreen ? '10%' : '16px' }}
         >
           {chatMessages.length === 0 && !streamingMessage && !pdfRegionStreamingMessage ? (
@@ -1473,16 +1474,22 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 <ChatMessageGroup
                   key={`group-${index}-${group[0]?.id || index}`}
                   className="many-message-group"
+                  surfaceVariant="many"
                   messages={group}
                   onRegenerate={handleRegenerate}
                 />
               ))}
               {isLoading && !streamingMessage ? (
-                <div className="flex gap-3 mt-5">
-                  <ManyAvatar size="sm" />
-                  <div className="flex items-center gap-2 rounded-2xl rounded-tl-md bg-[var(--bg-secondary)] px-4 py-3">
-                    <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                    <span className="text-[13px] text-[var(--secondary-text)]">{t('chat.analyzing')}</span>
+                <div className="flex gap-2 mt-5 many-message-group">
+                  <div className="w-8 shrink-0 flex justify-center">
+                    <ManyAvatar size="sm" />
+                  </div>
+                  <div
+                    className="many-thread-rule w-px shrink-0 self-stretch min-h-[2.5rem] bg-[var(--border)] opacity-45"
+                    aria-hidden
+                  />
+                  <div className="flex min-w-0 flex-1 items-center py-0.5">
+                    <ManyMinimalStatusRow label={t('chat.analyzing')} />
                   </div>
                 </div>
               ) : null}

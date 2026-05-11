@@ -5,9 +5,12 @@ import type { PersistentRunStep } from '@/lib/automations/api';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
+export type AgentTimelineSurfaceVariant = 'default' | 'many';
+
 interface AgentRunTimelineProps {
   steps: PersistentRunStep[];
   className?: string;
+  surfaceVariant?: AgentTimelineSurfaceVariant;
 }
 
 function statusIcon(step: PersistentRunStep) {
@@ -56,15 +59,18 @@ function statusLabelKey(status: PersistentRunStep['status']): string {
   }
 }
 
-export default function AgentRunTimeline({ steps, className }: AgentRunTimelineProps) {
+export default function AgentRunTimeline({ steps, className, surfaceVariant = 'default' }: AgentRunTimelineProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
 
   const visibleSteps = useMemo(() => (expanded ? steps : steps.slice(-4)), [expanded, steps]);
   if (steps.length === 0) return null;
 
+  const surfaceClass =
+    surfaceVariant === 'many' ? 'many-chat-timeline-root' : 'ai-surface-card';
+
   return (
-    <div className={cn('ai-surface-card w-full p-2', className)}>
+    <div className={cn(surfaceClass, 'w-full p-2', className)}>
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}

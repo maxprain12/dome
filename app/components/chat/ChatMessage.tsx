@@ -8,6 +8,7 @@ import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import AgentRunTimeline from './AgentRunTimeline';
+import ManyMinimalStatusRow from '@/components/many/ManyMinimalStatusRow';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { buildPdfRegionHandoff } from '@/lib/pdf/pdf-region-handoff';
@@ -46,6 +47,9 @@ export interface ChatMessageData {
   runSteps?: PersistentRunStep[];
 }
 
+/** Shared with ChatMessageGroup; `many` enables Many panel minimal skin */
+export type ChatSurfaceVariant = 'default' | 'many';
+
 interface ChatMessageProps {
   message: ChatMessageData;
   showAvatar?: boolean;
@@ -54,6 +58,7 @@ interface ChatMessageProps {
   onRegenerate?: () => void;
   onSaveAsNote?: (content: string) => void;
   onClickCitation?: (number: number) => void;
+  surfaceVariant?: ChatSurfaceVariant;
   className?: string;
 }
 
@@ -65,6 +70,7 @@ export default function ChatMessage({
   onRegenerate,
   onSaveAsNote,
   onClickCitation,
+  surfaceVariant = 'default',
   className = '',
 }: ChatMessageProps) {
   const { i18n, t } = useTranslation();
@@ -295,10 +301,19 @@ export default function ChatMessage({
           <div className="w-full min-w-0 max-w-full space-y-1">
             {groupedToolCalls.map(({ name, calls }) =>
               calls.length === 1 ? (
-                <ChatToolCard key={calls[0].id} toolCall={calls[0]} />
+                <ChatToolCard
+                  key={calls[0].id}
+                  toolCall={calls[0]}
+                  surfaceVariant={surfaceVariant}
+                />
               ) : (
-                <ChatToolCardGroup key={name} name={name} calls={calls} />
-              )
+                <ChatToolCardGroup
+                  key={name}
+                  name={name}
+                  calls={calls}
+                  surfaceVariant={surfaceVariant}
+                />
+              ),
             )}
           </div>
         )}
@@ -310,7 +325,11 @@ export default function ChatMessage({
         ) : null}
 
         {isAssistant && message.runSteps && message.runSteps.length > 0 ? (
-          <AgentRunTimeline steps={message.runSteps} className="max-w-full" />
+          <AgentRunTimeline
+            steps={message.runSteps}
+            className="max-w-full"
+            surfaceVariant={surfaceVariant}
+          />
         ) : null}
 
         {!isUser && message.agentLabel ? (
@@ -344,13 +363,13 @@ export default function ChatMessage({
               className={`relative min-w-0 text-[14px] leading-relaxed ${isUser ? 'inline-block max-w-[88%]' : 'block w-full'}`}
               style={isUser ? {
                 background: 'transparent',
-                borderRight: '2px solid var(--border)',
-                padding: '2px 14px 2px 0',
+                borderRight: surfaceVariant === 'many' ? '1px solid var(--border)' : '2px solid var(--border)',
+                padding: surfaceVariant === 'many' ? '2px 12px 2px 0' : '2px 14px 2px 0',
                 color: 'var(--primary-text)',
               } : {
                 background: 'transparent',
-                borderLeft: '2px solid var(--border)',
-                padding: '2px 0 2px 14px',
+                borderLeft: surfaceVariant === 'many' ? '1px solid var(--border)' : '2px solid var(--border)',
+                padding: surfaceVariant === 'many' ? '2px 0 2px 12px' : '2px 0 2px 14px',
                 color: 'var(--primary-text)',
               }}
             >
@@ -406,10 +425,16 @@ export default function ChatMessage({
                   )}
                 </div>
               ) : message.isStreaming ? (
-                <div className="flex items-center gap-2">
-                  <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
-                  <span className="text-[13px] text-[var(--secondary-text)]">{message.streamingLabel || t('chat.processing')}</span>
-                </div>
+                surfaceVariant === 'many' ? (
+                  <ManyMinimalStatusRow label={message.streamingLabel || t('chat.processing')} />
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />
+                    <span className="text-[13px] text-[var(--secondary-text)]">
+                      {message.streamingLabel || t('chat.processing')}
+                    </span>
+                  </div>
+                )
               ) : null}
 
               {/* Streaming cursor */}
@@ -421,7 +446,7 @@ export default function ChatMessage({
               {isUser && message.content && (
                 <div
                   className="mt-1 text-right opacity-0 group-hover:opacity-100 transition-opacity"
-                  style={{ fontSize: '12px', color: 'var(--tertiary-text)' }}
+                  style={{ fontSize: surfaceVariant === 'many' ? '11px' : '12px', color: 'var(--tertiary-text)' }}
                 >
                   {formattedTime}
                 </div>
@@ -502,7 +527,7 @@ export default function ChatMessage({
                     </button>
                   ) : null}
                   <span
-                    className="ml-auto text-[10px]"
+                    className={`ml-auto ${surfaceVariant === 'many' ? 'text-[9px] opacity-70' : 'text-[10px]'}`}
                     style={{ color: 'var(--tertiary-text)' }}
                   >
                     {formattedTime}

@@ -1,7 +1,7 @@
 
 import { memo } from 'react';
 import { User } from 'lucide-react';
-import ChatMessage, { type ChatMessageData } from './ChatMessage';
+import ChatMessage, { type ChatMessageData, type ChatSurfaceVariant } from './ChatMessage';
 import ManyAvatar from '@/components/many/ManyAvatar';
 
 /**
@@ -17,6 +17,8 @@ interface ChatMessageGroupProps {
   assistantAvatarSrc?: string;
   /** Whether to show avatar. Default true */
   showAvatar?: boolean;
+  /** Visual skin for Many panel vs default agent chat */
+  surfaceVariant?: ChatSurfaceVariant;
   className?: string;
 }
 
@@ -26,6 +28,7 @@ export default memo(function ChatMessageGroup({
   onSaveAsNote,
   assistantAvatarSrc,
   showAvatar = true,
+  surfaceVariant = 'default',
   className = '',
 }: ChatMessageGroupProps) {
   const firstMessage = messages[0];
@@ -35,9 +38,12 @@ export default memo(function ChatMessageGroup({
   const role = firstMessage.role;
   const isUser = role === 'user';
   const isAssistant = role === 'assistant';
+  const showThreadRule = surfaceVariant === 'many' && isAssistant && showAvatar;
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''} ${className}`}>
+    <div
+      className={`flex ${isUser ? 'flex-row-reverse gap-3' : showThreadRule ? 'gap-2' : 'gap-3'} ${className}`}
+    >
       {/* Avatar - only for first message in group */}
       <div className={`flex-shrink-0 ${showAvatar ? 'w-8' : 'w-0 overflow-hidden'}`}>
         {isAssistant ? (
@@ -60,8 +66,15 @@ export default memo(function ChatMessageGroup({
         ) : null}
       </div>
 
+      {showThreadRule ? (
+        <div
+          className="many-thread-rule w-px shrink-0 self-stretch bg-[var(--border)] opacity-45"
+          aria-hidden
+        />
+      ) : null}
+
       {/* Messages */}
-      <div className={`flex-1 space-y-1 ${isUser ? 'items-end' : ''}`}>
+      <div className={`flex-1 space-y-1 min-w-0 ${isUser ? 'items-end' : ''}`}>
         {messages.map((message, index) => (
           <ChatMessage
             key={message.id}
@@ -69,6 +82,7 @@ export default memo(function ChatMessageGroup({
             showAvatar={false}
             isFirstInGroup={index === 0}
             isLastInGroup={index === messages.length - 1}
+            surfaceVariant={surfaceVariant}
             onRegenerate={
               isAssistant && index === messages.length - 1 && onRegenerate
                 ? () => onRegenerate(message.id)

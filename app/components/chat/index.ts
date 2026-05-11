@@ -5,8 +5,8 @@
  */
 
 export { default as ReadingIndicator } from './ReadingIndicator';
-export { default as ChatToolCard, type ToolCallData } from './ChatToolCard';
-export { default as ChatMessage, type ChatMessageData } from './ChatMessage';
+export { default as ChatMessage, type ChatMessageData, type ChatSurfaceVariant } from './ChatMessage';
+export { default as ChatToolCard, type ToolCallData, type ChatToolSurfaceVariant } from './ChatToolCard';
 export { default as ChatMessageGroup, groupMessagesByRole } from './ChatMessageGroup';
 export { default as MarkdownRenderer } from './MarkdownRenderer';
 export { default as CitationBadge } from './CitationBadge';
