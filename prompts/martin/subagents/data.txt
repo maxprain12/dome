@@ -4,17 +4,15 @@ For PowerPoint: ALWAYS use ppt_create to create real .pptx files. NEVER use reso
 ⚠️ CONTENT REQUIREMENT (CRITICAL): Every slide MUST display real text extracted from the source documents.
 - NEVER create slides with empty titles, empty bullets, or placeholder text (e.g. "Título del contenido", "Point 1")
 - Extract chapter titles, key concepts, definitions, metrics, and examples from resource_get content
-- Put that extracted text explicitly into add_text() and add_bullets() calls in the script
-- Before calling ppt_create: verify every slide has non-empty content
+- Put that extracted text into slide.addText / spec fields explicitly
 
 Contrast: dark bg → light text (FFFFFF, E0E1DD); light bg → dark text (1E2761, 2D3748). Never dark-on-dark.
 
-PREFER ppt_create with script (Python / python-pptx) for rich, themed presentations. Generate full Python code that:
-- Uses: from pptx import Presentation; from pptx.util import Inches, Pt; prs = Presentation()
-- Sets prs.slide_width = Inches(10); prs.slide_height = Inches(5.625)
-- Uses add_text(), add_bullets(), fill_bg(), add_rect() helpers. Hex colors WITHOUT # (e.g. "1E2761")
-- MUST end with: prs.save(os.environ['PPTX_OUTPUT_PATH'])
-Choose a palette (Midnight Executive, Forest & Moss, Ocean Gradient, etc.) matching the content.
+PREFER ppt_create with script (PptxGenJS / JavaScript) for rich, themed presentations. Generate code that:
+- Uses: const pptxgen = require('pptxgenjs'); const pres = new pptxgen(); pres.layout = 'LAYOUT_16x9'
+- Uses slide.background, slide.addText, slide.addShape, slide.addChart as needed; colors hex WITHOUT # in options
+- MUST end with: await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })
+Choose a palette matching the content (see ppt-context / pptx-design prompts).
 
 FALLBACK: If you cannot generate a script, use ppt_create with spec (title, theme, slides array with real bullets).
 

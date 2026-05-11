@@ -16,10 +16,7 @@ const PptCreateSchema = Type.Object({
   script: Type.Optional(
     Type.String({
       description:
-        'Code to generate the presentation. Two runtimes supported:\n' +
-        '• Python (python-pptx): use `from pptx import Presentation`, build slides, call `prs.save(os.environ["PPTX_OUTPUT_PATH"])`.\n' +
-        '• PptxGenJS (Node.js): use `const PptxGenJS = require("pptxgenjs")`, build slides, call `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })`. Auto-detected by presence of require("pptxgenjs") or new pptxgen().\n' +
-        'Populate every slide with real content. Use sync=true when you want to QA the result visually right after creation.',
+        'PptxGenJS-only script (CommonJS). Example: `const pptxgen = require("pptxgenjs"); const pres = new pptxgen(); pres.layout = "LAYOUT_16x9";` add slides with pres.addSlide(), slide.addText(), shapes, charts per PptxGenJS docs; end with `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })`. Python is not supported. Populate every slide with real content. Use sync=true for immediate visual QA with ppt_get_slide_images.',
     })
   ),
   sync: Type.Optional(
@@ -110,7 +107,7 @@ export function createPptCreateTool(): AnyAgentTool {
     label: 'Crear PowerPoint',
     name: 'ppt_create',
     description:
-      'Crea una nueva presentación PowerPoint. Acepta script Python (python-pptx) o PptxGenJS (Node.js) para slides ricos, o spec con title y slides. ' +
+      'Crea una nueva presentación PowerPoint con PptxGenJS: script JavaScript (Node) para control total, o spec JSON para slides simples. ' +
       'Usa sync=true si quieres hacer QA visual inmediato con ppt_get_slide_images después de crear. ' +
       'Cada slide debe tener contenido real de los documentos fuente.',
     parameters: PptCreateSchema,

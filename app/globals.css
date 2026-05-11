@@ -1125,6 +1125,64 @@ a:hover {
   contain-intrinsic-size: 0 80px;
 }
 
+/* Many minimal chat — subtle status dots + aligned tool/timeline surfaces */
+@keyframes manyMinimalDotPulse {
+
+  0%,
+  100% {
+    opacity: 0.38;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.many-panel-messages[data-surface="many"] .many-minimal-status-dots {
+  color: var(--secondary-text);
+}
+
+.many-panel-messages[data-surface="many"] .many-minimal-status-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
+  animation: manyMinimalDotPulse 1.05s ease-in-out infinite both;
+}
+
+.many-panel-messages[data-surface="many"] .many-minimal-status-dot:nth-child(1) {
+  animation-delay: 0ms;
+}
+
+.many-panel-messages[data-surface="many"] .many-minimal-status-dot:nth-child(2) {
+  animation-delay: 140ms;
+}
+
+.many-panel-messages[data-surface="many"] .many-minimal-status-dot:nth-child(3) {
+  animation-delay: 280ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .many-panel-messages[data-surface="many"] .many-minimal-status-dot {
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+.many-panel-messages[data-surface="many"] .many-chat-tool-root {
+  box-shadow: none;
+}
+
+.many-panel-messages[data-surface="many"] .many-chat-timeline-root {
+  background: color-mix(in srgb, var(--bg-secondary) 72%, transparent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
 
 /* ============================================
    FLASHCARD ANIMATIONS

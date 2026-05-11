@@ -48,9 +48,12 @@ export interface ToolCallData {
   error?: string;
 }
 
+export type ChatToolSurfaceVariant = 'default' | 'many';
+
 interface ChatToolCardProps {
   toolCall: ToolCallData;
   className?: string;
+  surfaceVariant?: ChatToolSurfaceVariant;
 }
 
 type ToolCategory = 'search' | 'file' | 'agent' | 'db' | 'mcp' | 'default';
@@ -411,7 +414,7 @@ function formatArgsSummary(args: Record<string, unknown>): string {
   return joined;
 }
 
-export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardProps) {
+export default function ChatToolCard({ toolCall, className = '', surfaceVariant = 'default' }: ChatToolCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showRawJson, setShowRawJson] = useState(false);
@@ -694,14 +697,17 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
 
   return (
     <div
-      className={className}
+      className={`${surfaceVariant === 'many' ? 'many-chat-tool-root' : ''} ${className}`.trim()}
       style={{
         minWidth: 0,
         maxWidth: '100%',
-        fontSize: 13,
-        borderLeft: `2px solid ${accentColor}`,
-        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
-        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
+        fontSize: surfaceVariant === 'many' ? 12 : 13,
+        borderLeft: `${surfaceVariant === 'many' ? 1 : 2}px solid ${accentColor}`,
+        borderRadius: surfaceVariant === 'many' ? '0 var(--radius-md) var(--radius-md) 0' : '0 var(--radius-lg) var(--radius-lg) 0',
+        background:
+          surfaceVariant === 'many'
+            ? 'color-mix(in srgb, var(--bg-secondary) 72%, transparent)'
+            : 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
         transition: 'background 150ms ease',
       }}
     >
@@ -727,13 +733,17 @@ export default function ChatToolCard({ toolCall, className = '' }: ChatToolCardP
             </div>
             <span className="flex flex-col min-w-0 flex-1">
               <span
-                className="text-[13px] font-semibold leading-snug"
+                className={`${surfaceVariant === 'many' ? 'text-[12px]' : 'text-[13px]'} font-semibold leading-snug`}
                 style={{ color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)' }}
               >
                 {label}
               </span>
               {argsSummary ? (
-                <span className="text-[12px] text-[var(--tertiary-text)] leading-snug mt-px truncate">
+                <span
+                  className={`text-[var(--tertiary-text)] leading-snug mt-px truncate ${
+                    surfaceVariant === 'many' ? 'text-[11px]' : 'text-[12px]'
+                  }`}
+                >
                   {argsSummary}
                 </span>
               ) : null}
@@ -770,9 +780,15 @@ interface ChatToolCardGroupProps {
   name: string;
   calls: ToolCallData[];
   className?: string;
+  surfaceVariant?: ChatToolSurfaceVariant;
 }
 
-export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardGroupProps) {
+export function ChatToolCardGroup({
+  name,
+  calls,
+  className = '',
+  surfaceVariant = 'default',
+}: ChatToolCardGroupProps) {
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const Icon = getIconForTool(name);
@@ -786,14 +802,17 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
 
   return (
     <div
-      className={className}
+      className={`${surfaceVariant === 'many' ? 'many-chat-tool-root' : ''} ${className}`.trim()}
       style={{
         minWidth: 0,
         maxWidth: '100%',
-        fontSize: 13,
-        borderLeft: `2px solid ${accentColor}`,
-        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
-        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
+        fontSize: surfaceVariant === 'many' ? 12 : 13,
+        borderLeft: `${surfaceVariant === 'many' ? 1 : 2}px solid ${accentColor}`,
+        borderRadius: surfaceVariant === 'many' ? '0 var(--radius-md) var(--radius-md) 0' : '0 var(--radius-lg) var(--radius-lg) 0',
+        background:
+          surfaceVariant === 'many'
+            ? 'color-mix(in srgb, var(--bg-secondary) 72%, transparent)'
+            : 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
         transition: 'background 150ms ease',
       }}
     >
@@ -814,7 +833,11 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
                 <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
               )}
             </div>
-            <span className="text-[13px] font-semibold text-[var(--secondary-text)] leading-snug">
+            <span
+              className={`${
+                surfaceVariant === 'many' ? 'text-[12px]' : 'text-[13px]'
+              } font-semibold text-[var(--secondary-text)] leading-snug`}
+            >
               {t('chat.tool_group_count', { label, count })}
             </span>
           </>
@@ -822,7 +845,7 @@ export function ChatToolCardGroup({ name, calls, className = '' }: ChatToolCardG
         panelClassName="!mt-0.5 !ml-2 !pl-3 border-l border-[var(--border)] flex flex-col gap-1"
       >
         {calls.map((tc) => (
-          <ChatToolCard key={tc.id} toolCall={tc} />
+          <ChatToolCard key={tc.id} toolCall={tc} surfaceVariant={surfaceVariant} />
         ))}
       </DomeCollapsibleRow>
     </div>
