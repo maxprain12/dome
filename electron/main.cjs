@@ -218,6 +218,7 @@ const ollamaService = require('./ollama-service.cjs');
 const { getOllamaManager, cleanupOllamaManagerIfLoaded } = require('./ollama-manager-lazy.cjs');
 const aiToolsHandler = require('./ai-tools-handler.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
+const docxToolsHandler = require('./docx-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
 const documentGenerator = require('./document-generator.cjs');
@@ -800,6 +801,7 @@ app
     database.initDatabase();
 
     excelToolsHandler.setWindowManager(windowManager);
+    docxToolsHandler.setWindowManager(windowManager);
     pptToolsHandler.setWindowManager(windowManager);
     aiToolsHandler.setWindowManager(windowManager);
 

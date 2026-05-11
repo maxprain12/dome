@@ -40,7 +40,7 @@ const SYSTEM_AGENTS = {
   },
   writer: {
     name: 'Writer Agent',
-    toolIds: ['resource_create', 'resource_update'],
+    toolIds: ['resource_create', 'resource_update', 'docx_create', 'docx_update'],
     systemPrompt: `Eres un agente escritor experto en creación de contenido estructurado y de alta calidad.
 - Redacta textos claros, coherentes y bien estructurados
 - Adapta el tono y estilo según el contexto

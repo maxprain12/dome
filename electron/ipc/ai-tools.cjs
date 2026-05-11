@@ -569,6 +569,87 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
     }
   });
 
+  // Word (DOCX) tools
+  ipcMain.handle('ai:tools:docxGet', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.docxGet(resourceId, options || {});
+      toolTrace('docxGet', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxGet', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('docxGet', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxGet', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:docxGetFilePath', async (event, { resourceId }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.docxGetFilePath(resourceId);
+      toolTrace('docxGetFilePath', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxGetFilePath', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('docxGetFilePath', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxGetFilePath', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:docxCreate', async (event, { projectId, title, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.docxCreate(projectId, title, options || {});
+      toolTrace('docxCreate', { title }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxCreate', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('docxCreate', { title }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxCreate', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:docxUpdate', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.docxUpdate(resourceId, options || {});
+      toolTrace('docxUpdate', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxUpdate', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('docxUpdate', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxUpdate', false);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('ai:tools:docxDelete', async (event, { resourceId, options }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const result = await aiToolsHandler.docxDelete(resourceId, options || {});
+      toolTrace('docxDelete', { resourceId }, result);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxDelete', result?.success !== false);
+      return result;
+    } catch (error) {
+      toolTrace('docxDelete', { resourceId }, null, error);
+      broadcastToolAnalytics(windowManager, 'ai:tools:docxDelete', false);
+      return { success: false, error: error.message };
+    }
+  });
+
   // PPT tools
   ipcMain.handle('ai:tools:pptCreate', async (event, { projectId, title, spec, script, options }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {

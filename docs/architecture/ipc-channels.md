@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-10T18:36:32.737Z
+> Última generación: 2026-05-11T11:00:30.509Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -16,11 +16,16 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:234` |
 | `ai:testConnection` | `electron/ipc/ai.cjs:460` |
 | `ai:testWebSearch` | `electron/ipc/ai.cjs:540` |
-| `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:776` |
-| `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:802` |
-| `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:763` |
-| `ai:tools:calendarListEvents` | `electron/ipc/ai-tools.cjs:750` |
-| `ai:tools:calendarUpdateEvent` | `electron/ipc/ai-tools.cjs:789` |
+| `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:857` |
+| `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:883` |
+| `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:844` |
+| `ai:tools:calendarListEvents` | `electron/ipc/ai-tools.cjs:831` |
+| `ai:tools:calendarUpdateEvent` | `electron/ipc/ai-tools.cjs:870` |
+| `ai:tools:docxCreate` | `electron/ipc/ai-tools.cjs:605` |
+| `ai:tools:docxDelete` | `electron/ipc/ai-tools.cjs:637` |
+| `ai:tools:docxGet` | `electron/ipc/ai-tools.cjs:573` |
+| `ai:tools:docxGetFilePath` | `electron/ipc/ai-tools.cjs:589` |
+| `ai:tools:docxUpdate` | `electron/ipc/ai-tools.cjs:621` |
 | `ai:tools:excelAddRow` | `electron/ipc/ai-tools.cjs:508` |
 | `ai:tools:excelAddSheet` | `electron/ipc/ai-tools.cjs:524` |
 | `ai:tools:excelCreate` | `electron/ipc/ai-tools.cjs:540` |
@@ -31,25 +36,25 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:excelSetRange` | `electron/ipc/ai-tools.cjs:492` |
 | `ai:tools:flashcardCreate` | `electron/ipc/ai-tools.cjs:349` |
 | `ai:tools:getCurrentProject` | `electron/ipc/ai-tools.cjs:262` |
-| `ai:tools:getDocumentStructure` | `electron/ipc/ai-tools.cjs:818` |
+| `ai:tools:getDocumentStructure` | `electron/ipc/ai-tools.cjs:899` |
 | `ai:tools:getLibraryOverview` | `electron/ipc/ai-tools.cjs:280` |
 | `ai:tools:getRecentResources` | `electron/ipc/ai-tools.cjs:241` |
-| `ai:tools:getRelatedResources` | `electron/ipc/ai-tools.cjs:856` |
-| `ai:tools:imageDescribe` | `electron/ipc/ai-tools.cjs:680` |
+| `ai:tools:getRelatedResources` | `electron/ipc/ai-tools.cjs:937` |
+| `ai:tools:imageDescribe` | `electron/ipc/ai-tools.cjs:761` |
 | `ai:tools:importFileToLibrary` | `electron/ipc/ai-tools.cjs:397` |
 | `ai:tools:interactionList` | `electron/ipc/ai-tools.cjs:220` |
-| `ai:tools:linkResources` | `electron/ipc/ai-tools.cjs:837` |
-| `ai:tools:pdfExtractTables` | `electron/ipc/ai-tools.cjs:983` |
-| `ai:tools:pdfExtractText` | `electron/ipc/ai-tools.cjs:875` |
-| `ai:tools:pdfGetMetadata` | `electron/ipc/ai-tools.cjs:902` |
-| `ai:tools:pdfGetStructure` | `electron/ipc/ai-tools.cjs:929` |
-| `ai:tools:pdfRenderPage` | `electron/ipc/ai-tools.cjs:712` |
-| `ai:tools:pdfSummarize` | `electron/ipc/ai-tools.cjs:956` |
-| `ai:tools:pptCreate` | `electron/ipc/ai-tools.cjs:573` |
-| `ai:tools:pptExport` | `electron/ipc/ai-tools.cjs:664` |
-| `ai:tools:pptGetFilePath` | `electron/ipc/ai-tools.cjs:632` |
-| `ai:tools:pptGetSlideImages` | `electron/ipc/ai-tools.cjs:728` |
-| `ai:tools:pptGetSlides` | `electron/ipc/ai-tools.cjs:648` |
+| `ai:tools:linkResources` | `electron/ipc/ai-tools.cjs:918` |
+| `ai:tools:pdfExtractTables` | `electron/ipc/ai-tools.cjs:1064` |
+| `ai:tools:pdfExtractText` | `electron/ipc/ai-tools.cjs:956` |
+| `ai:tools:pdfGetMetadata` | `electron/ipc/ai-tools.cjs:983` |
+| `ai:tools:pdfGetStructure` | `electron/ipc/ai-tools.cjs:1010` |
+| `ai:tools:pdfRenderPage` | `electron/ipc/ai-tools.cjs:793` |
+| `ai:tools:pdfSummarize` | `electron/ipc/ai-tools.cjs:1037` |
+| `ai:tools:pptCreate` | `electron/ipc/ai-tools.cjs:654` |
+| `ai:tools:pptExport` | `electron/ipc/ai-tools.cjs:745` |
+| `ai:tools:pptGetFilePath` | `electron/ipc/ai-tools.cjs:713` |
+| `ai:tools:pptGetSlideImages` | `electron/ipc/ai-tools.cjs:809` |
+| `ai:tools:pptGetSlides` | `electron/ipc/ai-tools.cjs:729` |
 | `ai:tools:projectGet` | `electron/ipc/ai-tools.cjs:199` |
 | `ai:tools:projectList` | `electron/ipc/ai-tools.cjs:178` |
 | `ai:tools:resourceCreate` | `electron/ipc/ai-tools.cjs:299` |
@@ -62,7 +67,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceSearch` | `electron/ipc/ai-tools.cjs:52` |
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
-| `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:696` |
+| `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
 | `ai:webSearch` | `electron/ipc/ai.cjs:555` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
 | `artifact:delete` | `electron/ipc/artifacts.cjs:155` |

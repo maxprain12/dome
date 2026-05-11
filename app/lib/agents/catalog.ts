@@ -17,6 +17,7 @@ export interface ToolCatalogEntry {
     | 'graph'
     | 'notebook'
     | 'excel'
+    | 'documents'
     | 'ppt'
     | 'calendar'
     | 'marketplace'
@@ -280,6 +281,40 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     group: 'excel',
   },
 
+  // Word (DOCX)
+  {
+    id: 'docx_get',
+    label: 'DOCX Get',
+    description:
+      'Lee el contenido de un Word .docx de la biblioteca como texto plano o HTML (mammoth). Úsalo para resumir, citar o preparar ediciones.',
+    group: 'documents',
+  },
+  {
+    id: 'docx_get_file_path',
+    label: 'DOCX File Path',
+    description: 'Devuelve la ruta absoluta del .docx en el almacenamiento interno de Dome para scripts o herramientas externas.',
+    group: 'documents',
+  },
+  {
+    id: 'docx_create',
+    label: 'DOCX Create',
+    description:
+      'Crea un documento Word (.docx) en la biblioteca desde Markdown/HTML o bloques estructurados (párrafos y títulos). Ideal para informes, cartas y memorandos.',
+    group: 'documents',
+  },
+  {
+    id: 'docx_update',
+    label: 'DOCX Update',
+    description: 'Reemplaza por completo el archivo .docx o renombra el recurso; mismas opciones de contenido que docx_create.',
+    group: 'documents',
+  },
+  {
+    id: 'docx_delete',
+    label: 'DOCX Delete',
+    description: 'Elimina un .docx de la biblioteca tras confirmación explícita del usuario (confirm=true).',
+    group: 'documents',
+  },
+
   // PPT
   {
     id: 'ppt_create',
@@ -401,6 +436,7 @@ const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   graph: 'Grafo',
   notebook: 'Notebook',
   excel: 'Excel',
+  documents: 'Word (DOCX)',
   ppt: 'Slides',
   calendar: 'Calendario',
   marketplace: 'Marketplace',
@@ -423,6 +459,7 @@ export const TOOL_GROUP_ORDER: readonly ToolCatalogEntry['group'][] = [
   'graph',
   'notebook',
   'excel',
+  'documents',
   'ppt',
   'calendar',
 ] as const;

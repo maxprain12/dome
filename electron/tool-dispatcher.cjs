@@ -55,6 +55,11 @@ const TOOL_HANDLER_MAP = {
   excel_add_sheet: 'excelAddSheet',
   excel_create: 'excelCreate',
   excel_export: 'excelExport',
+  docx_get: 'docxGet',
+  docx_get_file_path: 'docxGetFilePath',
+  docx_create: 'docxCreate',
+  docx_update: 'docxUpdate',
+  docx_delete: 'docxDelete',
   ppt_create: 'pptCreate',
   ppt_get_file_path: 'pptGetFilePath',
   ppt_get_slides: 'pptGetSlides',
@@ -417,6 +422,59 @@ async function executeToolInMain(toolName, args, toolContext) {
         else result = await fn(rid, { format: args.format, sheet_name: args.sheet_name });
         break;
       }
+      case 'docxGet': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, { format: args.format, max_chars: args.max_chars });
+        break;
+      }
+      case 'docxGetFilePath': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
+        break;
+      }
+      case 'docxCreate': {
+        if (args.folder_id && automationProjectId) {
+          const fd = denyUnlessResourceInScope(args.folder_id);
+          if (fd) {
+            result = fd;
+            break;
+          }
+        }
+        result = await fn(automationProjectId || args.project_id || args.projectId, args.title, {
+          folder_id: args.folder_id,
+          body: args.body,
+          blocks: args.blocks,
+          markdown: args.markdown,
+          html: args.html,
+        });
+        break;
+      }
+      case 'docxUpdate': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else {
+          result = await fn(rid, {
+            title: args.title,
+            body: args.body,
+            blocks: args.blocks,
+            markdown: args.markdown,
+            html: args.html,
+          });
+        }
+        break;
+      }
+      case 'docxDelete': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid, { confirm: args.confirm === true || args.confirm === 'true' });
+        break;
+      }
       case 'pptCreate': {
         const opts = {};
         if (args.folder_id) {
@@ -664,6 +722,9 @@ function getToolDefsBySubagent() {
       'resource_create',
       'resource_update',
       'resource_delete',
+      'docx_create',
+      'docx_update',
+      'docx_delete',
       'artifact_create',
       'artifact_get',
       'artifact_list',
@@ -685,6 +746,8 @@ function getToolDefsBySubagent() {
       'excel_add_sheet',
       'excel_create',
       'excel_export',
+      'docx_get',
+      'docx_get_file_path',
       'ppt_create',
       'ppt_get_file_path',
       'ppt_get_slides',
@@ -1446,6 +1509,95 @@ function getAllToolDefinitions() {
             sheet_name: { type: 'string', description: 'Sheet to export' },
           },
           required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docx_get',
+        description:
+          'Read a Word .docx resource from the library: plain text (default) or HTML via mammoth. Use before editing or summarizing a report.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'DOCX resource ID' },
+            format: { type: 'string', description: "'text' or 'html'. Default: text" },
+            max_chars: { type: 'number', description: 'Max characters for text output' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docx_get_file_path',
+        description: 'Get absolute disk path of a Word .docx in the library (for external tooling).',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'DOCX resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docx_create',
+        description:
+          'Create a new Word .docx in the library. Pass markdown or html for rich layout (html-to-docx), or body/blocks for structured docx-js output (US Letter, Arial). Plain text files: use resource_create (note) or import_file_to_library.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string', description: 'Project ID (default: current)' },
+            folder_id: { type: 'string', description: 'Optional folder ID' },
+            title: { type: 'string', description: 'Resource title' },
+            body: { type: 'string', description: 'Plain text; paragraphs separated by blank line' },
+            blocks: {
+              type: 'array',
+              description: 'Structured blocks: { type: paragraph|heading, text, level? }',
+              items: { type: 'object' },
+            },
+            markdown: { type: 'string', description: 'Full Markdown → DOCX' },
+            html: { type: 'string', description: 'Full HTML → DOCX' },
+          },
+          required: ['title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docx_update',
+        description:
+          'Replace the .docx file and/or rename the resource. Same content options as docx_create (markdown, html, body, blocks).',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'DOCX resource ID' },
+            title: { type: 'string', description: 'New visible title' },
+            body: { type: 'string', description: 'Plain text body' },
+            blocks: { type: 'array', items: { type: 'object' } },
+            markdown: { type: 'string' },
+            html: { type: 'string' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'docx_delete',
+        description: 'Delete a Word .docx from the library. Requires confirm=true after user consent.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'DOCX resource ID' },
+            confirm: { type: 'boolean', description: 'Must be true' },
+          },
+          required: ['resource_id', 'confirm'],
         },
       },
     },
