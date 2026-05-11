@@ -115,6 +115,7 @@
     "d3-zoom": "^3.0.0",
     "date-fns": "^4.1.0",
     "diff": "^8.0.4",
+    "docx": "^9.6.1",
     "dompurify": "^3.4.1",
     "driver.js": "^1.4.0",
     "electron-ollama": "^0.1.25",

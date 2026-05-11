@@ -379,6 +379,12 @@ const ALLOWED_CHANNELS = {
     'ai:tools:excelAddSheet',
     'ai:tools:excelCreate',
     'ai:tools:excelExport',
+    // AI Tools — Word (DOCX)
+    'ai:tools:docxGet',
+    'ai:tools:docxGetFilePath',
+    'ai:tools:docxCreate',
+    'ai:tools:docxUpdate',
+    'ai:tools:docxDelete',
     // AI Tools - PPT
     'ai:tools:pptCreate',
     'ai:tools:pptGetFilePath',
@@ -1411,6 +1417,16 @@ const electronHandler = {
         ipcRenderer.invoke('ai:tools:excelCreate', { projectId, title, options }),
       excelExport: (resourceId, options) =>
         ipcRenderer.invoke('ai:tools:excelExport', { resourceId, options }),
+      docxGet: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:docxGet', { resourceId, options }),
+      docxGetFilePath: (resourceId) =>
+        ipcRenderer.invoke('ai:tools:docxGetFilePath', { resourceId }),
+      docxCreate: (projectId, title, options) =>
+        ipcRenderer.invoke('ai:tools:docxCreate', { projectId, title, options }),
+      docxUpdate: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:docxUpdate', { resourceId, options }),
+      docxDelete: (resourceId, options) =>
+        ipcRenderer.invoke('ai:tools:docxDelete', { resourceId, options }),
       // PPT tools
       pptCreate: (projectId, title, spec, options) =>
         ipcRenderer.invoke('ai:tools:pptCreate', { projectId, title, spec, script: options?.script, options }),

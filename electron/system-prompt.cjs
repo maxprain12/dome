@@ -77,7 +77,7 @@ Use when user says "crea un agente", "necesito un asistente de...", "make me an 
   - Research agents: web_search, web_fetch, resource_search
   - Writing agents: resource_create, resource_update, resource_search
   - Productivity agents: calendar_*, resource_create
-  - Analysis agents: resource_semantic_search, resource_get, excel_*
+  - Analysis agents: resource_semantic_search, resource_get, excel_*, docx_*
 - **IMPORTANT**: Only include tools the agent will actually use. Too many tools confuse the agent.
 - Example for "Noticiero" (HN news briefing): systemInstructions = "Eres Noticiero. Buscas las últimas noticias en https://news.ycombinator.com, seleccionas las más interesantes y creas una nota tipo briefing con lo más relevante. Usa web_fetch para HN y resource_create para la nota." toolIds = ["web_fetch", "resource_create"] — without these tools the agent cannot fetch HN or create the note.
 - After calling the tool, ALWAYS respond with a created_entity artifact:

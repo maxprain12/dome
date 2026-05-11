@@ -23,6 +23,7 @@ const documentExtractor = require('./document-extractor.cjs');
 const docxConverter = require('./docx-converter.cjs');
 const webScraper = require('./web-scraper.cjs');
 const excelToolsHandler = require('./excel-tools-handler.cjs');
+const docxToolsHandler = require('./docx-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('./calendar-service.cjs');
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
@@ -2837,6 +2838,14 @@ async function importFileToLibrary(args = {}) {
       // Determine resource type
       let effectiveType = 'note';
       if (ext === '.pdf' || mime_type?.includes('pdf')) effectiveType = 'pdf';
+      else if (
+        ext === '.docx'
+        || ext === '.doc'
+        || mime_type?.includes('wordprocessingml')
+        || mime_type?.includes('msword')
+      ) {
+        effectiveType = 'document';
+      }
 
       const importResult = await fileStorage.importFile(tempPath, effectiveType);
 
@@ -2857,6 +2866,8 @@ async function importFileToLibrary(args = {}) {
       try {
         if (effectiveType === 'pdf') {
           contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
+        } else if (effectiveType === 'document' && (ext === '.docx' || ext === '.doc')) {
+          contentText = await documentExtractor.extractDocxText(fullPath, 50000);
         } else if (effectiveType === 'note') {
           contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
         }
@@ -3679,6 +3690,13 @@ module.exports = {
   excelAddSheet: excelToolsHandler.excelAddSheet,
   excelCreate: excelToolsHandler.excelCreate,
   excelExport: excelToolsHandler.excelExport,
+
+  // DOCX tools
+  docxGet: docxToolsHandler.docxGet,
+  docxGetFilePath: docxToolsHandler.docxGetFilePath,
+  docxCreate: docxToolsHandler.docxCreate,
+  docxUpdate: docxToolsHandler.docxUpdate,
+  docxDelete: docxToolsHandler.docxDelete,
 
   // PPT tools
   pptCreate: pptToolsHandler.pptCreate,

@@ -1304,6 +1304,56 @@ declare global {
             resourceId: string,
             options?: { format?: string; sheet_name?: string }
           ) => Promise<{ success: boolean; data?: string; format?: string; error?: string }>;
+          docxGet: (
+            resourceId: string,
+            options?: { format?: 'text' | 'html'; max_chars?: number }
+          ) => Promise<{
+            success: boolean;
+            resource_id?: string;
+            title?: string;
+            text?: string;
+            html?: string;
+            format?: string;
+            messages?: unknown[];
+            error?: string;
+          }>;
+          docxGetFilePath: (
+            resourceId: string
+          ) => Promise<{ success: boolean; file_path?: string; resource_id?: string; title?: string; error?: string }>;
+          docxCreate: (
+            projectId: string,
+            title: string,
+            options?: {
+              folder_id?: string;
+              body?: string;
+              blocks?: Array<{ type: string; text: string; level?: number }>;
+              markdown?: string;
+              html?: string;
+            }
+          ) => Promise<{
+            success: boolean;
+            resource?: { id: string; title: string; type: string; project_id: string };
+            error?: string;
+          }>;
+          docxUpdate: (
+            resourceId: string,
+            options?: {
+              title?: string;
+              body?: string;
+              blocks?: Array<{ type: string; text: string; level?: number }>;
+              markdown?: string;
+              html?: string;
+            }
+          ) => Promise<{ success: boolean; resource_id?: string; title?: string; error?: string }>;
+          docxDelete: (
+            resourceId: string,
+            options?: { confirm?: boolean }
+          ) => Promise<{
+            success: boolean;
+            deleted?: { id: string; title: string; type: string };
+            status?: string;
+            error?: string;
+          }>;
           pptCreate: (
             projectId: string,
             title: string,

@@ -204,6 +204,16 @@ export {
   createExcelTools,
 } from './excel-tools';
 
+// Tools - DOCX (Word)
+export {
+  createDocxGetTool,
+  createDocxGetFilePathTool,
+  createDocxCreateTool,
+  createDocxUpdateTool,
+  createDocxDeleteTool,
+  createDocxTools,
+} from './docx-tools';
+
 // Tools - Memory
 export {
   createMemorySearchTool,
@@ -321,6 +331,7 @@ import { createDeepResearchTools } from './deep-research';
 import { createGraphTools } from './graph-tools';
 import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
+import { createDocxTools } from './docx-tools';
 import { createPptTools } from './ppt-tools';
 import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
@@ -413,6 +424,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Excel tools (read/modify Excel resources)
   tools.push(...createExcelTools());
 
+  // Word (DOCX) tools
+  tools.push(...createDocxTools());
+
   // PPT tools (create/read PowerPoint presentations)
   tools.push(...createPptTools());
 
@@ -494,6 +508,9 @@ export function createManyToolsForContext(
 
   // Excel tools (always include - useful when user has spreadsheets)
   tools.push(...createExcelTools());
+
+  // Word (DOCX) tools
+  tools.push(...createDocxTools());
 
   // PPT tools (always include - useful when user has presentations or asks to create them)
   tools.push(...createPptTools());
