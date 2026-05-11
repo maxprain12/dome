@@ -44,7 +44,7 @@ export default function PDFHighlightsList({ annotations, onGoToPage }: PDFHighli
   const groupedByColor = useMemo(() => {
     const map = new Map<string, PDFAnnotation[]>();
     for (const h of highlights) {
-      const c = normalizeColor(h.style.color || 'var(--warning)');
+      const c = normalizeColor(h.style.color);
       const list = map.get(c) ?? [];
       list.push(h);
       map.set(c, list);
