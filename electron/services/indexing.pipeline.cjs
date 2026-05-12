@@ -5,8 +5,6 @@ const fs = require('fs');
 const {
   embedDocuments,
   embedQuery,
-  floatsToBlob,
-  blobToFloats,
   MODEL_VERSION,
   resetPipeline,
 } = require('./embeddings.service.cjs');
@@ -16,11 +14,33 @@ const fileStorage = require('../file-storage.cjs');
 const cloudLlm = require('./cloud-llm.service.cjs');
 const cloudLlmTasks = require('./cloud-llm-tasks.cjs');
 const { extractPdfTextWithCloud } = require('./pdf-transcription.cjs');
+const lancedb = require('./lancedb-semantic.cjs');
 
 const DEFAULT_THRESHOLD = 0.45;
 const TOP_K = 8;
 /** Límite de fragmentos por recurso para evitar OOM en embeddings / SQLite. */
 const MAX_CHUNKS_PER_RESOURCE = 5000;
+/** Máx. embeddings por recurso al calcular centroides (reindex de docs enormes + biblioteca grande). */
+const MAX_EMBEDDINGS_FOR_CENTROID = 384;
+/** Evita cargar notas/PDF enormes en un solo string antes del chunking (OOM del proceso). */
+const MAX_INDEXABLE_TEXT_CHARS = 6_000_000;
+
+/**
+ * @template T
+ * @param {T[]} items
+ * @returns {T[]}
+ */
+function sampleEvenlyForCentroid(items) {
+  if (!Array.isArray(items) || items.length <= MAX_EMBEDDINGS_FOR_CENTROID) return items;
+  const n = items.length;
+  const k = MAX_EMBEDDINGS_FOR_CENTROID;
+  const out = [];
+  for (let j = 0; j < k; j++) {
+    const idx = n <= 1 ? 0 : Math.min(n - 1, Math.floor((j * (n - 1)) / Math.max(1, k - 1)));
+    out.push(items[idx]);
+  }
+  return out;
+}
 
 /**
  * @param {Float32Array | null} a
@@ -167,8 +187,19 @@ function createIndexer(opts) {
     if (!text || source === 'empty') {
       queries.deleteChunksByResource.run(resourceId);
       queries.deleteSemanticAutoFromSource.run(resourceId);
+      try {
+        await lancedb.deleteChunksForResource(resourceId);
+      } catch (e) {
+        console.warn('[indexing.pipeline] lance delete (empty)', e?.message || e);
+      }
       finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, skipped: true, reason: 'empty_text' };
+    }
+
+    if (text.length > MAX_INDEXABLE_TEXT_CHARS) {
+      text =
+        text.slice(0, MAX_INDEXABLE_TEXT_CHARS) +
+        '\n\n[Dome: texto truncado para indexación por límite de tamaño]';
     }
 
     let chunks;
@@ -178,12 +209,22 @@ function createIndexer(opts) {
         assignPageNumbersFromMarkers(text, chunks);
       }
     } catch {
+      try {
+        await lancedb.deleteChunksForResource(resourceId);
+      } catch {
+        /* ignore */
+      }
       finalizeArtifactSearchSurface(queries, resource);
       return { ok: false, error: 'chunking_failed' };
     }
     if (chunks.length === 0) {
       queries.deleteChunksByResource.run(resourceId);
       queries.deleteSemanticAutoFromSource.run(resourceId);
+      try {
+        await lancedb.deleteChunksForResource(resourceId);
+      } catch (e) {
+        console.warn('[indexing.pipeline] lance delete (no chunks)', e?.message || e);
+      }
       finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, skipped: true, reason: 'no_chunks' };
     }
@@ -206,28 +247,35 @@ function createIndexer(opts) {
 
     queries.deleteChunksByResource.run(resourceId);
 
-    for (let i = 0; i < chunks.length; i++) {
-      const ch = chunks[i];
-      const vec = vectors[i];
-      const id = `${resourceId}#${i}`;
-      const blob = floatsToBlob(vec);
-      queries.insertResourceChunk.run(
-        id,
-        resourceId,
-        i,
-        ch.text,
-        blob,
-        MODEL_VERSION,
-        ch.char_start ?? null,
-        ch.char_end ?? null,
-        ch.page_number ?? null,
-        now,
-      );
+    const lanceRows = chunks.map((ch, i) => ({
+      chunk_index: i,
+      text: ch.text,
+      vector: vectors[i],
+      char_start: ch.char_start ?? -1,
+      char_end: ch.char_end ?? -1,
+      page_number: ch.page_number ?? -1,
+      res_title: String(resource.title || ''),
+      res_type: String(resource.type || ''),
+      project_id: String(resource.project_id || ''),
+    }));
+    try {
+      await lancedb.replaceResourceChunks(resourceId, lanceRows);
+      await lancedb.upsertLexForResource({
+        resource_id: resourceId,
+        title: String(resource.title || ''),
+        type: String(resource.type || ''),
+        project_id: resource.project_id,
+        content: String(resource.content || ''),
+      });
+    } catch (e) {
+      console.error('[indexing.pipeline] lance write', resourceId, e?.message || e);
+      finalizeArtifactSearchSurface(queries, resource);
+      return { ok: false, error: 'lance_write_failed', message: String(e?.message || e) };
     }
 
     queries.deleteSemanticAutoFromSource.run(resourceId);
 
-    const myCentroid = centroidL2Normalized(vectors);
+    const myCentroid = centroidL2Normalized(sampleEvenlyForCentroid(vectors));
     if (!myCentroid) {
       finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, count: 0, chunks: chunks.length, textSource: source };
@@ -235,20 +283,25 @@ function createIndexer(opts) {
 
     /** @type {{ targetId: string, sim: number }[]} */
     const relations = [];
-    const otherIds = queries.getDistinctChunkResourceIdsExcluding.all(MODEL_VERSION, resourceId);
-    for (const row of otherIds) {
-      const otherId = row.resource_id;
-      const embRows = queries.getChunkEmbeddingsByResourceForModel.all(otherId, MODEL_VERSION);
-      if (!embRows.length) continue;
-      /** @type {Float32Array[]} */
-      const ovecs = [];
-      for (const er of embRows) {
-        try {
-          ovecs.push(blobToFloats(er.embedding));
-        } catch {
-          /* skip */
-        }
+    let otherIds = [];
+    try {
+      otherIds = await lancedb.listIndexedResourceIdsExcluding(resourceId);
+    } catch (e) {
+      console.warn('[indexing.pipeline] lance list neighbors', e?.message || e);
+    }
+    let relScan = 0;
+    for (const otherId of otherIds) {
+      relScan += 1;
+      if (relScan % 48 === 0) {
+        await new Promise((r) => setImmediate(r));
       }
+      let ovecs = [];
+      try {
+        ovecs = await lancedb.sampleVectorsForCentroid(otherId, MAX_EMBEDDINGS_FOR_CENTROID);
+      } catch {
+        continue;
+      }
+      if (!ovecs.length) continue;
       const c = centroidL2Normalized(ovecs);
       if (!c) continue;
       const sim = dotNormalized(myCentroid, c);
@@ -302,10 +355,8 @@ function createIndexer(opts) {
    * @param {{ limit?: number, filter?: { type?: string[] } }} [options]
    */
   async function searchSemantic(query, options = {}) {
-    // TODO: cuando haya muchos miles de chunks, migrar a sqlite-vec / HNSW para evitar cosine O(n) en memoria.
     const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
     const filterTypes = options.filter?.type?.length ? new Set(options.filter.type) : null;
-    const queries = getQueries();
     const qVec = await embedQuery(query);
     let norm = 0;
     for (let i = 0; i < qVec.length; i++) norm += qVec[i] * qVec[i];
@@ -313,47 +364,12 @@ function createIndexer(opts) {
     if (norm < 1e-12) {
       return [];
     }
-
-    const rows = queries.getChunkRowsForSemanticSearch.all(MODEL_VERSION);
-    /** @type {{ resource_id: string, chunk_index: number, char_start: number | null, char_end: number | null, page_number: number | null, snippet: string, score: number, title: string, type: string }[]} */
-    const scored = [];
-
-    for (const row of rows) {
-      try {
-        const resType = String(row.res_type || 'note');
-        if (filterTypes && !filterTypes.has(resType)) continue;
-        const emb = blobToFloats(row.embedding);
-        let score = 0;
-        for (let i = 0; i < Math.min(qVec.length, emb.length); i++) score += qVec[i] * emb[i];
-        const pn = row.page_number != null ? Number(row.page_number) : null;
-        scored.push({
-          resource_id: row.resource_id,
-          chunk_index: row.chunk_index,
-          char_start: row.char_start,
-          char_end: row.char_end,
-          page_number: Number.isFinite(pn) ? pn : null,
-          snippet: String(row.text || '').slice(0, 400),
-          score,
-          title: row.res_title || 'Untitled',
-          type: resType,
-        });
-      } catch {
-        /* skip */
-      }
+    try {
+      return await lancedb.searchSemanticVector(qVec, limit, filterTypes);
+    } catch (e) {
+      console.error('[indexing.pipeline] searchSemantic lance', e?.message || e);
+      return [];
     }
-
-    scored.sort((a, b) => b.score - a.score);
-    const topPool = scored.slice(0, limit * 4);
-    /** @type {Map<string, typeof scored[0]>} */
-    const bestByResource = new Map();
-    for (const hit of topPool) {
-      const prev = bestByResource.get(hit.resource_id);
-      if (!prev || hit.score > prev.score) {
-        bestByResource.set(hit.resource_id, hit);
-      }
-    }
-    const merged = Array.from(bestByResource.values()).sort((a, b) => b.score - a.score);
-    return merged.slice(0, limit);
   }
 
   return {

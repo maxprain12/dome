@@ -33,12 +33,11 @@ function runEmbedExclusive(fn) {
 }
 
 /**
- * The ONNX session can SIGTRAP after many sequential inferences without a session reset
- * (same issue as consecutive reindexAll calls). Reset every N inferences to keep the
- * session fresh and prevent the crash.
+ * Reinicia la sesión ONNX cada N **lotes** dentro de `embedDocuments` (no por invocación
+ * al handler). Un solo documento con miles de chunks dispara cientos de `pipe()` seguidos;
+ * sin esto el runtime nativo puede SIGTRAP / crashear (reindexación masiva).
  */
-let _embedInvocationCount = 0;
-const PIPELINE_RESET_INTERVAL = 25;
+const PIPELINE_RESET_INTERVAL = 10;
 
 /**
  * @param {{ modelsDir: string }} opts
@@ -73,7 +72,6 @@ async function getPipeline() {
  */
 function resetPipeline() {
   _pipelinePromise = null;
-  _embedInvocationCount = 0;
 }
 
 /**
@@ -113,17 +111,23 @@ function tensorToRowVectors(tensor) {
  */
 async function embedDocuments(texts) {
   return runEmbedExclusive(async () => {
-    // Periodically reset the ONNX session to avoid the session-corruption SIGTRAP that
-    // occurs after many sequential inferences (same bug as consecutive reindexAll calls).
-    _embedInvocationCount += 1;
-    if (_embedInvocationCount % PIPELINE_RESET_INTERVAL === 0) {
-      resetPipeline();
+    const arr = texts || [];
+    const len = arr.length;
+    if (len === 0) {
+      return [];
     }
-    const pipe = await getPipeline();
-    const inputs = (texts || []).map((t) => `search_document: ${String(t ?? '')}`);
     const out = [];
-    for (let i = 0; i < inputs.length; i += EMBED_BATCH) {
-      const slice = inputs.slice(i, i + EMBED_BATCH);
+    let pipe = await getPipeline();
+    let batchIdx = 0;
+    for (let i = 0; i < len; i += EMBED_BATCH) {
+      if (batchIdx > 0 && batchIdx % PIPELINE_RESET_INTERVAL === 0) {
+        resetPipeline();
+        pipe = await getPipeline();
+      }
+      const slice = [];
+      for (let j = i; j < Math.min(i + EMBED_BATCH, len); j++) {
+        slice.push(`search_document: ${String(arr[j] ?? '')}`);
+      }
       let tensor;
       try {
         tensor = await pipe(slice, { pooling: 'mean', normalize: true });
@@ -132,6 +136,11 @@ async function embedDocuments(texts) {
         throw e;
       }
       out.push(...tensorToRowVectors(tensor));
+      batchIdx += 1;
+      // Deja respirar al bucle de Node / Electron entre lotes muy largos (OOM / UI freeze).
+      if (batchIdx % 16 === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     }
     return out;
   });

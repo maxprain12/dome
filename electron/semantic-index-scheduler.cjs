@@ -2,7 +2,7 @@
 'use strict';
 
 const { createIndexer, shouldIndexResourceType } = require('./services/indexing.pipeline.cjs');
-const { MODEL_VERSION } = require('./services/embeddings.service.cjs');
+const lancedb = require('./services/lancedb-semantic.cjs');
 
 /** @type {import('./services/indexing.pipeline.cjs').createIndexer extends (a: any) => infer R ? R : never} */
 let _indexer = null;
@@ -36,6 +36,24 @@ function getIndexer() {
  */
 function scheduleSemanticReindex(resourceId) {
   if (!resourceId || typeof resourceId !== 'string') return;
+  if (_database) {
+    try {
+      const row = _database.getQueries().getResourceById.get(resourceId);
+      if (row) {
+        void lancedb
+          .upsertLexForResource({
+            resource_id: resourceId,
+            title: String(row.title || ''),
+            type: String(row.type || ''),
+            project_id: row.project_id,
+            content: String(row.content || ''),
+          })
+          .catch(() => {});
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   const prev = _timers.get(resourceId);
   if (prev) {
     clearTimeout(prev);
@@ -72,6 +90,10 @@ function deleteSemanticIndexArtifacts(resourceId) {
     q.deleteChunksByResource.run(resourceId);
     q.deleteSemanticAutoFromSource.run(resourceId);
     q.deleteResourceTranscripts.run(resourceId);
+    void lancedb.deleteChunksForResource(resourceId).catch((e) => {
+      console.warn('[semantic-index-scheduler] lance delete', e?.message || e);
+    });
+    void lancedb.deleteLexForResource(resourceId).catch(() => {});
   } catch (e) {
     console.warn('[semantic-index-scheduler] deleteSemanticIndexArtifacts', e?.message || e);
   }
@@ -86,15 +108,17 @@ async function indexMissingResources() {
         `
       SELECT r.id FROM resources r
       WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')
-      AND NOT EXISTS (
-        SELECT 1 FROM resource_chunks c WHERE c.resource_id = r.id AND c.model_version = ?
-      )
       LIMIT 500
     `,
       )
-      .all(MODEL_VERSION);
+      .all();
     for (const row of rows) {
-      scheduleSemanticReindex(row.id);
+      try {
+        const n = await lancedb.countChunksForResource(row.id);
+        if (!n) scheduleSemanticReindex(row.id);
+      } catch {
+        scheduleSemanticReindex(row.id);
+      }
     }
   } catch (e) {
     console.warn('[semantic-index-scheduler] indexMissingResources', e?.message || e);

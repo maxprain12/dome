@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const kbShared = require('../kb-llm-shared.cjs');
 const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
+const lancedbSemantic = require('../services/lancedb-semantic.cjs');
 const autoMetadata = require('../auto-metadata.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
@@ -1357,7 +1358,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Unified search
-  ipcMain.handle('db:search:unified', (event, query) => {
+  ipcMain.handle('db:search:unified', async (event, query) => {
     // Validate and sanitize query BEFORE the try block so retry catch blocks can use it
     validateSender(event, windowManager);
     if (typeof query !== 'string') {
@@ -1386,8 +1387,28 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       const queries = database.getQueries();
 
-      // Search resources
-      const resourceResults = queries.searchResources.all(sanitizedQuery);
+      const rawTerms = query
+        .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')
+        .split(/\s+/)
+        .filter((t) => t.length > 0);
+      const lanceQuery = rawTerms.join(' ');
+
+      /** @type {any[]} */
+      let resourceResults = [];
+      if (lanceQuery) {
+        try {
+          const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, {});
+          for (const h of lexHits) {
+            const r = queries.getResourceById.get(h.id);
+            if (r) resourceResults.push(r);
+          }
+        } catch (le) {
+          console.warn('[DB] unified search Lance:', le?.message || le);
+        }
+      }
+      if (!resourceResults.length) {
+        resourceResults = queries.searchResources.all(sanitizedQuery);
+      }
 
       // Search interactions
       const interactionResults = queries.searchInteractions.all(sanitizedQuery);
@@ -1407,7 +1428,6 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
 
       // Search studio outputs (study materials) by title/content
-      const rawTerms = query.replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ').split(/\s+/).filter((t) => t.length > 0);
       let studioResults = [];
       if (rawTerms.length > 0) {
         try {

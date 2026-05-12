@@ -800,6 +800,15 @@ app
     // but we still need to ensure it's ready
     database.initDatabase();
 
+    const lancedbSemantic = require('./services/lancedb-semantic.cjs');
+    try {
+      await lancedbSemantic.init(app.getPath('userData'));
+      await lancedbSemantic.migrateChunksFromSqliteIfNeeded(database.getDB());
+      await lancedbSemantic.bootstrapLexFromSqliteIfNeeded(database.getDB());
+    } catch (lanceErr) {
+      console.error('[Main] LanceDB:', lanceErr?.message || lanceErr);
+    }
+
     excelToolsHandler.setWindowManager(windowManager);
     docxToolsHandler.setWindowManager(windowManager);
     pptToolsHandler.setWindowManager(windowManager);
@@ -855,8 +864,7 @@ app
       console.warn('[Main] DomeMCP auto-start check failed:', mcpErr?.message);
     }
 
-    // IMPORTANTE: Crear ventana PRIMERO para que la UI se muestre inmediatamente
-    // La inicializacion de LanceDB puede fallar o bloquearse con modulos nativos
+    // Crear ventana principal en cuanto la base de datos está lista (LanceDB ya se inicializó arriba).
     const mainWindow = await createWindow();
 
     // One-time background semantic chunk reindex (Nomic, migration 25+); non-blocking

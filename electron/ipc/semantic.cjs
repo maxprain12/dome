@@ -9,6 +9,7 @@ const {
   MODEL_VERSION,
 } = require('../services/embeddings.service.cjs');
 const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
+const lancedbSemantic = require('../services/lancedb-semantic.cjs');
 
 function register({ ipcMain, windowManager, validateSender }) {
   const modelsDir = path.join(app.getPath('userData'), 'transformers-cache');
@@ -208,15 +209,14 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:semantic:resourceHasChunks', (event, resourceId) => {
+  ipcMain.handle('db:semantic:resourceHasChunks', async (event, resourceId) => {
     try {
       validateSender(event, windowManager);
       if (typeof resourceId !== 'string' || !resourceId) {
         return { success: false, error: 'resourceId required' };
       }
-      const queries = database.getQueries();
-      const rows = queries.getChunksByResource.all(resourceId);
-      return { success: true, data: { count: rows.length, hasChunks: rows.length > 0 } };
+      const n = await lancedbSemantic.countChunksForResource(resourceId);
+      return { success: true, data: { count: n, hasChunks: n > 0 } };
     } catch (error) {
       console.error('[DB] semantic resourceHasChunks:', error);
       return { success: false, error: error.message };
@@ -242,16 +242,14 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:semantic:getIndexingStatus', (event) => {
+  ipcMain.handle('db:semantic:getIndexingStatus', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const indexableRow = queries.countSemanticIndexableResources.get();
-      const withChunksRow = queries.countResourcesWithSemanticChunks.get(MODEL_VERSION);
-      const chunksRow = queries.countSemanticChunksForModel.get(MODEL_VERSION);
       const indexableTotal = Number(indexableRow?.c ?? 0);
-      const indexedResourceCount = Number(withChunksRow?.c ?? 0);
-      const chunksTotal = Number(chunksRow?.c ?? 0);
+      const chunksTotal = await lancedbSemantic.countChunksForModel();
+      const indexedResourceCount = await lancedbSemantic.countIndexedResources();
       const pendingCount = Math.max(0, indexableTotal - indexedResourceCount);
       const allIndexed = indexableTotal === 0 || indexedResourceCount >= indexableTotal;
       return {
