@@ -440,6 +440,100 @@ async function getPdfFilePathFromResource(resourceId, database) {
   }
 }
 
+/**
+ * Load a PDF document once from disk. Returns { doc, numPages } for reuse across pages.
+ * Caller must call destroyPdfDocument(doc) when finished to free pdfjs internal resources.
+ * @param {string} filePath
+ * @returns {Promise<{ doc: any, numPages: number } | null>}
+ */
+async function openPdfDocument(filePath) {
+  if (!filePath || !fs.existsSync(filePath)) return null;
+  const pdfjs = await loadPdfJs();
+  if (!pdfjs?.getDocument) return null;
+  try {
+    const data = new Uint8Array(fs.readFileSync(filePath));
+    const loadingTask = pdfjs.getDocument({ data, disableFontFace: true, useSystemFonts: true });
+    const doc = await loadingTask.promise;
+    return { doc, numPages: doc.numPages };
+  } catch (error) {
+    console.error('[PDF Extractor] openPdfDocument:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Explicitly destroy a pdfjs document to free internal worker buffers.
+ * @param {any} pdfDoc
+ */
+async function destroyPdfDocument(pdfDoc) {
+  if (!pdfDoc) return;
+  try {
+    await pdfDoc.destroy();
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Render one PDF page to a PNG data URL from an already-loaded pdfDoc.
+ * Use openPdfDocument() once and pass the returned doc here for each page.
+ * @param {any} pdfDoc
+ * @param {number} pageNum
+ * @param {number} [scale]
+ * @returns {Promise<{ success: boolean, dataUrl?: string, error?: string }>}
+ */
+async function renderPdfPageFromDoc(pdfDoc, pageNum = 1, scale = 1.5) {
+  if (!pdfDoc) return { success: false, error: 'No pdfDoc provided' };
+
+  let createCanvas;
+  try {
+    createCanvas = require('@napi-rs/canvas').createCanvas;
+  } catch (e) {
+    return { success: false, error: 'Canvas not available: ' + (e?.message || e) };
+  }
+
+  try {
+    const p = Math.min(Math.max(1, pageNum), pdfDoc.numPages);
+    const page = await pdfDoc.getPage(p);
+    const viewport = page.getViewport({ scale });
+    const w = Math.max(1, Math.floor(viewport.width));
+    const h = Math.max(1, Math.floor(viewport.height));
+    const canvas = createCanvas(w, h);
+    const ctx = canvas.getContext('2d');
+    const renderTask = page.render({ canvasContext: ctx, viewport, canvas });
+    await renderTask.promise;
+    const buf = canvas.toBuffer('image/png');
+    const dataUrl = `data:image/png;base64,${buf.toString('base64')}`;
+    page.cleanup();
+    return { success: true, dataUrl };
+  } catch (error) {
+    console.error('[PDF Extractor] renderPdfPageFromDoc:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Extract text from a single page of an already-loaded pdfDoc.
+ * @param {any} pdfDoc
+ * @param {number} pageNum
+ * @param {number} [maxChars]
+ * @returns {Promise<string>}
+ */
+async function extractTextFromDocPage(pdfDoc, pageNum = 1, maxChars = 100000) {
+  if (!pdfDoc) return '';
+  try {
+    const p = Math.min(Math.max(1, pageNum), pdfDoc.numPages);
+    const page = await pdfDoc.getPage(p);
+    const textContent = await page.getTextContent();
+    const raw = textContent.items.map((item) => item.str || '').join(' ');
+    page.cleanup();
+    return raw.length > maxChars ? raw.slice(0, maxChars) : raw;
+  } catch (error) {
+    console.error('[PDF Extractor] extractTextFromDocPage page', pageNum, error.message);
+    return '';
+  }
+}
+
 module.exports = {
   extractPdfText,
   getPdfMetadata,
@@ -448,4 +542,8 @@ module.exports = {
   extractPdfTables,
   getPdfFilePathFromResource,
   renderPdfPagePngDataUrl,
+  openPdfDocument,
+  destroyPdfDocument,
+  renderPdfPageFromDoc,
+  extractTextFromDocPage,
 };
