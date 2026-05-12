@@ -9,6 +9,10 @@
  * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
  * human approval. Uses a durable SqliteSaver checkpointer so pending
  * interrupts survive app restarts (see ./checkpointer.cjs).
+ *
+ * Streaming follows LangGraph JS `Pregel.stream` semantics (multi `streamMode`,
+ * optional `subgraphs`). See:
+ * https://docs.langchain.com/oss/javascript/langgraph/streaming
  */
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
@@ -93,8 +97,39 @@ function getSharedCheckpointer() {
  */
 const RECURSION_LIMIT = 100;
 
-/** Streamed modes used for every agent run. See LangGraph docs for shapes. */
-const STREAM_MODES = ['messages', 'updates', 'custom'];
+/** Default stream modes for every agent run (LangGraph `streamMode` array). */
+const STREAM_MODES_BASE = ['messages', 'updates', 'custom'];
+
+function streamModesForRun() {
+  const modes = [...STREAM_MODES_BASE];
+  if (process.env.DOME_LANGGRAPH_STREAM_DEBUG === '1') modes.push('debug');
+  return modes;
+}
+
+/**
+ * When `subgraphs: true` and multiple modes are requested, LangGraph yields
+ * `[namespace, mode, payload]`; otherwise `[mode, payload]`. Normalize so the
+ * rest of the pipeline stays mode-first.
+ * @param {unknown} raw
+ * @returns {{ namespace: string[] | null, mode: string, chunk: unknown } | null}
+ */
+function peelLangGraphStreamTuple(raw) {
+  if (!Array.isArray(raw) || raw.length < 2) return null;
+  if (raw.length >= 3) {
+    const [namespace, mode, chunk] = raw;
+    return {
+      namespace: Array.isArray(namespace) ? namespace : null,
+      mode: typeof mode === 'string' ? mode : String(mode),
+      chunk,
+    };
+  }
+  const [mode, chunk] = raw;
+  return {
+    namespace: null,
+    mode: typeof mode === 'string' ? mode : String(mode),
+    chunk,
+  };
+}
 
 /**
  * Node names that emit *top-level* assistant output we should forward to the
@@ -258,11 +293,25 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
   const traceStart = trace ? Date.now() : 0;
   const traceTag = trace ? `[LG ${(config?.configurable?.thread_id || '?').toString().slice(-8)}]` : '';
 
-  const stream = await agent.stream(input, { ...config, streamMode: STREAM_MODES });
-  for await (const [mode, chunk] of stream) {
+  const streamSubgraphs = process.env.DOME_LANGGRAPH_STREAM_SUBGRAPHS !== '0';
+  const streamModes = streamModesForRun();
+  const stream = await agent.stream(input, {
+    ...config,
+    streamMode: streamModes,
+    subgraphs: streamSubgraphs,
+  });
+  for await (const raw of stream) {
+    const peeled = peelLangGraphStreamTuple(raw);
+    if (!peeled) continue;
+    const { namespace: streamNamespace, mode, chunk } = peeled;
+
     if (trace) {
       const elapsed = Date.now() - traceStart;
       let preview = '';
+      const ns =
+        streamNamespace && streamNamespace.length > 0
+          ? streamNamespace.join('>')
+          : '';
       try {
         if (mode === 'messages') {
           const m = Array.isArray(chunk) ? chunk[0] : chunk;
@@ -274,9 +323,12 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
           preview = `nodes=${Object.keys(chunk || {}).join(',')}`;
         } else if (mode === 'custom') {
           preview = `custom ${chunk?.type || 'unknown'}`;
+        } else if (mode === 'debug') {
+          preview = `debug ${typeof chunk === 'object' && chunk ? Object.keys(chunk).slice(0, 5).join(',') : ''}`;
         }
       } catch { /* ignore preview errors */ }
-      console.log(`${traceTag} +${elapsed}ms mode=${mode} ${preview}`);
+      const nsBit = ns ? ` ns=${ns}` : '';
+      console.log(`${traceTag} +${elapsed}ms mode=${mode}${nsBit} ${preview}`);
     }
     if (mode === 'messages') {
       const msgChunk = Array.isArray(chunk) ? chunk[0] : chunk;
@@ -351,6 +403,14 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
       // through any well-shaped chunk so callers can render progress UI.
       if (chunk && typeof chunk === 'object' && typeof chunk.type === 'string' && onChunk) {
         onChunk(chunk);
+      }
+    } else if (mode === 'debug') {
+      if (process.env.DOME_LANGGRAPH_STREAM_DEBUG === '1') {
+        try {
+          const dbg = typeof chunk === 'object' && chunk !== null ? chunk : { value: chunk };
+          const prefix = trace ? traceTag : '[LG debug]';
+          console.log(prefix, JSON.stringify(dbg).slice(0, 800));
+        } catch { /* ignore */ }
       }
     }
   }
