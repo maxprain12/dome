@@ -284,7 +284,7 @@ export interface ResourceMetadata {
   url_type?: 'article' | 'youtube';
   scraped_content?: string;
   embedding?: number[];
-  /** Legacy: algunos flujos usaron 'done' en lugar de 'completed' */
+/** Legacy: algunos flujos usaron 'done' en lugar de 'completed' */
   processing_status?: 'pending' | 'processing' | 'completed' | 'failed' | 'done';
   processed_at?: number;
   screenshot_path?: string; // Path interno de la captura guardada
