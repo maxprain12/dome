@@ -2224,7 +2224,6 @@ function deepResearch(args) {
     message:
       `Research initiated on: "${topic}" at ${depth} depth. ` +
       'Create a research plan with subtopics, then use web_search and web_fetch tools to gather information. ' +
-      'For LangChain / LangSmith / Deep Agents official docs, call langchain_docs_index first (https://docs.langchain.com/llms.txt), then langchain_docs_fetch with URLs from that index. ' +
       'After gathering data, synthesize findings into a structured report with type: "deep_research".',
     topic,
     depth,
@@ -2245,33 +2244,6 @@ function deepResearch(args) {
       },
     },
   };
-}
-
-// =============================================================================
-// LangChain official documentation index (llms.txt)
-// =============================================================================
-
-const langchainDocs = require('./langchain-docs.cjs');
-
-async function langchainDocsIndex(args) {
-  try {
-    return await langchainDocs.getLangchainDocsIndex({
-      forceRefresh: Boolean(args?.force_refresh),
-      query: typeof args?.query === 'string' ? args.query : '',
-      maxLines: args?.max_lines,
-    });
-  } catch (e) {
-    return { status: 'error', error: e?.message || String(e) };
-  }
-}
-
-async function langchainDocsFetch(args) {
-  const url = typeof args?.url === 'string' ? args.url.trim() : '';
-  try {
-    return await langchainDocs.fetchLangchainDocsPage(url);
-  } catch (e) {
-    return { status: 'error', error: e?.message || String(e) };
-  }
 }
 
 // =============================================================================
@@ -3400,73 +3372,6 @@ async function shellExec(args) {
   });
 }
 
-/**
- * Run a shell command in an isolated @langchain/node-vfs sandbox (in-memory VFS + temp dir for execute).
- * Compatible with Deep Agents sandbox backends; requires user confirmation like shell_exec.
- * @param {{ command: string; initial_files?: Record<string, string>; timeout_ms?: number }} args
- */
-async function vfsSandboxExecute(args) {
-  const command = typeof args?.command === 'string' ? args.command.trim() : '';
-  if (!command) return { status: 'error', error: 'command is required' };
-
-  const win = windowManagerRef ? (windowManagerRef.getAll?.()[0] ?? null) : null;
-  try {
-    const { response } = await electronDialog.showMessageBox(win, {
-      type: 'warning',
-      title: 'Sandbox VFS',
-      message: `Ejecutar comando en sandbox VFS:\n$ ${command}`,
-      detail:
-        'VFS en memoria; la orden corre en un directorio temporal sincronizado (patrón LangChain node-vfs). ' +
-        'No es aislamiento de contenedor de producción.',
-      buttons: ['Cancelar', 'Ejecutar'],
-      defaultId: 1,
-      cancelId: 0,
-    });
-    if (response !== 1) return { status: 'cancelled', message: 'User cancelled execution' };
-  } catch (err) {
-    return { status: 'error', error: err?.message ? `Dialog error: ${err.message}` : String(err) };
-  }
-
-  let initialFiles;
-  if (args?.initial_files != null && typeof args.initial_files === 'object' && !Array.isArray(args.initial_files)) {
-    initialFiles = args.initial_files;
-  }
-
-  const timeoutMsRaw = args?.timeout_ms ?? args?.timeout;
-  const timeout =
-    typeof timeoutMsRaw === 'number' && Number.isFinite(timeoutMsRaw) && timeoutMsRaw > 0
-      ? Math.min(Math.floor(timeoutMsRaw), 120_000)
-      : 30_000;
-
-  let sandbox;
-  try {
-    const { VfsSandbox } = require('@langchain/node-vfs');
-    sandbox = await VfsSandbox.create({
-      ...(initialFiles ? { initialFiles } : {}),
-      timeout,
-    });
-    const result = await sandbox.execute(command);
-    const out = {
-      status: 'success',
-      command,
-      output: result?.output ?? '',
-      exit_code: result?.exitCode,
-      truncated: Boolean(result?.truncated),
-    };
-    await sandbox.stop();
-    return out;
-  } catch (e) {
-    if (sandbox) {
-      try {
-        await sandbox.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    return { status: 'error', error: e?.message || String(e) };
-  }
-}
-
 // =============================================================================
 // Artifact tools (LangGraph / main process — mirrors IPC artifact:* handlers)
 // =============================================================================
@@ -3847,9 +3752,6 @@ module.exports = {
   fileList,
   fileSearch,
   shellExec,
-  langchainDocsIndex,
-  langchainDocsFetch,
-  vfsSandboxExecute,
 
   // UI interaction tools
   uiPointTo,

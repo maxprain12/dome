@@ -32,7 +32,6 @@
     "check:ipc-inventory": "node scripts/generate-ipc-inventory.mjs --check",
     "check:ipc-zod": "node scripts/check-ipc-zod.mjs",
     "check:tool-coverage": "node scripts/verify-tool-coverage.mjs",
-    "langchain:vfs-smoke": "node scripts/langchain-vfs-smoke.cjs",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "tsx scripts/generate-icons.ts"

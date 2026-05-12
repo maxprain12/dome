@@ -43,9 +43,6 @@ const TOOL_HANDLER_MAP = {
   web_fetch: 'webFetch',
   web_search: 'webSearch',
   deep_research: 'deepResearch',
-  langchain_docs_index: 'langchainDocsIndex',
-  langchain_docs_fetch: 'langchainDocsFetch',
-  vfs_sandbox_execute: 'vfsSandboxExecute',
   excel_get: 'excelGet',
   excel_get_file_path: 'excelGetFilePath',
   excel_set_cell: 'excelSetCell',
@@ -699,14 +696,7 @@ function getToolDefsBySubagent() {
   }
   const pick = (...names) => names.map((n) => byName[n]).filter(Boolean);
   return {
-    research: pick(
-      'web_search',
-      'web_fetch',
-      'deep_research',
-      'langchain_docs_index',
-      'langchain_docs_fetch',
-      'vfs_sandbox_execute',
-    ),
+    research: pick('web_search', 'web_fetch', 'deep_research'),
     library: pick(
       'resource_hybrid_search',
       'resource_get',
@@ -815,7 +805,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'deep_research',
         description:
-          'Initiate deep research on a topic. Returns a plan: use web_search and web_fetch to gather info, optionally langchain_docs_index + langchain_docs_fetch for official LangChain/LangSmith docs, then synthesize a structured report with sections and citations.',
+          'Initiate deep research on a topic. Returns a plan: use web_search and web_fetch to gather info, then synthesize a structured report with sections and citations.',
         parameters: {
           type: 'object',
           properties: {
@@ -823,63 +813,6 @@ function getAllToolDefinitions() {
             depth: { type: 'string', description: "Depth: 'quick', 'standard', or 'comprehensive'" },
           },
           required: ['topic'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'langchain_docs_index',
-        description:
-          'Fetch the official LangChain / LangSmith documentation index (https://docs.langchain.com/llms.txt). Returns a Markdown list of doc titles and URLs—call this first to discover pages, then use langchain_docs_fetch on chosen URLs. Cached ~1h unless force_refresh.',
-        parameters: {
-          type: 'object',
-          properties: {
-            query: {
-              type: 'string',
-              description: 'Optional filter: only lines containing this substring (case-insensitive)',
-            },
-            max_lines: {
-              type: 'number',
-              description: 'Max lines to return after filter (1–2500). Default ~500.',
-            },
-            force_refresh: { type: 'boolean', description: 'Bypass cache and re-download llms.txt' },
-          },
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'langchain_docs_fetch',
-        description:
-          'Download one documentation page from docs.langchain.com. Only URLs listed in the llms.txt index (https://docs.langchain.com/...) are allowed.',
-        parameters: {
-          type: 'object',
-          properties: {
-            url: { type: 'string', description: 'HTTPS URL under docs.langchain.com from langchain_docs_index' },
-          },
-          required: ['url'],
-        },
-      },
-    },
-    {
-      type: 'function',
-      function: {
-        name: 'vfs_sandbox_execute',
-        description:
-          'Run a shell command in a local @langchain/node-vfs sandbox (in-memory VFS + temp dir for bash, same backend family as Deep Agents). Use for dev/testing snippets (e.g. node, python). User must approve in a dialog. Optional initial_files seeds the VFS. Not a substitute for production container isolation.',
-        parameters: {
-          type: 'object',
-          properties: {
-            command: { type: 'string', description: 'Shell command (run via bash -c inside the sandbox cwd)' },
-            initial_files: {
-              type: 'object',
-              description: 'Optional map of virtual absolute paths (e.g. /src/a.js) to UTF-8 file contents',
-            },
-            timeout_ms: { type: 'number', description: 'Execution timeout in ms (max 120000). Default 30000.' },
-          },
-          required: ['command'],
         },
       },
     },

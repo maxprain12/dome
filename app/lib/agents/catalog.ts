@@ -22,7 +22,6 @@ export interface ToolCatalogEntry {
     | 'calendar'
     | 'marketplace'
     | 'entity'
-    | 'langchain'
     | 'media';
 }
 
@@ -39,27 +38,6 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     label: 'Web Fetch',
     description: 'Descarga y extrae el contenido completo de una URL específica usando Playwright. Permite leer artículos, documentación, páginas de producto y cualquier recurso web en profundidad.',
     group: 'web',
-  },
-  {
-    id: 'langchain_docs_index',
-    label: 'LangChain — índice docs',
-    description:
-      'Descarga el índice oficial https://docs.langchain.com/llms.txt (lista de páginas LangChain / LangSmith). Úsalo antes de langchain_docs_fetch para descubrir URLs. Caché ~1h; query opcional para filtrar líneas.',
-    group: 'langchain',
-  },
-  {
-    id: 'langchain_docs_fetch',
-    label: 'LangChain — página doc',
-    description:
-      'Obtiene el Markdown de una URL bajo docs.langchain.com elegida desde el índice llms.txt. Solo dominios oficiales.',
-    group: 'langchain',
-  },
-  {
-    id: 'vfs_sandbox_execute',
-    label: 'Sandbox VFS (Node)',
-    description:
-      'Ejecuta un comando shell en un sandbox @langchain/node-vfs (VFS en memoria + directorio temporal). Requiere confirmación del usuario. Para prototipos y pruebas locales; no sustituye contenedores de producción.',
-    group: 'langchain',
   },
 
   {
@@ -449,7 +427,6 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
 
 const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   web: 'Web',
-  langchain: 'LangChain',
   resources: 'Recursos',
   context: 'Contexto',
   flashcards: 'Flashcards',
@@ -470,7 +447,6 @@ const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
 /** Order of tool groups in agent + menu (drill-down root). */
 export const TOOL_GROUP_ORDER: readonly ToolCatalogEntry['group'][] = [
   'web',
-  'langchain',
   'resources',
   'context',
   'marketplace',
