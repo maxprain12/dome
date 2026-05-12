@@ -3481,6 +3481,25 @@ function getQueries() {
       WHERE resource_id = ? AND model_version = ?
       ORDER BY chunk_index ASC
     `),
+    /** Barato: dimensionar muestreo de embeddings sin cargar blobs. */
+    countChunksByResourceForModel: db.prepare(`
+      SELECT COUNT(*) AS c FROM resource_chunks
+      WHERE resource_id = ? AND model_version = ?
+    `),
+    /**
+     * Solo filas cuyo ROW_NUMBER (orden chunk_index) está en la lista JSON (enteros 1-based).
+     * Evita `getChunkEmbeddingsByResourceForModel` + miles de blobs en RAM por recurso vecino.
+     */
+    getChunkEmbeddingsByRankSampleForModel: db.prepare(`
+      WITH ranked AS (
+        SELECT embedding, ROW_NUMBER() OVER (ORDER BY chunk_index) AS rn
+        FROM resource_chunks
+        WHERE resource_id = ? AND model_version = ?
+      )
+      SELECT embedding FROM ranked
+      WHERE rn IN (SELECT CAST(value AS INTEGER) FROM json_each(?))
+      ORDER BY rn
+    `),
     getChunkRowsForSemanticSearch: db.prepare(`
       SELECT c.id, c.resource_id, c.chunk_index, c.char_start, c.char_end, c.page_number, c.text, c.embedding,
              r.title AS res_title, r.type AS res_type

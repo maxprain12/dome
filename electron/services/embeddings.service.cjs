@@ -37,7 +37,7 @@ function runEmbedExclusive(fn) {
  * al handler). Un solo documento con miles de chunks dispara cientos de `pipe()` seguidos;
  * sin esto el runtime nativo puede SIGTRAP / crashear (reindexación masiva).
  */
-const PIPELINE_RESET_INTERVAL = 25;
+const PIPELINE_RESET_INTERVAL = 10;
 
 /**
  * @param {{ modelsDir: string }} opts
@@ -111,19 +111,23 @@ function tensorToRowVectors(tensor) {
  */
 async function embedDocuments(texts) {
   return runEmbedExclusive(async () => {
-    const inputs = (texts || []).map((t) => `search_document: ${String(t ?? '')}`);
-    if (inputs.length === 0) {
+    const arr = texts || [];
+    const len = arr.length;
+    if (len === 0) {
       return [];
     }
     const out = [];
     let pipe = await getPipeline();
     let batchIdx = 0;
-    for (let i = 0; i < inputs.length; i += EMBED_BATCH) {
+    for (let i = 0; i < len; i += EMBED_BATCH) {
       if (batchIdx > 0 && batchIdx % PIPELINE_RESET_INTERVAL === 0) {
         resetPipeline();
         pipe = await getPipeline();
       }
-      const slice = inputs.slice(i, i + EMBED_BATCH);
+      const slice = [];
+      for (let j = i; j < Math.min(i + EMBED_BATCH, len); j++) {
+        slice.push(`search_document: ${String(arr[j] ?? '')}`);
+      }
       let tensor;
       try {
         tensor = await pipe(slice, { pooling: 'mean', normalize: true });
@@ -134,7 +138,7 @@ async function embedDocuments(texts) {
       out.push(...tensorToRowVectors(tensor));
       batchIdx += 1;
       // Deja respirar al bucle de Node / Electron entre lotes muy largos (OOM / UI freeze).
-      if (batchIdx % 32 === 0) {
+      if (batchIdx % 16 === 0) {
         await new Promise((resolve) => setImmediate(resolve));
       }
     }

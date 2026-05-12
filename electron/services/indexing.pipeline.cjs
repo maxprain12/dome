@@ -23,6 +23,29 @@ const TOP_K = 8;
 const MAX_CHUNKS_PER_RESOURCE = 5000;
 /** Máx. embeddings por recurso al calcular centroides (reindex de docs enormes + biblioteca grande). */
 const MAX_EMBEDDINGS_FOR_CENTROID = 384;
+/** Evita cargar notas/PDF enormes en un solo string antes del chunking (OOM del proceso). */
+const MAX_INDEXABLE_TEXT_CHARS = 6_000_000;
+
+/**
+ * Rangos 1-based de ROW_NUMBER() para muestrear filas sin leer todos los blobs en RAM.
+ * @param {number} cnt
+ * @param {number} k
+ * @returns {number[]}
+ */
+function pickEvenlySpacedRanks1Based(cnt, k) {
+  const n = Math.max(0, Math.floor(Number(cnt)) || 0);
+  if (n === 0) return [];
+  const kk = Math.max(1, Math.floor(Number(k)) || 1);
+  if (n <= kk) {
+    return Array.from({ length: n }, (_, i) => i + 1);
+  }
+  const out = [];
+  for (let j = 0; j < kk; j++) {
+    const rn = 1 + Math.min(n - 1, Math.floor((j * (n - 1)) / Math.max(1, kk - 1)));
+    out.push(rn);
+  }
+  return [...new Set(out)].sort((a, b) => a - b);
+}
 
 /**
  * @template T
@@ -190,6 +213,12 @@ function createIndexer(opts) {
       return { ok: true, skipped: true, reason: 'empty_text' };
     }
 
+    if (text.length > MAX_INDEXABLE_TEXT_CHARS) {
+      text =
+        text.slice(0, MAX_INDEXABLE_TEXT_CHARS) +
+        '\n\n[Dome: texto truncado para indexación por límite de tamaño]';
+    }
+
     let chunks;
     try {
       chunks = chunkText(text);
@@ -255,11 +284,23 @@ function createIndexer(opts) {
     /** @type {{ targetId: string, sim: number }[]} */
     const relations = [];
     const otherIds = queries.getDistinctChunkResourceIdsExcluding.all(MODEL_VERSION, resourceId);
+    let relScan = 0;
     for (const row of otherIds) {
+      relScan += 1;
+      if (relScan % 48 === 0) {
+        await new Promise((r) => setImmediate(r));
+      }
       const otherId = row.resource_id;
-      const embRowsRaw = queries.getChunkEmbeddingsByResourceForModel.all(otherId, MODEL_VERSION);
-      if (!embRowsRaw.length) continue;
-      const embRows = sampleEvenlyForCentroid(embRowsRaw);
+      const cntRow = queries.countChunksByResourceForModel.get(otherId, MODEL_VERSION);
+      const cnt = Number(cntRow?.c ?? 0) || 0;
+      if (!cnt) continue;
+      const ranks = pickEvenlySpacedRanks1Based(cnt, MAX_EMBEDDINGS_FOR_CENTROID);
+      const embRows = queries.getChunkEmbeddingsByRankSampleForModel.all(
+        otherId,
+        MODEL_VERSION,
+        JSON.stringify(ranks),
+      );
+      if (!embRows.length) continue;
       /** @type {Float32Array[]} */
       const ovecs = [];
       for (const er of embRows) {
