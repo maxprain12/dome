@@ -15,6 +15,8 @@ const INDEXED_TABLE = 'indexed_resources';
 const MODEL_VERSION = 'nomic-embed-text-v1.5';
 const EMBED_DIM = 768;
 const MAX_LEX_CHARS = 500_000;
+/** Max rows per LanceDB add() call to avoid large Arrow batch allocations for big PDFs. */
+const LANCE_WRITE_BATCH = 250;
 
 /** @type {string | null} */
 let _root = null;
@@ -182,7 +184,10 @@ async function replaceResourceChunks(resourceId, rows) {
     res_type: String(r.res_type ?? ''),
     project_id: String(r.project_id ?? ''),
   }));
-  await _chunks.add(batch);
+  for (let i = 0; i < batch.length; i += LANCE_WRITE_BATCH) {
+    await _chunks.add(batch.slice(i, i + LANCE_WRITE_BATCH));
+    if (i + LANCE_WRITE_BATCH < batch.length) await new Promise((r) => setImmediate(r));
+  }
   await markIndexed(resourceId);
 }
 

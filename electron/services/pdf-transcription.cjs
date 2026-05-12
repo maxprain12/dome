@@ -22,11 +22,22 @@ function getModelVersionLabel() {
  * @param {number} numPages
  */
 async function buildPdfjsMarkedText(fullPath, numPages) {
+  const session = await pdfExtractor.openPdfDocument(fullPath);
+  if (!session) {
+    // Fallback: load once via extractPdfText (full document, all pages).
+    const r = await pdfExtractor.extractPdfText(fullPath, { maxChars: numPages * 100000 });
+    return r.success && r.text ? r.text : '';
+  }
   const parts = [];
-  for (let p = 1; p <= numPages; p++) {
-    const r = await pdfExtractor.extractPdfText(fullPath, { maxChars: 100000, pages: String(p) });
-    const t = (r.success && r.text ? String(r.text) : '').trim();
-    parts.push(`<!-- page:${p} -->\n\n${t}`);
+  try {
+    for (let p = 1; p <= numPages; p++) {
+      const t = await pdfExtractor.extractTextFromDocPage(session.doc, p, 100000);
+      parts.push(`<!-- page:${p} -->\n\n${t.trim()}`);
+      // Yield to event loop every 10 pages so V8 GC can collect intermediate objects.
+      if (p % 10 === 0) await new Promise((r) => setImmediate(r));
+    }
+  } finally {
+    await pdfExtractor.destroyPdfDocument(session.doc);
   }
   return parts.join('\n\n');
 }
@@ -97,37 +108,52 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
 
   const parts = [];
 
-  for (let p = 1; p <= numPages; p++) {
-    const rend = await pdfExtractor.renderPdfPagePngDataUrl(fullPath, p, SCALE);
-    if (!rend.success || !rend.dataUrl) {
-      console.warn('[pdf-transcription] render failed page', p, rend.error);
-      parts.push(`<!-- page:${p} -->\n\n`);
+  // Load the PDF document ONCE and reuse it across all pages to avoid re-reading
+  // the entire file from disk and re-parsing it for every single page (OOM on large PDFs).
+  const docSession = await pdfExtractor.openPdfDocument(fullPath);
+
+  try {
+    for (let p = 1; p <= numPages; p++) {
+      let rend;
+      if (docSession) {
+        rend = await pdfExtractor.renderPdfPageFromDoc(docSession.doc, p, SCALE);
+      } else {
+        rend = await pdfExtractor.renderPdfPagePngDataUrl(fullPath, p, SCALE);
+      }
+      if (!rend.success || !rend.dataUrl) {
+        console.warn('[pdf-transcription] render failed page', p, rend.error);
+        parts.push(`<!-- page:${p} -->\n\n`);
+        onProgress?.({ done: p, total: numPages, page: p });
+        continue;
+      }
+      let md = '';
+      try {
+        md = await cloudLlmTasks.transcribePdfPage(gen, rend.dataUrl, p);
+      } catch (e) {
+        console.warn('[pdf-transcription] transcribe page', p, e?.message || e);
+      }
+      md = String(md || '').trim();
+      parts.push(`<!-- page:${p} -->\n\n${md}`);
+
+      try {
+        queries.upsertResourceTranscript.run(
+          resourceId,
+          p,
+          md,
+          modelUsed,
+          fileHash || null,
+          now,
+        );
+      } catch (e) {
+        console.warn('[pdf-transcription] upsert transcript', p, e?.message || e);
+      }
+
       onProgress?.({ done: p, total: numPages, page: p });
-      continue;
+      // Yield every page so V8 GC can reclaim the PNG buffer and canvas objects.
+      await new Promise((r) => setImmediate(r));
     }
-    let md = '';
-    try {
-      md = await cloudLlmTasks.transcribePdfPage(gen, rend.dataUrl, p);
-    } catch (e) {
-      console.warn('[pdf-transcription] transcribe page', p, e?.message || e);
-    }
-    md = String(md || '').trim();
-    parts.push(`<!-- page:${p} -->\n\n${md}`);
-
-    try {
-      queries.upsertResourceTranscript.run(
-        resourceId,
-        p,
-        md,
-        modelUsed,
-        fileHash || null,
-        now,
-      );
-    } catch (e) {
-      console.warn('[pdf-transcription] upsert transcript', p, e?.message || e);
-    }
-
-    onProgress?.({ done: p, total: numPages, page: p });
+  } finally {
+    if (docSession) await pdfExtractor.destroyPdfDocument(docSession.doc);
   }
 
   const text = parts.join('\n\n');
