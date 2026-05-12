@@ -33,11 +33,10 @@ function runEmbedExclusive(fn) {
 }
 
 /**
- * The ONNX session can SIGTRAP after many sequential inferences without a session reset
- * (same issue as consecutive reindexAll calls). Reset every N inferences to keep the
- * session fresh and prevent the crash.
+ * Reinicia la sesión ONNX cada N **lotes** dentro de `embedDocuments` (no por invocación
+ * al handler). Un solo documento con miles de chunks dispara cientos de `pipe()` seguidos;
+ * sin esto el runtime nativo puede SIGTRAP / crashear (reindexación masiva).
  */
-let _embedInvocationCount = 0;
 const PIPELINE_RESET_INTERVAL = 25;
 
 /**
@@ -73,7 +72,6 @@ async function getPipeline() {
  */
 function resetPipeline() {
   _pipelinePromise = null;
-  _embedInvocationCount = 0;
 }
 
 /**
@@ -113,16 +111,18 @@ function tensorToRowVectors(tensor) {
  */
 async function embedDocuments(texts) {
   return runEmbedExclusive(async () => {
-    // Periodically reset the ONNX session to avoid the session-corruption SIGTRAP that
-    // occurs after many sequential inferences (same bug as consecutive reindexAll calls).
-    _embedInvocationCount += 1;
-    if (_embedInvocationCount % PIPELINE_RESET_INTERVAL === 0) {
-      resetPipeline();
-    }
-    const pipe = await getPipeline();
     const inputs = (texts || []).map((t) => `search_document: ${String(t ?? '')}`);
+    if (inputs.length === 0) {
+      return [];
+    }
     const out = [];
+    let pipe = await getPipeline();
+    let batchIdx = 0;
     for (let i = 0; i < inputs.length; i += EMBED_BATCH) {
+      if (batchIdx > 0 && batchIdx % PIPELINE_RESET_INTERVAL === 0) {
+        resetPipeline();
+        pipe = await getPipeline();
+      }
       const slice = inputs.slice(i, i + EMBED_BATCH);
       let tensor;
       try {
@@ -132,6 +132,11 @@ async function embedDocuments(texts) {
         throw e;
       }
       out.push(...tensorToRowVectors(tensor));
+      batchIdx += 1;
+      // Deja respirar al bucle de Node / Electron entre lotes muy largos (OOM / UI freeze).
+      if (batchIdx % 32 === 0) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
     }
     return out;
   });

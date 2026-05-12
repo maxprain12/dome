@@ -21,6 +21,25 @@ const DEFAULT_THRESHOLD = 0.45;
 const TOP_K = 8;
 /** Límite de fragmentos por recurso para evitar OOM en embeddings / SQLite. */
 const MAX_CHUNKS_PER_RESOURCE = 5000;
+/** Máx. embeddings por recurso al calcular centroides (reindex de docs enormes + biblioteca grande). */
+const MAX_EMBEDDINGS_FOR_CENTROID = 384;
+
+/**
+ * @template T
+ * @param {T[]} items
+ * @returns {T[]}
+ */
+function sampleEvenlyForCentroid(items) {
+  if (!Array.isArray(items) || items.length <= MAX_EMBEDDINGS_FOR_CENTROID) return items;
+  const n = items.length;
+  const k = MAX_EMBEDDINGS_FOR_CENTROID;
+  const out = [];
+  for (let j = 0; j < k; j++) {
+    const idx = n <= 1 ? 0 : Math.min(n - 1, Math.floor((j * (n - 1)) / Math.max(1, k - 1)));
+    out.push(items[idx]);
+  }
+  return out;
+}
 
 /**
  * @param {Float32Array | null} a
@@ -227,7 +246,7 @@ function createIndexer(opts) {
 
     queries.deleteSemanticAutoFromSource.run(resourceId);
 
-    const myCentroid = centroidL2Normalized(vectors);
+    const myCentroid = centroidL2Normalized(sampleEvenlyForCentroid(vectors));
     if (!myCentroid) {
       finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, count: 0, chunks: chunks.length, textSource: source };
@@ -238,8 +257,9 @@ function createIndexer(opts) {
     const otherIds = queries.getDistinctChunkResourceIdsExcluding.all(MODEL_VERSION, resourceId);
     for (const row of otherIds) {
       const otherId = row.resource_id;
-      const embRows = queries.getChunkEmbeddingsByResourceForModel.all(otherId, MODEL_VERSION);
-      if (!embRows.length) continue;
+      const embRowsRaw = queries.getChunkEmbeddingsByResourceForModel.all(otherId, MODEL_VERSION);
+      if (!embRowsRaw.length) continue;
+      const embRows = sampleEvenlyForCentroid(embRowsRaw);
       /** @type {Float32Array[]} */
       const ovecs = [];
       for (const er of embRows) {
