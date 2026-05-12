@@ -516,6 +516,7 @@ module.exports = {
   countIndexedResources,
   countChunksForResource,
   sampleVectorsForCentroid,
+  listIndexedResourceIdsExcluding,
   deleteLexForResource,
   upsertLexForResource,
   searchLexResources,
