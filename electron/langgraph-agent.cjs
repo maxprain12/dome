@@ -11,6 +11,12 @@
  * model gets ls/read_file/write_file/edit_file/glob/grep/execute against an
  * isolated VFS (see electron/langgraph-vfs-thread.cjs for lifecycle).
  *
+ * Context engineering: optional LangChain summarizationMiddleware (disable with
+ * DOME_LANGGRAPH_SUMMARIZATION=0), trim-by-token middleware, tool-result caps
+ * (electron/tool-result-cap.cjs), typed runtimeContext (agent-runtime-context.cjs),
+ * optional workspace AGENTS.md injected via project-memory.cjs, and truncated
+ * file-skill bodies in skill-prompt.cjs.
+ *
  * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
  * human approval. Uses a durable SqliteSaver checkpointer so pending
  * interrupts survive app restarts (see ./checkpointer.cjs).
@@ -33,6 +39,10 @@ const database = require('./database.cjs');
 const { getDomeCheckpointer } = require('./checkpointer.cjs');
 const { withLangfuseCallbacks } = require('./observability.cjs');
 const { measurePrompt } = require('./prompt-budget.cjs');
+const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
+const projectMemory = require('./project-memory.cjs');
+const skillRegistry = require('./skills/registry.cjs');
+const { capToolResultString } = require('./tool-result-cap.cjs');
 
 function pickTokenNumber(obj, keys) {
   if (!obj || typeof obj !== 'object') return null;
@@ -666,6 +676,30 @@ async function createTrimmingMiddleware(provider, llm) {
   });
 }
 
+/**
+ * Optional LangChain summarization middleware (context engineering).
+ * Disable with DOME_LANGGRAPH_SUMMARIZATION=0 if it causes issues with a provider.
+ * @param {string} provider
+ * @param {import('@langchain/core').BaseChatModel} llm
+ * @returns {Promise<import('langchain').AgentMiddleware | null>}
+ */
+async function createSummarizationMiddlewareMaybe(provider, llm) {
+  const off = String(process.env.DOME_LANGGRAPH_SUMMARIZATION ?? '').toLowerCase().trim();
+  if (off === '0' || off === 'false' || off === 'off' || off === 'no') return null;
+  try {
+    const { summarizationMiddleware } = await import('langchain');
+    const maxTokens = PROVIDER_TOKEN_BUDGETS[provider] ?? DEFAULT_TOKEN_BUDGET;
+    return summarizationMiddleware({
+      model: llm,
+      trigger: { tokens: Math.floor(maxTokens * 0.7), messages: 8 },
+      keep: { tokens: Math.floor(maxTokens * 0.18), messages: 10 },
+    });
+  } catch (e) {
+    console.warn('[AI LangGraph] summarizationMiddleware not loaded:', e?.message || e);
+    return null;
+  }
+}
+
 const CALENDAR_HITL_TOOLS = {
   calendar_create_event: true,
   calendar_update_event: true,
@@ -719,8 +753,10 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     automationProjectId,
     provider,
     customTools,
-    runtimeContext,
+    runtimeContext: runtimeContextRaw,
   } = opts;
+
+  const runtimeContext = parseRuntimeContext(runtimeContextRaw);
 
   const toolContext = (automationProjectId || runtimeContext)
     ? {
@@ -760,10 +796,11 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         return { error: capError };
       }
       const result = await executeToolInMain(name, args, toolContext);
-      const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+      const resultStr = capToolResultString(name, resultStr0);
       if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
       rtEmittedResultIds.add(id);
-      return result;
+      return resultStr;
     };
     const directTools = toolDefinitions?.length
       ? await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn)
@@ -898,7 +935,9 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(mainAgentDefs, async (name, args) => {
       const capError = callCounter.check(name);
       if (capError) return { error: capError };
-      return executeToolInMain(name, args, toolContext);
+      const result = await executeToolInMain(name, args, toolContext);
+      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+      return capToolResultString(name, resultStr0);
     });
     tools = [...subagentTools, ...asyncSubagentTools, ...mcpTools, ...mainAgentTools];
   }
@@ -931,10 +970,12 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         },
       },
     ];
-    const domeLoadDocTools = await createLangChainToolsFromOpenAIDefinitions(domeLoadDocDef, (name, args) => {
+    const domeLoadDocTools = await createLangChainToolsFromOpenAIDefinitions(domeLoadDocDef, async (name, args) => {
       const capError = callCounter.check(name);
       if (capError) return { error: capError };
-      return executeToolInMain(name, args, toolContext);
+      const result = await executeToolInMain(name, args, toolContext);
+      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+      return capToolResultString(name, resultStr0);
     });
     tools = [...domeLoadDocTools, ...tools];
   }
@@ -969,10 +1010,12 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       });
     }
     if (rtDefs.length > 0) {
-      const rtTools = await createLangChainToolsFromOpenAIDefinitions(rtDefs, (name, args) => {
+      const rtTools = await createLangChainToolsFromOpenAIDefinitions(rtDefs, async (name, args) => {
         const capError = callCounter.check(name);
         if (capError) return { error: capError };
-        return executeToolInMain(name, args, toolContext);
+        const result = await executeToolInMain(name, args, toolContext);
+        const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+        return capToolResultString(name, resultStr0);
       });
       tools = [...tools, ...rtTools];
     }
@@ -984,6 +1027,8 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     descriptionPrefix: 'Acción pendiente de aprobación',
   });
   const trimMiddleware = await createTrimmingMiddleware(provider, llm);
+  const summarizationMw = await createSummarizationMiddlewareMaybe(provider, llm);
+  const contextMiddlewares = summarizationMw ? [summarizationMw, trimMiddleware] : [trimMiddleware];
 
   /** LangChain / deepagents sandbox: isolated VFS + execute (read_file, write_file, …). */
   let fsMiddleware = null;
@@ -995,12 +1040,12 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     }
   }
 
-  // Order: trim → optional sandbox FS/execute (LangChain) → HITL when enabled.
+  // Order: optional summarization → trim → optional sandbox FS/execute → HITL when enabled.
   const middleware = (() => {
     if (skipHitl) {
-      return fsMiddleware ? [trimMiddleware, fsMiddleware] : [trimMiddleware];
+      return fsMiddleware ? [...contextMiddlewares, fsMiddleware] : [...contextMiddlewares];
     }
-    return fsMiddleware ? [trimMiddleware, fsMiddleware, hitlMiddleware] : [trimMiddleware, hitlMiddleware];
+    return fsMiddleware ? [...contextMiddlewares, fsMiddleware, hitlMiddleware] : [...contextMiddlewares, hitlMiddleware];
   })();
 
   const agent = createAgent({
@@ -1041,6 +1086,16 @@ async function invokeLangGraphAgent(opts) {
   const mcpServerIds = opts.mcpServerIds;
   const subagentIds = Array.isArray(opts.subagentIds) ? opts.subagentIds : undefined;
 
+  let domeMessages = Array.isArray(messages) ? [...messages] : [];
+  try {
+    const agentsMd = projectMemory.loadProjectAgentsMarkdown(skillRegistry.getProjectRoot());
+    if (agentsMd) {
+      domeMessages = projectMemory.injectProjectMemoryIntoMessages(domeMessages, agentsMd);
+    }
+  } catch (e) {
+    console.warn('[AI LangGraph] project memory (AGENTS.md) skipped:', e?.message || e);
+  }
+
   try {
     const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
       useDirectTools,
@@ -1058,12 +1113,12 @@ async function invokeLangGraphAgent(opts) {
 
     // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
     // that intermediate tool turns also stay within the provider budget.
-    const lcMessages = await toLangChainMessages(messages);
+    const lcMessages = await toLangChainMessages(domeMessages);
 
     // Emit token budget breakdown for telemetry (first message of the run only).
     if (onChunk) {
-      const sysMsg = Array.isArray(messages) ? messages.find((m) => m.role === 'system') : null;
-      const histMsgs = Array.isArray(messages) ? messages.filter((m) => m.role !== 'system') : [];
+      const sysMsg = Array.isArray(domeMessages) ? domeMessages.find((m) => m.role === 'system') : null;
+      const histMsgs = Array.isArray(domeMessages) ? domeMessages.filter((m) => m.role !== 'system') : [];
       const budgetBreakdown = measurePrompt({
         system: sysMsg?.content || '',
         tools: opts.toolDefinitions || [],
