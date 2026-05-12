@@ -24,7 +24,7 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     color: '#0ea5e9',
     bg: '#f0f9ff',
     emoji: '🔍',
-    toolIds: ['web_search', 'web_fetch', 'deep_research'],
+    toolIds: ['web_search', 'web_fetch', 'deep_research', 'langchain_docs_index', 'langchain_docs_fetch', 'vfs_sandbox_execute'],
     systemPrompt: `Eres un agente investigador experto. Tu misión es buscar, analizar y sintetizar información de calidad.
 - Utiliza búsqueda web para encontrar fuentes actualizadas y relevantes
 - Verifica los datos con múltiples fuentes cuando sea posible

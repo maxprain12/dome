@@ -32,6 +32,7 @@
     "check:ipc-inventory": "node scripts/generate-ipc-inventory.mjs --check",
     "check:ipc-zod": "node scripts/check-ipc-zod.mjs",
     "check:tool-coverage": "node scripts/verify-tool-coverage.mjs",
+    "langchain:vfs-smoke": "node scripts/langchain-vfs-smoke.cjs",
     "test:db": "tsx scripts/test-db.ts",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "tsx scripts/generate-icons.ts"
@@ -53,6 +54,7 @@
     "@langchain/langgraph": "^1.2.9",
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.1",
     "@langchain/mcp-adapters": "^1.1.3",
+    "@langchain/node-vfs": "^0.1.4",
     "@langchain/ollama": "^1.2.2",
     "@langchain/openai": "^1.4.4",
     "@mantine/core": "^8.3.14",
@@ -114,6 +116,7 @@
     "d3-selection": "^3.0.0",
     "d3-zoom": "^3.0.0",
     "date-fns": "^4.1.0",
+    "deepagents": "^1.10.1",
     "diff": "^8.0.4",
     "docx": "^9.6.1",
     "dompurify": "^3.4.1",
