@@ -27,6 +27,7 @@ const docxToolsHandler = require('./docx-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const calendarService = require('./calendar-service.cjs');
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
+const lancedbSemantic = require('./services/lancedb-semantic.cjs');
 const path = require('path');
 const skillRegistry = require('./skills/registry.cjs');
 const { renderSkillBody } = require('./skills/renderer.cjs');
@@ -86,52 +87,84 @@ async function resourceSearch(query, options = {}) {
       return { success: true, results: [] };
     }
     const ftsQuery = words.map((word) => `${word}*`).join(' ');
+    const lanceQuery = words.join(' ');
 
-    let results;
-    
-    // Use different queries based on filters
-    if (options.project_id && options.type) {
-      const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-          AND r.project_id = ?
-          AND r.type = ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-      results = stmt.all(ftsQuery, options.project_id, options.type, limit);
-    } else if (options.project_id) {
-      const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-          AND r.project_id = ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-      results = stmt.all(ftsQuery, options.project_id, limit);
-    } else if (options.type) {
-      const stmt = db.prepare(`
-        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
-               r.thumbnail_data, r.metadata,
-               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
-        FROM resources r
-        JOIN resources_fts fts ON r.id = fts.resource_id
-        WHERE resources_fts MATCH ?
-          AND r.type = ?
-        ORDER BY rank
-        LIMIT ?
-      `);
-      results = stmt.all(ftsQuery, options.type, limit);
+    const queries = database.getQueries();
+    let lexHits = [];
+    try {
+      lexHits = await lancedbSemantic.searchLexResources(lanceQuery, limit, {
+        project_id: options.project_id,
+        type: options.type,
+      });
+    } catch (le) {
+      console.warn('[AI Tools] resourceSearch Lance FTS:', le?.message || le);
+    }
+
+    /** @type {any[]} */
+    let results = [];
+    if (lexHits.length) {
+      for (const h of lexHits) {
+        const r = queries.getResourceById.get(h.id);
+        if (!r) continue;
+        if (options.project_id && r.project_id !== options.project_id) continue;
+        if (options.type && r.type !== options.type) continue;
+        results.push({
+          id: r.id,
+          title: r.title,
+          type: r.type,
+          content: r.content,
+          project_id: r.project_id,
+          created_at: r.created_at,
+          updated_at: r.updated_at,
+          thumbnail_data: r.thumbnail_data,
+          metadata: r.metadata,
+          snippet: h.snippet || (r.content ? String(r.content).substring(0, 200) + '...' : ''),
+        });
+      }
     } else {
-      const stmt = db.prepare(`
+      let stmtResults;
+      if (options.project_id && options.type) {
+        const stmt = db.prepare(`
+        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
+               r.thumbnail_data, r.metadata,
+               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
+        FROM resources r
+        JOIN resources_fts fts ON r.id = fts.resource_id
+        WHERE resources_fts MATCH ?
+          AND r.project_id = ?
+          AND r.type = ?
+        ORDER BY rank
+        LIMIT ?
+      `);
+        stmtResults = stmt.all(ftsQuery, options.project_id, options.type, limit);
+      } else if (options.project_id) {
+        const stmt = db.prepare(`
+        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
+               r.thumbnail_data, r.metadata,
+               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
+        FROM resources r
+        JOIN resources_fts fts ON r.id = fts.resource_id
+        WHERE resources_fts MATCH ?
+          AND r.project_id = ?
+        ORDER BY rank
+        LIMIT ?
+      `);
+        stmtResults = stmt.all(ftsQuery, options.project_id, limit);
+      } else if (options.type) {
+        const stmt = db.prepare(`
+        SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
+               r.thumbnail_data, r.metadata,
+               snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
+        FROM resources r
+        JOIN resources_fts fts ON r.id = fts.resource_id
+        WHERE resources_fts MATCH ?
+          AND r.type = ?
+        ORDER BY rank
+        LIMIT ?
+      `);
+        stmtResults = stmt.all(ftsQuery, options.type, limit);
+      } else {
+        const stmt = db.prepare(`
         SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
                r.thumbnail_data, r.metadata,
                snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
@@ -141,7 +174,9 @@ async function resourceSearch(query, options = {}) {
         ORDER BY rank
         LIMIT ?
       `);
-      results = stmt.all(ftsQuery, limit);
+        stmtResults = stmt.all(ftsQuery, limit);
+      }
+      results = stmtResults;
     }
 
     // Parse metadata and limit content length for AI consumption
@@ -351,7 +386,24 @@ async function resourceGetSection(resourceId, chunkId) {
 
     const rows = q.getChunksBatchByIds.all(JSON.stringify([String(chunkId)]));
     const row = rows && rows[0];
-    if (!row || row.resource_id !== resourceId) {
+    let chunkRow = row;
+    if (!chunkRow || chunkRow.resource_id !== resourceId) {
+      try {
+        const lr = await lancedbSemantic.getChunkById(String(chunkId));
+        if (lr && String(lr.resource_id) === resourceId) {
+          chunkRow = {
+            resource_id: lr.resource_id,
+            chunk_index: lr.chunk_index,
+            page_number:
+              lr.page_number != null && Number(lr.page_number) >= 0 ? Number(lr.page_number) : null,
+            text: lr.text,
+          };
+        }
+      } catch {
+        /* fall through */
+      }
+    }
+    if (!chunkRow || chunkRow.resource_id !== resourceId) {
       return {
         success: false,
         error: 'Chunk not found. Use chunk_id from resource_semantic_search results.',
@@ -363,9 +415,9 @@ async function resourceGetSection(resourceId, chunkId) {
       resource_id: resourceId,
       title: resource.title,
       chunk_id: chunkId,
-      chunk_index: row.chunk_index,
-      page_number: row.page_number ?? null,
-      text: row.text || '',
+      chunk_index: chunkRow.chunk_index,
+      page_number: chunkRow.page_number ?? null,
+      text: chunkRow.text || '',
     };
   } catch (error) {
     console.error('[AI Tools] resourceGetSection error:', error);
