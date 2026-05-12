@@ -6,9 +6,13 @@
  * coordinates specialized subagents (research, library, writer, data).
  * Each subagent is wrapped as a tool the main agent can invoke.
  * `buildSubagentRunner` shares the same graph with async-subagents.cjs.
+ * When LangGraph VFS sandbox is enabled (see langgraph-vfs-thread.cjs), each
+ * subagent run gets its own VfsSandbox + deepagents filesystem middleware
+ * (ls, read_file, write_file, execute, …) in addition to Dome tools.
  */
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
+const vfsThread = require('./langgraph-vfs-thread.cjs');
 const { executeToolInMain, getToolDefsBySubagent } = toolDispatcher;
 const { readPrompt } = require('./prompts-loader.cjs');
 
@@ -99,7 +103,6 @@ async function buildSubagentRunner(agentName, llm, executeFn, createLangChainToo
     : executeFn;
 
   const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn);
-  const subagent = createAgent({ model: llm, tools: subagentTools });
   const systemPrompt = getSubagentSystemPrompt(agentName);
 
   return {
@@ -113,8 +116,30 @@ async function buildSubagentRunner(agentName, llm, executeFn, createLangChainToo
       messages.push(new HumanMessage(query));
       const invokeOpts = { recursionLimit: SUBAGENT_RECURSION_LIMIT };
       if (signal) invokeOpts.signal = signal;
-      const result = await subagent.invoke({ messages }, invokeOpts);
-      return formatSubagentInvokeResult(result);
+
+      let sandbox = null;
+      try {
+        let agent;
+        if (vfsThread.isVfsSandboxDisabled()) {
+          agent = createAgent({ model: llm, tools: subagentTools });
+        } else {
+          const { VfsSandbox } = await import('@langchain/node-vfs');
+          const { createFilesystemMiddleware } = await import('deepagents');
+          sandbox = await VfsSandbox.create({ timeout: 120_000 });
+          const fsMiddleware = createFilesystemMiddleware({ backend: sandbox });
+          agent = createAgent({ model: llm, tools: subagentTools, middleware: [fsMiddleware] });
+        }
+        const result = await agent.invoke({ messages }, invokeOpts);
+        return formatSubagentInvokeResult(result);
+      } finally {
+        if (sandbox) {
+          try {
+            await sandbox.stop();
+          } catch {
+            /* ignore */
+          }
+        }
+      }
     },
   };
 }
