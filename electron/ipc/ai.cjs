@@ -18,17 +18,13 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
-    let provider;
-    let messages;
-    let model;
-
-    if (!params || typeof params !== 'object') {
+    if (!params || typeof params !== 'object' || params === null) {
       return { success: false, error: 'Invalid params' };
     }
-    ({ provider, messages, model } = params);
 
     try {
-      // Validate inputs
+      const { provider, messages, model } = params;
+
       if (!provider || !['openai', 'anthropic', 'google', 'dome', 'minimax'].includes(provider)) {
         throw new Error('Invalid provider. Must be openai, anthropic, google, dome, or minimax');
       }
@@ -59,7 +55,6 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         return { success: true, content };
       }
 
-      // Get API key from settings
       const queries = database.getQueries();
       const apiKeyResult = queries.getSetting.get('ai_api_key');
       const apiKey = apiKeyResult?.value;
@@ -68,20 +63,20 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         throw new Error(`API key not configured for ${provider}`);
       }
 
-      // Get default model if not provided
-      if (!model) {
+      let chatModel = model;
+      if (!chatModel) {
         const modelResult = queries.getSetting.get('ai_model');
-        model = modelResult?.value;
+        chatModel = modelResult?.value;
       }
 
-      console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${model}`);
+      console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${chatModel}`);
 
-      const response = await aiCloudService.chat(provider, messages, apiKey, model);
+      const response = await aiCloudService.chat(provider, messages, apiKey, chatModel);
 
       return { success: true, content: response };
     } catch (error) {
       console.error('[AI Cloud] Chat error:', error);
-      return { success: false, error: error.message };
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
     }
   });
 
@@ -94,7 +89,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
-    if (!params || typeof params !== 'object') {
+    if (!params || typeof params !== 'object' || params === null) {
       return { success: false, error: 'Invalid params' };
     }
 
@@ -260,6 +255,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
+    if (!params || typeof params !== 'object' || params === null) {
+      return { success: false, error: 'Invalid params' };
+    }
+
     let provider;
     let messages;
     let model;
@@ -270,20 +269,27 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     let mcpServerIds;
     let subagentIds;
 
-    if (!params || typeof params !== 'object') {
-      return { success: false, error: 'Invalid params' };
+    try {
+      ({
+        provider,
+        messages,
+        model,
+        streamId,
+        tools,
+        threadId,
+        skipHitl,
+        mcpServerIds,
+        subagentIds,
+      } = params);
+    } catch (err) {
+      if (err instanceof TypeError) {
+        const errorMsg = 'Invalid payload: could not read required properties';
+        console.error('[AI LangGraph] Validation error:', errorMsg, err);
+        return { success: false, error: errorMsg };
+      }
+      console.error('[AI LangGraph] Unexpected error during destructuring:', err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
-    ({
-      provider,
-      messages,
-      model,
-      streamId,
-      tools,
-      threadId,
-      skipHitl,
-      mcpServerIds,
-      subagentIds,
-    } = params);
 
     try {
       if (!provider || !['openai', 'anthropic', 'google', 'ollama', 'minimax'].includes(provider)) {
@@ -384,16 +390,27 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Unauthorized' };
     }
 
+    if (!params || typeof params !== 'object' || params === null) {
+      return { success: false, error: 'Invalid params' };
+    }
+
     let threadId;
     let streamId;
     let decisions;
-    let provider;
-    let model;
+    let providerArg;
+    let modelArg;
 
-    if (!params || typeof params !== 'object') {
-      return { success: false, error: 'Invalid params' };
+    try {
+      ({ threadId, streamId, decisions, provider: providerArg, model: modelArg } = params);
+    } catch (err) {
+      if (err instanceof TypeError) {
+        const errorMsg = 'Invalid payload: could not read required properties';
+        console.error('[AI LangGraph] Resume validation error:', errorMsg, err);
+        return { success: false, error: errorMsg };
+      }
+      console.error('[AI LangGraph] Resume unexpected error during destructuring:', err);
+      return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
-    ({ threadId, streamId, decisions, provider: providerArg, model: modelArg } = params);
 
     try {
       if (!threadId || !streamId || !Array.isArray(decisions)) {
