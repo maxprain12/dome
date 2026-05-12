@@ -9,11 +9,14 @@
  * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
  * human approval. Uses a durable SqliteSaver checkpointer so pending
  * interrupts survive app restarts (see ./checkpointer.cjs).
+ * Async subagent tools (start/check/update/cancel/list) run the same subagent
+ * graphs in the background; see ./async-subagents.cjs.
  */
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
 const { executeToolInMain, getWhatsAppToolDefinitions } = toolDispatcher;
 const { createSubagentTools } = require('./subagents.cjs');
+const { createAsyncSubagentTools } = require('./async-subagents.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
 const database = require('./database.cjs');
 const { getDomeCheckpointer } = require('./checkpointer.cjs');
@@ -708,6 +711,14 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       subagentIds,
       toolContext,
     );
+    const asyncSubagentTools = await createAsyncSubagentTools({
+      threadId,
+      llm,
+      createLangChainTools: createLangChainToolsFromOpenAIDefinitions,
+      onChunk,
+      toolContext,
+      subagentIds,
+    });
     const mcpTools = Array.isArray(mcpServerIds)
       ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
       : await getMCPTools(database);
@@ -822,7 +833,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       if (capError) return { error: capError };
       return executeToolInMain(name, args, toolContext);
     });
-    tools = [...subagentTools, ...mcpTools, ...mainAgentTools];
+    tools = [...subagentTools, ...asyncSubagentTools, ...mcpTools, ...mainAgentTools];
   }
 
   if (Array.isArray(customTools) && customTools.length > 0) {
