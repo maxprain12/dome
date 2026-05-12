@@ -5,9 +5,14 @@
  * Implements the LangChain subagents pattern: a main supervisor agent
  * coordinates specialized subagents (research, library, writer, data).
  * Each subagent is wrapped as a tool the main agent can invoke.
+ * `buildSubagentRunner` shares the same graph with async-subagents.cjs.
+ * When LangGraph VFS sandbox is enabled (see langgraph-vfs-thread.cjs), each
+ * subagent run gets its own VfsSandbox + deepagents filesystem middleware
+ * (ls, read_file, write_file, execute, …) in addition to Dome tools.
  */
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
+const vfsThread = require('./langgraph-vfs-thread.cjs');
 const { executeToolInMain, getToolDefsBySubagent } = toolDispatcher;
 const { readPrompt } = require('./prompts-loader.cjs');
 
@@ -40,21 +45,33 @@ function getSubagentSystemPrompt(name) {
 }
 
 /**
- * Create a subagent wrapped as a LangChain tool.
- * The main agent calls this tool with a query; the subagent executes
- * with its domain-specific tools and returns the last message content.
+ * Extract plain text from the last message of a subagent invoke result.
+ * @param {unknown} result
+ * @returns {string}
+ */
+function formatSubagentInvokeResult(result) {
+  const lastMsg = result?.messages?.at(-1);
+  const content = lastMsg?.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    const textParts = content.filter((b) => b?.type === 'text' && b?.text).map((b) => b.text);
+    return textParts.join('\n') || JSON.stringify(content);
+  }
+  return JSON.stringify(content ?? result ?? {});
+}
+
+/**
+ * Build a reusable runner for one subagent (same graph as sync `call_*_agent` tools).
+ * Used by async subagent tasks for background `invoke` with optional `AbortSignal`.
  *
  * @param {string} agentName - research | library | writer | data
  * @param {Object} llm - LangChain chat model
  * @param {Function} executeFn - (toolName, args) => result
  * @param {Function} createLangChainTools - (defs, executeFn) => Promise<LangChain tools[]>
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
- * @returns {Promise<import('@langchain/core/tools').StructuredTool>}
+ * @returns {Promise<{ run: (query: string, runtimeOpts?: { signal?: AbortSignal }) => Promise<string> }>}
  */
-async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTools, onChunk) {
-  const { tool } = await import('@langchain/core/tools');
-  const zodMod = await import('zod');
-  const z = zodMod.z ?? zodMod.default ?? zodMod;
+async function buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk) {
   const { createAgent } = await import('langchain');
 
   const toolDefs = getToolDefsBySubagent()[agentName];
@@ -62,7 +79,6 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
     throw new Error(`No tool definitions for subagent: ${agentName}`);
   }
 
-  // Wrap executeFn to emit real-time tool_call / tool_result events
   let rtCounter = 0;
   const wrappedExecuteFn = onChunk
     ? async (name, args, invocationConfig) => {
@@ -87,33 +103,70 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
     : executeFn;
 
   const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn);
-  const subagent = createAgent({ model: llm, tools: subagentTools });
-
-  const name = `call_${agentName}_agent`;
-  const description = SUBAGENT_DESCRIPTIONS[agentName] || `Delegate to the ${agentName} subagent.`;
   const systemPrompt = getSubagentSystemPrompt(agentName);
 
-  return tool(
-    async ({ query }) => {
+  return {
+    async run(query, runtimeOpts = {}) {
       const { HumanMessage, SystemMessage } = await import('@langchain/core/messages');
+      const { signal } = runtimeOpts;
       const messages = [];
       if (systemPrompt) {
         messages.push(new SystemMessage(systemPrompt));
       }
       messages.push(new HumanMessage(query));
-      const result = await subagent.invoke(
-        { messages },
-        { recursionLimit: SUBAGENT_RECURSION_LIMIT }
-      );
-      const lastMsg = result?.messages?.at(-1);
-      const content = lastMsg?.content;
-      if (typeof content === 'string') return content;
-      if (Array.isArray(content)) {
-        const textParts = content.filter((b) => b?.type === 'text' && b?.text).map((b) => b.text);
-        return textParts.join('\n') || JSON.stringify(content);
+      const invokeOpts = { recursionLimit: SUBAGENT_RECURSION_LIMIT };
+      if (signal) invokeOpts.signal = signal;
+
+      let sandbox = null;
+      try {
+        let agent;
+        if (vfsThread.isVfsSandboxDisabled()) {
+          agent = createAgent({ model: llm, tools: subagentTools });
+        } else {
+          const { VfsSandbox } = await import('@langchain/node-vfs');
+          const { createFilesystemMiddleware } = await import('deepagents');
+          sandbox = await VfsSandbox.create({ timeout: 120_000 });
+          const fsMiddleware = createFilesystemMiddleware({ backend: sandbox });
+          agent = createAgent({ model: llm, tools: subagentTools, middleware: [fsMiddleware] });
+        }
+        const result = await agent.invoke({ messages }, invokeOpts);
+        return formatSubagentInvokeResult(result);
+      } finally {
+        if (sandbox) {
+          try {
+            await sandbox.stop();
+          } catch {
+            /* ignore */
+          }
+        }
       }
-      return JSON.stringify(content ?? result ?? {});
     },
+  };
+}
+
+/**
+ * Create a subagent wrapped as a LangChain tool.
+ * The main agent calls this tool with a query; the subagent executes
+ * with its domain-specific tools and returns the last message content.
+ *
+ * @param {string} agentName - research | library | writer | data
+ * @param {Object} llm - LangChain chat model
+ * @param {Function} executeFn - (toolName, args) => result
+ * @param {Function} createLangChainTools - (defs, executeFn) => Promise<LangChain tools[]>
+ * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
+ * @returns {Promise<import('@langchain/core/tools').StructuredTool>}
+ */
+async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTools, onChunk) {
+  const { tool } = await import('@langchain/core/tools');
+  const zodMod = await import('zod');
+  const z = zodMod.z ?? zodMod.default ?? zodMod;
+
+  const runner = await buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk);
+  const name = `call_${agentName}_agent`;
+  const description = SUBAGENT_DESCRIPTIONS[agentName] || `Delegate to the ${agentName} subagent.`;
+
+  return tool(
+    async ({ query }) => runner.run(query),
     {
       name,
       description,
@@ -151,6 +204,8 @@ async function createSubagentTools(llm, createLangChainTools, onChunk, agentName
 }
 
 module.exports = {
+  SUBAGENT_NAMES,
+  buildSubagentRunner,
   createSubagentAsTool,
   createSubagentTools,
 };

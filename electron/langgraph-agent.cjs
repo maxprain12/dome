@@ -6,9 +6,17 @@
  * Converts Dome's OpenAI-format tool definitions to LangChain tools,
  * creates a model from provider config, and streams results.
  *
+ * Sandbox (LangChain / deepagents): when DOME_LANGGRAPH_VFS_SANDBOX is not
+ * disabled, injects createFilesystemMiddleware with @langchain/node-vfs so the
+ * model gets ls/read_file/write_file/edit_file/glob/grep/execute against an
+ * isolated VFS (see electron/langgraph-vfs-thread.cjs for lifecycle).
+ *
  * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
  * human approval. Uses a durable SqliteSaver checkpointer so pending
  * interrupts survive app restarts (see ./checkpointer.cjs).
+ *
+ * Async subagent tools (start/check/update/cancel/list) run the same subagent
+ * graphs in the background; see ./async-subagents.cjs.
  *
  * Streaming follows LangGraph JS `Pregel.stream` semantics (multi `streamMode`,
  * optional `subgraphs`). See:
@@ -16,8 +24,10 @@
  */
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
+const vfsThread = require('./langgraph-vfs-thread.cjs');
 const { executeToolInMain, getWhatsAppToolDefinitions } = toolDispatcher;
 const { createSubagentTools } = require('./subagents.cjs');
+const { createAsyncSubagentTools } = require('./async-subagents.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
 const database = require('./database.cjs');
 const { getDomeCheckpointer } = require('./checkpointer.cjs');
@@ -768,6 +778,14 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       subagentIds,
       toolContext,
     );
+    const asyncSubagentTools = await createAsyncSubagentTools({
+      threadId,
+      llm,
+      createLangChainTools: createLangChainToolsFromOpenAIDefinitions,
+      onChunk,
+      toolContext,
+      subagentIds,
+    });
     const mcpTools = Array.isArray(mcpServerIds)
       ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
       : await getMCPTools(database);
@@ -882,7 +900,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       if (capError) return { error: capError };
       return executeToolInMain(name, args, toolContext);
     });
-    tools = [...subagentTools, ...mcpTools, ...mainAgentTools];
+    tools = [...subagentTools, ...asyncSubagentTools, ...mcpTools, ...mainAgentTools];
   }
 
   if (Array.isArray(customTools) && customTools.length > 0) {
@@ -966,10 +984,24 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     descriptionPrefix: 'Acción pendiente de aprobación',
   });
   const trimMiddleware = await createTrimmingMiddleware(provider, llm);
-  // Order matters: trim runs first so HITL/tool decisions see the trimmed
-  // history. HITL only intercepts tool calls, not the input messages, so
-  // the order doesn't change correctness — but it keeps the LLM call cheap.
-  const middleware = skipHitl ? [trimMiddleware] : [trimMiddleware, hitlMiddleware];
+
+  /** LangChain / deepagents sandbox: isolated VFS + execute (read_file, write_file, …). */
+  let fsMiddleware = null;
+  if (!vfsThread.isVfsSandboxDisabled()) {
+    const vfsBackend = await vfsThread.ensureThreadVfsSandbox(threadId, 120_000);
+    if (vfsBackend) {
+      const { createFilesystemMiddleware } = await import('deepagents');
+      fsMiddleware = createFilesystemMiddleware({ backend: vfsBackend });
+    }
+  }
+
+  // Order: trim → optional sandbox FS/execute (LangChain) → HITL when enabled.
+  const middleware = (() => {
+    if (skipHitl) {
+      return fsMiddleware ? [trimMiddleware, fsMiddleware] : [trimMiddleware];
+    }
+    return fsMiddleware ? [trimMiddleware, fsMiddleware, hitlMiddleware] : [trimMiddleware, hitlMiddleware];
+  })();
 
   const agent = createAgent({
     model: llm,
@@ -995,10 +1027,13 @@ async function invokeLangGraphAgent(opts) {
     messages,
     onChunk,
     signal,
-    threadId,
+    threadId: threadIdArg,
     skipHitl,
     automationProjectId,
   } = opts;
+
+  const effectiveThreadId = threadIdArg || `dome_${Date.now()}`;
+  let hitInterrupt = false;
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
 
@@ -1006,83 +1041,91 @@ async function invokeLangGraphAgent(opts) {
   const mcpServerIds = opts.mcpServerIds;
   const subagentIds = Array.isArray(opts.subagentIds) ? opts.subagentIds : undefined;
 
-  const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
-    useDirectTools,
-    toolDefinitions: opts.toolDefinitions,
-    mcpServerIds,
-    subagentIds,
-    skipHitl,
-    onChunk,
-    threadId,
-    automationProjectId,
-    provider,
-    customTools: opts.customTools,
-  });
-
-  // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
-  // that intermediate tool turns also stay within the provider budget.
-  const lcMessages = await toLangChainMessages(messages);
-
-  // Emit token budget breakdown for telemetry (first message of the run only).
-  if (onChunk) {
-    const sysMsg = Array.isArray(messages) ? messages.find((m) => m.role === 'system') : null;
-    const histMsgs = Array.isArray(messages) ? messages.filter((m) => m.role !== 'system') : [];
-    const budgetBreakdown = measurePrompt({
-      system: sysMsg?.content || '',
-      tools: opts.toolDefinitions || [],
-      history: histMsgs,
-    });
-    onChunk({ type: 'budget', breakdown: budgetBreakdown });
-  }
-
-  const config = withLangfuseCallbacks({
-    configurable: { thread_id: threadId || `dome_${Date.now()}` },
-    recursionLimit: RECURSION_LIMIT,
-    signal,
-  });
-
   try {
-    const { capturedInterrupt } = await streamAgentRun(
-      agent,
-      { messages: lcMessages },
-      config,
+    const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
+      useDirectTools,
+      toolDefinitions: opts.toolDefinitions,
+      mcpServerIds,
+      subagentIds,
+      skipHitl,
       onChunk,
-      rtEmittedCallIds,
-      rtEmittedResultIds,
-    );
+      threadId: effectiveThreadId,
+      automationProjectId,
+      provider,
+      customTools: opts.customTools,
+      runtimeContext: opts.runtimeContext,
+    });
 
-    const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
-    if (interrupt) {
-      if (onChunk) {
-        onChunk({
-          type: 'interrupt',
-          threadId: config.configurable.thread_id,
-          actionRequests: interrupt.actionRequests,
-          reviewConfigs: interrupt.reviewConfigs,
-        });
-      }
-      return { __interrupt__: true, threadId: config.configurable.thread_id };
-    }
+    // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
+    // that intermediate tool turns also stay within the provider budget.
+    const lcMessages = await toLangChainMessages(messages);
 
-    const { finalText, finalMessages } = await finalizeFromState(agent, config);
-
-    const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
-    if (aggregatedUsage && onChunk) {
-      onChunk({ type: 'usage', usage: aggregatedUsage });
-    }
-    if (onChunk) onChunk({ type: 'done' });
-
-    return finalText;
-  } catch (err) {
-    const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
+    // Emit token budget breakdown for telemetry (first message of the run only).
     if (onChunk) {
-      if (isAbort) {
-        onChunk({ type: 'done' });
-      } else {
-        onChunk({ type: 'error', error: err?.message || String(err) });
-      }
+      const sysMsg = Array.isArray(messages) ? messages.find((m) => m.role === 'system') : null;
+      const histMsgs = Array.isArray(messages) ? messages.filter((m) => m.role !== 'system') : [];
+      const budgetBreakdown = measurePrompt({
+        system: sysMsg?.content || '',
+        tools: opts.toolDefinitions || [],
+        history: histMsgs,
+      });
+      onChunk({ type: 'budget', breakdown: budgetBreakdown });
     }
-    throw err;
+
+    const config = withLangfuseCallbacks({
+      configurable: { thread_id: effectiveThreadId },
+      recursionLimit: RECURSION_LIMIT,
+      signal,
+    });
+
+    try {
+      const { capturedInterrupt } = await streamAgentRun(
+        agent,
+        { messages: lcMessages },
+        config,
+        onChunk,
+        rtEmittedCallIds,
+        rtEmittedResultIds,
+      );
+
+      const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
+      if (interrupt) {
+        hitInterrupt = true;
+        if (onChunk) {
+          onChunk({
+            type: 'interrupt',
+            threadId: config.configurable.thread_id,
+            actionRequests: interrupt.actionRequests,
+            reviewConfigs: interrupt.reviewConfigs,
+          });
+        }
+        return { __interrupt__: true, threadId: config.configurable.thread_id };
+      }
+
+      const { finalText, finalMessages } = await finalizeFromState(agent, config);
+
+      const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
+      if (aggregatedUsage && onChunk) {
+        onChunk({ type: 'usage', usage: aggregatedUsage });
+      }
+      if (onChunk) onChunk({ type: 'done' });
+
+      return finalText;
+    } catch (err) {
+      const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
+      if (onChunk) {
+        if (isAbort) {
+          onChunk({ type: 'done' });
+        } else {
+          onChunk({ type: 'error', error: err?.message || String(err) });
+        }
+      }
+      throw err;
+    }
+  } finally {
+    if (!vfsThread.isVfsSandboxDisabled() && !hitInterrupt) {
+      await vfsThread.disposeThreadSandbox(effectiveThreadId);
+    }
   }
 }
 
@@ -1139,64 +1182,74 @@ async function resumeLangGraphAgent(opts) {
   const mcpServerIds = mcpServerIdsArg;
   const subagentIds = Array.isArray(subagentIdsArg) ? subagentIdsArg : undefined;
   const skipHitl = skipHitlArg === true;
-  const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
-    useDirectTools,
-    toolDefinitions: toolDefinitionsArg,
-    mcpServerIds,
-    subagentIds,
-    skipHitl,
-    onChunk,
-    threadId,
-    automationProjectId: automationProjectIdArg,
-    provider,
-    customTools: customToolsArg,
-  });
-
-  const config = withLangfuseCallbacks({
-    configurable: { thread_id: threadId },
-    recursionLimit: RECURSION_LIMIT,
-    signal,
-  });
+  let hitInterrupt = false;
 
   try {
-    const { capturedInterrupt } = await streamAgentRun(
-      agent,
-      new Command({ resume: { decisions } }),
-      config,
+    const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
+      useDirectTools,
+      toolDefinitions: toolDefinitionsArg,
+      mcpServerIds,
+      subagentIds,
+      skipHitl,
       onChunk,
-      rtEmittedCallIds,
-      rtEmittedResultIds,
-    );
+      threadId,
+      automationProjectId: automationProjectIdArg,
+      provider,
+      customTools: customToolsArg,
+      runtimeContext: rest.runtimeContext,
+    });
 
-    const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
-    if (interrupt) {
-      if (onChunk) {
-        onChunk({
-          type: 'interrupt',
-          threadId,
-          actionRequests: interrupt.actionRequests,
-          reviewConfigs: interrupt.reviewConfigs,
-        });
+    const config = withLangfuseCallbacks({
+      configurable: { thread_id: threadId },
+      recursionLimit: RECURSION_LIMIT,
+      signal,
+    });
+
+    try {
+      const { capturedInterrupt } = await streamAgentRun(
+        agent,
+        new Command({ resume: { decisions } }),
+        config,
+        onChunk,
+        rtEmittedCallIds,
+        rtEmittedResultIds,
+      );
+
+      const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
+      if (interrupt) {
+        hitInterrupt = true;
+        if (onChunk) {
+          onChunk({
+            type: 'interrupt',
+            threadId,
+            actionRequests: interrupt.actionRequests,
+            reviewConfigs: interrupt.reviewConfigs,
+          });
+        }
+        return { __interrupt__: true, threadId };
       }
-      return { __interrupt__: true, threadId };
-    }
 
-    const { finalText, finalMessages } = await finalizeFromState(agent, config);
+      const { finalText, finalMessages } = await finalizeFromState(agent, config);
 
-    const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
-    if (aggregatedUsage && onChunk) {
-      onChunk({ type: 'usage', usage: aggregatedUsage });
-    }
-    if (onChunk) onChunk({ type: 'done' });
+      const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
+      if (aggregatedUsage && onChunk) {
+        onChunk({ type: 'usage', usage: aggregatedUsage });
+      }
+      if (onChunk) onChunk({ type: 'done' });
 
-    return finalText;
-  } catch (err) {
-    const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
-    if (onChunk) {
-      if (isAbort) onChunk({ type: 'done' });
-      else onChunk({ type: 'error', error: err?.message || String(err) });
+      return finalText;
+    } catch (err) {
+      const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
+      if (onChunk) {
+        if (isAbort) onChunk({ type: 'done' });
+        else onChunk({ type: 'error', error: err?.message || String(err) });
+      }
+      throw err;
     }
-    throw err;
+  } finally {
+    if (!vfsThread.isVfsSandboxDisabled() && !hitInterrupt) {
+      await vfsThread.disposeThreadSandbox(threadId);
+    }
   }
 }
 
