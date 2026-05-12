@@ -153,6 +153,11 @@ function getAllIds() {
   return Array.from(skillsById.keys());
 }
 
+/** Absolute workspace root when set (Skills settings / project folder). */
+function getProjectRoot() {
+  return _projectRoot;
+}
+
 module.exports = {
   setContext,
   setProjectRoot,
@@ -161,6 +166,7 @@ module.exports = {
   resolve,
   list,
   getAllIds,
+  getProjectRoot,
   collectWatchRoots,
   getPersonalSkillsRoot,
   getBundledSkillsRoot,

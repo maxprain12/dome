@@ -4,6 +4,10 @@
  */
 const registry = require('./skills/registry.cjs');
 const { renderSkillBody } = require('./skills/renderer.cjs');
+const { capToolResultString } = require('./tool-result-cap.cjs');
+
+/** Max rendered SKILL.md body chars before asking model to call load_skill (context engineering). */
+const SKILL_BODY_PREVIEW_CHARS = 3600;
 
 function getDisableShellFromQueries(queries) {
   if (!queries?.getSetting) return false;
@@ -24,7 +28,7 @@ function appendSkillsToPrompt(basePrompt, skillIds, queries) {
     if (typeof id !== 'string') continue;
     const rec = registry.getById(id) || registry.resolve(id);
     if (!rec) continue;
-    const body = renderSkillBody(rec.body, {
+    const bodyRaw = renderSkillBody(rec.body, {
       argumentsLine: '',
       namedArgs: rec.arguments,
       sessionId: '',
@@ -32,7 +36,12 @@ function appendSkillsToPrompt(basePrompt, skillIds, queries) {
       shell: rec.shell,
       disableSkillShellExecution: disableShell,
     });
-    if (!String(body).trim()) continue;
+    if (!String(bodyRaw).trim()) continue;
+    const slug = String(rec.slashName || rec.dirName || id || '').trim();
+    let body = String(bodyRaw).trim();
+    if (body.length > SKILL_BODY_PREVIEW_CHARS) {
+      body = `${body.slice(0, SKILL_BODY_PREVIEW_CHARS)}…\n\n[Truncated — call load_skill('${slug}') for the full skill body.]`;
+    }
     const title = rec.name || 'Skill';
     chunks.push(`### ${title}\n${body}\n`);
   }

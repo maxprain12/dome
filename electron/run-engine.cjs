@@ -7,6 +7,7 @@ const { getToolDefinitionsByIds } = require('./tool-dispatcher.cjs');
 const streamingTts = require('./streaming-tts.cjs');
 const { getOpenAIKey } = require('./openai-key.cjs');
 const { appendSkillsToPrompt, filterToolsBySkill } = require('./skill-prompt.cjs');
+const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -1028,13 +1029,12 @@ async function executeLangGraphRun(runId, params) {
     subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
     skipHitl: !!params.skipHitl,
     automationProjectId,
+    runtimeContext,
   };
-  const runtimeContext = (params.contextId || (Array.isArray(params.pinnedResourceIds) && params.pinnedResourceIds.length > 0))
-    ? {
-        activeResourceId: params.contextId || null,
-        pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
-      }
-    : null;
+  const runtimeContext = parseRuntimeContext({
+    activeResourceId: params.contextId || null,
+    pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
+  });
 
   try {
     const result = await langgraphAgent.invokeLangGraphAgent({
@@ -1244,6 +1244,7 @@ async function resumeRun(runId, decisions) {
       mcpServerIds: undefined,
       subagentIds: undefined,
       skipHitl: false,
+      runtimeContext: null,
     };
     await langgraphAgent.resumeLangGraphAgent({
       provider: providerConfig.provider,
@@ -1260,6 +1261,7 @@ async function resumeRun(runId, decisions) {
       mcpServerIds: lgOpts.mcpServerIds,
       subagentIds: lgOpts.subagentIds,
       skipHitl: lgOpts.skipHitl,
+      runtimeContext: lgOpts.runtimeContext,
       automationProjectId:
         run.automationId ? (run.projectId ?? 'default') : lgOpts.automationProjectId,
     });

@@ -15,6 +15,7 @@ const toolDispatcher = require('./tool-dispatcher.cjs');
 const vfsThread = require('./langgraph-vfs-thread.cjs');
 const { executeToolInMain, getToolDefsBySubagent } = toolDispatcher;
 const { readPrompt } = require('./prompts-loader.cjs');
+const { capToolResultString } = require('./tool-result-cap.cjs');
 
 /** Canonical subagent names. Order matters: it's the default tool order
  *  the supervisor sees, and the supervisor's choice can be order-biased. */
@@ -96,9 +97,10 @@ async function buildSubagentRunner(agentName, llm, executeFn, createLangChainToo
           },
         });
         const result = await executeFn(name, args);
-        const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
+        const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+        const resultStr = capToolResultString(name, resultStr0);
         onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
-        return result;
+        return resultStr;
       }
     : executeFn;
 
@@ -166,7 +168,7 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
   const description = SUBAGENT_DESCRIPTIONS[agentName] || `Delegate to the ${agentName} subagent.`;
 
   return tool(
-    async ({ query }) => runner.run(query),
+    async ({ query }) => capToolResultString(name, await runner.run(query)),
     {
       name,
       description,
