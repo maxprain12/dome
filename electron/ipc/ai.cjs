@@ -98,10 +98,10 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       return { success: false, error: 'Invalid params' };
     }
 
-    const { provider, messages, streamId } = params;
-    let { model } = params;
-
     try {
+      const { provider, messages, streamId } = params;
+      let { model } = params;
+
       if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax'].includes(provider)) {
         throw new Error('Invalid provider. Must be openai, anthropic, google, dome, ollama, or minimax');
       }
