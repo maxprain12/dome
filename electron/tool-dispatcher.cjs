@@ -117,10 +117,12 @@ const TOOL_HANDLER_MAP = {
   // Persisted chat artifacts (iframe mini-apps; same contract as artifact-tools.ts)
   artifact_create: 'artifactCreate',
   artifact_get: 'artifactGet',
+  artifact_merge_data: 'artifactMergeData',
   artifact_update_state: 'artifactUpdateState',
   artifact_list: 'artifactList',
   artifact_delete: 'artifactDelete',
   artifact_link_resource: 'artifactLinkResource',
+  artifact_design: 'artifactDesign',
 
   // UI interaction tools (dispatch to renderer via IPC broadcast)
   ui_point_to: 'uiPointTo',
@@ -161,7 +163,8 @@ async function executeToolInMain(toolName, args, toolContext) {
     return null;
   }
 
-  const handlerName = TOOL_HANDLER_MAP[toolName];
+  const normalizedToolName = normalizeToolName(toolName);
+  const handlerName = TOOL_HANDLER_MAP[normalizedToolName];
   if (!handlerName || !aiToolsHandler[handlerName]) {
     return { status: 'error', error: `Tool not supported: ${toolName}` };
   }
@@ -592,11 +595,16 @@ async function executeToolInMain(toolName, args, toolContext) {
         const { getSectionBody } = require('./prompt-sections.cjs');
         const docId = args.id || args.section_id || args.doc_id;
         if (!docId) {
-          result = { error: 'id is required. Valid values: entity_rules, artifacts, artifact_persisted, resource_links' };
+          result = {
+            error:
+              'id is required. Valid values: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links',
+          };
         } else {
           const body = getSectionBody(docId);
           if (!body) {
-            result = { error: `Unknown doc id: "${docId}". Valid: entity_rules, artifacts, artifact_persisted, resource_links` };
+            result = {
+              error: `Unknown doc id: "${docId}". Valid: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links`,
+            };
           } else {
             result = { id: docId, content: body };
           }
@@ -650,6 +658,17 @@ async function executeToolInMain(toolName, args, toolContext) {
         else result = await fn({ resource_id: artRid });
         break;
       }
+      case 'artifactMergeData': {
+        const mergeRid = args.resource_id || args.resourceId;
+        const mergeDenied = denyUnlessResourceInScope(mergeRid);
+        if (mergeDenied) result = mergeDenied;
+        else
+          result = await fn({
+            resource_id: mergeRid,
+            data_patch: args.data_patch ?? args.dataPatch ?? {},
+          });
+        break;
+      }
       case 'artifactUpdateState': {
         const artUpdRid = args.resource_id || args.resourceId;
         const artUpdDenied = denyUnlessResourceInScope(artUpdRid);
@@ -671,6 +690,9 @@ async function executeToolInMain(toolName, args, toolContext) {
         else result = await fn({ resource_id: artLinkRid, linked_resource_id: args.linked_resource_id ?? null });
         break;
       }
+      case 'artifactDesign':
+        result = await fn(args);
+        break;
       default:
         result = await fn(args);
     }
@@ -728,9 +750,11 @@ function getToolDefsBySubagent() {
       'artifact_create',
       'artifact_get',
       'artifact_list',
+      'artifact_merge_data',
       'artifact_update_state',
       'artifact_delete',
       'artifact_link_resource',
+      'artifact_design',
       'flashcard_create',
       'notebook_get',
       'notebook_add_cell',
@@ -755,6 +779,7 @@ function getToolDefsBySubagent() {
       'get_library_overview',
       'resource_list',
       'resource_get',
+      'artifact_merge_data',
       'resource_get_section',
       'get_document_structure',
       'get_current_project',
@@ -1232,6 +1257,22 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'artifact_merge_data',
+        description:
+          'Shallow-merge keys into persisted artifact state.data without resending HTML. Use after excel_get / resource_get to push rows, counters, or blobs. Top-level keys replace or add; nested subtrees replace by key. Prefer over pasting huge datasets into HTML.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Artifact resource ID' },
+            data_patch: { type: 'object', description: 'Partial state.data (merged shallowly)' },
+          },
+          required: ['resource_id', 'data_patch'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'artifact_update_state',
         description:
           'Update an artifact: pass html and/or data (merged with existing). In-iframe JS must sync with __dome_updateState; do not use browser storage for durable state. Omit fields you do not change.',
@@ -1289,6 +1330,27 @@ function getAllToolDefinitions() {
             },
           },
           required: ['artifact_resource_id', 'linked_resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'artifact_design',
+        description:
+          'Build Dome-themed HTML + initial state.data for a persisted library artifact (tabbed dossier: header, tabs, section cards, badges, lists, code blocks). ' +
+          'Uses only injected CSS variables; escapes content. Does NOT persist — pass returned html and data to artifact_create (artifact_type: custom). ' +
+          'Call dome_load_doc with id artifact_design before first use to read the full JSON spec.',
+        parameters: {
+          type: 'object',
+          properties: {
+            spec: {
+              type: 'object',
+              description:
+                'Layout spec: title (required), optional subtitle, title_emoji (single optional emoji), active_tab (optional), tabs[] { id, label }, panels { [tabId]: { sections[] with kicker, optional badge, badge_tone: neutral|info|success|warning|error, blocks[]: type paragraph|numbered|bullets|code } } }',
+            },
+          },
+          required: ['spec'],
         },
       },
     },
@@ -1718,13 +1780,13 @@ function getAllToolDefinitions() {
       function: {
         name: 'dome_load_doc',
         description:
-          'Load a reference doc section on demand. Call this BEFORE using tools or emitting artifact blocks that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+          'Load a reference doc section on demand. Call this BEFORE using tools or emitting artifact blocks that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
         parameters: {
           type: 'object',
           properties: {
             id: {
               type: 'string',
-              enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+              enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
               description: 'Section identifier',
             },
           },

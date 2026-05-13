@@ -971,15 +971,20 @@ function createRunChunkEmitter(runId, context) {
       context.llmUsage = mergeLlmUsage(context.llmUsage, data.usage);
       return;
     }
-    if (data.type === 'interrupt' && data.actionRequests && data.reviewConfigs) {
+    if (
+      data.type === 'interrupt' &&
+      Array.isArray(data.actionRequests) &&
+      data.actionRequests.length > 0
+    ) {
       context.threadId = data.threadId || context.threadId;
+      const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
       patchRun(runId, {
         status: 'waiting_approval',
         threadId: context.threadId,
         metadata: {
           pendingApproval: {
             actionRequests: data.actionRequests,
-            reviewConfigs: data.reviewConfigs,
+            reviewConfigs,
           },
         },
         lastHeartbeatAt: heartbeat,
@@ -988,7 +993,7 @@ function createRunChunkEmitter(runId, context) {
         runId,
         type: 'interrupt',
         actionRequests: data.actionRequests,
-        reviewConfigs: data.reviewConfigs,
+        reviewConfigs,
         threadId: data.threadId,
       });
     }

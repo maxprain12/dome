@@ -234,7 +234,12 @@ function createIndexer(opts) {
       }
     }
 
-    if (!text || source === 'empty') {
+    if (
+      !text ||
+      source === 'empty' ||
+      source === 'blocked_no_vision_ocr' ||
+      source === 'vision_ocr_failed'
+    ) {
       queries.deleteChunksByResource.run(resourceId);
       queries.deleteSemanticAutoFromSource.run(resourceId);
       try {

@@ -3,6 +3,7 @@ The following sections are NOT included inline. Call `dome_load_doc(id)` to retr
 - **entity_rules** — MUST call before `agent_create`, `workflow_create`, `automation_create`, or `marketplace_install`. Never create an entity without loading this first.
 - **artifacts** — MUST call before emitting any ` ```artifact:* ``` ` block (calculator, chart, dashboard, timeline, flashcards, created_entity, etc.). Skip only if the current turn already contains a prior `dome_load_doc('artifacts')` result.
 - **artifact_persisted** — MUST call before creating (`artifact_create`), updating (`artifact_update_state`), or deleting a persisted library mini-app.
+- **artifact_design** — MUST call before the first `artifact_design` tool use in a session when building a multi-tab dossier-style persisted artifact (or anytime you need the full `spec` schema). Often used together with `artifact_persisted`.
 - **resource_links** — call only if you are uncertain about the `dome://` link format.
 
 ---

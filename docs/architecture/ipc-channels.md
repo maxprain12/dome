@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-12T21:28:20.396Z
+> Última generación: 2026-05-13T10:34:54.970Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -70,15 +70,16 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
 | `ai:webSearch` | `electron/ipc/ai.cjs:555` |
 | `approval:respond` | `electron/ipc/approval.cjs:37` |
+| `artifact:buildDesign` | `electron/ipc/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
-| `artifact:delete` | `electron/ipc/artifacts.cjs:155` |
-| `artifact:export` | `electron/ipc/artifacts.cjs:188` |
+| `artifact:delete` | `electron/ipc/artifacts.cjs:185` |
+| `artifact:export` | `electron/ipc/artifacts.cjs:218` |
 | `artifact:get` | `electron/ipc/artifacts.cjs:94` |
-| `artifact:import` | `electron/ipc/artifacts.cjs:225` |
-| `artifact:list` | `electron/ipc/artifacts.cjs:170` |
-| `artifact:refresh-linked` | `electron/ipc/artifacts.cjs:332` |
-| `artifact:set-linked-resource` | `electron/ipc/artifacts.cjs:297` |
-| `artifact:update` | `electron/ipc/artifacts.cjs:110` |
+| `artifact:import` | `electron/ipc/artifacts.cjs:255` |
+| `artifact:list` | `electron/ipc/artifacts.cjs:200` |
+| `artifact:refresh-linked` | `electron/ipc/artifacts.cjs:362` |
+| `artifact:set-linked-resource` | `electron/ipc/artifacts.cjs:327` |
+| `artifact:update` | `electron/ipc/artifacts.cjs:140` |
 | `audio:generate-podcast` | `electron/ipc/audio.cjs:86` |
 | `audio:generate-speech` | `electron/ipc/audio.cjs:31` |
 | `audio:get-status` | `electron/ipc/audio.cjs:120` |

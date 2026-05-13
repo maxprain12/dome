@@ -514,6 +514,7 @@ const ALLOWED_CHANNELS = {
     // Artifacts
     'artifact:create',
     'artifact:get',
+    'artifact:buildDesign',
     'artifact:update',
     'artifact:delete',
     'artifact:list',
@@ -1676,6 +1677,7 @@ const electronHandler = {
   artifacts: {
     create: (opts) => ipcRenderer.invoke('artifact:create', opts),
     get: (resourceId) => ipcRenderer.invoke('artifact:get', resourceId),
+    buildDesign: (spec) => ipcRenderer.invoke('artifact:buildDesign', { spec }),
     update: (opts) => ipcRenderer.invoke('artifact:update', opts),
     delete: (resourceId) => ipcRenderer.invoke('artifact:delete', resourceId),
     list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),

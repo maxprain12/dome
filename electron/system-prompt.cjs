@@ -209,6 +209,7 @@ Available via dome_load_doc(id):
 - entity_rules — when creating agents, workflows, automations, or marketplace installs
 - artifacts — when emitting any artifact block (inline chat artifacts OR persisted library mini-apps); contains the decision matrix for which kind to use
 - artifact_persisted — when creating, updating, or deleting a persisted library mini-app (artifact_create / artifact_update_state / artifact_delete)
+- artifact_design — when calling artifact_design or building a complex multi-tab dossier-style persisted artifact; defines the JSON spec for the tool
 - resource_links — only if you are unsure about the dome:// link format`;
 
 function buildDomeSystemPrompt(options) {

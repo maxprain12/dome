@@ -415,10 +415,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
           }
         | undefined;
-      if (pending?.actionRequests && pending.reviewConfigs) {
+      if (pending?.actionRequests && pending.actionRequests.length > 0) {
         setPendingApproval({
           actionRequests: pending.actionRequests,
-          reviewConfigs: pending.reviewConfigs,
+          reviewConfigs: Array.isArray(pending.reviewConfigs) ? pending.reviewConfigs : [],
           submitResume: (decisions) => {
             hitlDecisionsRef.current = decisions;
             void resumeRun(run.id, decisions as Array<unknown>);

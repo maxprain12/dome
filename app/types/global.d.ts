@@ -1794,6 +1794,13 @@ declare global {
         import: () => Promise<{ success: boolean; cancelled?: boolean; data?: ArtifactRecord; error?: string }>;
         refreshLinked: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
         setLinkedResource: (resourceId: string, linkedResourceId: string | null) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
+        buildDesign: (spec: Record<string, unknown>) => Promise<{
+          success: boolean;
+          html?: string;
+          data?: Record<string, unknown>;
+          hints?: string;
+          error?: string;
+        }>;
       };
     };
   }

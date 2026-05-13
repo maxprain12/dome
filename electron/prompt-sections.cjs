@@ -20,7 +20,7 @@ function readMartin(name) {
 
 /**
  * On-demand Markdown bodies for dome_load_doc.
- * @param {string} docId entity_rules | artifacts | artifact_persisted | resource_links
+ * @param {string} docId entity_rules | artifacts | artifact_persisted | artifact_design | resource_links
  */
 function getSectionBody(docId) {
   if (cache[docId] !== undefined && cache[docId] !== null) return cache[docId];
@@ -35,6 +35,9 @@ function getSectionBody(docId) {
       break;
     case 'artifact_persisted':
       body = readMartin('artifact-persisted.txt');
+      break;
+    case 'artifact_design':
+      body = readMartin('artifact-design.txt');
       break;
     case 'resource_links':
       body = RESOURCE_LINK_INSTRUCTION;

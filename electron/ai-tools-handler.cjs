@@ -34,6 +34,7 @@ const { renderSkillBody } = require('./skills/renderer.cjs');
 const { rrfMerge } = require('./hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('./artifact-serialize.cjs');
 const { afterArtifactMutation } = require('./artifact-index-sync.cjs');
+const pdfTranscriptionSvc = require('./services/pdf-transcription.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -270,41 +271,72 @@ async function resourceGet(resourceId, options = {}) {
       metadata: metadata,
     };
 
-    // --- PDFs: prefer vision/cloud transcript in `content`, else raw extraction ---
+    // --- PDFs: siempre texto pdf.js desde archivo si existe capa textual; si no, contenido indexado u OCR guardado ---
     if (includeContent && resource.type === 'pdf') {
-      const body = String(resource.content || '').trim();
-      if (body) {
-        if (body.length > maxLen) {
-          result.content = body.substring(0, maxLen);
+      let fullPathPdf = null;
+      if (resource.internal_path) {
+        fullPathPdf = fileStorage.getFullPath(resource.internal_path);
+      } else if (resource.file_path && fs.existsSync(resource.file_path)) {
+        fullPathPdf = resource.file_path;
+      }
+
+      let extractedPdfJs = '';
+      if (fullPathPdf && fs.existsSync(fullPathPdf)) {
+        try {
+          extractedPdfJs = await documentExtractor.extractTextFromPDF(fullPathPdf, maxLen);
+        } catch (e) {
+          console.warn('[AI Tools] PDF raw extraction failed for', resourceId, e.message);
+        }
+      }
+
+      const rawStored = String(resource.content || '').trim();
+      const strippedTranscript = rawStored ? pdfTranscriptionSvc.stripVisionModelNoise(rawStored) : '';
+      const checkBody = strippedTranscript || rawStored;
+      const transcriptCorrupted =
+        Boolean(rawStored) && pdfTranscriptionSvc.storedPdfVisionTranscriptLooksCorrupted(checkBody);
+
+      let chosen = '';
+      let source = '';
+
+      if (extractedPdfJs.trim()) {
+        chosen = extractedPdfJs;
+        source = 'pdfjs_live';
+      } else if (rawStored && !transcriptCorrupted) {
+        chosen = strippedTranscript;
+        source = 'indexed_text_pdfjs_fallback';
+      } else if (strippedTranscript) {
+        chosen = strippedTranscript;
+        source =
+          transcriptCorrupted && extractedPdfJs.trim() === ''
+            ? 'indexed_text_degraded'
+            : 'indexed_text_fallback';
+      }
+
+      const pdfIx = metadata && typeof metadata === 'object' ? metadata.pdf_indexing : undefined;
+      if (
+        pdfIx &&
+        typeof pdfIx === 'object' &&
+        pdfIx.status === 'blocked_no_vision_ocr' &&
+        typeof pdfIx.user_hint_es === 'string' &&
+        !chosen.trim()
+      ) {
+        result.indexing_note = pdfIx.user_hint_es;
+      } else if (chosen && source === 'pdfjs_live' && rawStored && transcriptCorrupted) {
+        result.indexing_note =
+          'Texto desde capa seleccionable del PDF (pdf.js). El índice guardado tenía transcripción de visión defectuosa; reindexar en Ajustes alineará SQLite.';
+      }
+
+      if (chosen) {
+        const fullLen = chosen.length;
+        if (chosen.length > maxLen) {
+          result.content = chosen.substring(0, maxLen);
           result.content_truncated = true;
-          result.full_length = body.length;
+          result.full_length = fullLen;
         } else {
-          result.content = body;
+          result.content = chosen;
           result.content_truncated = false;
         }
-        result.content_source = 'pdf_transcript';
-      } else {
-        const fs = require('fs');
-        let fullPath = null;
-        if (resource.internal_path) {
-          fullPath = fileStorage.getFullPath(resource.internal_path);
-        } else if (resource.file_path && fs.existsSync(resource.file_path)) {
-          fullPath = resource.file_path;
-        }
-        if (fullPath && fs.existsSync(fullPath)) {
-          try {
-            const extracted = await documentExtractor.extractTextFromPDF(fullPath, maxLen);
-            if (extracted && extracted.trim()) {
-              result.content = extracted;
-              result.content_source = 'raw_extraction';
-              result.content_truncated = extracted.length >= maxLen;
-              result.indexing_note =
-                'Transcripción del índice aún no disponible; texto extraído con pdf.js. Reintenta tras indexar en Ajustes.';
-            }
-          } catch (e) {
-            console.warn('[AI Tools] PDF raw extraction failed for', resourceId, e.message);
-          }
-        }
+        result.content_source = source;
       }
     }
 
@@ -3580,6 +3612,61 @@ async function artifactUpdateState(args) {
   }
 }
 
+async function artifactMergeData(args) {
+  try {
+    const resourceId = args?.resource_id ?? args?.resourceId;
+    if (!resourceId) return { success: false, error: 'resource_id is required' };
+    const dataPatch = args?.data_patch ?? args?.dataPatch;
+    if (!dataPatch || typeof dataPatch !== 'object' || Array.isArray(dataPatch)) {
+      return { success: false, error: 'data_patch must be a plain JSON object' };
+    }
+
+    const queries = database.getQueries();
+    const db = database.getDB();
+    const existing = queries.getArtifactByResourceId.get(resourceId);
+    if (!existing) return { success: false, error: 'Artifact not found' };
+
+    const prevState = parseJsonState(existing.state);
+    const prevData =
+      prevState.data !== undefined &&
+      prevState.data !== null &&
+      typeof prevState.data === 'object' &&
+      !Array.isArray(prevState.data)
+        ? /** @type {Record<string, unknown>} */ ({ ...prevState.data })
+        : {};
+    const mergedState = {
+      ...prevState,
+      data: { ...prevData, ...dataPatch },
+    };
+
+    const now = Date.now();
+    const stateStr = JSON.stringify(mergedState);
+    const tx = db.transaction(() => {
+      queries.updateArtifactState.run(stateStr, now, resourceId);
+      const updated = queries.getArtifactByResourceId.get(resourceId);
+      if (updated) {
+        _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
+      }
+    });
+    tx();
+
+    const updated = queries.getArtifactByResourceId.get(resourceId);
+    const resource = queries.getResourceById.get(resourceId);
+    const serialized = serializeArtifactRecord(updated, resource, queries);
+
+    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+      windowManagerRef.broadcast('artifact:updated', serialized);
+    }
+
+    afterArtifactMutation(database, resourceId);
+
+    return { success: true, data: serialized };
+  } catch (error) {
+    console.error('[AI Tools] artifactMergeData error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 async function artifactDelete(args) {
   try {
     const resourceId = args?.resource_id ?? args?.resourceId;
@@ -3665,6 +3752,33 @@ async function artifactLinkResource(args) {
   }
 }
 
+async function artifactDesign(args) {
+  try {
+    const { buildArtifactDesignLayout } = require('./artifact-design-layout.cjs');
+    let spec = args?.spec ?? args?.design_spec;
+    if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+      const a = args && typeof args === 'object' && !Array.isArray(args) ? args : null;
+      if (a && (a.title != null || a.tabs != null)) {
+        spec = a;
+      }
+    }
+    const built = buildArtifactDesignLayout(spec);
+    if (!built.ok) {
+      return { success: false, error: built.error };
+    }
+    return {
+      success: true,
+      html: built.html,
+      data: built.data,
+      hints:
+        'Pass html and data to artifact_create with artifact_type "custom". Call dome_load_doc("artifact_design") first if you have not read the layout spec.',
+    };
+  } catch (error) {
+    console.error('[AI Tools] artifactDesign error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 // =============================================================================
 // Exports
 // =============================================================================
@@ -3703,9 +3817,11 @@ module.exports = {
   artifactList,
   artifactGet,
   artifactCreate,
+  artifactMergeData,
   artifactUpdateState,
   artifactDelete,
   artifactLinkResource,
+  artifactDesign,
 
   // Project tools
   projectList,

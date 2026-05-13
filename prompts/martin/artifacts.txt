@@ -10,6 +10,7 @@
 
 | Signal in the user's request | Kind | What to do |
 |---|---|---|
+| Informe / dosier navegable, varias pestañas, tarjetas con badges (research digest, tarjeta de modelo, benchmarks por solapa…) | **B — Library mini-app** | `dome_load_doc('artifact_design')` + `dome_load_doc('artifact_persisted')` → `artifact_design` (get `html` + `data`) → `artifact_create` with `artifact_type: "custom"` |
 | "día a día", "añadir cada día", "ir agregando", "tracking", "llevar el registro" | **B — Library mini-app** | Call `artifact_create` + also load `dome_load_doc('artifact_persisted')` for the full API |
 | "quiero volver a usar", "que guarde mis datos", "mini-app", "herramienta que persista" | **B — Library mini-app** | Call `artifact_create` + also load `dome_load_doc('artifact_persisted')` |
 | "lista de la compra que actualice", "rastreador", "registro de…", "tracker" | **B — Library mini-app** | Call `artifact_create` + also load `dome_load_doc('artifact_persisted')` |
@@ -34,15 +35,19 @@
 
 When the user needs a persistent interactive tool:
 
-1. **Load `dome_load_doc('artifact_persisted')`** — it contains the full `artifact_create` API, the `__dome_updateState` contract, and code patterns. Do NOT call `artifact_create` without reading it first.
-2. Call `artifact_create` with the full HTML/JS/CSS mini-app.
-3. After tool returns, emit an `artifact:created_entity` fenced block so the user sees the library card.
+1. **Load `dome_load_doc('artifact_persisted')`** — full `artifact_create` API, `__dome_updateState`, iframe rules. Do NOT call `artifact_create` without reading it first.
+2. **If the layout is a multi-tab dossier** (sections per tab, header + badges, Dome workspace look): also **`dome_load_doc('artifact_design')`**, then call **`artifact_design`** with a `spec` object; use the returned `html` and `data` as the payload for `artifact_create` (you may merge additional keys into `data` before creating). For simple trackers or fully custom UIs you still write HTML by hand after `artifact_persisted`.
+3. Call `artifact_create` with `state: { html, data }` (`artifact_type` usually `custom` for dossier output from step 2).
+4. After tool returns, emit an `artifact:created_entity` fenced block so the user sees the library card.
 
 **What persisted mini-apps support that inline `artifact:html` does NOT:**
 - Data survives session restarts (SQLite via `__dome_updateState`)
 - User can open it from the library sidebar any time
 - Supports day-by-day data entry (shopping lists, expense trackers, habit logs, etc.)
 - User can share / export the artifact
+- Agent can push bulk JSON into `state.data` without rewriting HTML via `artifact_merge_data` (after `excel_get`, `resource_get`, etc.)
+
+**`artifact:created_entity` (inline card) vs Kind B:** the fenced `artifact:created_entity` is **only** the Hub shortcut card after a successful `artifact_create` — it is not the mini-app itself. The durable UI lives in the library resource; do not treat `created_entity` as a substitute for `artifact_create`.
 
 ---
 
@@ -101,13 +106,15 @@ Every artifact MUST use Dome's design tokens. Hardcoded colors, gradients, neon 
 
 **Hard prohibitions:**
 - No gradients (`linear-gradient`, `radial-gradient`, `conic-gradient`).
-- No decorative emojis in titles, KPIs, or button labels.
+- No decorative emojis or Unicode symbol “icons” in KPIs, button labels, tabs, or inline artifact chrome. **Icons:** use **inline SVG** in the Lucide style (see `dome_load_doc('artifact_design')`); no emoji, no wingdings-style glyphs.
+- **Language:** artifact copy must match the user’s conversation language; do **not** output Chinese/CJK characters unless the user explicitly asked for Chinese.
 - No colors outside the palette (no `#0f0f23`, `#8b5cf6`, `rebeccapurple`, …).
 - No glows, `backdrop-filter`, `filter: blur`, `text-shadow`.
 - No display/gothic/pixel fonts. Stick to `var(--font-sans)` / `var(--font-mono)`.
 - Transitions: 120–220 ms on color, background-color, border-color, transform, opacity only.
 - No remote assets.
 - Inherit theme from tokens; don't override body background or font-family.
+- **Never** fork light/dark with `@media (prefers-color-scheme: …)` or manual “dark mode” classes — Dome injects the active theme; use variables only.
 
 **Per-type visual hints:**
 - `dashboard` — KPI values `var(--primary-text)` 15–16 px / 600, labels `var(--secondary-text)` 12 px. Use `var(--accent)` for the most important KPI; semantic colors for status.
@@ -117,7 +124,7 @@ Every artifact MUST use Dome's design tokens. Hardcoded colors, gradients, neon 
 - `timeline` — Date `var(--tertiary-text)` 12 px. Title `var(--primary-text)` 14 px / 600.
 - `playground` — Prompt `var(--primary-text)`, hints/solutions collapsed in `var(--bg-tertiary)` cards.
 - `html` (inline) — Inherit from injected `<style id="dome-theme">`. Do NOT set `body { background }` or `font-family`.
-- Library mini-app HTML — same token rules; see `dome_load_doc('artifact_persisted')` for the full iframe contract.
+- Library mini-app HTML — same token rules; see `dome_load_doc('artifact_persisted')` for the full iframe contract. For tabbed dossier chrome aligned with Dome shell patterns, prefer `artifact_design` output as the starting `html`/`data`.
 
 **Minimal examples:**
 

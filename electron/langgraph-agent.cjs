@@ -298,10 +298,12 @@ async function extractInterrupt(capturedInterrupt, agent, config) {
   const value = first?.value ?? first;
   const actionRequests = value?.actionRequests ?? value?.action_requests ?? [];
   const reviewConfigs = value?.reviewConfigs ?? value?.review_configs ?? [];
-  return {
-    actionRequests: Array.isArray(actionRequests) ? actionRequests : [],
-    reviewConfigs: Array.isArray(reviewConfigs) ? reviewConfigs : [],
-  };
+  const ar = Array.isArray(actionRequests) ? actionRequests : [];
+  const rc = Array.isArray(reviewConfigs) ? reviewConfigs : [];
+  // LangGraph may emit an __interrupt__ node with no pending actions; treating that as HITL
+  // leaves runs stuck in waiting_approval with nothing to approve in the UI.
+  if (ar.length === 0) return null;
+  return { actionRequests: ar, reviewConfigs: rc };
 }
 
 /**
@@ -770,19 +772,26 @@ async function createTrimmingMiddleware(provider, llm) {
       let updatedRequest = request;
       if (sysIdxs.length > 0) {
         const sysTexts = sysIdxs.map((i) => getTextContent(messages[i].content));
-        const existingContent = getTextContent(request.systemMessage?.content ?? '');
+        const fromSystemMessage = request.systemMessage?.content;
+        const fromPromptString =
+          typeof request.systemPrompt === 'string' ? request.systemPrompt : '';
+        const existingContent = getTextContent(fromSystemMessage ?? fromPromptString ?? '');
         // Dome system prompt first so it sets context, then any middleware additions (VFS, etc.)
         const allSysContent = [...sysTexts, existingContent].filter(Boolean).join('\n\n---\n\n');
 
         messages = messages.filter((_, i) => !sysIdxs.includes(i));
 
-        console.log(`[AI LangGraph] lifted ${sysIdxs.length} system message(s) messages→systemPrompt (${provider})`);
+        console.log(`[AI LangGraph] lifted ${sysIdxs.length} system message(s) → merged systemPrompt (${provider})`);
 
+        // LangChain AgentNode rejects wrapModelCall requests where BOTH systemPrompt and
+        // systemMessage appear "changed" vs baseline: `undefined !== baseline.text` counts
+        // as a systemPrompt change, so setting only `systemMessage` triggers the error.
+        // Update systemPrompt (string) only; leave systemMessage reference unchanged — the
+        // node normalizes to a single SystemMessage on the next validation step.
         updatedRequest = {
           ...request,
           messages,
           systemPrompt: allSysContent,
-          systemMessage: new SystemMessage(allSysContent),
         };
       }
 
@@ -965,13 +974,13 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         function: {
           name: 'dome_load_doc',
           description:
-            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
           parameters: {
             type: 'object',
             properties: {
               id: {
                 type: 'string',
-                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
                 description: 'Section identifier',
               },
             },
@@ -1088,13 +1097,13 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         function: {
           name: 'dome_load_doc',
           description:
-            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
           parameters: {
             type: 'object',
             properties: {
               id: {
                 type: 'string',
-                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
                 description: 'Section identifier',
               },
             },
