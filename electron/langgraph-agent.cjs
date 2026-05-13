@@ -567,6 +567,7 @@ async function miniMaxFetch(url, init) {
   if (init?.body) {
     try {
       const body = JSON.parse(init.body);
+      // Strip $schema + additionalProperties from tool parameter schemas
       if (Array.isArray(body.tools)) {
         body.tools = body.tools.map((t) => {
           if (!t?.function?.parameters) return t;
@@ -575,8 +576,11 @@ async function miniMaxFetch(url, init) {
             function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
           };
         });
-        init = { ...init, body: JSON.stringify(body) };
       }
+      // MiniMax does not support stream_options or parallel_tool_calls
+      delete body.stream_options;
+      delete body.parallel_tool_calls;
+      init = { ...init, body: JSON.stringify(body) };
     } catch (_) { /* leave body as-is if parsing fails */ }
   }
   return fetch(url, init);
@@ -632,19 +636,16 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     });
   }
   if (provider === 'minimax') {
-    const { ChatOpenAI } = await import('@langchain/openai');
-    const { MINIMAX_OPENAI_BASE_URL } = require('./minimax-config.cjs');
-    return new ChatOpenAI({
-      model: model || 'MiniMax-M2.5',
-      apiKey: apiKey,
-      configuration: {
-        baseURL: MINIMAX_OPENAI_BASE_URL,
-        // MiniMax's OpenAI-compatible endpoint rejects JSON Schema meta-fields
-        // ($schema, additionalProperties) injected by LangChain's Zod→JSON Schema
-        // converter. Strip them at the fetch layer before every request.
-        fetch: miniMaxFetch,
-      },
+    // MiniMax M2.x uses the Anthropic-compatible endpoint, not OpenAI.
+    // Docs: https://platform.minimax.io/docs/token-plan/quickstart
+    const { ChatAnthropic } = await import('@langchain/anthropic');
+    const { MINIMAX_BASE_URL } = require('./minimax-config.cjs');
+    return new ChatAnthropic({
+      model: model || 'MiniMax-M2.7',
+      anthropicApiKey: apiKey,
+      anthropicApiUrl: `${MINIMAX_BASE_URL}/anthropic`,
       temperature: 0.7,
+      maxTokens: 8192,
     });
   }
   if (provider === 'dome') {
