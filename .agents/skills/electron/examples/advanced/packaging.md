@@ -117,15 +117,15 @@ npx @electron-forge/cli import
 
 ```bash
 # Build for current platform
-npm run build
+pnpm run build
 
 # Build for specific platform
-npm run build:win
-npm run build:mac
-npm run build:linux
+pnpm run build:win
+pnpm run build:mac
+pnpm run build:linux
 
 # Build all platforms
-npm run build -- --win --mac --linux
+pnpm run build -- --win --mac --linux
 ```
 
 ### Key Points

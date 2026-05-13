@@ -251,7 +251,7 @@ Confirm channel names match exactly between main handlers and renderer invocatio
 
 Native Modules Fail:
 
-Run electron-rebuild after npm install to recompile native modules. Match the Node.js version embedded in Electron. Add a postinstall script to automate rebuilding.
+Run electron-rebuild after pnpm install to recompile native modules. Match the Node.js version embedded in Electron. Add a postinstall script to automate rebuilding.
 
 Auto-Update Not Working:
 

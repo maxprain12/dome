@@ -1,6 +1,6 @@
 # Settings Feature
 
-Documentation for Dome's settings: layout, panels (General, Appearance, AI, WhatsApp, Advanced), persistence via SQLite, and renderer API. Lives in `app/settings/`, `app/components/settings/`, `app/lib/settings/`, and `electron/database.cjs` (settings table).
+Documentation for Dome's settings: layout, panels (General, Appearance, AI, transcription, cloud, calendar, MCP, indexing, skills, plugins, advanced), persistence via SQLite, and renderer API. Lives in `app/pages/SettingsPage.tsx`, `app/components/settings/`, `app/lib/settings/`, and `electron/database.cjs` (settings table).
 
 ---
 
@@ -9,7 +9,7 @@ Documentation for Dome's settings: layout, panels (General, Appearance, AI, What
 ### Settings section (`app/components/settings/SettingsLayout.tsx`)
 
 ```ts
-type SettingsSection = 'general' | 'appearance' | 'ai' | 'whatsapp' | 'advanced';
+type SettingsSection = 'general' | 'appearance' | 'ai' | 'transcription' | 'mcp' | 'dome_mcp' | 'skills' | 'plugins' | 'advanced' | 'indexing' | 'cloud' | 'language' | 'kb_llm' | 'calendar';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -55,8 +55,8 @@ interface AppPreferences {
 
 ### Layout
 
-- **Settings page** (`app/settings/page.tsx`): useState(activeSection); loadUserProfile + loadPreferences on mount; SettingsLayout sidebar + renderSection (GeneralSettings | AppearanceSettings | AISettingsPanel | WhatsAppSettingsPanel | AdvancedSettings).
-- **SettingsLayout**: Sidebar with section buttons (general, appearance, ai, whatsapp, advanced); children = current panel content.
+- **Settings page** (`app/pages/SettingsPage.tsx`): useState(activeSection); loadUserProfile + loadPreferences on mount; SettingsLayout sidebar + renderSection (GeneralSettings | AppearanceSettings | AISettingsPanel | TranscriptionSettingsPanel | MCPSettingsPanel | …).
+- **SettingsLayout**: Sidebar with section buttons (general, appearance, language, ai, transcription, cloud, calendar, mcp, dome_mcp, indexing, kb_llm, skills, plugins, advanced); children = current panel content.
 - **Panels**: Each panel reads/writes via useUserStore, useAppStore, or direct get/save from app/lib/settings and db; theme also via window.electron.getTheme/setTheme and IPC theme-changed.
 
 ### Persistence
@@ -81,7 +81,7 @@ interface AppPreferences {
 - **Save (e.g. General)**: User edits name/email/avatar → saveUserProfile or setUserAvatarPath → db.setSetting(...) via IPC.
 - **Save (Appearance)**: updateTheme(theme) → setTheme(theme) IPC + saveAppPreferences({ theme }).
 - **Save (AI)**: saveAIConfig(config) → db.setSetting for each key; AISettingsPanel may also call getAIConfig on load.
-- **Save (WhatsApp/Advanced)**: Panel-specific; may use db.settings or other IPC.
+- **Save (Advanced / panel-specific)**: May use db.settings or other IPC.
 
 ---
 
@@ -96,7 +96,6 @@ interface AppPreferences {
 - **Agents**: List and manage custom Many agents (create, edit, delete, set tools/MCP/model).
 - **Marketplace**: View/uninstall installed agents, plugins, skills, workflows, MCP servers.
 - **MCP Servers**: Configure Model Context Protocol servers for extended AI tool access.
-- **WhatsApp**: Status, start/stop, allowlist; see whatsapp.md.
 - **Privacy**: Toggle opt-in PostHog analytics (feature usage tracking, error reporting).
 - **Advanced**: Storage usage, cleanup, migration, citation style, shortcuts, experimental features.
 
@@ -130,13 +129,11 @@ interface AppPreferences {
 
 | Path | Role |
 |------|------|
-| `app/settings/page.tsx` | Settings page; activeSection; loadUserProfile, loadPreferences; SettingsLayout + renderSection |
-| `app/settings/layout.tsx` | Layout wrapper for /settings |
+| `app/pages/SettingsPage.tsx` | Settings page; activeSection; loadUserProfile, loadPreferences; SettingsLayout + renderSection |
 | `app/components/settings/SettingsLayout.tsx` | Sidebar (sections) + children |
 | `app/components/settings/GeneralSettings.tsx` | Name, email, avatar |
 | `app/components/settings/AppearanceSettings.tsx` | Theme |
 | `app/components/settings/AISettingsPanel.tsx` | AI provider and options |
-| `app/components/settings/WhatsAppSettingsPanel.tsx` | WhatsApp status and config |
 | `app/components/settings/AdvancedSettings.tsx` | Storage, migration, citation, shortcuts |
 | `app/lib/settings/index.ts` | getUserProfile, saveUserProfile, getAppPreferences, saveAppPreferences, getAIConfig, saveAIConfig, isOnboardingCompleted, setOnboardingCompleted, setTheme, setCitationStyle |
 | `app/lib/store/useAppStore.ts` | theme, citationStyle, autoSave, autoBackup, loadPreferences, updateTheme, updateCitationStyle, updatePreferences |

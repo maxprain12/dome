@@ -12,4 +12,4 @@
 
 ## Zod en el límite (P-002)
 
-Los **nuevos** archivos con handlers deben validar entradas con Zod. Los legados se listan en `scripts/ipc-zod-legacy.txt` hasta migración. Comprobación: `npm run check:ipc-zod`.
+Los **nuevos** archivos con handlers deben validar entradas con Zod. Los legados se listan en `scripts/ipc-zod-legacy.txt` hasta migración. Comprobación: `pnpm run check:ipc-zod`.

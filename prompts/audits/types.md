@@ -21,8 +21,8 @@ Audit the codebase for TypeScript issues:
 ### Tool use (required before proposing fixes)
 
 - `grep -rn ': any' app/ --include='*.ts' --include='*.tsx' | wc -l` — record count before/after
-- `npm run typecheck` — must pass after every change. Do not commit if it doesn't.
-- `npm run lint` — catches most missing `import type` issues automatically
+- `pnpm run typecheck` — must pass after every change. Do not commit if it doesn't.
+- `pnpm run lint` — catches most missing `import type` issues automatically
 - If a file has 10+ `any`, prioritize it; don't spread attention over many files
 
 ### Scope

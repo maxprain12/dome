@@ -132,8 +132,6 @@ interface MartinState {
   unreadCount: number;
   currentResourceId: string | null;
   currentResourceTitle: string | null;
-  whatsappConnected: boolean;
-  whatsappPendingMessages: number;
   // actions: setOpen, toggleOpen, addMessage, clearMessages, setContext, ...
 }
 
@@ -233,7 +231,7 @@ sequenceDiagram
 
 ### System prompt
 
-- `getMartinSystemPrompt(options?)` in `app/lib/ai/client.ts`: builds Many’s system prompt with `resourceContext` (title, type, content, summary, transcription), `toolsEnabled`, `location` ('workspace' | 'home' | 'whatsapp'), and optional date/time.
+- `getMartinSystemPrompt(options?)` in `app/lib/ai/client.ts`: builds Many’s system prompt with `resourceContext` (title, type, content, summary, transcription), `toolsEnabled`, `location` ('workspace' | 'home'), and optional date/time.
 - Extended personality/context from `electron/personality-loader.cjs`: SOUL.md, USER.md, MEMORY.md, memory/YYYY-MM-DD.md (loaded in main; can be exposed to renderer or used in main-side prompts if needed).
 
 ---
@@ -313,7 +311,7 @@ sequenceDiagram
 | `app/lib/ai/tools/memory.ts` | createMemorySearchTool, createMemoryGetTool, createMemoryTools, IPC-backed variants |
 | `app/lib/ai/tools/resources.ts` | createResourceSearchTool, createResourceGetTool, createResourceListTool, createResourceSemanticSearchTool, createResourceTools |
 | `app/lib/ai/tools/context.ts` | createProjectListTool, createProjectGetTool, createInteractionListTool, createGetRecentResourcesTool, createGetCurrentProjectTool, createContextTools |
-| `app/lib/store/useMartinStore.ts` | Martin state (open, messages, status, context, WhatsApp); actions for chat UI and floating Martin |
+| `app/lib/store/useManyStore.ts` | Many state (open, messages, status, context); actions for chat UI and floating Many |
 | `app/lib/store/useAgentChatStore.ts` | Per-agent sessions (localStorage); messages, switchSession, startNewChat, deleteSession; used by Many Agents |
 | `app/lib/agents/api.ts` | CRUD for ManyAgent (getManyAgents, createManyAgent, updateManyAgent, deleteManyAgent); persisted in settings.many_agents |
 | `app/lib/agents/catalog.ts` | MANY_TOOL_CATALOG (40+ tools by group: web, memory, resources, context, flashcards, studio, audio, research, graph, notebook, excel) |

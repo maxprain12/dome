@@ -226,7 +226,6 @@ const result = await window.electron.invoke('myfeature:doAction', params);
 | Calendar | `calendar:*` | Events CRUD, Google Calendar sync |
 | Flashcards | `flashcards:*` | Decks, cards, SM-2 scheduling |
 | Studio | `studio:*` | Content generation |
-| WhatsApp | `whatsapp:*` | Session, messages, allowlist |
 | Cloud | `cloud:*` | Google Drive, OneDrive |
 | Dome Auth | `dome-auth:*` | OAuth session con Provider |
 | MCP | `mcp:*` | MCP server management |
@@ -269,7 +268,6 @@ unsub();
 | `martin_memory` | id, type, key, value, metadata |
 | `automations` | id, name, enabled, triggerType, schedule (JSON), agentId, prompt, outputMode, lastRunAt |
 | `runs` | id, automationId, sessionId, status, agentId, prompt, outputMode, startedAt, finishedAt, error |
-| `whatsapp_sessions` / `whatsapp_messages` | sesión WhatsApp y mensajes |
 
 ### FTS5 (Full-Text Search)
 
@@ -292,7 +290,7 @@ Versionadas con `settings.schema_version`:
 - **v1**: Columnas de file storage (internal_path, hash, etc.)
 - **v2**: Tipo folder, folder_id
 - **v3**: Asegurar folder_id
-- **v4**: auth_profiles, whatsapp, martin_memory
+- **v4**: auth_profiles, martin_memory
 - **v5+**: automations, runs, calendar, flashcards
 
 ### Acceso desde renderer
@@ -697,17 +695,17 @@ if (provider === 'dome') {
 
 ```bash
 # Desarrollo
-npm run electron:dev            # Vite + Electron hot reload
-npm run dev                     # Solo Vite (port 5173)
+pnpm run electron:dev            # Vite + Electron hot reload
+pnpm run dev                     # Solo Vite (port 5173)
 
 # Producción
-npm run build                   # Build Vite → dist/
-npm run rebuild:natives         # Rebuild módulos nativos para Electron
-npm run electron:build          # Package completo (incluye rebuild)
+pnpm run build                   # Build Vite → dist/
+pnpm run rebuild:natives         # Rebuild módulos nativos para Electron
+pnpm run electron:build          # Package completo (incluye rebuild)
 
 # Utilidades
-npm run copy:pdf-worker         # Copia pdfjs-dist worker a public/
-npm run clean                   # Limpia build artifacts y userData
+pnpm run copy:pdf-worker         # Copia pdfjs-dist worker a public/
+pnpm run clean                   # Limpia build artifacts y userData
 ```
 
 ### Módulos nativos (ASAR unpacked)
@@ -762,7 +760,7 @@ El protocolo `app://dome/` en producción carga `dist/index.html` con el interce
 **Solución**:
 ```bash
 lsof -ti:5173 | xargs kill -9
-npm run electron:dev
+pnpm run electron:dev
 ```
 
 ### better-sqlite3 error tras actualizar Electron
@@ -771,9 +769,9 @@ npm run electron:dev
 
 **Solución**:
 ```bash
-npm run rebuild:natives
+pnpm run rebuild:natives
 # O:
-npm run verify:natives
+pnpm run verify:natives
 ```
 
 ### IPC handler no responde

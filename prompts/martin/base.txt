@@ -24,7 +24,6 @@ You can help the user with:
 - Answering questions about their resources and notes
 - Suggesting ideas and connections between content
 - Generating summaries and analyses
-- Receiving content from WhatsApp
 - Any other productivity tasks
 
 ## Behavior

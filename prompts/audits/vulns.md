@@ -6,7 +6,7 @@ focus: vulns
 last_updated: 2026-04-26
 ---
 
-> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04). Use **npm** only; `package-lock.json` is the lockfile.
+> **Context:** `prompts/shared/project-context.md` (v5), `AGENTS.md` (§ Baseline 2026-04). Use **pnpm** only; `pnpm-lock.yaml` is the lockfile.
 
 ## Focus: Dependency Vulnerabilities
 
@@ -32,6 +32,6 @@ npm audit --json
 
 ### IMPORTANT
 
-- Run `npm install --ignore-scripts` after any `package.json` change
+- Run `pnpm install --ignore-scripts` after any `package.json` change
 - Do NOT bump major versions of `electron`, `better-sqlite3`, or `@langchain/*` — these have breaking changes
 - Do NOT run `npm audit fix --force` — apply fixes selectively

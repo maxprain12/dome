@@ -8,7 +8,7 @@ Este directorio contiene las reglas y mejores prácticas para el desarrollo de D
 
 > Si un archivo de este directorio dice lo contrario, **gana esto**. El código autoritativo está en `/CLAUDE.md` (raíz del repo).
 
-- **Runtime**: Node.js + **npm** (CI: `npm ci`; lockfile `package-lock.json`).
+- **Runtime**: Node.js + **pnpm** (CI: `pnpm install --frozen-lockfile`; lockfile `pnpm-lock.yaml`).
 - **Main process (Electron)**: SQLite vía **`better-sqlite3`**.
 - **Renderer**: Vite 7 + React 18 + React Router 7 (SPA cliente, entrada `app/main.tsx`). NO Next.js.
 - **TypeScript**: modo strict + `verbatimModuleSyntax: true` → imports de tipos SIEMPRE con `import type`.
@@ -124,15 +124,15 @@ grep -rE "from ['\"]better-sqlite3['\"]|from ['\"]fs['\"]|from ['\"]electron['\"
 grep -rE "bun:" app/ --include="*.ts" --include="*.tsx"   # debe devolver 0 líneas
 
 # Desarrollo
-npm run electron:dev     # Vite dev server + Electron con hot reload
-npm run dev              # Solo Vite en http://localhost:5173
+pnpm run electron:dev     # Vite dev server + Electron con hot reload
+pnpm run dev              # Solo Vite en http://localhost:5173
 
 # Build
-npm run build            # Vite build → dist/
-npm run electron:build   # Empaquetar app para distribución
+pnpm run build            # Vite build → dist/
+pnpm run electron:build   # Empaquetar app para distribución
 
 # Testing
-npm run test:db          # Test database
+pnpm run test:db          # Test database
 ```
 
 ## Actualizaciones

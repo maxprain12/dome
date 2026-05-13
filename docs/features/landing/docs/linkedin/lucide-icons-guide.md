@@ -454,7 +454,7 @@ color: #1A1A1A;  /* Dark for emphasis */
 **Browse Icons**: https://lucide.dev/icons/  
 **GitHub**: https://github.com/lucide-icons/lucide  
 **CDN**: `https://unpkg.com/lucide@latest`  
-**NPM**: `npm install lucide`
+**pnpm**: `pnpm add lucide`
 
 **License**: ISC (MIT-style, free for commercial use)
 

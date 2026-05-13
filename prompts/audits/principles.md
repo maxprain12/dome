@@ -18,7 +18,7 @@ last_updated: 2026-04-27
 ### Tool use
 
 - `rg "// DECISION:" app/ electron/` 
-- `npm run typecheck`
+- `pnpm run typecheck`
 
 ### Deliverable
 

@@ -3,7 +3,7 @@
  * Ensures every tool listed in getAllToolDefinitions() has a TOOL_HANDLER_MAP entry.
  *
  * Does not require() tool-dispatcher.cjs (that pulls electron, database, native deps).
- * Safe for CI: npm ci --ignore-scripts
+ * Safe for CI: pnpm install --frozen-lockfile --ignore-scripts
  *
  * Run: node scripts/verify-tool-coverage.mjs
  */

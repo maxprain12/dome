@@ -2,7 +2,7 @@
 
 Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 
-**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → (VPS) AI review → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-010); `npm run lint` surfaces renderer rules in the IDE.
+**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → (VPS) AI review → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-010); `pnpm run lint` surfaces renderer rules in the IDE.
 
 ---
 
@@ -48,11 +48,11 @@ Obey P-001…P-010. **New IPC** (4 steps or it fails silently): handler `electro
 ### Step 3 — Validate locally
 
 ```bash
-npm run typecheck
-npm run lint
-npm run build
-npm run check:ipc-inventory
-npm run depcruise
+pnpm run typecheck
+pnpm run lint
+pnpm run build
+pnpm run check:ipc-inventory
+pnpm run depcruise
 ```
 
 ### Step 4 — Open PR (example)

@@ -173,16 +173,16 @@ PROMPT_FILE=$(mktemp /tmp/audit-prompt-XXXXXX.md)
 ## Rules
 - Follow AGENTS.md exactly: process separation, IPC pattern, CSS variables, i18n
 - Only fix real issues. Do not refactor working code just to change style.
-- Each fix must pass: npm run typecheck && npm run lint && npm run build
+- Each fix must pass: pnpm run typecheck && pnpm run lint && pnpm run build
 - Run those commands before finishing.
 - If you find issues but can't fix them all, fix the most critical ones and
   leave commented TODOs for the rest.
 
 ## When done
 After making fixes, run:
-  npm run typecheck
-  npm run lint
-  npm run build
+  pnpm run typecheck
+  pnpm run lint
+  pnpm run build
 
 If all pass, your work is complete. The CI pipeline will validate everything.
 RULES
@@ -207,7 +207,7 @@ opencode run \
   --dangerously-skip-permissions \
   --dir "$REPO_DIR" \
   -f "$PROMPT_FILE" \
-  -- "Execute the audit instructions in the attached file. Read AGENTS.md first. Fix all issues, then run: npm run typecheck && npm run lint && npm run build" \
+  -- "Execute the audit instructions in the attached file. Read AGENTS.md first. Fix all issues, then run: pnpm run typecheck && pnpm run lint && pnpm run build" \
   2>&1 | tee /tmp/audit-output-${TIMESTAMP}.log
 
 rm -f "$PROMPT_FILE"
@@ -229,21 +229,21 @@ fi
 
 # ── Validate before PR ────────────────────────────────────────────────────────
 echo "$LOG_PREFIX Validating changes..."
-npm ci --ignore-scripts 2>/dev/null || npm install --ignore-scripts 2>/dev/null
+pnpm install --frozen-lockfile --ignore-scripts 2>/dev/null || pnpm install --ignore-scripts 2>/dev/null
 
 VALIDATION_OUTPUT_FILE=$(mktemp /tmp/audit-validation-XXXXXX.log)
 
 run_validation() {
   local failed=0
-  { npm run typecheck 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
-  { npm run lint 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
-  { npm run build 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
+  { pnpm run typecheck 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
+  { pnpm run lint 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
+  { pnpm run build 2>&1; echo "EXIT:$?"; } | tee -a "$VALIDATION_OUTPUT_FILE" | grep -v "EXIT:" || true
   # Check for actual errors (not just warnings) in typecheck/build
   if grep -qE "error TS[0-9]+|Error:" "$VALIDATION_OUTPUT_FILE" 2>/dev/null; then
     failed=1
   fi
   # Check build explicitly
-  if ! npm run build > /dev/null 2>&1; then
+  if ! pnpm run build > /dev/null 2>&1; then
     failed=1
   fi
   echo $failed
@@ -268,7 +268,7 @@ ${VALIDATION_ERRORS}
 
 ## Rules
 - Fix only what is broken. Do not touch unrelated code.
-- Run: npm run typecheck && npm run build
+- Run: pnpm run typecheck && pnpm run build
 - If you cannot fix an error without breaking something else, revert that specific change with git checkout HEAD -- <file>
 REPAIR
 
@@ -276,7 +276,7 @@ REPAIR
     --dangerously-skip-permissions \
     --dir "$REPO_DIR" \
     -f "$REPAIR_PROMPT" \
-    -- "Fix only the TypeScript/build errors listed in the attached file. Run npm run typecheck && npm run build to verify." \
+    -- "Fix only the TypeScript/build errors listed in the attached file. Run pnpm run typecheck && pnpm run build to verify." \
     2>&1 | tee -a /tmp/audit-output-${TIMESTAMP}.log
 
   rm -f "$REPAIR_PROMPT"

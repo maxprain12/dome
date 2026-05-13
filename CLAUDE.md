@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Technology Stack
 
-- **Runtime**: **npm** for dependency management + build; Node.js in Electron main process; lockfile **`package-lock.json`**
+- **Runtime**: **pnpm 11** for dependency management + build (requires **Node.js ≥ 22.13** for pnpm itself); Electron bundles its own runtime; lockfile **`pnpm-lock.yaml`**
 - **Desktop**: Electron 41 with strict security (contextIsolation, no nodeIntegration)
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
@@ -23,30 +23,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Development Commands
 
-The project uses **npm** only; the lockfile is **`package-lock.json`**.
+The project uses **pnpm** only; the lockfile is **`pnpm-lock.yaml`**.
 
 ```bash
 # Development (recommended)
-npm run electron:dev            # Start Vite dev server + Electron with hot reload
+pnpm run electron:dev            # Start Vite dev server + Electron with hot reload
 
 # Development (separate)
-npm run dev                     # Vite dev server only (http://localhost:5173)
-npm run electron                # Electron only (must build Vite first)
+pnpm run dev                     # Vite dev server only (http://localhost:5173)
+pnpm run electron                # Electron only (must build Vite first)
 
 # Production Build
-npm run build                   # Build Vite for production (output: dist/)
-npm run rebuild:natives         # Rebuild native modules for Electron
-npm run verify:natives          # Verify native modules are correctly compiled
-npm run electron:build          # Package Electron app for distribution (includes rebuild)
-npm run electron:build:verbose  # Same as above with DEBUG=electron-builder output
+pnpm run build                   # Build Vite for production (output: dist/)
+pnpm run rebuild:natives         # Rebuild native modules for Electron
+pnpm run verify:natives          # Verify native modules are correctly compiled
+pnpm run electron:build          # Package Electron app for distribution (includes rebuild)
+pnpm run electron:build:verbose  # Same as above with DEBUG=electron-builder output
 # Database & Testing
-npm run test:db          # Test database connection and queries
+pnpm run test:db          # Test database connection and queries
 
 # Utilities
-npm run clean            # Remove build artifacts and user data
-npm run copy:pdf-worker  # Copy pdfjs-dist worker to public/ (auto-runs in postinstall)
-npm run generate-icons   # Generate app icons
-npm run postinstall      # Install Electron native dependencies (runs automatically)
+pnpm run clean            # Remove build artifacts and user data
+pnpm run copy:pdf-worker  # Copy pdfjs-dist worker to public/ (auto-runs in postinstall)
+pnpm run generate-icons   # Generate app icons
+pnpm run postinstall      # Install Electron native dependencies (runs automatically)
 ```
 
 ## Critical Architecture Rules
@@ -97,7 +97,7 @@ IPC handlers are organized in `electron/ipc/` (one file per domain). All channel
 3. **Whitelist** (`electron/preload.cjs`): Add channel to ALLOWED_CHANNELS
 4. **Renderer** (`app/`): Call via `window.electron.invoke('channel', args)`
 
-IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-llm`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `indexing-sync`, `interactions`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pdf-render`, `personality`, `plugins`, `resources`, `runs`, `semantic`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `whatsapp`, `window`.
+IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-llm`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `indexing-sync`, `interactions`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pdf-render`, `personality`, `plugins`, `resources`, `runs`, `semantic`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `window`.
 
 ### Database Architecture
 

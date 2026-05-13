@@ -18,7 +18,7 @@ El agente (Claude Code, Cursor, Windsurf, etc.) se encarga de todo lo demás.
      │
      ├─ 1. git checkout -b feat/export-pdf
      ├─ 2. Implementa (respetando arch rules, i18n, CSS vars)
-     ├─ 3. npm run typecheck && lint && build   (si falla → arregla)
+     ├─ 3. pnpm run typecheck && lint && build   (si falla → arregla)
      ├─ 4. gh pr create
      └─ 5. gh pr merge --auto --squash
                │
@@ -92,7 +92,7 @@ El agente lee `AGENTS.md` automáticamente (está en la raíz). El mismo prompt 
 
 1. `git checkout -b feat/export-pdf`
 2. Implementar el IPC handler + UI + i18n en los 4 idiomas
-3. `npm run typecheck && npm run lint && npm run build`
+3. `pnpm run typecheck && pnpm run lint && pnpm run build`
 4. `gh pr create --title "feat: export resources as PDF"`
 5. `gh pr merge --auto --squash`
 

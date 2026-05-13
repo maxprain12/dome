@@ -13,7 +13,7 @@ VPS (cron 3am)
         ├─ git pull origin main
         ├─ git checkout -b audit/focus-timestamp
         ├─ opencode run --non-interactive --input prompt.md
-        ├─ npm run typecheck && lint && build  (validación)
+        ├─ pnpm run typecheck && lint && build  (validación)
         ├─ git push + gh pr create
         └─ gh pr merge --auto --squash
                 │
@@ -27,7 +27,7 @@ VPS (cron 3am)
 ## 1. Requisitos del VPS
 
 - Ubuntu 22.04+ (o Debian 12+)
-- RAM: mínimo 2GB (el `npm run build` de Vite necesita ~1.5GB)
+- RAM: mínimo 2GB (el `pnpm run build` de Vite necesita ~1.5GB)
 - Disco: 5GB libres
 - Node.js 20+ y git instalados
 
@@ -46,7 +46,7 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githu
 sudo apt update && sudo apt install gh
 
 # OpenCode
-npm install -g opencode-ai
+pnpm add -g opencode-ai
 ```
 
 ---

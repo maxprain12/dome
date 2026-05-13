@@ -5,7 +5,7 @@
 **Dome** es una aplicación de escritorio para gestión de conocimiento e investigación académica.
 
 ### Stack Principal
-- **Runtime / Gestor de paquetes**: Node.js + **npm** (CI: `npm ci`; lockfile `package-lock.json`)
+- **Runtime / Gestor de paquetes**: Node.js + **pnpm** (CI: `pnpm install --frozen-lockfile`; lockfile `pnpm-lock.yaml`)
 - **Frontend**: **Vite 7 + React 18 + React Router 7** (SPA cliente, entrada `app/main.tsx` — NO Next.js)
 - **Desktop**: Electron 41
 - **Base de Datos**: SQLite vía **`better-sqlite3`** (solo en main) + índice semántico (embeddings Nomic, `resource_chunks`)
@@ -237,18 +237,18 @@ const dbPath = '/Users/usuario/Library/dome.db';
 
 ```bash
 # Desarrollo
-npm run dev              # Solo Vite (http://localhost:5173)
-npm run electron:dev     # App completa (Vite + Electron con hot reload)
+pnpm run dev              # Solo Vite (http://localhost:5173)
+pnpm run electron:dev     # App completa (Vite + Electron con hot reload)
 
 # Build
-npm run build            # Vite → dist/
-npm run electron:build   # Empaquetar app para distribución
+pnpm run build            # Vite → dist/
+pnpm run electron:build   # Empaquetar app para distribución
 
 # Testing
-npm run test:db          # Probar bases de datos
+pnpm run test:db          # Probar bases de datos
 
 # Limpieza
-npm run clean            # Limpiar build artifacts y user data
+pnpm run clean            # Limpiar build artifacts y user data
 ```
 
 ## Recordatorios
@@ -260,7 +260,7 @@ npm run clean            # Limpiar build artifacts y user data
 5. **Tipear** todo con TypeScript; imports de tipo con `import type { }`
 6. **Loguear** errores con `console.error`
 7. **2 espacios** de indentación
-8. **npm** como único gestor de paquetes; lockfile `package-lock.json`
+8. **pnpm** como único gestor de paquetes; lockfile `pnpm-lock.yaml`
 
 ## Prioridades de Desarrollo
 

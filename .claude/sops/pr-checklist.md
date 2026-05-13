@@ -33,10 +33,10 @@ CI will verify these automatically, but check locally first:
 
 ```bash
 # TypeScript
-npx tsc --noEmit
+pnpm exec tsc --noEmit
 
 # Lint
-npx eslint app/
+pnpm exec eslint app/
 
 # Architecture: must return 0 results
 grep -rE "bun:|require('fs')\|require('better-sqlite3')" app/

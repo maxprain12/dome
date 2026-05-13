@@ -4,6 +4,10 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Toolchain del repo migrado a **pnpm** (`pnpm-lock.yaml`, CI con `pnpm install --frozen-lockfile`).
+- **pnpm 11.1.1** (requiere Node.js ≥ 22.13 para el gestor de paquetes); configuración en `pnpm-workspace.yaml` (`allowBuilds`, `minimumReleaseAge: 0`).
 ## [2.1.7](https://github.com/maxprain12/dome/releases/tag/v2.1.7) - 2026-05-03
 
 ### Added

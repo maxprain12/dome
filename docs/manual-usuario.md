@@ -22,9 +22,8 @@
 13. [Calendario](#13-calendario)
 14. [Automatizaciones](#14-automatizaciones)
 15. [Almacenamiento en la nube](#15-almacenamiento-en-la-nube)
-16. [WhatsApp](#16-whatsapp)
-17. [Marketplace](#17-marketplace)
-18. [Configuración y ajustes](#18-configuración-y-ajustes)
+16. [Marketplace](#16-marketplace)
+17. [Configuración y ajustes](#17-configuración-y-ajustes)
 
 ---
 
@@ -479,30 +478,7 @@ El proceso es idéntico: Settings → Cloud Storage → Conectar OneDrive.
 
 ---
 
-## 16. WhatsApp
-
-Dome puede conectarse con WhatsApp para recibir y enviar mensajes desde la aplicación.
-
-### Conectar
-
-1. Ve a **Settings → WhatsApp**
-2. Haz clic en **Conectar**
-3. Escanea el código QR con tu móvil (igual que WhatsApp Web)
-4. La conexión se mantiene activa mientras Dome esté abierto
-
-### Allowlist
-
-Por seguridad, solo los contactos en tu **allowlist** pueden interactuar con Dome vía WhatsApp. Gestiona la lista en Settings → WhatsApp → Allowlist.
-
-### Uso desde el chat
-
-Una vez conectado, Many puede:
-- Leer mensajes recientes
-- Enviar mensajes a contactos de tu allowlist
-
----
-
-## 17. Marketplace
+## 16. Marketplace
 
 El **Marketplace** centraliza la instalación de extensiones para Dome.
 
@@ -530,7 +506,7 @@ El **Marketplace** centraliza la instalación de extensiones para Dome.
 
 ---
 
-## 18. Configuración y ajustes
+## 17. Configuración y ajustes
 
 Accede a Settings con `Cmd+,` o desde el icono de engranaje en la barra lateral.
 
@@ -545,7 +521,6 @@ Accede a Settings con `Cmd+,` o desde el icono de engranaje en la barra lateral.
 | **Calendar** | Conectar Google Calendar |
 | **Cloud Storage** | Conectar Google Drive y OneDrive |
 | **Indexing** | Embeddings Nomic, reindexar biblioteca, estado de indexación |
-| **WhatsApp** | Conectar y gestionar allowlist |
 | **MCP Servers** | Configurar servidores MCP |
 | **Privacy** | Analytics (PostHog), datos de uso |
 | **Advanced** | Limpiar caché, datos experimentales |

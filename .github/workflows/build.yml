@@ -21,28 +21,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build Vite, natives, embed env, pack (macOS)
         run: |
-          npm run build
-          npm run rebuild:natives
-          npm run verify:natives
+          pnpm run build
+          pnpm run rebuild:natives
+          pnpm run verify:natives
           node scripts/embed-env.cjs
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "No code signing credentials, building without signing..."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            npm run electron:pack -- --mac --arm64 --x64 --config.mac.identity=null --config.mac.notarize=false --publish never
+            pnpm run electron:pack -- --mac --arm64 --x64 --config.mac.identity=null --config.mac.notarize=false --publish never
           else
             echo "Code signing credentials found, building with signing..."
-            npm run electron:pack -- --mac --arm64 --x64 --publish never
+            pnpm run electron:pack -- --mac --arm64 --x64 --publish never
           fi
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
@@ -75,22 +79,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Build Vite, natives, embed env, pack (Windows)
         run: |
-          npm run build
-          npm run rebuild:natives
-          npm run verify:natives
+          pnpm run build
+          pnpm run rebuild:natives
+          pnpm run verify:natives
           node scripts/embed-env.cjs
-          npm run electron:pack -- --win --publish never
+          pnpm run electron:pack -- --win --publish never
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}

@@ -42,5 +42,4 @@ transcription-overlay.cjs
 transcription.cjs
 updater.cjs
 web.cjs
-whatsapp.cjs
 window.cjs

@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
-> **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-12T11:07:13.425Z
+> **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
+> Última generación: 2026-05-12T21:28:20.396Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -69,6 +69,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
 | `ai:webSearch` | `electron/ipc/ai.cjs:555` |
+| `approval:respond` | `electron/ipc/approval.cjs:37` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
 | `artifact:delete` | `electron/ipc/artifacts.cjs:155` |
 | `artifact:export` | `electron/ipc/artifacts.cjs:188` |
@@ -353,7 +354,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `select-folder` | `electron/ipc/system.cjs:73` |
 | `set-theme` | `electron/ipc/system.cjs:157` |
 | `shell:exec` | `electron/ipc/shell.cjs:34` |
-| `shell:file:search` | `electron/ipc/shell.cjs:87` |
+| `shell:file:search` | `electron/ipc/shell.cjs:82` |
 | `show-item-in-folder` | `electron/ipc/system.cjs:121` |
 | `show-save-dialog` | `electron/ipc/system.cjs:95` |
 | `skills:create` | `electron/ipc/skills.cjs:355` |
@@ -399,14 +400,6 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `web:process` | `electron/ipc/web.cjs:116` |
 | `web:save-screenshot` | `electron/ipc/web.cjs:60` |
 | `web:scrape` | `electron/ipc/web.cjs:24` |
-| `whatsapp:allowlist:add` | `electron/ipc/whatsapp.cjs:144` |
-| `whatsapp:allowlist:get` | `electron/ipc/whatsapp.cjs:126` |
-| `whatsapp:allowlist:remove` | `electron/ipc/whatsapp.cjs:163` |
-| `whatsapp:logout` | `electron/ipc/whatsapp.cjs:89` |
-| `whatsapp:send` | `electron/ipc/whatsapp.cjs:108` |
-| `whatsapp:start` | `electron/ipc/whatsapp.cjs:53` |
-| `whatsapp:status` | `electron/ipc/whatsapp.cjs:25` |
-| `whatsapp:stop` | `electron/ipc/whatsapp.cjs:71` |
 | `window:broadcast` | `electron/ipc/window.cjs:283` |
 | `window:close` | `electron/ipc/window.cjs:197` |
 | `window:close-current` | `electron/ipc/window.cjs:248` |
