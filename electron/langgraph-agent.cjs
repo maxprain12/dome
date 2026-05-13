@@ -709,27 +709,54 @@ async function createTrimmingMiddleware(provider, llm) {
   const { trimMessages } = await import('@langchain/core/messages');
   const maxTokens = PROVIDER_TOKEN_BUDGETS[provider] ?? DEFAULT_TOKEN_BUDGET;
 
+  // Character-based token approximation for models not in the tiktoken registry.
+  // Avoids "Unknown model" warnings from @langchain/core's tiktoken path.
+  const charTokenCounter = (msgs) =>
+    msgs.reduce((sum, m) => {
+      const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      return sum + Math.ceil(text.length / 4);
+    }, 0);
+
+  // OpenAI-family providers have real tiktoken support; others fall back to char count.
+  const tokenCounter = ['openai', 'azure', 'google', 'ollama'].includes(provider) ? llm : charTokenCounter;
+
   return createMiddleware({
     name: 'DomeTrimMessages',
     async wrapModelCall(request, handler) {
-      const original = request.messages;
-      if (!Array.isArray(original) || original.length === 0) return handler(request);
+      let messages = Array.isArray(request.messages) ? [...request.messages] : [];
+      if (messages.length === 0) return handler(request);
+
+      // Anthropic API (and MiniMax Anthropic-compatible) only allows system
+      // messages at position 0. Merge any stray system messages into one.
+      const { SystemMessage } = await import('@langchain/core/messages');
+      const sysIdxs = messages.reduce((acc, m, i) => {
+        if ((typeof m._getType === 'function' ? m._getType() : '') === 'system') acc.push(i);
+        return acc;
+      }, []);
+      if (sysIdxs.length > 1) {
+        const combined = sysIdxs
+          .map((i) => (typeof messages[i].content === 'string' ? messages[i].content : JSON.stringify(messages[i].content)))
+          .join('\n\n---\n\n');
+        messages = [new SystemMessage(combined), ...messages.filter((_, i) => !sysIdxs.includes(i))];
+        console.log(`[AI LangGraph] merged ${sysIdxs.length} system messages (${provider})`);
+      }
+
       try {
-        const trimmed = await trimMessages(original, {
+        const trimmed = await trimMessages(messages, {
           maxTokens,
-          tokenCounter: llm,
+          tokenCounter,
           strategy: 'last',
           includeSystem: true,
           startOn: 'human',
           endOn: ['human', 'tool'],
         });
-        if (trimmed.length < original.length) {
-          console.log(`[AI LangGraph] trimmed ${original.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`);
+        if (trimmed.length < messages.length) {
+          console.log(`[AI LangGraph] trimmed ${messages.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`);
         }
         return handler({ ...request, messages: trimmed });
       } catch (e) {
         console.warn(`[AI LangGraph] ${provider} trim failed, using full history:`, e?.message);
-        return handler(request);
+        return handler({ ...request, messages });
       }
     },
   });
