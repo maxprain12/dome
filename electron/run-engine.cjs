@@ -1022,6 +1022,10 @@ async function executeLangGraphRun(runId, params) {
     (params.toolDefinitions?.length ?? 0) > 0 ||
     (params.mcpServerIds?.length ?? 0) > 0;
   const automationProjectId = params.automationId ? (params.projectId ?? context.projectId ?? 'default') : undefined;
+  const runtimeContext = parseRuntimeContext({
+    activeResourceId: params.contextId || null,
+    pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
+  });
   context.langGraphResumeOpts = {
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
@@ -1031,10 +1035,6 @@ async function executeLangGraphRun(runId, params) {
     automationProjectId,
     runtimeContext,
   };
-  const runtimeContext = parseRuntimeContext({
-    activeResourceId: params.contextId || null,
-    pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
-  });
 
   try {
     const result = await langgraphAgent.invokeLangGraphAgent({

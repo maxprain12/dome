@@ -31,7 +31,7 @@
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
 const vfsThread = require('./langgraph-vfs-thread.cjs');
-const { executeToolInMain, getWhatsAppToolDefinitions } = toolDispatcher;
+const { executeToolInMain } = toolDispatcher;
 const { createSubagentTools } = require('./subagents.cjs');
 const { createAsyncSubagentTools } = require('./async-subagents.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
@@ -153,13 +153,22 @@ function peelLangGraphStreamTuple(raw) {
 
 /**
  * Node names that emit *top-level* assistant output we should forward to the
- * user. LangChain 1.x's `createAgent` uses `model_request`; earlier versions
- * used `agent`. We accept both so a langchain bump doesn't silently swallow
- * every reply. Subagents run as wrapped tools (`createSubagentTools`) via
- * their own `agent.invoke`, so they never appear in this stream — we don't
- * need to filter them out here, just allowlist the parent.
+ * user.
+ *
+ * LangGraph sets `metadata.langgraph_node` from the runnable's `call.name`:
+ * ReactAgent registers the node as `model_request`, while `RunnableCallable`'s
+ * default name for that node is `model`. If only `model_request`/`agent` were
+ * allowlisted, every streamed token could be discarded (silent empty replies).
+ *
+ * Subagents run as wrapped tools (`createSubagentTools`) via their own
+ * `agent.invoke`; they should not reuse these exact node identifiers in our
+ * top-level Dome graph stream path.
  */
-const TOP_LEVEL_NODES = new Set(['agent', 'model_request']);
+const TOP_LEVEL_NODES = new Set([
+  'agent',
+  'model_request',
+  'model',
+]);
 
 /**
  * Per-turn cap on calls to a single creation tool. Prevents runaway loops
@@ -442,7 +451,7 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
 /**
  * After a stream completes, pull the final assistant text from the
  * checkpointed state. We intentionally read state (not the streamed tokens)
- * so callers like WhatsApp get the canonical last AI message even when the
+ * so callers like automations or batch jobs get the canonical last AI message even when the
  * agent emitted intermediate "thinking out loud" turns.
  */
 async function finalizeFromState(agent, config) {
@@ -531,6 +540,49 @@ async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
 }
 
 /**
+ * Strip JSON Schema meta-fields that LangChain's Zod→JSON-Schema converter adds
+ * ($schema, additionalProperties) but that MiniMax's OpenAI-compatible endpoint
+ * rejects with 400 "invalid chat setting" (error 2013).
+ * Works recursively so nested object schemas are cleaned too.
+ */
+function stripZodJsonSchemaMeta(obj) {
+  if (Array.isArray(obj)) return obj.map(stripZodJsonSchemaMeta);
+  if (obj !== null && typeof obj === 'object') {
+    const cleaned = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === '$schema' || k === 'additionalProperties') continue;
+      cleaned[k] = stripZodJsonSchemaMeta(v);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+/**
+ * Custom fetch for MiniMax's OpenAI-compatible endpoint.
+ * Strips $schema + additionalProperties from every tool parameter schema
+ * before the request reaches MiniMax's API.
+ */
+async function miniMaxFetch(url, init) {
+  if (init?.body) {
+    try {
+      const body = JSON.parse(init.body);
+      if (Array.isArray(body.tools)) {
+        body.tools = body.tools.map((t) => {
+          if (!t?.function?.parameters) return t;
+          return {
+            ...t,
+            function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
+          };
+        });
+        init = { ...init, body: JSON.stringify(body) };
+      }
+    } catch (_) { /* leave body as-is if parsing fails */ }
+  }
+  return fetch(url, init);
+}
+
+/**
  * Create chat model from provider config.
  * For Ollama: uses recommended defaults (temperature 0.7, topP 0.9, numPredict 4000).
  * think: false by default — avoids 500 errors with glm-5:cloud and other models.
@@ -585,7 +637,13 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatOpenAI({
       model: model || 'MiniMax-M2.5',
       apiKey: apiKey,
-      configuration: { baseURL: MINIMAX_OPENAI_BASE_URL },
+      configuration: {
+        baseURL: MINIMAX_OPENAI_BASE_URL,
+        // MiniMax's OpenAI-compatible endpoint rejects JSON Schema meta-fields
+        // ($schema, additionalProperties) injected by LangChain's Zod→JSON Schema
+        // converter. Strip them at the fetch layer before every request.
+        fetch: miniMaxFetch,
+      },
       temperature: 0.7,
     });
   }
@@ -692,7 +750,7 @@ async function createSummarizationMiddlewareMaybe(provider, llm) {
     return summarizationMiddleware({
       model: llm,
       trigger: { tokens: Math.floor(maxTokens * 0.7), messages: 8 },
-      keep: { tokens: Math.floor(maxTokens * 0.18), messages: 10 },
+      keep: { messages: 10 },
     });
   } catch (e) {
     console.warn('[AI LangGraph] summarizationMiddleware not loaded:', e?.message || e);
@@ -1185,7 +1243,7 @@ async function invokeLangGraphAgent(opts) {
 }
 
 /**
- * Run agent without streaming (for WhatsApp / batch).
+ * Run agent without streaming (for batch / non-UI consumers).
  * @returns {Promise<{ response: string }>}
  */
 async function runLangGraphAgentSync(opts) {
