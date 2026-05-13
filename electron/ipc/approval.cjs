@@ -17,6 +17,12 @@
 
 const crypto = require('crypto');
 const { webContents } = require('electron');
+const { z } = require('zod');
+
+const ApprovalRespondPayloadSchema = z.object({
+  approvalId: z.string().min(1),
+  approved: z.boolean(),
+});
 
 const DEFAULT_TIMEOUT_MS = 60_000;
 
@@ -38,10 +44,13 @@ function register({ ipcMain, windowManager, validateSender }) {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    const approvalId = typeof raw?.approvalId === 'string' ? raw.approvalId : null;
-    const approved = raw?.approved === true;
+    const parsed = ApprovalRespondPayloadSchema.safeParse(raw);
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid payload' };
+    }
+    const { approvalId, approved } = parsed.data;
 
-    if (!approvalId || !pending.has(approvalId)) {
+    if (!pending.has(approvalId)) {
       return { success: false, error: 'Unknown approvalId' };
     }
 
