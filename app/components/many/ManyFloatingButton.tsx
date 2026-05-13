@@ -15,27 +15,13 @@ export default function ManyFloatingButton() {
       homeSidebarSection.startsWith('team:') ||
       homeSidebarSection === 'agents' ||
       homeSidebarSection === 'agent-teams');
-  const {
-    isOpen,
-    toggleOpen,
-    status,
-    unreadCount,
-    whatsappConnected,
-    whatsappPendingMessages,
-  } = useManyStore();
+  const { isOpen, toggleOpen, status, unreadCount } = useManyStore();
 
   const shouldHide = HIDDEN_ROUTES.some((route) => pathname?.startsWith(route)) || isChatView;
   if (shouldHide) return null;
   if (isOpen) return null;
 
-  const totalNotifications = unreadCount + whatsappPendingMessages;
-
   return (
-    <ManyFloatingTrigger
-      onClick={toggleOpen}
-      status={status}
-      totalNotifications={totalNotifications}
-      whatsappConnected={whatsappConnected}
-    />
+    <ManyFloatingTrigger onClick={toggleOpen} status={status} totalNotifications={unreadCount} />
   );
 }

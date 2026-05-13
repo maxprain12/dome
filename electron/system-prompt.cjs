@@ -3,7 +3,7 @@
  *
  * Mirrors the renderer-side `buildDomeSystemPrompt` in
  * `app/lib/chat/buildDomeSystemPrompt.ts` so every chat surface
- * (Many, Agent Chat, Agent Team, WhatsApp, run-engine workers)
+ * (Many, Agent Chat, Agent Team, run-engine workers)
  * receives the same artifact / tool / entity / citation rules.
  */
 

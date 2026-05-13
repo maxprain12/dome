@@ -655,33 +655,6 @@ export interface AuthProfile {
 }
 
 // ============================================
-// WHATSAPP TYPES
-// ============================================
-
-export type WhatsAppConnectionState = 'connected' | 'disconnected' | 'pending';
-
-export type WhatsAppMessageType = 'text' | 'audio' | 'image' | 'document' | 'video' | 'location';
-
-export interface WhatsAppStatus {
-  isRunning: boolean;
-  state: WhatsAppConnectionState;
-  qrCode: string | null;
-  selfId: string | null;
-  hasAuth: boolean;
-}
-
-export interface WhatsAppMessage {
-  id: string;
-  from: string;
-  type: WhatsAppMessageType;
-  content?: string;
-  mediaPath?: string;
-  processed: boolean;
-  resourceId?: string;
-  createdAt: number;
-}
-
-// ============================================
 // MARTIN TYPES
 // ============================================
 

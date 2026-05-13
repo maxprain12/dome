@@ -6,8 +6,8 @@
  * Exposes:
  *   - TOOL_HANDLER_MAP / normalizeToolName: map of tool name → aiToolsHandler method
  *   - executeToolInMain(name, args, ctx): single entry point to run a tool call
- *   - getAllToolDefinitions / getWhatsAppToolDefinitions / getToolDefinitionsByIds / getToolDefsBySubagent:
- *     OpenAI-format definitions used by LangGraph runs (renderer, WhatsApp, workflows, automations).
+ *   - getAllToolDefinitions / getToolDefinitionsByIds / getToolDefsBySubagent:
+ *     OpenAI-format definitions used by LangGraph runs (renderer, workflows, automations).
  *
  * There is no chat loop here. LangGraph is the only chat engine (see langgraph-agent.cjs).
  */
@@ -764,7 +764,7 @@ function getToolDefsBySubagent() {
 
 /**
  * All OpenAI-format tool definitions (flat array).
- * Used by getToolDefsBySubagent and getWhatsAppToolDefinitions.
+ * Used by getToolDefsBySubagent.
  */
 function getAllToolDefinitions() {
   return [
@@ -1964,15 +1964,6 @@ function getAllToolDefinitions() {
   ];
 }
 
-/**
- * OpenAI-format tool definitions for WhatsApp (subset of Many tools).
- * With subagents architecture, the main agent uses subagent-invocation tools;
- * this is kept for backward compatibility when toolDefinitions is passed.
- */
-function getWhatsAppToolDefinitions() {
-  return getAllToolDefinitions();
-}
-
 function getToolDefinitionsByIds(toolIds) {
   if (!Array.isArray(toolIds) || toolIds.length === 0) return [];
   const normalizedIds = new Set(
@@ -1999,7 +1990,6 @@ module.exports = {
   normalizeToolName,
   TOOL_HANDLER_MAP,
   getAllToolDefinitions,
-  getWhatsAppToolDefinitions,
   getToolDefinitionsByIds,
   getToolDefsBySubagent,
 };
