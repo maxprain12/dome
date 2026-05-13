@@ -729,16 +729,37 @@ async function createTrimmingMiddleware(provider, llm) {
       // Anthropic API (and MiniMax Anthropic-compatible) only allows system
       // messages at position 0. Merge any stray system messages into one.
       const { SystemMessage } = await import('@langchain/core/messages');
+
+      const isSystemMsg = (m) => {
+        try {
+          if (m instanceof SystemMessage) return true;
+          const t = typeof m._getType === 'function' ? m._getType()
+                  : typeof m.getType === 'function' ? m.getType()
+                  : m._message_type || m.type || m.role || '';
+          return t === 'system';
+        } catch { return false; }
+      };
+
+      if (process.env.DOME_TRIM_DEBUG === '1') {
+        console.log('[DomeTrim] types:', messages.map((m, i) => `${i}:${isSystemMsg(m) ? 'SYS' : (typeof m._getType === 'function' ? m._getType() : m.role || '?')}`).join(' '));
+      }
+
       const sysIdxs = messages.reduce((acc, m, i) => {
-        if ((typeof m._getType === 'function' ? m._getType() : '') === 'system') acc.push(i);
+        if (isSystemMsg(m)) acc.push(i);
         return acc;
       }, []);
       if (sysIdxs.length > 1) {
+        // Multiple system messages → merge all into one at position 0
         const combined = sysIdxs
           .map((i) => (typeof messages[i].content === 'string' ? messages[i].content : JSON.stringify(messages[i].content)))
           .join('\n\n---\n\n');
         messages = [new SystemMessage(combined), ...messages.filter((_, i) => !sysIdxs.includes(i))];
         console.log(`[AI LangGraph] merged ${sysIdxs.length} system messages (${provider})`);
+      } else if (sysIdxs.length === 1 && sysIdxs[0] !== 0) {
+        // Single system message not at position 0 → move it there
+        const sysMsg = messages[sysIdxs[0]];
+        messages = [sysMsg, ...messages.filter((_, i) => i !== sysIdxs[0])];
+        console.log(`[AI LangGraph] moved system message from pos ${sysIdxs[0]} to 0 (${provider})`);
       }
 
       try {
@@ -1114,7 +1135,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
   });
   const trimMiddleware = await createTrimmingMiddleware(provider, llm);
   const summarizationMw = await createSummarizationMiddlewareMaybe(provider, llm);
-  const contextMiddlewares = summarizationMw ? [summarizationMw, trimMiddleware] : [trimMiddleware];
 
   /** LangChain / deepagents sandbox: isolated VFS + execute (read_file, write_file, …). */
   let fsMiddleware = null;
@@ -1126,12 +1146,17 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     }
   }
 
-  // Order: optional summarization → trim → optional sandbox FS/execute → HITL when enabled.
+  // DomeTrimMessages must be the innermost wrapModelCall wrapper so it sees ALL
+  // injected messages (incl. those added by fsMiddleware) before ChatAnthropic validates.
+  // Order (outermost→innermost): summarization → HITL → fsMiddleware → trim → model
   const middleware = (() => {
+    const base = summarizationMw ? [summarizationMw] : [];
     if (skipHitl) {
-      return fsMiddleware ? [...contextMiddlewares, fsMiddleware] : [...contextMiddlewares];
+      return fsMiddleware ? [...base, fsMiddleware, trimMiddleware] : [...base, trimMiddleware];
     }
-    return fsMiddleware ? [...contextMiddlewares, fsMiddleware, hitlMiddleware] : [...contextMiddlewares, hitlMiddleware];
+    return fsMiddleware
+      ? [...base, hitlMiddleware, fsMiddleware, trimMiddleware]
+      : [...base, hitlMiddleware, trimMiddleware];
   })();
 
   const agent = createAgent({
