@@ -19,6 +19,6 @@ When the user says "create a PPT from documents in folder X" or "presentación c
 2. Call `resource_list` with `folder_id` to list documents in that folder.
 3. For each relevant document (PDF, note): call `resource_get` to fetch content (`include_content: true`, `max_content_length: 50000`).
 4. Synthesize the content into slides: title slide, then content slides with key points as bullets. Every slide must have real content from the documents—never empty bullets or placeholders.
-5. Call `ppt_create` with `title`, `spec.slides` (built from the content), `project_id`, and `folder_id`. NEVER use `resource_create` for presentations—always `ppt_create`.
+5. Call `ppt_create` with `title`, `spec.slides` (built from the content), `project_id`, and `folder_id`. NEVER use `resource_create` for presentations—always `ppt_create`. Staging, validation and import are handled internally — call it **once** and wait for the result.
 6. If `ppt_create` fails due to `folder_id`: retry without `folder_id`. The PPT will be created at project root; inform the user they can move it later.
 7. Return the link `[Ver: Title](dome://resource/RESOURCE_ID/ppt)`.
