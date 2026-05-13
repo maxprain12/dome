@@ -7,7 +7,7 @@
  * instead of duplicating structural interfaces per surface.
  *
  * NOTE: the two stores still live separately because they carry surface
- * specific flags (voice, pinned resources, agent id, WhatsApp, pdf region…).
+ * specific flags (voice, pinned resources, agent id, pdf region…).
  * A future refactor can collapse them into a single `useChatSessionStore`
  * with specialized slices; in the meantime they both speak this common
  * language at the message/session layer.

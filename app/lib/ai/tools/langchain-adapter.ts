@@ -119,7 +119,7 @@ export function toLangChainTools(
 
 /**
  * Create LangChain tools from OpenAI-format definitions.
- * Used in main process when AgentTools aren't available (e.g. WhatsApp).
+ * Used in main process when AgentTools aren't available (e.g. legacy batch paths).
  */
 export function toLangChainToolsFromOpenAIDefinitions(
   defs: Array<{

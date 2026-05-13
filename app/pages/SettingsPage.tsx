@@ -4,7 +4,6 @@ import SettingsLayout, { type SettingsSection } from '@/components/settings/Sett
 import GeneralSettings from '@/components/settings/GeneralSettings';
 import AppearanceSettings from '@/components/settings/AppearanceSettings';
 import AISettingsPanel from '@/components/settings/AISettingsPanel';
-import WhatsAppSettingsPanel from '@/components/settings/WhatsAppSettingsPanel';
 import MCPSettingsPanel from '@/components/settings/MCPSettingsPanel';
 import SkillsSettingsPanel from '@/components/settings/SkillsSettingsPanel';
 import AdvancedSettings from '@/components/settings/AdvancedSettings';
@@ -24,7 +23,6 @@ const VALID_SECTIONS = [
   'appearance',
   'ai',
   'transcription',
-  'whatsapp',
   'mcp',
   'dome_mcp',
   'skills',
@@ -90,8 +88,6 @@ export default function SettingsPage() {
         return <AISettingsPanel />;
       case 'transcription':
         return <TranscriptionSettingsPanel />;
-      case 'whatsapp':
-        return <WhatsAppSettingsPanel />;
       case 'mcp':
         return <MCPSettingsPanel />;
       case 'dome_mcp':

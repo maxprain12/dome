@@ -77,7 +77,7 @@ export function getPartOfDay(date: Date): 'morning' | 'afternoon' | 'evening' | 
  * Build Martin base prompt with placeholders replaced.
  */
 export function buildMartinBasePrompt(options: {
-  location: 'workspace' | 'home' | 'whatsapp';
+  location: 'workspace' | 'home';
   date?: string;
   time?: string;
   resourceTitle?: string;
@@ -91,7 +91,7 @@ export function buildMartinBasePrompt(options: {
       ? `- Date: ${options.date}\n- Time: ${options.time}\n`
       : '';
   return replaceAll(prompts.martin.base, {
-    location: options.location === 'workspace' ? 'Workspace' : options.location === 'home' ? 'Home' : 'WhatsApp',
+    location: options.location === 'workspace' ? 'Workspace' : 'Home',
     dateTimeSection,
     resourceTitleLine,
   });
@@ -100,11 +100,8 @@ export function buildMartinBasePrompt(options: {
 /**
  * Build Many floating persona (stable prefix — no UI context, date, or resource).
  */
-export function buildManyFloatingPrompt(options: { whatsappConnected?: boolean }): string {
-  const whatsappSuffix = options.whatsappConnected ? ' (connected)' : '';
-  return replaceAll(prompts.many.floatingBase, {
-    whatsappSuffix,
-  });
+export function buildManyFloatingPrompt(): string {
+  return prompts.many.floatingBase;
 }
 
 /**

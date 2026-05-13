@@ -4,6 +4,5 @@ export { default as AppearanceSettings } from './AppearanceSettings';
 export { default as AISettingsPanel } from './AISettingsPanel';
 export { default as AdvancedSettings } from './AdvancedSettings';
 export { default as ModelSelector } from './ModelSelector';
-export { default as WhatsAppSettingsPanel } from './WhatsAppSettingsPanel';
 export { default as KbLlmSettingsPanel } from './KbLlmSettingsPanel';
 export { default as CalendarSettingsPanel } from './CalendarSettingsPanel';

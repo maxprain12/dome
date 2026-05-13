@@ -296,15 +296,6 @@ const ALLOWED_CHANNELS = {
     'ollama:manager:download',
     'ollama:manager:versions',
     // Semantic index: LanceDB embebido (userData/dome-lance) + IPC `db:semantic:*`
-    // WhatsApp
-    'whatsapp:status',
-    'whatsapp:start',
-    'whatsapp:stop',
-    'whatsapp:logout',
-    'whatsapp:send',
-    'whatsapp:allowlist:get',
-    'whatsapp:allowlist:add',
-    'whatsapp:allowlist:remove',
     // Auth Manager
     'auth:profiles:list',
     'auth:profiles:create',
@@ -513,6 +504,8 @@ const ALLOWED_CHANNELS = {
     // Shell execution & native file search (Many agent tools)
     'shell:exec',
     'shell:file:search',
+    // In-app approval (HITL — renderer responds to main's request)
+    'approval:respond',
     // Dome MCP server management
     'dome-mcp:start',
     'dome-mcp:stop',
@@ -547,10 +540,6 @@ const ALLOWED_CHANNELS = {
     'project:created',
     'project:updated',
     'project:deleted',
-    // WhatsApp events
-    'whatsapp:qr',
-    'whatsapp:connected',
-    'whatsapp:disconnected',
     // AI Cloud streaming
     'ai:stream:chunk',
     // Audio events
@@ -609,6 +598,8 @@ const ALLOWED_CHANNELS = {
     'artifact:deleted',
     'artifact:refresh-linked',
     'artifact:set-linked-resource',
+    // In-app approval (HITL — main requests approval, renderer shows modal)
+    'approval:requested',
   ],
 };
 
@@ -1580,50 +1571,6 @@ const electronHandler = {
   },
 
   // ============================================
-  // WHATSAPP API
-  // ============================================
-  whatsapp: {
-    // Get connection status
-    getStatus: () => ipcRenderer.invoke('whatsapp:status'),
-
-    // Start WhatsApp connection
-    start: () => ipcRenderer.invoke('whatsapp:start'),
-
-    // Stop WhatsApp connection
-    stop: () => ipcRenderer.invoke('whatsapp:stop'),
-
-    // Logout and clear session
-    logout: () => ipcRenderer.invoke('whatsapp:logout'),
-
-    // Send a message
-    send: (phoneNumber, text) => ipcRenderer.invoke('whatsapp:send', { phoneNumber, text }),
-
-    // Allowlist management
-    allowlist: {
-      get: () => ipcRenderer.invoke('whatsapp:allowlist:get'),
-      add: (phoneNumber) => ipcRenderer.invoke('whatsapp:allowlist:add', phoneNumber),
-      remove: (phoneNumber) => ipcRenderer.invoke('whatsapp:allowlist:remove', phoneNumber),
-    },
-
-    // Event listeners
-    onQr: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('whatsapp:qr', subscription);
-      return () => ipcRenderer.removeListener('whatsapp:qr', subscription);
-    },
-    onConnected: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('whatsapp:connected', subscription);
-      return () => ipcRenderer.removeListener('whatsapp:connected', subscription);
-    },
-    onDisconnected: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('whatsapp:disconnected', subscription);
-      return () => ipcRenderer.removeListener('whatsapp:disconnected', subscription);
-    },
-  },
-
-  // ============================================
   // AUTH MANAGER API
   // ============================================
   auth: {
@@ -1687,6 +1634,30 @@ const electronHandler = {
      */
     fileSearch: (directory, pattern, type) =>
       ipcRenderer.invoke('shell:file:search', { directory, pattern, type }),
+  },
+
+  // ============================================
+  // APPROVAL — in-app HITL modal (replaces native dialog)
+  // ============================================
+  approval: {
+    /**
+     * Respond to a pending approval request from the main process.
+     * @param {string} approvalId
+     * @param {boolean} approved
+     */
+    respond: (approvalId, approved) =>
+      ipcRenderer.invoke('approval:respond', { approvalId, approved }),
+
+    /**
+     * Listen for approval requests from the main process.
+     * @param {(data: { approvalId: string, kind: string, payload: object, timeoutMs: number }) => void} callback
+     * @returns {() => void} cleanup function
+     */
+    onRequested: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('approval:requested', handler);
+      return () => ipcRenderer.removeListener('approval:requested', handler);
+    },
   },
 
   // ============================================

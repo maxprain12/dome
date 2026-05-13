@@ -16,7 +16,7 @@ export function createShellExecTool(): AnyAgentTool {
       'Execute a shell command. A native confirmation dialog will appear showing the exact command before it runs — the user must approve it. ' +
       'Returns stdout, stderr, and exit code. Use for running scripts, build tools, CLI utilities, git commands, etc.',
     parameters: Type.Object({
-      command: Type.String({ description: 'Shell command to execute (e.g. "npm run build", "git log --oneline -10").' }),
+      command: Type.String({ description: 'Shell command to execute (e.g. "pnpm run build", "git log --oneline -10").' }),
       cwd: Type.Optional(Type.String({ description: 'Working directory for the command. Defaults to the current working directory.' })),
     }),
     execute: async (_id, args) => {

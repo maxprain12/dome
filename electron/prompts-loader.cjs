@@ -26,27 +26,6 @@ function readPrompt(relativePath) {
 }
 
 /**
- * Build WhatsApp system prompt with dynamic context.
- * @param {Object} options
- * @param {string} options.contextSection - Built context (project, resources, date, time)
- */
-function buildWhatsAppPrompt(contextSection) {
-  const template = readPrompt('whatsapp/base.txt');
-  if (!template) {
-    return `You are Many, Dome's AI assistant.\n\n${contextSection}`;
-  }
-  return template.replace(/\{\{contextSection\}\}/g, contextSection);
-}
-
-/**
- * Build the context section for WhatsApp (project, recent resources, date, time).
- * Called by message-handler with actual data.
- */
-function buildWhatsAppContextSection(lines) {
-  return lines.filter(Boolean).join('\n');
-}
-
-/**
  * Read Martin capabilities section (used by personality-loader).
  */
 function getMartinCapabilities() {
@@ -56,7 +35,5 @@ function getMartinCapabilities() {
 module.exports = {
   getPromptsDir,
   readPrompt,
-  buildWhatsAppPrompt,
-  buildWhatsAppContextSection,
   getMartinCapabilities,
 };

@@ -895,7 +895,7 @@ export async function* chatWithToolsStream(
 
 /**
  * Execute a chat with tools using LangGraph agent (runs in main process).
- * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. WhatsApp).
+ * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. run engine).
  */
 export async function chatWithTools(
   messages: Array<{ role: string; content: string }>,
