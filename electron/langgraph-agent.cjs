@@ -726,8 +726,6 @@ async function createTrimmingMiddleware(provider, llm) {
       let messages = Array.isArray(request.messages) ? [...request.messages] : [];
       if (messages.length === 0) return handler(request);
 
-      // Anthropic API (and MiniMax Anthropic-compatible) only allows system
-      // messages at position 0. Merge any stray system messages into one.
       const { SystemMessage } = await import('@langchain/core/messages');
 
       const isSystemMsg = (m) => {
@@ -740,44 +738,72 @@ async function createTrimmingMiddleware(provider, llm) {
         } catch { return false; }
       };
 
+      // Helper to extract text from a message content (string or content blocks).
+      const getTextContent = (content) => {
+        if (typeof content === 'string') return content;
+        if (Array.isArray(content)) {
+          return content.map((c) => {
+            if (typeof c === 'string') return c;
+            if (c && typeof c === 'object' && 'text' in c) return c.text || '';
+            return '';
+          }).join('\n');
+        }
+        return JSON.stringify(content);
+      };
+
       if (process.env.DOME_TRIM_DEBUG === '1') {
         console.log('[DomeTrim] types:', messages.map((m, i) => `${i}:${isSystemMsg(m) ? 'SYS' : (typeof m._getType === 'function' ? m._getType() : m.role || '?')}`).join(' '));
       }
 
+      // Lift any system messages out of request.messages and merge them into
+      // request.systemMessage/systemPrompt. This is necessary because
+      // AgentNode.baseHandler ALWAYS prepends request.systemMessage to
+      // request.messages right before the model call — having system messages
+      // in both places would produce duplicate system entries, which Anthropic
+      // (and MiniMax's Anthropic-compatible endpoint) reject with:
+      // "System messages are only permitted as the first passed message."
       const sysIdxs = messages.reduce((acc, m, i) => {
         if (isSystemMsg(m)) acc.push(i);
         return acc;
       }, []);
-      if (sysIdxs.length > 1) {
-        // Multiple system messages → merge all into one at position 0
-        const combined = sysIdxs
-          .map((i) => (typeof messages[i].content === 'string' ? messages[i].content : JSON.stringify(messages[i].content)))
-          .join('\n\n---\n\n');
-        messages = [new SystemMessage(combined), ...messages.filter((_, i) => !sysIdxs.includes(i))];
-        console.log(`[AI LangGraph] merged ${sysIdxs.length} system messages (${provider})`);
-      } else if (sysIdxs.length === 1 && sysIdxs[0] !== 0) {
-        // Single system message not at position 0 → move it there
-        const sysMsg = messages[sysIdxs[0]];
-        messages = [sysMsg, ...messages.filter((_, i) => i !== sysIdxs[0])];
-        console.log(`[AI LangGraph] moved system message from pos ${sysIdxs[0]} to 0 (${provider})`);
+
+      let updatedRequest = request;
+      if (sysIdxs.length > 0) {
+        const sysTexts = sysIdxs.map((i) => getTextContent(messages[i].content));
+        const existingContent = getTextContent(request.systemMessage?.content ?? '');
+        // Dome system prompt first so it sets context, then any middleware additions (VFS, etc.)
+        const allSysContent = [...sysTexts, existingContent].filter(Boolean).join('\n\n---\n\n');
+
+        messages = messages.filter((_, i) => !sysIdxs.includes(i));
+
+        console.log(`[AI LangGraph] lifted ${sysIdxs.length} system message(s) messages→systemPrompt (${provider})`);
+
+        updatedRequest = {
+          ...request,
+          messages,
+          systemPrompt: allSysContent,
+          systemMessage: new SystemMessage(allSysContent),
+        };
       }
+
+      if (messages.length === 0) return handler(updatedRequest);
 
       try {
         const trimmed = await trimMessages(messages, {
           maxTokens,
           tokenCounter,
           strategy: 'last',
-          includeSystem: true,
+          includeSystem: false,
           startOn: 'human',
           endOn: ['human', 'tool'],
         });
         if (trimmed.length < messages.length) {
           console.log(`[AI LangGraph] trimmed ${messages.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`);
         }
-        return handler({ ...request, messages: trimmed });
+        return handler({ ...updatedRequest, messages: trimmed });
       } catch (e) {
         console.warn(`[AI LangGraph] ${provider} trim failed, using full history:`, e?.message);
-        return handler({ ...request, messages });
+        return handler(updatedRequest);
       }
     },
   });
