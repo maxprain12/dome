@@ -15,6 +15,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 import TranscriptionPill from '@/components/transcription/TranscriptionPill';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
+import ApprovalProvider from '@/components/approval/ApprovalProvider';
 
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
@@ -359,6 +360,9 @@ export default function AppShell() {
 
       {/* Voice IPC bridge — always mounted, zero UI */}
       <ManyVoiceBridge />
+
+      {/* In-app HITL approval modals */}
+      <ApprovalProvider />
     </div>
   );
 }

@@ -1704,6 +1704,11 @@ declare global {
         rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
       };
 
+      approval: {
+        respond: (approvalId: string, approved: boolean) => Promise<{ success: boolean; error?: string }>;
+        onRequested: (callback: (data: { approvalId: string; kind: string; payload: Record<string, unknown>; timeoutMs: number }) => void) => () => void;
+      };
+
       shell: {
         exec: (command: string, cwd?: string) => Promise<{
           success: boolean;

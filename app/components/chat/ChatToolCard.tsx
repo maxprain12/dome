@@ -456,7 +456,55 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const isPending = toolCall.status === 'pending' || toolCall.status === 'running';
   const argsSummary = formatArgsSummary(toolCall.arguments);
 
+  // Soft confirmation requested by tool (needs_confirmation status)
+  const needsConfirmation = (parsedResult as Record<string, unknown> | null)?.status === 'needs_confirmation';
+
+  const handleSoftConfirm = (approved: boolean) => {
+    const text = approved ? 'Sí, confirmo.' : 'No, cancela.';
+    window.dispatchEvent(new CustomEvent('dome:quick-reply', { detail: { text } }));
+  };
+
   const renderResultContent = () => {
+    // Inline approval UI for soft confirmations (needs_confirmation pattern)
+    if (needsConfirmation && toolCall.status === 'success') {
+      const msg = (parsedResult as Record<string, unknown>)?.error;
+      return (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            padding: '8px 10px',
+            background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+          }}
+        >
+          <p style={{ fontSize: 13, color: 'var(--secondary-text)', margin: 0 }}>
+            {typeof msg === 'string' ? msg : 'Esta acción requiere confirmación.'}
+          </p>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: 12, padding: '5px 12px' }}
+              onClick={() => handleSoftConfirm(false)}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ fontSize: 12, padding: '5px 12px' }}
+              onClick={() => handleSoftConfirm(true)}
+            >
+              Confirmar
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     if (toolCall.error) {
       return (
         <div
