@@ -829,9 +829,9 @@ function runMigrations(db) {
     `).run(Date.now());
   }
 
-  // Migration 4: Add tables for auth profiles and WhatsApp
+  // Migration 4: Add tables for auth profiles and Many memory
   if (version < 4) {
-    console.log('[DB] Running migration 4: Add auth and WhatsApp tables');
+    console.log('[DB] Running migration 4: Add auth_profiles and martin_memory tables');
 
     try {
       // Auth profiles table - stores encrypted credentials for AI providers
@@ -847,38 +847,6 @@ function runMigrations(db) {
         )
       `);
       db.exec('CREATE INDEX IF NOT EXISTS idx_auth_profiles_provider ON auth_profiles(provider)');
-
-      // WhatsApp sessions table
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS whatsapp_sessions (
-          id TEXT PRIMARY KEY,
-          phone_number TEXT,
-          status TEXT NOT NULL CHECK(status IN ('active', 'disconnected', 'pending')),
-          auth_data TEXT,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      `);
-
-      // WhatsApp messages table - tracks processed messages
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS whatsapp_messages (
-          id TEXT PRIMARY KEY,
-          session_id TEXT,
-          from_number TEXT NOT NULL,
-          message_type TEXT NOT NULL,
-          content TEXT,
-          media_path TEXT,
-          processed INTEGER DEFAULT 0,
-          resource_id TEXT,
-          created_at INTEGER NOT NULL,
-          FOREIGN KEY (session_id) REFERENCES whatsapp_sessions(id) ON DELETE SET NULL,
-          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL
-        )
-      `);
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_session ON whatsapp_messages(session_id)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_from ON whatsapp_messages(from_number)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_processed ON whatsapp_messages(processed)');
 
       // Gmail tables removed - functionality deprecated
       // Tables are kept for backward compatibility with existing databases
@@ -898,7 +866,7 @@ function runMigrations(db) {
       db.exec('CREATE INDEX IF NOT EXISTS idx_martin_memory_type ON martin_memory(type)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_martin_memory_key ON martin_memory(key)');
 
-      console.log('[DB] Migration 4 complete - auth and WhatsApp tables added');
+      console.log('[DB] Migration 4 complete - auth_profiles and martin_memory tables added');
     } catch (error) {
       console.error('[DB] Migration 4 error:', error.message);
     }
@@ -1641,30 +1609,6 @@ function runMigrations(db) {
       db.exec('ALTER TABLE flashcard_decks_new RENAME TO flashcard_decks');
       db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_project ON flashcard_decks(project_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_resource ON flashcard_decks(resource_id)');
-
-      // Fix FK: whatsapp_messages SET NULL → CASCADE
-      db.exec(`
-        CREATE TABLE whatsapp_messages_new (
-          id TEXT PRIMARY KEY,
-          session_id TEXT REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-          resource_id TEXT REFERENCES resources(id) ON DELETE CASCADE,
-          from_number TEXT,
-          to_number TEXT,
-          content TEXT,
-          processed INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL
-        )
-      `);
-      db.exec(`
-        INSERT INTO whatsapp_messages_new (id, session_id, resource_id, from_number, content, processed, created_at)
-        SELECT id, session_id, resource_id, from_number, content, processed, created_at
-        FROM whatsapp_messages
-      `);
-      db.exec('DROP TABLE whatsapp_messages');
-      db.exec('ALTER TABLE whatsapp_messages_new RENAME TO whatsapp_messages');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_session ON whatsapp_messages(session_id)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_from ON whatsapp_messages(from_number)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_processed ON whatsapp_messages(processed)');
 
       // Orphan cleanup: tags with no associated resources
       db.exec(`DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`);
@@ -2956,6 +2900,36 @@ function runMigrations(db) {
       console.log('[DB] Migration 30 complete - xlsx/pptx reclassified');
     } catch (error) {
       console.error('[DB] Migration 30 failed:', error);
+    }
+  }
+
+  // Migration 31: Drop WhatsApp tables (integration removed)
+  if (version < 31) {
+    console.log('[DB] Running migration 31 - drop WhatsApp tables');
+    try {
+      db.exec('PRAGMA foreign_keys = OFF');
+      db.exec('DROP TABLE IF EXISTS whatsapp_messages');
+      db.exec('DROP TABLE IF EXISTS whatsapp_sessions');
+      db.exec('PRAGMA foreign_keys = ON');
+      try {
+        db.prepare('DELETE FROM settings WHERE key = ?').run('whatsapp_allowlist');
+      } catch {
+        /* ignore */
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '31', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '31', updated_at = excluded.updated_at
+      `).run(Date.now());
+      invalidateQueries();
+      console.log('[DB] Migration 31 complete');
+    } catch (error) {
+      try {
+        db.exec('PRAGMA foreign_keys = ON');
+      } catch {
+        /* ignore */
+      }
+      console.error('[DB] Migration 31 failed:', error);
     }
   }
 }
