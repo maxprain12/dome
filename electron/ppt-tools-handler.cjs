@@ -10,6 +10,7 @@ const fs = require('fs');
 
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
+const documentStaging = require('./document-staging.cjs');
 const documentGenerator = require('./document-generator.cjs');
 
 let windowManagerRef = null;
@@ -82,34 +83,43 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
     }
 
     const filename = (title || 'Untitled').replace(/\.pptx$/i, '') + '.pptx';
-    const importResult = await fileStorage.importFromBuffer(
-      result.buffer,
-      filename,
-      'document'
-    );
+
+    // Stage → validate → promote (no orphans on failure)
+    const staged = documentStaging.stageBuffer(result.buffer, filename);
+    const validation = await documentStaging.validateStaging(staged.stagingId, 'ppt');
+    if (!validation.ok) {
+      documentStaging.discardStaging(staged.stagingId);
+      return { success: false, error: `Generated PPTX failed validation: ${validation.error}` };
+    }
+    const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'ppt');
 
     const resourceId = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = Date.now();
     const contentText = ((options.script ? '' : spec.title) || title || '').substring(0, 500);
 
     const queries = database.getQueries();
-    queries.createResourceWithFile.run(
-      resourceId,
-      projectId,
-      'ppt',
-      (title || 'Untitled').replace(/\.pptx$/i, '') || 'Untitled',
-      contentText,
-      null,
-      importResult.internalPath,
-      importResult.mimeType,
-      importResult.size,
-      importResult.hash,
-      null,
-      filename,
-      null,
-      now,
-      now
-    );
+    try {
+      queries.createResourceWithFile.run(
+        resourceId,
+        projectId,
+        'ppt',
+        (title || 'Untitled').replace(/\.pptx$/i, '') || 'Untitled',
+        contentText,
+        null,
+        importResult.internalPath,
+        importResult.mimeType,
+        importResult.size,
+        importResult.hash,
+        null,
+        filename,
+        null,
+        now,
+        now
+      );
+    } catch (dbErr) {
+      fileStorage.deleteFile(importResult.internalPath);
+      throw dbErr;
+    }
 
     if (options.folder_id) {
       const folder = queries.getResourceById.get(options.folder_id);
