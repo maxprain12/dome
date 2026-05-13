@@ -1,7 +1,7 @@
 # Planes de ejecución
 
 - **Activo**: [active/](active/) — planes en curso, con frontmatter (`status: active`, `owner`, `domain`, `created`).
-- **Hechos**: [done/](done/) — archivado tras merge o cierre.
+- **Hechos**: [done/](done/) — archivado tras merge o cierre. <!-- TBD: crear directorio `done/` -->
 - Plantilla: [_template.md](_template.md).
 
 ## Regla (P-008)
