@@ -101,7 +101,7 @@ export default function AnnotationLayer({
             width: coordinates.width,
             height: coordinates.height,
           });
-          ctx.strokeStyle = resolveCssColor('var(--accent)') ?? '#0ea5e9';
+          ctx.strokeStyle = resolveCssColor('var(--accent)') ?? 'var(--accent)';
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
           ctx.strokeRect(
@@ -118,7 +118,7 @@ export default function AnnotationLayer({
       if (isDrawing && startPoint && currentPoint && activeTool === 'highlight') {
         ctx.globalAlpha = 0.3;
         const resolvedFill = resolveCssColor(color);
-        ctx.fillStyle = resolvedFill ? resolvedFill : '#0ea5e9';
+        ctx.fillStyle = resolvedFill ? resolvedFill : 'var(--accent)';
         ctx.fillRect(
           Math.min(startPoint.x, currentPoint.x),
           Math.min(startPoint.y, currentPoint.y),

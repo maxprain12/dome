@@ -223,7 +223,7 @@ function renderHighlight(
 ): void {
   if (viewportRect.width > 0 && viewportRect.height > 0) {
     ctx.globalAlpha = style.opacity ?? 0.3;
-    ctx.fillStyle = resolveCssColor(style.color) ?? '#0ea5e9';
+    ctx.fillStyle = resolveCssColor(style.color) ?? 'var(--accent)';
     ctx.fillRect(viewportRect.x, viewportRect.y, viewportRect.width, viewportRect.height);
   }
 }
@@ -238,12 +238,12 @@ function renderNote(
 
   // Draw note background
   ctx.globalAlpha = 0.95;
-  ctx.fillStyle = resolveCssColor(style.color) ?? '#e6c47a';
+  ctx.fillStyle = resolveCssColor(style.color) ?? 'var(--warning)';
   ctx.fillRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
 // Draw note border
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = resolveCssColor('var(--warning)') ?? '#e6c47a';
+  ctx.strokeStyle = resolveCssColor('var(--warning)') ?? 'var(--warning)';
   ctx.lineWidth = 2;
   ctx.strokeRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
