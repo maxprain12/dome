@@ -7,7 +7,7 @@ const NOMIC_MODEL_ID = 'nomic-ai/nomic-embed-text-v1.5';
 /** Stored in `resource_chunks.model_version` / settings. */
 const MODEL_VERSION = 'nomic-embed-text-v1.5';
 
-const EMBED_BATCH = 8;
+const EMBED_BATCH = 4;
 const EMBED_DIM = 768;
 /**
  * Solo para `embedQuery` (búsqueda): límite defensivo en caracteres.
@@ -37,7 +37,7 @@ function runEmbedExclusive(fn) {
  * al handler). Un solo documento con miles de chunks dispara cientos de `pipe()` seguidos;
  * sin esto el runtime nativo puede SIGTRAP / crashear (reindexación masiva).
  */
-const PIPELINE_RESET_INTERVAL = 10;
+const PIPELINE_RESET_INTERVAL = 4;
 
 /**
  * @param {{ modelsDir: string }} opts
@@ -116,6 +116,10 @@ async function embedDocuments(texts) {
     if (len === 0) {
       return [];
     }
+    /** Sesiones ONNX reutilizadas tras otros trabajos pueden SIGTRAP en el primer `pipe` pesado. */
+    if (len >= 32) {
+      resetPipeline();
+    }
     const out = [];
     let pipe = await getPipeline();
     let batchIdx = 0;
@@ -137,10 +141,7 @@ async function embedDocuments(texts) {
       }
       out.push(...tensorToRowVectors(tensor));
       batchIdx += 1;
-      // Deja respirar al bucle de Node / Electron entre lotes muy largos (OOM / UI freeze).
-      if (batchIdx % 16 === 0) {
-        await new Promise((resolve) => setImmediate(resolve));
-      }
+      await new Promise((resolve) => setImmediate(resolve));
     }
     return out;
   });

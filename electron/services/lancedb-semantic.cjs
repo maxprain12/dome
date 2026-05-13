@@ -32,6 +32,22 @@ let _indexed = null;
 let _initPromise = null;
 /** @type {boolean} */
 let _ftsIndexLex = false;
+/**
+ * Cola global para mutaciones en `resource_lex` (evita createIndex/delete/add concurrentes).
+ * @type {Promise<void>}
+ */
+let _lexMutChain = Promise.resolve();
+
+/**
+ * @param {() => Promise<void>} fn
+ */
+function enqueueLexMutation(fn) {
+  const job = _lexMutChain.then(() => fn());
+  _lexMutChain = job.catch((err) => {
+    console.warn('[LanceDB] lex mutation:', err?.message || err);
+  });
+  return job;
+}
 
 /**
  * @param {string} s
@@ -349,44 +365,50 @@ async function sampleVectorsForCentroid(resourceId, k) {
 /**
  * @param {string} resourceId
  */
-async function deleteLexForResource(resourceId) {
+async function deleteLexForResourceUnsafe(resourceId) {
   assertReady();
   await _lex.delete(`resource_id == '${esc(resourceId)}'`);
+}
+
+async function deleteLexForResource(resourceId) {
+  return enqueueLexMutation(() => deleteLexForResourceUnsafe(resourceId));
 }
 
 /**
  * @param {{ resource_id: string, title: string, type: string, project_id: string | null, content: string }} row
  */
 async function upsertLexForResource(row) {
-  assertReady();
-  const rid = String(row.resource_id || '');
-  if (!rid) return;
-  await deleteLexForResource(rid);
-  const title = String(row.title ?? '');
-  const body = String(row.content ?? '');
-  const search_text =
-    (title + '\n' + body).length > MAX_LEX_CHARS
-      ? (title + '\n' + body).slice(0, MAX_LEX_CHARS)
-      : title + '\n' + body;
-  await _lex.add([
-    {
-      resource_id: rid,
-      title,
-      type: String(row.type ?? 'note'),
-      project_id: String(row.project_id ?? ''),
-      search_text,
-      updated_at: Date.now(),
-    },
-  ]);
-  if (!_ftsIndexLex) {
-    try {
-      const lancedb = await getLanceMod();
-      await _lex.createIndex('search_text', { config: lancedb.Index.fts(), replace: true });
-      _ftsIndexLex = true;
-    } catch (err) {
-      console.warn('[LanceDB] índice FTS en resource_lex omitido:', err?.message || err);
+  return enqueueLexMutation(async () => {
+    assertReady();
+    const rid = String(row.resource_id || '');
+    if (!rid) return;
+    await deleteLexForResourceUnsafe(rid);
+    const title = String(row.title ?? '');
+    const body = String(row.content ?? '');
+    const search_text =
+      (title + '\n' + body).length > MAX_LEX_CHARS
+        ? (title + '\n' + body).slice(0, MAX_LEX_CHARS)
+        : title + '\n' + body;
+    await _lex.add([
+      {
+        resource_id: rid,
+        title,
+        type: String(row.type ?? 'note'),
+        project_id: String(row.project_id ?? ''),
+        search_text,
+        updated_at: Date.now(),
+      },
+    ]);
+    if (!_ftsIndexLex) {
+      try {
+        const lancedb = await getLanceMod();
+        await _lex.createIndex('search_text', { config: lancedb.Index.fts(), replace: true });
+        _ftsIndexLex = true;
+      } catch (err) {
+        console.warn('[LanceDB] índice FTS en resource_lex omitido:', err?.message || err);
+      }
     }
-  }
+  });
 }
 
 /**
