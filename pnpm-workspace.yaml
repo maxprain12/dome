@@ -1,0 +1,31 @@
+# pnpm 11: settings live here (see https://pnpm.io/settings).
+packages:
+  - '.'
+
+# Fresh publishes (<24h) would otherwise fail resolution in CI/dev.
+minimumReleaseAge: 0
+
+# langfuse-langchain declares peer langchain@<0.4; Dome uses langchain@1.x
+peerDependencyRules:
+  allowAny:
+    - langchain
+
+allowBuilds:
+  '@ffmpeg-installer/darwin-arm64': true
+  '@ffmpeg-installer/darwin-x64': true
+  '@ffmpeg-installer/linux-arm64': true
+  '@ffmpeg-installer/linux-ia32': true
+  '@ffmpeg-installer/linux-x64': true
+  '@ffmpeg-installer/win32-ia32': true
+  '@ffmpeg-installer/win32-x64': true
+  '@parcel/watcher': true
+  better-sqlite3: true
+  core-js: true
+  electron-winstaller: true
+  electron: true
+  esbuild: true
+  node-pty: true
+  onnxruntime-node: true
+  protobufjs: true
+  sharp: true
+  '@whiskeysockets/baileys': set this to true or false
