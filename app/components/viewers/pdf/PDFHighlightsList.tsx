@@ -18,7 +18,7 @@ const HEX_TO_VAR_MAP: Record<string, string> = {
 function normalizeColor(color: string | undefined): string {
   if (!color) return 'var(--warning)';
   if (color.startsWith('var(')) return color;
-  return HEX_TO_VAR_MAP[color.toUpperCase()] ?? color;
+  return HEX_TO_VAR_MAP[color.toUpperCase()] ?? 'var(--warning)';
 }
 
 const SNIPPET_MAX_LENGTH = 80;
