@@ -55,7 +55,7 @@ function buildMarkdown() {
   const gen = new Date().toISOString();
   let md = `# Canales IPC (autogenerado)
 
-> **No edites a mano.** Regenera con \`npm run generate:ipc-inventory\`.
+> **No edites a mano.** Regenera con \`pnpm run generate:ipc-inventory\`.
 > Última generación: ${gen}
 
 Canales detectados vía \`ipcMain.handle\` / \`ipcMain.on\` en \`electron/ipc/*.cjs\`.
@@ -83,12 +83,12 @@ const { md, channelCount } = buildMarkdown();
 
 if (check) {
   if (!fs.existsSync(OUT)) {
-    console.error('Falta', OUT, '— ejecuta: npm run generate:ipc-inventory');
+    console.error('Falta', OUT, '— ejecuta: pnpm run generate:ipc-inventory');
     process.exit(1);
   }
   const existing = fs.readFileSync(OUT, 'utf8');
   if (normalizeForCompare(existing) !== normalizeForCompare(md)) {
-    console.error('ipc-channels.md desincronizado. Ejecuta: npm run generate:ipc-inventory');
+    console.error('ipc-channels.md desincronizado. Ejecuta: pnpm run generate:ipc-inventory');
     process.exit(1);
   }
   console.log('ipc-channels.md OK,', channelCount, 'canales');

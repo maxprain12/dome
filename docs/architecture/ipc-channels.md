@@ -1,21 +1,21 @@
 # Canales IPC (autogenerado)
 
-> **No edites a mano.** Regenera con `npm run generate:ipc-inventory`.
-> Última generación: 2026-05-12T11:07:13.425Z
+> **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
+> Última generación: 2026-05-15T23:27:17.237Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
 | `ai:chat` | `electron/ipc/ai.cjs:16` |
-| `ai:langgraph:abort` | `electron/ipc/ai.cjs:368` |
-| `ai:langgraph:resume` | `electron/ipc/ai.cjs:382` |
+| `ai:langgraph:abort` | `electron/ipc/ai.cjs:378` |
+| `ai:langgraph:resume` | `electron/ipc/ai.cjs:392` |
 | `ai:langgraph:stream` | `electron/ipc/ai.cjs:258` |
 | `ai:stream` | `electron/ipc/ai.cjs:92` |
 | `ai:team:abort` | `electron/ipc/agent-team.cjs:424` |
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:234` |
-| `ai:testConnection` | `electron/ipc/ai.cjs:460` |
-| `ai:testWebSearch` | `electron/ipc/ai.cjs:540` |
+| `ai:testConnection` | `electron/ipc/ai.cjs:470` |
+| `ai:testWebSearch` | `electron/ipc/ai.cjs:550` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:857` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:883` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:844` |
@@ -68,16 +68,18 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai.cjs:555` |
+| `ai:webSearch` | `electron/ipc/ai.cjs:565` |
+| `approval:respond` | `electron/ipc/approval.cjs:43` |
+| `artifact:buildDesign` | `electron/ipc/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
-| `artifact:delete` | `electron/ipc/artifacts.cjs:155` |
-| `artifact:export` | `electron/ipc/artifacts.cjs:188` |
+| `artifact:delete` | `electron/ipc/artifacts.cjs:185` |
+| `artifact:export` | `electron/ipc/artifacts.cjs:218` |
 | `artifact:get` | `electron/ipc/artifacts.cjs:94` |
-| `artifact:import` | `electron/ipc/artifacts.cjs:225` |
-| `artifact:list` | `electron/ipc/artifacts.cjs:170` |
-| `artifact:refresh-linked` | `electron/ipc/artifacts.cjs:332` |
-| `artifact:set-linked-resource` | `electron/ipc/artifacts.cjs:297` |
-| `artifact:update` | `electron/ipc/artifacts.cjs:110` |
+| `artifact:import` | `electron/ipc/artifacts.cjs:255` |
+| `artifact:list` | `electron/ipc/artifacts.cjs:200` |
+| `artifact:refresh-linked` | `electron/ipc/artifacts.cjs:362` |
+| `artifact:set-linked-resource` | `electron/ipc/artifacts.cjs:327` |
+| `artifact:update` | `electron/ipc/artifacts.cjs:140` |
 | `audio:generate-podcast` | `electron/ipc/audio.cjs:86` |
 | `audio:generate-speech` | `electron/ipc/audio.cjs:31` |
 | `audio:get-status` | `electron/ipc/audio.cjs:120` |
@@ -117,6 +119,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `cloud:import-file` | `electron/ipc/cloud-storage.cjs:423` |
 | `cloud:list-files` | `electron/ipc/cloud-storage.cjs:392` |
 | `cloud:llm:pdf-region-stream` | `electron/ipc/cloud-llm.cjs:12` |
+| `cloudSync:getSettings` | `electron/ipc/cloud-sync.cjs:102` |
+| `cloudSync:getStatus` | `electron/ipc/cloud-sync.cjs:21` |
+| `cloudSync:pull` | `electron/ipc/cloud-sync.cjs:55` |
+| `cloudSync:push` | `electron/ipc/cloud-sync.cjs:44` |
+| `cloudSync:setSettings` | `electron/ipc/cloud-sync.cjs:121` |
+| `cloudSync:startRevisionWatcher` | `electron/ipc/cloud-sync.cjs:66` |
+| `cloudSync:stopRevisionWatcher` | `electron/ipc/cloud-sync.cjs:90` |
 | `db:agentFolders:create` | `electron/ipc/database.cjs:814` |
 | `db:agentFolders:delete` | `electron/ipc/database.cjs:865` |
 | `db:agentFolders:list` | `electron/ipc/database.cjs:802` |
@@ -353,7 +362,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `select-folder` | `electron/ipc/system.cjs:73` |
 | `set-theme` | `electron/ipc/system.cjs:157` |
 | `shell:exec` | `electron/ipc/shell.cjs:34` |
-| `shell:file:search` | `electron/ipc/shell.cjs:87` |
+| `shell:file:search` | `electron/ipc/shell.cjs:82` |
 | `show-item-in-folder` | `electron/ipc/system.cjs:121` |
 | `show-save-dialog` | `electron/ipc/system.cjs:95` |
 | `skills:create` | `electron/ipc/skills.cjs:355` |
@@ -399,14 +408,6 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `web:process` | `electron/ipc/web.cjs:116` |
 | `web:save-screenshot` | `electron/ipc/web.cjs:60` |
 | `web:scrape` | `electron/ipc/web.cjs:24` |
-| `whatsapp:allowlist:add` | `electron/ipc/whatsapp.cjs:144` |
-| `whatsapp:allowlist:get` | `electron/ipc/whatsapp.cjs:126` |
-| `whatsapp:allowlist:remove` | `electron/ipc/whatsapp.cjs:163` |
-| `whatsapp:logout` | `electron/ipc/whatsapp.cjs:89` |
-| `whatsapp:send` | `electron/ipc/whatsapp.cjs:108` |
-| `whatsapp:start` | `electron/ipc/whatsapp.cjs:53` |
-| `whatsapp:status` | `electron/ipc/whatsapp.cjs:25` |
-| `whatsapp:stop` | `electron/ipc/whatsapp.cjs:71` |
 | `window:broadcast` | `electron/ipc/window.cjs:283` |
 | `window:close` | `electron/ipc/window.cjs:197` |
 | `window:close-current` | `electron/ipc/window.cjs:248` |

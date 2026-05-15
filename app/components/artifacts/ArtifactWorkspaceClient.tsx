@@ -13,6 +13,34 @@ interface Props {
   resourceId: string;
 }
 
+function mergedDomeDataPayload(artifact: ArtifactRecord | null): Record<string, unknown> {
+  if (!artifact?.state || typeof artifact.state !== 'object') return {};
+  const st = artifact.state as Record<string, unknown>;
+  const data = st.data;
+  return {
+    ...(data && typeof data === 'object' && !Array.isArray(data)
+      ? (data as Record<string, unknown>)
+      : {}),
+    ...(st.linkedData !== undefined ? { linkedData: st.linkedData } : {}),
+  };
+}
+
+/** Key-sorted JSON for stable comparison across key order / rebuilds. */
+function canonicalDataJson(obj: Record<string, unknown>): string {
+  const sort = (v: unknown): unknown => {
+    if (v === null || typeof v !== 'object') return v;
+    if (Array.isArray(v)) return v.map(sort);
+    const o = v as Record<string, unknown>;
+    const keys = Object.keys(o).sort();
+    const out: Record<string, unknown> = {};
+    for (const k of keys) {
+      out[k] = sort(o[k]);
+    }
+    return out;
+  };
+  return JSON.stringify(sort(obj));
+}
+
 /** Build the full srcdoc for the sandboxed iframe: Dome theme + reset (same as chat HTML artifacts), optional artifact CSS, DOME_DATA bridge. */
 function buildSrcdocFromParts(
   bodyHtml: string,
@@ -157,6 +185,8 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   const artifactRef = useRef<ArtifactRecord | null>(null);
   artifactRef.current = artifact;
   const saveRequestIdRef = useRef(0);
+  /** Last `dome:state:update` payload from our iframe (canonical JSON) for echo suppression. */
+  const lastLocalDomePushRef = useRef<{ json: string; at: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -246,8 +276,23 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
             : {}),
           ...(nextLinkedData !== undefined ? { linkedData: nextLinkedData } : {}),
         };
-        iframeRef.current.contentWindow.postMessage({ type: 'dome:data:refresh', payload: refreshPayload }, '*');
-        // Still update state so artifactRef stays current for save operations
+        const prevPayload = mergedDomeDataPayload(prev);
+        const refreshCanon = canonicalDataJson(refreshPayload);
+        const refreshEchoOnly = canonicalDataJson(prevPayload) === refreshCanon;
+        const recent = lastLocalDomePushRef.current;
+        const IFRAME_ECHO_WINDOW_MS = 500;
+        const iframeEcho =
+          recent !== null &&
+          Date.now() - recent.at < IFRAME_ECHO_WINDOW_MS &&
+          recent.json === refreshCanon;
+        const skipDomRefresh = refreshEchoOnly || iframeEcho;
+        if (!skipDomRefresh) {
+          iframeRef.current.contentWindow.postMessage(
+            { type: 'dome:data:refresh', payload: refreshPayload },
+            '*',
+          );
+        }
+        lastLocalDomePushRef.current = null;
         setArtifact(updated);
       } else {
         setArtifact(updated);
@@ -265,15 +310,25 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       if (!art) return;
       if (event.data?.type === 'dome:state:update') {
         const newData = event.data.payload;
+        if (newData && typeof newData === 'object' && !Array.isArray(newData)) {
+          lastLocalDomePushRef.current = {
+            json: canonicalDataJson(newData as Record<string, unknown>),
+            at: Date.now(),
+          };
+        } else {
+          lastLocalDomePushRef.current = null;
+        }
         const currentState = (art.state ?? {}) as Record<string, unknown>;
         const updatedState = { ...currentState, data: newData };
         try {
           const result = await window.electron.artifacts.update({ resourceId, state: updatedState });
           if (result.success && result.data) {
             setArtifact(result.data);
+          } else {
+            lastLocalDomePushRef.current = null;
           }
         } catch {
-          // state update failure is non-fatal; iframe continues working
+          lastLocalDomePushRef.current = null;
         }
       }
     };

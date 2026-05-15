@@ -7,14 +7,12 @@ interface ManyFloatingTriggerProps {
   onClick: () => void;
   status: ManyStatus;
   totalNotifications: number;
-  whatsappConnected: boolean;
 }
 
 export default memo(function ManyFloatingTrigger({
   onClick,
   status,
   totalNotifications,
-  whatsappConnected,
 }: ManyFloatingTriggerProps) {
   const { t } = useTranslation();
   return (
@@ -41,14 +39,6 @@ export default memo(function ManyFloatingTrigger({
           className={`absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-[var(--bg)] ${
             status === 'thinking' ? 'bg-[var(--warning,#f59e0b)] animate-many-pulse' : 'bg-[var(--success,#22c55e)]'
           }`}
-          aria-hidden
-        />
-      )}
-
-      {whatsappConnected && (
-        <span
-          className="absolute left-0 top-0 size-3 rounded-full border-2 border-[var(--bg)] bg-[#25D366]"
-          title={t('chat.whatsapp_connected')}
           aria-hidden
         />
       )}

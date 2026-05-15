@@ -29,9 +29,9 @@ section "Dependencias"
 
 command -v git      &>/dev/null && ok "git $(git --version | awk '{print $3}')"      || fail "git no instalado"
 command -v node     &>/dev/null && ok "node $(node --version)"                         || fail "node no instalado"
-command -v npm      &>/dev/null && ok "npm $(npm --version)"                           || fail "npm no instalado"
+command -v pnpm     &>/dev/null && ok "pnpm $(pnpm --version)"                         || fail "pnpm no instalado"
 command -v gh       &>/dev/null && ok "gh $(gh --version | head -1 | awk '{print $3}')" || fail "gh CLI no instalado"
-command -v opencode &>/dev/null && ok "opencode $(opencode --version 2>/dev/null || echo 'instalado')" || fail "opencode no instalado  →  npm install -g opencode-ai"
+command -v opencode &>/dev/null && ok "opencode $(opencode --version 2>/dev/null || echo 'instalado')" || fail "opencode no instalado  →  pnpm add -g opencode-ai"
 
 # ── GitHub auth ───────────────────────────────────────────────────────────────
 section "GitHub auth"

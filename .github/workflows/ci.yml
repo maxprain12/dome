@@ -19,17 +19,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: pnpm
 
       # Skip postinstall (electron-rebuild, playwright, etc.) — not needed for tsc
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: pnpm run typecheck
 
   lint:
     name: Lint
@@ -37,25 +41,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Lint renderer
-        run: npm run lint
+        run: pnpm run lint
 
       - name: IPC inventory up to date
-        run: npm run check:ipc-inventory
+        run: pnpm run check:ipc-inventory
 
       - name: IPC Zod policy (new files)
-        run: npm run check:ipc-zod
+        run: pnpm run check:ipc-zod
 
       - name: Tool definitions vs handlers
-        run: npm run check:tool-coverage
+        run: pnpm run check:tool-coverage
 
   build:
     name: Vite Build
@@ -63,30 +71,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: pnpm
 
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
 
       - name: Build renderer (Vite)
-        run: npm run build
+        run: pnpm run build
 
   dependency-cruiser:
     name: Dependency structure
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.1.1
+
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: npm
+          cache: pnpm
+
       - name: Install dependencies
-        run: npm ci --ignore-scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
       - name: Depcruise (app)
-        run: npm run depcruise
+        run: pnpm run depcruise
 
   architecture-check:
     name: Architecture Guard

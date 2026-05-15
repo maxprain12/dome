@@ -181,13 +181,13 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
 
       if (
         payload.type === 'interrupt' &&
-        payload.actionRequests &&
-        payload.reviewConfigs &&
+        Array.isArray(payload.actionRequests) &&
+        payload.actionRequests.length > 0 &&
         setPendingApproval
       ) {
         setPendingApproval({
           actionRequests: payload.actionRequests,
-          reviewConfigs: payload.reviewConfigs,
+          reviewConfigs: Array.isArray(payload.reviewConfigs) ? payload.reviewConfigs : [],
           submitResume: (decisions) => {
             void resumeRun(payload.runId, decisions as Array<unknown>);
           },

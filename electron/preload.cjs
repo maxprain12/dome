@@ -296,15 +296,6 @@ const ALLOWED_CHANNELS = {
     'ollama:manager:download',
     'ollama:manager:versions',
     // Semantic index: LanceDB embebido (userData/dome-lance) + IPC `db:semantic:*`
-    // WhatsApp
-    'whatsapp:status',
-    'whatsapp:start',
-    'whatsapp:stop',
-    'whatsapp:logout',
-    'whatsapp:send',
-    'whatsapp:allowlist:get',
-    'whatsapp:allowlist:add',
-    'whatsapp:allowlist:remove',
     // Auth Manager
     'auth:profiles:list',
     'auth:profiles:create',
@@ -462,6 +453,13 @@ const ALLOWED_CHANNELS = {
     // Sync export/import
     'sync:export',
     'sync:import',
+    'cloudSync:getStatus',
+    'cloudSync:push',
+    'cloudSync:pull',
+    'cloudSync:startRevisionWatcher',
+    'cloudSync:stopRevisionWatcher',
+    'cloudSync:getSettings',
+    'cloudSync:setSettings',
     // MCP
     'mcp:testConnection',
     'mcp:testServer',
@@ -513,6 +511,8 @@ const ALLOWED_CHANNELS = {
     // Shell execution & native file search (Many agent tools)
     'shell:exec',
     'shell:file:search',
+    // In-app approval (HITL — renderer responds to main's request)
+    'approval:respond',
     // Dome MCP server management
     'dome-mcp:start',
     'dome-mcp:stop',
@@ -521,6 +521,7 @@ const ALLOWED_CHANNELS = {
     // Artifacts
     'artifact:create',
     'artifact:get',
+    'artifact:buildDesign',
     'artifact:update',
     'artifact:delete',
     'artifact:list',
@@ -547,10 +548,6 @@ const ALLOWED_CHANNELS = {
     'project:created',
     'project:updated',
     'project:deleted',
-    // WhatsApp events
-    'whatsapp:qr',
-    'whatsapp:connected',
-    'whatsapp:disconnected',
     // AI Cloud streaming
     'ai:stream:chunk',
     // Audio events
@@ -609,6 +606,12 @@ const ALLOWED_CHANNELS = {
     'artifact:deleted',
     'artifact:refresh-linked',
     'artifact:set-linked-resource',
+    // In-app approval (HITL — main requests approval, renderer shows modal)
+    'approval:requested',
+    'cloud-sync:revision',
+    'cloud-sync:pull-done',
+    'cloud-sync:pushed',
+    'cloud-sync:reindex-done',
   ],
 };
 
@@ -773,6 +776,26 @@ const electronHandler = {
   sync: {
     export: () => ipcRenderer.invoke('sync:export'),
     import: () => ipcRenderer.invoke('sync:import'),
+  },
+
+  cloudSync: {
+    getStatus: () => ipcRenderer.invoke('cloudSync:getStatus'),
+    push: () => ipcRenderer.invoke('cloudSync:push'),
+    pull: () => ipcRenderer.invoke('cloudSync:pull'),
+    startRevisionWatcher: () => ipcRenderer.invoke('cloudSync:startRevisionWatcher'),
+    stopRevisionWatcher: () => ipcRenderer.invoke('cloudSync:stopRevisionWatcher'),
+    onRevision: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('cloud-sync:revision', subscription);
+      return () => ipcRenderer.removeListener('cloud-sync:revision', subscription);
+    },
+    onPullDone: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('cloud-sync:pull-done', subscription);
+      return () => ipcRenderer.removeListener('cloud-sync:pull-done', subscription);
+    },
+    getSettings: () => ipcRenderer.invoke('cloudSync:getSettings'),
+    setSettings: (partial) => ipcRenderer.invoke('cloudSync:setSettings', partial),
   },
 
   // ============================================
@@ -1580,50 +1603,6 @@ const electronHandler = {
   },
 
   // ============================================
-  // WHATSAPP API
-  // ============================================
-  whatsapp: {
-    // Get connection status
-    getStatus: () => ipcRenderer.invoke('whatsapp:status'),
-
-    // Start WhatsApp connection
-    start: () => ipcRenderer.invoke('whatsapp:start'),
-
-    // Stop WhatsApp connection
-    stop: () => ipcRenderer.invoke('whatsapp:stop'),
-
-    // Logout and clear session
-    logout: () => ipcRenderer.invoke('whatsapp:logout'),
-
-    // Send a message
-    send: (phoneNumber, text) => ipcRenderer.invoke('whatsapp:send', { phoneNumber, text }),
-
-    // Allowlist management
-    allowlist: {
-      get: () => ipcRenderer.invoke('whatsapp:allowlist:get'),
-      add: (phoneNumber) => ipcRenderer.invoke('whatsapp:allowlist:add', phoneNumber),
-      remove: (phoneNumber) => ipcRenderer.invoke('whatsapp:allowlist:remove', phoneNumber),
-    },
-
-    // Event listeners
-    onQr: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('whatsapp:qr', subscription);
-      return () => ipcRenderer.removeListener('whatsapp:qr', subscription);
-    },
-    onConnected: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('whatsapp:connected', subscription);
-      return () => ipcRenderer.removeListener('whatsapp:connected', subscription);
-    },
-    onDisconnected: (callback) => {
-      const subscription = (event, data) => callback(data);
-      ipcRenderer.on('whatsapp:disconnected', subscription);
-      return () => ipcRenderer.removeListener('whatsapp:disconnected', subscription);
-    },
-  },
-
-  // ============================================
   // AUTH MANAGER API
   // ============================================
   auth: {
@@ -1690,6 +1669,30 @@ const electronHandler = {
   },
 
   // ============================================
+  // APPROVAL — in-app HITL modal (replaces native dialog)
+  // ============================================
+  approval: {
+    /**
+     * Respond to a pending approval request from the main process.
+     * @param {string} approvalId
+     * @param {boolean} approved
+     */
+    respond: (approvalId, approved) =>
+      ipcRenderer.invoke('approval:respond', { approvalId, approved }),
+
+    /**
+     * Listen for approval requests from the main process.
+     * @param {(data: { approvalId: string, kind: string, payload: object, timeoutMs: number }) => void} callback
+     * @returns {() => void} cleanup function
+     */
+    onRequested: (callback) => {
+      const handler = (_event, data) => callback(data);
+      ipcRenderer.on('approval:requested', handler);
+      return () => ipcRenderer.removeListener('approval:requested', handler);
+    },
+  },
+
+  // ============================================
   // DOME MCP SERVER — manage the external MCP server
   // ============================================
   domeMcp: {
@@ -1705,6 +1708,7 @@ const electronHandler = {
   artifacts: {
     create: (opts) => ipcRenderer.invoke('artifact:create', opts),
     get: (resourceId) => ipcRenderer.invoke('artifact:get', resourceId),
+    buildDesign: (spec) => ipcRenderer.invoke('artifact:buildDesign', { spec }),
     update: (opts) => ipcRenderer.invoke('artifact:update', opts),
     delete: (resourceId) => ipcRenderer.invoke('artifact:delete', resourceId),
     list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),

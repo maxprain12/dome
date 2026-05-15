@@ -19,8 +19,6 @@ Documentation for Dome's SQLite layer in the main process: schema, migrations, p
 | `resource_links` | id, source_id, target_id, link_type, weight, metadata, created_at |
 | `search_index` | id, resource_id, combined_text, keywords, last_indexed |
 | `auth_profiles` | id, provider, type (api_key|oauth|token), credentials, is_default, created_at, updated_at (migration 4) |
-| `whatsapp_sessions` | id, phone_number, status, auth_data, created_at, updated_at (migration 4) |
-| `whatsapp_messages` | id, session_id, from_number, message_type, content, media_path, processed, resource_id, created_at (migration 4) |
 | `martin_memory` | id, type, key, value, metadata, created_at, updated_at (migration 4) |
 
 ### Virtual tables (FTS5)
@@ -34,10 +32,9 @@ Documentation for Dome's SQLite layer in the main process: schema, migrations, p
 - citations: source_id, resource_id
 - sources: resource_id
 - resource_interactions: resource_id, type
-| resource_links: source_id, target_id
+- resource_links: source_id, target_id
 - search_index: resource_id
 - auth_profiles: provider
-- whatsapp_messages: session_id, from_number, processed
 - martin_memory: type, key
 
 ---
@@ -48,7 +45,8 @@ Documentation for Dome's SQLite layer in the main process: schema, migrations, p
 - **Migration 1**: Add internal file storage columns to resources (internal_path, file_mime_type, file_size, file_hash, thumbnail_data, original_filename); indexes.
 - **Migration 2**: Add type 'folder' to resources CHECK (recreate table if needed); add folder_id, indexes.
 - **Migration 3**: Ensure folder_id column exists (add if missing).
-- **Migration 4**: Add auth_profiles, whatsapp_sessions, whatsapp_messages, martin_memory tables and indexes.
+- **Migration 4**: Add auth_profiles, martin_memory tables and indexes (legacy installs may still carry dropped WhatsApp tables until migration 31 runs).
+- **Migration 31**: Drop whatsapp_messages / whatsapp_sessions if present; remove whatsapp_allowlist setting.
 
 ---
 

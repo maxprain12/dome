@@ -12,6 +12,7 @@ const crypto = require('crypto');
 
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
+const documentStaging = require('./document-staging.cjs');
 const documentExtractor = require('./document-extractor.cjs');
 const docxConverter = require('./docx-converter.cjs');
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
@@ -303,7 +304,15 @@ async function docxCreate(projectId, title, options = {}) {
 
     const safeTitle = (title || 'Untitled').replace(/[<>:"/\\|?*]/g, '_').substring(0, 120);
     const filename = `${safeTitle.replace(/\.docx$/i, '')}.docx`;
-    const importResult = await fileStorage.importFromBuffer(buffer, filename, 'document');
+
+    // Stage → validate → promote (no orphans on failure)
+    const staged = documentStaging.stageBuffer(buffer, filename);
+    const validation = await documentStaging.validateStaging(staged.stagingId, 'document');
+    if (!validation.ok) {
+      documentStaging.discardStaging(staged.stagingId);
+      return { success: false, error: `Generated DOCX failed validation: ${validation.error}` };
+    }
+    const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'document');
 
     const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
     const now = Date.now();
@@ -315,23 +324,28 @@ async function docxCreate(projectId, title, options = {}) {
       contentText = '';
     }
 
-    queries.createResourceWithFile.run(
-      resourceId,
-      projectId,
-      'document',
-      safeTitle.replace(/\.docx$/i, '') || 'Untitled',
-      contentText,
-      null,
-      importResult.internalPath,
-      importResult.mimeType,
-      importResult.size,
-      importResult.hash,
-      null,
-      filename,
-      null,
-      now,
-      now,
-    );
+    try {
+      queries.createResourceWithFile.run(
+        resourceId,
+        projectId,
+        'document',
+        safeTitle.replace(/\.docx$/i, '') || 'Untitled',
+        contentText,
+        null,
+        importResult.internalPath,
+        importResult.mimeType,
+        importResult.size,
+        importResult.hash,
+        null,
+        filename,
+        null,
+        now,
+        now,
+      );
+    } catch (dbErr) {
+      fileStorage.deleteFile(importResult.internalPath);
+      throw dbErr;
+    }
 
     if (options.folder_id) {
       const folder = queries.getResourceById.get(options.folder_id);

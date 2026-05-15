@@ -2,7 +2,7 @@
  * Script para generar iconos de la aplicación para todas las plataformas
  * Usa sharp para redimensionar many.png a los tamaños necesarios
  * 
- * Uso: npm run generate-icons
+ * Uso: pnpm run generate-icons
  */
 
 import sharp from 'sharp';

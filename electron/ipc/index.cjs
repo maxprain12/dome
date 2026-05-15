@@ -17,7 +17,6 @@ const migrationHandlers = require('./migration.cjs');
 const webHandlers = require('./web.cjs');
 const imageHandlers = require('./images.cjs');
 const ollamaHandlers = require('./ollama.cjs');
-const whatsappHandlers = require('./whatsapp.cjs');
 const authHandlers = require('./auth.cjs');
 const personalityHandlers = require('./personality.cjs');
 const aiHandlers = require('./ai.cjs');
@@ -48,12 +47,21 @@ const skillsHandlers = require('./skills.cjs');
 const shellHandlers = require('./shell.cjs');
 const domeMcpHandlers = require('./dome-mcp.cjs');
 const artifactsHandlers = require('./artifacts.cjs');
+const approvalHandlers = require('./approval.cjs');
+const cloudSyncHandlers = require('./cloud-sync.cjs');
+
+let _ipcRegistered = false;
 
 /**
  * Register all IPC handlers
  * @param {Object} deps - Shared dependencies
  */
 function registerAll(deps) {
+  if (_ipcRegistered) {
+    console.warn('[IPC] registerAll called more than once — skipping duplicate registration');
+    return;
+  }
+  _ipcRegistered = true;
   const {
     app,
     windowManager,
@@ -101,7 +109,6 @@ function registerAll(deps) {
   webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
   imageHandlers.register({ ipcMain, windowManager, cropImage });
   ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, getOllamaManager });
-  whatsappHandlers.register({ ipcMain, windowManager, database, fileStorage, ollamaService, initModule, aiToolsHandler });
   authHandlers.register({ ipcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });
   aiHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
@@ -151,6 +158,8 @@ function registerAll(deps) {
   shellHandlers.register({ ipcMain, windowManager, sanitizePath });
   domeMcpHandlers.register({ ipcMain, windowManager, database });
   artifactsHandlers.register({ ipcMain, windowManager, database });
+  approvalHandlers.register({ ipcMain, windowManager, validateSender });
+  cloudSyncHandlers.register({ ipcMain, windowManager, database, fileStorage });
 
 }
 

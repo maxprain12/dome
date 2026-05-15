@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * Shared: transcribe an audio/video resource file and create a linked note (used by IPC + WhatsApp).
+ * Shared: transcribe an audio/video resource file and create a linked note (used by IPC handlers).
  */
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 const transcriptionStructured = require('./transcription-structured.cjs');

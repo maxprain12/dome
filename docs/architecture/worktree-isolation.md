@@ -20,8 +20,8 @@ Definir `DOME_PROFILE` (nombre seguro, p. ej. rama o slug) **antes** de arrancar
 # Manual
 export DOME_PROFILE=mi-rama-123
 export DOME_VITE_PORT=5174
-# terminal 1: npm run dev
-# terminal 2: con la misma env, electron . (o npm run electron)
+# terminal 1: pnpm run dev
+# terminal 2: con la misma env, electron . (o pnpm run electron)
 ```
 
 Implementación: `electron/main.cjs` (early `app.setPath('userData', …)`) y [vite.config.ts](../../vite.config.ts) para el puerto.

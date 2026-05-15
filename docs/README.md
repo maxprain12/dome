@@ -60,7 +60,6 @@ Documentación del proyecto Dome (v2.1.7). Además de este índice:
 | **Marketplace** | [marketplace/](features/marketplace/) | SDK, plugins, workflows |
 | **Plugins** | [plugins.md](features/plugins.md) | Pets & Views |
 | **Cloud Storage** | [cloud-storage-setup.md](features/cloud-storage-setup.md) | OAuth, file picker |
-| **WhatsApp** | [whatsapp.md](features/whatsapp.md) | IPC `whatsapp:`* |
 | **Dome Provider** | [dome-provider-integration.md](features/dome-provider-integration.md) | Backend provider |
 
 ### Infraestructura técnica

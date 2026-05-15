@@ -4,13 +4,13 @@ import SettingsLayout, { type SettingsSection } from '@/components/settings/Sett
 import GeneralSettings from '@/components/settings/GeneralSettings';
 import AppearanceSettings from '@/components/settings/AppearanceSettings';
 import AISettingsPanel from '@/components/settings/AISettingsPanel';
-import WhatsAppSettingsPanel from '@/components/settings/WhatsAppSettingsPanel';
 import MCPSettingsPanel from '@/components/settings/MCPSettingsPanel';
 import SkillsSettingsPanel from '@/components/settings/SkillsSettingsPanel';
 import AdvancedSettings from '@/components/settings/AdvancedSettings';
 import PluginsSettings from '@/components/settings/PluginsSettings';
 import IndexingSettings from '@/components/settings/IndexingSettings';
 import CloudStorageSettings from '@/components/settings/CloudStorageSettings';
+import DomeSyncSettings from '@/components/settings/DomeSyncSettings';
 import LanguageSettings from '@/components/settings/LanguageSettings';
 import TranscriptionSettingsPanel from '@/components/settings/TranscriptionSettingsPanel';
 import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
@@ -24,7 +24,6 @@ const VALID_SECTIONS = [
   'appearance',
   'ai',
   'transcription',
-  'whatsapp',
   'mcp',
   'dome_mcp',
   'skills',
@@ -32,6 +31,7 @@ const VALID_SECTIONS = [
   'advanced',
   'indexing',
   'cloud',
+  'dome_sync',
   'language',
   'kb_llm',
   'calendar',
@@ -90,8 +90,6 @@ export default function SettingsPage() {
         return <AISettingsPanel />;
       case 'transcription':
         return <TranscriptionSettingsPanel />;
-      case 'whatsapp':
-        return <WhatsAppSettingsPanel />;
       case 'mcp':
         return <MCPSettingsPanel />;
       case 'dome_mcp':
@@ -106,6 +104,8 @@ export default function SettingsPage() {
         return <IndexingSettings />;
       case 'cloud':
         return <CloudStorageSettings />;
+      case 'dome_sync':
+        return <DomeSyncSettings />;
       case 'language':
         return <LanguageSettings />;
       case 'kb_llm':

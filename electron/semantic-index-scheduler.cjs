@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 'use strict';
 
-const { createIndexer, shouldIndexResourceType } = require('./services/indexing.pipeline.cjs');
+const { createIndexer, shouldIndexResourceType, reindexAllInFlight } = require('./services/indexing.pipeline.cjs');
 const lancedb = require('./services/lancedb-semantic.cjs');
 
 /** @type {import('./services/indexing.pipeline.cjs').createIndexer extends (a: any) => infer R ? R : never} */
@@ -13,12 +13,17 @@ let _database = null;
 /** @type {Map<string, ReturnType<typeof setTimeout>>} */
 const _timers = new Map();
 
+/** Handle for the hourly sweep interval (cleared on app quit). */
+let _sweepInterval = null;
+
+/** Máx. recursos encolados por barrido automático (evita ráfaga concurrente hacia Lance). */
+const AUTO_INDEX_MAX_SCHEDULE_PER_SWEEP = 8;
+
 /**
  * @param {typeof import('./database.cjs')} database
  */
 function init(database) {
   _database = database;
-  _indexer = null;
 }
 
 function getIndexer() {
@@ -36,24 +41,6 @@ function getIndexer() {
  */
 function scheduleSemanticReindex(resourceId) {
   if (!resourceId || typeof resourceId !== 'string') return;
-  if (_database) {
-    try {
-      const row = _database.getQueries().getResourceById.get(resourceId);
-      if (row) {
-        void lancedb
-          .upsertLexForResource({
-            resource_id: resourceId,
-            title: String(row.title || ''),
-            type: String(row.type || ''),
-            project_id: row.project_id,
-            content: String(row.content || ''),
-          })
-          .catch(() => {});
-      }
-    } catch {
-      /* ignore */
-    }
-  }
   const prev = _timers.get(resourceId);
   if (prev) {
     clearTimeout(prev);
@@ -101,6 +88,11 @@ function deleteSemanticIndexArtifacts(resourceId) {
 
 async function indexMissingResources() {
   if (!_database) return;
+  // Don't schedule while a full reindex is running to avoid ONNX worker contention.
+  if (reindexAllInFlight) {
+    console.log('[AutoIndex] reindexAll in progress — skipping sweep');
+    return;
+  }
   try {
     const db = _database.getDB();
     const rows = db
@@ -112,12 +104,18 @@ async function indexMissingResources() {
     `,
       )
       .all();
+    let scheduled = 0;
     for (const row of rows) {
+      if (scheduled >= AUTO_INDEX_MAX_SCHEDULE_PER_SWEEP) break;
       try {
         const n = await lancedb.countChunksForResource(row.id);
-        if (!n) scheduleSemanticReindex(row.id);
+        if (!n) {
+          scheduleSemanticReindex(row.id);
+          scheduled += 1;
+        }
       } catch {
         scheduleSemanticReindex(row.id);
+        scheduled += 1;
       }
     }
   } catch (e) {
@@ -129,10 +127,17 @@ function startAutoIndexing() {
   setTimeout(() => {
     indexMissingResources().catch(() => {});
   }, 15_000);
-  setInterval(() => {
+  _sweepInterval = setInterval(() => {
     indexMissingResources().catch(() => {});
   }, 60 * 60 * 1000);
   console.log('[AutoIndex] Semantic chunk sweep scheduled (startup +15s, hourly)');
+}
+
+function stopAutoIndexing() {
+  if (_sweepInterval) {
+    clearInterval(_sweepInterval);
+    _sweepInterval = null;
+  }
 }
 
 module.exports = {
@@ -144,4 +149,5 @@ module.exports = {
   deleteSemanticIndexArtifacts,
   indexMissingResources,
   startAutoIndexing,
+  stopAutoIndexing,
 };

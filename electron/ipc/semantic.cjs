@@ -201,7 +201,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       if (typeof resourceId !== 'string' || !resourceId) {
         return { success: false, error: 'resourceId required' };
       }
-      const result = await semanticIndexScheduler.getIndexer().indexResourceImmediate(resourceId);
+      const result = await semanticIndexScheduler.getIndexer().indexResource(resourceId);
       return { success: true, data: result };
     } catch (error) {
       console.error('[DB] semantic indexResource:', error);

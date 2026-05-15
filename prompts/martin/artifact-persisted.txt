@@ -6,9 +6,29 @@ Use this companion to `artifacts.txt` whenever you mutate **Kind B — library**
 
 ## Lifecycle
 
-1. **Create** via `artifact_create` with `{ title, artifactType, template, state?, linkedResourceId?, projectId?, folderId? }`.
-2. **Read** via `artifact_get` / list via Many’s hub or `artifact_list`.
-3. **Mutate iframe data** inside the persisted HTML (`__dome_updateState`) or remotely via `artifact_update_state`.
+1. **Design (optional)** — For tabbed dossiers, call `artifact_design` **before** `artifact_create`. It returns `html` plus `data` with at least `activeTab` and `layoutKind: "dome-design-v1"`. Tab clicks call `__dome_updateState` and persist `activeTab`.
+2. **Create** via `artifact_create` with `{ title, artifactType, state: { html, data? }, linkedResourceId?, projectId?, folderId? }` (optional legacy `template` column is separate from `state.html` in the DB layer).
+3. **Read** via `artifact_get` / list via Many’s hub or `artifact_list`.
+4. **Mutate** — inside the iframe call `__dome_updateState` for user-driven edits; from the agent use `artifact_merge_data` (shallow patch to `state.data` only), `artifact_update_state` (replace/merge `html` and/or `data`), or bind Excel with `artifact_link_resource` for read-only grids in `linkedData`.
+
+---
+
+## `state.data` vs datos “hardcodeados” en el HTML
+
+| Situación | Usar |
+| --- | --- |
+| El usuario editará filas, notas o toggles entre sesiones | `state.data` + JS que lee `DOME_DATA` y llama `__dome_updateState` |
+| Volcar muchas filas desde Excel/PDF/agente después de crear el artefacto | `artifact_merge_data` o `artifact_update_state(state.data)`; **no** pegar mega-tablas como strings estáticos en el HTML |
+| Texto/UI que nunca cambia (título estático de sección, leyenda fija) | Hardcoded en el HTML está bien |
+| Datos siempre frescos desde un Excel vinculado | `artifact_link_resource` y render desde `linkedData` (solo lectura desde el modelo) |
+
+**Ejemplos:** lista de compras con checkboxes → `data.items[]`. KPI estático “Resumen mensual” como label → HTML. Importar 200 filas de `excel_get` → `artifact_merge_data({ rows: [...] })`. Tablero que solo muestra la hoja vinculada → `linkedData`, sin duplicar en `data` salvo overrides del usuario.
+
+---
+
+## Tema visual
+
+Igual que en `artifacts.txt`: **no** defines modo claro/oscuro ni uses `prefers-color-scheme`. Colores de cromado solo con variables inyectadas (`--bg`, `--primary-text`, `--accent`, …).
 
 ---
 
@@ -19,14 +39,12 @@ Use this companion to `artifacts.txt` whenever you mutate **Kind B — library**
 ```json
 {
   "html": "<section>…minimal markup…</section>",
-  "css": "optional extra tokens-only styles",
   "data": {},
   "linkedData": null
 }
 ```
 
 - **`html`** — body markup; keep inputs with `data-dome-key`, `name`, or `id` fields so Dome can mirror values ↔ `window.DOME_DATA`.
-- **`css`** — scoped styles; obey tokens from `artifacts.txt`.
 - **`data`** — mirrored into `window.DOME_DATA` for editable fields (`input`, `textarea`, `select`). Updated values flow back via `__dome_updateState(next)`.
 - **`linkedData`** — optional snapshot injected by Dome when `linkedResourceId` points at an Excel workbook. Read-only for the model; display only.
 
@@ -52,9 +70,11 @@ Dome injects before your script bundle:
 
 | Tool | When |
 | --- | --- |
+| `artifact_design` | Generate Dome-styled tabbed dossier **HTML** + seed **`data`** (not persisted). Use output as `state` for `artifact_create`. Load `dome_load_doc('artifact_design')` before first use. |
 | `artifact_create` | User needs a durable mini-app (trackers, forms, dashboards that persist). |
 | `artifact_get` | Need current `state` / metadata. |
-| `artifact_update_state` | Push server-side JSON merges (automation sink, agent batch updates). |
+| `artifact_merge_data` | Solo actualizar `state.data` por lotes (p. ej. tras `excel_get` / extracción) sin re-enviar HTML. Merge superficial por claves de primer nivel. |
+| `artifact_update_state` | Cambiar `html` y/o sustituir/merge `data` completa cuando también rediseñas UI o reemplazas el objeto datos. |
 | `artifact_delete` | Remove resource + artifact row. |
 | `artifact_link_resource` | Bind `linkedResourceId` (Excel) for `linkedData` refresh. |
 

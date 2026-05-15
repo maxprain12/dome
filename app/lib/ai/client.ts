@@ -825,13 +825,18 @@ export async function* chatWithToolsStream(
       chunks.push({ type: 'done' });
       done = true;
       unsub();
-    } else if (data.type === 'interrupt' && data.actionRequests && data.reviewConfigs) {
+    } else if (
+      data.type === 'interrupt' &&
+      Array.isArray(data.actionRequests) &&
+      data.actionRequests.length > 0
+    ) {
       const threadId = data.threadId;
+      const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
       chunks.push({
         type: 'interrupt',
         threadId,
         actionRequests: data.actionRequests,
-        reviewConfigs: data.reviewConfigs,
+        reviewConfigs,
         submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
           if (threadId) {
             void window.electron?.ai?.resumeLangGraph?.({ threadId, streamId, decisions });
@@ -895,7 +900,7 @@ export async function* chatWithToolsStream(
 
 /**
  * Execute a chat with tools using LangGraph agent (runs in main process).
- * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. WhatsApp).
+ * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. run engine).
  */
 export async function chatWithTools(
   messages: Array<{ role: string; content: string }>,

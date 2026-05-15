@@ -16,8 +16,20 @@ const cloudLlmTasks = require('./cloud-llm-tasks.cjs');
 const { extractPdfTextWithCloud } = require('./pdf-transcription.cjs');
 const lancedb = require('./lancedb-semantic.cjs');
 
+/** Dedupe entre llamadas y entre instancias de indexer (evita recrear indexer en cada init). */
+/** @type {Map<string, Promise<any>>} */
+const GLOBAL_INDEX_INFLIGHT = new Map();
+
+/**
+ * True while a reindexAll() is in progress. The AutoIndex sweep checks this
+ * flag to avoid contending with a full reindex over the embeddings worker.
+ */
+let _reindexAllInFlight = false;
+
 const DEFAULT_THRESHOLD = 0.45;
 const TOP_K = 8;
+/** Evita O(N²) en bibliotecas grandes: solo comparamos centroides contra una muestra de otros recursos. */
+const MAX_NEIGHBOR_CANDIDATES = 512;
 /** Límite de fragmentos por recurso para evitar OOM en embeddings / SQLite. */
 const MAX_CHUNKS_PER_RESOURCE = 5000;
 /** Máx. embeddings por recurso al calcular centroides (reindex de docs enormes + biblioteca grande). */
@@ -72,6 +84,24 @@ function centroidL2Normalized(vectors) {
   if (norm < 1e-12) return null;
   for (let i = 0; i < dim; i++) acc[i] /= norm;
   return acc;
+}
+
+/**
+ * Subconjunto aleatorio sin repetición de tamaño acotado (Fisher-Yates parcial).
+ * @param {string[]} ids
+ * @param {number} max
+ * @returns {string[]}
+ */
+function sampleNeighborIds(ids, max) {
+  if (!Array.isArray(ids) || ids.length <= max) return ids;
+  const pool = ids.slice();
+  for (let i = 0; i < max; i++) {
+    const j = i + Math.floor(Math.random() * (pool.length - i));
+    const t = pool[i];
+    pool[i] = pool[j];
+    pool[j] = t;
+  }
+  return pool.slice(0, max);
 }
 
 /**
@@ -135,13 +165,39 @@ function createIndexer(opts) {
     return _queue;
   }
 
+  /** Espera a que terminen los trabajos encolados (`indexResource` / `reindexAll`). */
+  function waitForIndexerIdle() {
+    return _queue;
+  }
+
+  /** Una sola indexación activa por recurso (evita ONNX/Lance duplicados). */
+
   /**
    * @param {string} resourceId
-   * @param {{ threshold?: number }} [options]
+   * @param {{ threshold?: number, neighborScanBudget?: number, skipSemanticRelations?: boolean }} [options]
    */
-  async function indexResource(resourceId, options = {}) {
+  function runIndexResourceDeduped(resourceId, options = {}) {
+    const hit = GLOBAL_INDEX_INFLIGHT.get(resourceId);
+    if (hit) return hit;
+    const p = indexResourceImpl(resourceId, options).finally(() => {
+      if (GLOBAL_INDEX_INFLIGHT.get(resourceId) === p) GLOBAL_INDEX_INFLIGHT.delete(resourceId);
+    });
+    GLOBAL_INDEX_INFLIGHT.set(resourceId, p);
+    return p;
+  }
+
+  /**
+   * @param {string} resourceId
+   * @param {{ threshold?: number, neighborScanBudget?: number, skipSemanticRelations?: boolean }} [options]
+   */
+  async function indexResourceImpl(resourceId, options = {}) {
     const threshold =
       typeof options.threshold === 'number' ? options.threshold : DEFAULT_THRESHOLD;
+    const skipRelations = options.skipSemanticRelations === true;
+    const neighborBudget =
+      typeof options.neighborScanBudget === 'number' && options.neighborScanBudget > 0
+        ? Math.floor(options.neighborScanBudget)
+        : MAX_NEIGHBOR_CANDIDATES;
     const queries = getQueries();
     const resource = queries.getResourceById.get(resourceId);
     if (!resource) {
@@ -184,7 +240,12 @@ function createIndexer(opts) {
       }
     }
 
-    if (!text || source === 'empty') {
+    if (
+      !text ||
+      source === 'empty' ||
+      source === 'blocked_no_vision_ocr' ||
+      source === 'vision_ocr_failed'
+    ) {
       queries.deleteChunksByResource.run(resourceId);
       queries.deleteSemanticAutoFromSource.run(resourceId);
       try {
@@ -281,6 +342,11 @@ function createIndexer(opts) {
       return { ok: true, count: 0, chunks: chunks.length, textSource: source };
     }
 
+    if (skipRelations) {
+      finalizeArtifactSearchSurface(queries, resource);
+      return { ok: true, count: 0, chunks: chunks.length, textSource: source };
+    }
+
     /** @type {{ targetId: string, sim: number }[]} */
     const relations = [];
     let otherIds = [];
@@ -289,6 +355,8 @@ function createIndexer(opts) {
     } catch (e) {
       console.warn('[indexing.pipeline] lance list neighbors', e?.message || e);
     }
+    const rawOtherCount = otherIds.length;
+    otherIds = sampleNeighborIds(otherIds, neighborBudget);
     let relScan = 0;
     for (const otherId of otherIds) {
       relScan += 1;
@@ -323,30 +391,38 @@ function createIndexer(opts) {
   }
 
   /**
-   * @param {{ threshold?: number, onProgress?: (p: { total: number, done: number, errors: number, step?: string }) => void }} [options]
+   * @param {{ threshold?: number, skipSemanticRelations?: boolean, onProgress?: (p: { total: number, done: number, errors: number, step?: string }) => void }} [options]
    */
   async function reindexAll(options = {}) {
-    // Second consecutive full reindex: reusing the ONNX session can SIGTRAP; reload per job.
-    resetPipeline();
+    _reindexAllInFlight = true;
     const queries = getQueries();
+    // Fetch only id+type to avoid loading full content (SELECT * was ~500 MB for large libraries).
     const rows = queries.getAllResources.all(500000);
-    const targets = rows.filter((r) => shouldIndexResourceType(r.type));
+    const targets = rows
+      .filter((r) => shouldIndexResourceType(r.type))
+      .map((r) => ({ id: r.id, type: r.type }));
     const out = { total: targets.length, done: 0, errors: 0 };
-    for (const row of targets) {
-      try {
+    try {
+      for (const row of targets) {
+        try {
+          if (typeof options.onProgress === 'function') {
+            options.onProgress({ ...out, step: row.id });
+          }
+          await runIndexResourceDeduped(row.id, {
+            threshold: options.threshold,
+            skipSemanticRelations: options.skipSemanticRelations === true,
+          });
+          out.done += 1;
+        } catch {
+          out.errors += 1;
+        }
         if (typeof options.onProgress === 'function') {
           options.onProgress({ ...out, step: row.id });
         }
-        await indexResource(row.id, { threshold: options.threshold });
-        out.done += 1;
-      } catch {
-        out.errors += 1;
       }
-      if (typeof options.onProgress === 'function') {
-        options.onProgress({ ...out, step: row.id });
-      }
+    } finally {
+      _reindexAllInFlight = false;
     }
-    resetPipeline();
     return out;
   }
 
@@ -373,11 +449,12 @@ function createIndexer(opts) {
   }
 
   return {
-    indexResource: (id, opts) => enqueue(() => indexResource(id, opts)),
+    indexResource: (id, opts) => enqueue(() => runIndexResourceDeduped(id, opts ?? {})),
     reindexAll: (opts) => enqueue(() => reindexAll(opts)),
     searchSemantic: (q, opts) => searchSemantic(q, opts),
-    /** @internal */
-    indexResourceImmediate: indexResource,
+    waitForIndexerIdle,
+    /** @internal — usar runIndexResourceDeduped salvo tests */
+    indexResourceImmediate: runIndexResourceDeduped,
   };
 }
 
@@ -386,5 +463,7 @@ module.exports = {
   dotNormalized,
   DEFAULT_THRESHOLD,
   TOP_K,
+  MAX_NEIGHBOR_CANDIDATES,
   shouldIndexResourceType,
+  get reindexAllInFlight() { return _reindexAllInFlight; },
 };

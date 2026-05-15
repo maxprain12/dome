@@ -31,8 +31,8 @@ Add translation keys to all 4 language objects in `app/lib/i18n.ts`:
 ## 4. Test locally
 
 ```bash
-npm run dev           # Renderer only
-npm run electron:dev  # Full app (main + renderer)
+pnpm run dev           # Renderer only
+pnpm run electron:dev  # Full app (main + renderer)
 ```
 
 - Test the golden path

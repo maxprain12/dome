@@ -16,20 +16,15 @@ You are helping the user work with PowerPoint presentations. You can:
 - Get file path with ppt_get_file_path
 - Export to PPTX with ppt_export
 
-### Background generation — IMPORTANT
+### Creation flow — CRITICAL
 
-`ppt_create` runs in the **background** and returns immediately with:
-```json
-{ "success": true, "status": "generating", "title": "...", "message": "…" }
-```
+`ppt_create` handles everything internally: it generates the file in a secure sandbox, validates its integrity, and **only then** imports it to the user's library. Call it **once** and wait for the result.
 
-When you receive `status: "generating"`, tell the user:
-- The presentation is being generated in the background (1–4 minutes for rich designs)
-- They will receive a notification when it's ready
-- They can continue working in the meantime
-- **Do NOT call ppt_create again** — the job is already running
+- **NEVER call `ppt_create` more than once for the same presentation** — if it returns `success: true`, the file is already in the library.
+- **NEVER use `resource_create`** for slides — always `ppt_create`.
+- If `ppt_create` returns `success: false` with an error, read the error, fix the script/spec, and try again once.
 
-Do NOT treat `status: "generating"` as an error.
+If the result is `status: "generating"` (async mode), tell the user the presentation is being generated in the background (1–4 minutes for rich designs) and they will be notified when ready. Do NOT call `ppt_create` again.
 
 ---
 

@@ -24,7 +24,7 @@
 │  y investigación académica. Combina editor, IA, agentes,    │
 │  organización de recursos y herramientas de estudio.        │
 │                                                              │
-│  v2.1.6  ·  npm  ·  Electron 41  ·  TypeScript             │
+│  v2.1.6  ·  pnpm  ·  Electron 41  ·  TypeScript             │
 └──────────────────────────────┬──────────────────────────────┘
                                │ OAuth PKCE + AI Proxy
                                │ dome://dome-auth/oauth/callback
@@ -117,7 +117,6 @@
 |---------|-----|--------|
 | Plugins (Pets & Views) | [plugins.md](./docs/features/plugins.md) | ✅ v2.0.8 |
 | Cloud Storage (GDrive/OneDrive) | [cloud-storage-setup.md](./docs/features/cloud-storage-setup.md) | ✅ v2.0.8 |
-| WhatsApp | [whatsapp.md](./docs/features/whatsapp.md) | ✅ Implementado |
 | Dome Provider Integration | [dome-provider-integration.md](./docs/features/dome-provider-integration.md) | ✅ v2.0.8 |
 | Ollama (guía instalación) | [guia-instalacion-ollama.md](./docs/features/guia-instalacion-ollama.md) | ✅ Guía |
 
@@ -165,13 +164,13 @@
 
 ```bash
 # 1. Instalar dependencias
-npm install
+pnpm install
 
 # 2. Desarrollo con hot reload
-npm run electron:dev
+pnpm run electron:dev
 
 # 3. Build para distribución
-npm run electron:build
+pnpm run electron:build
 ```
 
 Requisito mínimo: configurar un AI provider en Settings → AI Configuration.
@@ -180,17 +179,17 @@ Requisito mínimo: configurar un AI provider en Settings → AI Configuration.
 
 ```bash
 # 1. Instalar
-cd dome-provider && npm install
+cd dome-provider && pnpm install
 
 # 2. Configurar entorno
 cp .env.example .env.local
 # Editar TOKEN_HMAC_SECRET, SUPABASE_URL, STRIPE_SECRET_KEY...
 
 # 3. Arrancar (usar :3001 para no conflictar con Dome Desktop en :3000)
-npm run dev -- -p 3001
+pnpm run dev -- -p 3001
 
 # 4. Smoke test (con servidor activo)
-npm run smoke
+pnpm run smoke
 ```
 
 ### Conectar ambos

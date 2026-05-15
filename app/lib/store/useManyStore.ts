@@ -161,8 +161,6 @@ interface ManyState {
   lastNotification: string | null;
   currentResourceId: string | null;
   currentResourceTitle: string | null;
-  whatsappConnected: boolean;
-  whatsappPendingMessages: number;
   setOpen: (open: boolean) => void;
   toggleOpen: () => void;
   setMinimized: (minimized: boolean) => void;
@@ -182,8 +180,6 @@ interface ManyState {
   setNotification: (message: string | null) => void;
   setContext: (resourceId: string | null, resourceTitle: string | null) => void;
   clearContext: () => void;
-  setWhatsappConnected: (connected: boolean) => void;
-  setWhatsappPendingMessages: (count: number) => void;
   suggestedQuestions: string[];
   setSuggestedQuestions: (questions: string[]) => void;
   clearSuggestedQuestions: () => void;
@@ -226,8 +222,6 @@ export const useManyStore = create<ManyState>((set, get) => ({
   lastNotification: null,
   currentResourceId: null,
   currentResourceTitle: null,
-  whatsappConnected: false,
-  whatsappPendingMessages: 0,
 
   setOpen: (open) => {
     set({ isOpen: open });
@@ -454,10 +448,6 @@ export const useManyStore = create<ManyState>((set, get) => ({
       currentResourceId: null,
       currentResourceTitle: null,
     }),
-
-  setWhatsappConnected: (connected) => set({ whatsappConnected: connected }),
-
-  setWhatsappPendingMessages: (count) => set({ whatsappPendingMessages: count }),
 
   suggestedQuestions: [],
   setSuggestedQuestions: (questions) => set({ suggestedQuestions: questions }),

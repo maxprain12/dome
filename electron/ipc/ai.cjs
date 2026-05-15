@@ -305,6 +305,16 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
         chatModel = model || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
         apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
+      } else if (provider === 'dome') {
+        // Dome uses OAuth — not a static API key. Get the current access token.
+        const session = await domeOauth.getOrRefreshSession(database);
+        if (!session?.connected || !session?.accessToken) {
+          throw new Error('Dome session not found. Please sign in to Dome in Settings.');
+        }
+        apiKey = session.accessToken;
+        // ChatOpenAI appends /chat/completions to baseURL, so point to /api/v1.
+        baseUrl = `${getDomeProviderBaseUrl()}/api/v1`;
+        chatModel = model || 'dome/auto';
       } else {
         apiKey = queries.getSetting.get('ai_api_key')?.value;
         if (!apiKey) throw new Error(`API key not configured for ${provider}`);

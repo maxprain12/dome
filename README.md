@@ -4,7 +4,7 @@
 
 > Intelligent Desktop Application for Knowledge Management and Academic Research
 
-[![npm](https://img.shields.io/badge/npm-CB3837?style=flat&logo=npm&logoColor=white)](https://www.npmjs.com/)
+[![pnpm](https://img.shields.io/badge/pnpm-F69220?style=flat&logo=pnpm&logoColor=white)](https://pnpm.io/)
 [![Electron](https://img.shields.io/badge/Electron-47848F?style=flat&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
@@ -57,7 +57,6 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | **MCP Integration** | Connect `stdio` or `http` MCP servers; tools available to all agents |
 | **Marketplace** | Community agents, plugins, skills, and workflows |
 | **Plugins** | Pets and custom views; i18n in EN / ES / FR / PT |
-| **WhatsApp** | Mobile integration via QR code |
 
 ---
 
@@ -65,7 +64,7 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 
 | Component | Technology |
 |-----------|------------|
-| Package manager / scripts | [npm](https://www.npmjs.com/) (lockfile: `package-lock.json`; CI: `npm ci`) |
+| Package manager / scripts | [pnpm](https://pnpm.io/) (lockfile: `pnpm-lock.yaml`; CI: `pnpm install --frozen-lockfile`) |
 | Desktop | [Electron 41](https://www.electronjs.org/) |
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) + [Mantine UI](https://mantine.dev/) |
@@ -86,21 +85,21 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 
 ## Installation
 
-**Prerequisites:** [Node.js](https://nodejs.org/) (LTS 20+ or 22+ recommended) and **npm** (comes with Node), macOS / Windows / Linux.
+**Prerequisites:** [Node.js](https://nodejs.org/) **22.13+** (pnpm 11), [pnpm](https://pnpm.io/installation) (`corepack enable` or `npm install -g pnpm`), macOS / Windows / Linux.
 
 ```bash
 git clone https://github.com/maxprain12/dome.git
 cd dome
-npm install
+pnpm install
 cp .env.example .env.local   # optional — add your API keys
-npm run electron:dev
+pnpm run electron:dev
 ```
 
 ```bash
-npm run dev              # Vite dev server only
-npm run electron:dev     # Full dev (Vite + Electron)
-npm run electron:build   # Production build
-npm run rebuild:natives  # Rebuild native modules for the current Electron version
+pnpm run dev              # Vite dev server only
+pnpm run electron:dev     # Full dev (Vite + Electron)
+pnpm run electron:build   # Production build
+pnpm run rebuild:natives  # Rebuild native modules for the current Electron version
 ```
 
 ---

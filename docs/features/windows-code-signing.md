@@ -45,7 +45,7 @@ Con el `.pfx` en disco:
 ```bash
 export CSC_LINK=/ruta/al/cert.pfx
 export CSC_KEY_PASSWORD='...'
-npm run electron:pack -- --win --publish never
+pnpm run electron:pack -- --win --publish never
 ```
 
 ## Referencias

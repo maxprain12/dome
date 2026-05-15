@@ -107,6 +107,36 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
+  ipcMain.handle('artifact:buildDesign', (event, payload) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const { buildArtifactDesignLayout } = require('../artifact-design-layout.cjs');
+      let spec = payload?.spec ?? payload?.design_spec;
+      if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+        const p = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
+        if (p && (p.title != null || p.tabs != null)) {
+          spec = p;
+        }
+      }
+      const built = buildArtifactDesignLayout(spec);
+      if (!built.ok) {
+        return { success: false, error: built.error };
+      }
+      return {
+        success: true,
+        html: built.html,
+        data: built.data,
+        hints:
+          'Pass html and data to artifact:create with artifactType custom. Load artifact_design doc first if needed.',
+      };
+    } catch (error) {
+      console.error('[Artifact] buildDesign error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('artifact:update', (event, { resourceId, state, artifactType, linkedResourceId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

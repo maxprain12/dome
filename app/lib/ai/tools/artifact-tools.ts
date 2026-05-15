@@ -9,25 +9,61 @@ import { isElectronAI } from '@/lib/utils/formatting';
 // =============================================================================
 
 const DOME_DESIGN_SYSTEM = `
-Dome persisted-artifact contract (MUST follow for artifact_create / artifact_update_state):
+Dome persisted-artifact contract (MUST follow for artifact_create / artifact_update_state / artifact_merge_data):
 - Iframe is sandboxed: NO localStorage, sessionStorage, IndexedDB, or cookies for app state — they fail or are wrong. MUST NOT reference them in generated JS.
-- All durable state lives in SQLite via state.data → window.DOME_DATA. Initialize every field from DOME_DATA merged with in-code defaults (never leave arrays undefined before user actions).
-- After EVERY user mutation that must survive app restart, call window.__dome_updateState(nextDataObject) with the full next data object (same shape as DOME_DATA).
-- Optional window.__dome_collectState() only if some values cannot be represented on DOME_DATA; user may also click Save in the toolbar.
-- Do not tell the user that data "auto-persists in the browser".
+- All durable editable state belongs in SQLite via state.data → window.DOME_DATA. Initialize from DOME_DATA merged with in-code defaults (never leave mutable arrays/objects undefined before user actions).
+- After EVERY mutation that must survive restart, call window.__dome_updateState(fullNextDataObject) with the SAME shape as DOME_DATA.
+- Optional window.__dome_collectState() only if some values cannot live in DOME_DATA; user may also use Save on the toolbar.
+- Do not tell the user data "persists only in the browser".
+
+When state.data vs hardcoded HTML:
+- NEED state.data: anything the user or automations edits between sessions — Kanban items, spreadsheet-like rows, form fields, sliders with saved values, counters, quizzes the user fills, notes inside a persisted mini-app.
+- OK hardcoded ONLY in HTML: static labels that never change, one-off decorative copy, immutable legends with no bindings. Large datasets from a spreadsheet or PDF SHOULD NOT be pasted as huge static HTML blobs — use artifact_link_resource → linkedData OR pull text with excel_get / resource_get then artifact_merge_data / artifact_update_state.
+- EXAMPLES need data[]: grocery list tracker, workout log, CRM mini-pipeline rows. EXAMPLES static-only OK: hero title "Mi tablero" with no persistence. EXAMPLES bulk load after create: artifact_merge_data { rows: [...] } after excel_get slice.
+
+Never define light vs dark themes in CSS: Dome injects the active theme tokens. NEVER use prefers-color-scheme blocks to fork palettes. ALWAYS use injected variables (--bg, --bg-secondary, --primary-text, --accent, --border, semantic success/warning tokens from artifacts.txt).
 
 Design system (styling):
-- CSS variables injected into the iframe: --bg, --bg-secondary, --bg-tertiary, --primary-text, --secondary-text, --tertiary-text, --accent, --border, --border-hover
-- Form controls: stable id, name, or data-dome-key per input matching keys in data; anonymous fields use __dome_input_0, __dome_input_1, …
-- HTML self-contained; inline CSS/JS or CDN libs (e.g. Chart.js) allowed
-- Font: Inter, -apple-system, sans-serif | spacing 4px grid | border-radius 6–12px
-- Buttons: background var(--accent), color #fff, padding 8px 16px, border-radius 6px
-- Use CSS vars only; do not hardcode colors
+- Surfaces/text/borders/accent ONLY via Dome CSS variables injected into the iframe; no hex/rgb literals for chrome.
+- Form controls: stable id, name, or data-dome-key aligned with keys in state.data.
+- Buttons: background var(--accent); text color var(--base-text, var(--primary-text)) so contrast follows the Shell theme automatically.
 `;
 
 // =============================================================================
 // Tools
 // =============================================================================
+
+export function createArtifactDesignTool(): AnyAgentTool {
+  return {
+    label: 'Artifact layout (Dome design)',
+    name: 'artifact_design',
+    description:
+      'Generate Dome-themed HTML and initial state.data for a tabbed dossier artifact (header, tabs, cards, badges, lists, code). ' +
+      'Output is NOT persisted: pass returned html and data into artifact_create with artifact_type "custom". ' +
+      'Call dome_load_doc first with id artifact_design for the full JSON spec. ' +
+      DOME_DESIGN_SYSTEM,
+    parameters: Type.Object({
+      spec: Type.Object(
+        {},
+        {
+          additionalProperties: true,
+          description:
+            'Layout spec: title (required), optional subtitle, title_emoji, active_tab, tabs[] { id, label }, panels { [tabId]: { sections[]: kicker, badge, badge_tone (neutral|info|success|warning|error), blocks[] (type paragraph|numbered|bullets|code) } } }',
+        },
+      ),
+    }),
+    execute: async (_id, args) => {
+      if (!isElectronAI()) return jsonResult({ error: 'Requires Electron environment.' });
+      const params = args as Record<string, unknown>;
+      const spec = params.spec;
+      if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
+        return jsonResult({ success: false, error: 'spec must be a JSON object' });
+      }
+      const result = await window.electron.artifacts.buildDesign(spec as Record<string, unknown>);
+      return jsonResult(result);
+    },
+  };
+}
 
 export function createArtifactCreateTool(): AnyAgentTool {
   return {
@@ -95,6 +131,57 @@ export function createArtifactGetTool(): AnyAgentTool {
       const params = args as Record<string, unknown>;
       const resourceId = readStringParam(params, 'resource_id', { required: true });
       const result = await window.electron.invoke('artifact:get', resourceId);
+      return jsonResult(result);
+    },
+  };
+}
+
+export function createArtifactMergeDataTool(): AnyAgentTool {
+  return {
+    label: 'Merge artifact data',
+    name: 'artifact_merge_data',
+    description:
+      'Shallow-merge new keys into an existing persisted artifact state.data WITHOUT resending HTML. Use after spreadsheet/PDF ingestion to push rows/KPI blobs. ' +
+      'Top-level keys in data_patch replace or appear alongside existing keys; nested objects at a key replace that whole subtree. ' +
+      'Prefer this over pasting mega-JSON inline in HTML strings. ' +
+      DOME_DESIGN_SYSTEM,
+    parameters: Type.Object({
+      resource_id: Type.String({ description: 'Artifact resource ID (artifact_create response).' }),
+      data_patch: Type.Object(
+        {},
+        {
+          additionalProperties: true,
+          description:
+            'Partial JSON merged shallowly into existing state.data (top-level keys only). Same layer as artifact_update_state.state.data.',
+        },
+      ),
+    }),
+    execute: async (_id, args) => {
+      if (!isElectronAI()) return jsonResult({ error: 'Requires Electron environment.' });
+      const params = args as Record<string, unknown>;
+      const resourceId = readStringParam(params, 'resource_id', { required: true });
+      const dataPatchRaw = params.data_patch;
+      if (!dataPatchRaw || typeof dataPatchRaw !== 'object' || Array.isArray(dataPatchRaw)) {
+        return jsonResult({ success: false, error: 'data_patch must be a JSON object' });
+      }
+
+      const current = await window.electron.invoke('artifact:get', resourceId);
+      if (!current.success || !current.data) {
+        return jsonResult({ success: false, error: 'Artifact not found' });
+      }
+
+      const existingState = ((current.data as { state?: Record<string, unknown> }).state ?? {}) as Record<string, unknown>;
+      const prevData =
+        typeof existingState.data === 'object' && existingState.data !== null && !Array.isArray(existingState.data)
+          ? (existingState.data as Record<string, unknown>)
+          : {};
+      const patch = dataPatchRaw as Record<string, unknown>;
+      const newState = {
+        ...existingState,
+        data: { ...prevData, ...patch },
+      };
+
+      const result = await window.electron.invoke('artifact:update', { resourceId, state: newState });
       return jsonResult(result);
     },
   };
@@ -223,8 +310,10 @@ export function createArtifactLinkResourceTool(): AnyAgentTool {
 
 export function createArtifactTools(): AnyAgentTool[] {
   return [
+    createArtifactDesignTool(),
     createArtifactCreateTool(),
     createArtifactGetTool(),
+    createArtifactMergeDataTool(),
     createArtifactUpdateStateTool(),
     createArtifactListTool(),
     createArtifactDeleteTool(),

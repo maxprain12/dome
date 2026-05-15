@@ -10,7 +10,7 @@ last_updated: 2026-04-27
 
 ## Focus: Documentation & registry
 
-1. Ejecuta `npm run check:ipc-inventory` (o `npm run generate:ipc-inventory` y compara) — `docs/architecture/ipc-channels.md` debe listar los mismos `ipcMain.handle` / `ipcMain.on` que el código.
+1. Ejecuta `pnpm run check:ipc-inventory` (o `pnpm run generate:ipc-inventory` y compara) — `docs/architecture/ipc-channels.md` debe listar los mismos `ipcMain.handle` / `ipcMain.on` que el código.
 2. Busca enlaces rotos en `docs/**/*.md` (rutas a archivos que ya no existen tras moves a `docs/features/`).
 3. `AGENTS.md`: versión de Electron y referencias a revisión de IA deben coincidir con `package.json` y con [ADR-0001](../../docs/architecture/decisions/0001-ai-review-on-vps.md) (ruta canónica en el clon: `docs/architecture/decisions/0001-ai-review-on-vps.md`).
 4. `docs/principles.md`: cada P-NNN citado por un futuro linter debe existir; marcar TBD si el cumplimiento mecánico falta.
@@ -18,7 +18,7 @@ last_updated: 2026-04-27
 
 ### Tool use (antes de proponer parches)
 
-- `npm run typecheck` en el repo.
+- `pnpm run typecheck` en el repo.
 - `grep -R "docs/[a-z]" docs/ --include='*.md'` para enlaces antiguos a raíz de `docs/` que deberían ser `docs/features/…`.
 
 ### Deliverable

@@ -7,10 +7,10 @@
  */
 
 const { exec } = require('child_process');
-const { dialog } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { z } = require('zod');
+const approval = require('./approval.cjs');
 
 const ShellExecPayloadSchema = z.object({
   command: z.string(),
@@ -46,19 +46,14 @@ function register({ ipcMain, windowManager, sanitizePath }) {
 
     const workDir = cwd && cwd.trim() ? cwd.trim() : undefined;
 
-    // Native confirmation dialog — blocks until user responds.
-    const win = windowManager.getWindowByWebContentsId?.(event.sender.id) ?? null;
-    const { response } = await dialog.showMessageBox(win, {
-      type: 'question',
-      title: 'Many quiere ejecutar un comando',
-      message: `$ ${command}`,
-      detail: workDir ? `en: ${workDir}` : 'en: directorio actual',
-      buttons: ['Cancelar', 'Ejecutar'],
-      defaultId: 1,
-      cancelId: 0,
+    // In-app Dome approval modal (replaces native dialog).
+    const approved = await approval.requestApproval({
+      kind: 'shell_exec',
+      payload: { command, cwd: workDir || null },
+      senderId: event.sender.id,
     });
 
-    if (response === 0) {
+    if (!approved) {
       return { success: true, cancelled: true };
     }
 

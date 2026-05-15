@@ -228,7 +228,6 @@ Los siguientes tipos de trigger están planificados pero no implementados:
 | `on_note_updated`     | Al modificar una nota específica         |
 | `on_calendar_event`   | Al crearse o modificarse un evento       |
 | `on_webhook`          | Al recibir una webhook HTTP externa      |
-| `on_whatsapp_message` | Al recibir un mensaje de WhatsApp        |
 
 
 ---

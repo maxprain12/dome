@@ -37,7 +37,7 @@ being wrapped in a CSS var(). Fallback values inside `var(--x, fallback)` are ac
 
 ### Stack clarification
 
-- Runtime: Node.js + **npm** (CI, build, `package-lock.json`). Do NOT use Bun or `bun.lock`. Electron uses `better-sqlite3` in the main process; the renderer must not import DB/fs directly.
+- Runtime: Node.js + **pnpm** (CI: `pnpm install --frozen-lockfile`; lockfile `pnpm-lock.yaml`). Do NOT use Bun or `bun.lock`. Electron uses `better-sqlite3` in the main process; the renderer must not import DB/fs directly.
 - **Desktop: Electron 41.x** (see `package.json` `devDependencies.electron`). The **Node** version *inside* Electron follows the Electron release (not the developer’s system Node). `electron-builder` is kept aligned (major 26.x as of 2026-04) for `install-app-deps` / packaging.
 - Frontend: Vite + React 18 (NOT Next.js — ignore any Next.js references in style guides)
 - Routes: React Router v7 (client-side SPA), entry: `app/main.tsx`

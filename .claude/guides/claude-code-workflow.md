@@ -80,26 +80,26 @@ const ALLOWED_CHANNELS = {
 
 ```bash
 # Desarrollo completo (Electron + Vite)
-npm run electron:dev
+pnpm run electron:dev
 
 # Solo Vite (para probar UI, puerto 5173)
-npm run dev
+pnpm run dev
 
 # Testing de base de datos
-npm run test:db
+pnpm run test:db
 
 # Limpiar datos locales
-npm run clean
+pnpm run clean
 
 # Build para producción
-npm run build
+pnpm run build
 ```
 
 ## Testing de Sincronización Cross-Window
 
 ### Test Básico
 
-1. Ejecutar aplicación: `npm run electron:dev`
+1. Ejecutar aplicación: `pnpm run electron:dev`
 2. Abrir 2 ventanas:
    - Ventana 1: Home
    - Ventana 2: Home en nueva ventana

@@ -277,6 +277,33 @@ declare global {
         import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
       };
 
+      /** Cloud library sync via Dome Provider + Supabase (subscription `cloud_sync` feature). */
+      cloudSync: {
+        getStatus: () => Promise<{
+          success: boolean;
+          connected?: boolean;
+          localRevision?: number;
+          currentRevision?: number;
+          syncSchemaVersion?: number;
+          error?: string;
+        }>;
+        push: () => Promise<{ success: boolean; newRevision?: number; error?: string }>;
+        pull: () => Promise<{ success: boolean; revision?: number; error?: string }>;
+        startRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
+        stopRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
+        onRevision: (cb: (data: { revision: number }) => void) => () => void;
+        onPullDone: (cb: (data: { revision: number }) => void) => () => void;
+        getSettings: () => Promise<{
+          success: boolean;
+          settings?: { auto_enabled: boolean; interval_minutes: number };
+          error?: string;
+        }>;
+        setSettings: (partial: {
+          auto_enabled?: boolean;
+          interval_minutes?: number;
+        }) => Promise<{ success: boolean; error?: string }>;
+      };
+
       // Calendar API
       calendar: {
         connectGoogle: () => Promise<{ success: boolean; accountId?: string; error?: string }>;
@@ -1704,6 +1731,11 @@ declare global {
         rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
       };
 
+      approval: {
+        respond: (approvalId: string, approved: boolean) => Promise<{ success: boolean; error?: string }>;
+        onRequested: (callback: (data: { approvalId: string; kind: string; payload: Record<string, unknown>; timeoutMs: number }) => void) => () => void;
+      };
+
       shell: {
         exec: (command: string, cwd?: string) => Promise<{
           success: boolean;
@@ -1789,6 +1821,13 @@ declare global {
         import: () => Promise<{ success: boolean; cancelled?: boolean; data?: ArtifactRecord; error?: string }>;
         refreshLinked: (resourceId: string) => Promise<{ success: boolean; error?: string }>;
         setLinkedResource: (resourceId: string, linkedResourceId: string | null) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;
+        buildDesign: (spec: Record<string, unknown>) => Promise<{
+          success: boolean;
+          html?: string;
+          data?: Record<string, unknown>;
+          hints?: string;
+          error?: string;
+        }>;
       };
     };
   }

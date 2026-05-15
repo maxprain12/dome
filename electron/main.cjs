@@ -222,6 +222,7 @@ const docxToolsHandler = require('./docx-tools-handler.cjs');
 const pptToolsHandler = require('./ppt-tools-handler.cjs');
 const documentExtractor = require('./document-extractor.cjs');
 const documentGenerator = require('./document-generator.cjs');
+const documentStaging = require('./document-staging.cjs');
 const docxConverter = require('./docx-converter.cjs');
 const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
@@ -587,6 +588,9 @@ function serveFile(filePath) {
 app
   .whenReady()
   .then(async () => {
+    // Remove stale staging files left by previous crashes or interruptions.
+    documentStaging.cleanupStaleStagings();
+
     // Register custom protocol handler for serving static files
     // This allows Vite build to work with absolute paths
     const outDir = app.isPackaged
@@ -800,6 +804,13 @@ app
     // but we still need to ensure it's ready
     database.initDatabase();
 
+    // Start the embeddings utilityProcess worker now that app is ready.
+    try {
+      require('./services/embeddings.service.cjs').initWorker();
+    } catch (e) {
+      console.warn('[Main] embeddings worker init:', e?.message || e);
+    }
+
     const lancedbSemantic = require('./services/lancedb-semantic.cjs');
     try {
       await lancedbSemantic.init(app.getPath('userData'));
@@ -878,6 +889,7 @@ app
         void semanticScheduler
           .getIndexer()
           .reindexAll({
+            skipSemanticRelations: true,
             onProgress: (p) => {
               try {
                 windowManager.broadcast('semantic:progress', p);
@@ -1035,7 +1047,6 @@ app
   })
   .catch(console.error);
 
-// Cleanup before quit
 app.on('before-quit', async () => {
   isQuitting = true;
   console.log('👋 Cerrando Dome...');
@@ -1048,7 +1059,14 @@ app.on('before-quit', async () => {
   calendarSyncScheduler.stop();
   automationService.stop();
   runEngine.stop();
-  // Semantic indexer runs in-process; no separate subprocess to stop
+  try {
+    require('./ipc/cloud-sync.cjs').disposeCloudSync();
+  } catch (e) { /* non-fatal */ }
+  try {
+    require('./services/embeddings.service.cjs').disposeWorker();
+  } catch (e) { /* non-fatal */ }
+  semanticIndexScheduler.stopAutoIndexing?.();
+  // Embeddings now run in utilityProcess (disposeWorker called above)
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
   try {
@@ -1060,6 +1078,15 @@ app.on('before-quit', async () => {
     await require('./observability.cjs').shutdownLangfuse();
   } catch (e) {
     console.warn('[Main] langfuse shutdown failed:', e?.message);
+  }
+  try {
+    const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
+    const indexer = semanticIndexScheduler.getIndexer?.();
+    if (indexer && typeof indexer.waitForIndexerIdle === 'function') {
+      await indexer.waitForIndexerIdle();
+    }
+  } catch (e) {
+    console.warn('[Main] semantic indexer idle wait skipped:', e?.message);
   }
   database.closeDB();
 });

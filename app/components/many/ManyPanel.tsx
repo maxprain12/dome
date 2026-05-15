@@ -119,7 +119,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     currentResourceId,
     currentResourceTitle,
     petPromptOverride,
-    whatsappConnected,
     pinnedResources,
   } = useManyStore(
     (s) => ({
@@ -138,7 +137,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       currentResourceId: s.currentResourceId,
       currentResourceTitle: s.currentResourceTitle,
       petPromptOverride: s.petPromptOverride,
-      whatsappConnected: s.whatsappConnected,
       pinnedResources: s.pinnedResources,
     }),
     shallow,
@@ -417,10 +415,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
           }
         | undefined;
-      if (pending?.actionRequests && pending.reviewConfigs) {
+      if (pending?.actionRequests && pending.actionRequests.length > 0) {
         setPendingApproval({
           actionRequests: pending.actionRequests,
-          reviewConfigs: pending.reviewConfigs,
+          reviewConfigs: Array.isArray(pending.reviewConfigs) ? pending.reviewConfigs : [],
           submitResume: (decisions) => {
             hitlDecisionsRef.current = decisions;
             void resumeRun(run.id, decisions as Array<unknown>);
@@ -635,8 +633,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     if (petPromptOverride) {
       return petPromptOverride;
     }
-    return buildManyFloatingPrompt({ whatsappConnected });
-  }, [petPromptOverride, whatsappConnected]);
+    return buildManyFloatingPrompt();
+  }, [petPromptOverride]);
 
   const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
 
@@ -1063,6 +1061,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       await handleSend(text, opts);
     });
     return () => registerManyMessageSender(null);
+  }, [handleSend]);
+
+  // Soft confirmation quick-reply (needs_confirmation pattern in ChatToolCard)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const text = (e as CustomEvent<{ text: string }>).detail?.text;
+      if (text) void handleSend(text);
+    };
+    window.addEventListener('dome:quick-reply', handler);
+    return () => window.removeEventListener('dome:quick-reply', handler);
   }, [handleSend]);
 
   // TTS → store sync lives in ManyVoiceBridge (AppShell) so status updates work when

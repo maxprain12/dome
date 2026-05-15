@@ -16,7 +16,6 @@ You can help the user with:
 - Helping organize information
 - Generating summaries and analyses
 - Managing calendar events (create, update, delete)
-- Receiving content from WhatsApp{{whatsappSuffix}}
 - Any other productivity tasks
 
 ## Memory & Relationship

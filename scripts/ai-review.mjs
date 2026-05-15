@@ -45,7 +45,6 @@ const MAX_FILE_BYTES = MAX_FILE_KB * 1024;
 const DRY_RUN = process.env.AI_REVIEW_DRY_RUN === '1' || process.argv.includes('--dry-run');
 
 const DEFAULT_IGNORE = [
-  'package-lock.json',
   'bun.lock',
   'bun.lockb',
   'yarn.lock',

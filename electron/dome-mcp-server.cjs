@@ -11,16 +11,24 @@
  */
 
 const http = require('http');
+const path = require('path');
 const { randomUUID } = require('crypto');
+const { createRequire } = require('module');
+
+/** Resolve MCP SDK like `require()`, but anchored to Dome's `package.json` (Electron + pnpm-safe). */
+const projectRequire = createRequire(path.join(__dirname, '..', 'package.json'));
 
 // Lazy-loaded so startup is unaffected if @modelcontextprotocol/sdk is absent.
 let McpServer, StreamableHTTPServerTransport, ListToolsRequestSchema, CallToolRequestSchema;
 try {
-  ({ Server: McpServer } = require('@modelcontextprotocol/sdk/server'));
-  ({ StreamableHTTPServerTransport } = require('@modelcontextprotocol/sdk/server/streamableHttp.js'));
-  ({ ListToolsRequestSchema, CallToolRequestSchema } = require('@modelcontextprotocol/sdk/types.js'));
+  ({ Server: McpServer } = projectRequire('@modelcontextprotocol/sdk/server'));
+  ({ StreamableHTTPServerTransport } = projectRequire('@modelcontextprotocol/sdk/server/streamableHttp.js'));
+  ({ ListToolsRequestSchema, CallToolRequestSchema } = projectRequire('@modelcontextprotocol/sdk/types.js'));
 } catch (e) {
   console.error('[DomeMCP] Failed to load @modelcontextprotocol/sdk:', e.message);
+  console.error(
+    '[DomeMCP] Asegúrate de que `pnpm install` termina bien y que existe la dependencia directa `@modelcontextprotocol/sdk` en package.json.',
+  );
 }
 
 let toolDispatcher;

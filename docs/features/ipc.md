@@ -54,7 +54,6 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - **web**: scrape, get-youtube-thumbnail, save-screenshot, process.
 - **ollama**: check-availability, list-models, generate-embedding, generate-summary, chat.
 - **vector**: annotations index, search, delete.
-- **whatsapp**: status, start, stop, logout, send, allowlist get/add/remove.
 - **auth**: profiles list, create, delete; resolve, validate.
 - **personality**: get-prompt, read-file, write-file, add-memory, list-files.
 - **ai**: chat, stream, LangGraph stream/abort/resume, testConnection (embeddings vía índice Nomic: `db:semantic:*`, no `ai:embeddings`).
@@ -79,7 +78,6 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - Web: web:*.
 - Ollama: ollama:*.
 - Vector: vector:annotations:*.
-- WhatsApp: whatsapp:*.
 - Auth: auth:*.
 - Personality: personality:*.
 - AI: ai:*, ai:tools:*.
@@ -92,7 +90,6 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 - resource:created, resource:updated, resource:deleted
 - interaction:created, interaction:updated, interaction:deleted
 - project:created, project:updated, project:deleted
-- whatsapp:qr, whatsapp:connected, whatsapp:disconnected
 - ai:stream:chunk
 
 ---

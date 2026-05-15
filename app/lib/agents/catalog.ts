@@ -22,7 +22,8 @@ export interface ToolCatalogEntry {
     | 'calendar'
     | 'marketplace'
     | 'entity'
-    | 'media';
+    | 'media'
+    | 'system';
 }
 
 export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
@@ -423,6 +424,98 @@ export const MANY_TOOL_CATALOG: ToolCatalogEntry[] = [
     description: 'Genera una miniatura en data URL a partir de una ruta de imagen local.',
     group: 'media',
   },
+
+  // System & Native
+  {
+    id: 'shell_exec',
+    label: 'Shell Exec',
+    description: 'Ejecuta un comando de shell (requiere aprobación del usuario en un modal Dome). Útil para scripts, git, compilación, CLI.',
+    group: 'system',
+  },
+  {
+    id: 'file_read',
+    label: 'File Read',
+    description: 'Lee el contenido de un archivo local del sistema de archivos.',
+    group: 'system',
+  },
+  {
+    id: 'file_write',
+    label: 'File Write',
+    description: 'Escribe o crea un archivo en el sistema de archivos local.',
+    group: 'system',
+  },
+  {
+    id: 'file_list',
+    label: 'File List',
+    description: 'Lista el contenido de un directorio del sistema de archivos local.',
+    group: 'system',
+  },
+  {
+    id: 'file_search',
+    label: 'File Search',
+    description: 'Busca archivos por nombre o contenido en el sistema de archivos local.',
+    group: 'system',
+  },
+  {
+    id: 'excel_get_file_path',
+    label: 'Excel File Path',
+    description: 'Obtiene la ruta absoluta en disco de un archivo Excel de la biblioteca. Necesario cuando otras herramientas externas o scripts necesitan acceder directamente al archivo.',
+    group: 'system',
+  },
+  {
+    id: 'docx_get_file_path',
+    label: 'DOCX File Path',
+    description: 'Devuelve la ruta absoluta del .docx en el almacenamiento interno de Dome para scripts o herramientas externas.',
+    group: 'system',
+  },
+  {
+    id: 'ppt_get_file_path',
+    label: 'PPT File Path',
+    description: 'Obtiene la ruta absoluta en disco de un archivo PowerPoint de la biblioteca. Necesario para abrir el archivo con la aplicación nativa o para procesamiento externo.',
+    group: 'system',
+  },
+  {
+    id: 'ui_point_to',
+    label: 'UI Point To',
+    description: 'Mueve el cursor de la UI a un elemento por selector CSS.',
+    group: 'system',
+  },
+  {
+    id: 'ui_click',
+    label: 'UI Click',
+    description: 'Hace click en un elemento de la UI por selector CSS.',
+    group: 'system',
+  },
+  {
+    id: 'ui_type',
+    label: 'UI Type',
+    description: 'Escribe texto en un elemento de la UI por selector CSS.',
+    group: 'system',
+  },
+  {
+    id: 'ui_scroll',
+    label: 'UI Scroll',
+    description: 'Hace scroll en la UI en la dirección indicada.',
+    group: 'system',
+  },
+  {
+    id: 'ui_navigate',
+    label: 'UI Navigate',
+    description: 'Navega a una ruta de la app.',
+    group: 'system',
+  },
+  {
+    id: 'ui_get_elements',
+    label: 'UI Get Elements',
+    description: 'Obtiene los elementos de la UI que coinciden con un selector CSS.',
+    group: 'system',
+  },
+  {
+    id: 'ui_hide_cursor',
+    label: 'UI Hide Cursor',
+    description: 'Oculta el cursor de la UI.',
+    group: 'system',
+  },
 ];
 
 const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
@@ -442,6 +535,7 @@ const GROUP_LABELS: Record<ToolCatalogEntry['group'], string> = {
   marketplace: 'Marketplace',
   entity: 'Entidades',
   media: 'Medios',
+  system: 'Sistema & Nativo',
 };
 
 /** Order of tool groups in agent + menu (drill-down root). */
@@ -462,6 +556,7 @@ export const TOOL_GROUP_ORDER: readonly ToolCatalogEntry['group'][] = [
   'documents',
   'ppt',
   'calendar',
+  'system',
 ] as const;
 
 export type ToolGroupId = ToolCatalogEntry['group'] | 'other';

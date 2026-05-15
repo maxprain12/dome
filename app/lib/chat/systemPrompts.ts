@@ -1,6 +1,6 @@
 /**
  * Shared system-prompt fragments used by every chat surface in Dome
- * (Many, Agents, Agent Team, WhatsApp, run-engine workers).
+ * (Many, Agents, Agent Team, run-engine workers).
  *
  * A single assembler lives in `./buildDomeSystemPrompt.ts` and composes
  * these fragments in a fixed order so the model never receives partial

@@ -829,9 +829,9 @@ function runMigrations(db) {
     `).run(Date.now());
   }
 
-  // Migration 4: Add tables for auth profiles and WhatsApp
+  // Migration 4: Add tables for auth profiles and Many memory
   if (version < 4) {
-    console.log('[DB] Running migration 4: Add auth and WhatsApp tables');
+    console.log('[DB] Running migration 4: Add auth_profiles and martin_memory tables');
 
     try {
       // Auth profiles table - stores encrypted credentials for AI providers
@@ -847,38 +847,6 @@ function runMigrations(db) {
         )
       `);
       db.exec('CREATE INDEX IF NOT EXISTS idx_auth_profiles_provider ON auth_profiles(provider)');
-
-      // WhatsApp sessions table
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS whatsapp_sessions (
-          id TEXT PRIMARY KEY,
-          phone_number TEXT,
-          status TEXT NOT NULL CHECK(status IN ('active', 'disconnected', 'pending')),
-          auth_data TEXT,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      `);
-
-      // WhatsApp messages table - tracks processed messages
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS whatsapp_messages (
-          id TEXT PRIMARY KEY,
-          session_id TEXT,
-          from_number TEXT NOT NULL,
-          message_type TEXT NOT NULL,
-          content TEXT,
-          media_path TEXT,
-          processed INTEGER DEFAULT 0,
-          resource_id TEXT,
-          created_at INTEGER NOT NULL,
-          FOREIGN KEY (session_id) REFERENCES whatsapp_sessions(id) ON DELETE SET NULL,
-          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL
-        )
-      `);
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_session ON whatsapp_messages(session_id)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_from ON whatsapp_messages(from_number)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_processed ON whatsapp_messages(processed)');
 
       // Gmail tables removed - functionality deprecated
       // Tables are kept for backward compatibility with existing databases
@@ -898,7 +866,7 @@ function runMigrations(db) {
       db.exec('CREATE INDEX IF NOT EXISTS idx_martin_memory_type ON martin_memory(type)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_martin_memory_key ON martin_memory(key)');
 
-      console.log('[DB] Migration 4 complete - auth and WhatsApp tables added');
+      console.log('[DB] Migration 4 complete - auth_profiles and martin_memory tables added');
     } catch (error) {
       console.error('[DB] Migration 4 error:', error.message);
     }
@@ -1641,30 +1609,6 @@ function runMigrations(db) {
       db.exec('ALTER TABLE flashcard_decks_new RENAME TO flashcard_decks');
       db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_project ON flashcard_decks(project_id)');
       db.exec('CREATE INDEX IF NOT EXISTS idx_flashcard_decks_resource ON flashcard_decks(resource_id)');
-
-      // Fix FK: whatsapp_messages SET NULL → CASCADE
-      db.exec(`
-        CREATE TABLE whatsapp_messages_new (
-          id TEXT PRIMARY KEY,
-          session_id TEXT REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-          resource_id TEXT REFERENCES resources(id) ON DELETE CASCADE,
-          from_number TEXT,
-          to_number TEXT,
-          content TEXT,
-          processed INTEGER NOT NULL DEFAULT 0,
-          created_at INTEGER NOT NULL
-        )
-      `);
-      db.exec(`
-        INSERT INTO whatsapp_messages_new (id, session_id, resource_id, from_number, content, processed, created_at)
-        SELECT id, session_id, resource_id, from_number, content, processed, created_at
-        FROM whatsapp_messages
-      `);
-      db.exec('DROP TABLE whatsapp_messages');
-      db.exec('ALTER TABLE whatsapp_messages_new RENAME TO whatsapp_messages');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_session ON whatsapp_messages(session_id)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_from ON whatsapp_messages(from_number)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_processed ON whatsapp_messages(processed)');
 
       // Orphan cleanup: tags with no associated resources
       db.exec(`DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`);
@@ -2958,6 +2902,84 @@ function runMigrations(db) {
       console.error('[DB] Migration 30 failed:', error);
     }
   }
+
+  // Migration 31: Drop WhatsApp tables (integration removed)
+  if (version < 31) {
+    console.log('[DB] Running migration 31 - drop WhatsApp tables');
+    try {
+      db.exec('PRAGMA foreign_keys = OFF');
+      db.exec('DROP TABLE IF EXISTS whatsapp_messages');
+      db.exec('DROP TABLE IF EXISTS whatsapp_sessions');
+      db.exec('PRAGMA foreign_keys = ON');
+      try {
+        db.prepare('DELETE FROM settings WHERE key = ?').run('whatsapp_allowlist');
+      } catch {
+        /* ignore */
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '31', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '31', updated_at = excluded.updated_at
+      `).run(Date.now());
+      invalidateQueries();
+      console.log('[DB] Migration 31 complete');
+    } catch (error) {
+      try {
+        db.exec('PRAGMA foreign_keys = ON');
+      } catch {
+        /* ignore */
+      }
+      console.error('[DB] Migration 31 failed:', error);
+    }
+  }
+
+  // Migration 32: Local state for Dome cloud sync (Provider + Supabase)
+  if (version < 32) {
+    console.log('[DB] Running migration 32 - dome_cloud_sync');
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS dome_cloud_sync (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          device_id TEXT NOT NULL,
+          last_server_revision INTEGER NOT NULL DEFAULT 0,
+          last_event_poll_at INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '32', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '32', updated_at = excluded.updated_at
+      `).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 32 complete');
+    } catch (error) {
+      console.error('[DB] Migration 32 failed:', error);
+    }
+  }
+
+  // Migration 33: Add last_push_at to dome_cloud_sync for delta sync
+  if (version < 33) {
+    console.log('[DB] Running migration 33 - dome_cloud_sync last_push_at');
+    try {
+      const now = Date.now();
+      // SQLite bundled with Electron is older than 3.37 — no `IF NOT EXISTS` on ADD COLUMN.
+      const syncCols = new Set(db.prepare('PRAGMA table_info(dome_cloud_sync)').all().map((c) => c.name));
+      if (!syncCols.has('last_push_at')) {
+        db.exec(`ALTER TABLE dome_cloud_sync ADD COLUMN last_push_at INTEGER NOT NULL DEFAULT 0`);
+      }
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '33', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '33', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 33 complete');
+    } catch (error) {
+      console.error('[DB] Migration 33 failed:', error);
+    }
+  }
 }
 
 /**
@@ -3948,13 +3970,14 @@ function checkIntegrity(quick = false) {
   try {
     const pragma = quick ? 'PRAGMA quick_check' : 'PRAGMA integrity_check';
     const result = db.prepare(pragma).all();
-    const integrityCheck = result[0]?.integrity_check || result[0]?.quick_check;
-    
-    if (integrityCheck === 'ok') {
+    // Collect all error rows (not just the first one).
+    const errors = result
+      .map((r) => r.integrity_check || r.quick_check)
+      .filter((v) => v && v !== 'ok');
+    if (errors.length === 0) {
       return { ok: true, errors: [] };
     }
-    
-    return { ok: false, errors: [integrityCheck] };
+    return { ok: false, errors };
   } catch (error) {
     console.error('[DB] Error checking integrity:', error);
     return { ok: false, errors: [error.message] };
@@ -4017,11 +4040,15 @@ function invalidateQueries() {
 function repairFTSTables() {
   const db = getDB();
   console.log('[DB] Attempting to repair FTS tables...');
-  
+
   try {
-    // Close any existing prepared statements that might be using the corrupted tables
+    // Ensure no cached statements reference the tables we are about to DROP.
     invalidateQueries();
-    
+
+    // Disable foreign-key enforcement during structural repair to avoid
+    // constraint violations while tables/triggers are in an intermediate state.
+    db.exec('PRAGMA foreign_keys = OFF');
+
     // Start transaction
     db.exec('BEGIN TRANSACTION');
     
@@ -4150,23 +4177,24 @@ function repairFTSTables() {
     
     // Commit transaction
     db.exec('COMMIT');
-    
+    db.exec('PRAGMA foreign_keys = ON');
+
     // Invalidate queries after repair
     invalidateQueries();
-    
+
     // Force SQLite to rebuild FTS indexes (optional for standalone tables)
     try {
       db.exec("INSERT INTO resources_fts(resources_fts) VALUES('rebuild')");
     } catch (rebuildError) {
       console.log('[DB] FTS rebuild skipped (table may be empty)');
     }
-    
+
     try {
       db.exec("INSERT INTO interactions_fts(interactions_fts) VALUES('rebuild')");
     } catch (rebuildError) {
       console.log('[DB] Interactions FTS rebuild skipped (table may be empty)');
     }
-    
+
     // Post-repair verification - simple count check
     try {
       console.log('[DB] Running post-repair FTS verification...');
@@ -4177,16 +4205,19 @@ function repairFTSTables() {
       console.error('[DB] ⚠️ Post-repair FTS verification failed:', verifyError.message);
       return false;
     }
-    
+
     console.log('[DB] ✅ FTS tables repaired successfully');
     return true;
   } catch (error) {
-    // Rollback on error
+    // Rollback on error and restore FK enforcement.
     try {
       db.exec('ROLLBACK');
     } catch (rollbackError) {
       console.error('[DB] Error during rollback:', rollbackError.message);
     }
+    try {
+      db.exec('PRAGMA foreign_keys = ON');
+    } catch (_) { /* ignore */ }
     console.error('[DB] ❌ Failed to repair FTS tables:', error.message);
     invalidateQueries();
     return false;

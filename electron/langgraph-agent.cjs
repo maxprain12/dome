@@ -31,7 +31,7 @@
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
 const vfsThread = require('./langgraph-vfs-thread.cjs');
-const { executeToolInMain, getWhatsAppToolDefinitions } = toolDispatcher;
+const { executeToolInMain } = toolDispatcher;
 const { createSubagentTools } = require('./subagents.cjs');
 const { createAsyncSubagentTools } = require('./async-subagents.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
@@ -153,13 +153,22 @@ function peelLangGraphStreamTuple(raw) {
 
 /**
  * Node names that emit *top-level* assistant output we should forward to the
- * user. LangChain 1.x's `createAgent` uses `model_request`; earlier versions
- * used `agent`. We accept both so a langchain bump doesn't silently swallow
- * every reply. Subagents run as wrapped tools (`createSubagentTools`) via
- * their own `agent.invoke`, so they never appear in this stream — we don't
- * need to filter them out here, just allowlist the parent.
+ * user.
+ *
+ * LangGraph sets `metadata.langgraph_node` from the runnable's `call.name`:
+ * ReactAgent registers the node as `model_request`, while `RunnableCallable`'s
+ * default name for that node is `model`. If only `model_request`/`agent` were
+ * allowlisted, every streamed token could be discarded (silent empty replies).
+ *
+ * Subagents run as wrapped tools (`createSubagentTools`) via their own
+ * `agent.invoke`; they should not reuse these exact node identifiers in our
+ * top-level Dome graph stream path.
  */
-const TOP_LEVEL_NODES = new Set(['agent', 'model_request']);
+const TOP_LEVEL_NODES = new Set([
+  'agent',
+  'model_request',
+  'model',
+]);
 
 /**
  * Per-turn cap on calls to a single creation tool. Prevents runaway loops
@@ -289,10 +298,12 @@ async function extractInterrupt(capturedInterrupt, agent, config) {
   const value = first?.value ?? first;
   const actionRequests = value?.actionRequests ?? value?.action_requests ?? [];
   const reviewConfigs = value?.reviewConfigs ?? value?.review_configs ?? [];
-  return {
-    actionRequests: Array.isArray(actionRequests) ? actionRequests : [],
-    reviewConfigs: Array.isArray(reviewConfigs) ? reviewConfigs : [],
-  };
+  const ar = Array.isArray(actionRequests) ? actionRequests : [];
+  const rc = Array.isArray(reviewConfigs) ? reviewConfigs : [];
+  // LangGraph may emit an __interrupt__ node with no pending actions; treating that as HITL
+  // leaves runs stuck in waiting_approval with nothing to approve in the UI.
+  if (ar.length === 0) return null;
+  return { actionRequests: ar, reviewConfigs: rc };
 }
 
 /**
@@ -442,7 +453,7 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
 /**
  * After a stream completes, pull the final assistant text from the
  * checkpointed state. We intentionally read state (not the streamed tokens)
- * so callers like WhatsApp get the canonical last AI message even when the
+ * so callers like automations or batch jobs get the canonical last AI message even when the
  * agent emitted intermediate "thinking out loud" turns.
  */
 async function finalizeFromState(agent, config) {
@@ -531,6 +542,90 @@ async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
 }
 
 /**
+ * Strip JSON Schema meta-fields that LangChain's Zod→JSON-Schema converter adds
+ * ($schema, additionalProperties) but that MiniMax's OpenAI-compatible endpoint
+ * rejects with 400 "invalid chat setting" (error 2013).
+ * Works recursively so nested object schemas are cleaned too.
+ */
+function stripZodJsonSchemaMeta(obj) {
+  if (Array.isArray(obj)) return obj.map(stripZodJsonSchemaMeta);
+  if (obj !== null && typeof obj === 'object') {
+    const cleaned = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (k === '$schema' || k === 'additionalProperties') continue;
+      cleaned[k] = stripZodJsonSchemaMeta(v);
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
+/**
+ * Custom fetch for Dome's OpenAI-compatible endpoint.
+ * Strips stream_options and parallel_tool_calls which the dome provider rejects (HTTP 400).
+ */
+async function domeFetch(url, init) {
+  if (init?.body) {
+    try {
+      const body = JSON.parse(init.body);
+      delete body.stream_options;
+      delete body.parallel_tool_calls;
+      // Strip $schema / additionalProperties from tool param schemas (some APIs reject them)
+      if (Array.isArray(body.tools)) {
+        body.tools = body.tools.map((t) => {
+          if (!t?.function?.parameters) return t;
+          return {
+            ...t,
+            function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
+          };
+        });
+      }
+      // Dome's schema requires content to be a string. LangChain sometimes serializes
+      // SystemMessage content as [{type:'text',text:'...'}] — flatten those to a plain string.
+      if (Array.isArray(body.messages)) {
+        body.messages = body.messages.map((msg) => {
+          if (!Array.isArray(msg.content)) return msg;
+          const text = msg.content
+            .map((block) => (typeof block === 'string' ? block : block?.text ?? ''))
+            .join('');
+          return { ...msg, content: text };
+        });
+      }
+      init = { ...init, body: JSON.stringify(body) };
+    } catch (_) { /* leave body as-is if parsing fails */ }
+  }
+  return fetch(url, init);
+}
+
+/**
+ * Custom fetch for MiniMax's OpenAI-compatible endpoint.
+ * Strips $schema + additionalProperties from every tool parameter schema
+ * before the request reaches MiniMax's API.
+ */
+async function miniMaxFetch(url, init) {
+  if (init?.body) {
+    try {
+      const body = JSON.parse(init.body);
+      // Strip $schema + additionalProperties from tool parameter schemas
+      if (Array.isArray(body.tools)) {
+        body.tools = body.tools.map((t) => {
+          if (!t?.function?.parameters) return t;
+          return {
+            ...t,
+            function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
+          };
+        });
+      }
+      // MiniMax does not support stream_options or parallel_tool_calls
+      delete body.stream_options;
+      delete body.parallel_tool_calls;
+      init = { ...init, body: JSON.stringify(body) };
+    } catch (_) { /* leave body as-is if parsing fails */ }
+  }
+  return fetch(url, init);
+}
+
+/**
  * Create chat model from provider config.
  * For Ollama: uses recommended defaults (temperature 0.7, topP 0.9, numPredict 4000).
  * think: false by default — avoids 500 errors with glm-5:cloud and other models.
@@ -580,13 +675,16 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     });
   }
   if (provider === 'minimax') {
-    const { ChatOpenAI } = await import('@langchain/openai');
-    const { MINIMAX_OPENAI_BASE_URL } = require('./minimax-config.cjs');
-    return new ChatOpenAI({
-      model: model || 'MiniMax-M2.5',
-      apiKey: apiKey,
-      configuration: { baseURL: MINIMAX_OPENAI_BASE_URL },
+    // MiniMax M2.x uses the Anthropic-compatible endpoint, not OpenAI.
+    // Docs: https://platform.minimax.io/docs/token-plan/quickstart
+    const { ChatAnthropic } = await import('@langchain/anthropic');
+    const { MINIMAX_BASE_URL } = require('./minimax-config.cjs');
+    return new ChatAnthropic({
+      model: model || 'MiniMax-M2.7',
+      anthropicApiKey: apiKey,
+      anthropicApiUrl: `${MINIMAX_BASE_URL}/anthropic`,
       temperature: 0.7,
+      maxTokens: 8192,
     });
   }
   if (provider === 'dome') {
@@ -594,7 +692,10 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatOpenAI({
       model: model || 'dome/auto',
       apiKey: apiKey,
-      configuration: { baseURL: baseUrl },
+      // streamUsage: false prevents ChatOpenAI from sending stream_options: {include_usage: true}
+      // which dome's API rejects with HTTP 400.
+      streamUsage: false,
+      configuration: { baseURL: baseUrl, fetch: domeFetch },
       temperature: 0.7,
     });
   }
@@ -650,27 +751,108 @@ async function createTrimmingMiddleware(provider, llm) {
   const { trimMessages } = await import('@langchain/core/messages');
   const maxTokens = PROVIDER_TOKEN_BUDGETS[provider] ?? DEFAULT_TOKEN_BUDGET;
 
+  // Character-based token approximation for models not in the tiktoken registry.
+  // Avoids "Unknown model" warnings from @langchain/core's tiktoken path.
+  const charTokenCounter = (msgs) =>
+    msgs.reduce((sum, m) => {
+      const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      return sum + Math.ceil(text.length / 4);
+    }, 0);
+
+  // OpenAI-family providers have real tiktoken support; others fall back to char count.
+  const tokenCounter = ['openai', 'azure', 'google', 'ollama'].includes(provider) ? llm : charTokenCounter;
+
   return createMiddleware({
     name: 'DomeTrimMessages',
     async wrapModelCall(request, handler) {
-      const original = request.messages;
-      if (!Array.isArray(original) || original.length === 0) return handler(request);
+      let messages = Array.isArray(request.messages) ? [...request.messages] : [];
+      if (messages.length === 0) return handler(request);
+
+      const { SystemMessage } = await import('@langchain/core/messages');
+
+      const isSystemMsg = (m) => {
+        try {
+          if (m instanceof SystemMessage) return true;
+          const t = typeof m._getType === 'function' ? m._getType()
+                  : typeof m.getType === 'function' ? m.getType()
+                  : m._message_type || m.type || m.role || '';
+          return t === 'system';
+        } catch { return false; }
+      };
+
+      // Helper to extract text from a message content (string or content blocks).
+      const getTextContent = (content) => {
+        if (typeof content === 'string') return content;
+        if (Array.isArray(content)) {
+          return content.map((c) => {
+            if (typeof c === 'string') return c;
+            if (c && typeof c === 'object' && 'text' in c) return c.text || '';
+            return '';
+          }).join('\n');
+        }
+        return JSON.stringify(content);
+      };
+
+      if (process.env.DOME_TRIM_DEBUG === '1') {
+        console.log('[DomeTrim] types:', messages.map((m, i) => `${i}:${isSystemMsg(m) ? 'SYS' : (typeof m._getType === 'function' ? m._getType() : m.role || '?')}`).join(' '));
+      }
+
+      // Lift any system messages out of request.messages and merge them into
+      // request.systemMessage/systemPrompt. This is necessary because
+      // AgentNode.baseHandler ALWAYS prepends request.systemMessage to
+      // request.messages right before the model call — having system messages
+      // in both places would produce duplicate system entries, which Anthropic
+      // (and MiniMax's Anthropic-compatible endpoint) reject with:
+      // "System messages are only permitted as the first passed message."
+      const sysIdxs = messages.reduce((acc, m, i) => {
+        if (isSystemMsg(m)) acc.push(i);
+        return acc;
+      }, []);
+
+      let updatedRequest = request;
+      if (sysIdxs.length > 0) {
+        const sysTexts = sysIdxs.map((i) => getTextContent(messages[i].content));
+        const fromSystemMessage = request.systemMessage?.content;
+        const fromPromptString =
+          typeof request.systemPrompt === 'string' ? request.systemPrompt : '';
+        const existingContent = getTextContent(fromSystemMessage ?? fromPromptString ?? '');
+        // Dome system prompt first so it sets context, then any middleware additions (VFS, etc.)
+        const allSysContent = [...sysTexts, existingContent].filter(Boolean).join('\n\n---\n\n');
+
+        messages = messages.filter((_, i) => !sysIdxs.includes(i));
+
+        console.log(`[AI LangGraph] lifted ${sysIdxs.length} system message(s) → merged systemPrompt (${provider})`);
+
+        // LangChain AgentNode rejects wrapModelCall requests where BOTH systemPrompt and
+        // systemMessage appear "changed" vs baseline: `undefined !== baseline.text` counts
+        // as a systemPrompt change, so setting only `systemMessage` triggers the error.
+        // Update systemPrompt (string) only; leave systemMessage reference unchanged — the
+        // node normalizes to a single SystemMessage on the next validation step.
+        updatedRequest = {
+          ...request,
+          messages,
+          systemPrompt: allSysContent,
+        };
+      }
+
+      if (messages.length === 0) return handler(updatedRequest);
+
       try {
-        const trimmed = await trimMessages(original, {
+        const trimmed = await trimMessages(messages, {
           maxTokens,
-          tokenCounter: llm,
+          tokenCounter,
           strategy: 'last',
-          includeSystem: true,
+          includeSystem: false,
           startOn: 'human',
           endOn: ['human', 'tool'],
         });
-        if (trimmed.length < original.length) {
-          console.log(`[AI LangGraph] trimmed ${original.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`);
+        if (trimmed.length < messages.length) {
+          console.log(`[AI LangGraph] trimmed ${messages.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`);
         }
-        return handler({ ...request, messages: trimmed });
+        return handler({ ...updatedRequest, messages: trimmed });
       } catch (e) {
         console.warn(`[AI LangGraph] ${provider} trim failed, using full history:`, e?.message);
-        return handler(request);
+        return handler(updatedRequest);
       }
     },
   });
@@ -692,7 +874,7 @@ async function createSummarizationMiddlewareMaybe(provider, llm) {
     return summarizationMiddleware({
       model: llm,
       trigger: { tokens: Math.floor(maxTokens * 0.7), messages: 8 },
-      keep: { tokens: Math.floor(maxTokens * 0.18), messages: 10 },
+      keep: { messages: 10 },
     });
   } catch (e) {
     console.warn('[AI LangGraph] summarizationMiddleware not loaded:', e?.message || e);
@@ -832,13 +1014,13 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         function: {
           name: 'dome_load_doc',
           description:
-            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
           parameters: {
             type: 'object',
             properties: {
               id: {
                 type: 'string',
-                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
                 description: 'Section identifier',
               },
             },
@@ -955,13 +1137,13 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         function: {
           name: 'dome_load_doc',
           description:
-            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), resource_links (if unsure about dome:// link format).',
+            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
           parameters: {
             type: 'object',
             properties: {
               id: {
                 type: 'string',
-                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'resource_links'],
+                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
                 description: 'Section identifier',
               },
             },
@@ -1028,7 +1210,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
   });
   const trimMiddleware = await createTrimmingMiddleware(provider, llm);
   const summarizationMw = await createSummarizationMiddlewareMaybe(provider, llm);
-  const contextMiddlewares = summarizationMw ? [summarizationMw, trimMiddleware] : [trimMiddleware];
 
   /** LangChain / deepagents sandbox: isolated VFS + execute (read_file, write_file, …). */
   let fsMiddleware = null;
@@ -1040,12 +1221,17 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     }
   }
 
-  // Order: optional summarization → trim → optional sandbox FS/execute → HITL when enabled.
+  // DomeTrimMessages must be the innermost wrapModelCall wrapper so it sees ALL
+  // injected messages (incl. those added by fsMiddleware) before ChatAnthropic validates.
+  // Order (outermost→innermost): summarization → HITL → fsMiddleware → trim → model
   const middleware = (() => {
+    const base = summarizationMw ? [summarizationMw] : [];
     if (skipHitl) {
-      return fsMiddleware ? [...contextMiddlewares, fsMiddleware] : [...contextMiddlewares];
+      return fsMiddleware ? [...base, fsMiddleware, trimMiddleware] : [...base, trimMiddleware];
     }
-    return fsMiddleware ? [...contextMiddlewares, fsMiddleware, hitlMiddleware] : [...contextMiddlewares, hitlMiddleware];
+    return fsMiddleware
+      ? [...base, hitlMiddleware, fsMiddleware, trimMiddleware]
+      : [...base, hitlMiddleware, trimMiddleware];
   })();
 
   const agent = createAgent({
@@ -1185,7 +1371,7 @@ async function invokeLangGraphAgent(opts) {
 }
 
 /**
- * Run agent without streaming (for WhatsApp / batch).
+ * Run agent without streaming (for batch / non-UI consumers).
  * @returns {Promise<{ response: string }>}
  */
 async function runLangGraphAgentSync(opts) {

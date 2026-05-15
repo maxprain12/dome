@@ -21,6 +21,7 @@ const {
 
 const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
+const documentStaging = require('./document-staging.cjs');
 const artifactLinkSync = require('./artifact-link-sync.cjs');
 
 let windowManagerRef = null;
@@ -395,31 +396,44 @@ async function excelCreate(projectId, title, options = {}) {
       ws.addRow(row);
     }
 
-    const buffer = await wb.xlsx.writeBuffer();
+    const buffer = Buffer.from(await wb.xlsx.writeBuffer());
     const filename = (title || 'Untitled').replace(/\.xlsx$/i, '') + '.xlsx';
-    const importResult = await fileStorage.importFromBuffer(Buffer.from(buffer), filename, 'document');
+
+    // Stage → validate → promote (no orphans on failure)
+    const staged = documentStaging.stageBuffer(buffer, filename);
+    const validation = await documentStaging.validateStaging(staged.stagingId, 'excel');
+    if (!validation.ok) {
+      documentStaging.discardStaging(staged.stagingId);
+      return { success: false, error: `Generated Excel failed validation: ${validation.error}` };
+    }
+    const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'excel');
 
     const resourceId = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = Date.now();
     const contentText = worksheetToCsv(ws).trim().substring(0, 500);
 
-    queries.createResourceWithFile.run(
-      resourceId,
-      projectId,
-      'excel',
-      title.replace(/\.xlsx$/i, '') || 'Untitled',
-      contentText,
-      null,
-      importResult.internalPath,
-      importResult.mimeType,
-      importResult.size,
-      importResult.hash,
-      null,
-      filename,
-      null,
-      now,
-      now
-    );
+    try {
+      queries.createResourceWithFile.run(
+        resourceId,
+        projectId,
+        'excel',
+        title.replace(/\.xlsx$/i, '') || 'Untitled',
+        contentText,
+        null,
+        importResult.internalPath,
+        importResult.mimeType,
+        importResult.size,
+        importResult.hash,
+        null,
+        filename,
+        null,
+        now,
+        now
+      );
+    } catch (dbErr) {
+      fileStorage.deleteFile(importResult.internalPath);
+      throw dbErr;
+    }
 
     const resource = queries.getResourceById.get(resourceId);
     broadcastResourceCreated(resource);

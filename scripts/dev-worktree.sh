@@ -15,5 +15,5 @@ else
   export VITE_DEV_PORT="$DOME_VITE_PORT"
 fi
 echo "DOME_PROFILE=$DOME_PROFILE  DOME_VITE_PORT=$DOME_VITE_PORT"
-echo "Luego: npm run dev  (Vite) y en otra terminal con la misma env: npm run electron"
-echo "O: npx concurrently \"npm run dev\" \"wait-on http://127.0.0.1:${DOME_VITE_PORT} && cross-env DOME_VITE_PORT=${DOME_VITE_PORT} DOME_PROFILE=${DOME_PROFILE} electron .\""
+echo "Luego: pnpm run dev  (Vite) y en otra terminal con la misma env: pnpm run electron"
+echo "O: pnpm exec concurrently \"pnpm run dev\" \"wait-on http://127.0.0.1:${DOME_VITE_PORT} && cross-env DOME_VITE_PORT=${DOME_VITE_PORT} DOME_PROFILE=${DOME_PROFILE} electron .\""

@@ -1603,7 +1603,7 @@ Issue: Native modules fail to load
 Symptoms: "Module was compiled against different Node.js version"
 Solution:
 
-- Run electron-rebuild after npm install
+- Run electron-rebuild after pnpm install
 - Match Electron Node.js version
 - Use postinstall script for automatic rebuild
 

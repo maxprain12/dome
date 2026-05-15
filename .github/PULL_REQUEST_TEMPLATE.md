@@ -9,8 +9,8 @@
 - [ ] Docs / config
 
 ## Checklist
-- [ ] `npm run typecheck` passes
-- [ ] `npm run lint` passes  
-- [ ] `npm run build` passes
+- [ ] `pnpm run typecheck` passes
+- [ ] `pnpm run lint` passes  
+- [ ] `pnpm run build` passes
 - [ ] i18n keys added in all 4 languages (en, es, fr, pt) if new user-visible strings
 - [ ] No hardcoded colors (CSS variables only)
