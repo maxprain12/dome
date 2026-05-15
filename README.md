@@ -172,10 +172,10 @@ Desktop binaries (macOS `.dmg`, Windows `.exe`) are built with GitHub Actions on
 
 ## Core Maintainers
 
-| Alder Velásquez |
-|----------------|
-| <img src="https://github.com/maxprain12.png" width="160px" alt="Alder Velásquez" /> |
-| <a href="https://github.com/maxprain12"><img src="https://api.iconify.design/devicon:github.svg" width="22px"></a> |
+| Alder Velásquez | María Sugasaga |
+|----------------|----------------|
+| <img src="https://github.com/maxprain12.png" width="160px" alt="Alder Velásquez" /> | <img src="https://github.com/merysugy.png" width="160px" alt="María Sugasaga" /> |
+| <a href="https://github.com/maxprain12"><img src="https://api.iconify.design/devicon:github.svg" width="22px"> See more</a> | <a href="https://github.com/merysugy"><img src="https://api.iconify.design/devicon:github.svg" width="22px"> See more</a> |
 
 ---
 
