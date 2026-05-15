@@ -28,4 +28,3 @@ allowBuilds:
   onnxruntime-node: true
   protobufjs: true
   sharp: true
-  '@whiskeysockets/baileys': set this to true or false
