@@ -158,11 +158,7 @@ function register({ ipcMain, windowManager, database, fileStorage, sanitizePath 
               if (/\/$/.test(entry.fileName)) {
                 const dirPath = resolveWithinTempDir(entry.fileName);
                 fs.mkdirSync(dirPath, { recursive: true });
-                try {
-                  zf.readEntry();
-                } catch (readErr) {
-                  reject(readErr);
-                }
+                zf.readEntry();
                 return;
               }
 
