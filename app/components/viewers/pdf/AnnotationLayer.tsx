@@ -82,17 +82,14 @@ export default function AnnotationLayer({
 
       const viewport = page.getViewport({ scale });
 
-      // Render existing annotations
       pageAnnotations.forEach((annotation) => {
         if (annotation.id !== selectedAnnotation?.id) {
           renderAnnotation(ctx, annotation, viewport);
         }
       });
 
-      // Render selected annotation on top (with highlight)
       if (selectedAnnotation) {
         renderAnnotation(ctx, selectedAnnotation, viewport);
-        // Draw selection border
         const { coordinates } = selectedAnnotation;
         if (coordinates.width && coordinates.height) {
           const viewportRect = convertPDFRectToViewport(viewport, {
@@ -114,7 +111,6 @@ export default function AnnotationLayer({
         }
       }
 
-      // Render current highlight being drawn
       if (isDrawing && startPoint && currentPoint && activeTool === 'highlight') {
         ctx.globalAlpha = 0.3;
         const resolvedFill = resolveCssColor(color);

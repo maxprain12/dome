@@ -224,7 +224,7 @@ function renderHighlight(
   if (viewportRect.width > 0 && viewportRect.height > 0) {
     ctx.globalAlpha = style.opacity ?? 0.3;
     const resolved = resolveCssColor(style.color, '#0ea5e9');
-    ctx.fillStyle = resolved || '#0ea5e9';
+    ctx.fillStyle = resolved ?? '#0ea5e9';
     ctx.fillRect(viewportRect.x, viewportRect.y, viewportRect.width, viewportRect.height);
   }
 }
@@ -239,17 +239,17 @@ function renderNote(
 
   ctx.globalAlpha = 0.95;
   const resolvedColor = resolveCssColor(style.color, '#f59e0b');
-  ctx.fillStyle = resolvedColor || '#f59e0b';
+  ctx.fillStyle = resolvedColor ?? '#f59e0b';
   ctx.fillRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = resolvedColor || '#f59e0b';
+  ctx.strokeStyle = resolvedColor ?? '#f59e0b';
   ctx.lineWidth = 2;
   ctx.strokeRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   if (content) {
     const resolvedTextColor = resolveCssColor('var(--primary-text)', '#111827');
-    ctx.fillStyle = resolvedTextColor || '#111827';
+    ctx.fillStyle = resolvedTextColor ?? '#111827';
     ctx.font = '12px sans-serif';
     const lines = content.split('\n');
     const lineHeight = 16;
