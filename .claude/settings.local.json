@@ -63,7 +63,15 @@
       "Bash(sqlite3 '__TRACKED_VAR__/Library/Application Support/Dome/dome.db' 'SELECT content, created_at FROM run_steps WHERE step_type='\\\\''error'\\\\'' ORDER BY created_at DESC LIMIT 3;')",
       "Bash(sqlite3 *)",
       "Bash(node --check electron/langgraph-agent.cjs)",
-      "Bash(node --check electron/run-engine.cjs)"
+      "Bash(node --check electron/run-engine.cjs)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -s https://api.github.com/repos/MiniMax-AI/Mini-Agent/contents)",
+      "Bash(curl -s https://raw.githubusercontent.com/MiniMax-AI/Mini-Agent/main/README.md)",
+      "Bash(curl -s https://api.github.com/repos/MiniMax-AI/Mini-Agent/contents/examples)",
+      "Bash(curl -s https://api.github.com/repos/MiniMax-AI/Mini-Agent/contents/docsç)",
+      "Bash(curl *)",
+      "Bash(node *)",
+      "Skill(moai-framework-electron)"
     ]
   }
 }
