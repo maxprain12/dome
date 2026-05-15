@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-15T23:03:15.974Z
+> Última generación: 2026-05-15T23:27:17.237Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -119,13 +119,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `cloud:import-file` | `electron/ipc/cloud-storage.cjs:423` |
 | `cloud:list-files` | `electron/ipc/cloud-storage.cjs:392` |
 | `cloud:llm:pdf-region-stream` | `electron/ipc/cloud-llm.cjs:12` |
-| `cloudSync:getSettings` | `electron/ipc/cloud-sync.cjs:94` |
-| `cloudSync:getStatus` | `electron/ipc/cloud-sync.cjs:13` |
-| `cloudSync:pull` | `electron/ipc/cloud-sync.cjs:47` |
-| `cloudSync:push` | `electron/ipc/cloud-sync.cjs:36` |
-| `cloudSync:setSettings` | `electron/ipc/cloud-sync.cjs:113` |
-| `cloudSync:startRevisionWatcher` | `electron/ipc/cloud-sync.cjs:58` |
-| `cloudSync:stopRevisionWatcher` | `electron/ipc/cloud-sync.cjs:82` |
+| `cloudSync:getSettings` | `electron/ipc/cloud-sync.cjs:102` |
+| `cloudSync:getStatus` | `electron/ipc/cloud-sync.cjs:21` |
+| `cloudSync:pull` | `electron/ipc/cloud-sync.cjs:55` |
+| `cloudSync:push` | `electron/ipc/cloud-sync.cjs:44` |
+| `cloudSync:setSettings` | `electron/ipc/cloud-sync.cjs:121` |
+| `cloudSync:startRevisionWatcher` | `electron/ipc/cloud-sync.cjs:66` |
+| `cloudSync:stopRevisionWatcher` | `electron/ipc/cloud-sync.cjs:90` |
 | `db:agentFolders:create` | `electron/ipc/database.cjs:814` |
 | `db:agentFolders:delete` | `electron/ipc/database.cjs:865` |
 | `db:agentFolders:list` | `electron/ipc/database.cjs:802` |
