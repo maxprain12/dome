@@ -804,6 +804,13 @@ app
     // but we still need to ensure it's ready
     database.initDatabase();
 
+    // Start the embeddings utilityProcess worker now that app is ready.
+    try {
+      require('./services/embeddings.service.cjs').initWorker();
+    } catch (e) {
+      console.warn('[Main] embeddings worker init:', e?.message || e);
+    }
+
     const lancedbSemantic = require('./services/lancedb-semantic.cjs');
     try {
       await lancedbSemantic.init(app.getPath('userData'));
@@ -1052,7 +1059,14 @@ app.on('before-quit', async () => {
   calendarSyncScheduler.stop();
   automationService.stop();
   runEngine.stop();
-  // Semantic indexer runs in-process; no separate subprocess to stop
+  try {
+    require('./ipc/cloud-sync.cjs').disposeCloudSync();
+  } catch (e) { /* non-fatal */ }
+  try {
+    require('./services/embeddings.service.cjs').disposeWorker();
+  } catch (e) { /* non-fatal */ }
+  semanticIndexScheduler.stopAutoIndexing?.();
+  // Embeddings now run in utilityProcess (disposeWorker called above)
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
   try {

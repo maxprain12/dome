@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Shield, Search, Zap, RefreshCw, Lock, HardDrive } from 'lucide-react';
+import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Shield, Search, Zap, RefreshCw, Lock, HardDrive, Cloud } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -69,6 +69,8 @@ export default function AISettingsPanel() {
   const [checkingOllama, setCheckingOllama] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [cloudSyncBusy, setCloudSyncBusy] = useState(false);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
 
   const currentProviderModels: ModelDefinition[] = useMemo(() => PROVIDERS[provider]?.models || [], [provider]);
 
@@ -114,7 +116,29 @@ export default function AISettingsPanel() {
     }
   }, []);
 
+  const refreshCloudSyncStatus = useCallback(async () => {
+    if (!window.electron?.cloudSync || !domeConnected) {
+      setCloudSyncMsg(null);
+      return;
+    }
+    try {
+      const s = await window.electron.cloudSync.getStatus();
+      if (s.success && s.connected && s.localRevision != null && s.currentRevision != null) {
+        setCloudSyncMsg(
+          t('settings.ai.cloud_sync_status', { local: String(s.localRevision), remote: String(s.currentRevision) }),
+        );
+      } else if (s.error) {
+        setCloudSyncMsg(s.error);
+      } else {
+        setCloudSyncMsg(null);
+      }
+    } catch {
+      setCloudSyncMsg(null);
+    }
+  }, [domeConnected, t]);
+
   useEffect(() => { void refreshDomeSession(); }, [refreshDomeSession]);
+  useEffect(() => { void refreshCloudSyncStatus(); }, [refreshCloudSyncStatus]);
   useEffect(() => {
     const onFocus = () => void refreshDomeSession();
     window.addEventListener('focus', onFocus);
@@ -221,6 +245,40 @@ export default function AISettingsPanel() {
       setTestResult({ success: true, message: 'Cuenta de Dome desconectada.' });
     } catch (error) {
       setTestResult({ success: false, message: error instanceof Error ? error.message : 'No se pudo desconectar.' });
+    }
+  };
+
+  const handleCloudSyncPull = async () => {
+    if (!window.electron?.cloudSync) return;
+    setCloudSyncBusy(true);
+    try {
+      const r = await window.electron.cloudSync.pull();
+      if (!r.success) {
+        setCloudSyncMsg(r.error || t('settings.ai.cloud_sync_error'));
+        return;
+      }
+      await refreshCloudSyncStatus();
+    } catch (e) {
+      setCloudSyncMsg(e instanceof Error ? e.message : t('settings.ai.cloud_sync_error'));
+    } finally {
+      setCloudSyncBusy(false);
+    }
+  };
+
+  const handleCloudSyncPush = async () => {
+    if (!window.electron?.cloudSync) return;
+    setCloudSyncBusy(true);
+    try {
+      const r = await window.electron.cloudSync.push();
+      if (!r.success) {
+        setCloudSyncMsg(r.error || t('settings.ai.cloud_sync_error'));
+        return;
+      }
+      await refreshCloudSyncStatus();
+    } catch (e) {
+      setCloudSyncMsg(e instanceof Error ? e.message : t('settings.ai.cloud_sync_error'));
+    } finally {
+      setCloudSyncBusy(false);
     }
   };
 
@@ -670,6 +728,52 @@ export default function AISettingsPanel() {
                     {t('settings.ai.renewal')}: {new Date(domeQuota.periodEnd).toLocaleDateString()}
                   </p>
                 )}
+              </div>
+            )}
+
+            {domeConnected && (
+              <div
+                className="rounded-lg p-4 space-y-3"
+                style={{ border: '1px solid var(--dome-border)', backgroundColor: 'var(--dome-bg-hover)' }}
+              >
+                <div className="flex items-start gap-2">
+                  <DomeIconBox size="sm" background="var(--dome-accent-bg)">
+                    <Cloud className="size-4" style={{ color: 'var(--dome-accent)' }} />
+                  </DomeIconBox>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>
+                      {t('settings.ai.cloud_sync_title')}
+                    </p>
+                    <p className="text-[10px] leading-relaxed mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+                      {t('settings.ai.cloud_sync_desc')}
+                    </p>
+                    {cloudSyncMsg ? (
+                      <p className="text-[10px] mt-2 font-mono break-all" style={{ color: 'var(--dome-text-muted)' }}>
+                        {cloudSyncMsg}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <DomeButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={cloudSyncBusy}
+                    onClick={() => void handleCloudSyncPull()}
+                  >
+                    {cloudSyncBusy ? t('settings.ai.cloud_sync_busy') : t('settings.ai.cloud_sync_pull')}
+                  </DomeButton>
+                  <DomeButton
+                    type="button"
+                    variant="primary"
+                    size="sm"
+                    disabled={cloudSyncBusy}
+                    onClick={() => void handleCloudSyncPush()}
+                  >
+                    {cloudSyncBusy ? t('settings.ai.cloud_sync_busy') : t('settings.ai.cloud_sync_push')}
+                  </DomeButton>
+                </div>
               </div>
             )}
           </DomeCard>

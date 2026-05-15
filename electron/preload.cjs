@@ -453,6 +453,13 @@ const ALLOWED_CHANNELS = {
     // Sync export/import
     'sync:export',
     'sync:import',
+    'cloudSync:getStatus',
+    'cloudSync:push',
+    'cloudSync:pull',
+    'cloudSync:startRevisionWatcher',
+    'cloudSync:stopRevisionWatcher',
+    'cloudSync:getSettings',
+    'cloudSync:setSettings',
     // MCP
     'mcp:testConnection',
     'mcp:testServer',
@@ -601,6 +608,10 @@ const ALLOWED_CHANNELS = {
     'artifact:set-linked-resource',
     // In-app approval (HITL — main requests approval, renderer shows modal)
     'approval:requested',
+    'cloud-sync:revision',
+    'cloud-sync:pull-done',
+    'cloud-sync:pushed',
+    'cloud-sync:reindex-done',
   ],
 };
 
@@ -765,6 +776,26 @@ const electronHandler = {
   sync: {
     export: () => ipcRenderer.invoke('sync:export'),
     import: () => ipcRenderer.invoke('sync:import'),
+  },
+
+  cloudSync: {
+    getStatus: () => ipcRenderer.invoke('cloudSync:getStatus'),
+    push: () => ipcRenderer.invoke('cloudSync:push'),
+    pull: () => ipcRenderer.invoke('cloudSync:pull'),
+    startRevisionWatcher: () => ipcRenderer.invoke('cloudSync:startRevisionWatcher'),
+    stopRevisionWatcher: () => ipcRenderer.invoke('cloudSync:stopRevisionWatcher'),
+    onRevision: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('cloud-sync:revision', subscription);
+      return () => ipcRenderer.removeListener('cloud-sync:revision', subscription);
+    },
+    onPullDone: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('cloud-sync:pull-done', subscription);
+      return () => ipcRenderer.removeListener('cloud-sync:pull-done', subscription);
+    },
+    getSettings: () => ipcRenderer.invoke('cloudSync:getSettings'),
+    setSettings: (partial) => ipcRenderer.invoke('cloudSync:setSettings', partial),
   },
 
   // ============================================

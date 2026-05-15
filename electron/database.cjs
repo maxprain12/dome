@@ -2932,6 +2932,54 @@ function runMigrations(db) {
       console.error('[DB] Migration 31 failed:', error);
     }
   }
+
+  // Migration 32: Local state for Dome cloud sync (Provider + Supabase)
+  if (version < 32) {
+    console.log('[DB] Running migration 32 - dome_cloud_sync');
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS dome_cloud_sync (
+          id INTEGER PRIMARY KEY CHECK (id = 1),
+          device_id TEXT NOT NULL,
+          last_server_revision INTEGER NOT NULL DEFAULT 0,
+          last_event_poll_at INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        );
+      `);
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '32', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '32', updated_at = excluded.updated_at
+      `).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 32 complete');
+    } catch (error) {
+      console.error('[DB] Migration 32 failed:', error);
+    }
+  }
+
+  // Migration 33: Add last_push_at to dome_cloud_sync for delta sync
+  if (version < 33) {
+    console.log('[DB] Running migration 33 - dome_cloud_sync last_push_at');
+    try {
+      const now = Date.now();
+      // SQLite bundled with Electron is older than 3.37 — no `IF NOT EXISTS` on ADD COLUMN.
+      const syncCols = new Set(db.prepare('PRAGMA table_info(dome_cloud_sync)').all().map((c) => c.name));
+      if (!syncCols.has('last_push_at')) {
+        db.exec(`ALTER TABLE dome_cloud_sync ADD COLUMN last_push_at INTEGER NOT NULL DEFAULT 0`);
+      }
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '33', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '33', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 33 complete');
+    } catch (error) {
+      console.error('[DB] Migration 33 failed:', error);
+    }
+  }
 }
 
 /**
@@ -3922,13 +3970,14 @@ function checkIntegrity(quick = false) {
   try {
     const pragma = quick ? 'PRAGMA quick_check' : 'PRAGMA integrity_check';
     const result = db.prepare(pragma).all();
-    const integrityCheck = result[0]?.integrity_check || result[0]?.quick_check;
-    
-    if (integrityCheck === 'ok') {
+    // Collect all error rows (not just the first one).
+    const errors = result
+      .map((r) => r.integrity_check || r.quick_check)
+      .filter((v) => v && v !== 'ok');
+    if (errors.length === 0) {
       return { ok: true, errors: [] };
     }
-    
-    return { ok: false, errors: [integrityCheck] };
+    return { ok: false, errors };
   } catch (error) {
     console.error('[DB] Error checking integrity:', error);
     return { ok: false, errors: [error.message] };
@@ -3991,11 +4040,15 @@ function invalidateQueries() {
 function repairFTSTables() {
   const db = getDB();
   console.log('[DB] Attempting to repair FTS tables...');
-  
+
   try {
-    // Close any existing prepared statements that might be using the corrupted tables
+    // Ensure no cached statements reference the tables we are about to DROP.
     invalidateQueries();
-    
+
+    // Disable foreign-key enforcement during structural repair to avoid
+    // constraint violations while tables/triggers are in an intermediate state.
+    db.exec('PRAGMA foreign_keys = OFF');
+
     // Start transaction
     db.exec('BEGIN TRANSACTION');
     
@@ -4124,23 +4177,24 @@ function repairFTSTables() {
     
     // Commit transaction
     db.exec('COMMIT');
-    
+    db.exec('PRAGMA foreign_keys = ON');
+
     // Invalidate queries after repair
     invalidateQueries();
-    
+
     // Force SQLite to rebuild FTS indexes (optional for standalone tables)
     try {
       db.exec("INSERT INTO resources_fts(resources_fts) VALUES('rebuild')");
     } catch (rebuildError) {
       console.log('[DB] FTS rebuild skipped (table may be empty)');
     }
-    
+
     try {
       db.exec("INSERT INTO interactions_fts(interactions_fts) VALUES('rebuild')");
     } catch (rebuildError) {
       console.log('[DB] Interactions FTS rebuild skipped (table may be empty)');
     }
-    
+
     // Post-repair verification - simple count check
     try {
       console.log('[DB] Running post-repair FTS verification...');
@@ -4151,16 +4205,19 @@ function repairFTSTables() {
       console.error('[DB] ⚠️ Post-repair FTS verification failed:', verifyError.message);
       return false;
     }
-    
+
     console.log('[DB] ✅ FTS tables repaired successfully');
     return true;
   } catch (error) {
-    // Rollback on error
+    // Rollback on error and restore FK enforcement.
     try {
       db.exec('ROLLBACK');
     } catch (rollbackError) {
       console.error('[DB] Error during rollback:', rollbackError.message);
     }
+    try {
+      db.exec('PRAGMA foreign_keys = ON');
+    } catch (_) { /* ignore */ }
     console.error('[DB] ❌ Failed to repair FTS tables:', error.message);
     invalidateQueries();
     return false;

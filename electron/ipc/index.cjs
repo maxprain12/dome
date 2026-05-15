@@ -48,12 +48,20 @@ const shellHandlers = require('./shell.cjs');
 const domeMcpHandlers = require('./dome-mcp.cjs');
 const artifactsHandlers = require('./artifacts.cjs');
 const approvalHandlers = require('./approval.cjs');
+const cloudSyncHandlers = require('./cloud-sync.cjs');
+
+let _ipcRegistered = false;
 
 /**
  * Register all IPC handlers
  * @param {Object} deps - Shared dependencies
  */
 function registerAll(deps) {
+  if (_ipcRegistered) {
+    console.warn('[IPC] registerAll called more than once — skipping duplicate registration');
+    return;
+  }
+  _ipcRegistered = true;
   const {
     app,
     windowManager,
@@ -150,7 +158,8 @@ function registerAll(deps) {
   shellHandlers.register({ ipcMain, windowManager, sanitizePath });
   domeMcpHandlers.register({ ipcMain, windowManager, database });
   artifactsHandlers.register({ ipcMain, windowManager, database });
-  approvalHandlers.register({ ipcMain, windowManager });
+  approvalHandlers.register({ ipcMain, windowManager, validateSender });
+  cloudSyncHandlers.register({ ipcMain, windowManager, database, fileStorage });
 
 }
 

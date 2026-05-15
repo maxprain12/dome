@@ -10,6 +10,7 @@ import AdvancedSettings from '@/components/settings/AdvancedSettings';
 import PluginsSettings from '@/components/settings/PluginsSettings';
 import IndexingSettings from '@/components/settings/IndexingSettings';
 import CloudStorageSettings from '@/components/settings/CloudStorageSettings';
+import DomeSyncSettings from '@/components/settings/DomeSyncSettings';
 import LanguageSettings from '@/components/settings/LanguageSettings';
 import TranscriptionSettingsPanel from '@/components/settings/TranscriptionSettingsPanel';
 import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
@@ -30,6 +31,7 @@ const VALID_SECTIONS = [
   'advanced',
   'indexing',
   'cloud',
+  'dome_sync',
   'language',
   'kb_llm',
   'calendar',
@@ -102,6 +104,8 @@ export default function SettingsPage() {
         return <IndexingSettings />;
       case 'cloud':
         return <CloudStorageSettings />;
+      case 'dome_sync':
+        return <DomeSyncSettings />;
       case 'language':
         return <LanguageSettings />;
       case 'kb_llm':

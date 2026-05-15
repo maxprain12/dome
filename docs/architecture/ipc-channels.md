@@ -1,21 +1,21 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-13T10:34:54.970Z
+> Última generación: 2026-05-15T23:03:15.974Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
 | `ai:chat` | `electron/ipc/ai.cjs:16` |
-| `ai:langgraph:abort` | `electron/ipc/ai.cjs:368` |
-| `ai:langgraph:resume` | `electron/ipc/ai.cjs:382` |
+| `ai:langgraph:abort` | `electron/ipc/ai.cjs:378` |
+| `ai:langgraph:resume` | `electron/ipc/ai.cjs:392` |
 | `ai:langgraph:stream` | `electron/ipc/ai.cjs:258` |
 | `ai:stream` | `electron/ipc/ai.cjs:92` |
 | `ai:team:abort` | `electron/ipc/agent-team.cjs:424` |
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:234` |
-| `ai:testConnection` | `electron/ipc/ai.cjs:460` |
-| `ai:testWebSearch` | `electron/ipc/ai.cjs:540` |
+| `ai:testConnection` | `electron/ipc/ai.cjs:470` |
+| `ai:testWebSearch` | `electron/ipc/ai.cjs:550` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:857` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:883` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:844` |
@@ -68,8 +68,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai.cjs:555` |
-| `approval:respond` | `electron/ipc/approval.cjs:37` |
+| `ai:webSearch` | `electron/ipc/ai.cjs:565` |
+| `approval:respond` | `electron/ipc/approval.cjs:43` |
 | `artifact:buildDesign` | `electron/ipc/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
 | `artifact:delete` | `electron/ipc/artifacts.cjs:185` |
@@ -119,6 +119,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `cloud:import-file` | `electron/ipc/cloud-storage.cjs:423` |
 | `cloud:list-files` | `electron/ipc/cloud-storage.cjs:392` |
 | `cloud:llm:pdf-region-stream` | `electron/ipc/cloud-llm.cjs:12` |
+| `cloudSync:getSettings` | `electron/ipc/cloud-sync.cjs:94` |
+| `cloudSync:getStatus` | `electron/ipc/cloud-sync.cjs:13` |
+| `cloudSync:pull` | `electron/ipc/cloud-sync.cjs:47` |
+| `cloudSync:push` | `electron/ipc/cloud-sync.cjs:36` |
+| `cloudSync:setSettings` | `electron/ipc/cloud-sync.cjs:113` |
+| `cloudSync:startRevisionWatcher` | `electron/ipc/cloud-sync.cjs:58` |
+| `cloudSync:stopRevisionWatcher` | `electron/ipc/cloud-sync.cjs:82` |
 | `db:agentFolders:create` | `electron/ipc/database.cjs:814` |
 | `db:agentFolders:delete` | `electron/ipc/database.cjs:865` |
 | `db:agentFolders:list` | `electron/ipc/database.cjs:802` |

@@ -616,8 +616,9 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
       return 'openai-completions';
     case 'anthropic':
       return 'anthropic-messages';
-    case 'google':
     case 'dome':
+      return 'openai-completions';
+    case 'google':
       return 'google-generative-ai';
     case 'ollama':
       return 'ollama';

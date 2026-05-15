@@ -277,6 +277,33 @@ declare global {
         import: () => Promise<{ success?: boolean; restartRequired?: boolean; cancelled?: boolean; error?: string }>;
       };
 
+      /** Cloud library sync via Dome Provider + Supabase (subscription `cloud_sync` feature). */
+      cloudSync: {
+        getStatus: () => Promise<{
+          success: boolean;
+          connected?: boolean;
+          localRevision?: number;
+          currentRevision?: number;
+          syncSchemaVersion?: number;
+          error?: string;
+        }>;
+        push: () => Promise<{ success: boolean; newRevision?: number; error?: string }>;
+        pull: () => Promise<{ success: boolean; revision?: number; error?: string }>;
+        startRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
+        stopRevisionWatcher: () => Promise<{ success: boolean; error?: string }>;
+        onRevision: (cb: (data: { revision: number }) => void) => () => void;
+        onPullDone: (cb: (data: { revision: number }) => void) => () => void;
+        getSettings: () => Promise<{
+          success: boolean;
+          settings?: { auto_enabled: boolean; interval_minutes: number };
+          error?: string;
+        }>;
+        setSettings: (partial: {
+          auto_enabled?: boolean;
+          interval_minutes?: number;
+        }) => Promise<{ success: boolean; error?: string }>;
+      };
+
       // Calendar API
       calendar: {
         connectGoogle: () => Promise<{ success: boolean; accountId?: string; error?: string }>;

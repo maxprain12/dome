@@ -20,6 +20,12 @@ const lancedb = require('./lancedb-semantic.cjs');
 /** @type {Map<string, Promise<any>>} */
 const GLOBAL_INDEX_INFLIGHT = new Map();
 
+/**
+ * True while a reindexAll() is in progress. The AutoIndex sweep checks this
+ * flag to avoid contending with a full reindex over the embeddings worker.
+ */
+let _reindexAllInFlight = false;
+
 const DEFAULT_THRESHOLD = 0.45;
 const TOP_K = 8;
 /** Evita O(N²) en bibliotecas grandes: solo comparamos centroides contra una muestra de otros recursos. */
@@ -388,30 +394,35 @@ function createIndexer(opts) {
    * @param {{ threshold?: number, skipSemanticRelations?: boolean, onProgress?: (p: { total: number, done: number, errors: number, step?: string }) => void }} [options]
    */
   async function reindexAll(options = {}) {
-    // Second consecutive full reindex: reusing the ONNX session can SIGTRAP; reload per job.
-    resetPipeline();
+    _reindexAllInFlight = true;
     const queries = getQueries();
+    // Fetch only id+type to avoid loading full content (SELECT * was ~500 MB for large libraries).
     const rows = queries.getAllResources.all(500000);
-    const targets = rows.filter((r) => shouldIndexResourceType(r.type));
+    const targets = rows
+      .filter((r) => shouldIndexResourceType(r.type))
+      .map((r) => ({ id: r.id, type: r.type }));
     const out = { total: targets.length, done: 0, errors: 0 };
-    for (const row of targets) {
-      try {
+    try {
+      for (const row of targets) {
+        try {
+          if (typeof options.onProgress === 'function') {
+            options.onProgress({ ...out, step: row.id });
+          }
+          await runIndexResourceDeduped(row.id, {
+            threshold: options.threshold,
+            skipSemanticRelations: options.skipSemanticRelations === true,
+          });
+          out.done += 1;
+        } catch {
+          out.errors += 1;
+        }
         if (typeof options.onProgress === 'function') {
           options.onProgress({ ...out, step: row.id });
         }
-        await runIndexResourceDeduped(row.id, {
-          threshold: options.threshold,
-          skipSemanticRelations: options.skipSemanticRelations === true,
-        });
-        out.done += 1;
-      } catch {
-        out.errors += 1;
       }
-      if (typeof options.onProgress === 'function') {
-        options.onProgress({ ...out, step: row.id });
-      }
+    } finally {
+      _reindexAllInFlight = false;
     }
-    resetPipeline();
     return out;
   }
 
@@ -454,4 +465,5 @@ module.exports = {
   TOP_K,
   MAX_NEIGHBOR_CANDIDATES,
   shouldIndexResourceType,
+  get reindexAllInFlight() { return _reindexAllInFlight; },
 };

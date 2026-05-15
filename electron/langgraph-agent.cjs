@@ -561,6 +561,43 @@ function stripZodJsonSchemaMeta(obj) {
 }
 
 /**
+ * Custom fetch for Dome's OpenAI-compatible endpoint.
+ * Strips stream_options and parallel_tool_calls which the dome provider rejects (HTTP 400).
+ */
+async function domeFetch(url, init) {
+  if (init?.body) {
+    try {
+      const body = JSON.parse(init.body);
+      delete body.stream_options;
+      delete body.parallel_tool_calls;
+      // Strip $schema / additionalProperties from tool param schemas (some APIs reject them)
+      if (Array.isArray(body.tools)) {
+        body.tools = body.tools.map((t) => {
+          if (!t?.function?.parameters) return t;
+          return {
+            ...t,
+            function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
+          };
+        });
+      }
+      // Dome's schema requires content to be a string. LangChain sometimes serializes
+      // SystemMessage content as [{type:'text',text:'...'}] — flatten those to a plain string.
+      if (Array.isArray(body.messages)) {
+        body.messages = body.messages.map((msg) => {
+          if (!Array.isArray(msg.content)) return msg;
+          const text = msg.content
+            .map((block) => (typeof block === 'string' ? block : block?.text ?? ''))
+            .join('');
+          return { ...msg, content: text };
+        });
+      }
+      init = { ...init, body: JSON.stringify(body) };
+    } catch (_) { /* leave body as-is if parsing fails */ }
+  }
+  return fetch(url, init);
+}
+
+/**
  * Custom fetch for MiniMax's OpenAI-compatible endpoint.
  * Strips $schema + additionalProperties from every tool parameter schema
  * before the request reaches MiniMax's API.
@@ -655,7 +692,10 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatOpenAI({
       model: model || 'dome/auto',
       apiKey: apiKey,
-      configuration: { baseURL: baseUrl },
+      // streamUsage: false prevents ChatOpenAI from sending stream_options: {include_usage: true}
+      // which dome's API rejects with HTTP 400.
+      streamUsage: false,
+      configuration: { baseURL: baseUrl, fetch: domeFetch },
       temperature: 0.7,
     });
   }

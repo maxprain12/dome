@@ -193,11 +193,20 @@ async function doInitialize(startTime) {
     initSQLite();
     console.log('[Init] Step 1 completed in', Date.now() - startTime, 'ms');
 
-    // 1.1. Check database integrity and repair if needed
+    // 1.1. Check database integrity and repair if needed.
+    // Use quick_check (skips FTS virtual tables) to avoid false positives that
+    // trigger a full repairFTSTables on every startup. A full integrity_check
+    // can flag FTS inconsistencies that are cosmetic and self-heal; quick_check
+    // catches real structural corruption.
     console.log('[Init] Step 1.1: Database integrity check...');
-    const integrity = database.checkIntegrity();
+    const integrity = database.checkIntegrity(true /* quick */);
     if (!integrity.ok) {
-      console.warn('[DB] ⚠️ Database integrity check failed:', integrity.errors);
+      console.warn('[DB] ⚠️ Database quick_check failed:', integrity.errors.join('; '));
+      console.log('[DB] Running full integrity_check for details...');
+      const fullIntegrity = database.checkIntegrity(false);
+      if (!fullIntegrity.ok) {
+        console.warn('[DB] Full integrity_check errors:', fullIntegrity.errors.join('; '));
+      }
       console.log('[DB] Attempting to repair FTS tables...');
       const repaired = database.repairFTSTables();
       if (repaired) {
