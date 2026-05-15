@@ -4,7 +4,15 @@
  */
 'use strict';
 
+const { z } = require('zod');
 const cloudSyncService = require('../cloud-sync-service.cjs');
+
+const CloudSyncSetSettingsSchema = z
+  .object({
+    auto_enabled: z.boolean().optional(),
+    interval_minutes: z.coerce.number().int().min(5).max(24 * 60).optional(),
+  })
+  .strict();
 
 let revisionWatchTimer = null;
 let lastKnownRemoteRevision = null;
@@ -110,10 +118,15 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     }
   });
 
-  ipcMain.handle('cloudSync:setSettings', async (event, partial) => {
+  ipcMain.handle('cloudSync:setSettings', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
+    const parsed = CloudSyncSetSettingsSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { success: false, error: 'Invalid payload' };
+    }
+    const partial = parsed.data;
     try {
       const q = database.getQueries();
       const now = Date.now();
