@@ -11,6 +11,10 @@ env:
   NODE_VERSION: '24'
   # Evita avisos de deprecación de Node 20 en actions/checkout, setup-node, etc. (hasta junio 2026)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # pnpm sin TTY (evita abortos tipo confirmModulesPurge / purga de node_modules)
+  CI: true
+  # git+https / submódulos: no colgar esperando credenciales en el runner
+  GIT_TERMINAL_PROMPT: '0'
 
 jobs:
   # macOS build
@@ -33,6 +37,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          # Artefactos desde CDN de Playwright (no necesarios para empaquetar la app)
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       - name: Build Vite, natives, embed env, pack (macOS)
         run: |
@@ -91,6 +98,8 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       - name: Build Vite, natives, embed env, pack (Windows)
         run: |

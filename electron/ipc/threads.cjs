@@ -13,7 +13,27 @@
  *   threads:update-state — inject state into a thread (time-travel fork)
  */
 
+const { z } = require('zod');
 const { getDomeCheckpointer } = require('../checkpointer.cjs');
+
+const ThreadsListOptsSchema = z.object({
+  limit: z.coerce.number().int().positive().max(500).optional(),
+});
+
+const ThreadIdPayloadSchema = z.object({
+  threadId: z.string().min(1),
+});
+
+const ThreadsGetHistoryPayloadSchema = z.object({
+  threadId: z.string().min(1),
+  limit: z.coerce.number().int().positive().max(200).optional(),
+});
+
+const ThreadsUpdateStatePayloadSchema = z.object({
+  threadId: z.string().min(1),
+  values: z.record(z.string(), z.unknown()),
+  asNode: z.union([z.string(), z.null()]).optional(),
+});
 
 function register({ ipcMain, windowManager, validateSender }) {
   /**
@@ -21,13 +41,17 @@ function register({ ipcMain, windowManager, validateSender }) {
    * Returns an array of { threadId, createdAt, updatedAt, metadata }
    * by querying the checkpoints table directly.
    */
-  ipcMain.handle('threads:list', async (event, opts = {}) => {
+  ipcMain.handle('threads:list', async (event, raw) => {
     if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
+    const parsedOpts = ThreadsListOptsSchema.safeParse(raw ?? {});
+    if (!parsedOpts.success) {
+      return { error: 'Invalid payload', threads: [] };
+    }
     try {
       const cp = getDomeCheckpointer();
       const db = cp.db;
       if (!db) return { threads: [] };
-      const limit = Math.min(Number(opts.limit ?? 100), 500);
+      const limit = Math.min(Number(parsedOpts.data.limit ?? 100), 500);
       const rows = db.prepare(`
         SELECT thread_id,
                MIN(checkpoint_id) AS created_checkpoint,
@@ -60,9 +84,13 @@ function register({ ipcMain, windowManager, validateSender }) {
    * threads:get-state
    * Returns the current (latest) checkpoint state for a thread_id.
    */
-  ipcMain.handle('threads:get-state', async (event, { threadId } = {}) => {
+  ipcMain.handle('threads:get-state', async (event, raw) => {
     if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
-    if (!threadId) return { error: 'threadId required' };
+    const parsed = ThreadIdPayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { error: 'threadId required', state: null };
+    }
+    const { threadId } = parsed.data;
     try {
       const cp = getDomeCheckpointer();
       const config = { configurable: { thread_id: threadId } };
@@ -88,9 +116,13 @@ function register({ ipcMain, windowManager, validateSender }) {
    * Returns the ordered list of checkpoint tuples for a thread.
    * Useful for time-travel UI.
    */
-  ipcMain.handle('threads:get-history', async (event, { threadId, limit: rawLimit } = {}) => {
+  ipcMain.handle('threads:get-history', async (event, raw) => {
     if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
-    if (!threadId) return { error: 'threadId required' };
+    const parsed = ThreadsGetHistoryPayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { error: 'threadId required', history: [] };
+    }
+    const { threadId, limit: rawLimit } = parsed.data;
     try {
       const cp = getDomeCheckpointer();
       const config = { configurable: { thread_id: threadId } };
@@ -117,9 +149,13 @@ function register({ ipcMain, windowManager, validateSender }) {
    * Removes all checkpoints for a given thread_id.
    * Irreversible — used for pruning old threads or resetting agent state.
    */
-  ipcMain.handle('threads:delete', async (event, { threadId } = {}) => {
+  ipcMain.handle('threads:delete', async (event, raw) => {
     if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
-    if (!threadId) return { error: 'threadId required' };
+    const parsed = ThreadIdPayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { error: 'threadId required', deleted: 0 };
+    }
+    const { threadId } = parsed.data;
     try {
       const cp = getDomeCheckpointer();
       const db = cp.db;
@@ -142,10 +178,13 @@ function register({ ipcMain, windowManager, validateSender }) {
    * Injects values into a thread's state — enables time-travel forks.
    * Writes a new checkpoint with the provided values merged into the current state.
    */
-  ipcMain.handle('threads:update-state', async (event, { threadId, values, asNode } = {}) => {
+  ipcMain.handle('threads:update-state', async (event, raw) => {
     if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
-    if (!threadId) return { error: 'threadId required' };
-    if (!values || typeof values !== 'object') return { error: 'values object required' };
+    const parsed = ThreadsUpdateStatePayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { error: 'Invalid payload', success: undefined };
+    }
+    const { threadId, values, asNode } = parsed.data;
     try {
       const cp = getDomeCheckpointer();
       const config = { configurable: { thread_id: threadId } };
