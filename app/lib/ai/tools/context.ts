@@ -150,7 +150,7 @@ export function createProjectListTool(): AnyAgentTool {
  */
 export function createProjectGetTool(): AnyAgentTool {
   return {
-    label: 'Obtener Proyecto',
+    label: 'Get Project',
     name: 'project_get',
     description: 'Get project details by ID.',
     parameters: ProjectGetSchema,

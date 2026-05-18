@@ -63,7 +63,7 @@ export interface ManyAgent {
   systemInstructions: string;
   toolIds: string[];
   mcpServerIds: string[];
-  skillIds: string[];
+  skillIds?: string[];
   iconIndex: number; // 1-18 for agents/sprite_N.png
   /** Set when installed from marketplace; used to sync uninstall state */
   marketplaceId?: string;
@@ -75,6 +75,21 @@ export interface ManyAgent {
   updatedAt: number;
 }
 
+export interface ManyAgentVersion {
+  id: string;
+  agentId: string;
+  versionNumber: number;
+  name: string;
+  description: string;
+  systemInstructions: string;
+  toolIds: string[];
+  mcpServerIds: string[];
+  skillIds: string[];
+  iconIndex: number;
+  changeNote: string | null;
+  createdAt: number;
+}
+
 // Marketplace Agent — community/team-curated agent with authorship
 export interface MarketplaceAgent {
   id: string;
@@ -84,7 +99,7 @@ export interface MarketplaceAgent {
   systemInstructions: string;
   toolIds: string[];
   mcpServerIds: string[];
-  skillIds: string[];
+  skillIds?: string[];
   iconIndex: number;
   author: string;
   authorAvatarUrl?: string;

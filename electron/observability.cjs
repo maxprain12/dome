@@ -1,22 +1,49 @@
 /**
- * Optional Langfuse tracing for LangGraph runs.
+ * Observability for LangGraph runs — supports Langfuse and LangSmith.
  *
- * Activation: set the env vars below before launching the app. If any are
- * missing, `getLangfuseHandler()` returns `null` and tracing is silently a
- * no-op — there is no overhead beyond a one-time check.
- *
+ * Langfuse activation (self-host or cloud):
  *   LANGFUSE_PUBLIC_KEY=pk-...
  *   LANGFUSE_SECRET_KEY=sk-...
- *   LANGFUSE_BASEURL=http://localhost:3000   # self-host or https://cloud.langfuse.com
+ *   LANGFUSE_BASEURL=http://localhost:3000   # or https://cloud.langfuse.com
  *
- * Note: `langfuse-langchain` declares a peer of `langchain >=0.0.157 <0.4.0`
- * but installs cleanly with `--legacy-peer-deps` against our `langchain@1.x`
- * because it only depends on the `@langchain/core` callback contract, which
- * is stable across the 1.x bump.
+ * LangSmith activation (https://smith.langchain.com):
+ *   LANGCHAIN_TRACING_V2=true
+ *   LANGCHAIN_API_KEY=ls__...
+ *   LANGCHAIN_PROJECT=dome               # optional project name
+ *   LANGCHAIN_ENDPOINT=https://api.smith.langchain.com  # optional, defaults to public
+ *
+ * If none are configured, tracing is silently a no-op.
  */
 
 let cachedHandler = undefined; // undefined = not yet probed; null = disabled
+let langSmithEnabled = undefined; // undefined = not yet checked
 
+// ---------------------------------------------------------------------------
+// LangSmith — env-var activation wires up OTEL-compatible tracing via
+// LANGCHAIN_TRACING_V2. No additional callback is needed; LangChain/LangGraph
+// picks up the env vars automatically at first invocation.
+// ---------------------------------------------------------------------------
+function initLangSmith() {
+  if (langSmithEnabled !== undefined) return langSmithEnabled;
+  const tracingEnabled = process.env.LANGCHAIN_TRACING_V2 === 'true';
+  const apiKey = process.env.LANGCHAIN_API_KEY;
+  if (tracingEnabled && apiKey) {
+    langSmithEnabled = true;
+    // Ensure LANGCHAIN_ENDPOINT defaults to public Smith if not set
+    if (!process.env.LANGCHAIN_ENDPOINT) {
+      process.env.LANGCHAIN_ENDPOINT = 'https://api.smith.langchain.com';
+    }
+    const project = process.env.LANGCHAIN_PROJECT || 'dome';
+    console.log(`[Observability] LangSmith tracing enabled → project: ${project}`);
+  } else {
+    langSmithEnabled = false;
+  }
+  return langSmithEnabled;
+}
+
+// ---------------------------------------------------------------------------
+// Langfuse
+// ---------------------------------------------------------------------------
 function getLangfuseHandler() {
   if (cachedHandler !== undefined) return cachedHandler;
 
@@ -54,9 +81,11 @@ function getLangfuseHandler() {
 
 /**
  * Merge Langfuse callbacks into a LangGraph `config`. Existing callbacks (if
- * any) are preserved.
+ * any) are preserved. LangSmith is activated via env vars automatically.
  */
 function withLangfuseCallbacks(config) {
+  // Activate LangSmith on first use (idempotent after first call)
+  initLangSmith();
   const handler = getLangfuseHandler();
   if (!handler) return config;
   const existing = Array.isArray(config?.callbacks) ? config.callbacks : [];
@@ -73,4 +102,9 @@ async function shutdownLangfuse() {
   }
 }
 
-module.exports = { getLangfuseHandler, withLangfuseCallbacks, shutdownLangfuse };
+/** Returns true if any observability backend is active. */
+function isObservabilityEnabled() {
+  return initLangSmith() || !!getLangfuseHandler();
+}
+
+module.exports = { getLangfuseHandler, withLangfuseCallbacks, shutdownLangfuse, isObservabilityEnabled };

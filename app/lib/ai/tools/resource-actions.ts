@@ -83,7 +83,7 @@ const ResourceCreateSchema = Type.Object({
 
 const ResourceUpdateSchema = Type.Object({
   resource_id: Type.String({
-    description: 'The ID of the resource to update.',
+    description: 'Exact resource id from a prior get_library_overview or search result. Never construct or invent this value.',
   }),
   title: Type.Optional(
     Type.String({
@@ -111,7 +111,7 @@ const ResourceUpdateSchema = Type.Object({
 
 const ResourceDeleteSchema = Type.Object({
   resource_id: Type.String({
-    description: 'The ID of the resource to delete.',
+    description: 'Exact resource id from a prior get_library_overview or search result.',
   }),
   confirm: Type.Optional(
     Type.Boolean({
@@ -122,7 +122,7 @@ const ResourceDeleteSchema = Type.Object({
 
 const ResourceMoveToFolderSchema = Type.Object({
   resource_id: Type.String({
-    description: 'The ID of the resource (document, pdf, etc.) to move.',
+    description: 'Exact resource id from a prior get_library_overview or search result.',
   }),
   folder_id: Type.Union([
     Type.String({ description: 'Target folder ID to move the resource into.' }),
@@ -184,9 +184,9 @@ function buildNotebookContentFromCells(
 
 export function createResourceCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear Recurso',
+    label: 'Create Resource',
     name: 'resource_create',
-    description: 'Create a resource. Default type is "note". Types: note (Markdown text), notebook (Python cells), url (webpage), folder (container). Use folder_id to place in a specific folder.',
+    description: 'Create a resource. Default type is "note". Types: note (Markdown text), notebook (Python cells), url (webpage), folder (container). New folders auto-receive a color; pass metadata.color (#hex) to override. Use folder_id to place in a specific folder.',
     parameters: ResourceCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -225,7 +225,7 @@ export function createResourceCreateTool(): AnyAgentTool {
             content = buildNotebookContentFromCells(cells);
           } else if (!content || !content.trim()) {
             content = buildNotebookContentFromCells([
-              { cell_type: 'markdown', source: `# ${title}\n\nEscribe y ejecuta código Python.` },
+              { cell_type: 'markdown', source: `# ${title}\n\nWrite and run Python code.` },
               { cell_type: 'code', source: 'print("Hello from Python!")' },
             ]);
           }
@@ -280,9 +280,9 @@ export function createResourceCreateTool(): AnyAgentTool {
  */
 export function createResourceUpdateTool(): AnyAgentTool {
   return {
-    label: 'Actualizar Recurso',
+    label: 'Update Resource',
     name: 'resource_update',
-    description: 'Update resource title, content, or metadata. For folders: metadata.color (#hex).',
+    description: 'Update resource title, content, or metadata. resource_id must be the exact id from a prior get_library_overview or search — never invent IDs. For folders: metadata.color (#hex).',
     parameters: ResourceUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -342,7 +342,7 @@ export function createResourceUpdateTool(): AnyAgentTool {
  */
 export function createResourceDeleteTool(): AnyAgentTool {
   return {
-    label: 'Eliminar Recurso',
+    label: 'Delete Resource',
     name: 'resource_delete',
     description: 'Delete a resource. Always confirm with user first. Requires confirm=true.',
     parameters: ResourceDeleteSchema,

@@ -193,9 +193,11 @@ function clampLimit(value: number | undefined, defaultVal: number, maxVal: numbe
  */
 export function createResourceSearchTool(): AnyAgentTool {
   return {
-    label: 'Buscar Recursos',
+    label: 'Search resources (FTS)',
     name: 'resource_search',
-    description: 'Search resources by title or content.',
+    description:
+      'Full-text search resources by title or keyword. Use when the user names a specific document, author, or exact phrase. ' +
+      'Prefer resource_hybrid_search for open-ended "find me resources about X" queries.',
     parameters: ResourceSearchSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -256,9 +258,10 @@ export function createResourceSearchTool(): AnyAgentTool {
  */
 export function createResourceGetTool(): AnyAgentTool {
   return {
-    label: 'Obtener Recurso',
+    label: 'Get resource',
     name: 'resource_get',
-    description: 'Get full resource details including content and transcription.',
+    description:
+      'Retrieve the full content of a resource by ID. Use after search tools return an ID, or when the user asks to read, summarize, or analyze a specific document.',
     parameters: ResourceGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -352,7 +355,7 @@ export function createResourceGetTool(): AnyAgentTool {
  */
 export function createResourceGetSectionTool(): AnyAgentTool {
   return {
-    label: 'Obtener fragmento',
+    label: 'Get chunk',
     name: 'resource_get_section',
     description: 'Get full text of one chunk by chunk_id from resource_semantic_search.',
     parameters: ResourceGetSectionSchema,
@@ -401,7 +404,7 @@ export function createResourceGetSectionTool(): AnyAgentTool {
 
 export function createPdfRenderPageTool(): AnyAgentTool {
   return {
-    label: 'Renderizar página PDF',
+    label: 'Render PDF page',
     name: 'pdf_render_page',
     description: 'Render one PDF page as PNG for visual inspection.',
     parameters: PdfRenderPageSchema,
@@ -442,9 +445,10 @@ export function createPdfRenderPageTool(): AnyAgentTool {
  */
 export function createResourceListTool(): AnyAgentTool {
   return {
-    label: 'Listar Recursos',
+    label: 'List resources',
     name: 'resource_list',
-    description: 'List resources filtered by project, folder, or type.',
+    description:
+      'Browse resources by project, folder, or type. Use for browsing/filtering, not for search — no text matching is performed. Pair with resource_get_library_overview to discover folder IDs first.',
     parameters: ResourceListSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -507,10 +511,11 @@ export function createResourceListTool(): AnyAgentTool {
  */
 export function createResourceHybridSearchTool(): AnyAgentTool {
   return {
-    label: 'Búsqueda híbrida',
+    label: 'Hybrid search (default)',
     name: 'resource_hybrid_search',
     description:
-      'Search the user library with reciprocal-rank fusion: full-text, semantic embeddings, and knowledge graph. Use this first when looking for relevant resources.',
+      'Default resource search: combines full-text, semantic embeddings, and knowledge graph via reciprocal-rank fusion. ' +
+      'Use this first whenever the user asks to "find", "search for", or "look up" resources about a topic.',
     parameters: ResourceHybridSearchSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -583,9 +588,11 @@ export function createResourceHybridSearchTool(): AnyAgentTool {
  */
 export function createResourceSemanticSearchTool(): AnyAgentTool {
   return {
-    label: 'Búsqueda Semántica',
+    label: 'Semantic search',
     name: 'resource_semantic_search',
-    description: 'Semantic search by meaning.',
+    description:
+      'Pure vector/embedding search — finds resources by conceptual similarity even when the user uses different words. ' +
+      'Use when the query is abstract or paraphrased. For most searches prefer resource_hybrid_search which also includes keyword matching.',
     parameters: ResourceSemanticSearchSchema,
     execute: async (_toolCallId, args) => {
       try {

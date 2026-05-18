@@ -26,7 +26,6 @@ export function createGraphTools(): AnyAgentTool[] {
     createGenerateKnowledgeGraphTool(),
     createGetRelatedResourcesTool(),
     createResourceLinkTool(),
-    createAnalyzeGraphStructureTool(),
   ];
 }
 
@@ -211,9 +210,9 @@ function createResourceLinkTool(): AnyAgentTool {
     ),
   });
   return {
-    label: 'Create Resource Link',
-    name: 'create_resource_link',
-    description: `Create a manual semantic link between two resources.`,
+    label: 'Link Resources',
+    name: 'link_resources',
+    description: `Create a manual semantic link between two resources in the knowledge graph. Use when the user asks to connect, relate, or link two notes or documents.`,
     parameters,
     execute: async (_toolCallId: string, args: Static<typeof parameters>) => {
       try {

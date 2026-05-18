@@ -6,7 +6,6 @@ const langgraphAgent = require('./langgraph-agent.cjs');
 const { getToolDefinitionsByIds } = require('./tool-dispatcher.cjs');
 const streamingTts = require('./streaming-tts.cjs');
 const { getOpenAIKey } = require('./openai-key.cjs');
-const { appendSkillsToPrompt, filterToolsBySkill } = require('./skill-prompt.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
@@ -22,56 +21,56 @@ const SYSTEM_AGENTS = {
   research: {
     name: 'Research Agent',
     toolIds: ['web_search', 'web_fetch', 'deep_research'],
-    systemPrompt: `Eres un agente investigador experto. Tu misión es buscar, analizar y sintetizar información de calidad.
-- Utiliza búsqueda web para encontrar fuentes actualizadas y relevantes
-- Verifica los datos con múltiples fuentes cuando sea posible
-- Estructura la información de forma clara con secciones, puntos clave y fuentes
-- Sé exhaustivo pero conciso: prioriza calidad sobre cantidad
-- Indica siempre las fuentes utilizadas al final de tu respuesta`,
+    systemPrompt: `You are an expert research agent. Your mission is to find, analyze, and synthesize high-quality information.
+- Use web_search to locate up-to-date and relevant sources
+- Cross-verify facts with multiple sources when possible
+- Structure findings clearly with sections, key points, and citations
+- Be thorough but concise: prioritize quality over quantity
+- Always list the sources used at the end of your response`,
   },
   library: {
     name: 'Library Agent',
     toolIds: ['resource_hybrid_search', 'resource_get', 'resource_get_section', 'resource_list'],
-    systemPrompt: `Eres un agente de biblioteca experto en gestión del conocimiento personal.
-- Usa resource_hybrid_search para encontrar documentos (combina texto, significado y grafo); luego resource_get o resource_get_section según necesites
-- Analiza y conecta conceptos entre diferentes recursos de la biblioteca
-- Extrae ideas clave, citas importantes y patrones de los documentos
-- Sugiere conexiones entre materiales relacionados
-- Presenta la información de forma estructurada citando los recursos específicos usados`,
+    systemPrompt: `You are a library agent expert in personal knowledge management.
+- Use resource_hybrid_search to find documents (combines text, semantics, and graph); then resource_get or resource_get_section as needed
+- Analyze and connect concepts across different library resources
+- Extract key ideas, important quotes, and patterns from documents
+- Suggest connections between related materials
+- Present information in a structured way, citing the specific resources used`,
   },
   writer: {
     name: 'Writer Agent',
     toolIds: ['resource_create', 'resource_update', 'docx_create', 'docx_update'],
-    systemPrompt: `Eres un agente escritor experto en creación de contenido estructurado y de alta calidad.
-- Redacta textos claros, coherentes y bien estructurados
-- Adapta el tono y estilo según el contexto
-- Usa markdown para formatear el texto con encabezados, listas y énfasis
-- Produce contenido listo para publicar o usar directamente`,
+    systemPrompt: `You are an expert writer agent specializing in creating clear, structured, high-quality content.
+- Write clear, coherent, well-organized text
+- Adapt tone and style to the context (academic, technical, creative, conversational)
+- Use markdown for formatting: headings, lists, and emphasis
+- Produce content that is ready to publish or use directly`,
   },
   data: {
     name: 'Data Agent',
     toolIds: ['excel_get', 'excel_set_cell', 'excel_set_range', 'excel_add_row', 'resource_get', 'resource_list'],
-    systemPrompt: `Eres un agente de análisis de datos experto en procesamiento y visualización de información estructurada.
-- Analiza datos numéricos, tablas y registros con precisión
-- Identifica tendencias, patrones y anomalías en los datos
-- Presenta los resultados con tablas markdown bien formateadas
-- Sugiere insights accionables basados en los datos analizados`,
+    systemPrompt: `You are a data analysis agent expert in processing and visualizing structured information.
+- Analyze numeric data, tables, and records with precision
+- Identify trends, patterns, and anomalies in data
+- Present results using well-formatted markdown tables
+- Suggest actionable insights based on the data analyzed`,
   },
   presenter: {
     name: 'Presenter Agent',
     toolIds: ['ppt_create', 'ppt_get_slides', 'resource_create', 'screen_understand'],
-    systemPrompt: `Eres un agente especializado en transformar información en materiales visuales de alta calidad.
-- Crea presentaciones claras y estructuradas
-- Adapta el tono visual y narrativo al tipo de audiencia
-- Guarda los artefactos generados como recursos cuando sea útil`,
+    systemPrompt: `You are an agent specialized in transforming information into high-quality visual materials.
+- Create clear, structured presentations
+- Adapt visual style and narrative to the target audience
+- Save generated artifacts as resources when useful`,
   },
   curator: {
     name: 'Curator Agent',
     toolIds: ['get_related_resources', 'resource_hybrid_search', 'resource_list', 'flashcard_create', 'resource_create'],
-    systemPrompt: `Eres un agente curador experto en organización del conocimiento.
-- Identifica relaciones entre recursos y conceptos
-- Sugiere conexiones relevantes
-- Genera resúmenes claros y accionables`,
+    systemPrompt: `You are a curator agent expert in knowledge organization.
+- Identify relationships between resources and concepts
+- Suggest relevant connections
+- Generate clear, actionable summaries`,
   },
 };
 
@@ -986,6 +985,8 @@ function createRunChunkEmitter(runId, context) {
             actionRequests: data.actionRequests,
             reviewConfigs,
           },
+          // Persist so resumeRun can reconstruct agent config after app restart
+          resumeOpts: context.langGraphResumeOpts ?? null,
         },
         lastHeartbeatAt: heartbeat,
       });
@@ -1140,7 +1141,10 @@ async function executeLangGraphRun(runId, params) {
 
 async function startLangGraphRun(params) {
   const providerConfig = await getProviderConfig(params.provider, params.model);
-  const threadId = params.threadId || `run_${params.ownerType}_${now()}`;
+  // Anchor thread_id to session_id when available so checkpoint history and
+  // chat messages are correlated. Automations without a session get a unique run ID.
+  const threadId = params.threadId
+    || (params.sessionId ? `session_${params.sessionId}` : `run_${params.ownerType}_${now()}`);
   const run = createRun({
     automationId: params.automationId ?? null,
     projectId: params.projectId ?? 'default',
@@ -1243,14 +1247,16 @@ async function resumeRun(runId, decisions) {
     },
   });
   try {
-    const lgOpts = context.langGraphResumeOpts ?? {
-      toolDefinitions: [],
-      useDirectTools: false,
-      mcpServerIds: undefined,
-      subagentIds: undefined,
-      skipHitl: false,
-      runtimeContext: null,
-    };
+    const lgOpts = context.langGraphResumeOpts
+      ?? run.metadata?.resumeOpts
+      ?? {
+        toolDefinitions: [],
+        useDirectTools: false,
+        mcpServerIds: undefined,
+        subagentIds: undefined,
+        skipHitl: false,
+        runtimeContext: null,
+      };
     await langgraphAgent.resumeLangGraphAgent({
       provider: providerConfig.provider,
       model: providerConfig.model,
@@ -1350,7 +1356,6 @@ async function executeWorkflowRun(runId, params, workflow) {
   if (!context) return;
   const run = getRun(runId);
   const nodeOutputs = {};
-  const resolvedPayloads = {};
   const completedNodeIds = new Set(
     Array.isArray(run?.metadata?.progress?.completedNodeIds) ? run.metadata.progress.completedNodeIds : [],
   );
@@ -1380,26 +1385,54 @@ async function executeWorkflowRun(runId, params, workflow) {
     },
   });
   try {
-    const levels = topologicalLevels(workflow.nodes || [], workflow.edges || []);
-    for (const level of levels) {
-      await Promise.all(level.map(async (node) => {
+    const { StateGraph, START, END, Annotation } = require('@langchain/langgraph');
+    const WorkflowState = Annotation.Root({
+      payloads: Annotation({ reducer: (a, b) => ({ ...a, ...b }), default: () => ({}) }),
+    });
+    const wfGraph = new StateGraph(WorkflowState);
+    const wfNodes = workflow.nodes || [];
+    const wfEdges = workflow.edges || [];
+
+    // Retry policy: up to 2 retries with exponential back-off for transient errors
+    const wfRetryPolicy = {
+      maxAttempts: 3,
+      initialInterval: 500,
+      backoffFactor: 2,
+      jitter: 0.1,
+      retryOn: (err) => {
+        const msg = String(err?.message ?? '').toLowerCase();
+        return (
+          msg.includes('rate limit') ||
+          msg.includes('timeout') ||
+          msg.includes('network') ||
+          msg.includes('econnreset') ||
+          msg.includes('socket hang up')
+        );
+      },
+    };
+
+    for (const node of wfNodes) {
+      wfGraph.addNode(node.id, async (state) => {
         const data = node.data ?? {};
         if (data.type === 'text-input' || data.type === 'document' || data.type === 'image') {
-          resolvedPayloads[node.id] = resolveStaticNodeOutput(node);
+          const output = resolveStaticNodeOutput(node);
           appendRunStep({
             runId,
             stepType: 'workflow_node',
             title: data.label || node.id,
             status: 'done',
-            content: resolvedPayloads[node.id].text.slice(0, 4000),
+            content: output.text.slice(0, 4000),
             metadata: { nodeId: node.id, nodeType: data.type },
           });
           syncWorkflowProgress(node.id);
-          return;
+          return { payloads: { [node.id]: output } };
         }
         if (data.type === 'output') {
-          const payload = mergePayloads(getInputPayloads(node.id, workflow.edges || [], resolvedPayloads));
-          resolvedPayloads[node.id] = payload;
+          const inputPayloads = wfEdges
+            .filter((e) => e.target === node.id)
+            .map((e) => state.payloads[e.source])
+            .filter(Boolean);
+          const payload = mergePayloads(inputPayloads.length ? inputPayloads : [{ kind: 'text', text: '' }]);
           nodeOutputs[node.id] = payload;
           finalOutput = payload.text || finalOutput;
           patchRun(runId, { outputText: finalOutput });
@@ -1412,7 +1445,7 @@ async function executeWorkflowRun(runId, params, workflow) {
             metadata: { nodeId: node.id },
           });
           syncWorkflowProgress(node.id);
-          return;
+          return { payloads: { [node.id]: payload } };
         }
         if (data.type === 'agent') {
           const agentDef = resolveWorkflowAgent(data, workflow.projectId ?? 'default');
@@ -1425,25 +1458,25 @@ async function executeWorkflowRun(runId, params, workflow) {
               content: 'Agente no configurado',
               metadata: { nodeId: node.id },
             });
-            resolvedPayloads[node.id] = { kind: 'text', text: '' };
             syncWorkflowProgress(node.id);
-            return;
+            return { payloads: { [node.id]: { kind: 'text', text: '' } } };
           }
-          const inputPayload = mergePayloads(getInputPayloads(node.id, workflow.edges || [], resolvedPayloads));
+          const inputPayloads = wfEdges
+            .filter((e) => e.target === node.id)
+            .map((e) => state.payloads[e.source])
+            .filter(Boolean);
+          const inputPayload = mergePayloads(inputPayloads.length ? inputPayloads : [{ kind: 'text', text: '' }]);
           const userPrompt = [
             params.inputTemplate?.prompt ? String(params.inputTemplate.prompt) : null,
             inputPayload.text || '',
           ].filter(Boolean).join('\n\n');
-          const rawToolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
-          const toolDefinitions = filterToolsBySkill(agentDef.skillIds, rawToolDefinitions);
+          const toolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
           const mcpServerIds = Array.isArray(agentDef.mcpServerIds)
             ? agentDef.mcpServerIds
             : (Array.isArray(params.inputTemplate?.mcpServerIds) ? params.inputTemplate.mcpServerIds : []);
-          const providerConfig = workflowProviderConfig;
-          const nodeContext = {
+          const nodeCtx = {
             fullResponse: '',
             fullThinking: '',
-            toolCalls: [],
             toolStepIds: new Map(),
             toolSteps: new Map(),
             threadId: `${runId}_${node.id}`,
@@ -1455,33 +1488,28 @@ async function executeWorkflowRun(runId, params, workflow) {
             status: 'running',
             metadata: { nodeId: node.id, agentId: data.agentId ?? null, systemAgentRole: data.systemAgentRole ?? null },
           });
-          const systemWithSkills = appendSkillsToPrompt(
-            agentDef.systemPrompt || '',
-            agentDef.skillIds,
-            getQueries(),
-          );
           await langgraphAgent.invokeLangGraphAgent({
-            provider: providerConfig.provider,
-            model: providerConfig.model,
-            apiKey: providerConfig.apiKey,
-            baseUrl: providerConfig.baseUrl,
+            provider: workflowProviderConfig.provider,
+            model: workflowProviderConfig.model,
+            apiKey: workflowProviderConfig.apiKey,
+            baseUrl: workflowProviderConfig.baseUrl,
             messages: [
-              { role: 'system', content: systemWithSkills },
+              { role: 'system', content: `Respond in the same language the user uses.\n\n${agentDef.systemPrompt || ''}` },
               { role: 'user', content: userPrompt },
             ],
             toolDefinitions,
             useDirectTools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
             mcpServerIds,
             signal: context.controller.signal,
-            threadId: nodeContext.threadId,
+            threadId: nodeCtx.threadId,
             skipHitl: true,
             automationProjectId: workflow.projectId ?? 'default',
             onChunk: (chunk) => {
               if (chunk.type === 'text' && chunk.text) {
-                nodeContext.fullResponse += chunk.text;
+                nodeCtx.fullResponse += chunk.text;
                 patchRun(runId, { lastHeartbeatAt: now() });
               } else if (chunk.type === 'thinking' && chunk.text) {
-                nodeContext.fullThinking += chunk.text;
+                nodeCtx.fullThinking += chunk.text;
               } else if (chunk.type === 'usage' && chunk.usage) {
                 workflowLlmUsage = mergeLlmUsage(workflowLlmUsage, chunk.usage);
               } else if (chunk.type === 'tool_call' && chunk.toolCall) {
@@ -1497,19 +1525,19 @@ async function executeWorkflowRun(runId, params, workflow) {
                     arguments: parseToolArguments(chunk.toolCall.arguments),
                   },
                 });
-                nodeContext.toolStepIds.set(chunk.toolCall.id, step.id);
-                nodeContext.toolSteps.set(chunk.toolCall.id, step);
+                nodeCtx.toolStepIds.set(chunk.toolCall.id, step.id);
+                nodeCtx.toolSteps.set(chunk.toolCall.id, step);
                 patchRun(runId, { lastHeartbeatAt: now() });
               } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
-                const stepId = nodeContext.toolStepIds.get(chunk.toolCallId);
+                const stepId = nodeCtx.toolStepIds.get(chunk.toolCallId);
                 if (stepId) {
-                  const existingStep = nodeContext.toolSteps.get(chunk.toolCallId) ?? null;
+                  const existingStep = nodeCtx.toolSteps.get(chunk.toolCallId) ?? null;
                   const nextStep = updateRunStep(
                     stepId,
                     getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }),
                     existingStep,
                   );
-                  if (nextStep) nodeContext.toolSteps.set(chunk.toolCallId, nextStep);
+                  if (nextStep) nodeCtx.toolSteps.set(chunk.toolCallId, nextStep);
                 }
                 patchRun(runId, { lastHeartbeatAt: now() });
               }
@@ -1517,20 +1545,38 @@ async function executeWorkflowRun(runId, params, workflow) {
           });
           updateRunStep(nodeStep.id, {
             status: 'done',
-            content: nodeContext.fullResponse.slice(0, 8000),
-            metadata: { nodeId: node.id, thinking: nodeContext.fullThinking },
+            content: nodeCtx.fullResponse.slice(0, 8000),
+            metadata: { nodeId: node.id, thinking: nodeCtx.fullThinking },
           }, nodeStep);
           syncWorkflowProgress(node.id);
           const outputPayload = {
             kind: inputPayload.resources?.length ? 'bundle' : 'text',
-            text: nodeContext.fullResponse,
+            text: nodeCtx.fullResponse,
             resources: inputPayload.resources,
           };
-          resolvedPayloads[node.id] = outputPayload;
           nodeOutputs[node.id] = outputPayload;
+          return { payloads: { [node.id]: outputPayload } };
         }
-      }));
+        // Unknown node type — pass through
+        return { payloads: { [node.id]: { kind: 'text', text: '' } } };
+      }, { retryPolicy: wfRetryPolicy });
     }
+
+    // Wire edges: START → entry nodes, workflow edges, terminal nodes → END
+    const hasIncoming = new Set(wfEdges.map((e) => e.target));
+    const hasOutgoing = new Set(wfEdges.map((e) => e.source));
+    for (const node of wfNodes) {
+      if (!hasIncoming.has(node.id)) wfGraph.addEdge(START, node.id);
+      if (!hasOutgoing.has(node.id)) wfGraph.addEdge(node.id, END);
+    }
+    for (const edge of wfEdges) {
+      wfGraph.addEdge(edge.source, edge.target);
+    }
+
+    const { getDomeCheckpointer } = require('./checkpointer.cjs');
+    const compiled = wfGraph.compile({ checkpointer: getDomeCheckpointer() });
+    await compiled.invoke({}, { configurable: { thread_id: `wf_${runId}` } });
+
     let createdNote = null;
     const outputMode = params.outputMode || 'chat_only';
     if ((outputMode === 'note' || outputMode === 'mixed') && finalOutput.trim()) {
@@ -1706,6 +1752,12 @@ async function startAutomationNow(automationId) {
   const toolDefinitions = Array.isArray(toolIds) && toolIds.length > 0
     ? getToolDefinitionsByIds(toolIds)
     : [];
+  // Persistent thread per automation: schedule-based automations accumulate
+  // context across runs. The thread lives in the SqliteSaver checkpointer so
+  // the agent remembers previous outputs. Set persistThread: false in
+  // inputTemplate to generate a fresh thread per run.
+  const persistThread = automation.inputTemplate?.persistThread !== false;
+  const automationThreadId = persistThread ? `automation_${automation.id}` : undefined;
   const run = await startLangGraphRun({
     automationId: automation.id,
     projectId: automation.projectId ?? 'default',
@@ -1714,6 +1766,7 @@ async function startAutomationNow(automationId) {
     title,
     messages: [{ role: 'user', content: String(targetLabel || title) }],
     toolDefinitions,
+    threadId: automationThreadId,
     mcpServerIds: Array.isArray(automation.inputTemplate?.mcpServerIds) ? automation.inputTemplate.mcpServerIds : [],
     subagentIds: Array.isArray(automation.inputTemplate?.subagentIds) ? automation.inputTemplate.subagentIds : [],
     skipHitl: true,
@@ -1843,6 +1896,9 @@ function recoverStuckRuns() {
     const db = _database.getDB();
     const ts = now();
     const staleCutoff = ts - RUN_RECOVERY_STALE_MS;
+    // Only fail runs that were actively executing (running) and missed heartbeat.
+    // Leave waiting_approval runs intact — they have a valid checkpoint and can
+    // be resumed by the user even after a restart (resumeOpts is persisted in metadata).
     db.prepare(`
       UPDATE automation_runs
       SET status = 'failed',

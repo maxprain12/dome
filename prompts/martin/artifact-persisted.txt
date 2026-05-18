@@ -6,7 +6,16 @@ Use this companion to `artifacts.txt` whenever you mutate **Kind B — library**
 
 ## Lifecycle
 
-1. **Design (optional)** — For tabbed dossiers, call `artifact_design` **before** `artifact_create`. It returns `html` plus `data` with at least `activeTab` and `layoutKind: "dome-design-v1"`. Tab clicks call `__dome_updateState` and persist `activeTab`.
+> **Title is auto-derived** — `title` is OPTIONAL in `artifact_create`. If omitted, Dome falls back to: HTML `<title>` tag → `artifact_type` → `'Untitled Artifact'`. Pass it explicitly only when you want a specific display name.
+
+1. **Design (MANDATORY — never skip)** — Before every `artifact_create`, call `dome_load_doc('artifact_design')` (if not already loaded this session) and choose one of the two design paths:
+
+   | Artifact kind | Design path |
+   |---|---|
+   | **Structured / read-heavy** (reports, KPI summaries, research digests, timelines, model cards, multi-section references) | Call `artifact_design` **tool** with a `spec` → get Dome-themed HTML + seed `data` → pass both into `artifact_create`. |
+   | **Interactive / stateful** (tables with filters, Kanban boards, forms, charts, dashboards with user edits) | Load the design doc for CSS variable tokens + SVG icon rules, then write **custom HTML** that reads `window.DOME_DATA` and calls `__dome_updateState` → pass into `artifact_create`. |
+
+   In both cases: use **only** injected CSS variables (`--bg`, `--accent`, `--primary-text`, `--border`, etc.), inline SVG icons (Lucide style, no emoji/pictographs), and no remote assets / `localStorage`.
 2. **Create** via `artifact_create` with `{ title, artifactType, state: { html, data? }, linkedResourceId?, projectId?, folderId? }` (optional legacy `template` column is separate from `state.html` in the DB layer).
 3. **Read** via `artifact_get` / list via Many’s hub or `artifact_list`.
 4. **Mutate** — inside the iframe call `__dome_updateState` for user-driven edits; from the agent use `artifact_merge_data` (shallow patch to `state.data` only), `artifact_update_state` (replace/merge `html` and/or `data`), or bind Excel with `artifact_link_resource` for read-only grids in `linkedData`.
@@ -23,6 +32,13 @@ Use this companion to `artifacts.txt` whenever you mutate **Kind B — library**
 | Datos siempre frescos desde un Excel vinculado | `artifact_link_resource` y render desde `linkedData` (solo lectura desde el modelo) |
 
 **Ejemplos:** lista de compras con checkboxes → `data.items[]`. KPI estático “Resumen mensual” como label → HTML. Importar 200 filas de `excel_get` → `artifact_merge_data({ rows: [...] })`. Tablero que solo muestra la hoja vinculada → `linkedData`, sin duplicar en `data` salvo overrides del usuario.
+
+**Pattern: Excel → artifact (preferred)**
+1. `excel_get(resource_id)` for each relevant sheet to understand schema + extract KPIs.
+2. `artifact_create({ artifact_type: 'custom', html: <compact HTML that reads window.DOME_DATA.rows>, data: { rows: [...firstSheet.slice(0,50)] } })` — HTML renders rows dynamically from `DOME_DATA`; do NOT inline thousands of rows as static strings.
+3. `artifact_link_resource(artifactResourceId, excelResourceId)` — Dome will populate `state.linkedData` on every open so changes to the Excel propagate automatically.
+4. For user-driven filters/notes: persist via `__dome_updateState({ ...window.DOME_DATA, filter: 'foo' })` inside the iframe.
+**NEVER** paste megatable strings into the HTML — bloats the template, slows re-renders, and exhausts model output budgets.
 
 ---
 

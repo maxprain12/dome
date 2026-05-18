@@ -14,6 +14,7 @@ import type {
   DomeAgentFolder,
   DomeWorkflowFolder,
   ManyAgent,
+  ManyAgentVersion,
   MCPServerConfig,
   Resource,
 } from '@/types';
@@ -385,6 +386,22 @@ class DatabaseClient {
     }
   }
 
+  async listAgentVersions(agentId: string): Promise<DBResponse<ManyAgentVersion[]>> {
+    try {
+      return await window.electron.invoke('db:manyAgents:listVersions', agentId) as Promise<DBResponse<ManyAgentVersion[]>>;
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
+  async restoreAgentVersion(agentId: string, versionId: string): Promise<DBResponse<ManyAgent>> {
+    try {
+      return await window.electron.invoke('db:manyAgents:restoreVersion', agentId, versionId) as Promise<DBResponse<ManyAgent>>;
+    } catch (e: unknown) {
+      return { success: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  }
+
   async listAgentFolders(projectId = 'default'): Promise<DBResponse<DomeAgentFolder[]>> {
     try {
       return await window.electron.invoke('db:agentFolders:list', projectId) as Promise<DBResponse<DomeAgentFolder[]>>;
@@ -562,7 +579,7 @@ class DatabaseClient {
       if (typeof window === 'undefined' || !window.electron?.invoke) {
         return { success: true, data: [] };
       }
-      const res = await listSkills({ includeBody: true });
+      const res = await listSkills();
       if (!res.success || !res.data) {
         return { success: false, error: res.error || 'Failed to list skills' };
       }
@@ -570,8 +587,8 @@ class DatabaseClient {
         id: s.id,
         name: s.name,
         description: s.description,
-        prompt: (s.body ?? '').trim(),
-        enabled: s.disable_model_invocation ? false : true,
+        prompt: '',
+        enabled: true,
       }));
       return { success: true, data };
     } catch (e: unknown) {
@@ -579,22 +596,8 @@ class DatabaseClient {
     }
   }
 
-  async replaceAISkills(skills: AISkillRecord[]): Promise<DBResponse<void>> {
-    try {
-      if (typeof window === 'undefined' || !window.electron?.invoke) {
-        return { success: false, error: 'Not in Electron' };
-      }
-      const result = (await window.electron.invoke('skills:importLegacy', skills)) as {
-        success: boolean;
-        error?: string;
-      };
-      if (result.success) {
-        return { success: true, data: undefined };
-      }
-      return { success: false, error: result.error || 'Import failed' };
-    } catch (e: unknown) {
-      return { success: false, error: e instanceof Error ? e.message : String(e) };
-    }
+  async replaceAISkills(_skills: AISkillRecord[]): Promise<DBResponse<void>> {
+    return { success: true, data: undefined };
   }
 
   async getMarketplaceAgentInstalls(): Promise<DBResponse<Record<string, MarketplaceAgentInstallRecord>>> {

@@ -143,18 +143,18 @@ function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const res = await listSkills({ includeBody: true });
+      const res = await listSkills();
       if (cancelled || !res.success || !Array.isArray(res.data)) {
         if (!cancelled) setSkills([]);
         return;
       }
       const rows = res.data
-        .filter((s) => s.user_invocable !== false && !!String(s.body ?? '').trim())
+        .filter((s) => !!s.id)
         .map((s) => ({
           id: String(s.id),
           name: String(s.name),
           description: String(s.description),
-          prompt: String(s.body ?? ''),
+          prompt: '',
         }));
       if (!cancelled) setSkills(rows);
     })();

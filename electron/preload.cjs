@@ -195,6 +195,8 @@ const ALLOWED_CHANNELS = {
     'db:manyAgents:create',
     'db:manyAgents:update',
     'db:manyAgents:delete',
+    'db:manyAgents:listVersions',
+    'db:manyAgents:restoreVersion',
     'db:agentFolders:list',
     'db:agentFolders:create',
     'db:agentFolders:update',
@@ -215,22 +217,9 @@ const ALLOWED_CHANNELS = {
     'db:mcp:replaceAll',
     'db:mcp:getGlobalEnabled',
     'db:mcp:setGlobalEnabled',
-    'db:skills:list',
-    'db:skills:replaceAll',
     'skills:list',
-    'skills:get',
-    'skills:render',
-    'skills:invoke',
-    'skills:reload',
     'skills:openFolder',
-    'skills:openPersonalRoot',
-    'skills:setProjectRoot',
-    'skills:getProjectRoot',
-    'skills:save',
-    'skills:create',
-    'skills:readFile',
-    'skills:installFromManifest',
-    'skills:importLegacy',
+    'skills:installBundled',
     'db:marketplace:getAgentInstalls',
     'db:marketplace:replaceAgentInstalls',
     'db:marketplace:getWorkflowInstalls',
@@ -513,6 +502,12 @@ const ALLOWED_CHANNELS = {
     'shell:file:search',
     // In-app approval (HITL — renderer responds to main's request)
     'approval:respond',
+    // LangGraph thread lifecycle (time-travel, HITL inspection, pruning)
+    'threads:list',
+    'threads:get-state',
+    'threads:get-history',
+    'threads:delete',
+    'threads:update-state',
     // Dome MCP server management
     'dome-mcp:start',
     'dome-mcp:stop',
@@ -597,7 +592,6 @@ const ALLOWED_CHANNELS = {
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
     'dome:open-singleton-tab',
-    'skills:updated',
     // UI cursor actions (dispatched from main process when Many uses LangGraph ui_* tools)
     'dome:ui-action',
     // Artifact events
@@ -1690,6 +1684,23 @@ const electronHandler = {
       ipcRenderer.on('approval:requested', handler);
       return () => ipcRenderer.removeListener('approval:requested', handler);
     },
+  },
+
+  // ============================================
+  // THREADS — LangGraph thread lifecycle (time-travel, HITL inspection)
+  // ============================================
+  threads: {
+    /** List all threads with checkpoint metadata. */
+    list: (opts) => ipcRenderer.invoke('threads:list', opts ?? {}),
+    /** Get the current state for a thread_id. */
+    getState: (threadId) => ipcRenderer.invoke('threads:get-state', { threadId }),
+    /** Get the full checkpoint history for a thread_id (time-travel). */
+    getHistory: (threadId, limit) => ipcRenderer.invoke('threads:get-history', { threadId, limit }),
+    /** Delete all checkpoints for a thread_id. */
+    delete: (threadId) => ipcRenderer.invoke('threads:delete', { threadId }),
+    /** Inject values into a thread's state (time-travel fork). */
+    updateState: (threadId, values, asNode) =>
+      ipcRenderer.invoke('threads:update-state', { threadId, values, asNode }),
   },
 
   // ============================================

@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "2.1.7",
+  "version": "2.1.8",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -38,7 +38,6 @@
     "generate-icons": "tsx scripts/generate-icons.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.91.1",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

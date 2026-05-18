@@ -94,6 +94,11 @@ const FOLDER_COLOR_OPTIONS = [
   { label: 'Cian',     value: '#06b6d4' },
 ];
 
+const FOLDER_AUTO_PALETTE = FOLDER_COLOR_OPTIONS.map((o) => o.value);
+function pickFolderColor(): string {
+  return FOLDER_AUTO_PALETTE[Math.floor(Math.random() * FOLDER_AUTO_PALETTE.length)];
+}
+
 const NAMED_FOLDER_COLORS: Record<string, string> = {
   blue: '#5B9BD5', purple: '#8B7EC8', green: '#5BA85A',
   yellow: '#D4A843', red: '#D05C5C', orange: '#D47B3F',
@@ -897,6 +902,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
       title: name,
       folder_id: parentId,
       project_id: (resources[0]?.project_id) || 'default',
+      metadata: { color: pickFolderColor() },
       created_at: now,
       updated_at: now,
     });
@@ -1516,6 +1522,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       title: name,
       folder_id: null,
       project_id: getDefaultProjectId(),
+      metadata: { color: pickFolderColor() },
       created_at: now,
       updated_at: now,
     });
@@ -1574,7 +1581,31 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const onDeleted = () => { void fetchResources({ silent: true }); };
     const onProjectCreated = () => { void fetchProjects(); };
     const u1 = window.electron.on('resource:created', onCreated);
-    const u2 = window.electron.on('resource:updated', scheduleDebouncedSilentRefetch);
+    const onUpdated = (payload: unknown) => {
+      // Immediately apply metadata / title changes so folder colors refresh without waiting for the debounced refetch
+      const p = payload as { id?: string; updates?: Record<string, unknown> };
+      if (p?.id && p?.updates) {
+        setResources((prev) =>
+          prev.map((r) => {
+            if (r.id !== p.id) return r;
+            const updates = p.updates!;
+            const merged: Resource = { ...r, ...(updates as Partial<Resource>) };
+            const rawMeta = updates.metadata;
+            if (rawMeta != null) {
+              const existingMeta = parseMeta(r);
+              const incomingMeta: Record<string, unknown> =
+                typeof rawMeta === 'string'
+                  ? (() => { try { return JSON.parse(rawMeta) as Record<string, unknown>; } catch { return {}; } })()
+                  : typeof rawMeta === 'object' ? (rawMeta as Record<string, unknown>) : {};
+              merged.metadata = { ...existingMeta, ...incomingMeta };
+            }
+            return merged;
+          })
+        );
+      }
+      scheduleDebouncedSilentRefetch();
+    };
+    const u2 = window.electron.on('resource:updated', onUpdated);
     const u3 = window.electron.on('resource:deleted', onDeleted);
     const u4 = window.electron.on('project:created', onProjectCreated);
     const onProjectDeleted = (payload: { id?: string }) => {

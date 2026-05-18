@@ -127,7 +127,7 @@ dome/
 │   ├── database.cjs            # SQLite operations (better-sqlite3)
 │   ├── ipc/                    # IPC handlers organized by domain (~35 files)
 │   ├── window-manager.cjs      # Multi-window management
-│   ├── ai-cloud-service.cjs    # Cloud AI providers (OpenAI, Anthropic, Google)
+│   ├── llm-service.cjs         # Unified LLM service (chat/stream via LangChain models)
 │   ├── langgraph-agent.cjs     # LangGraph agent execution
 │   ├── ai-tools-handler.cjs    # AI tool execution (web search, memory, etc.)
 │   ├── ollama-service.cjs      # Local Ollama integration
@@ -203,14 +203,18 @@ windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/
 
 ### AI Integration
 
-Multi-provider client with unified interface. Provider adapters in `app/lib/ai/providers/`. Tools defined in `app/lib/ai/tools/`. Heavy AI work (LangGraph agents, web search, MCP tool calls) runs in the main process via IPC.
+**All AI paths go through LangGraph/LangChain** — no custom HTTP clients to LLM providers exist. This includes Many, agent chat, agent-team, workflows, automations, editor-ai, vision, OCR, and auto-metadata.
+
+- **Agent runs**: `electron/langgraph-agent.cjs` — `invokeLangGraphAgent()` with `createAgent()` + middleware chain (summarization, HITL, `createSkillsMiddleware`, filesystem, trim).
+- **Plain LLM calls** (vision, OCR, editor-ai): `electron/llm-service.cjs` — `chat()/stream()` backed by `createModelFromConfig()` (ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI / ChatOllama).
+- **Workflows**: `electron/run-engine.cjs` — `executeWorkflowRun()` builds a `StateGraph` dynamically from workflow nodes/edges; each agent node calls `invokeLangGraphAgent`.
+- **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/ai-tools-handler.cjs`.
+- **Skills**: `~/.dome/skills/<id>/SKILL.md` — injected via `deepagents.createSkillsMiddleware` in `electron/langgraph-agent.cjs`, `run-engine.cjs`, and `ipc/agent-team.cjs`. Bundled skills are seeded on first boot by `electron/skills-bootstrap.cjs`.
 
 ```typescript
-// Renderer - use the unified AI client
-import { createAIClient } from '@/lib/ai/client';
-
-// Main process - LangGraph agent workflows
-// electron/langgraph-agent.cjs uses @langchain/langgraph
+// Renderer - AI calls go through IPC
+const result = await window.electron.invoke('ai:chat', { provider, model, messages });
+// or via runs IPC for full agent runs with tools
 ```
 
 ### PPT Slide Extraction
@@ -309,12 +313,13 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 
 ## File-based skills (Claude / Agent Skills)
 
-- **User**: `~/.dome/skills/<id>/SKILL.md` (personal, highest priority)
-- **Project (optional)**: Set *Project skills root* in **Settings > Skills**; skills load from `<root>/.dome/skills/`
-- **Bundled**: `electron/skills/bundled/<id>/SKILL.md`
-- **Plugins**: `userData/plugins/<pluginId>/skills/...` (id = `pluginId:folderName`)
-- Main process watches these paths; the UI can call `load_skill` / `load_skill_file` tools in Many. YAML frontmatter matches Agent Skills (name, description, `disable-model-invocation`, `paths`, `context`, etc.).
-- **Limitations (current)**: `allowed-tools` is stored but not auto-merged into the LangGraph tool policy; `context: fork` skills are rejected by `load_skill` (use `/skill` or the + menu instead of expecting a subagent fork).
+Skills are **SKILL.md** files managed by `deepagents.createSkillsMiddleware`. Every agent (Many, agent-chat, agent-team, workflow nodes) automatically has access to all skills in the user directory.
+
+- **User dir**: `~/.dome/skills/<id>/SKILL.md` — personal skills (highest priority)
+- **Bundled**: `electron/skills/bundled/<id>/SKILL.md` — copied to user dir on first boot by `electron/skills-bootstrap.cjs` (idempotent, guarded by `skills_bundled_seeded_v2` setting)
+- **IPC**: `skills:list` (returns name/description/path), `skills:openFolder` (opens user dir in Finder/Explorer)
+- **Injection**: `deepagents.createSkillsMiddleware` injects skill names+descriptions into the system prompt on every agent invocation. The model requests the full body via a native tool if needed.
+- **No per-agent selection**: all skills in the user dir are available to every agent. `skillIds` on agent records is vestigial.
 
 ## Additional Documentation
 

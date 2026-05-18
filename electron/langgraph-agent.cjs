@@ -15,7 +15,7 @@
  * DOME_LANGGRAPH_SUMMARIZATION=0), trim-by-token middleware, tool-result caps
  * (electron/tool-result-cap.cjs), typed runtimeContext (agent-runtime-context.cjs),
  * optional workspace AGENTS.md injected via project-memory.cjs, and truncated
- * file-skill bodies in skill-prompt.cjs.
+ * file-based skills via deepagents createSkillsMiddleware.
  *
  * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
  * human approval. Uses a durable SqliteSaver checkpointer so pending
@@ -37,11 +37,14 @@ const { createAsyncSubagentTools } = require('./async-subagents.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
 const database = require('./database.cjs');
 const { getDomeCheckpointer } = require('./checkpointer.cjs');
+const { getDomeStore } = require('./agent-store.cjs');
 const { withLangfuseCallbacks } = require('./observability.cjs');
 const { measurePrompt } = require('./prompt-budget.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const projectMemory = require('./project-memory.cjs');
-const skillRegistry = require('./skills/registry.cjs');
+const { buildSkillsMiddleware } = require('./skills/index.cjs');
+const { buildGuardrailsMiddleware } = require('./guardrails.cjs');
+const { DOME_LOAD_DOC_DESCRIPTION } = require('./prompt-sections.cjs');
 const { capToolResultString } = require('./tool-result-cap.cjs');
 
 function pickTokenNumber(obj, keys) {
@@ -122,6 +125,9 @@ const STREAM_MODES_BASE = ['messages', 'updates', 'custom'];
 
 function streamModesForRun() {
   const modes = [...STREAM_MODES_BASE];
+  // 'values' mode emits the full state snapshot on every step — useful for
+  // time-travel and debugging. Enable with DOME_LANGGRAPH_STREAM_VALUES=1.
+  if (process.env.DOME_LANGGRAPH_STREAM_VALUES === '1') modes.push('values');
   if (process.env.DOME_LANGGRAPH_STREAM_DEBUG === '1') modes.push('debug');
   return modes;
 }
@@ -186,7 +192,7 @@ const CREATION_TOOL_CAPS = {
   resource_create: 5,
   resource_update: 8,
   resource_delete: 5,
-  ppt_create: 2,
+  ppt_create: 3,
   flashcard_create: 3,
   generate_quiz: 2,
   generate_mindmap: 2,
@@ -274,6 +280,49 @@ function createThinkingStreamParser(onChunk) {
 }
 
 /**
+ * Secondary streaming detector for inline artifact blocks (2.18).
+ *
+ * As the agent streams text, this detector accumulates it and emits a
+ * structured `custom` chunk (`{ type: 'artifact:structured', ... }`) the
+ * moment a complete `` ```artifact:TYPE `` block is recognised.
+ *
+ * The text stream continues unchanged — backward compatibility is preserved.
+ * The renderer can optionally consume the structured chunk instead of
+ * re-parsing the markdown fence.
+ */
+function createArtifactBlockDetector(onChunk) {
+  let accumulated = '';
+  // Track which block positions have already been emitted.
+  const emittedPositions = new Set();
+  const FENCE_RE = /```artifact:([a-z_]+)\n([\s\S]*?)```/g;
+
+  return {
+    push(text) {
+      if (!text || !onChunk) return;
+      accumulated += text;
+      FENCE_RE.lastIndex = 0;
+      let match;
+      while ((match = FENCE_RE.exec(accumulated)) !== null) {
+        const pos = match.index;
+        if (!emittedPositions.has(pos)) {
+          emittedPositions.add(pos);
+          try {
+            const data = JSON.parse(match[2]);
+            onChunk({ type: 'artifact:structured', artifactType: match[1], data });
+          } catch {
+            // JSON parse failed — skip; renderer falls back to text parsing.
+          }
+        }
+      }
+    },
+    finish() {
+      accumulated = '';
+      emittedPositions.clear();
+    },
+  };
+}
+
+/**
  * Pull pending HITL interrupts from a captured updates-mode blob first
  * (cheap, in-memory), then fall back to `agent.getState(config)`. With the
  * SqliteSaver checkpointer, getState is the durable source of truth across
@@ -318,6 +367,7 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
   const seenToolCallIds = new Set();
   const seenToolResultIds = new Set();
   const parser = createThinkingStreamParser(onChunk);
+  const artifactDetector = createArtifactBlockDetector(onChunk);
   let capturedInterrupt = null;
 
   const trace = process.env.DOME_LANGGRAPH_TRACE === '1';
@@ -377,11 +427,13 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
       const content = msgChunk.content;
       if (typeof content === 'string' && content) {
         parser.push(content);
+        artifactDetector.push(content);
       } else if (Array.isArray(content)) {
         for (const block of content) {
           if (!block || typeof block !== 'object') continue;
           if (block.type === 'text' && typeof block.text === 'string' && block.text) {
             parser.push(block.text);
+            artifactDetector.push(block.text);
           } else if ((block.type === 'thinking' || block.type === 'reasoning') && typeof block.text === 'string' && block.text) {
             if (onChunk) onChunk({ type: 'thinking', text: block.text });
           }
@@ -447,6 +499,7 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
   }
 
   parser.finish();
+  artifactDetector.finish();
   return { capturedInterrupt };
 }
 
@@ -936,6 +989,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     provider,
     customTools,
     runtimeContext: runtimeContextRaw,
+    store,
   } = opts;
 
   const runtimeContext = parseRuntimeContext(runtimeContextRaw);
@@ -1014,7 +1068,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         function: {
           name: 'dome_load_doc',
           description:
-            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
+            DOME_LOAD_DOC_DESCRIPTION,
           parameters: {
             type: 'object',
             properties: {
@@ -1137,7 +1191,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         function: {
           name: 'dome_load_doc',
           description:
-            'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
+            DOME_LOAD_DOC_DESCRIPTION,
           parameters: {
             type: 'object',
             properties: {
@@ -1221,17 +1275,25 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     }
   }
 
+  const skillsMw = await buildSkillsMiddleware();
+  const guardrailsMw = buildGuardrailsMiddleware();
+
   // DomeTrimMessages must be the innermost wrapModelCall wrapper so it sees ALL
   // injected messages (incl. those added by fsMiddleware) before ChatAnthropic validates.
-  // Order (outermost→innermost): summarization → HITL → fsMiddleware → trim → model
+  // Order (outermost→innermost): guardrails → summarization → HITL → skills → fs → trim → model
   const middleware = (() => {
-    const base = summarizationMw ? [summarizationMw] : [];
+    const base = [
+      ...(guardrailsMw ? [guardrailsMw] : []),
+      ...(summarizationMw ? [summarizationMw] : []),
+    ];
     if (skipHitl) {
-      return fsMiddleware ? [...base, fsMiddleware, trimMiddleware] : [...base, trimMiddleware];
+      return fsMiddleware
+        ? [...base, skillsMw, fsMiddleware, trimMiddleware]
+        : [...base, skillsMw, trimMiddleware];
     }
     return fsMiddleware
-      ? [...base, hitlMiddleware, fsMiddleware, trimMiddleware]
-      : [...base, hitlMiddleware, trimMiddleware];
+      ? [...base, hitlMiddleware, skillsMw, fsMiddleware, trimMiddleware]
+      : [...base, hitlMiddleware, skillsMw, trimMiddleware];
   })();
 
   const agent = createAgent({
@@ -1239,6 +1301,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     tools,
     middleware,
     checkpointer: getSharedCheckpointer(),
+    store: store ?? getDomeStore(),
   });
 
   return { agent, rtEmittedCallIds, rtEmittedResultIds };
@@ -1274,7 +1337,7 @@ async function invokeLangGraphAgent(opts) {
 
   let domeMessages = Array.isArray(messages) ? [...messages] : [];
   try {
-    const agentsMd = projectMemory.loadProjectAgentsMarkdown(skillRegistry.getProjectRoot());
+    const agentsMd = projectMemory.loadProjectAgentsMarkdown(null);
     if (agentsMd) {
       domeMessages = projectMemory.injectProjectMemoryIntoMessages(domeMessages, agentsMd);
     }
@@ -1500,4 +1563,6 @@ module.exports = {
   runLangGraphAgentSync,
   createLangChainToolsFromOpenAIDefinitions,
   aggregateUsageFromMessages,
+  createModelFromConfig,
+  createConfiguredLangGraphAgent,
 };

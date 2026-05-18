@@ -12,8 +12,18 @@
  * There is no chat loop here. LangGraph is the only chat engine (see langgraph-agent.cjs).
  */
 
-const aiToolsHandler = require('./ai-tools-handler.cjs');
 const database = require('./database.cjs');
+const { DOME_LOAD_DOC_DESCRIPTION } = require('./prompt-sections.cjs');
+
+// Lazy-load ai-tools-handler to break the circular dependency:
+// ai-tools-handler → pdf-transcription → cloud-llm.service → llm-service
+//   → langgraph-agent → tool-dispatcher → ai-tools-handler (circular, returns {})
+// By deferring the require to call time, the module is fully initialized.
+let _aiToolsHandler = null;
+function getAiToolsHandler() {
+  if (!_aiToolsHandler) _aiToolsHandler = require('./ai-tools-handler.cjs');
+  return _aiToolsHandler;
+}
 
 /**
  * Tool name (normalized) to aiToolsHandler method mapping
@@ -64,32 +74,22 @@ const TOOL_HANDLER_MAP = {
   ppt_get_file_path: 'pptGetFilePath',
   ppt_get_slides: 'pptGetSlides',
   ppt_export: 'pptExport',
-  memory_search: 'resourceSemanticSearch',
-  memory_get: 'resourceGet',
   remember_fact: 'rememberFact',
   // Graph / linking tools
   link_resources: 'linkResources',
-  create_resource_link: 'linkResources',
   get_related_resources: 'getRelatedResources',
   interaction_list: 'interactionList',
   generate_knowledge_graph: 'generateKnowledgeGraph',
   generate_mindmap: 'gatherStudioMindmapContext',
   generate_quiz: 'gatherStudioQuizContext',
-  analyze_graph_structure: 'generateKnowledgeGraph',
 
-  // Calendar tools (alias short names from renderer Many ↔ same handlers as *_event)
-  calendar_list: 'calendarListEvents',
-  calendar_create: 'calendarCreateEvent',
-  calendar_update: 'calendarUpdateEvent',
-  calendar_delete: 'calendarDeleteEvent',
+  // Calendar tools
   calendar_list_events: 'calendarListEvents',
   calendar_get_upcoming: 'calendarGetUpcoming',
   calendar_create_event: 'calendarCreateEvent',
   calendar_update_event: 'calendarUpdateEvent',
   calendar_delete_event: 'calendarDeleteEvent',
   get_tool_definition: 'getToolDefinition',
-  load_skill: 'loadSkill',
-  load_skill_file: 'loadSkillFile',
 
   // Entity creation
   agent_create: 'agentCreate',
@@ -165,6 +165,7 @@ async function executeToolInMain(toolName, args, toolContext) {
 
   const normalizedToolName = normalizeToolName(toolName);
   const handlerName = TOOL_HANDLER_MAP[normalizedToolName];
+  const aiToolsHandler = getAiToolsHandler();
   if (!handlerName || !aiToolsHandler[handlerName]) {
     return { status: 'error', error: `Tool not supported: ${toolName}` };
   }
@@ -199,7 +200,7 @@ async function executeToolInMain(toolName, args, toolContext) {
         if (!activeId) {
           result = { success: false, error: 'No active resource in this session. Open a document first.' };
         } else {
-          result = await aiToolsHandler.resourceGet(activeId, { includeContent: true, maxContentLength: 12000 });
+          result = await getAiToolsHandler().resourceGet(activeId, { includeContent: true, maxContentLength: 12000 });
         }
         break;
       }
@@ -211,7 +212,7 @@ async function executeToolInMain(toolName, args, toolContext) {
         } else if (pinnedIds.length > 0 && !pinnedIds.includes(rid)) {
           result = { success: false, error: `Resource ${rid} is not pinned. Use resource_get for arbitrary resources.` };
         } else {
-          result = await aiToolsHandler.resourceGet(rid, { includeContent: true, maxContentLength: 5000 });
+          result = await getAiToolsHandler().resourceGet(rid, { includeContent: true, maxContentLength: 5000 });
         }
         break;
       }
@@ -282,7 +283,12 @@ async function executeToolInMain(toolName, args, toolContext) {
         if (denied) {
           result = denied;
         } else {
-          result = await fn(rid, { title: args.title, content: args.content, metadata: args.metadata });
+          // Normalize metadata: some providers pass it as a JSON string
+          let metaArg = args.metadata;
+          if (typeof metaArg === 'string') {
+            try { metaArg = JSON.parse(metaArg); } catch { metaArg = undefined; }
+          }
+          result = await fn(rid, { title: args.title, content: args.content, metadata: metaArg });
         }
         break;
       }
@@ -1159,7 +1165,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_create',
-        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — those are RICH ARTIFACTS rendered inline in the chat (emit an `artifact:TYPE` fenced block instead). Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask.',
+        description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — those are RICH ARTIFACTS rendered inline in the chat (emit an `artifact:TYPE` fenced block instead). Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask. For folders: omit metadata.color to get an auto-assigned color.',
         parameters: {
           type: 'object',
           properties: {
@@ -1168,6 +1174,7 @@ function getAllToolDefinitions() {
             content: { type: 'string', description: 'Content for notes: use Markdown GFM (headings, bold, italic, lists, code blocks). The system converts it to the editor format automatically. Do NOT pass HTML or JSON.' },
             project_id: { type: 'string', description: 'Project ID' },
             folder_id: { type: 'string', description: 'Parent folder ID' },
+            metadata: { type: 'object', description: 'Optional metadata. For folders: { color: "#hex" } — auto-assigned if omitted.' },
           },
           required: ['title'],
         },
@@ -1177,14 +1184,14 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_update',
-        description: 'Update an existing resource. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
+        description: 'Update an existing resource. IMPORTANT: resource_id must be the exact id field returned by get_library_overview, resource_search, or resource_semantic_search — never invent or construct IDs. For folders: pass metadata.color as a hex string (e.g. "#7b76d0") to change folder color. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
         parameters: {
           type: 'object',
           properties: {
-            resource_id: { type: 'string', description: 'Resource ID' },
+            resource_id: { type: 'string', description: 'Exact resource ID from a prior get_library_overview or search result — never invented' },
             title: { type: 'string', description: 'New title' },
             content: { type: 'string', description: 'New content (for notes/DOCX: HTML or Markdown GFM; DOCX content is written to file)' },
-            metadata: { type: 'object', description: 'Metadata to merge' },
+            metadata: { type: 'object', description: 'Metadata fields to merge. For folders: { color: "#hex" }. Available colors: #596037 (olive), #7b76d0 (violet), #22c55e (green), #3b82f6 (blue), #ef4444 (red), #f97316 (orange), #ec4899 (pink), #eab308 (yellow), #06b6d4 (cyan), #6b7280 (gray)' },
           },
           required: ['resource_id'],
         },
@@ -1228,7 +1235,7 @@ function getAllToolDefinitions() {
         parameters: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'Display title' },
+            title: { type: 'string', description: 'Display title. Optional — if omitted, derived from HTML <title> tag, then artifact_type, then "Untitled Artifact".' },
             artifact_type: {
               type: 'string',
               enum: ['task-tracker', 'chart', 'custom'],
@@ -1238,7 +1245,7 @@ function getAllToolDefinitions() {
             data: { type: 'object', description: 'Initial structured data for DOME_DATA' },
             project_id: { type: 'string', description: 'Project ID (default: current)' },
           },
-          required: ['title', 'artifact_type', 'html'],
+          required: ['artifact_type', 'html'],
         },
       },
     },
@@ -1780,7 +1787,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'dome_load_doc',
         description:
-          'Load a reference doc section on demand. Call this BEFORE using tools or emitting artifact blocks that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create), artifacts (before emitting any artifact block), artifact_persisted (before updating/deleting a persisted artifact), artifact_design (before artifact_design / complex tabbed dossier layouts), resource_links (if unsure about dome:// link format).',
+          DOME_LOAD_DOC_DESCRIPTION,
         parameters: {
           type: 'object',
           properties: {

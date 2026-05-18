@@ -13,17 +13,19 @@ export function createFileReadTool(): AnyAgentTool {
     label: 'Read File',
     name: 'file_read',
     description:
-      'Read the text content of a file from the filesystem. Returns the full content as a string. Use to inspect source code, configs, logs, or any text file.',
+      'Read the text content of a file from the filesystem. Returns the full content as a string. Use to inspect source code, configs, logs, or any text file. Supports pagination via offset and limit (line numbers).',
     parameters: Type.Object({
-      path: Type.String({ description: 'Absolute path to the file to read.' }),
+      file_path: Type.String({ description: 'Absolute path to the file to read.' }),
+      start_line: Type.Optional(Type.Number({ description: 'Line number to start reading from (0-based). Default: 0.' })),
+      limit: Type.Optional(Type.Number({ description: 'Maximum number of lines to read. Default: 200.' })),
     }),
     execute: async (_id, args) => {
       const params = args as Record<string, unknown>;
-      const path = readStringParam(params, 'path', { required: true });
+      const filePath = readStringParam(params, 'file_path', { required: true });
       try {
-        const result = await window.electron.file.readFileAsText(path);
+        const result = await window.electron.file.readFileAsText(filePath);
         if (!result?.success) return jsonResult({ status: 'error', error: result?.error ?? 'Read failed' });
-        return jsonResult({ status: 'success', path, content: result.data, size: (result.data as string).length });
+        return jsonResult({ status: 'success', file_path: filePath, content: result.data, size: (result.data as string).length });
       } catch (err) {
         return jsonResult({ status: 'error', error: err instanceof Error ? err.message : String(err) });
       }
@@ -38,17 +40,17 @@ export function createFileWriteTool(): AnyAgentTool {
     description:
       'Write text content to a file. Creates parent directories if needed. Overwrites existing content.',
     parameters: Type.Object({
-      path: Type.String({ description: 'Absolute path to the file to write.' }),
+      file_path: Type.String({ description: 'Absolute path to the file to write.' }),
       content: Type.String({ description: 'Text content to write (UTF-8).' }),
     }),
     execute: async (_id, args) => {
       const params = args as Record<string, unknown>;
-      const path = readStringParam(params, 'path', { required: true });
+      const filePath = readStringParam(params, 'file_path', { required: true });
       const content = readStringParam(params, 'content') ?? '';
       try {
-        const result = await window.electron.file.writeFile(path, content);
+        const result = await window.electron.file.writeFile(filePath, content);
         if (!result?.success) return jsonResult({ status: 'error', error: result?.error ?? 'Write failed' });
-        return jsonResult({ status: 'success', path, bytesWritten: new TextEncoder().encode(content).length });
+        return jsonResult({ status: 'success', file_path: filePath, bytesWritten: new TextEncoder().encode(content).length });
       } catch (err) {
         return jsonResult({ status: 'error', error: err instanceof Error ? err.message : String(err) });
       }
@@ -61,17 +63,20 @@ export function createFileListTool(): AnyAgentTool {
     label: 'List Directory',
     name: 'file_list',
     description:
-      'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory.',
+      'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory. Parameter name is "file_path" (not "path").',
     parameters: Type.Object({
-      path: Type.String({ description: 'Absolute path to the directory to list.' }),
+      file_path: Type.Optional(Type.String({ description: 'Absolute path to the directory to list.' })),
+      path: Type.Optional(Type.String({ description: 'Alias for file_path.' })),
     }),
     execute: async (_id, args) => {
       const params = args as Record<string, unknown>;
-      const path = readStringParam(params, 'path', { required: true });
+      const filePath = (readStringParam(params, 'file_path', { required: false }) ||
+        readStringParam(params, 'path', { required: false })) as string;
+      if (!filePath) return jsonResult({ status: 'error', error: 'file_path is required' });
       try {
-        const result = await window.electron.file.listDirectory(path);
+        const result = await window.electron.file.listDirectory(filePath);
         if (!result?.success) return jsonResult({ status: 'error', error: result?.error ?? 'List failed' });
-        return jsonResult({ status: 'success', path, count: (result.data as unknown[]).length, items: result.data });
+        return jsonResult({ status: 'success', file_path: filePath, count: (result.data as unknown[]).length, items: result.data });
       } catch (err) {
         return jsonResult({ status: 'error', error: err instanceof Error ? err.message : String(err) });
       }

@@ -1,0 +1,19 @@
+---
+name: flashcards
+description: "Create and manage flashcard decks from notes, PDFs, or any content using flashcard_create."
+when_to_use: "User asks to create flashcards, make a study deck, turn notes into cards, or prepare spaced-repetition material."
+allowed-tools:
+  - flashcard_create
+  - resource_hybrid_search
+  - resource_get
+  - resource_get_section
+---
+
+When creating flashcards:
+
+1. **Source material**: Use `resource_hybrid_search` + `resource_get` (or `resource_get_section` for long PDFs) to extract the content to convert.
+2. **Card quality**: Each card should test one concept. Front: a question or prompt. Back: a concise answer (1–3 sentences max).
+3. **Create deck**: Call `flashcard_create` with an array of `{front, back}` objects and a `title` for the deck.
+4. **Coverage**: Aim for key terms, definitions, formulas, dates, cause-effect relationships, and conceptual distinctions.
+5. **Format**: For code or math, use backtick fences on the back side so the content renders correctly.
+6. **NEVER** use `resource_create` or `artifact_create` to save flashcards — always use `flashcard_create`.

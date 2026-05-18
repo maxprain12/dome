@@ -2980,6 +2980,70 @@ function runMigrations(db) {
       console.error('[DB] Migration 33 failed:', error);
     }
   }
+
+  // Migration 34: agent_store table for LangGraph BaseStore cross-thread memory
+  if (version < 34) {
+    console.log('[DB] Running migration 34 - agent_store table');
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS agent_store (
+          namespace TEXT NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          PRIMARY KEY (namespace, key)
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_store_namespace ON agent_store (namespace);
+      `);
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '34', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '34', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 34 complete');
+    } catch (error) {
+      console.error('[DB] Migration 34 failed:', error);
+    }
+  }
+
+  // Migration 35: many_agent_versions — snapshot history for agent definitions
+  if (version < 35) {
+    console.log('[DB] Running migration 35 - many_agent_versions table');
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS many_agent_versions (
+          id TEXT PRIMARY KEY,
+          agent_id TEXT NOT NULL REFERENCES many_agents(id) ON DELETE CASCADE,
+          version_number INTEGER NOT NULL,
+          name TEXT NOT NULL,
+          description TEXT,
+          system_instructions TEXT,
+          tool_ids TEXT NOT NULL DEFAULT '[]',
+          mcp_server_ids TEXT NOT NULL DEFAULT '[]',
+          skill_ids TEXT NOT NULL DEFAULT '[]',
+          icon_index INTEGER NOT NULL DEFAULT 1,
+          change_note TEXT,
+          created_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_many_agent_versions_agent_id ON many_agent_versions (agent_id);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_many_agent_versions_agent_version
+          ON many_agent_versions (agent_id, version_number);
+      `);
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '35', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '35', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 35 complete');
+    } catch (error) {
+      console.error('[DB] Migration 35 failed:', error);
+    }
+  }
 }
 
 /**
@@ -3098,6 +3162,24 @@ function getQueries() {
       WHERE id = ?
     `),
     deleteManyAgent: db.prepare('DELETE FROM many_agents WHERE id = ?'),
+
+    // Agent version history
+    listAgentVersions: db.prepare(
+      'SELECT * FROM many_agent_versions WHERE agent_id = ? ORDER BY version_number DESC',
+    ),
+    getAgentVersionById: db.prepare('SELECT * FROM many_agent_versions WHERE id = ?'),
+    getLatestAgentVersion: db.prepare(
+      'SELECT MAX(version_number) as max_version FROM many_agent_versions WHERE agent_id = ?',
+    ),
+    createAgentVersion: db.prepare(`
+      INSERT INTO many_agent_versions (
+        id, agent_id, version_number, name, description, system_instructions,
+        tool_ids, mcp_server_ids, skill_ids, icon_index, change_note, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    deleteAgentVersionsForAgent: db.prepare(
+      'DELETE FROM many_agent_versions WHERE agent_id = ?',
+    ),
 
     // Agent folders
     listAgentFolders: db.prepare(

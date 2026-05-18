@@ -9,7 +9,6 @@ import type { PinnedResource } from '@/lib/store/useManyStore';
 import {
   getAIConfig,
   createToolsForAgent,
-  createLoadSkillTools,
   toOpenAIToolDefinitions,
   providerSupportsTools,
   type AIProviderType,
@@ -17,7 +16,6 @@ import {
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
-import { appendSkillsMarkdown } from '@/lib/skills/append-markdown';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
 import ReadingIndicator from '@/components/chat/ReadingIndicator';
@@ -34,6 +32,7 @@ import { useTranslation } from 'react-i18next';
 import {
   abortRun,
   getActiveRunBySession,
+  resumeRun,
   startLangGraphRun,
   type PersistentRun,
 } from '@/lib/automations/api';
@@ -41,7 +40,8 @@ import { CHAT_THINKING_ROTATION_KEYS } from '@/lib/chat/streamingLabels';
 import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
-import { useLangGraphRunStream } from '@/lib/chat/useLangGraphRunStream';
+import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 
 type AgentResourcePayload = {
   content?: string | null;
@@ -83,6 +83,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [pendingOneShotSkillId, setPendingOneShotSkillId] = useState<string | null>(null);
   const [activeStickySkillId, setActiveStickySkillId] = useState<string | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
   const thinkingLabelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -163,6 +164,25 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       return;
     }
     setActiveRunId(run.id);
+    if (run.status === 'waiting_approval') {
+      const pending = run.metadata?.pendingApproval as
+        | {
+            actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+            reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
+          }
+        | undefined;
+      if (pending?.actionRequests && pending.actionRequests.length > 0) {
+        setPendingApproval({
+          actionRequests: pending.actionRequests,
+          reviewConfigs: Array.isArray(pending.reviewConfigs) ? pending.reviewConfigs : [],
+          submitResume: (decisions: Array<unknown>) => {
+            void resumeRun(run.id, decisions);
+          },
+        });
+      }
+    } else {
+      setPendingApproval(null);
+    }
     if (['queued', 'running', 'waiting_approval'].includes(run.status)) {
       setIsLoading(true);
       setStatus('thinking');
@@ -173,13 +193,16 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         timestamp: run.updatedAt || Date.now(),
         isStreaming: run.status !== 'waiting_approval',
         toolCalls: prev?.toolCalls || [],
-        streamingLabel: prev?.streamingLabel || t('chat.running_background'),
+        streamingLabel: run.status === 'waiting_approval'
+          ? t('chat.waiting_approval')
+          : (prev?.streamingLabel || t('chat.running_background')),
       }));
       return;
     }
     setIsLoading(false);
     setStatus('idle');
     setStreamingMessage(null);
+    setPendingApproval(null);
   }, [setStatus, t]);
 
   useEffect(() => {
@@ -210,17 +233,25 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const handleRunTerminal = useCallback(
     (run: PersistentRun) => {
       setActiveRunId(null);
-      void refreshSessionFromDb();
       if (run.status === 'completed') {
         window.dispatchEvent(new Event('dome:resources-changed'));
       }
+      void refreshSessionFromDb();
+      if (run.status === 'failed' && !run.outputText) {
+        const errorMsg = run.error
+          ? t('chat.run_failed_error', { error: run.error })
+          : t('chat.run_failed_generic');
+        setStreamingMessage(null);
+        addMessage({ role: 'assistant', content: errorMsg });
+      }
     },
-    [refreshSessionFromDb],
+    [refreshSessionFromDb, addMessage, t],
   );
 
   useLangGraphRunStream({
     activeRunId,
     setStreamingMessage,
+    setPendingApproval,
     onRunStatus: handleRunStatus,
     onRunTerminal: handleRunTerminal,
     t,
@@ -250,18 +281,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const baseInstructions =
       agent.systemInstructions?.trim() || agent.description || `You are ${agent.name}.`;
 
-    let prompt = buildDomeSystemPrompt({ staticPersona: baseInstructions });
+    const prompt = buildDomeSystemPrompt({ staticPersona: baseInstructions });
 
-    if (agent.skillIds?.length && db.isAvailable()) {
-      try {
-        const skillsResult = await db.getAISkills();
-        if (skillsResult.success && Array.isArray(skillsResult.data)) {
-          prompt = appendSkillsMarkdown(prompt, agent.skillIds, skillsResult.data);
-        }
-      } catch {
-        // ignore
-      }
-    }
     return prompt;
   }, [agent]);
 
@@ -293,9 +314,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   );
   const activeTools = useMemo(() => {
     if (!enabledToolIds.length) return [];
-    const base = createToolsForAgent(enabledToolIds);
-    base.push(...createLoadSkillTools());
-    return base;
+    return createToolsForAgent(enabledToolIds);
   }, [enabledToolIds]);
   const toolDefs = useMemo(
     () => (activeTools.length > 0 ? toOpenAIToolDefinitions(activeTools) : []),
@@ -343,7 +362,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
       let systemPrompt = await buildSystemPrompt();
 
-      const primarySkillId = pendingOneShotSkillId || activeStickySkillId;
       setPendingOneShotSkillId(null);
 
       if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
@@ -371,25 +389,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           }
         }
         systemPrompt += pinnedBlock;
-      }
-
-      if (primarySkillId && db.isAvailable()) {
-        try {
-          const skillsResult = await db.getAISkills();
-          if (skillsResult.success && Array.isArray(skillsResult.data)) {
-            const s = skillsResult.data.find((x: { id?: string }) => x.id === primarySkillId) as
-              | { name?: string; description?: string; prompt?: string }
-              | undefined;
-            if (s && String(s.prompt ?? '').trim()) {
-              const name = s.name || 'unnamed';
-              const desc = s.description || '';
-              const prompt = s.prompt || '';
-              systemPrompt += `\n\n## Active Skill\n### ${name}\n${desc ? `${desc}\n\n` : ''}${prompt}\n`;
-            }
-          }
-        } catch {
-          /* ignore */
-        }
       }
 
       const apiMessages = [
@@ -528,8 +527,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
     chatAttachments,
     pinnedResources,
-    pendingOneShotSkillId,
-    activeStickySkillId,
+    hasAgentTools,
+    hasLangGraph,
   ]);
 
   const handleAbort = useCallback(() => {
@@ -672,6 +671,14 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         )}
         <div ref={messagesEndRef} />
       </UnifiedChatMessageArea>
+
+      {/* HITL approval panel */}
+      {pendingApproval && (
+        <HITLReviewPanel
+          pendingApproval={pendingApproval}
+          onDismiss={() => setPendingApproval(null)}
+        />
+      )}
 
       {/* Fixed Input */}
       <UnifiedChatInput

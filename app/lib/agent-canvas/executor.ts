@@ -24,8 +24,6 @@ import type {
 import { chatWithToolsStream } from '@/lib/ai/client';
 import { createToolsForAgent } from '@/lib/ai/tools';
 import { getManyAgentById } from '@/lib/agents/api';
-import { db } from '@/lib/db/client';
-import { appendSkillsMarkdown } from '@/lib/skills/append-markdown';
 import { getSystemAgent } from './system-agents';
 
 type StoreActions = ReturnType<typeof import('@/lib/store/useCanvasStore').useCanvasStore.getState>;
@@ -241,16 +239,6 @@ async function executeAgentNode(
     toolIds = agent.toolIds ?? [];
     systemPrompt = agent.systemInstructions || undefined;
     mcpServerIds = agent.mcpServerIds ?? [];
-    if (agent.skillIds?.length && db.isAvailable()) {
-      try {
-        const res = await db.getAISkills();
-        if (res.success && Array.isArray(res.data)) {
-          systemPrompt = appendSkillsMarkdown(systemPrompt ?? '', agent.skillIds, res.data);
-        }
-      } catch {
-        /* ignore */
-      }
-    }
   } else if (agentData.systemAgentRole) {
     // Built-in system agent
     const sysAgent = getSystemAgent(agentData.systemAgentRole);

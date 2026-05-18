@@ -25,17 +25,17 @@ const FETCH_CACHE = new Map<string, CacheEntry<Record<string, unknown>>>();
 
 const WebFetchSchema = Type.Object({
   url: Type.String({ description: 'URL to fetch content from.' }),
-  extractText: Type.Optional(
+  extract_text: Type.Optional(
     Type.Boolean({
       description: 'Deprecated. The Playwright scraper already returns cleaned markdown/text content.',
     }),
   ),
-  includeMetadata: Type.Optional(
+  include_metadata: Type.Optional(
     Type.Boolean({
       description: 'Include page metadata (title, description, author). Default: true.',
     }),
   ),
-  maxLength: Type.Optional(
+  max_length: Type.Optional(
     Type.Number({
       description: 'Maximum content length to return. Default: 50000.',
       minimum: 1000,
@@ -47,12 +47,12 @@ const WebFetchSchema = Type.Object({
       description: 'Optional CSS selector to prioritize a specific section of the rendered DOM.',
     }),
   ),
-  useAdvancedScraper: Type.Optional(
+  use_advanced_scraper: Type.Optional(
     Type.Boolean({
       description: 'Deprecated. Dome now uses the Playwright scraper for web content by default.',
     }),
   ),
-  includeScreenshot: Type.Optional(
+  include_screenshot: Type.Optional(
     Type.Boolean({
       description: 'Include a screenshot of the rendered page. Default: false.',
     }),
@@ -161,9 +161,9 @@ export function createWebFetchTool(config?: WebFetchConfig): AnyAgentTool {
       try {
         const params = args as Record<string, unknown>;
         const url = readStringParam(params, 'url', { required: true });
-        const includeMetadata = readBooleanParam(params, 'includeMetadata', { defaultValue: true }) ?? true;
-        const includeScreenshot = readBooleanParam(params, 'includeScreenshot', { defaultValue: false }) ?? false;
-        const maxLength = readNumberParam(params, 'maxLength', { integer: true }) ?? config?.maxLength ?? 50000;
+        const includeMetadata = readBooleanParam(params, 'include_metadata', { defaultValue: true }) ?? true;
+        const includeScreenshot = readBooleanParam(params, 'include_screenshot', { defaultValue: false }) ?? false;
+        const maxLength = readNumberParam(params, 'max_length', { integer: true }) ?? config?.maxLength ?? 50000;
         const selector = readStringParam(params, 'selector');
 
         try {

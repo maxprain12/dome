@@ -67,6 +67,8 @@ export function buildDomeSystemPrompt(options: DomeSystemPromptOptions): string 
   const persona = (options.staticPersona || '').trim();
   if (persona) sections.push(persona);
 
+  sections.push('Respond in the same language the user uses.');
+
   sections.push(APP_SECTION_GUIDE);
   sections.push(prompts.martin.tools);
   sections.push(REFERENCE_DOCS_STUB);

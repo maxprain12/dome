@@ -57,13 +57,13 @@ const AgentCreateSchema = Type.Object({
   description: Type.Optional(Type.String({
     description: 'Short description of what this agent does.',
   })),
-  systemInstructions: Type.Optional(Type.String({
+  system_instructions: Type.Optional(Type.String({
     description: 'System prompt / instructions for the agent. Be specific and detailed.',
   })),
-  toolIds: Type.Array(Type.String(), {
+  tool_ids: Type.Array(Type.String(), {
     description: 'REQUIRED. Tool IDs the agent needs (e.g. ["web_fetch", "resource_create"]). Agent cannot work without tools. Never omit.',
   }),
-  iconIndex: Type.Optional(Type.Number({
+  icon_index: Type.Optional(Type.Number({
     description: 'Icon index 1-18 for the agent avatar. Pick randomly if unsure.',
     minimum: 1,
     maximum: 18,
@@ -83,10 +83,10 @@ export function createAgentCreateTool(): AnyAgentTool {
         const params = args as Record<string, unknown>;
         const name = readStringParam(params, 'name', { required: true });
         const description = readStringParam(params, 'description') ?? '';
-        const systemInstructions = readStringParam(params, 'systemInstructions') ?? '';
-        const toolIds = Array.isArray(params.toolIds) ? (params.toolIds as string[]) : [];
-        const iconIndex = typeof params.iconIndex === 'number'
-          ? Math.max(1, Math.min(18, Math.round(params.iconIndex)))
+        const systemInstructions = readStringParam(params, 'system_instructions') ?? '';
+        const toolIds = Array.isArray(params.tool_ids) ? (params.tool_ids as string[]) : [];
+        const iconIndex = typeof params.icon_index === 'number'
+          ? Math.max(1, Math.min(18, Math.round(params.icon_index)))
           : Math.floor(Math.random() * 18) + 1;
 
         const result = await createManyAgent({
@@ -100,7 +100,7 @@ export function createAgentCreateTool(): AnyAgentTool {
         });
 
         if (!result.success || !result.data) {
-          return errorResult(result.error ?? 'Error al crear el agente');
+          return errorResult(result.error ?? 'Failed to create agent');
         }
 
         const agent = result.data;
@@ -118,13 +118,13 @@ export function createAgentCreateTool(): AnyAgentTool {
             name: agent.name,
             description: agent.description,
             config: {
-              tools: toolIds.length > 0 ? toolIds.join(', ') : 'ninguna',
-              instrucciones: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
+              tools: toolIds.length > 0 ? toolIds.join(', ') : 'none',
+              instructions: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
             },
           })}`
         );
       } catch (err) {
-        return errorResult(err instanceof Error ? err.message : 'Error desconocido al crear agente');
+        return errorResult(err instanceof Error ? err.message : 'Unknown error creating agent');
       }
     },
   };
@@ -139,7 +139,7 @@ const ScheduleSchema = Type.Optional(
     cadence: Type.Optional(Type.Union([Type.Literal('daily'), Type.Literal('weekly'), Type.Literal('cron-lite')])),
     hour: Type.Optional(Type.Number({ description: 'Hour of day (0-23)' })),
     weekday: Type.Optional(Type.Number({ description: 'Day of week 1-7 for weekly' })),
-    intervalMinutes: Type.Optional(Type.Number({ description: 'Minutes between runs for cron-lite' })),
+    interval_minutes: Type.Optional(Type.Number({ description: 'Minutes between runs for cron-lite' })),
   })
 );
 
@@ -150,20 +150,20 @@ const AutomationCreateSchema = Type.Object({
   description: Type.Optional(Type.String({
     description: 'What this automation does.',
   })),
-  targetType: Type.String({
+  target_type: Type.String({
     description: 'Target type: "agent" or "workflow".',
   }),
-  targetId: Type.String({
+  target_id: Type.String({
     description: 'ID of the target agent or workflow to run.',
   }),
-  triggerType: Type.Optional(Type.String({
+  trigger_type: Type.Optional(Type.String({
     description: 'Trigger: "manual" | "schedule" | "contextual". Default: manual.',
   })),
   prompt: Type.Optional(Type.String({
     description: 'Base prompt / instructions to pass to the agent or workflow when triggered.',
   })),
   schedule: ScheduleSchema,
-  outputMode: Type.Optional(Type.String({
+  output_mode: Type.Optional(Type.String({
     description: 'Output mode: "chat_only" | "studio_output" | "mixed". Default: chat_only.',
   })),
   enabled: Type.Optional(Type.Boolean({
@@ -184,11 +184,11 @@ export function createAutomationCreateTool(): AnyAgentTool {
         const params = args as Record<string, unknown>;
         const title = readStringParam(params, 'title', { required: true });
         const description = readStringParam(params, 'description') ?? '';
-        const targetType = readStringParam(params, 'targetType') ?? 'agent';
-        const targetId = readStringParam(params, 'targetId', { required: true });
-        const triggerType = (readStringParam(params, 'triggerType') ?? 'manual') as 'manual' | 'schedule' | 'contextual';
+        const targetType = readStringParam(params, 'target_type') ?? 'agent';
+        const targetId = readStringParam(params, 'target_id', { required: true });
+        const triggerType = (readStringParam(params, 'trigger_type') ?? 'manual') as 'manual' | 'schedule' | 'contextual';
         const prompt = readStringParam(params, 'prompt') ?? '';
-        const outputMode = (readStringParam(params, 'outputMode') ?? 'chat_only') as 'chat_only' | 'studio_output' | 'mixed';
+        const outputMode = (readStringParam(params, 'output_mode') ?? 'chat_only') as 'chat_only' | 'studio_output' | 'mixed';
         const enabled = typeof params.enabled === 'boolean' ? params.enabled : true;
 
         let schedule: {
@@ -207,7 +207,7 @@ export function createAutomationCreateTool(): AnyAgentTool {
             hour: typeof s.hour === 'number' ? Math.max(0, Math.min(23, s.hour)) : 0,
             weekday: typeof s.weekday === 'number' ? s.weekday : null,
             intervalMinutes:
-              typeof s.intervalMinutes === 'number' ? Math.max(1, s.intervalMinutes) : undefined,
+              typeof s.interval_minutes === 'number' ? Math.max(1, s.interval_minutes) : undefined,
           };
         }
 
@@ -230,15 +230,15 @@ export function createAutomationCreateTool(): AnyAgentTool {
             name: title,
             description,
             config: {
-              destino: targetType,
+              target: targetType,
               trigger: triggerType,
-              salida: outputMode,
-              estado: enabled ? 'Activa' : 'Pausada',
+              output: outputMode,
+              status: enabled ? 'Active' : 'Paused',
             },
           })}`
         );
       } catch (err) {
-        return errorResult(err instanceof Error ? err.message : 'Error desconocido al crear automatización');
+        return errorResult(err instanceof Error ? err.message : 'Unknown error creating automation');
       }
     },
   };
@@ -288,7 +288,7 @@ export function createWorkflowCreateTool(): AnyAgentTool {
         });
 
         if (!result.success || !result.data) {
-          return errorResult(result.error ?? 'Error al crear el workflow');
+          return errorResult(result.error ?? 'Failed to create workflow');
         }
 
         const workflow = result.data;
@@ -306,13 +306,13 @@ export function createWorkflowCreateTool(): AnyAgentTool {
             name: workflow.name,
             description: workflow.description,
             config: {
-              nodos: nodes.length,
-              conexiones: edges.length,
+              nodes: nodes.length,
+              edges: edges.length,
             },
           })}`
         );
       } catch (err) {
-        return errorResult(err instanceof Error ? err.message : 'Error desconocido al crear workflow');
+        return errorResult(err instanceof Error ? err.message : 'Unknown error creating workflow');
       }
     },
   };

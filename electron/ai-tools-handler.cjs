@@ -29,8 +29,6 @@ const calendarService = require('./calendar-service.cjs');
 const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
 const lancedbSemantic = require('./services/lancedb-semantic.cjs');
 const path = require('path');
-const skillRegistry = require('./skills/registry.cjs');
-const { renderSkillBody } = require('./skills/renderer.cjs');
 const { rrfMerge } = require('./hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('./artifact-serialize.cjs');
 const { afterArtifactMutation } = require('./artifact-index-sync.cjs');
@@ -1511,9 +1509,20 @@ async function resourceCreate(data) {
 
     let content = data.content || '';
     let normalizedNoteLinks = [];
-    let metadataForCreate = data.metadata && typeof data.metadata === 'object' ? { ...data.metadata } : null;
+    // Normalize metadata: some providers pass it as a JSON string instead of an object
+    let _rawMeta = data.metadata;
+    if (typeof _rawMeta === 'string') {
+      try { _rawMeta = JSON.parse(_rawMeta); } catch { _rawMeta = null; }
+    }
+    let metadataForCreate = _rawMeta && typeof _rawMeta === 'object' ? { ..._rawMeta } : null;
+    const FOLDER_AUTO_COLORS = ['#596037', '#7b76d0', '#22c55e', '#3b82f6', '#6b7280', '#ef4444', '#f97316', '#ec4899', '#eab308', '#06b6d4'];
     if (type === 'folder') {
       content = '';
+      // Auto-assign a color if the caller didn't provide one
+      if (!metadataForCreate?.color) {
+        const autoColor = FOLDER_AUTO_COLORS[Math.floor(Math.random() * FOLDER_AUTO_COLORS.length)];
+        metadataForCreate = { ...(metadataForCreate || {}), color: autoColor };
+      }
     } else if (type === 'note') {
       const normalized = normalizeAiNoteMarkdown(content, data.title, queries, metadataForCreate || {});
       content = markdownToTipTapJSON(normalized.markdown);
@@ -1629,7 +1638,7 @@ async function resourceUpdate(resourceId, updates) {
     const existing = queries.getResourceById.get(resourceId);
 
     if (!existing) {
-      return { success: false, error: 'Resource not found' };
+      return { success: false, error: `Resource not found: "${resourceId}". Call get_library_overview or resource_search first and use the exact id field from those results — never construct or guess IDs.` };
     }
 
     const title = updates.title !== undefined ? updates.title.trim() : existing.title;
@@ -1653,7 +1662,14 @@ async function resourceUpdate(resourceId, updates) {
     if (updates.metadata) {
       let existingMeta = {};
       try { existingMeta = metadata ? JSON.parse(metadata) : {}; } catch { existingMeta = {}; }
-      metadata = JSON.stringify({ ...existingMeta, ...updates.metadata });
+      // Some LLM providers pass metadata as a JSON string instead of an object;
+      // spreading a string produces character-index keys — parse it defensively.
+      let incomingMeta = updates.metadata;
+      if (typeof incomingMeta === 'string') {
+        try { incomingMeta = JSON.parse(incomingMeta); } catch { incomingMeta = {}; }
+      }
+      if (typeof incomingMeta !== 'object' || incomingMeta === null) incomingMeta = {};
+      metadata = JSON.stringify({ ...existingMeta, ...incomingMeta });
     }
     if (normalizedNoteLinks.length > 0) {
       let existingMeta = {};
@@ -1876,7 +1892,7 @@ async function resourceDelete(resourceId) {
     const resource = queries.getResourceById.get(resourceId);
 
     if (!resource) {
-      return { success: false, error: 'Resource not found' };
+      return { success: false, error: `Resource not found: "${resourceId}". Use the exact id from get_library_overview or a search result — never invent IDs.` };
     }
 
     // Delete internal file if exists
@@ -1927,13 +1943,13 @@ async function resourceMoveToFolder(resourceId, folderId) {
     const resource = queries.getResourceById.get(resourceId);
 
     if (!resource) {
-      return { success: false, error: 'Resource not found' };
+      return { success: false, error: `Resource not found: "${resourceId}". Use the exact id from get_library_overview or a search result.` };
     }
 
     if (folderId != null && folderId !== '') {
       const folder = queries.getResourceById.get(folderId);
       if (!folder) {
-        return { success: false, error: 'Folder not found' };
+        return { success: false, error: `Folder not found: "${folderId}". Use the exact id from get_library_overview.` };
       }
       if (folder.type !== 'folder') {
         return { success: false, error: 'Target is not a folder' };
@@ -2426,90 +2442,16 @@ async function rememberFact(key, value) {
   const personalityLoader = require('./personality-loader.cjs');
   personalityLoader.updateLongTermMemory(key, value);
   personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
-  return { success: true, message: `Remembered: ${key}` };
-}
 
-// =============================================================================
-// File-based skills (SKILL.md) — used by load_skill / load_skill_file
-// =============================================================================
-
-function getDisableSkillShell() {
+  // Also persist to LangGraph BaseStore for cross-thread access.
   try {
-    const q = database.getQueries();
-    const row = q.getSetting.get('disable_skill_shell_execution');
-    return row?.value === '1' || row?.value === 'true';
-  } catch {
-    return false;
+    const { getDomeStore } = require('./agent-store.cjs');
+    await getDomeStore().put(['user', 'facts'], key, { value, updatedAt: Date.now() });
+  } catch (e) {
+    console.warn('[rememberFact] agent-store write failed:', e?.message);
   }
-}
 
-/**
- * @param {Record<string, unknown>} args
- */
-async function loadSkill(args = {}) {
-  const name = String(args.name || args.skill || '').trim();
-  if (!name) {
-    return { success: false, error: 'name is required (skill slash name, e.g. research-assistant)' };
-  }
-  const rec = skillRegistry.resolve(name) || skillRegistry.getById(name);
-  if (!rec) {
-    return { success: false, error: `Skill not found: ${name}. Use the exact /name from ## Available Skills.` };
-  }
-  if (rec.disable_model_invocation) {
-    return {
-      success: false,
-      error: 'This skill is manual-only. Use / in the input to invoke it, or ask the user to change disable-model-invocation in SKILL.md.',
-    };
-  }
-  if (rec.context === 'fork') {
-    return {
-      success: false,
-      error: 'This skill is configured for context: fork. Use the /skill command in chat or run it from the skills menu; forked subagent is not available in this tool path yet.',
-    };
-  }
-  const body = renderSkillBody(rec.body, {
-    argumentsLine: args.arguments != null ? String(args.arguments) : typeof args.A === 'string' ? args.A : '',
-    namedArgs: rec.arguments,
-    sessionId: String(args.session_id || args.sessionId || ''),
-    skillDir: rec.dirPath,
-    shell: rec.shell,
-    disableSkillShellExecution: getDisableSkillShell(),
-  });
-  return {
-    success: true,
-    skill: rec.name,
-    content: `## ${rec.name}\n\n${body}`,
-  };
-}
-
-/**
- * @param {Record<string, unknown>} args
- */
-async function loadSkillFile(args = {}) {
-  const skill = String(args.skill || args.name || '').trim();
-  const rel = String(args.path || '').replace(/^\/+/, '');
-  if (!skill || !rel) {
-    return { success: false, error: 'skill and path are required' };
-  }
-  const rec = skillRegistry.resolve(skill) || skillRegistry.getById(skill);
-  if (!rec?.dirPath) {
-    return { success: false, error: 'Skill not found' };
-  }
-  const clean = rel.split('/').filter((p) => p && p !== '..' && p !== '.').join(path.sep);
-  const full = path.resolve(rec.dirPath, clean);
-  const base = path.resolve(rec.dirPath);
-  if (full.length < base.length || (!full.startsWith(base + path.sep) && full !== base)) {
-    return { success: false, error: 'Invalid path' };
-  }
-  if (!fs.existsSync(full) || !fs.statSync(full).isFile()) {
-    return { success: false, error: 'File not found' };
-  }
-  const text = fs.readFileSync(full, 'utf8');
-  return {
-    success: true,
-    path: rel,
-    content: text.length > 200_000 ? `${text.slice(0, 200_000)}\n[truncated]` : text,
-  };
+  return { success: true, message: `Remembered: ${key}` };
 }
 
 // =============================================================================
@@ -3064,8 +3006,8 @@ async function agentCreate(args = {}) {
       name: agent.name,
       description: agent.description,
       config: {
-        tools: toolIds.length > 0 ? toolIds.join(', ') : 'ninguna',
-        instrucciones: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
+        tools: toolIds.length > 0 ? toolIds.join(', ') : 'none',
+        instructions: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
       },
     };
     return `ENTITY_CREATED:${JSON.stringify(payload)}`;
@@ -3337,33 +3279,36 @@ const SHELL_EXEC_TIMEOUT_MS = 60_000;
 const FILE_SEARCH_MAX = 200;
 
 async function fileRead(args) {
-  const filePath = typeof args.path === 'string' ? args.path : '';
-  if (!filePath) return { status: 'error', error: 'path is required' };
+  const filePath = typeof args.file_path === 'string' ? args.file_path
+    : typeof args.path === 'string' ? args.path : '';
+  if (!filePath) return { status: 'error', error: 'file_path is required' };
   try {
     const content = fs.readFileSync(nodePath.resolve(filePath), 'utf8');
-    return { status: 'success', path: filePath, content, size: content.length };
+    return { status: 'success', file_path: filePath, content, size: content.length };
   } catch (err) {
     return { status: 'error', error: err.message };
   }
 }
 
 async function fileWrite(args) {
-  const filePath = typeof args.path === 'string' ? args.path : '';
+  const filePath = typeof args.file_path === 'string' ? args.file_path
+    : typeof args.path === 'string' ? args.path : '';
   const content = typeof args.content === 'string' ? args.content : '';
-  if (!filePath) return { status: 'error', error: 'path is required' };
+  if (!filePath) return { status: 'error', error: 'file_path is required' };
   try {
     const resolved = nodePath.resolve(filePath);
     fs.mkdirSync(nodePath.dirname(resolved), { recursive: true });
     fs.writeFileSync(resolved, content, 'utf8');
-    return { status: 'success', path: filePath, bytesWritten: Buffer.byteLength(content, 'utf8') };
+    return { status: 'success', file_path: filePath, bytesWritten: Buffer.byteLength(content, 'utf8') };
   } catch (err) {
     return { status: 'error', error: err.message };
   }
 }
 
 async function fileList(args) {
-  const dirPath = typeof args.path === 'string' ? args.path : '';
-  if (!dirPath) return { status: 'error', error: 'path is required' };
+  const dirPath = typeof args.file_path === 'string' ? args.file_path
+    : typeof args.path === 'string' ? args.path : '';
+  if (!dirPath) return { status: 'error', error: 'file_path is required' };
   try {
     const resolved = nodePath.resolve(dirPath);
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
@@ -3519,13 +3464,23 @@ async function artifactGet(args) {
 async function artifactCreate(args) {
   try {
     const cryptoMod = require('crypto');
-    const title = typeof args?.title === 'string' ? args.title.trim() : '';
-    if (!title) return { success: false, error: 'title is required' };
+    const rawTitle = typeof args?.title === 'string' ? args.title.trim() : '';
     const rawType = args?.artifact_type ?? args?.artifactType ?? 'custom';
     const allowed = new Set(['task-tracker', 'chart', 'custom']);
     const artifactType = allowed.has(rawType) ? rawType : 'custom';
     const html = typeof args?.html === 'string' ? args.html : '';
     if (!html.trim()) return { success: false, error: 'html is required' };
+    const htmlTitle = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? '';
+    const title = rawTitle || htmlTitle || artifactType || 'Untitled Artifact';
+    const warnings = [];
+    const HTML_SOFT_LIMIT = 200_000;
+    if (html.length > HTML_SOFT_LIMIT) {
+      warnings.push(
+        `HTML is ${Math.round(html.length / 1024)} KB (soft limit ~${HTML_SOFT_LIMIT / 1024} KB). ` +
+        `Consider using artifact_link_resource + window.DOME_DATA for dynamic data instead of inlining rows as static strings. ` +
+        `Large HTML payloads inflate model context and slow re-renders.`
+      );
+    }
     const data = _isPlainObject(args?.data) ? args.data : {};
 
     let projectId = args?.project_id ?? args?.projectId;
@@ -3563,7 +3518,7 @@ async function artifactCreate(args) {
 
     afterArtifactMutation(database, resourceId);
 
-    return { success: true, data: serialized };
+    return { success: true, data: serialized, ...(warnings.length ? { warnings } : {}) };
   } catch (error) {
     console.error('[AI Tools] artifactCreate error:', error);
     return { success: false, error: error.message };
@@ -3756,6 +3711,10 @@ async function artifactDesign(args) {
   try {
     const { buildArtifactDesignLayout } = require('./artifact-design-layout.cjs');
     let spec = args?.spec ?? args?.design_spec;
+    // Models sometimes serialize spec as a JSON string instead of an object — parse it
+    if (typeof spec === 'string') {
+      try { spec = JSON.parse(spec); } catch (_) { spec = null; }
+    }
     if (!spec || typeof spec !== 'object' || Array.isArray(spec)) {
       const a = args && typeof args === 'object' && !Array.isArray(args) ? args : null;
       if (a && (a.title != null || a.tabs != null)) {
@@ -3877,9 +3836,6 @@ module.exports = {
 
   // Memory tools
   rememberFact,
-
-  loadSkill,
-  loadSkillFile,
 
   // Graph / linking tools
   linkResources,

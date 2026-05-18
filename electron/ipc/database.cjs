@@ -741,6 +741,37 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const queries = database.getQueries();
       const current = queries.getManyAgentById.get(id);
       if (!current) return { success: false, error: 'Agent not found' };
+
+      // Snapshot current state as a new version before applying the update.
+      const snapshotChanged =
+        (updates.name !== undefined && updates.name !== current.name) ||
+        (updates.systemInstructions !== undefined &&
+          updates.systemInstructions !== current.system_instructions) ||
+        (updates.toolIds !== undefined &&
+          JSON.stringify(updates.toolIds) !== current.tool_ids);
+      if (snapshotChanged) {
+        try {
+          const latestRow = queries.getLatestAgentVersion.get(id);
+          const nextVersion = (latestRow?.max_version ?? 0) + 1;
+          queries.createAgentVersion.run(
+            crypto.randomUUID(),
+            id,
+            nextVersion,
+            current.name,
+            current.description ?? '',
+            current.system_instructions ?? '',
+            current.tool_ids ?? '[]',
+            current.mcp_server_ids ?? '[]',
+            current.skill_ids ?? '[]',
+            current.icon_index ?? 1,
+            updates._changeNote ?? null,
+            Date.now(),
+          );
+        } catch (vErr) {
+          console.warn('[DB] Could not snapshot agent version (table may not exist yet):', vErr?.message);
+        }
+      }
+
       const next = {
         ...serializeManyAgent(current),
         ...updates,
@@ -780,6 +811,86 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating many agent:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Agent version history
+  ipcMain.handle('db:manyAgents:listVersions', (event, agentId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const rows = queries.listAgentVersions.all(agentId);
+      return { success: true, data: rows.map((r) => ({
+        id: r.id,
+        agentId: r.agent_id,
+        versionNumber: r.version_number,
+        name: r.name,
+        description: r.description ?? '',
+        systemInstructions: r.system_instructions ?? '',
+        toolIds: parseJson(r.tool_ids, []),
+        mcpServerIds: parseJson(r.mcp_server_ids, []),
+        skillIds: parseJson(r.skill_ids, []),
+        iconIndex: r.icon_index,
+        changeNote: r.change_note ?? null,
+        createdAt: r.created_at,
+      }))};
+    } catch (error) {
+      console.error('[DB] Error listing agent versions:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('db:manyAgents:restoreVersion', (event, agentId, versionId) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const ver = queries.getAgentVersionById.get(versionId);
+      if (!ver || ver.agent_id !== agentId) return { success: false, error: 'Version not found' };
+      const current = queries.getManyAgentById.get(agentId);
+      if (!current) return { success: false, error: 'Agent not found' };
+
+      // Snapshot current state before restoring
+      const latestRow = queries.getLatestAgentVersion.get(agentId);
+      const nextVersion = (latestRow?.max_version ?? 0) + 1;
+      queries.createAgentVersion.run(
+        crypto.randomUUID(),
+        agentId,
+        nextVersion,
+        current.name,
+        current.description ?? '',
+        current.system_instructions ?? '',
+        current.tool_ids ?? '[]',
+        current.mcp_server_ids ?? '[]',
+        current.skill_ids ?? '[]',
+        current.icon_index ?? 1,
+        `Auto-snapshot before restoring to v${ver.version_number}`,
+        Date.now(),
+      );
+
+      // Apply the restored version
+      const folderId = current.folder_id ?? null;
+      const favorite = current.favorite ?? 0;
+      const projectId = current.project_id ?? 'default';
+      queries.updateManyAgent.run(
+        projectId,
+        ver.name,
+        ver.description ?? '',
+        ver.system_instructions ?? '',
+        ver.tool_ids ?? '[]',
+        ver.mcp_server_ids ?? '[]',
+        ver.skill_ids ?? '[]',
+        ver.icon_index ?? 1,
+        current.marketplace_id ?? null,
+        folderId,
+        favorite,
+        Date.now(),
+        agentId,
+      );
+      windowManager.broadcast('dome:agents-changed');
+      return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(agentId)) };
+    } catch (error) {
+      console.error('[DB] Error restoring agent version:', error);
       return { success: false, error: error.message };
     }
   });

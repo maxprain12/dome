@@ -375,8 +375,16 @@ async function generatePptFromNodeScript(scriptCode) {
       if (settled) return;
       settled = true;
       try {
+        // Parse stdout as JSONL: take the last valid JSON line.
+        // Model scripts may emit console.log() calls that end up in stdout
+        // before the runner's final { success, path } line — scanning
+        // from the end means we always find the protocol line even if
+        // there is noise above it.
         let resultData = {};
-        try { resultData = JSON.parse(stdout.trim() || '{}'); } catch {}
+        const stdoutLines = stdout.trim().split('\n');
+        for (let i = stdoutLines.length - 1; i >= 0; i--) {
+          try { resultData = JSON.parse(stdoutLines[i]); break; } catch { /* not JSON, keep scanning */ }
+        }
 
         if (code !== 0 || !resultData.success) {
           try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}

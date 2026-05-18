@@ -9,7 +9,7 @@ const BrowserActiveTabSchema = Type.Object({});
 
 export function createBrowserActiveTabTool(): AnyAgentTool {
   return {
-    label: 'Pestaña del navegador (macOS)',
+    label: 'Get active browser tab (macOS)',
     name: 'browser_get_active_tab',
     description:
       'macOS only. Returns the URL and title of the active tab when Safari, Google Chrome, Chromium, Brave, or Microsoft Edge is the frontmost app. ' +
@@ -24,7 +24,7 @@ export function createBrowserActiveTabTool(): AnyAgentTool {
         if (!window.electron.isMac) {
           return jsonResult({
             status: 'error',
-            error: 'browser_get_active_tab solo está disponible en macOS.',
+            error: 'browser_get_active_tab is only available on macOS.',
           });
         }
         const res = (await window.electron.invoke('browser:get-active-tab-macos')) as {

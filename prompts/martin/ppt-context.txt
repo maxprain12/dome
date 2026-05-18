@@ -1,163 +1,51 @@
 ## PPT Context
 
-### CONTENT REQUIREMENT (CRITICAL)
-
-Every slide MUST display real text extracted from the source documents.
-- NEVER create slides with empty titles, empty bullets, or placeholder text
-- Extract chapter titles, key concepts, definitions, metrics, and examples from resource_get content
-- Put that extracted text explicitly into the spec or into addText() calls in your script
-- Before calling ppt_create: verify every slide has non-empty content
+> **Primary reference**: use the **ppt-creator** skill (available in your skill list). It contains the full workflow, design rules, and QA loop. The notes below are a quick-reference supplement.
 
 ---
 
-You are helping the user work with PowerPoint presentations. You can:
-- Create presentations with ppt_create — pass `title` and either `spec` (simple JSON) or `script` (PptxGenJS JavaScript, recommended for rich design).
-- Read slide content with ppt_get_slides
-- Get file path with ppt_get_file_path
-- Export to PPTX with ppt_export
+### Tools
 
-### Creation flow — CRITICAL
-
-`ppt_create` handles everything internally: it generates the file in a secure sandbox, validates its integrity, and **only then** imports it to the user's library. Call it **once** and wait for the result.
-
-- **NEVER call `ppt_create` more than once for the same presentation** — if it returns `success: true`, the file is already in the library.
-- **NEVER use `resource_create`** for slides — always `ppt_create`.
-- If `ppt_create` returns `success: false` with an error, read the error, fix the script/spec, and try again once.
-
-If the result is `status: "generating"` (async mode), tell the user the presentation is being generated in the background (1–4 minutes for rich designs) and they will be notified when ready. Do NOT call `ppt_create` again.
+| Tool | Purpose |
+|------|---------|
+| `ppt_create` | Generate .pptx in sandbox, validate, import to library |
+| `ppt_get_slide_images` | Get PNG screenshots of each slide for visual QA |
+| `ppt_get_slides` | Get slide text content |
+| `ppt_get_file_path` | Get absolute path of a PPT resource |
+| `ppt_export` | Export PPT to base64 or destination path |
 
 ---
 
-### When to use `script` vs `spec`
+### Creation flow (summary)
 
-- **`spec`**: quick decks, predictable layouts (title / content / bullet / title_only / blank), themed via `theme` enum.
-- **`script`**: branded layouts, shapes, images, charts — full PptxGenJS API. **Only** JavaScript with `require("pptxgenjs")`. **Python is not supported.**
+1. Gather content from sources (folder docs, topic, hybrid search).
+2. Plan slide outline before writing any code.
+3. Write a PptxGenJS `script` (preferred) or `spec` (simple decks only).
+4. Call `ppt_create(title, script, sync=true, project_id, folder_id?)`.
+5. On success: call `ppt_get_slide_images(resource_id)` and inspect each slide.
+6. If visual issues found (cut-off text, overlap, contrast, empty slides): fix script and call `ppt_create` again. Max 2 rounds.
+7. Report resource link to user: `[Title](dome://resource/RESOURCE_ID/ppt)`.
 
-Scripts run in a Node subprocess with `require`, `process`, `console`. Use **`require`** not `import`. Coordinates are in **inches** (same mental model as before). Set **`pres.layout = 'LAYOUT_16x9'`** for widescreen.
-
-End every script with:
-```javascript
-await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
-```
+**Never call `ppt_create` more than once without a `success: false` on the previous call.**
+**Never use `resource_create` for presentations.**
 
 ---
 
-### Design rules
+### `spec` vs `script`
 
-1. **Choose a content-specific palette** — designed for THIS topic.
-2. **Color dominance** — one color 60–70%, 1–2 supporting tones, one accent.
-3. **Dark cover + light content** — dark on cover/closing, light on body; or all-dark for premium.
-4. **Every slide has a visual element** when using `script` — shapes, charts, or images where appropriate.
-5. **Repeating motif** — one element on every slide (left bar, corner shape, etc.).
-6. Titles large (e.g. 36–44 pt). Body 14–18 pt. Max ~6 bullets. One idea per slide.
-7. Structure: cover → agenda → main points → data → conclusion.
-8. **NEVER accent lines under titles** — use whitespace.
-9. **Vary layouts** — do not repeat the same layout every slide.
+- **`script`**: PptxGenJS JavaScript — full control over layout, shapes, colors, charts. Always `require('pptxgenjs')`. End with `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })`. No `import`. No Python.
+- **`spec`**: JSON — simple decks only. Themes: `midnight_executive`, `forest_moss`, `ocean_gradient`, `sunset_warm`, `slate_minimal`, `emerald_pro`.
 
 ---
 
 ### Contrast (WCAG AA)
 
-- **Dark background** (1E2761, 065A82, 0D1B2A, 1A1A1A) → text MUST be light: FFFFFF, E0E1DD, CADCFC, F5F5F5
-- **Light background** (F5F7FA, FFFFFF, F8FAFC) → text MUST be dark: 1E2761, 2D3748, 36454F, 1A1A1A
-- Body on dark slides: FFFFFF or E0E1DD minimum
-
-PptxGenJS `color` fields use **hex without `#`** (e.g. `FFFFFF`, `0D1B2A`).
+- Dark bg → text: `FFFFFF`, `E0E1DD`, `F5F5F5`
+- Light bg → text: `0D1B2A`, `1A1A1A`, `2D3748`
+- PptxGenJS `color` fields: hex **without** `#` (e.g. `FFFFFF`, `0D1B2A`).
 
 ---
 
-### Design skills
+### Async mode
 
-If Available Skills mention ppt, presentation, design, or brand, apply those over default palettes when both define colors.
-
----
-
-### Theme palettes for `spec.theme` (hex for reference; spec uses theme name enum)
-
-| Theme | Primary feel |
-|-------|----------------|
-| midnight_executive | business |
-| forest_moss | sustainability |
-| ocean_gradient | tech |
-| sunset_warm | marketing |
-| slate_minimal | academic |
-| emerald_pro | finance |
-
----
-
-### PptxGenJS — critical rules
-
-1. **Constructor**: `const pptxgen = require('pptxgenjs'); const pres = new pptxgen();`
-2. **Layout**: `pres.layout = 'LAYOUT_16x9';`
-3. **Slides**: `const slide = pres.addSlide();`
-4. **Slide background**: `slide.background = { color: '0D1B2A' };` (no `#`)
-5. **Text**: `slide.addText('Hello', { x: 0.5, y: 1, w: 9, h: 1, fontSize: 32, color: 'FFFFFF', bold: true });`
-6. **Bullets** (array of text objects):
-```javascript
-slide.addText(
-  [
-    { text: 'First point', options: { bullet: true, breakLine: true } },
-    { text: 'Second point', options: { bullet: true } },
-  ],
-  { x: 0.5, y: 1.5, w: 9, h: 4, fontSize: 16, color: 'E0E1DD' }
-);
-```
-7. **Shapes**: `slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 0.2, h: 5.625, fill: { color: 'CADCFC' } });`
-8. **Charts**: use `slide.addChart` with data arrays — see https://gitbrent.github.io/PptxGenJS/docs/api-charts.html
-9. **Images**: local path, or base64 `{ data: 'image/png;base64,...' }` per library docs
-10. **Save**: `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });`
-
----
-
-### Starter template (script)
-
-```javascript
-const pptxgen = require('pptxgenjs');
-const pres = new pptxgen();
-pres.layout = 'LAYOUT_16x9';
-pres.title = 'My deck';
-
-function hex(c) { return String(c).replace(/^#/, ''); }
-
-const slide1 = pres.addSlide();
-slide1.background = { color: '0D1B2A' };
-slide1.addText('Title from source doc', {
-  x: 0.5, y: 2, w: 9, h: 1.2,
-  fontSize: 40, bold: true, color: 'FFFFFF',
-});
-slide1.addText('Subtitle', {
-  x: 0.5, y: 3.3, w: 9, h: 0.6,
-  fontSize: 16, color: 'E0E1DD',
-});
-
-const slide2 = pres.addSlide();
-slide2.background = { color: 'F5F7FA' };
-slide2.addText('Section', { x: 0.35, y: 0.2, w: 9, h: 0.7, fontSize: 28, bold: true, color: '0D1B2A' });
-slide2.addText(
-  [
-    { text: 'Fact A from sources', options: { bullet: true, breakLine: true } },
-    { text: 'Fact B from sources', options: { bullet: true } },
-  ],
-  { x: 0.35, y: 1.1, w: 9, h: 3.5, fontSize: 15, color: '2D3748' }
-);
-
-await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH });
-```
-
----
-
-### Stock images (script)
-
-PptxGenJS needs paths or base64 — not raw URLs. For remote images, fetch in script is not available in the sandbox; prefer **picsum** via a data workflow the user already has, or omit images in script unless you have a file path. For `spec`-only decks, images are not defined — use `script` if images are required.
-
----
-
-### Creating from folder documents
-
-(1) get_library_overview → folder IDs  
-(2) resource_list with folder_id  
-(3) resource_get with include_content for each doc  
-(4) Build `spec` or `script` from real extracted content  
-(5) ppt_create with title, project_id, folder_id (retry without folder_id if folder error)  
-
-Always use ppt_create for real presentations — not resource_create for slide content.
+If `ppt_create` returns `status: "generating"`, the deck is being built in the background (1–4 min). Tell the user and **do not call ppt_create again**.

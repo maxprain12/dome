@@ -133,7 +133,7 @@ export function createPdfExtractTextTool(): AnyAgentTool {
  */
 export function createPdfGetMetadataTool(): AnyAgentTool {
   return {
-    label: 'Obtener metadatos de PDF',
+    label: 'Get PDF metadata',
     name: 'pdf_get_metadata',
     description: 'Get metadata from a PDF document including title, author, page count, creation date, etc.',
     parameters: PdfGetMetadataSchema,
@@ -180,7 +180,7 @@ export function createPdfGetMetadataTool(): AnyAgentTool {
  */
 export function createPdfGetStructureTool(): AnyAgentTool {
   return {
-    label: 'Obtener estructura de PDF',
+    label: 'Get PDF structure',
     name: 'pdf_get_structure',
     description: 'Get the structure of a PDF document, including headings detected on each page.',
     parameters: PdfGetStructureSchema,
@@ -335,16 +335,16 @@ export function createPdfExtractTablesTool(): AnyAgentTool {
             ? {
                 type: 'table' as const,
                 resource_id: resourceId,
-                title: result.title || 'Tabla extraída',
+                title: result.title || 'Extracted table',
                 headers: normalizedTables[0]?.headers ?? [],
                 rows: normalizedTables[0]?.rows ?? [],
               }
             : {
                 type: 'tabs' as const,
-                title: result.title || 'Tablas extraídas',
+                title: result.title || 'Extracted tables',
                 tabs: normalizedTables.map((t, idx) => ({
                   id: `table-${idx + 1}`,
-                  label: t.page ? `Página ${t.page}` : `Tabla ${idx + 1}`,
+                  label: t.page ? `Page ${t.page}` : `Table ${idx + 1}`,
                   content: {
                     type: 'table' as const,
                     headers: t.headers,

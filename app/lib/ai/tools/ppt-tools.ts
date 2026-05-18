@@ -10,9 +10,9 @@ import { jsonResult, readStringParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
 
 const PptCreateSchema = Type.Object({
-  title: Type.String({
-    description: 'Title for the new PowerPoint resource.',
-  }),
+  title: Type.Optional(Type.String({
+    description: 'Title for the new PowerPoint resource. If omitted, it is extracted from pres.title in the script.',
+  })),
   script: Type.Optional(
     Type.String({
       description:
@@ -104,12 +104,12 @@ const PptGetSlidesSchema = Type.Object({
 
 export function createPptCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear PowerPoint',
+    label: 'Create PowerPoint',
     name: 'ppt_create',
     description:
-      'Crea una nueva presentación PowerPoint con PptxGenJS: script JavaScript (Node) para control total, o spec JSON para slides simples. ' +
-      'Usa sync=true si quieres hacer QA visual inmediato con ppt_get_slide_images después de crear. ' +
-      'Cada slide debe tener contenido real de los documentos fuente.',
+      'Create a PowerPoint presentation with PptxGenJS: pass a JavaScript script (Node) for full control, or a JSON spec for simple slides. ' +
+      'Use sync=true to immediately QA slides visually with ppt_get_slide_images after creation. ' +
+      'Each slide should contain real content from the source documents.',
     parameters: PptCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -117,9 +117,14 @@ export function createPptCreateTool(): AnyAgentTool {
           return jsonResult({ status: 'error', error: 'PPT tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
-        const title = readStringParam(params, 'title', { required: true });
-        const spec = params.spec as Record<string, unknown> | undefined;
         const script = typeof params.script === 'string' ? params.script : undefined;
+        const spec = params.spec as Record<string, unknown> | undefined;
+        // title is optional — fall back to pres.title in the script, then spec.title, then generic
+        const titleParam = readStringParam(params, 'title', { required: false });
+        const scriptTitle = script
+          ? (script.match(/pres\.title\s*=\s*['"]([^'"]+)['"]/)?.[1] ?? '')
+          : '';
+        const title = titleParam || scriptTitle || (spec?.title as string | undefined) || 'Untitled Presentation';
         const projectId = readStringParam(params, 'project_id');
         const folderId = readStringParam(params, 'folder_id');
         const sync = typeof params.sync === 'boolean' ? params.sync : false;
@@ -148,9 +153,9 @@ export function createPptCreateTool(): AnyAgentTool {
 
 export function createPptGetFilePathTool(): AnyAgentTool {
   return {
-    label: 'Obtener ruta del PPT',
+    label: 'Get PPT file path',
     name: 'ppt_get_file_path',
-    description: 'Obtiene la ruta absoluta del archivo PowerPoint en disco.',
+    description: 'Get the absolute disk path of a PowerPoint resource.',
     parameters: PptGetFilePathSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -200,10 +205,10 @@ export function createPptExportTool(): AnyAgentTool {
 
 export function createPptGetSlidesTool(): AnyAgentTool {
   return {
-    label: 'Obtener diapositivas PPT',
+    label: 'Get PPT slides',
     name: 'ppt_get_slides',
     description:
-      'Obtiene el contenido de las diapositivas de un PowerPoint existente (título y texto de cada slide).',
+      'Get the content of slides from an existing PowerPoint (title and text of each slide).',
     parameters: PptGetSlidesSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -227,19 +232,19 @@ export function createPptGetSlidesTool(): AnyAgentTool {
 
 const PptGetSlideImagesSchema = Type.Object({
   resource_id: Type.String({
-    description: 'ID del recurso PPT del que obtener imágenes de diapositivas.',
+    description: 'ID of the PPT resource to retrieve slide images from.',
   }),
 });
 
 export function createPptGetSlideImagesTool(): AnyAgentTool {
   return {
-    label: 'Ver slides del PPT',
+    label: 'Get PPT slide images',
     name: 'ppt_get_slide_images',
     description:
-      'Obtiene imágenes PNG de cada diapositiva de un PowerPoint existente. ' +
-      'Úsalo después de ppt_create (con sync=true) para QA visual: analiza si hay texto cortado, ' +
-      'overlapping de elementos, mal contraste, o problemas de espaciado. ' +
-      'Si detectas problemas, crea una versión corregida con ppt_create.',
+      'Get PNG images of each slide from an existing PowerPoint. ' +
+      'Use after ppt_create (with sync=true) for visual QA: inspect for cut-off text, ' +
+      'overlapping elements, poor contrast, or spacing issues. ' +
+      'If problems are detected, create a corrected version with ppt_create.',
     parameters: PptGetSlideImagesSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -253,13 +258,13 @@ export function createPptGetSlideImagesTool(): AnyAgentTool {
         if (!result.success || !result.slides?.length) {
           return jsonResult({
             status: 'error',
-            error: result.error || 'No se pudieron obtener imágenes de las diapositivas',
+            error: result.error || 'Could not retrieve slide images',
           });
         }
         const content: ToolResultContent[] = [
           {
             type: 'text',
-            text: `Presentación con ${result.slides.length} diapositiva(s). Analiza cada imagen para detectar problemas visuales (texto cortado, overlapping, contraste, espaciado).`,
+            text: `Presentation with ${result.slides.length} slide(s). Inspect each image for visual issues (cut-off text, overlapping, contrast, spacing).`,
           },
         ];
         for (const slide of result.slides as Array<{ index: number; image_base64: string }>) {

@@ -5,7 +5,7 @@
  */
 'use strict';
 
-const aiCloud = require('../ai-cloud-service.cjs');
+const llmService = require('../llm-service.cjs');
 const { MINIMAX_BASE_URL } = require('../minimax-config.cjs');
 const database = require('../database.cjs');
 const domeOauth = require('../dome-oauth.cjs');
@@ -93,7 +93,7 @@ function emitAnalytics(windowManager, props) {
  */
 function buildOpenAStyleMessages(system, userText, imageDataUrls) {
   const imgs = (imageDataUrls || []).filter(Boolean);
-  const userContent = aiCloud.buildOpenAIImageUserContent(userText, imgs);
+  const userContent = llmService.buildImageContent(userText, imgs);
   const messages = [];
   if (system && String(system).trim()) {
     messages.push({ role: 'system', content: String(system) });
@@ -162,57 +162,39 @@ async function generateText(opts) {
     if (cfg.provider === 'dome') {
       const body = { model: cfg.model, messages };
       if (json) body.response_format = { type: 'json_object' };
-      const r = await domeChatCompletions(body);
-      out = r;
-    } else if (cfg.provider === 'ollama') {
-      out = await aiCloud.chatOpenAI(
-        messages,
-        cfg.apiKey,
-        cfg.model,
-        cfg.ollamaBase,
-        300000,
-        openOpts,
-      );
-    } else if (cfg.provider === 'openai' || cfg.provider === 'minimax') {
-      const key = cfg.apiKey;
-      if (!key) throw new Error('Falta la clave API en Ajustes');
-      if (cfg.provider === 'minimax') {
-        out = await aiCloud.chatOpenAI(
-          messages,
-          key,
-          cfg.model || 'MiniMax-M2.5',
-          cfg.openaiBase,
-          300000,
-          openOpts,
-        );
-      } else {
-        out = await aiCloud.chatOpenAI(messages, key, cfg.model, cfg.openaiBase, 300000, openOpts);
-      }
-    } else if (cfg.provider === 'anthropic') {
+      out = await domeChatCompletions(body);
+    } else if (cfg.provider === 'anthropic' && json) {
+      // Anthropic: inject JSON instruction in system, no response_format param
       if (!cfg.apiKey) throw new Error('Falta la clave API en Ajustes');
-      if (json) {
-        // Anthropic: prompt JSON in system, no response_format
-        const m2 = hasImages
-          ? buildAnthropicStyleMessages(
-              `${system || ''}\nResponde solo con un objeto JSON válido, sin markdown.`,
-              user,
-              imageDataUrls,
-            )
-          : (() => {
-              const m = [];
-              m.push({ role: 'user', content: String(user) });
-              if (system) m.unshift({ role: 'system', content: String(system) + '\nResponde solo con JSON.' });
-              return m;
-            })();
-        out = await aiCloud.chatAnthropic(m2, cfg.apiKey, cfg.model, anthOpts);
-      } else {
-        out = await aiCloud.chatAnthropic(messages, cfg.apiKey, cfg.model, anthOpts);
-      }
-    } else if (cfg.provider === 'google') {
-      if (!cfg.apiKey) throw new Error('Falta la clave API en Ajustes');
-      out = await aiCloud.chatGoogle(messages, cfg.apiKey, cfg.model, googleOpts);
+      const m2 = hasImages
+        ? buildAnthropicStyleMessages(
+            `${system || ''}\nResponde solo con un objeto JSON válido, sin markdown.`,
+            user,
+            imageDataUrls,
+          )
+        : (() => {
+            const m = [];
+            m.push({ role: 'user', content: String(user) });
+            if (system) m.unshift({ role: 'system', content: String(system) + '\nResponde solo con JSON.' });
+            return m;
+          })();
+      out = await llmService.chat({
+        provider: 'anthropic',
+        model: cfg.model,
+        apiKey: cfg.apiKey,
+        messages: m2,
+        options: anthOpts,
+      });
     } else {
-      throw new Error(`Proveedor no soportado: ${cfg.provider}`);
+      if (cfg.provider !== 'ollama' && !cfg.apiKey) throw new Error('Falta la clave API en Ajustes');
+      out = await llmService.chat({
+        provider: cfg.provider,
+        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M2.5') : cfg.model,
+        apiKey: cfg.apiKey,
+        baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+        messages,
+        options: cfg.provider === 'google' ? googleOpts : openOpts,
+      });
     }
   } catch (e) {
     err = e instanceof Error ? e : new Error(String(e));
@@ -325,59 +307,18 @@ async function streamGenerate(opts) {
   try {
     if (cfg.provider === 'dome') {
       full = await domeStreamChatCompletions({ messages, model: cfg.model || 'dome/auto' }, wrap);
-    } else if (cfg.provider === 'ollama') {
-      full = await aiCloud.streamOpenAI(
-        messages,
-        cfg.apiKey,
-        cfg.model,
-        wrap,
-        cfg.ollamaBase,
-        300000,
-        undefined,
-        streamOpts,
-      );
-    } else if (cfg.provider === 'openai' || cfg.provider === 'minimax') {
-      const key = cfg.apiKey;
-      if (!key) throw new Error('Falta la clave API');
-      const model = cfg.model;
-      if (cfg.provider === 'minimax') {
-        full = await aiCloud.streamOpenAI(
-          messages,
-          key,
-          model || 'MiniMax-M2.5',
-          wrap,
-          cfg.openaiBase,
-          300000,
-          undefined,
-          streamOpts,
-        );
-      } else {
-        full = await aiCloud.streamOpenAI(
-          messages,
-          key,
-          model,
-          wrap,
-          cfg.openaiBase,
-          300000,
-          undefined,
-          streamOpts,
-        );
-      }
-    } else if (cfg.provider === 'anthropic') {
-      if (!cfg.apiKey) throw new Error('Falta la clave API');
-      full = await aiCloud.streamAnthropic(messages, cfg.apiKey, cfg.model, wrap, undefined, streamOpts);
-    } else if (cfg.provider === 'google') {
-      if (!cfg.apiKey) throw new Error('Falta la clave API');
-      full = await aiCloud.streamGoogle(
-        messages,
-        cfg.apiKey,
-        cfg.model,
-        wrap,
-        undefined,
-        { maxOutputTokens: streamOpts.maxTokens },
-      );
     } else {
-      throw new Error(`Stream no soportado: ${cfg.provider}`);
+      if (cfg.provider !== 'ollama' && !cfg.apiKey) throw new Error('Falta la clave API');
+      const googleOpts = { maxOutputTokens: streamOpts.maxTokens };
+      full = await llmService.stream({
+        provider: cfg.provider,
+        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M2.5') : cfg.model,
+        apiKey: cfg.apiKey,
+        baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+        messages,
+        options: cfg.provider === 'google' ? googleOpts : streamOpts,
+        onChunk: wrap,
+      });
     }
   } catch (e) {
     err = e instanceof Error ? e : new Error(String(e));

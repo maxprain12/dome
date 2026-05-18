@@ -194,9 +194,9 @@ export function createMarketplaceInstallTool(): AnyAgentTool {
           );
         }
 
-        return errorResult('Tipo inválido: debe ser "agent" o "workflow"');
+        return errorResult('Invalid type: must be "agent" or "workflow"');
       } catch (err) {
-        return errorResult(err instanceof Error ? err.message : 'Error desconocido al instalar');
+        return errorResult(err instanceof Error ? err.message : 'Unknown error installing');
       }
     },
   };

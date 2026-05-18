@@ -6,8 +6,6 @@ export interface SlashSkillItem {
   name: string;
   description: string;
   prompt: string;
-  argument_hint?: string;
-  arguments?: string[];
 }
 
 export interface UseSlashSkillsOptions {
@@ -55,24 +53,19 @@ export function useSlashSkills({
 
   const loadSkills = useCallback(async () => {
     try {
-      const res = await listSkills({ includeBody: true });
+      const res = await listSkills();
       if (!res.success || !Array.isArray(res.data)) {
         setAllSkills([]);
         return;
       }
       const items: SlashSkillItem[] = res.data
-        .filter(
-          (s) => s.user_invocable !== false && !!(s as { body?: string }).body?.trim(),
-        )
+        .filter((s) => !!s.id)
         .map((s) => ({
           id: s.id,
           name: s.name,
           description: s.description,
-          prompt: (s as { body?: string }).body || '',
-          argument_hint: s.argument_hint,
-          arguments: s.arguments,
-        }))
-        .filter((s) => s.id);
+          prompt: '',
+        }));
       setAllSkills(items);
     } catch {
       setAllSkills([]);

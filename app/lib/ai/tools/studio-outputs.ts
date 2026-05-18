@@ -93,7 +93,7 @@ function validateDifficulty(value: string | undefined): 'easy' | 'medium' | 'har
  */
 export function createGenerateMindmapTool(): AnyAgentTool {
   return {
-    label: 'Generar Mapa Mental',
+    label: 'Generate Mind Map',
     name: 'generate_mindmap',
     description:
       'Generate a mind map from selected sources. Analyzes the content and creates a visual knowledge map with connected concepts. ' +
@@ -196,7 +196,7 @@ export function createGenerateMindmapTool(): AnyAgentTool {
  */
 export function createGenerateQuizTool(): AnyAgentTool {
   return {
-    label: 'Generar Quiz',
+    label: 'Generate Quiz',
     name: 'generate_quiz',
     description:
       'Generate a quiz/test/questionnaire from selected sources. ONLY call when the user explicitly asks for a quiz, test, exam, cuestionario, preguntas, examen, or evaluación. ' +

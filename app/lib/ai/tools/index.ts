@@ -226,7 +226,6 @@ export {
   createRememberFactTool,
 } from './memory';
 
-export { createLoadSkillTools } from './load-skill';
 export type {
   MemorySearchConfig,
   MemorySearchResult,
@@ -337,7 +336,6 @@ import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
 import { createEntityTools } from './entity-tools';
 import { createMarketplaceTools } from './marketplace-tools';
-import { createMemorySearchWithIPC, createMemoryGetWithIPC } from './memory';
 import { createFileTools } from './file-tools';
 import { createShellTools } from './shell-tools';
 import { createUiTools } from './ui-tools';
@@ -497,9 +495,6 @@ export function createManyToolsForContext(
   if (config?.includeContext !== false) {
     tools.push(...createContextTools());
   }
-
-  // Memory tools: semantic search + retrieval via IPC
-  tools.push(createMemorySearchWithIPC(), createMemoryGetWithIPC());
 
   // Notebook tools only when viewing a notebook (saves tokens elsewhere)
   if (isNotebook) {

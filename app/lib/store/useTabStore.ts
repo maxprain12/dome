@@ -78,7 +78,17 @@ function loadStoredTabs(): { tabs: DomeTab[]; activeTabId: string } {
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
-        return { tabs: parsed.tabs, activeTabId: parsed.activeTabId ?? HOME_TAB_ID };
+        const storedTabs = parsed.tabs as DomeTab[];
+        // Ensure the home tab is always present (pinned, must survive any cleanup)
+        const hasHome = storedTabs.some((t) => t.id === HOME_TAB_ID);
+        const tabs = hasHome ? storedTabs : [HOME_TAB, ...storedTabs];
+        // Ensure activeTabId points to an existing tab so ContentRouter never
+        // shows an endless <Loading /> spinner on startup
+        const storedActiveId = parsed.activeTabId ?? HOME_TAB_ID;
+        const activeTabId = tabs.some((t) => t.id === storedActiveId)
+          ? storedActiveId
+          : HOME_TAB_ID;
+        return { tabs, activeTabId };
       }
     }
   } catch {

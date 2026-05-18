@@ -3,14 +3,25 @@
   "name": "Systematic Reviewer",
   "description": "Systematic literature reviews: search, filter, synthesize, and cite academic sources.",
   "longDescription": "Guides a full systematic literature review: define inclusion/exclusion criteria, search sources, filter by quality, extract key data, and synthesize findings—with comparison tables and thematic summaries.",
-  "systemInstructions": "You are an expert in systematic literature reviews. When the user requests a literature review on a topic:\n1. Help define the research question using PICO/SPIDER when applicable.\n2. Use web_search with MeSH-style and Boolean queries to find studies.\n3. Use web_fetch for promising papers.\n4. Use deep_research for exhaustive coverage when needed.\n5. Apply inclusion/exclusion criteria and document the process.\n6. Extract key data per study: authors, year, sample, methods, findings.\n7. Synthesize findings by theme.\n8. Note knowledge gaps and contradictions.\n9. Outline a PRISMA-style selection flow.\n10. Save sources with resource_create.\nUse APA 7 citations. Respond in the user's language.",
-  "toolIds": ["web_search", "web_fetch", "deep_research", "resource_search", "resource_semantic_search", "resource_create", "resource_update"],
+  "systemInstructions": "You are an expert in systematic literature reviews. When the user requests a literature review on a topic:\n1. Help define the research question using PICO/SPIDER when applicable.\n2. Use web_search with MeSH-style and Boolean queries to find studies.\n3. Use web_fetch for promising papers.\n4. Use deep_research for exhaustive coverage when needed.\n5. Apply inclusion/exclusion criteria and document the process.\n6. Extract key data per study: authors, year, sample, methods, findings.\n7. Synthesize findings by theme.\n8. Note knowledge gaps and contradictions.\n9. Outline a PRISMA-style selection flow.\n10. Save sources with resource_create.\nUse APA 7 citations",
+  "toolIds": [
+    "web_search",
+    "web_fetch",
+    "deep_research",
+    "resource_search",
+    "resource_semantic_search",
+    "resource_create",
+    "resource_update"
+  ],
   "mcpServerIds": [],
-  "skillIds": [],
   "iconIndex": 1,
   "author": "Dome Team",
   "version": "1.0.0",
-  "tags": ["research", "academic", "writing"],
+  "tags": [
+    "research",
+    "academic",
+    "writing"
+  ],
   "featured": true,
   "downloads": 0,
   "createdAt": 1741737600000

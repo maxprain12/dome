@@ -1,24 +1,82 @@
 ---
 name: ppt-from-folder
-description: "Build a real .pptx from documents inside a Dome folder using ppt_create."
-when_to_use: "User asks to create a presentation or PPT from files in a folder, or 'presentación con los documentos de [carpeta]'."
+description: "Create a PowerPoint from documents in a Dome folder or from an Excel resource — covers source extraction (folder docs OR .xlsx sheets) and then delegates to ppt-creator for the full PptxGenJS script + QA loop."
+when_to_use: "User asks to create a presentation from documents in a folder, from an Excel file, or 'presentación con los documentos de [carpeta]' or 'PPT con datos de este Excel'."
 paths:
   - "ppt"
+  - "presentation"
+  - "excel"
+  - "presentación"
 allowed-tools:
   - resource_get_library_overview
   - resource_list
   - resource_get
+  - excel_get
+  - excel_get_file_path
+  - artifact_link_resource
   - ppt_create
+  - ppt_get_slide_images
+  - ppt_get_slides
 ---
 
-## PPT from folder / documents
+# PPT from Folder / Excel
 
-When the user says "create a PPT from documents in folder X" or "presentación con los documentos de [carpeta]":
+**MANDATORY FIRST STEP:** Call `load_skill('ppt-creator')` before doing anything else. That skill contains the full PptxGenJS script template, palette table, WCAG contrast rules, and visual QA loop you MUST follow. This skill adds only the source-extraction guidance on top.
 
-1. Call `resource_get_library_overview` to find the folder by name and get its ID. Use ONLY folder IDs returned here.
-2. Call `resource_list` with `folder_id` to list documents in that folder.
-3. For each relevant document (PDF, note): call `resource_get` to fetch content (`include_content: true`, `max_content_length: 50000`).
-4. Synthesize the content into slides: title slide, then content slides with key points as bullets. Every slide must have real content from the documents—never empty bullets or placeholders.
-5. Call `ppt_create` with `title`, `spec.slides` (built from the content), `project_id`, and `folder_id`. NEVER use `resource_create` for presentations—always `ppt_create`. Staging, validation and import are handled internally — call it **once** and wait for the result.
-6. If `ppt_create` fails due to `folder_id`: retry without `folder_id`. The PPT will be created at project root; inform the user they can move it later.
-7. Return the link `[Ver: Title](dome://resource/RESOURCE_ID/ppt)`.
+---
+
+## PHASE 0 — Detect source type
+
+| Source | Detection | Tool |
+|--------|-----------|------|
+| **Dome folder** | User mentions a folder name or provides a folder link | `resource_get_library_overview` → `resource_list(folder_id)` → `resource_get(include_content: true)` |
+| **Excel (.xlsx)** | User says "este Excel", "este archivo", provides a resource link to a spreadsheet | `excel_get(resource_id)` for each relevant sheet |
+| **Mixed** | Both | Combine: folder docs + Excel sheets |
+
+---
+
+## PHASE 1A — Extracting content from a Dome folder
+
+1. `resource_get_library_overview` — get the folder ID by name.
+2. `resource_list(folder_id)` — list all files in the folder.
+3. For each file: `resource_get(resource_id, include_content: true, max_content_length: 60_000)`.
+4. Extract chapter titles, key terms, data points, quotes, and examples. **Never use placeholder text.**
+
+---
+
+## PHASE 1B — Extracting content from an Excel resource
+
+1. `excel_get(resource_id)` **without** `sheet_name` first — this returns the list of all sheet names.
+2. `excel_get(resource_id, sheet_name)` for each sheet that looks relevant (config/summary/main data sheets).
+3. From each sheet extract:
+   - **KPIs** — numeric totals, rates, percentages in named columns/rows.
+   - **Categories** — distinct values in categorical columns (regions, levels, product names).
+   - **Trends** — if there are time-series columns, note min/max/current.
+4. Map to slides:
+
+| Slide | Content from Excel |
+|-------|-------------------|
+| 2 | Top KPIs (3–6 metrics with values + units) |
+| 3 | Category breakdown (table or bar chart description) |
+| 4–N | Deep dives per category or region |
+| N+1 | Insight / conclusions drawn from the numbers |
+
+---
+
+## PHASE 2 → PHASE 6
+
+After extracting content from the folder or Excel, follow **ppt-creator** exactly:
+- PHASE 2: Plan the slide outline.
+- PHASE 3: Choose script mode (always prefer `script` with PptxGenJS).
+- PHASE 4: Write the PptxGenJS script with real extracted content — no placeholders.
+- PHASE 5: `ppt_create(title, script, sync: true)` → `ppt_get_slide_images` visual QA.
+- PHASE 6: Report `dome://resource/RESOURCE_ID/ppt` link to the user.
+
+---
+
+## Hard constraints
+
+- ❌ Never call `ppt_create` without first loading `ppt-creator` skill.
+- ❌ Never call `ppt_create` without a `script` (PptxGenJS) or a `spec` with non-empty `slides` — it will return an error.
+- ❌ Never use placeholder text on any slide.
+- ❌ Never skip the `ppt_get_slide_images` QA step.

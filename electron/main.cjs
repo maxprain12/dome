@@ -226,7 +226,6 @@ const documentStaging = require('./document-staging.cjs');
 const docxConverter = require('./docx-converter.cjs');
 const authManager = require('./auth-manager.cjs');
 const personalityLoader = require('./personality-loader.cjs');
-const aiCloudService = require('./ai-cloud-service.cjs');
 const updateService = require('./update-service.cjs');
 const ttsService = require('./tts-service.cjs');
 const notebookPython = require('./notebook-python.cjs');
@@ -804,6 +803,14 @@ app
     // but we still need to ensure it's ready
     database.initDatabase();
 
+    // Seed bundled SKILL.md packs to ~/.dome/skills/ on first boot (idempotent)
+    try {
+      const { seedBundledSkills } = require('./skills-bootstrap.cjs');
+      seedBundledSkills(database.getDB());
+    } catch (e) {
+      console.warn('[Main] skills bootstrap:', e?.message || e);
+    }
+
     // Start the embeddings utilityProcess worker now that app is ready.
     try {
       require('./services/embeddings.service.cjs').initWorker();
@@ -839,7 +846,6 @@ app
       ollamaService,
       getOllamaManager,
       aiToolsHandler,
-      aiCloudService,
       ttsService,
       documentExtractor,
       documentGenerator,

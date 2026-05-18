@@ -35,7 +35,7 @@ const DEFAULT_NOTE_HEIGHT = 150;
 
 export function createPdfAnnotationCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear anotación en PDF',
+    label: 'Create PDF annotation',
     name: 'pdf_annotation_create',
     description:
       'Add a note annotation to a specific page of a PDF. Use resource_get or resource_search first to find the PDF resource_id. ' +
