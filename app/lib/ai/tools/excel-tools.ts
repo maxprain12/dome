@@ -105,9 +105,9 @@ const ExcelAddSheetSchema = Type.Object({
 });
 
 const ExcelCreateSchema = Type.Object({
-  title: Type.String({
-    description: 'Title for the new Excel resource.',
-  }),
+  title: Type.Optional(Type.String({
+    description: 'Title for the new Excel resource. If omitted, derived from sheet_name or defaults to "Untitled Spreadsheet".',
+  })),
   project_id: Type.Optional(
     Type.String({
       description: 'Project ID. Default: current project.',
@@ -147,10 +147,10 @@ const ExcelExportSchema = Type.Object({
 
 export function createExcelGetTool(): AnyAgentTool {
   return {
-    label: 'Obtener Excel',
+    label: 'Get Excel content',
     name: 'excel_get',
     description:
-      'Obtiene el contenido de un Excel (hojas, datos). Úsalo para leer un archivo Excel antes de modificarlo o cuando el usuario pregunta sobre su contenido. Acepta resource_id de un recurso document/xlsx.',
+      'Read the content of an Excel resource (sheets, data, cell values). Use before editing an Excel file, or when the user asks about its contents. Accepts the resource_id of a document/xlsx resource.',
     parameters: ExcelGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -175,10 +175,10 @@ export function createExcelGetTool(): AnyAgentTool {
 
 export function createExcelGetFilePathTool(): AnyAgentTool {
   return {
-    label: 'Obtener ruta del Excel',
+    label: 'Get Excel file path',
     name: 'excel_get_file_path',
     description:
-      'Obtiene la ruta absoluta del archivo Excel en disco. Úsalo para generar código Python que lea el Excel con pd.read_excel(ruta) o openpyxl. Esencial cuando el usuario pide "extrae datos del Excel X y genera análisis con pandas/sklearn" en un notebook.',
+      'Get the absolute on-disk path of an Excel resource. Use to generate Python code that reads the file with pd.read_excel(path) or openpyxl. Essential for the Excel→Notebook analysis flow (pair with notebook_add_cell).',
     parameters: ExcelGetFilePathSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -202,9 +202,9 @@ export function createExcelGetFilePathTool(): AnyAgentTool {
 
 export function createExcelSetCellTool(): AnyAgentTool {
   return {
-    label: 'Modificar celda Excel',
+    label: 'Set cell value',
     name: 'excel_set_cell',
-    description: 'Modifica el valor de una celda en un Excel. Usa referencias A1 (ej. A1, B2).',
+    description: 'Set the value of a single cell in an Excel resource. Use A1-style references (e.g. A1, B2).',
     parameters: ExcelSetCellSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -235,9 +235,9 @@ export function createExcelSetCellTool(): AnyAgentTool {
 
 export function createExcelSetRangeTool(): AnyAgentTool {
   return {
-    label: 'Escribir rango Excel',
+    label: 'Write range',
     name: 'excel_set_range',
-    description: 'Escribe un array 2D de valores en un rango (ej. A1:C3).',
+    description: 'Write a 2D array of values into a cell range (e.g. A1:C3).',
     parameters: ExcelSetRangeSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -270,9 +270,9 @@ export function createExcelSetRangeTool(): AnyAgentTool {
 
 export function createExcelAddRowTool(): AnyAgentTool {
   return {
-    label: 'Añadir fila Excel',
+    label: 'Add row',
     name: 'excel_add_row',
-    description: 'Añade una fila con los valores dados a una hoja del Excel.',
+    description: 'Append or insert a row with given values into an Excel sheet.',
     parameters: ExcelAddRowSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -304,9 +304,9 @@ export function createExcelAddRowTool(): AnyAgentTool {
 
 export function createExcelAddSheetTool(): AnyAgentTool {
   return {
-    label: 'Añadir hoja Excel',
+    label: 'Add sheet',
     name: 'excel_add_sheet',
-    description: 'Crea una nueva hoja en un Excel.',
+    description: 'Create a new sheet in an Excel resource.',
     parameters: ExcelAddSheetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -334,9 +334,9 @@ export function createExcelAddSheetTool(): AnyAgentTool {
 
 export function createExcelCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear Excel',
+    label: 'Create Excel',
     name: 'excel_create',
-    description: 'Crea un nuevo recurso Excel vacío o con datos iniciales.',
+    description: 'Create a new Excel resource, optionally seeded with initial data.',
     parameters: ExcelCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -344,7 +344,8 @@ export function createExcelCreateTool(): AnyAgentTool {
           return jsonResult({ status: 'error', error: 'Excel tools require Electron.' });
         }
         const params = args as Record<string, unknown>;
-        const title = readStringParam(params, 'title', { required: true });
+        const sheetName = readStringParam(params, 'sheet_name', { required: false });
+        const title = readStringParam(params, 'title', { required: false }) || sheetName || 'Untitled Spreadsheet';
         const projectId = readStringParam(params, 'project_id');
         const currentProjectResult = await window.electron!.ai.tools.getCurrentProject();
         const resolvedProjectId = projectId || currentProjectResult?.project?.id || 'default';
@@ -365,9 +366,9 @@ export function createExcelCreateTool(): AnyAgentTool {
 
 export function createExcelExportTool(): AnyAgentTool {
   return {
-    label: 'Exportar Excel',
+    label: 'Export Excel',
     name: 'excel_export',
-    description: 'Exporta un Excel a base64 (xlsx o csv). Para guardar en disco, el usuario puede usar la opción de exportar recurso.',
+    description: 'Export an Excel resource as base64 (xlsx or csv). Use when the user wants to download or share the file.',
     parameters: ExcelExportSchema,
     execute: async (_toolCallId, args) => {
       try {

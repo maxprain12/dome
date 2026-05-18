@@ -1,13 +1,18 @@
 /* eslint-disable no-console */
 
 /**
- * Agent Team IPC Handler — LangGraph supervisor.
+ * Agent Team IPC Handler — LangGraph supervisor with subgraph nodes.
  *
- * The supervisor is a `createAgent` whose tools are: (1) the team's own
- * tools / MCP servers, and (2) one `delegate_to_<agentId>` tool per member
- * agent. Each delegation tool spins up its own member `createAgent` and
- * streams its events back through the parent `onChunk`, tagged with the
- * member's `agentName` so the renderer can label the UI.
+ * Architecture (2.3 refactor):
+ *   - Each member agent is a `createAgent` compiled graph → added as a
+ *     subgraph node in a parent `StateGraph`.
+ *   - The supervisor is also a `createAgent` graph whose delegation tools
+ *     return `Command({ goto: memberId })`, causing the parent graph to
+ *     route to the appropriate member subgraph.
+ *   - After each member runs, an edge returns to the supervisor.
+ *   - The team has ONE stable thread_id for the whole interaction.
+ *   - The parent graph is compiled with `getDomeCheckpointer()` so the
+ *     full team state is persisted across turns.
  *
  * The renderer expects this chunk shape on `ai:stream:chunk`:
  *   { streamId, chunk: '<text>' }                    — supervisor synthesis text
@@ -21,10 +26,11 @@
 
 const { setMaxListeners } = require('events');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
-const langgraphAgent = require('../langgraph-agent.cjs');
-const { getToolDefinitionsByIds } = require('../tool-dispatcher.cjs');
+const { createModelFromConfig, createLangChainToolsFromOpenAIDefinitions } = require('../langgraph-agent.cjs');
+const { getToolDefinitionsByIds, executeToolInMain } = require('../tool-dispatcher.cjs');
+const { getDomeCheckpointer } = require('../checkpointer.cjs');
+const { buildSkillsMiddleware } = require('../skills/index.cjs');
 const domeOauth = require('../dome-oauth.cjs');
-const { appendSkillsToPrompt, filterToolsBySkill } = require('../skill-prompt.cjs');
 const { buildDomeSystemPrompt } = require('../system-prompt.cjs');
 const { readPrompt } = require('../prompts-loader.cjs');
 
@@ -40,9 +46,6 @@ function getTeamSupervisorTemplate() {
     : TEAM_SUPERVISOR_PROMPT_FALLBACK;
 }
 
-/**
- * Get AI settings from database (async for dome provider session refresh).
- */
 async function getAISettings(database) {
   const queries = database.getQueries();
   const provider = queries.getSetting.get('ai_provider')?.value || 'ollama';
@@ -74,10 +77,6 @@ async function getAISettings(database) {
   };
 }
 
-/**
- * Load agent configs from dedicated agents table, falling back to legacy
- * `many_agents` setting for older installs.
- */
 function loadAgents(database, projectId = 'default') {
   try {
     const queries = database.getQueries();
@@ -117,9 +116,6 @@ function buildDelegationContext(payload = {}) {
   return `${lines.join('\n')}\n- Use this context when deciding which Dome resources or folders to inspect.\n`;
 }
 
-/**
- * Lowercase, snake-case, ASCII-only — must match LangChain tool name rules.
- */
 function toolNameForAgent(agent) {
   const raw = String(agent.id || agent.name || 'agent')
     .toLowerCase()
@@ -130,48 +126,35 @@ function toolNameForAgent(agent) {
 }
 
 /**
- * Build a single member-as-tool wrapper. The wrapper accepts `{ task }`,
- * runs the member as its own LangGraph agent, streams events back to the
- * parent `onChunk` tagged with `agentName`, and returns the final text.
+ * Build LangChain tools for a member agent (direct execution via tool-dispatcher).
  */
-async function buildMemberDelegationTool({
-  agent,
-  contextBlock,
-  teamToolIds,
-  teamMcpServerIds,
-  settings,
-  controller,
-  database,
-  parentOnChunk,
-  send,
-  teamId,
-}) {
-  const { tool } = await import('@langchain/core/tools');
-  const zodMod = await import('zod');
-  const z = zodMod.z ?? zodMod.default ?? zodMod;
-
-  const baseInstructions = (agent.systemInstructions || agent.description || '').trim()
-    || `You are ${agent.name}, a specialized AI assistant.`;
-  const withSkills = appendSkillsToPrompt(
-    baseInstructions,
-    Array.isArray(agent.skillIds) ? agent.skillIds : [],
-    database.getQueries(),
-  );
-  const staticPersona = `${withSkills}\n\nUse Dome tools when they improve the answer, especially for resource-aware tasks.`;
-  const memberSystemPrompt = buildDomeSystemPrompt({
-    staticPersona,
-    volatileContext: contextBlock || undefined,
-  });
-
-  const rawToolDefinitions = getToolDefinitionsByIds([
+async function buildMemberDirectTools(agent, teamToolIds, teamMcpServerIds, agentName) {
+  const toolDefinitions = getToolDefinitionsByIds([
     ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),
     ...(Array.isArray(teamToolIds) ? teamToolIds : []),
   ]);
-  const toolDefinitions = filterToolsBySkill(agent.skillIds, rawToolDefinitions);
-  const mcpServerIds = Array.from(new Set([
-    ...(Array.isArray(agent.mcpServerIds) ? agent.mcpServerIds : []),
-    ...(Array.isArray(teamMcpServerIds) ? teamMcpServerIds : []),
-  ].filter((s) => typeof s === 'string' && s.trim().length > 0)));
+  const executeFn = async (name, args) => {
+    try {
+      return await executeToolInMain(name, args, null);
+    } catch (e) {
+      return { error: e?.message ?? String(e) };
+    }
+  };
+  const lcTools = await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn);
+  return lcTools;
+}
+
+/**
+ * Build a Command-based delegation tool for the supervisor.
+ * When the supervisor calls this tool, the parent StateGraph routes
+ * to the corresponding member subgraph node instead of running the
+ * tool inline.
+ */
+async function buildCommandDelegationTool(agent, send) {
+  const { tool } = await import('@langchain/core/tools');
+  const { Command } = await import('@langchain/langgraph');
+  const zodMod = await import('zod');
+  const z = zodMod.z ?? zodMod.default ?? zodMod;
 
   const toolName = toolNameForAgent(agent);
   const description = (agent.description && agent.description.trim())
@@ -180,54 +163,187 @@ async function buildMemberDelegationTool({
 
   return tool(
     async ({ task }) => {
-      // Tell the renderer to switch UI status to "delegating to <agent>".
       send({ agentName: agent.name });
-      let memberResponse = '';
-      try {
-        await langgraphAgent.invokeLangGraphAgent({
-          provider: settings.provider,
-          model: settings.model,
-          apiKey: settings.apiKey,
-          baseUrl: settings.baseUrl,
-          messages: [
-            { role: 'system', content: memberSystemPrompt },
-            { role: 'user', content: String(task || '') },
-          ],
-          toolDefinitions,
-          useDirectTools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
-          mcpServerIds: mcpServerIds.length > 0 ? mcpServerIds : undefined,
-          signal: controller.signal,
-          threadId: `team_${teamId}_${agent.id}_${Date.now()}`,
-          skipHitl: true,
-          onChunk: (chunk) => {
-            if (!chunk || typeof chunk !== 'object') return;
-            if (chunk.type === 'text' && chunk.text) memberResponse += chunk.text;
-            // Suppress per-member done/usage to avoid prematurely closing the team stream.
-            if (chunk.type === 'done' || chunk.type === 'usage') return;
-            parentOnChunk({ ...chunk, agentName: agent.name });
-          },
-        });
-      } catch (err) {
-        if (err?.name === 'AbortError') throw err;
-        const msg = err?.message || String(err);
-        console.error(`[AgentTeam] member ${agent.name} failed:`, msg);
-        return `Error delegating to ${agent.name}: ${msg}`;
-      } finally {
-        // Switch UI status back to supervisor synthesis.
-        send({ agentName: null });
-      }
-      return memberResponse.trim() || `${agent.name} returned no content.`;
+      return new Command({
+        goto: agent.id,
+        update: {
+          messages: [{ role: 'user', content: `[Delegated task from supervisor] ${task}` }],
+        },
+      });
     },
     {
       name: toolName,
       description,
       schema: z.object({
-        task: z
-          .string()
-          .describe('Concrete subtask for this agent. Include only the context they need to act.'),
+        task: z.string().describe('Concrete subtask for this agent. Include only the context they need to act.'),
       }),
     },
   );
+}
+
+/**
+ * Build the full LangGraph team StateGraph.
+ *
+ * Parent graph:
+ *   START → supervisor ← → memberA, memberB, … ← END (via supervisor)
+ *
+ * Each member is a `createAgent.graph` subgraph node.
+ * The supervisor uses Command-based delegation tools to route to members.
+ */
+async function buildTeamGraph({
+  memberAgents,
+  supervisorSystemPrompt,
+  settings,
+  teamToolIds,
+  teamMcpServerIds,
+  send,
+  signal,
+}) {
+  const { StateGraph, MessagesAnnotation, END, START } = await import('@langchain/langgraph');
+  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
+
+  const llm = await createModelFromConfig(settings.provider, settings.model, settings.apiKey, settings.baseUrl);
+
+  // ── Build member subgraph nodes ─────────────────────────────────────────
+  const memberNodeMap = {}; // { agentId: CompiledStateGraph }
+  for (const agent of memberAgents) {
+    const memberLcTools = await buildMemberDirectTools(agent, teamToolIds, teamMcpServerIds);
+    const skillsMw = await buildSkillsMiddleware();
+    const memberAgent = createAgent({
+      model: llm,
+      tools: memberLcTools,
+      middleware: skillsMw ? [skillsMw] : [],
+      // No checkpointer: the parent graph provides persistence
+    });
+    memberNodeMap[agent.id] = memberAgent.graph;
+  }
+
+  // ── Build supervisor Command delegation tools ───────────────────────────
+  const delegationTools = [];
+  for (const agent of memberAgents) {
+    delegationTools.push(await buildCommandDelegationTool(agent, send));
+  }
+
+  const supervisorAgent = createAgent({
+    model: llm,
+    tools: delegationTools,
+    middleware: [],
+    // No checkpointer: parent graph provides persistence
+  });
+
+  // ── Inject supervisor system prompt as pre-messages ─────────────────────
+  // We wrap the supervisor graph so the system prompt is prepended.
+  const supervisorGraph = supervisorAgent.graph;
+
+  // ── Assemble parent StateGraph ──────────────────────────────────────────
+  const memberIds = memberAgents.map((a) => a.id);
+
+  const teamGraph = new StateGraph(MessagesAnnotation)
+    .addNode('supervisor', supervisorGraph, { subgraphs: true })
+    .addEdge(START, 'supervisor');
+
+  for (const [agentId, graph] of Object.entries(memberNodeMap)) {
+    teamGraph.addNode(agentId, graph, { subgraphs: true });
+    teamGraph.addEdge(agentId, 'supervisor');
+  }
+
+  const compiled = teamGraph.compile({
+    checkpointer: getDomeCheckpointer(),
+  });
+
+  return { compiled, memberIds };
+}
+
+/**
+ * Stream the team graph and forward events to the renderer.
+ * Handles supervisor text, member text, tool calls/results, and done.
+ */
+async function streamTeamGraph({
+  compiled,
+  messages,
+  supervisorSystemPrompt,
+  threadId,
+  signal,
+  send,
+  memberAgents,
+}) {
+  const { HumanMessage, SystemMessage } = await import('@langchain/core/messages');
+
+  const lcMessages = [
+    new SystemMessage(supervisorSystemPrompt),
+    ...messages
+      .filter((m) => m.role !== 'system')
+      .map((m) => {
+        if (m.role === 'assistant') {
+          const { AIMessage } = require('@langchain/core/messages');
+          return new AIMessage(String(m.content || ''));
+        }
+        return new HumanMessage(String(m.content || ''));
+      }),
+  ];
+
+  const config = {
+    configurable: { thread_id: threadId },
+    recursionLimit: 50,
+    signal,
+    streamMode: ['messages', 'updates'],
+  };
+
+  const agentNameById = Object.fromEntries(memberAgents.map((a) => [a.id, a.name]));
+  let currentAgentNode = 'supervisor';
+
+  const stream = await compiled.stream({ messages: lcMessages }, config);
+
+  for await (const event of stream) {
+    if (signal?.aborted) break;
+
+    // `event` in stream mode is { nodeId: update } or messages chunk
+    for (const [nodeId, nodeOutput] of Object.entries(event)) {
+      const isSupervising = nodeId === 'supervisor' || nodeId === '__start__';
+      const isMember = memberAgents.some((a) => a.id === nodeId);
+
+      if (isMember && nodeId !== currentAgentNode) {
+        currentAgentNode = nodeId;
+        // agentName already sent by Command delegation tool
+      } else if (isSupervising && currentAgentNode !== 'supervisor') {
+        currentAgentNode = 'supervisor';
+        send({ agentName: null });
+      }
+
+      // Forward messages from node output
+      if (nodeOutput?.messages) {
+        for (const msg of nodeOutput.messages) {
+          if (!msg) continue;
+          const content = typeof msg.content === 'string'
+            ? msg.content
+            : Array.isArray(msg.content)
+              ? msg.content.map((c) => (typeof c === 'string' ? c : c?.text ?? '')).join('')
+              : '';
+
+          if (msg._getType?.() === 'ai' || msg.type === 'ai' || msg.role === 'assistant') {
+            if (content && isSupervising) {
+              send({ chunk: content });
+            } else if (content && isMember) {
+              send({ type: 'text', text: content, agentName: agentNameById[nodeId] ?? nodeId });
+            }
+          }
+        }
+      }
+
+      // Forward tool calls / results
+      if (nodeOutput?.tool_calls) {
+        for (const tc of nodeOutput.tool_calls) {
+          if (tc?.name?.startsWith('delegate_to_')) continue; // routing tool, not shown
+          send({
+            type: 'tool_call',
+            toolName: tc.name,
+            args: tc.args,
+            agentName: isMember ? (agentNameById[nodeId] ?? nodeId) : undefined,
+          });
+        }
+      }
+    }
+  }
 }
 
 function register({ ipcMain, windowManager, database }) {
@@ -257,11 +373,8 @@ function register({ ipcMain, windowManager, database }) {
       } = payload);
     } catch (err) {
       if (err instanceof TypeError) {
-        const errorMsg = 'Invalid payload: could not read required properties';
-        console.error('[AgentTeam] Validation error:', errorMsg, err);
-        return { success: false, error: errorMsg };
+        return { success: false, error: 'Invalid payload: could not read required properties' };
       }
-      console.error('[AgentTeam] Unexpected error during destructuring:', err);
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }
 
@@ -307,7 +420,7 @@ function register({ ipcMain, windowManager, database }) {
         homeSidebarSection,
       });
 
-      // ── Build supervisor prompt ───────────────────────────────────────
+      // Build supervisor system prompt
       const agentList = memberAgents
         .map((a) => `- **${a.name}** (call \`${toolNameForAgent(a)}\`): ${a.description || 'Specialized agent'}`)
         .join('\n');
@@ -320,90 +433,30 @@ function register({ ipcMain, windowManager, database }) {
         volatileContext: contextBlock || undefined,
       });
 
-      // ── parentOnChunk: forwards member-tagged chunks to renderer ──────
-      const parentOnChunk = (chunk) => {
-        if (!chunk || typeof chunk !== 'object') return;
-        send(chunk);
-      };
-
-      // ── Build delegation tools ────────────────────────────────────────
-      const memberTools = [];
-      for (const agent of memberAgents) {
-        const t = await buildMemberDelegationTool({
-          agent,
-          contextBlock,
-          teamToolIds,
-          teamMcpServerIds,
-          settings,
-          controller,
-          database,
-          parentOnChunk,
-          send,
-          teamId,
-        });
-        memberTools.push(t);
-      }
-
-      // ── Supervisor's own tools (team-level tools + MCP servers) ──────
-      const teamToolDefinitions = getToolDefinitionsByIds(
-        Array.isArray(teamToolIds) ? teamToolIds : [],
-      );
-      const supervisorMcp = Array.isArray(teamMcpServerIds)
-        ? Array.from(new Set(teamMcpServerIds.filter((s) => typeof s === 'string' && s.trim())))
-        : [];
-
-      // ── supervisorOnChunk: translates LangGraph chunks for the renderer ──
-      // Supervisor text accumulates into the message bubble (renderer reads
-      // `data.chunk`). Member text is already forwarded with `type: 'text'` +
-      // `agentName`, so it does not enter this codepath.
-      const supervisorOnChunk = (chunk) => {
-        if (!chunk || typeof chunk !== 'object') return;
-        switch (chunk.type) {
-          case 'text':
-            if (chunk.text) send({ chunk: chunk.text });
-            return;
-          case 'thinking':
-            // Supervisor thinking is internal — drop it.
-            return;
-          case 'tool_call':
-          case 'tool_result':
-            send(chunk);
-            return;
-          case 'usage':
-            send(chunk);
-            return;
-          case 'done':
-            // Suppress: outer handler emits the final `done: true`.
-            return;
-          case 'error':
-            send({ error: chunk.error });
-            return;
-          default:
-            send(chunk);
-        }
-      };
-
-      // Mark the start of the supervisor turn so the renderer shows the
-      // synthesis label until a member tool flips it to "delegating".
       send({ agentName: null });
 
-      await langgraphAgent.invokeLangGraphAgent({
-        provider: settings.provider,
-        model: settings.model,
-        apiKey: settings.apiKey,
-        baseUrl: settings.baseUrl,
-        messages: [
-          { role: 'system', content: supervisorSystemPrompt },
-          ...messages,
-        ],
-        toolDefinitions: teamToolDefinitions,
-        useDirectTools: true,
-        mcpServerIds: supervisorMcp.length > 0 ? supervisorMcp : undefined,
-        customTools: memberTools,
+      // Build the LangGraph team StateGraph with member subgraphs
+      const { compiled } = await buildTeamGraph({
+        memberAgents,
+        supervisorSystemPrompt,
+        settings,
+        teamToolIds: Array.isArray(teamToolIds) ? teamToolIds : [],
+        teamMcpServerIds: Array.isArray(teamMcpServerIds) ? teamMcpServerIds : [],
+        send,
         signal: controller.signal,
-        threadId: `team_supervisor_${teamId}_${Date.now()}`,
-        skipHitl: true,
-        onChunk: supervisorOnChunk,
+      });
+
+      // Stable team thread_id (no Date.now()) for checkpoint persistence
+      const teamThreadId = `team_${teamId}`;
+
+      await streamTeamGraph({
+        compiled,
+        messages,
+        supervisorSystemPrompt,
+        threadId: teamThreadId,
+        signal: controller.signal,
+        send,
+        memberAgents,
       });
 
       send({ done: true });

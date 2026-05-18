@@ -11,7 +11,7 @@ import { jsonResult, readStringParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
 
 const CalendarCreateSchema = Type.Object({
-  title: Type.String({ description: 'Event title.' }),
+  title: Type.Optional(Type.String({ description: 'Event title. Defaults to "Untitled Event" if omitted.' })),
   start_at: Type.String({
     description: 'Start time in ISO 8601 format (e.g. 2025-03-01T14:00:00 or 2025-03-01T14:00:00Z).',
   }),
@@ -68,11 +68,12 @@ const CalendarDeleteSchema = Type.Object({
 
 export function createCalendarCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear evento de calendario',
-    name: 'calendar_create',
+    label: 'Create calendar event',
+    name: 'calendar_create_event',
     description:
-      'Crea un evento en el calendario del usuario. Usa esta herramienta cuando el usuario pida programar una reunión, recordatorio, cita o cualquier evento. ' +
-      'Las fechas deben estar en formato ISO 8601 (ej: 2025-03-01T14:00:00).',
+      'Create an event in the user\'s calendar. Use when the user asks to schedule a meeting, reminder, appointment, or any event. ' +
+      'Infer the date from natural language (e.g. "tomorrow at 3pm", "next Monday"). ' +
+      'Dates must be ISO 8601 (e.g. 2025-03-01T14:00:00). Default reminders: [{minutes: 1440}, {minutes: 120}].',
     parameters: CalendarCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -81,7 +82,7 @@ export function createCalendarCreateTool(): AnyAgentTool {
         }
 
         const params = args as Record<string, unknown>;
-        const title = readStringParam(params, 'title', { required: true });
+        const title = readStringParam(params, 'title', { required: false }) || 'Untitled Event';
         const startAt = readStringParam(params, 'start_at', { required: true });
         const endAt = readStringParam(params, 'end_at');
         const description = readStringParam(params, 'description');
@@ -105,7 +106,7 @@ export function createCalendarCreateTool(): AnyAgentTool {
 
         return jsonResult({
           status: 'success',
-          message: `Evento "${title}" creado en el calendario.`,
+          message: `Event "${title}" created in calendar.`,
           event: result.event,
         });
       } catch (error) {
@@ -120,10 +121,10 @@ export function createCalendarCreateTool(): AnyAgentTool {
 
 export function createCalendarUpdateTool(): AnyAgentTool {
   return {
-    label: 'Actualizar evento de calendario',
-    name: 'calendar_update',
+    label: 'Update calendar event',
+    name: 'calendar_update_event',
     description:
-      'Actualiza un evento existente en el calendario. Usa el event_id del evento a modificar.',
+      'Update an existing calendar event. Requires the event_id of the event to modify.',
     parameters: CalendarUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -149,7 +150,7 @@ export function createCalendarUpdateTool(): AnyAgentTool {
 
         return jsonResult({
           status: 'success',
-          message: 'Evento actualizado.',
+          message: 'Event updated.',
           event: result.event,
         });
       } catch (error) {
@@ -164,10 +165,10 @@ export function createCalendarUpdateTool(): AnyAgentTool {
 
 export function createCalendarGetUpcomingTool(): AnyAgentTool {
   return {
-    label: 'Próximos eventos del calendario',
+    label: 'Get upcoming calendar events',
     name: 'calendar_get_upcoming',
     description:
-      'Lista los próximos eventos del calendario desde ahora. Úsala cuando el usuario pregunte qué tiene hoy, esta semana, o su agenda próxima sin dar un rango explícito start/end.',
+      'List upcoming calendar events from now. Use when the user asks what they have today, this week, or their upcoming schedule without an explicit start/end range.',
     parameters: CalendarUpcomingSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -211,9 +212,9 @@ export function createCalendarGetUpcomingTool(): AnyAgentTool {
 
 export function createCalendarDeleteTool(): AnyAgentTool {
   return {
-    label: 'Eliminar evento de calendario',
-    name: 'calendar_delete',
-    description: 'Elimina un evento del calendario.',
+    label: 'Delete calendar event',
+    name: 'calendar_delete_event',
+    description: 'Delete an event from the calendar. Requires the event_id.',
     parameters: CalendarDeleteSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -232,7 +233,7 @@ export function createCalendarDeleteTool(): AnyAgentTool {
 
         return jsonResult({
           status: 'success',
-          message: 'Evento eliminado.',
+          message: 'Event deleted.',
         });
       } catch (error) {
         return jsonResult({
@@ -246,10 +247,10 @@ export function createCalendarDeleteTool(): AnyAgentTool {
 
 export function createCalendarListTool(): AnyAgentTool {
   return {
-    label: 'Listar eventos de calendario',
-    name: 'calendar_list',
+    label: 'List calendar events',
+    name: 'calendar_list_events',
     description:
-      'Lista los eventos del calendario en un rango de fechas. Usa esta herramienta para ver qué tiene programado el usuario.',
+      'List calendar events in a date range. Use when the user provides an explicit start and end date to browse their schedule.',
     parameters: CalendarListSchema,
     execute: async (_toolCallId, args) => {
       try {

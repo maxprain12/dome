@@ -132,6 +132,8 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
   // Load resource data
   useEffect(() => {
+    let cancelled = false;
+
     async function loadResource() {
       if (!resourceId || typeof window === 'undefined' || !window.electron) {
         setIsLoading(false);
@@ -144,20 +146,24 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
         const result = await window.electron.db.resources.getById(resourceId);
 
+        if (cancelled) return;
+
         if (result.success && result.data) {
           setResource(result.data);
         } else {
           setError(result.error || 'Resource not found');
         }
       } catch (err) {
+        if (cancelled) return;
         console.error('Error loading resource:', err);
         setError(err instanceof Error ? err.message : 'Failed to load resource');
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     }
 
     loadResource();
+    return () => { cancelled = true; };
   }, [resourceId]);
 
   // Detect ppt resources and replace tab type so ContentRouter mounts the correct component

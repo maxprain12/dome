@@ -76,7 +76,7 @@ export function createArtifactCreateTool(): AnyAgentTool {
       'Set state.html to fully self-contained HTML. Set state.data to the initial structured data object. ' +
       DOME_DESIGN_SYSTEM,
     parameters: Type.Object({
-      title: Type.String({ description: 'Human-readable title for the artifact.' }),
+      title: Type.Optional(Type.String({ description: 'Human-readable title for the artifact. If omitted, derived from the HTML <title> tag or artifact_type.' })),
       artifact_type: Type.Union(
         [Type.Literal('task-tracker'), Type.Literal('chart'), Type.Literal('custom')],
         { description: 'Semantic type of the artifact.' },
@@ -99,9 +99,11 @@ export function createArtifactCreateTool(): AnyAgentTool {
     execute: async (_id, args) => {
       if (!isElectronAI()) return jsonResult({ error: 'Requires Electron environment.' });
       const params = args as Record<string, unknown>;
-      const title = readStringParam(params, 'title', { required: true });
       const artifactType = readStringParam(params, 'artifact_type', { required: true });
       const html = readStringParam(params, 'html', { required: true });
+      const titleParam = readStringParam(params, 'title', { required: false });
+      const htmlTitle = html ? (html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1]?.trim() ?? '') : '';
+      const title = titleParam || htmlTitle || artifactType || 'Untitled Artifact';
       const data = (params.data as Record<string, unknown>) ?? {};
       const projectId = readStringParam(params, 'project_id');
 

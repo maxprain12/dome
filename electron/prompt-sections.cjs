@@ -6,6 +6,18 @@ const { ENTITY_CREATION_RULES, RESOURCE_LINK_INSTRUCTION } = require('./system-p
 
 const MARTIN_DIR = path.join(__dirname, '..', 'prompts', 'martin');
 
+/**
+ * Canonical description of dome_load_doc valid IDs.
+ * Single source of truth — import this wherever dome_load_doc is defined.
+ */
+const DOME_LOAD_DOC_DESCRIPTION =
+  'Load a reference doc section on demand. Call BEFORE using tools that require it. ' +
+  'Valid ids: entity_rules (before agent_create/workflow_create/automation_create), ' +
+  'artifacts (before emitting any artifact block), ' +
+  'artifact_persisted (before updating/deleting a persisted artifact), ' +
+  'artifact_design (before artifact_design / complex tabbed dossier layouts), ' +
+  'resource_links (if unsure about dome:// link format).';
+
 /** @type {Record<string, string | null>} */
 const cache = {};
 
@@ -54,4 +66,4 @@ function getSectionBody(docId) {
   return null;
 }
 
-module.exports = { getSectionBody };
+module.exports = { getSectionBody, DOME_LOAD_DOC_DESCRIPTION };

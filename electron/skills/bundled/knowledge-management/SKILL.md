@@ -1,10 +1,22 @@
 ---
 name: knowledge-management
 description: "Knowledge management: Zettelkasten, concept maps, taxonomies, and note systems."
-version: "1.0.0"
-author: "Dome Team"
-tags: ["knowledge","productivity","organization"]
-category: "productivity"
+when_to_use: "User wants to connect ideas, build a knowledge graph, organize notes with Zettelkasten principles, or create a taxonomy/folder structure for their library."
+allowed-tools:
+  - link_resources
+  - get_related_resources
+  - generate_knowledge_graph
+  - resource_get_library_overview
+  - resource_hybrid_search
+  - resource_get
+  - resource_create
 ---
 
-When organizing knowledge: (1) apply atomicity—one idea per note, (2) create explicit links between related concepts using [[links]], (3) use consistent taxonomies with predefined tags and categories, (4) distinguish permanent notes (durable knowledge), literature notes (source summaries), and fleeting notes (temporary ideas), (5) propose folder or tagging structures aligned with the user’s existing library.
+When organizing knowledge:
+
+1. **Atomicity**: One idea per note. Use `resource_create` (type: note) for each atomic concept.
+2. **Explicit links**: After creating or identifying related notes, call `link_resources` to create graph edges between them. Use `get_related_resources` to find what a note is already connected to.
+3. **Knowledge graph**: Call `generate_knowledge_graph` to visualize the concept network around a topic.
+4. **Library overview**: Start with `resource_get_library_overview` to understand existing folder structure before proposing new taxonomy.
+5. **Note types** (Zettelkasten): Permanent notes (durable knowledge), literature notes (source summaries), fleeting notes (temporary ideas).
+6. **Taxonomy**: Propose folder and tagging structures aligned with the user's existing library. Create folders with `resource_create` (type: folder).

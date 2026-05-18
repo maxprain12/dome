@@ -73,6 +73,11 @@ async function main() {
     // AsyncFunction allows `await` inside the user script body
     // eslint-disable-next-line no-new-func
     const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+    // Redirect the script's console to stderr so user console.log calls
+    // don't pollute stdout, which is reserved for the JSON protocol line.
+    const { Console } = require('console');
+    const scriptConsole = new Console({ stdout: process.stderr, stderr: process.stderr });
+
     const fn = new AsyncFunction(
       'require',
       'process',
@@ -84,7 +89,7 @@ async function main() {
     await fn(
       require,
       process,
-      console,
+      scriptConsole,
       path.dirname(resolvedOutputPath),
       resolvedOutputPath,
     );

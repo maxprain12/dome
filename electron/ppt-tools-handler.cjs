@@ -18,6 +18,21 @@ function setWindowManager(wm) {
   windowManagerRef = wm;
 }
 
+function resolveProjectId(projectId) {
+  if (projectId) return projectId;
+  try {
+    const queries = database.getQueries();
+    const lastSetting = queries.getSetting.get('last_project_id');
+    if (lastSetting?.value) {
+      const proj = queries.getProjectById.get(lastSetting.value);
+      if (proj) return proj.id;
+    }
+    const first = database.getDB().prepare('SELECT id FROM projects LIMIT 1').get();
+    if (first) return first.id;
+  } catch (_) {}
+  return null;
+}
+
 function broadcastResourceCreated(resource) {
   if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
     windowManagerRef.broadcast('resource:created', resource);
@@ -74,8 +89,55 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
             'Python/python-pptx is not supported for ppt_create. Use a PptxGenJS script (require("pptxgenjs"), await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })) or pass spec (JSON) without script.',
         };
       }
+      const SCRIPT_SIZE_LIMIT = 60_000; // ~60 KB; well above typical scripts, catches truly huge payloads
+      if (options.script.length > SCRIPT_SIZE_LIMIT) {
+        return {
+          success: false,
+          error:
+            `PptxGenJS script is ${Math.round(options.script.length / 1024)} KB — exceeds the ${SCRIPT_SIZE_LIMIT / 1024} KB limit. ` +
+            'Shorten the script: use a helper function for repeated elements (accent bars, slide templates), reduce the number of slides, or inline less content per slide. ' +
+            'Typical working scripts are 4–10 KB.',
+        };
+      }
       result = await documentGenerator.generatePptFromNodeScript(options.script);
+      // Enrich syntax-error messages so the model knows the script was malformed, not a runtime issue
+      if (!result.success && result.error) {
+        const isSyntaxError =
+          /unexpected end of input|unexpected token|syntaxerror|is not defined|cannot find module/i.test(result.error);
+        if (isSyntaxError) {
+          result = {
+            success: false,
+            error:
+              `Script syntax error: ${result.error}. ` +
+              'Check that all braces/brackets are balanced, the script ends with `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })`, ' +
+              'and there are no truncated lines. Keep scripts under 10 KB to avoid truncation.',
+          };
+        }
+      }
     } else {
+      // Parse spec if model accidentally serialized it as a string
+      if (typeof spec === 'string') {
+        try { spec = JSON.parse(spec); } catch (_) { spec = {}; }
+      }
+      const hasSpec = spec && Array.isArray(spec.slides) && spec.slides.length > 0;
+      if (!hasSpec) {
+        const diagSpec = typeof spec === 'object' ? JSON.stringify(spec).slice(0, 200) : String(spec).slice(0, 100);
+        const issue = !spec
+          ? 'spec is null/undefined'
+          : !spec.slides
+          ? `spec.slides is missing (received keys: ${Object.keys(spec || {}).join(', ') || 'none'})`
+          : !Array.isArray(spec.slides)
+          ? `spec.slides is not an array (got ${typeof spec.slides})`
+          : 'spec.slides is empty (0 slides)';
+        return {
+          success: false,
+          error:
+            `ppt_create: ${issue}. ` +
+            'Pass `spec` as a JSON object with a non-empty `slides` array, OR pass a PptxGenJS `script` string. ' +
+            `Received spec: ${diagSpec}. ` +
+            'Load skill `ppt-creator` for the full script template.',
+        };
+      }
       result = await documentGenerator.generatePptFromSpec(spec);
     }
     if (!result.success || !result.buffer) {
@@ -93,6 +155,12 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
     }
     const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'ppt');
 
+    const resolvedProjectId = resolveProjectId(projectId);
+    if (!resolvedProjectId) {
+      fileStorage.deleteFile(importResult.internalPath);
+      return { success: false, error: 'No active project found. Please open a project before creating a presentation.' };
+    }
+
     const resourceId = `res_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const now = Date.now();
     const contentText = ((options.script ? '' : spec.title) || title || '').substring(0, 500);
@@ -101,7 +169,7 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
     try {
       queries.createResourceWithFile.run(
         resourceId,
-        projectId,
+        resolvedProjectId,
         'ppt',
         (title || 'Untitled').replace(/\.pptx$/i, '') || 'Untitled',
         contentText,

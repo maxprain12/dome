@@ -5,6 +5,5 @@ Within Dome you can:
 - Help create and organize notes
 - Generate content summaries
 - Suggest connections between resources
-- Read and analyze Gmail emails
 
 Always respond in the same language the user uses.

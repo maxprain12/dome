@@ -30,9 +30,9 @@ const FlashcardCreateSchema = Type.Object({
       description: 'Project ID. Defaults to the current project.',
     }),
   ),
-  title: Type.String({
-    description: 'Title for the flashcard deck.',
-  }),
+  title: Type.Optional(Type.String({
+    description: 'Title for the flashcard deck. Defaults to "Untitled Deck" if omitted.',
+  })),
   description: Type.Optional(
     Type.String({
       description: 'Brief description of what this deck covers.',
@@ -66,13 +66,12 @@ const FlashcardCreateSchema = Type.Object({
  */
 export function createFlashcardCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear Flashcards',
+    label: 'Create Flashcards',
     name: 'flashcard_create',
     description:
-      'Crea un mazo de tarjetas de estudio (flashcards) con preguntas y respuestas. ' +
-      'Usa esta herramienta para generar tarjetas de estudio interactivas basadas en el contenido de un recurso. ' +
-      'Primero lee el recurso con resource_get, luego genera las preguntas y respuestas, y finalmente usa esta herramienta para guardarlas. ' +
-      'El usuario podrá estudiar las tarjetas con un sistema de repetición espaciada (swipe para responder).',
+      'Create a flashcard deck (question/answer pairs) for spaced-repetition study. ' +
+      'First read the source resource with resource_get, then generate the Q&A pairs, then call this tool to save them. ' +
+      'The user can review cards with a swipe-to-answer spaced-repetition interface.',
     parameters: FlashcardCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -84,16 +83,12 @@ export function createFlashcardCreateTool(): AnyAgentTool {
         }
 
         const params = args as Record<string, unknown>;
-        const title = readStringParam(params, 'title', { required: true });
+        const title = readStringParam(params, 'title', { required: false }) || 'Untitled Deck';
         const resourceId = readStringParam(params, 'resource_id');
         const sourceIds = params.source_ids as string[] | undefined;
         const projectId = readStringParam(params, 'project_id');
         const description = readStringParam(params, 'description');
         const cards = params.cards as Array<{ question: string; answer: string; difficulty?: string }>;
-
-        if (!title) {
-          return jsonResult({ status: 'error', error: 'Title is required.' });
-        }
 
         if (!cards || !Array.isArray(cards) || cards.length === 0) {
           return jsonResult({ status: 'error', error: 'At least one card is required.' });

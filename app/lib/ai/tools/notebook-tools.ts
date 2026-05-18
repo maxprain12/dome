@@ -106,10 +106,10 @@ const NotebookDeleteCellSchema = Type.Object({
  */
 export function createNotebookGetTool(): AnyAgentTool {
   return {
-    label: 'Obtener Notebook',
+    label: 'Get notebook',
     name: 'notebook_get',
     description:
-      'Obtiene el contenido estructurado de un notebook (celdas, código, outputs). Úsalo para leer el notebook antes de modificarlo, o cuando el usuario pide análisis de datos. Para flujos Excel→Notebook: combina con excel_get_file_path y notebook_add_cell.',
+      'Get the structured content of a notebook (cells, code, outputs). Use before modifying a notebook or when the user asks for data analysis. For Excel→Notebook flows, combine with excel_get_file_path and notebook_add_cell.',
     parameters: NotebookGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -182,10 +182,10 @@ export function createNotebookGetTool(): AnyAgentTool {
  */
 export function createNotebookAddCellTool(): AnyAgentTool {
   return {
-    label: 'Añadir Celda',
+    label: 'Add cell',
     name: 'notebook_add_cell',
     description:
-      'Añade una celda de código o markdown al notebook. Úsalo para generar código (pandas, sklearn), añadir explicaciones, o extender el notebook. Para "extrae datos del Excel X y genera análisis": usa excel_get_file_path para obtener la ruta, luego añade una celda con pd.read_excel(ruta). Usa position para insertar después de una celda concreta.',
+      'Add a code or markdown cell to a notebook. Use to generate code (pandas, sklearn), add explanations, or extend the notebook. For "extract data from Excel X and analyze": use excel_get_file_path to get the path, then add a cell with pd.read_excel(path). Use position to insert after a specific cell.',
     parameters: NotebookAddCellSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -273,10 +273,10 @@ export function createNotebookAddCellTool(): AnyAgentTool {
  */
 export function createNotebookUpdateCellTool(): AnyAgentTool {
   return {
-    label: 'Actualizar Celda',
+    label: 'Update cell',
     name: 'notebook_update_cell',
     description:
-      'Actualiza el contenido de una celda existente. Úsalo para corregir código, aplicar fixes de debugging, o modificar explicaciones en markdown.',
+      'Update the content of an existing cell. Use to fix code, apply debugging fixes, or modify markdown explanations.',
     parameters: NotebookUpdateCellSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -360,10 +360,10 @@ export function createNotebookUpdateCellTool(): AnyAgentTool {
  */
 export function createNotebookDeleteCellTool(): AnyAgentTool {
   return {
-    label: 'Eliminar Celda',
+    label: 'Delete cell',
     name: 'notebook_delete_cell',
     description:
-      'Elimina una celda del notebook. El notebook debe mantener al menos una celda.',
+      'Delete a cell from a notebook. The notebook must retain at least one cell.',
     parameters: NotebookDeleteCellSchema,
     execute: async (_toolCallId, args) => {
       try {

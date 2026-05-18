@@ -424,6 +424,16 @@ export default function ContentRouter() {
   );
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
+  // Defensive: activeTabId is orphaned (e.g. stale localStorage after a tab was removed).
+  // Immediately reset to home so the app doesn't show an endless loading spinner.
+  useEffect(() => {
+    if (!activeTab && tabs.length > 0) {
+      const { activateTab } = useTabStore.getState();
+      const fallback = tabs.find((t) => t.id === 'home') ?? tabs[0];
+      if (fallback) activateTab(fallback.id);
+    }
+  }, [activeTab, tabs]);
+
   if (!activeTab) return <Loading />;
 
   return (

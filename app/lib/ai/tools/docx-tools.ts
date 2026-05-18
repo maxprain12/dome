@@ -8,86 +8,85 @@ import { jsonResult, readStringParam, readBooleanParam, readNumberParam } from '
 import { isElectronAI } from '@/lib/utils/formatting';
 
 const DocxGetSchema = Type.Object({
-  resource_id: Type.String({ description: 'ID del recurso Word (.docx) en la biblioteca.' }),
+  resource_id: Type.String({ description: 'ID of the Word (.docx) resource in the library.' }),
   format: Type.Optional(
     Type.Union([Type.Literal('text'), Type.Literal('html')], {
-      description: "Salida: 'text' (plain) o 'html' (mammoth). Por defecto: text.",
+      description: "Output format: 'text' (plain) or 'html' (mammoth). Default: text.",
     }),
   ),
   max_chars: Type.Optional(
-    Type.Number({ description: 'Máximo de caracteres para format=text (por defecto 100000).' }),
+    Type.Number({ description: 'Maximum characters for format=text (default 100000).' }),
   ),
 });
 
 const DocxGetFilePathSchema = Type.Object({
-  resource_id: Type.String({ description: 'ID del recurso .docx.' }),
+  resource_id: Type.String({ description: 'ID of the .docx resource.' }),
 });
 
 const DocxBlockSchema = Type.Object({
   type: Type.Union([Type.Literal('paragraph'), Type.Literal('heading')], {
     description: "'paragraph' | 'heading'",
   }),
-  text: Type.String({ description: 'Contenido del bloque. En paragraph, \\n crea párrafos sucesivos.' }),
+  text: Type.String({ description: 'Block content. In paragraph, \\n creates successive paragraphs.' }),
   level: Type.Optional(
-    Type.Number({ description: 'Para heading: 1–6 (por defecto 1).', minimum: 1, maximum: 6 }),
+    Type.Number({ description: 'For heading: 1–6 (default 1).', minimum: 1, maximum: 6 }),
   ),
 });
 
 const DocxCreateSchema = Type.Object({
-  title: Type.String({ description: 'Título del nuevo documento (sin .docx obligatorio).' }),
-  project_id: Type.Optional(Type.String({ description: 'ID de proyecto; por defecto el proyecto actual.' })),
-  folder_id: Type.Optional(Type.String({ description: 'Carpeta destino (opcional).' })),
+  title: Type.Optional(Type.String({ description: 'Document title (.docx extension not required). If omitted, derived from content heading.' })),
+  project_id: Type.Optional(Type.String({ description: 'Project ID; defaults to current project.' })),
+  folder_id: Type.Optional(Type.String({ description: 'Target folder ID (optional).' })),
   body: Type.Optional(
     Type.String({
       description:
-        'Texto plano: párrafos separados por línea en blanco (\\n\\n). Ignorado si hay markdown, html o blocks.',
+        'Plain text: paragraphs separated by blank lines (\\n\\n). Ignored if markdown, html, or blocks are provided.',
     }),
   ),
   blocks: Type.Optional(
     Type.Array(DocxBlockSchema, {
-      description:
-        'Contenido estructurado (párrafos y títulos). Preferible para informes con secciones claras.',
+      description: 'Structured content (paragraphs and headings). Preferred for reports with clear sections.',
     }),
   ),
   markdown: Type.Optional(
     Type.String({
-      description: 'Markdown completo; se convierte a DOCX vía HTML (html-to-docx).',
+      description: 'Full Markdown; converted to DOCX via HTML (html-to-docx).',
     }),
   ),
   html: Type.Optional(
     Type.String({
-      description: 'HTML completo; se convierte a DOCX con html-to-docx.',
+      description: 'Full HTML; converted to DOCX with html-to-docx.',
     }),
   ),
 });
 
 const DocxUpdateSchema = Type.Object({
-  resource_id: Type.String({ description: 'ID del .docx a sustituir o renombrar.' }),
-  title: Type.Optional(Type.String({ description: 'Nuevo título visible en la biblioteca.' })),
-  body: Type.Optional(Type.String({ description: 'Reemplaza el documento por texto plano (párrafos con \\n\\n).' })),
+  resource_id: Type.String({ description: 'ID of the .docx to replace or rename.' }),
+  title: Type.Optional(Type.String({ description: 'New title shown in the library.' })),
+  body: Type.Optional(Type.String({ description: 'Replace document with plain text (paragraphs via \\n\\n).' })),
   blocks: Type.Optional(Type.Array(DocxBlockSchema)),
-  markdown: Type.Optional(Type.String({ description: 'Reemplaza el documento desde Markdown.' })),
-  html: Type.Optional(Type.String({ description: 'Reemplaza el documento desde HTML.' })),
+  markdown: Type.Optional(Type.String({ description: 'Replace document from Markdown.' })),
+  html: Type.Optional(Type.String({ description: 'Replace document from HTML.' })),
 });
 
 const DocxDeleteSchema = Type.Object({
-  resource_id: Type.String({ description: 'ID del recurso .docx a eliminar.' }),
+  resource_id: Type.String({ description: 'ID of the .docx resource to delete.' }),
   confirm: Type.Boolean({
-    description: 'Debe ser true tras confirmar con el usuario (igual que resource_delete).',
+    description: 'Must be true after explicit user confirmation (same as resource_delete).',
   }),
 });
 
 export function createDocxGetTool(): AnyAgentTool {
   return {
-    label: 'Leer Word (DOCX)',
+    label: 'Read Word (DOCX)',
     name: 'docx_get',
     description:
-      'Lee el contenido de un Word .docx de la biblioteca (texto o HTML). Úsalo antes de editar o para resumir un informe.',
+      'Read the content of a .docx resource from the library (text or HTML). Use before editing or to summarize a report.',
     parameters: DocxGetSchema,
     execute: async (_toolCallId, args) => {
       try {
         if (!isElectronAI()) {
-          return jsonResult({ status: 'error', error: 'Las herramientas DOCX requieren Electron.' });
+          return jsonResult({ status: 'error', error: 'DOCX tools require Electron environment.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', { required: true });
         const format = readStringParam(args as Record<string, unknown>, 'format') as 'text' | 'html' | undefined;
@@ -109,15 +108,15 @@ export function createDocxGetTool(): AnyAgentTool {
 
 export function createDocxGetFilePathTool(): AnyAgentTool {
   return {
-    label: 'Ruta del DOCX',
+    label: 'Get DOCX file path',
     name: 'docx_get_file_path',
     description:
-      'Obtiene la ruta absoluta del .docx en disco para scripts externos o comprobaciones.',
+      'Get the absolute disk path of a .docx resource, for use with external scripts or shell tools.',
     parameters: DocxGetFilePathSchema,
     execute: async (_toolCallId, args) => {
       try {
         if (!isElectronAI()) {
-          return jsonResult({ status: 'error', error: 'Las herramientas DOCX requieren Electron.' });
+          return jsonResult({ status: 'error', error: 'DOCX tools require Electron environment.' });
         }
         const resourceId = readStringParam(args as Record<string, unknown>, 'resource_id', { required: true });
         const result = await window.electron!.ai.tools.docxGetFilePath(resourceId);
@@ -134,18 +133,23 @@ export function createDocxGetFilePathTool(): AnyAgentTool {
 
 export function createDocxCreateTool(): AnyAgentTool {
   return {
-    label: 'Crear Word (DOCX)',
+    label: 'Create Word (DOCX)',
     name: 'docx_create',
     description:
-      'Crea un recurso Word .docx en la biblioteca. Puedes pasar markdown/html o body/blocks (docx-js, US Letter, Arial). Para un .txt usa resource_create tipo nota o import_file_to_library.',
+      'Create a .docx Word resource in the library. Pass markdown, html, body (plain text), or blocks. ' +
+      'Use when the user wants a downloadable Word document. For plain notes use resource_create instead.',
     parameters: DocxCreateSchema,
     execute: async (_toolCallId, args) => {
       try {
         if (!isElectronAI()) {
-          return jsonResult({ status: 'error', error: 'Las herramientas DOCX requieren Electron.' });
+          return jsonResult({ status: 'error', error: 'DOCX tools require Electron environment.' });
         }
         const params = args as Record<string, unknown>;
-        const title = readStringParam(params, 'title', { required: true });
+        const markdownParam = readStringParam(params, 'markdown', { required: false });
+        const bodyParam = readStringParam(params, 'body', { required: false });
+        const titleParam = readStringParam(params, 'title', { required: false });
+        const contentHeading = (markdownParam || bodyParam || '').match(/^#+\s+(.+)/m)?.[1]?.trim() ?? '';
+        const title = titleParam || contentHeading || 'Untitled Document';
         let projectId = readStringParam(params, 'project_id');
         if (!projectId) {
           const cur = await window.electron!.ai.tools.getCurrentProject();
@@ -153,8 +157,8 @@ export function createDocxCreateTool(): AnyAgentTool {
         }
         const result = await window.electron!.ai.tools.docxCreate(projectId, title, {
           folder_id: readStringParam(params, 'folder_id'),
-          body: readStringParam(params, 'body'),
-          markdown: readStringParam(params, 'markdown'),
+          body: bodyParam,
+          markdown: markdownParam,
           html: readStringParam(params, 'html'),
           blocks: params.blocks as Array<{ type: string; text: string; level?: number }> | undefined,
         });
@@ -171,15 +175,15 @@ export function createDocxCreateTool(): AnyAgentTool {
 
 export function createDocxUpdateTool(): AnyAgentTool {
   return {
-    label: 'Actualizar Word (DOCX)',
+    label: 'Update Word (DOCX)',
     name: 'docx_update',
     description:
-      'Sustituye el archivo .docx o renombra el recurso. Contenido: markdown, html, body o blocks (misma semántica que docx_create).',
+      'Replace or rename an existing .docx resource. Content accepts markdown, html, body, or blocks (same semantics as docx_create).',
     parameters: DocxUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {
         if (!isElectronAI()) {
-          return jsonResult({ status: 'error', error: 'Las herramientas DOCX requieren Electron.' });
+          return jsonResult({ status: 'error', error: 'DOCX tools require Electron environment.' });
         }
         const params = args as Record<string, unknown>;
         const resourceId = readStringParam(params, 'resource_id', { required: true });
@@ -203,15 +207,15 @@ export function createDocxUpdateTool(): AnyAgentTool {
 
 export function createDocxDeleteTool(): AnyAgentTool {
   return {
-    label: 'Eliminar Word (DOCX)',
+    label: 'Delete Word (DOCX)',
     name: 'docx_delete',
     description:
-      'Elimina un .docx de la biblioteca. Requiere confirm=true tras acuerdo explícito del usuario.',
+      'Delete a .docx resource from the library. Requires confirm=true after explicit user consent.',
     parameters: DocxDeleteSchema,
     execute: async (_toolCallId, args) => {
       try {
         if (!isElectronAI()) {
-          return jsonResult({ status: 'error', error: 'Las herramientas DOCX requieren Electron.' });
+          return jsonResult({ status: 'error', error: 'DOCX tools require Electron environment.' });
         }
         const params = args as Record<string, unknown>;
         const resourceId = readStringParam(params, 'resource_id', { required: true });

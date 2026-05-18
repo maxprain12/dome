@@ -1752,6 +1752,24 @@ declare global {
         }>;
       };
 
+      threads: {
+        list: (opts?: { limit?: number }) => Promise<{
+          threads?: Array<{ threadId: string; checkpointCount: number; latestCheckpointId: string; metadata: Record<string, unknown> }>;
+          error?: string;
+        }>;
+        getState: (threadId: string) => Promise<{
+          state?: { threadId: string; checkpointId?: string; checkpoint: unknown; metadata: unknown; createdAt?: string } | null;
+          error?: string;
+        }>;
+        getHistory: (threadId: string, limit?: number) => Promise<{
+          threadId?: string;
+          history?: Array<{ checkpointId: string; parentId: string | null; metadata: unknown; createdAt?: string; channel_values?: Record<string, unknown> }>;
+          error?: string;
+        }>;
+        delete: (threadId: string) => Promise<{ deleted?: number; error?: string }>;
+        updateState: (threadId: string, values: Record<string, unknown>, asNode?: string | null) => Promise<{ success?: boolean; config?: unknown; error?: string }>;
+      };
+
       domeMcp: {
         start: (port?: number) => Promise<{ success: boolean; port?: number; alreadyRunning?: boolean; error?: string }>;
         stop: () => Promise<{ success: boolean; error?: string }>;

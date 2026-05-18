@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import DomeTabBar from './DomeTabBar';
@@ -33,27 +33,41 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
   return fallback;
 }
 
-const ManyPanelLazy = lazy(() => import('@/components/many/ManyPanel'));
+// Eagerly start the import at module level so it's already resolving before
+// AppShell renders. Using useState+useEffect instead of React.lazy()+Suspense
+// prevents React 18's concurrent scheduler from deferring the Suspense resolution
+// during the initial render burst (which caused the right panel to stay on its
+// "Loading..." fallback until the user clicked something).
+const _manyPanelImport = import('@/components/many/ManyPanel');
 
-function ManyPanelWithSuspense(props: {
+interface ManyPanelWithSuspenseProps {
   width: number;
   onClose: () => void;
   isVisible: boolean;
   isFullscreen?: boolean;
   mode?: 'full' | 'headless';
-}) {
+}
+
+function ManyPanelWithSuspense(props: ManyPanelWithSuspenseProps) {
   const { t } = useTranslation();
-  return (
-    <Suspense
-      fallback={
-        <div className="flex flex-1 items-center justify-center h-full min-h-[80px]" style={{ background: 'var(--dome-bg)' }}>
-          <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('common.loading')}</span>
-        </div>
-      }
-    >
-      <ManyPanelLazy {...props} />
-    </Suspense>
-  );
+  const [ManyPanelComp, setManyPanelComp] = useState<React.ComponentType<ManyPanelWithSuspenseProps> | null>(null);
+
+  useEffect(() => {
+    _manyPanelImport.then(m => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setManyPanelComp(() => m.default as React.ComponentType<any>);
+    });
+  }, []);
+
+  if (!ManyPanelComp) {
+    return (
+      <div className="flex flex-1 items-center justify-center h-full min-h-[80px]" style={{ background: 'var(--dome-bg)' }}>
+        <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('common.loading')}</span>
+      </div>
+    );
+  }
+
+  return <ManyPanelComp {...props} />;
 }
 
 export default function AppShell() {

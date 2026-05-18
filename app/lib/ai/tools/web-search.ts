@@ -109,7 +109,7 @@ async function runWebSearch(params: {
   });
 
   if (result?.status === 'error') {
-    throw new Error(result.error || 'No se pudo completar la búsqueda web.');
+    throw new Error(result.error || 'Could not complete web search.');
   }
 
   const payload = {

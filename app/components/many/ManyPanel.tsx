@@ -13,7 +13,6 @@ import { HOME_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
 import {
   getAIConfig,
   createManyToolsForContext,
-  createLoadSkillTools,
   providerSupportsTools,
   toOpenAIToolDefinitions,
   type AIProviderType,
@@ -35,7 +34,6 @@ import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
 import { db } from '@/lib/db/client';
-import { listSkills, filterToolsBySkill } from '@/lib/skills/client';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
@@ -52,8 +50,9 @@ import UICursorOverlay from './UICursorOverlay';
 import { useUICursorStore, resolveSelector } from '@/lib/store/useUICursorStore';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
 import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
-import { useLangGraphRunStream } from '@/lib/chat/useLangGraphRunStream';
+import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
+import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
@@ -75,18 +74,6 @@ const SHELL_TAB_POINT_OPENERS: Record<string, () => void> = {
   studio: () => useTabStore.getState().openStudioTab(),
   transcriptions: () => useTabStore.getState().openTranscriptionsTab(),
 };
-
-/** Minimal path check for skill `paths:` (avoids bundling micromatch in the renderer). */
-function skillPathPatternsMatch(patterns: string[], ctxPath: string, pathnameOnly: string): boolean {
-  for (const raw of patterns) {
-    const p = String(raw || '').trim();
-    if (!p) continue;
-    const norm = p.replace(/\*\*/g, '').replace(/\*/g, '').replace(/^\//, '');
-    if (!norm) continue;
-    if (ctxPath.includes(norm) || pathnameOnly.includes(norm)) return true;
-  }
-  return false;
-}
 
 
 interface ManyPanelProps {
@@ -163,11 +150,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ChatMessageData | null>(null);
-  const [pendingApproval, setPendingApproval] = useState<{
-    actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
-    reviewConfigs: Array<{ actionName: string; allowedDecisions: string[] }>;
-    submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => void;
-  } | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
   const prefersReducedMotion = useReducedMotion();
   const [providerInfo, setProviderInfo] = useState<string>('');
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
@@ -175,7 +158,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pendingApprovalRef = useRef<HTMLDivElement>(null);
-  const hitlDecisionsRef = useRef<Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }> | null>(null);
+  const hitlDecisionsRef = useRef<Array<unknown> | null>(null);
   const isSubmittingRef = useRef(false);
   const voiceAutoSpeakForRunIdRef = useRef<string | null>(null);
   /** Dedupe identical ui_point_to bursts (double IPC / dev double-invoke) to reduce overlay flicker. */
@@ -419,9 +402,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setPendingApproval({
           actionRequests: pending.actionRequests,
           reviewConfigs: Array.isArray(pending.reviewConfigs) ? pending.reviewConfigs : [],
-          submitResume: (decisions) => {
+          submitResume: (decisions: Array<unknown>) => {
             hitlDecisionsRef.current = decisions;
-            void resumeRun(run.id, decisions as Array<unknown>);
+            void resumeRun(run.id, decisions);
           },
         });
       }
@@ -489,6 +472,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       setIsLoading(false);
       setStatus('idle');
       setPendingApproval(null);
+
+      const isFailed = run.status === 'failed';
+      const errorMsg = isFailed
+        ? (run.error
+          ? t('chat.run_failed_error', { error: run.error })
+          : t('chat.run_failed_generic'))
+        : null;
+
       setStreamingMessage((prev) => {
         const metaToolCallsRaw = Array.isArray(run.metadata?.toolCalls)
           ? (run.metadata.toolCalls as ToolCallData[])
@@ -496,9 +487,26 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         const metaToolCalls = coalesceDuplicateToolCalls(metaToolCallsRaw);
         if (prev) {
           const toolCalls = metaToolCalls.length > 0 ? metaToolCalls : coalesceDuplicateToolCalls(prev.toolCalls ?? []);
+          // For failed runs with no output, append the error to the streamed content
+          if (isFailed && errorMsg && !run.outputText) {
+            return { ...prev, isStreaming: false, toolCalls, content: prev.content ? `${prev.content}\n\n${errorMsg}` : errorMsg };
+          }
           return { ...prev, isStreaming: false, toolCalls };
         }
-        if (!run.outputText && metaToolCalls.length === 0) return null;
+        if (!run.outputText && metaToolCalls.length === 0) {
+          // For failed runs show the error instead of vanishing silently
+          if (isFailed && errorMsg) {
+            return {
+              id: `run-${run.id}`,
+              role: 'assistant',
+              content: errorMsg,
+              timestamp: run.updatedAt || Date.now(),
+              isStreaming: false,
+              toolCalls: [],
+            };
+          }
+          return null;
+        }
         return {
           id: `run-${run.id}`,
           role: 'assistant',
@@ -508,7 +516,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           toolCalls: metaToolCalls,
         };
       });
-      const finalContent = run.outputText || '';
+      const finalContent = run.outputText || (isFailed && errorMsg ? errorMsg : '');
       const finalToolCalls: ToolCallData[] = coalesceDuplicateToolCalls(
         Array.isArray(run.metadata?.toolCalls) ? (run.metadata.toolCalls as ToolCallData[]) : [],
       );
@@ -518,6 +526,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           .then((hydrated) => {
             if (hydrated) {
               setStreamingMessage(null);
+              // Even when DB hydrated, surface the error for failed runs if no output was stored
+              if (isFailed && errorMsg && !run.outputText) {
+                addMessage({ role: 'assistant', content: errorMsg, toolCalls: [] });
+              }
             } else if (attemptsLeft > 0) {
               setTimeout(() => tryRefresh(attemptsLeft - 1), 600);
             } else {
@@ -540,7 +552,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         window.dispatchEvent(new Event('dome:resources-changed'));
       }
     },
-    [addMessage, setStatus],
+    [addMessage, setStatus, t],
   );
 
   const handleManyPendingApproval = useCallback(
@@ -552,7 +564,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       setPendingApproval({
         actionRequests: approval.actionRequests,
         reviewConfigs: approval.reviewConfigs,
-        submitResume: (decisions) => {
+        submitResume: (decisions: Array<unknown>) => {
           hitlDecisionsRef.current = decisions;
           approval.submitResume(decisions);
         },
@@ -584,7 +596,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       includeResources: resourceToolsEnabled,
     });
     tools.push(createRememberFactTool());
-    tools.push(...createLoadSkillTools());
     return tools;
   }, [toolsEnabled, resourceToolsEnabled, pathname]);
 
@@ -812,76 +823,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         );
       }
 
-      // User-configured skills: one-shot or sticky session skill, else all enabled (legacy)
-      const manySnap = useManyStore.getState();
-      const sessionIdForSkill = manySnap.currentSessionId;
-      const oneShotSkillId = manySnap.pendingOneShotSkillId;
-      const stickySkillId = sessionIdForSkill ? manySnap.activeSkillIdBySession[sessionIdForSkill] ?? null : null;
-      const primarySkillId = oneShotSkillId || stickySkillId;
-      manySnap.setPendingOneShotSkill(null);
-
-      let skillsCatalogMarkdown: string | null = null;
-      const activeSkillRecords: Array<{ allowed_tools: string[] }> = [];
-      try {
-        const listRes = await listSkills({ includeBody: true });
-        if (listRes.success && Array.isArray(listRes.data) && listRes.data.length > 0) {
-          const all = listRes.data;
-          const ctxPath = `${pathname || '/'}#${effectiveResourceId || ''}`;
-          if (primarySkillId) {
-            const s = all.find((x) => x.id === primarySkillId);
-            const body = s?.body?.trim() || '';
-            if (s && body) {
-              const name = s.name || 'unnamed';
-              const desc = s.description || '';
-              const skillsBlock = `## Active Skill\n### ${name}\n${desc ? `${desc}\n\n` : ''}${body}\n`;
-              volatileParts.push(skillsBlock);
-              activeSkillRecords.push({ allowed_tools: s.allowed_tools || [] });
-            }
-          } else {
-            const pathBlocks: string[] = [];
-            for (const s of all) {
-              if (s.disable_model_invocation) continue;
-              if (!s.paths?.length) continue;
-              const match = skillPathPatternsMatch(s.paths, ctxPath, pathname || '/');
-              if (match) {
-                const b = s.body?.trim() || '';
-                if (b) {
-                  // Truncate path-matched skills to 1500 chars to save tokens;
-                  // model can call load_skill for the full body if needed.
-                  const truncated = b.length > 1500 ? `${b.slice(0, 1499)}…\n[Call load_skill('${s.slug || s.id}') for full body]` : b;
-                  pathBlocks.push(`### ${s.name || s.id}\n${truncated}\n`);
-                  activeSkillRecords.push({ allowed_tools: s.allowed_tools || [] });
-                }
-              }
-            }
-            if (pathBlocks.length > 0) {
-              volatileParts.push(`## Context skills (path match)\n${pathBlocks.join('\n')}\n`);
-            }
-            // Build minimal catalog: slug + when_to_use (≤80 chars each).
-            // Model calls load_skill(name) to get the full body on demand.
-            const CATALOG_MAX_SKILLS = 40;
-            const lines: string[] = [];
-            for (const s of all) {
-              if (lines.length >= CATALOG_MAX_SKILLS) break;
-              if (s.disable_model_invocation) continue;
-              if (!s.body?.trim()) continue;
-              const slug = String(s.slug || s.id || '').trim();
-              const label = String(s.when_to_use || s.description || s.name || '').trim();
-              if (!label || label === slug || label === s.id) {
-                console.warn('[Many] Skipping skill catalog entry (orphan metadata):', s.id);
-                continue;
-              }
-              lines.push(`- /${slug}: ${label.slice(0, 80)}`);
-            }
-            if (lines.length > 0) {
-              skillsCatalogMarkdown = `## Available Skills\nUse load_skill(name) to get full instructions. Only call it when clearly relevant.\n${lines.join('\n')}\n`;
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('[Many] Could not load skills:', e);
-      }
-
       const volatileContext = volatileParts.join('\n\n');
 
       const sharedContext = {
@@ -896,7 +837,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         toolsEnabled && supportsTools && activeTools.length > 0
           ? toOpenAIToolDefinitions(activeTools)
           : [];
-      const toolDefinitions = filterToolsBySkill(activeSkillRecords, rawToolDefinitions);
+      const toolDefinitions = rawToolDefinitions;
       const toolIds = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
       const mcpServerIds =
         toolsEnabled && mcpEnabled
@@ -919,7 +860,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const unifiedSystemPrompt = buildDomeSystemPrompt({
         staticPersona,
         volatileContext,
-        skillsCatalogMarkdown,
         extraSections: [toolHint],
         voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : null,
       });
@@ -1526,62 +1466,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       ) : null}
 
       {pendingApproval ? (
-        <div
-          ref={pendingApprovalRef}
-          className="sticky bottom-0 z-10 border-t border-[var(--border)] bg-[var(--bg-secondary)] px-3 py-2"
-        >
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-[11px] text-[var(--secondary-text)]">
-              {t(
-                pendingApproval.actionRequests.length === 1
-                  ? 'chat.pending_action_one'
-                  : 'chat.pending_action_other',
-                { count: pendingApproval.actionRequests.length },
-              )}
-            </span>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => {
-                  pendingApproval.submitResume(pendingApproval.actionRequests.map(() => ({ type: 'approve' as const })));
-                  setPendingApproval(null);
-                }}
-                className="rounded-md bg-[var(--accent)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--accent-hover)]"
-              >
-                {t('chat.approve_all')}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  pendingApproval.submitResume(
-                    pendingApproval.actionRequests.map(() => ({
-                      type: 'reject' as const,
-                      message: t('chat.rejected_by_user'),
-                    })),
-                  );
-                  setPendingApproval(null);
-                }}
-                className="rounded-md px-2.5 py-1 text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
-              >
-                {t('chat.reject')}
-              </button>
-            </div>
-          </div>
-          <details className="mt-1.5">
-            <summary className="cursor-pointer text-[11px] text-[var(--secondary-text)] hover:text-[var(--primary-text)]">
-              {t('chat.view_details')}
-            </summary>
-            <div className="mt-1 space-y-1 rounded border border-[var(--border)] bg-[var(--bg)] p-2">
-              {pendingApproval.actionRequests.map((req, i) => (
-                <div key={i} className="text-[11px]">
-                  <span className="font-medium text-[var(--primary-text)]">{req.name}</span>
-                  {req.args?.query != null && req.args?.query !== '' ? (
-                    <p className="mt-0.5 line-clamp-2 text-[var(--secondary-text)]">{String(req.args.query)}</p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </details>
+        <div ref={pendingApprovalRef} className="sticky bottom-0 z-10">
+          <HITLReviewPanel
+            pendingApproval={pendingApproval}
+            onDismiss={() => setPendingApproval(null)}
+          />
         </div>
       ) : null}
 

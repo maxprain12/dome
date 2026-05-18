@@ -2,13 +2,21 @@
 
 const { setMaxListeners } = require('events');
 const langgraphAgent = require('../langgraph-agent.cjs');
+const llmService = require('../llm-service.cjs');
 const domeOauth = require('../dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
 
-function register({ ipcMain, windowManager, database, aiCloudService, ollamaService }) {
+/**
+ * Double-texting guard: maps sessionId → active streamId.
+ * When a new message arrives for the same session, the previous stream is aborted
+ * (interrupt strategy — LangGraph's recommended approach for concurrent user messages).
+ */
+const sessionActiveStream = new Map();
+
+function register({ ipcMain, windowManager, database, ollamaService }) {
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
    * This runs in main process to avoid CORS issues
@@ -76,7 +84,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
       console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${model}`);
 
-      const response = await aiCloudService.chat(provider, messages, apiKey, model);
+      const response = await llmService.chat({ provider, model, apiKey, messages });
 
       return { success: true, content: response };
     } catch (error) {
@@ -230,12 +238,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         }
       };
 
-      let fullResponse;
-      if (provider === 'anthropic') {
-        fullResponse = await aiCloudService.streamAnthropic(messages, apiKey, model, onChunk);
-      } else {
-        fullResponse = await aiCloudService.stream(provider, messages, apiKey, model, onChunk);
-      }
+      const fullResponse = await llmService.stream({ provider, model, apiKey, messages, onChunk });
 
       if (event.sender && !event.sender.isDestroyed()) {
         event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
@@ -269,6 +272,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
     let skipHitl;
     let mcpServerIds;
     let subagentIds;
+    let sessionId;
 
     if (!params || typeof params !== 'object') {
       return { success: false, error: 'Invalid params' };
@@ -283,6 +287,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       skipHitl,
       mcpServerIds,
       subagentIds,
+      sessionId,
     } = params);
 
     try {
@@ -325,6 +330,17 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
       setMaxListeners(64, controller.signal);
       langGraphAbortControllers.set(streamId, controller);
 
+      // Double-texting guard: abort previous stream for the same session (interrupt strategy)
+      if (sessionId) {
+        const prevStreamId = sessionActiveStream.get(sessionId);
+        if (prevStreamId && prevStreamId !== streamId) {
+          const prevCtrl = langGraphAbortControllers.get(prevStreamId);
+          if (prevCtrl) prevCtrl.abort();
+          langGraphAbortControllers.delete(prevStreamId);
+        }
+        sessionActiveStream.set(sessionId, streamId);
+      }
+
       const onChunk = (data) => {
         if (event.sender && !event.sender.isDestroyed()) {
           event.sender.send('ai:stream:chunk', { streamId, ...data });
@@ -353,6 +369,9 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         return { success: true };
       } finally {
         langGraphAbortControllers.delete(streamId);
+        if (sessionId && sessionActiveStream.get(sessionId) === streamId) {
+          sessionActiveStream.delete(sessionId);
+        }
       }
     } catch (error) {
       console.error('[AI LangGraph] Stream error:', error);
@@ -371,6 +390,9 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
         }
       }
       langGraphAbortControllers.delete(streamId);
+      if (sessionId && sessionActiveStream.get(sessionId) === streamId) {
+        sessionActiveStream.delete(sessionId);
+      }
       return { success: isAbort, error: isAbort ? undefined : error?.message };
     }
   });
@@ -534,7 +556,7 @@ function register({ ipcMain, windowManager, database, aiCloudService, ollamaServ
 
       // Make a minimal test call
       const testMessages = [{ role: 'user', content: 'Reply with OK' }];
-      const response = await aiCloudService.chat(provider, testMessages, apiKey, model);
+      const response = await llmService.chat({ provider, model, apiKey, messages: testMessages });
 
       if (response) {
         return { success: true, provider, model: model || 'default' };

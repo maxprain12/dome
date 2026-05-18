@@ -13,6 +13,7 @@ import {
   Download,
   Star,
   CheckCircle2,
+  Zap,
 } from 'lucide-react';
 import type { MarketplaceAgent } from '@/types';
 import type { WorkflowTemplate } from '@/types/canvas';
@@ -36,18 +37,15 @@ import {
 } from '@/lib/marketplace/loaders';
 import { loadAvailablePlugins, type AvailablePlugin } from '@/lib/marketplace/loader';
 import { loadMcpServersSetting, saveMcpServersSetting } from '@/lib/mcp/settings';
-import { db } from '@/lib/db/client';
-import { installSkillFromManifest } from '@/lib/skills/client';
+import { openSkillsFolder, installBundledSkill, listSkills } from '@/lib/skills/client';
 import type { MCPServerConfig } from '@/types';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeListState from '@/components/ui/DomeListState';
-import DomeBadge from '@/components/ui/DomeBadge';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
 import HubSearchField from '@/components/ui/HubSearchField';
-import HubBentoCard from '@/components/ui/HubBentoCard';
 import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -73,45 +71,131 @@ interface UnifiedItem {
   raw: MarketplaceAgent | WorkflowTemplate | MCPManifest | SkillManifest | AvailablePlugin;
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Type config ──────────────────────────────────────────────────────────────
+
+const TYPE_CONFIG = {
+  all:       { Icon: Store,     iconBg: 'var(--bg-tertiary)',   iconColor: 'var(--tertiary-text)', label: '' },
+  agents:    { Icon: Bot,       iconBg: 'var(--accent-bg, #ede9fe)', iconColor: 'var(--accent)',  label: 'Agent' },
+  workflows: { Icon: Workflow,  iconBg: '#d1fae5',              iconColor: '#059669',              label: 'Workflow' },
+  mcp:       { Icon: FolderCog, iconBg: '#fef3c7',              iconColor: '#d97706',              label: 'MCP' },
+  skills:    { Icon: Sparkles,  iconBg: '#ede9fe',              iconColor: '#7c3aed',              label: 'Skill' },
+  plugins:   { Icon: Plug,      iconBg: '#dbeafe',              iconColor: '#2563eb',              label: 'Plugin' },
+} satisfies Record<FilterType, { Icon: React.ElementType; iconBg: string; iconColor: string; label: string }>;
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function TypeIconBox({ type }: { type: Exclude<FilterType, 'all'> }) {
+  const { Icon, iconBg, iconColor } = TYPE_CONFIG[type];
+  return (
+    <div style={{
+      width: 38, height: 38, borderRadius: 10, flexShrink: 0,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: iconBg,
+    }}>
+      <Icon size={18} color={iconColor} strokeWidth={2} />
+    </div>
+  );
+}
+
+function TagChip({ tag }: { tag: string }) {
+  return (
+    <span style={{
+      fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 999,
+      backgroundColor: 'var(--bg-tertiary)', color: 'var(--tertiary-text)',
+      letterSpacing: '0.02em', textTransform: 'uppercase',
+    }}>
+      {tag}
+    </span>
+  );
+}
+
+interface ItemCardProps {
+  item: UnifiedItem;
+  action: React.ReactNode;
+  onClick?: () => void;
+  featured?: boolean;
+}
+
+function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
+  const { label } = TYPE_CONFIG[item.type];
+  const interactive = Boolean(onClick);
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div
+      role={interactive ? 'button' : undefined}
+      tabIndex={interactive ? 0 : undefined}
+      onClick={onClick}
+      onKeyDown={(e) => { if (interactive && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick?.(); } }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        display: 'flex', flexDirection: 'column', gap: 12,
+        padding: featured ? '18px 20px' : '14px 16px',
+        borderRadius: 12,
+        border: `1px solid ${hovered && interactive ? 'var(--border-hover)' : 'var(--border)'}`,
+        backgroundColor: hovered && interactive ? 'var(--bg-secondary)' : 'var(--bg)',
+        cursor: interactive ? 'pointer' : 'default',
+        transition: 'border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease',
+        boxShadow: hovered && interactive ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
+        outline: 'none',
+      }}
+    >
+      {/* Header row: icon + name + star + action */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <TypeIconBox type={item.type} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 3 }}>
+            <span style={{
+              fontWeight: 700, fontSize: 13.5, color: 'var(--primary-text)',
+              lineHeight: 1.3, wordBreak: 'break-word',
+            }}>
+              {item.name}
+            </span>
+            {item.featured && <Star size={13} fill="var(--warning, #f59e0b)" color="var(--warning, #f59e0b)" />}
+            <span style={{
+              fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999,
+              backgroundColor: TYPE_CONFIG[item.type].iconBg,
+              color: TYPE_CONFIG[item.type].iconColor,
+              letterSpacing: '0.03em',
+            }}>
+              {label}
+            </span>
+          </div>
+          <p style={{
+            fontSize: 12.5, color: 'var(--secondary-text)', lineHeight: 1.5, margin: 0,
+            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+          }}>
+            {item.description}
+          </p>
+        </div>
+        {/* Action pinned to top-right */}
+        <div
+          style={{ flexShrink: 0 }}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {action}
+        </div>
+      </div>
+
+      {/* Footer row: author + tags */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+        <span style={{ fontSize: 11, color: 'var(--tertiary-text)' }}>
+          {item.author ?? 'Dome Team'}{item.version ? ` · v${item.version}` : ''}
+        </span>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {item.tags.slice(0, 3).map((t) => <TagChip key={t} tag={t} />)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function MarketplaceView() {
   const { t } = useTranslation();
-
-  const typeMeta = useMemo(() => {
-    const row = (
-      type: FilterType,
-      Icon: React.ElementType,
-      bgColor: string,
-      textColor: string,
-    ) => ({
-      label:
-        type === 'all' ? t('marketplace.type_all')
-        : type === 'agents' ? t('marketplace.type_agents')
-        : type === 'workflows' ? t('marketplace.type_workflows')
-        : type === 'mcp' ? t('marketplace.type_mcp')
-        : type === 'skills' ? t('marketplace.type_skills')
-        : t('marketplace.type_plugins'),
-      Icon,
-      badge:
-        type === 'all' ? t('marketplace.badge_all')
-        : type === 'agents' ? t('marketplace.badge_agent')
-        : type === 'workflows' ? t('marketplace.badge_workflow')
-        : type === 'mcp' ? t('marketplace.badge_mcp')
-        : type === 'skills' ? t('marketplace.badge_skill')
-        : t('marketplace.badge_plugin'),
-      bgColor,
-      textColor,
-    });
-    return {
-      all: row('all', Store, 'var(--dome-surface)', 'var(--dome-text-muted)'),
-      agents: row('agents', Bot, 'var(--dome-accent-bg)', 'var(--dome-accent)'),
-      workflows: row('workflows', Workflow, 'var(--success)', 'var(--dome-surface)'),
-      mcp: row('mcp', FolderCog, 'var(--warning)', 'var(--dome-surface)'),
-      skills: row('skills', Sparkles, 'var(--dome-accent)', 'var(--dome-surface)'),
-      plugins: row('plugins', Plug, 'var(--info)', 'var(--dome-surface)'),
-    } satisfies Record<FilterType, { label: string; Icon: React.ElementType; badge: string; bgColor: string; textColor: string }>;
-  }, [t]);
 
   const categoryLabel = useCallback(
     (cat: string) => {
@@ -121,6 +205,7 @@ export default function MarketplaceView() {
     },
     [t],
   );
+
   // ── Agents ────────────────────────────────────────────
   const [agents, setAgents] = useState<MarketplaceAgent[]>([]);
   const [installedIds, setInstalledIds] = useState<string[]>([]);
@@ -135,10 +220,10 @@ export default function MarketplaceView() {
   const [installedWorkflowRecords, setInstalledWorkflowRecords] = useState<Record<string, { version: string }>>({});
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowTemplate | null>(null);
 
-  // ── Plugins (installed via store) ─────────────────────
+  // ── Plugins ───────────────────────────────────────────
   const { plugins, loading, refresh } = useMarketplaceStore();
 
-  // ── Catalog (from public/ JSON) ───────────────────────
+  // ── Catalog ───────────────────────────────────────────
   const [mcpServers, setMcpServers] = useState<MCPManifest[]>([]);
   const [catalogSkills, setCatalogSkills] = useState<SkillManifest[]>([]);
   const [availablePlugins, setAvailablePlugins] = useState<AvailablePlugin[]>([]);
@@ -158,11 +243,11 @@ export default function MarketplaceView() {
   const loadWorkflow = useCanvasStore((s) => s.loadWorkflow);
   const installedPluginIds = useMemo(() => new Set(plugins.map((p) => p.id)), [plugins]);
 
-  // ── Effects ───────────────────────────────────────────
+  // ── Sync installed state ──────────────────────────────
   const syncInstalledState = async () => {
     const [servers, skillsResult, agentIds, agentRecords, workflowIds, workflowRecords] = await Promise.all([
       loadMcpServersSetting(),
-      db.getAISkills(),
+      listSkills(),
       getInstalledMarketplaceAgentIds(),
       getInstalledMarketplaceAgentRecords(),
       getInstalledWorkflowTemplateIds(),
@@ -180,7 +265,6 @@ export default function MarketplaceView() {
 
   useEffect(() => {
     void syncInstalledState();
-    // Re-sync when the window regains focus (catches deletions made in Settings)
     const handleFocus = () => { void syncInstalledState(); };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
@@ -231,8 +315,8 @@ export default function MarketplaceView() {
 
   // ── Handlers ──────────────────────────────────────────
   const handleRefresh = async () => {
-    showToast('info', t('tabs.marketplace'));
     await refresh();
+    void syncInstalledState();
     showToast('success', t('common.success'));
   };
 
@@ -242,15 +326,9 @@ export default function MarketplaceView() {
     try {
       const result = await installMarketplaceAgent(agent.id);
       if (result.success) {
-        const previousVersion = installedAgentRecords[agent.id]?.version;
         setInstalledIds((prev) => (prev.includes(agent.id) ? prev : [...prev, agent.id]));
         setInstalledAgentRecords((prev) => ({ ...prev, [agent.id]: { version: agent.version } }));
-        showToast(
-          'success',
-          previousVersion && previousVersion !== agent.version
-            ? `"${agent.name}" ${t('common.success')}`
-            : `"${agent.name}" ${t('common.success')}`
-        );
+        showToast('success', `"${agent.name}" ${t('common.success')}`);
         setSelectedAgent(null);
       } else {
         showToast('error', result.error ?? t('common.error'));
@@ -349,21 +427,13 @@ export default function MarketplaceView() {
     if (installingSkillId) return;
     setInstallingSkillId(skill.id);
     try {
-      if (installedSkillIds.has(skill.id)) {
-        showToast('info', t('toast.skill_already_active', { name: skill.name }));
-        return;
-      }
-      const result = await installSkillFromManifest({
-        id: skill.id,
-        name: skill.name,
-        description: skill.description ?? '',
-        instructions: skill.instructions ?? '',
-      });
+      const result = await installBundledSkill(skill.id);
       if (result.success) {
         setInstalledSkillIds((prev) => new Set([...prev, skill.id]));
-        showToast('success', t('toast.skill_added', { name: skill.name }));
+        showToast('success', t('marketplace.skill_installed', { name: skill.name, defaultValue: `"${skill.name}" installed` }));
       } else {
-        showToast('error', t('toast.skill_activate_error'));
+        await openSkillsFolder();
+        showToast('info', t('skills.openFolderToInstall', 'Place the SKILL.md file in the skills folder to install it.'));
       }
     } finally {
       setInstallingSkillId(null);
@@ -417,7 +487,7 @@ export default function MarketplaceView() {
         i.name.toLowerCase().includes(q) ||
         i.description.toLowerCase().includes(q) ||
         i.author?.toLowerCase().includes(q) ||
-        i.tags.some((t) => t.toLowerCase().includes(q))
+        i.tags.some((tag) => tag.toLowerCase().includes(q))
       );
     }
     return [...result].sort((a, b) => {
@@ -427,10 +497,22 @@ export default function MarketplaceView() {
     });
   }, [allItems, filterType, filterCategory, searchQuery]);
 
+  const featuredItems = useMemo(
+    () => filteredItems.filter((i) => i.featured && (i.type === 'agents' || i.type === 'workflows')).slice(0, 4),
+    [filteredItems],
+  );
+
+  const regularItems = useMemo(
+    () => filterType === 'all' && !searchQuery.trim() && filterCategory === 'all'
+      ? filteredItems.filter((i) => !featuredItems.includes(i))
+      : filteredItems,
+    [filteredItems, featuredItems, filterType, searchQuery, filterCategory],
+  );
+
   const availableCategories = useMemo(() => {
     const source = filterType === 'all' ? allItems : allItems.filter((i) => i.type === filterType);
     const cats = new Set<string>();
-    source.forEach((i) => i.tags.forEach((t) => cats.add(t)));
+    source.forEach((i) => i.tags.forEach((tag) => cats.add(tag)));
     return Array.from(cats).sort();
   }, [allItems, filterType]);
 
@@ -440,15 +522,22 @@ export default function MarketplaceView() {
     return counts;
   }, [allItems]);
 
-  const typeFilterOptions = useMemo(
-    () =>
-      (['all', 'agents', 'workflows', 'mcp', 'skills', 'plugins'] as FilterType[]).map((type) => ({
-        value: type,
-        label: `${typeMeta[type].label} (${type === 'all' ? allItems.length : totalByType[type] ?? 0})`,
-        selectedColor: 'var(--dome-accent)',
-      })),
-    [typeMeta, allItems.length, totalByType],
-  );
+  const typeFilterOptions = useMemo(() => {
+    const types: FilterType[] = ['all', 'agents', 'workflows', 'skills', 'mcp', 'plugins'];
+    const labels: Record<FilterType, string> = {
+      all: t('marketplace.type_all'),
+      agents: t('marketplace.type_agents'),
+      workflows: t('marketplace.type_workflows'),
+      mcp: t('marketplace.type_mcp'),
+      skills: t('marketplace.type_skills'),
+      plugins: t('marketplace.type_plugins'),
+    };
+    return types.map((type) => ({
+      value: type,
+      label: `${labels[type]} (${type === 'all' ? allItems.length : totalByType[type] ?? 0})`,
+      selectedColor: 'var(--dome-accent)',
+    }));
+  }, [t, allItems.length, totalByType]);
 
   const categoryFilterOptions = useMemo(
     () => [
@@ -472,24 +561,16 @@ export default function MarketplaceView() {
       const isInstalling = installingId === agent.id;
       if (isInstalled && !hasUpdate) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="size-3.5" /> {t('marketplace.installed')}
+          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
+            <CheckCircle2 size={13} /> {t('marketplace.installed')}
           </span>
         );
       }
       return (
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleInstallAgent(agent);
-          }}
-          disabled={!!installingId}
-          loading={isInstalling}
-          className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
+        <DomeButton type="button" variant="primary" size="sm"
+          onClick={(e) => { e.stopPropagation(); void handleInstallAgent(agent); }}
+          disabled={!!installingId} loading={isInstalling}
+          leftIcon={!isInstalling ? <Download size={12} /> : undefined}
         >
           {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : t('marketplace.install')}
         </DomeButton>
@@ -503,26 +584,12 @@ export default function MarketplaceView() {
       const hasUpdate = workflowInstall?.version != null && workflowInstall.version !== workflow.version;
       const isInstalling = installingWorkflowId === workflow.id;
       return (
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleInstallWorkflow(workflow);
-          }}
-          disabled={!!installingWorkflowId}
-          loading={isInstalling}
-          className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
+        <DomeButton type="button" variant="primary" size="sm"
+          onClick={(e) => { e.stopPropagation(); void handleInstallWorkflow(workflow); }}
+          disabled={!!installingWorkflowId} loading={isInstalling}
+          leftIcon={!isInstalling ? <Download size={12} /> : undefined}
         >
-          {isInstalling
-            ? t('marketplace.installing')
-            : hasUpdate
-              ? t('marketplace.update')
-              : isInstalled
-                ? t('marketplace.open')
-                : t('marketplace.install')}
+          {isInstalling ? t('marketplace.installing') : hasUpdate ? t('marketplace.update') : isInstalled ? t('marketplace.open') : t('marketplace.install')}
         </DomeButton>
       );
     }
@@ -532,24 +599,16 @@ export default function MarketplaceView() {
       const isInstalled = installedPluginIds.has(plugin.id);
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="size-3.5" /> {t('marketplace.installed')}
+          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
+            <CheckCircle2 size={13} /> {t('marketplace.installed')}
           </span>
         );
       }
       return (
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleInstallPlugin();
-          }}
-          disabled={!!installingPlugin}
-          loading={!!installingPlugin}
-          className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!installingPlugin ? <Download className="size-3" aria-hidden /> : undefined}
+        <DomeButton type="button" variant="primary" size="sm"
+          onClick={(e) => { e.stopPropagation(); void handleInstallPlugin(); }}
+          disabled={!!installingPlugin} loading={!!installingPlugin}
+          leftIcon={!installingPlugin ? <Download size={12} /> : undefined}
         >
           {installingPlugin ? t('marketplace.installing_plugin') : t('marketplace.install_plugin')}
         </DomeButton>
@@ -562,24 +621,16 @@ export default function MarketplaceView() {
       const isInstalling = installingMcpId === server.id;
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="size-3.5" /> {t('marketplace.added')}
+          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
+            <CheckCircle2 size={13} /> {t('marketplace.added')}
           </span>
         );
       }
       return (
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleInstallMcp(server);
-          }}
-          disabled={!!installingMcpId}
-          loading={isInstalling}
-          className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
+        <DomeButton type="button" variant="primary" size="sm"
+          onClick={(e) => { e.stopPropagation(); void handleInstallMcp(server); }}
+          disabled={!!installingMcpId} loading={isInstalling}
+          leftIcon={!isInstalling ? <Download size={12} /> : undefined}
         >
           {isInstalling ? t('marketplace.adding') : t('marketplace.add')}
         </DomeButton>
@@ -592,26 +643,18 @@ export default function MarketplaceView() {
       const isInstalling = installingSkillId === skill.id;
       if (isInstalled) {
         return (
-          <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--success)' }}>
-            <CheckCircle2 className="size-3.5" /> {t('marketplace.active')}
+          <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--success)' }}>
+            <Zap size={13} /> {t('marketplace.active')}
           </span>
         );
       }
       return (
-        <DomeButton
-          type="button"
-          variant="primary"
-          size="sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void handleInstallSkill(skill);
-          }}
-          disabled={!!installingSkillId}
-          loading={isInstalling}
-          className="!bg-[var(--dome-accent)] hover:!brightness-110"
-          leftIcon={!isInstalling ? <Download className="size-3" aria-hidden /> : undefined}
+        <DomeButton type="button" variant="primary" size="sm"
+          onClick={(e) => { e.stopPropagation(); void handleInstallSkill(skill); }}
+          disabled={!!installingSkillId} loading={isInstalling}
+          leftIcon={!isInstalling ? <Zap size={12} /> : undefined}
         >
-          {isInstalling ? t('marketplace.activating') : t('marketplace.activate')}
+          {isInstalling ? t('marketplace.installing') : t('marketplace.activate')}
         </DomeButton>
       );
     }
@@ -619,21 +662,11 @@ export default function MarketplaceView() {
     return null;
   }
 
-  const selectedAgentHasUpdate = (() => {
-    if (!selectedAgent) return false;
-    const rec = installedAgentRecords[selectedAgent.id];
-    return rec?.version != null && rec.version !== selectedAgent.version;
-  })();
-
-  const selectedWorkflowHasUpdate = (() => {
-    if (!selectedWorkflow) return false;
-    const rec = installedWorkflowRecords[selectedWorkflow.id];
-    return rec?.version != null && rec.version !== selectedWorkflow.version;
-  })();
+  const showFeatured = filterType === 'all' && !searchQuery.trim() && filterCategory === 'all' && featuredItems.length > 0;
 
   // ── Render ────────────────────────────────────────────
   return (
-    <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--dome-bg)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bg)' }}>
       <HubToolbar
         dense
         leading={
@@ -659,12 +692,11 @@ export default function MarketplaceView() {
         trailing={
           <DomeButton
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            onClick={handleRefresh}
+            onClick={() => void handleRefresh()}
             disabled={loading}
-            className="border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text-secondary)]"
-            leftIcon={<RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} aria-hidden />}
+            leftIcon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
           >
             {t('marketplace.refresh')}
           </DomeButton>
@@ -672,21 +704,22 @@ export default function MarketplaceView() {
       />
 
       {/* ── Body ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
         {/* Sidebar */}
-        <div
-          className="w-44 shrink-0 overflow-y-auto py-4 px-2 flex flex-col gap-5"
-          style={{ borderRight: '1px solid var(--dome-border)', background: 'var(--dome-surface)' }}
-        >
+        <div style={{
+          width: 168, flexShrink: 0, overflowY: 'auto', padding: '16px 8px',
+          display: 'flex', flexDirection: 'column', gap: 20,
+          borderRight: '1px solid var(--border)', background: 'var(--bg-secondary)',
+        }}>
           <div>
-            <DomeSectionLabel className="mb-2 px-2 !text-[10px] !tracking-wider">{t('marketplace.filter_type')}</DomeSectionLabel>
+            <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
+              {t('marketplace.filter_type')}
+            </DomeSectionLabel>
             <DomeFilterChipGroup
               options={typeFilterOptions}
               value={filterType}
-              onChange={(v) => {
-                setFilterType(v);
-                setFilterCategory('all');
-              }}
+              onChange={(v) => { setFilterType(v); setFilterCategory('all'); }}
               layout="vertical"
               className="gap-0.5"
             />
@@ -694,7 +727,9 @@ export default function MarketplaceView() {
 
           {availableCategories.length > 0 && (
             <div>
-              <DomeSectionLabel className="mb-2 px-2 !text-[10px] !tracking-wider">{t('marketplace.filter_category')}</DomeSectionLabel>
+              <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
+                {t('marketplace.filter_category')}
+              </DomeSectionLabel>
               <DomeFilterChipGroup
                 options={categoryFilterOptions}
                 value={filterCategory}
@@ -706,78 +741,97 @@ export default function MarketplaceView() {
           )}
         </div>
 
-        {/* Main grid */}
-        <div className="flex-1 overflow-y-auto overscroll-contain p-5">
+        {/* Main content */}
+        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain' }}>
           {initialLoading ? (
-            <DomeSkeletonGrid count={8} cellHeightClass="h-28" />
+            <div style={{ padding: 20 }}>
+              <DomeSkeletonGrid count={8} cellHeightClass="h-28" />
+            </div>
           ) : filteredItems.length === 0 ? (
             <DomeListState
               variant="empty"
               fullHeight
-              icon={<Search className="size-10 opacity-20" aria-hidden />}
+              icon={<Search size={40} style={{ opacity: 0.2 }} />}
               title={t('marketplace.no_results')}
               description={t('marketplace.no_results_hint')}
             />
           ) : (
-            <div className="flex w-full max-w-full flex-col gap-3 animate-in fade-in duration-150 motion-reduce:animate-none">
-              {filteredItems.map((item) => {
-                const meta = typeMeta[item.type];
-                const Icon = meta.Icon;
-                const isClickable = item.type === 'agents' || item.type === 'workflows';
+            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
-                return (
-                  <HubBentoCard
-                    key={`${item.type}-${item.id}`}
-                    onClick={
-                      isClickable
-                        ? () => {
-                            if (item.type === 'agents') setSelectedAgent(item.raw as MarketplaceAgent);
-                            else if (item.type === 'workflows') setSelectedWorkflow(item.raw as WorkflowTemplate);
-                          }
-                        : undefined
-                    }
-                    icon={
-                      <span className="inline-flex items-center gap-1">
-                        <Icon className="size-3 shrink-0" style={{ color: meta.textColor }} aria-hidden />
-                        <DomeBadge label={meta.badge} variant="soft" color={meta.textColor} size="xs" />
-                      </span>
-                    }
-                    title={
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span className="min-w-0 break-words font-semibold text-sm" style={{ color: 'var(--dome-text)' }}>
-                          {item.name}
+              {/* Featured strip */}
+              {showFeatured && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <Star size={13} fill="var(--warning, #f59e0b)" color="var(--warning, #f59e0b)" />
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+                      {t('marketplace.featured', 'Featured')}
+                    </span>
+                  </div>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: 12,
+                  }}>
+                    {featuredItems.map((item) => (
+                      <ItemCard
+                        key={`featured-${item.type}-${item.id}`}
+                        item={item}
+                        action={renderAction(item)}
+                        onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
+                          : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
+                          : undefined}
+                        featured
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* All / rest */}
+              {regularItems.length > 0 && (
+                <div>
+                  {showFeatured && (
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+                        {t('marketplace.all_items', 'All')}
+                        <span style={{
+                          marginLeft: 8, fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
+                          backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
+                        }}>
+                          {regularItems.length}
                         </span>
-                        {item.featured ? (
-                          <Star className="size-3.5 shrink-0 text-amber-500 fill-amber-500" aria-hidden />
-                        ) : null}
                       </span>
-                    }
-                    subtitle={
-                      <span className="break-words" style={{ color: 'var(--dome-text-secondary)' }}>
-                        {item.description}
-                      </span>
-                    }
-                    meta={
-                      <span className="text-[11px] break-words" style={{ color: 'var(--dome-text-muted)' }}>
-                        {item.author ?? t('marketplace.default_author')}
-                        {item.version ? ` · v${item.version}` : ''}
-                      </span>
-                    }
-                    trailing={renderAction(item)}
-                  />
-                );
-              })}
+                    </div>
+                  )}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                    gap: 10,
+                  }}>
+                    {regularItems.map((item) => (
+                      <ItemCard
+                        key={`${item.type}-${item.id}`}
+                        item={item}
+                        action={renderAction(item)}
+                        onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
+                          : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
+                          : undefined}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Modals ── */}
+      {/* Modals */}
       {selectedAgent && (
         <MarketplaceAgentDetail
           agent={selectedAgent}
           isInstalled={installedIds.includes(selectedAgent.id)}
-          hasUpdate={selectedAgentHasUpdate}
+          hasUpdate={(() => { const r = installedAgentRecords[selectedAgent.id]; return r?.version != null && r.version !== selectedAgent.version; })()}
           isInstalling={installingId === selectedAgent.id}
           onInstall={handleInstallAgent}
           onClose={() => setSelectedAgent(null)}
@@ -787,7 +841,7 @@ export default function MarketplaceView() {
         <WorkflowDetail
           workflow={selectedWorkflow}
           isInstalled={installedWorkflowIds.includes(selectedWorkflow.id)}
-          hasUpdate={selectedWorkflowHasUpdate}
+          hasUpdate={(() => { const r = installedWorkflowRecords[selectedWorkflow.id]; return r?.version != null && r.version !== selectedWorkflow.version; })()}
           isInstalling={installingWorkflowId === selectedWorkflow.id}
           onInstall={handleInstallWorkflow}
           onClose={() => setSelectedWorkflow(null)}

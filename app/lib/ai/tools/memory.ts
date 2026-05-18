@@ -258,7 +258,7 @@ export function createMemorySearchWithIPC(): AnyAgentTool {
   return {
     label: 'Memory Search',
     name: 'memory_search',
-    description: 'Busca en tus documentos y recursos usando similitud semántica. Usa esto para encontrar información relevante basada en significado, no solo palabras clave.',
+    description: 'Search documents and resources by semantic similarity. Use to find relevant information based on meaning, not just keywords.',
     parameters: MemorySearchSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -308,8 +308,8 @@ export function createMemorySearchWithIPC(): AnyAgentTool {
           return jsonResult({
             status: 'no_results',
             query,
-            message: 'No se encontraron documentos relevantes para tu consulta.',
-            suggestion: 'Intenta reformular tu consulta o busca con términos diferentes.',
+            message: 'No relevant documents found for your query.',
+            suggestion: 'Try rephrasing your query or searching with different terms.',
           });
         }
 
@@ -345,7 +345,7 @@ export function createMemoryGetWithIPC(): AnyAgentTool {
   return {
     label: 'Memory Get',
     name: 'memory_get',
-    description: 'Recupera un documento o recurso específico por su ID. Usa esto para obtener el contenido completo de un documento encontrado con memory_search.',
+    description: 'Retrieve a specific document or resource by its ID. Use to get the full content of a document found with memory_search.',
     parameters: MemoryGetSchema,
     execute: async (_toolCallId, args) => {
       try {

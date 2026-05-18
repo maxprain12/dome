@@ -49,6 +49,7 @@ const domeMcpHandlers = require('./dome-mcp.cjs');
 const artifactsHandlers = require('./artifacts.cjs');
 const approvalHandlers = require('./approval.cjs');
 const cloudSyncHandlers = require('./cloud-sync.cjs');
+const threadsHandlers = require('./threads.cjs');
 
 let _ipcRegistered = false;
 
@@ -75,7 +76,6 @@ function registerAll(deps) {
     ollamaService,
     getOllamaManager,
     aiToolsHandler,
-    aiCloudService,
     ttsService,
     documentExtractor,
     documentGenerator,
@@ -111,7 +111,7 @@ function registerAll(deps) {
   ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, getOllamaManager });
   authHandlers.register({ ipcMain, windowManager, authManager });
   personalityHandlers.register({ ipcMain, windowManager, personalityLoader });
-  aiHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
+  aiHandlers.register({ ipcMain, windowManager, database, ollamaService });
   aiToolsHandlers.register({ ipcMain, windowManager, aiToolsHandler });
   flashcardsHandlers.register({ ipcMain, windowManager, database, validateSender });
   studioHandlers.register({ ipcMain, windowManager, database, validateSender });
@@ -125,7 +125,7 @@ function registerAll(deps) {
   pdfRenderHandlers.register({ ipcMain, windowManager, database, validateSender });
   calendarHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
   domeAuthHandlers.register({ ipcMain, windowManager, database });
-  agentTeamHandlers.register({ ipcMain, windowManager, database, aiCloudService, ollamaService });
+  agentTeamHandlers.register({ ipcMain, windowManager, database });
   chatHandlers.register({ ipcMain, windowManager, database, validateSender });
   runsHandlers.register({ ipcMain, windowManager, validateSender });
   marketplaceHandlers.register({ ipcMain, windowManager, validateSender });
@@ -160,6 +160,7 @@ function registerAll(deps) {
   artifactsHandlers.register({ ipcMain, windowManager, database });
   approvalHandlers.register({ ipcMain, windowManager, validateSender });
   cloudSyncHandlers.register({ ipcMain, windowManager, database, fileStorage });
+  threadsHandlers.register({ ipcMain, windowManager, validateSender });
 
 }
 
