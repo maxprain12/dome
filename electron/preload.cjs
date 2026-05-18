@@ -496,6 +496,8 @@ const ALLOWED_CHANNELS = {
     'marketplace:rate-limit',
     'marketplace:install-plugin',
     'marketplace:install-skill',
+    'marketplace:install-skill-from-url',
+    'marketplace:browse-skill-repo',
     'marketplace:uninstall-skill',
     // Shell execution & native file search (Many agent tools)
     'shell:exec',
@@ -889,6 +891,8 @@ const electronHandler = {
     getRateLimit: () => ipcRenderer.invoke('marketplace:rate-limit'),
     installPlugin: () => ipcRenderer.invoke('marketplace:install-plugin'),
     installSkill: () => ipcRenderer.invoke('marketplace:install-skill'),
+    installSkillFromUrl: (url) => ipcRenderer.invoke('marketplace:install-skill-from-url', { url }),
+    browseSkillRepo: (repoUrl) => ipcRenderer.invoke('marketplace:browse-skill-repo', { repoUrl }),
     uninstallSkill: (skillId) => ipcRenderer.invoke('marketplace:uninstall-skill', skillId),
   },
 

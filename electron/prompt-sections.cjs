@@ -16,7 +16,13 @@ const DOME_LOAD_DOC_DESCRIPTION =
   'artifacts (before emitting any artifact block), ' +
   'artifact_persisted (before updating/deleting a persisted artifact), ' +
   'artifact_design (before artifact_design / complex tabbed dossier layouts), ' +
-  'resource_links (if unsure about dome:// link format).';
+  'resource_links (if unsure about dome:// link format), ' +
+  'ppt_tool (before calling ppt_create — full PptxGenJS script guide + visual QA loop), ' +
+  'docx_tool (before calling docx_create/docx_update — Word document guide), ' +
+  'calendar_tool (before calling calendar_create_event — date inference + reminder rules), ' +
+  'flashcard_tool (before calling flashcard_create — deck creation guide), ' +
+  'excel_notebook_tool (before excel_get_file_path + notebook_add_cell — pandas flow), ' +
+  'excel_artifact_tool (before artifact_create from Excel — interactive dashboard guide).';
 
 /** @type {Record<string, string | null>} */
 const cache = {};
@@ -53,6 +59,24 @@ function getSectionBody(docId) {
       break;
     case 'resource_links':
       body = RESOURCE_LINK_INSTRUCTION;
+      break;
+    case 'ppt_tool':
+      body = readMartin('ppt-tool.txt');
+      break;
+    case 'docx_tool':
+      body = readMartin('docx-tool.txt');
+      break;
+    case 'calendar_tool':
+      body = readMartin('calendar-tool.txt');
+      break;
+    case 'flashcard_tool':
+      body = readMartin('flashcard-tool.txt');
+      break;
+    case 'excel_notebook_tool':
+      body = readMartin('excel-notebook-tool.txt');
+      break;
+    case 'excel_artifact_tool':
+      body = readMartin('excel-artifact-tool.txt');
       break;
     default:
       cache[docId] = null;

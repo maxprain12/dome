@@ -1,7 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FolderOpen, RefreshCw, Loader2, Zap } from 'lucide-react';
-import { listSkills, openSkillsFolder, type SkillItem } from '@/lib/skills/client';
+import { FolderOpen, RefreshCw, Loader2, Zap, Github, Search, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  listSkills,
+  openSkillsFolder,
+  installSkillFromUrl,
+  browseSkillRepo,
+  type SkillItem,
+  type SkillRepoEntry,
+} from '@/lib/skills/client';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeListState from '@/components/ui/DomeListState';
@@ -61,13 +68,16 @@ export default function SkillsSettingsPanel() {
         </DomeButton>
       </div>
 
+      {/* Install from GitHub */}
+      <InstallFromGitHub onInstalled={() => void loadData()} />
+
       {error && (
         <p style={{ color: 'var(--error)', fontSize: 13, marginBottom: 12 }}>{error}</p>
       )}
 
       {/* Count label */}
       {!loading && skills.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 20 }}>
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
             {t('settings.skills.section_configured', 'Configured skills')}
           </span>
@@ -85,7 +95,7 @@ export default function SkillsSettingsPanel() {
       ) : skills.length === 0 ? (
         <DomeListState
           variant="empty"
-          description={t('settings.skills.empty', 'No skills found. Add SKILL.md folders to the skills directory.')}
+          description={t('settings.skills.empty', 'No skills installed. Add SKILL.md files to the skills folder or install from a GitHub repository.')}
         />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -97,6 +107,186 @@ export default function SkillsSettingsPanel() {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Install from GitHub
+// ---------------------------------------------------------------------------
+
+function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const [url, setUrl] = useState('');
+  const [installing, setInstalling] = useState(false);
+  const [browsing, setBrowsing] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [repoSkills, setRepoSkills] = useState<SkillRepoEntry[]>([]);
+  const [installingUrls, setInstallingUrls] = useState<Set<string>>(new Set());
+
+  async function handleInstall() {
+    if (!url.trim()) return;
+    setInstalling(true);
+    setMessage(null);
+    setRepoSkills([]);
+    try {
+      const res = await installSkillFromUrl(url.trim());
+      if (res.success && res.data) {
+        setMessage({ type: 'success', text: `✓ "${res.data.name}" installed successfully.` });
+        setUrl('');
+        onInstalled();
+      } else {
+        setMessage({ type: 'error', text: res.error ?? 'Installation failed.' });
+      }
+    } finally {
+      setInstalling(false);
+    }
+  }
+
+  async function handleBrowse() {
+    if (!url.trim()) return;
+    setBrowsing(true);
+    setMessage(null);
+    setRepoSkills([]);
+    try {
+      const res = await browseSkillRepo(url.trim());
+      if (res.success && res.data) {
+        if (res.data.length === 0) {
+          setMessage({ type: 'error', text: 'No skills found in that repository.' });
+        } else {
+          setRepoSkills(res.data);
+        }
+      } else {
+        setMessage({ type: 'error', text: res.error ?? 'Could not browse that repository.' });
+      }
+    } finally {
+      setBrowsing(false);
+    }
+  }
+
+  async function handleInstallRepoSkill(entry: SkillRepoEntry) {
+    setInstallingUrls(prev => new Set(prev).add(entry.skillUrl));
+    try {
+      const res = await installSkillFromUrl(entry.skillUrl);
+      if (res.success) {
+        setMessage({ type: 'success', text: `✓ "${entry.name}" installed.` });
+        onInstalled();
+      } else {
+        setMessage({ type: 'error', text: res.error ?? 'Installation failed.' });
+      }
+    } finally {
+      setInstallingUrls(prev => { const s = new Set(prev); s.delete(entry.skillUrl); return s; });
+    }
+  }
+
+  return (
+    <div style={{
+      marginBottom: 20,
+      border: '1px solid var(--border)',
+      borderRadius: 10,
+      overflow: 'hidden',
+      backgroundColor: 'var(--bg-secondary)',
+    }}>
+      {/* Header */}
+      <button
+        onClick={() => { setExpanded(e => !e); setMessage(null); setRepoSkills([]); }}
+        style={{
+          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
+          color: 'var(--primary-text)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Github size={15} color="var(--secondary-text)" />
+          <span style={{ fontWeight: 600, fontSize: 13.5 }}>
+            {t('settings.skills.install_from_github', 'Install from GitHub')}
+          </span>
+        </div>
+        {expanded ? <ChevronUp size={14} color="var(--tertiary-text)" /> : <ChevronDown size={14} color="var(--tertiary-text)" />}
+      </button>
+
+      {expanded && (
+        <div style={{ padding: '0 14px 14px' }}>
+          <p style={{ fontSize: 12.5, color: 'var(--secondary-text)', marginBottom: 10, lineHeight: 1.5 }}>
+            {t('settings.skills.github_hint', 'Enter a GitHub repo URL containing a SKILL.md. Use "Browse" to see all skills in a multi-skill repo.')}
+          </p>
+
+          <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+            <input
+              type="text"
+              value={url}
+              onChange={e => setUrl(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') void handleInstall(); }}
+              placeholder="github.com/user/my-skill"
+              style={{
+                flex: 1, padding: '8px 11px', fontSize: 13,
+                border: '1px solid var(--border)', borderRadius: 7,
+                backgroundColor: 'var(--bg-tertiary)', color: 'var(--primary-text)',
+                outline: 'none',
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--accent)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+            />
+            <DomeButton
+              variant="ghost"
+              size="sm"
+              onClick={() => void handleBrowse()}
+              leftIcon={browsing ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+              disabled={browsing || installing || !url.trim()}
+            >
+              {t('common.browse', 'Browse')}
+            </DomeButton>
+            <DomeButton
+              variant="secondary"
+              size="sm"
+              onClick={() => void handleInstall()}
+              leftIcon={installing ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+              disabled={installing || browsing || !url.trim()}
+            >
+              {t('common.install', 'Install')}
+            </DomeButton>
+          </div>
+
+          {message && (
+            <p style={{ fontSize: 12.5, color: message.type === 'success' ? 'var(--success, #10b981)' : 'var(--error)', marginBottom: repoSkills.length ? 10 : 0 }}>
+              {message.text}
+            </p>
+          )}
+
+          {repoSkills.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--tertiary-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {repoSkills.length} {t('settings.skills.skills_found', 'skills found')}
+              </span>
+              {repoSkills.map(entry => (
+                <div key={entry.skillUrl} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 11px',
+                  border: '1px solid var(--border)', borderRadius: 7, backgroundColor: 'var(--bg)',
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--primary-text)' }}>{entry.name}</div>
+                    {entry.description && (
+                      <div style={{ fontSize: 12, color: 'var(--secondary-text)', marginTop: 2 }}>{entry.description}</div>
+                    )}
+                  </div>
+                  <DomeButton
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => void handleInstallRepoSkill(entry)}
+                    leftIcon={installingUrls.has(entry.skillUrl) ? <Loader2 size={12} className="animate-spin" /> : <Download size={12} />}
+                    disabled={installingUrls.has(entry.skillUrl)}
+                  >
+                    {t('common.install', 'Install')}
+                  </DomeButton>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 
 function SkillRow({ skill }: { skill: SkillItem }) {
   return (
