@@ -7,8 +7,16 @@ on:
   release:
     types: [published]
 
+# Permite subir activos al release (electron-publish / action-gh-release) con GITHUB_TOKEN.
+permissions:
+  contents: write
+
 env:
   NODE_VERSION: '24'
+  # electron-publish (dependencia de electron-builder) exige GH_TOKEN; Actions solo define GITHUB_TOKEN.
+  # Si el builder intenta publicar a GitHub (p. ej. por build.publish en package.json), sin esto falla:
+  # "GitHub Personal Access Token is not set ... env GH_TOKEN".
+  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # Evita avisos de deprecación de Node 20 en actions/checkout, setup-node, etc. (hasta junio 2026)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # pnpm sin TTY (evita abortos tipo confirmModulesPurge / purga de node_modules)
@@ -130,8 +138,6 @@ jobs:
   attach-artifacts:
     needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v4
