@@ -1,16 +1,9 @@
----
-name: calendar-creation
-description: "Infer natural-language dates/times and create calendar events with calendar_create_event."
-when_to_use: "User asks to add, schedule, or create a calendar event, appointment, or reminder (añade un evento, programa una cita, etc.)."
-allowed-tools:
-  - calendar_create_event
-  - calendar_get_upcoming
-  - calendar_list_events
----
+# Calendar Tool — Usage Guide
+
+## When to use
+Use `calendar_create_event`, `calendar_get_upcoming`, and `calendar_list_events` when the user asks to add, schedule, or create a calendar event, appointment, or reminder (e.g. "añade un evento", "programa una cita", "add a meeting for tomorrow").
 
 ## Calendar creation flow
-
-When the user says "add event X", "añade un evento", "programa una cita", or similar:
 
 1. **Infer date**: "mañana" → tomorrow's date; "hoy" → today; "próxima semana" → appropriate day in next 7 days.
 2. **Infer time**: In Spain/Europe, "5:15" or "las 5" for exams/meetings usually means 17:15 (PM). If ambiguous, ask only AM/PM.

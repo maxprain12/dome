@@ -4,10 +4,21 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.8](https://github.com/maxprain12/dome/releases/tag/v2.1.8) - 2026-05-18
+
+### Added
+
+- **Skills desde GitHub**: nuevo sistema para instalar skills desde repositorios públicos. En Settings → Skills → "Install from GitHub" se puede pegar un URL de repo (o skill directa) e instalar con un click; el botón "Browse" lista todas las skills en repos multi-skill. IPC: `marketplace:install-skill-from-url`, `marketplace:browse-skill-repo`.
+- **Tool reference docs** via `dome_load_doc`: 6 nuevos IDs — `ppt_tool`, `docx_tool`, `calendar_tool`, `flashcard_tool`, `excel_notebook_tool`, `excel_artifact_tool` — que el modelo carga bajo demanda con instrucciones detalladas sobre cada herramienta (antes eran skills bundled).
+- **Docs**: `docs/how-to/` con guías para crear agents, workflows, automations y skills desde cero.
+
 ### Changed
 
+- **Skills bundled eliminadas**: el catálogo bundled arranca vacío en esta versión (v6 del flag de seeding). Los usuarios añaden skills gradualmente desde el marketplace o repos de GitHub. Las skills que eran system prompts de tools específicas se migraron a `prompts/martin/` y se exponen vía `dome_load_doc`.
+- **Agentes y workflows bundled eliminados**: `public/agents.json` y `public/workflows.json` arrancan vacíos — los usuarios los crean o instalan desde el marketplace.
 - Toolchain del repo migrado a **pnpm** (`pnpm-lock.yaml`, CI con `pnpm install --frozen-lockfile`).
 - **pnpm 11.1.1** (requiere Node.js ≥ 22.13 para el gestor de paquetes); configuración en `pnpm-workspace.yaml` (`allowBuilds`, `minimumReleaseAge: 0`).
+
 ## [2.1.7](https://github.com/maxprain12/dome/releases/tag/v2.1.7) - 2026-05-03
 
 ### Added

@@ -17,6 +17,104 @@ const { URL } = require('url');
 const marketplaceConfig = require('../marketplace-config.cjs');
 const githubClient = require('../github-client.cjs');
 
+// ---------------------------------------------------------------------------
+// Helpers for skill-from-URL installation
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch text content from a URL, returning null on non-200 or error.
+ * @param {string} urlStr
+ * @param {Record<string,string>} [extraHeaders]
+ * @returns {Promise<string|null>}
+ */
+function fetchText(urlStr, extraHeaders = {}) {
+  return new Promise((resolve) => {
+    try {
+      const parsed = new URL(urlStr);
+      const protocol = parsed.protocol === 'https:' ? https : http;
+      const req = protocol.get(
+        urlStr,
+        { headers: { 'User-Agent': 'Dome-Marketplace/1.0', 'Accept': 'text/plain,application/json', ...extraHeaders } },
+        (res) => {
+          if (res.statusCode !== 200) { res.resume(); return resolve(null); }
+          const chunks = [];
+          res.on('data', c => chunks.push(c));
+          res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        },
+      );
+      req.setTimeout(10000, () => { req.destroy(); resolve(null); });
+      req.on('error', () => resolve(null));
+    } catch (_) {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Parse YAML-style frontmatter from a SKILL.md string.
+ * Returns an object with the frontmatter key/value pairs.
+ * @param {string} content
+ * @returns {{ name?: string; description?: string; when_to_use?: string }}
+ */
+function parseSkillMdFrontmatter(content) {
+  const match = content.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!match) return {};
+  const result = {};
+  for (const line of match[1].split('\n')) {
+    const kv = line.match(/^(\w[\w-]*):\s*"?([^"]*)"?\s*$/);
+    if (kv) result[kv[1]] = kv[2].trim();
+  }
+  return result;
+}
+
+/**
+ * Given any GitHub URL pointing to a skill, return candidate raw content URLs to try.
+ * @param {string} url
+ * @returns {string[]}
+ */
+function resolveSkillRawUrls(url) {
+  // Already a raw URL
+  if (url.includes('raw.githubusercontent.com')) return [url];
+
+  // Direct URL to a SKILL.md on github.com
+  if (url.includes('github.com') && url.endsWith('SKILL.md')) {
+    return [url.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/').replace('/tree/', '/')];
+  }
+
+  // github.com/user/repo/tree/branch/subdir  OR  github.com/user/repo
+  const treeMatch = url.match(/github\.com\/([^/]+)\/([^/]+)(?:\/tree\/([^/]+)(?:\/(.+))?)?/);
+  if (!treeMatch) return [url];
+
+  const [, owner, repo, branch = 'main', subdir] = treeMatch;
+  const base = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}`;
+
+  const candidates = subdir
+    ? [`${base}/${subdir}/SKILL.md`, `${base}/${subdir}/skill.md`]
+    : [`${base}/SKILL.md`, `${base}/skill.md`];
+
+  // Also try main/master if branch not explicit
+  if (!treeMatch[3]) {
+    candidates.push(
+      `https://raw.githubusercontent.com/${owner}/${repo}/master/SKILL.md`,
+      `https://raw.githubusercontent.com/${owner}/${repo}/master/skill.md`,
+    );
+  }
+  return candidates;
+}
+
+/**
+ * Parse a GitHub repo URL into its components.
+ * @param {string} url
+ * @returns {{ owner: string; repo: string; branch: string; subdir: string } | null}
+ */
+function parseGitHubRepoUrl(url) {
+  const m = url.match(/github\.com\/([^/]+)\/([^/]+)(?:\/tree\/([^/]+)(?:\/(.+))?)?/);
+  if (!m) return null;
+  return { owner: m[1], repo: m[2].replace(/\.git$/, ''), branch: m[3] || 'main', subdir: m[4] || '' };
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Fetch items from a GitHub source
  */
@@ -677,6 +775,170 @@ function register({ ipcMain, windowManager, validateSender }) {
       return { success: true, data: { id: skillId, dir: destDir } };
     } catch (err) {
       console.error('[Marketplace] install-skill error:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  /**
+   * Fetch a SKILL.md from a GitHub URL and install it to ~/.dome/skills/
+   * Accepts: github.com/user/repo, github.com/user/repo/tree/branch/subdir,
+   *          raw.githubusercontent.com/... URLs, or any direct URL to a SKILL.md
+   */
+  ipcMain.handle('marketplace:install-skill-from-url', async (event, { url }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!url || typeof url !== 'string') {
+      return { success: false, error: 'Invalid URL' };
+    }
+
+    try {
+      const rawUrls = resolveSkillRawUrls(url.trim());
+      let skillMdContent = null;
+
+      for (const rawUrl of rawUrls) {
+        try {
+          skillMdContent = await fetchText(rawUrl);
+          if (skillMdContent) break;
+        } catch (_) {
+          // try next candidate
+        }
+      }
+
+      if (!skillMdContent) {
+        return { success: false, error: 'Could not find a SKILL.md at that URL. Make sure the repository is public and contains a SKILL.md file.' };
+      }
+
+      const meta = parseSkillMdFrontmatter(skillMdContent);
+      if (!meta.name) {
+        return { success: false, error: 'SKILL.md is missing the required "name" field in its frontmatter.' };
+      }
+
+      const skillId = meta.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
+      const skillsDir = marketplaceConfig.getSkillsDir();
+      const destDir = path.join(skillsDir, skillId);
+
+      if (!fs.existsSync(skillsDir)) fs.mkdirSync(skillsDir, { recursive: true });
+      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+      fs.writeFileSync(path.join(destDir, 'SKILL.md'), skillMdContent, 'utf8');
+
+      return {
+        success: true,
+        data: {
+          id: skillId,
+          name: meta.name,
+          description: meta.description || '',
+          dir: destDir,
+        },
+      };
+    } catch (err) {
+      console.error('[Marketplace] install-skill-from-url error:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  /**
+   * Browse a GitHub repo for available skills.
+   * Returns an array of skills found (from skills.json index or by scanning subdirs for SKILL.md).
+   */
+  ipcMain.handle('marketplace:browse-skill-repo', async (event, { repoUrl }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (!repoUrl || typeof repoUrl !== 'string') {
+      return { success: false, error: 'Invalid URL' };
+    }
+
+    try {
+      const repoInfo = parseGitHubRepoUrl(repoUrl.trim());
+      if (!repoInfo) {
+        return { success: false, error: 'Not a valid GitHub repository URL.' };
+      }
+
+      const { owner, repo, branch, subdir } = repoInfo;
+
+      // 1. Try skills.json index in the root (or subdir)
+      const indexBase = subdir
+        ? `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${subdir}`
+        : `https://raw.githubusercontent.com/${owner}/${repo}/${branch}`;
+
+      let skills = [];
+
+      try {
+        const indexJson = await fetchText(`${indexBase}/skills.json`);
+        if (indexJson) {
+          const entries = JSON.parse(indexJson);
+          if (Array.isArray(entries)) {
+            skills = entries.map(e => ({
+              id: e.id || e.name?.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+              name: e.name || e.id,
+              description: e.description || '',
+              skillUrl: `https://github.com/${owner}/${repo}/tree/${branch}/${subdir ? subdir + '/' : ''}${e.path || e.id}`,
+            }));
+          }
+        }
+      } catch (_) {
+        // no index — fall through to directory scan
+      }
+
+      // 2. Fall back: use GitHub API to list subdirectories and check for SKILL.md
+      if (skills.length === 0) {
+        const apiPath = subdir
+          ? `https://api.github.com/repos/${owner}/${repo}/contents/${subdir}?ref=${branch}`
+          : `https://api.github.com/repos/${owner}/${repo}/contents?ref=${branch}`;
+
+        try {
+          const listing = await fetchText(apiPath, { 'User-Agent': 'Dome-Marketplace/1.0', 'Accept': 'application/vnd.github.v3+json' });
+          if (listing) {
+            const entries = JSON.parse(listing);
+            if (Array.isArray(entries)) {
+              // Check each dir for SKILL.md in parallel (limit to 20 dirs)
+              const dirs = entries.filter(e => e.type === 'dir').slice(0, 20);
+              // Also check root-level SKILL.md
+              const hasRootSkill = entries.some(e => e.type === 'file' && e.name === 'SKILL.md');
+              if (hasRootSkill) {
+                const rootMd = await fetchText(`${indexBase}/SKILL.md`);
+                const meta = rootMd ? parseSkillMdFrontmatter(rootMd) : {};
+                if (meta.name) {
+                  skills.push({
+                    id: meta.name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                    name: meta.name,
+                    description: meta.description || '',
+                    skillUrl: repoUrl,
+                  });
+                }
+              }
+              const dirResults = await Promise.all(
+                dirs.map(async (d) => {
+                  try {
+                    const rawUrl = `${indexBase}/${d.name}/SKILL.md`;
+                    const md = await fetchText(rawUrl);
+                    if (!md) return null;
+                    const meta = parseSkillMdFrontmatter(md);
+                    if (!meta.name) return null;
+                    return {
+                      id: meta.name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
+                      name: meta.name,
+                      description: meta.description || '',
+                      skillUrl: `https://github.com/${owner}/${repo}/tree/${branch}/${subdir ? subdir + '/' : ''}${d.name}`,
+                    };
+                  } catch (_) {
+                    return null;
+                  }
+                }),
+              );
+              skills.push(...dirResults.filter(Boolean));
+            }
+          }
+        } catch (apiErr) {
+          console.warn('[Marketplace] GitHub API browse failed:', apiErr.message);
+        }
+      }
+
+      return { success: true, data: skills };
+    } catch (err) {
+      console.error('[Marketplace] browse-skill-repo error:', err);
       return { success: false, error: err.message };
     }
   });

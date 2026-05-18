@@ -408,6 +408,8 @@ declare global {
         getRateLimit: () => Promise<unknown>;
         installPlugin: () => Promise<{ success: boolean; error?: string }>;
         installSkill: () => Promise<unknown>;
+        installSkillFromUrl: (url: string) => Promise<unknown>;
+        browseSkillRepo: (repoUrl: string) => Promise<unknown>;
         uninstallSkill: (skillId: string) => Promise<unknown>;
       };
 

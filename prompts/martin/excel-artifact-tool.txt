@@ -1,0 +1,97 @@
+# Excel → Artifact Tool — Usage Guide
+
+## When to use
+Use `excel_get` + `artifact_create` (+ `artifact_link_resource`) when the user asks for a dashboard, panel, artefacto interactivo, or interactive artifact from an .xlsx or spreadsheet resource.
+
+**MANDATORY FIRST STEP**: Call `dome_load_doc('artifact_design')` and `dome_load_doc('artifact_persisted')` before creating anything. These provide the CSS variable tokens, iframe contract, and `artifact_link_resource` pattern you must follow.
+
+---
+
+## PHASE 1 — Load design docs (MANDATORY)
+
+Call **both** docs before creating anything:
+
+1. `dome_load_doc('artifact_design')` — Dome design system: CSS variable tokens, SVG-only icon rules, and the decision between `artifact_design` tool vs custom HTML.
+2. `dome_load_doc('artifact_persisted')` — iframe contract (`window.DOME_DATA`, `__dome_updateState`) and the `artifact_link_resource` pattern.
+
+Then decide the design path:
+
+| Artifact kind | Design path |
+|---|---|
+| **Structured summary** (KPI cards, text sections, tables-only, multi-tab report) | Call `artifact_design` tool with a `spec` → use the returned `html` + `data` in `artifact_create`. |
+| **Interactive dashboard** (filterable table, chart with controls, editable form) | Write custom HTML that reads `window.DOME_DATA.rows` + calls `__dome_updateState`, using only Dome CSS variables and inline SVG icons. |
+
+When in doubt, prefer the **interactive** path for Excel data — users typically want to filter and explore rows.
+
+---
+
+## PHASE 2 — Read the Excel schema
+
+```
+excel_get(resource_id)                // no sheet_name → returns all sheet names
+excel_get(resource_id, sheet_name)    // for each relevant sheet
+```
+
+From each sheet, extract:
+- **Column names** (first row, typically the header).
+- **Top 50 rows** of actual data (for `state.data` seed — not for inlining in HTML).
+- **KPI values** — numeric totals, averages, rates visible in summary rows.
+- **Categories** — distinct values in categorical columns.
+
+Repeat for up to 3 sheets. If there are more, ask the user which sheets matter most.
+
+---
+
+## PHASE 3 — Create the artifact
+
+### HTML template rules
+
+- Keep the HTML compact (< 150 lines). **Never paste thousands of rows as static strings.**
+- Read data from `window.DOME_DATA` (injected before your script runs); render it in a `<table>` or Chart.js `<canvas>`.
+- After every user change call `window.__dome_updateState({ ...window.DOME_DATA, yourKey: value })`.
+- Use Dome CSS variables (`--bg`, `--bg-secondary`, `--primary-text`, `--accent`, `--border`) for all colors — no hardcoded hex.
+- No remote assets, no `fetch`, no `localStorage`.
+
+### Call `artifact_create`
+
+```json
+{
+  "artifact_type": "custom",
+  "html": "<your dashboard template>",
+  "data": {
+    "title": "Dashboard Title",
+    "columns": ["Col A", "Col B", "Col C"],
+    "rows": [ ...first 50 rows from excel_get... ],
+    "kpis": { "Total": "1,234", "Average": "56.7" },
+    "filter": ""
+  }
+}
+```
+
+---
+
+## PHASE 4 — Link the Excel resource
+
+```
+artifact_link_resource(artifactResourceId, excelResourceId)
+```
+
+This binds the Excel to the artifact. On every open, Dome populates `state.linkedData` with the current spreadsheet data so the artifact stays fresh.
+
+---
+
+## PHASE 5 — Report
+
+```
+✅ Artifact created: **[Dashboard Title](dome://resource/RESOURCE_ID/custom)**
+Linked to Excel — data refreshes automatically when the spreadsheet is updated.
+```
+
+---
+
+## Hard constraints
+
+- ❌ Never inline thousands of rows as static HTML strings — use `data.rows` + JS rendering.
+- ❌ Never use `fetch`, remote CDNs, or `localStorage` for persistence.
+- ❌ Never skip `artifact_link_resource` when an Excel is the source.
+- ❌ Never call `artifact_create` without first calling `dome_load_doc('artifact_persisted')`.

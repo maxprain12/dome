@@ -1,17 +1,9 @@
----
-name: docx-writing
-description: "Create, read, and update Word (.docx) documents in the Dome library using docx_create and docx_update."
-when_to_use: "User asks to create or edit a Word document, report, brief, memo, or any file they want to download as .docx."
-allowed-tools:
-  - docx_create
-  - docx_get
-  - docx_update
-  - docx_delete
-  - resource_hybrid_search
-  - resource_get
----
+# DOCX Tool — Usage Guide
 
-When working with Word documents:
+## When to use
+Use `docx_create`, `docx_get`, `docx_update`, `docx_delete` when the user asks to create or edit a Word document, report, brief, memo, or any file they want to download as .docx.
+
+## Working with Word documents
 
 1. **Decide format**: Use `docx_create` when the user explicitly wants a .docx file (downloadable, sendable). For plain notes, use `resource_create` (type: note) instead.
 2. **Content input**: Pass `markdown` (preferred for rich content), `html`, `blocks` (structured paragraphs + headings), or `body` (plain text with `\n\n` paragraph breaks).
