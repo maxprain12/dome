@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-18T06:32:19.774Z
+> Última generación: 2026-05-18T06:41:26.178Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -379,11 +379,11 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `system:get-login-item` | `electron/ipc/system.cjs:177` |
 | `system:quit` | `electron/ipc/system.cjs:210` |
 | `system:set-login-item` | `electron/ipc/system.cjs:188` |
-| `threads:delete` | `electron/ipc/threads.cjs:120` |
-| `threads:get-history` | `electron/ipc/threads.cjs:91` |
-| `threads:get-state` | `electron/ipc/threads.cjs:63` |
-| `threads:list` | `electron/ipc/threads.cjs:24` |
-| `threads:update-state` | `electron/ipc/threads.cjs:145` |
+| `threads:delete` | `electron/ipc/threads.cjs:152` |
+| `threads:get-history` | `electron/ipc/threads.cjs:119` |
+| `threads:get-state` | `electron/ipc/threads.cjs:87` |
+| `threads:list` | `electron/ipc/threads.cjs:44` |
+| `threads:update-state` | `electron/ipc/threads.cjs:181` |
 | `transcription:get-active` | `electron/ipc/transcription.cjs:401` |
 | `transcription:get-permissions` | `electron/ipc/transcription.cjs:242` |
 | `transcription:get-settings` | `electron/ipc/transcription.cjs:143` |
