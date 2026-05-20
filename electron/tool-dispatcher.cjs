@@ -73,6 +73,7 @@ const TOOL_HANDLER_MAP = {
   ppt_create: 'pptCreate',
   ppt_get_file_path: 'pptGetFilePath',
   ppt_get_slides: 'pptGetSlides',
+  ppt_get_slide_images: 'pptGetSlideImages',
   ppt_export: 'pptExport',
   remember_fact: 'rememberFact',
   // Graph / linking tools
@@ -109,6 +110,7 @@ const TOOL_HANDLER_MAP = {
 
   // Native file & shell tools
   file_read: 'fileRead',
+  skill_read: 'skillRead',
   file_write: 'fileWrite',
   file_list: 'fileList',
   file_search: 'fileSearch',
@@ -517,6 +519,13 @@ async function executeToolInMain(toolName, args, toolContext) {
         else result = await fn(rid);
         break;
       }
+      case 'pptGetSlideImages': {
+        const rid = args.resource_id || args.resourceId;
+        const denied = denyUnlessResourceInScope(rid);
+        if (denied) result = denied;
+        else result = await fn(rid);
+        break;
+      }
       case 'pptExport': {
         const rid = args.resource_id || args.resourceId;
         const denied = denyUnlessResourceInScope(rid);
@@ -781,6 +790,7 @@ function getToolDefsBySubagent() {
       'ppt_create',
       'ppt_get_file_path',
       'ppt_get_slides',
+      'ppt_get_slide_images',
       'ppt_export',
       'get_library_overview',
       'resource_list',
@@ -1734,6 +1744,19 @@ function getAllToolDefinitions() {
       function: {
         name: 'ppt_get_slides',
         description: 'Get slide content (text) from a PowerPoint presentation.',
+        parameters: {
+          type: 'object',
+          properties: { resource_id: { type: 'string', description: 'PPT resource ID' } },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ppt_get_slide_images',
+        description:
+          'Get PNG screenshots of each slide for visual QA after ppt_create. Returns base64 images per slide index.',
         parameters: {
           type: 'object',
           properties: { resource_id: { type: 'string', description: 'PPT resource ID' } },

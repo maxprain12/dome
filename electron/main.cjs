@@ -698,6 +698,7 @@ app
       'clipboard-read',
       'clipboard-write',
       'clipboard-sanitized-write',
+      'fullscreen',
     ]);
 
     // Denegaciones habituales que no aportan (PWA, mapas, hardware); no spamear consola.

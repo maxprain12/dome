@@ -298,7 +298,7 @@ function createIndexer(opts) {
     try {
       vectors = await embedDocuments(chunks.map((c) => c.text));
     } catch (e) {
-      resetPipeline();
+      await resetPipeline();
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[indexing.pipeline] embedding_failed', resourceId, msg);
       finalizeArtifactSearchSurface(queries, resource);

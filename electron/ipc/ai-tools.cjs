@@ -811,11 +811,7 @@ function register({ ipcMain, windowManager, aiToolsHandler }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const pathResult = await aiToolsHandler.pptGetFilePath(resourceId);
-      if (!pathResult.success || !pathResult.file_path) {
-        return { success: false, error: pathResult.error || 'Failed to get file path' };
-      }
-      const result = await documentGenerator.extractPptImages(pathResult.file_path);
+      const result = await aiToolsHandler.pptGetSlideImages(resourceId);
       toolTrace('pptGetSlideImages', { resourceId }, result);
       broadcastToolAnalytics(windowManager, 'ai:tools:pptGetSlideImages', result?.success !== false);
       return result;

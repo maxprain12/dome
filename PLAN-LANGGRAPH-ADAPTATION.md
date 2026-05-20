@@ -43,7 +43,7 @@
 | HITL | `humanInTheLoopMiddleware` de `langchain` | `interrupt()` nativo + `Command({resume})` |
 | Context trimming | Middleware custom `DomeTrimMessages` + `trimMessages` | `trimMessages` de `@langchain/core/messages` |
 | Summarización | `summarizationMiddleware` de `langchain` (opcional) | Mismo |
-| VFS / Sandbox | `createFilesystemMiddleware` de `deepagents` | Mismo |
+| VFS / Sandbox | *(retirado — sin `@langchain/node-vfs` ni `createFilesystemMiddleware`)* | — |
 | Skills | `buildSkillsMiddleware` (SKILL.md injection) | `createSkillsMiddleware` de `deepagents` |
 | MCP tools | `getMCPTools()` — cliente, no servidor | Cliente + Agent Server MCP endpoint |
 | Streaming | `messages` + `updates` + `custom` (+ `debug` opcional) | Añadir `values`; Protocol v2 SSE |

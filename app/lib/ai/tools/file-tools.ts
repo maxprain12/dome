@@ -117,9 +117,49 @@ export function createFileSearchTool(): AnyAgentTool {
   };
 }
 
+export function createSkillReadTool(): AnyAgentTool {
+  return {
+    label: 'Read Skill File',
+    name: 'skill_read',
+    description:
+      'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). ' +
+      'Use this for auxiliary skill docs referenced in SKILL.md (e.g. editing.md, references/*.md). ' +
+      'Do NOT use MCP filesystem for skill files — use skill_id + relative path instead.',
+    parameters: Type.Object({
+      skill_id: Type.String({ description: 'Skill folder name, e.g. "pptx".' }),
+      path: Type.String({ description: 'Relative path within the skill folder, e.g. "editing.md".' }),
+    }),
+    execute: async (_id, args) => {
+      const params = args as Record<string, unknown>;
+      const skillId = readStringParam(params, 'skill_id', { required: true });
+      const relativePath = readStringParam(params, 'path', { required: true });
+      try {
+        const result = await window.electron.invoke('skills:readFile', {
+          skillId,
+          path: relativePath,
+        }) as { success?: boolean; data?: { content?: string }; error?: string };
+        if (!result?.success) {
+          return jsonResult({ status: 'error', error: result?.error ?? 'Read failed' });
+        }
+        const content = result.data?.content ?? '';
+        return jsonResult({
+          status: 'success',
+          skill_id: skillId,
+          path: relativePath,
+          content,
+          size: content.length,
+        });
+      } catch (err) {
+        return jsonResult({ status: 'error', error: err instanceof Error ? err.message : String(err) });
+      }
+    },
+  };
+}
+
 export function createFileTools(): AnyAgentTool[] {
   return [
     createFileReadTool(),
+    createSkillReadTool(),
     createFileWriteTool(),
     createFileListTool(),
     createFileSearchTool(),

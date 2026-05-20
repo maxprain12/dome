@@ -61,6 +61,12 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
   // --- Resource loading ---
 
   useEffect(() => {
+    setActiveSlideIndex(0);
+    setSlideCount(0);
+    setThumbnailElements([]);
+  }, [resourceId]);
+
+  useEffect(() => {
     async function loadResource() {
       if (!window.electron?.db?.resources) {
         setError('Database not available');

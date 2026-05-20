@@ -15,7 +15,7 @@ function userSkillsDir() {
 /**
  * List all skills from the user skills directory.
  * Uses deepagents.listSkills which reads SKILL.md frontmatter synchronously.
- * @returns {Array<import('deepagents').SkillMetadata>}
+ * @returns {Promise<Array<import('deepagents').SkillMetadata>>}
  */
 async function listAllSkills() {
   try {
@@ -35,7 +35,7 @@ async function listAllSkills() {
 async function buildSkillsMiddleware() {
   const { createSkillsMiddleware, FilesystemBackend } = await import('deepagents');
   return createSkillsMiddleware({
-    backend: new FilesystemBackend({ rootDir: '/' }),
+    backend: new FilesystemBackend({ rootDir: os.homedir() }),
     sources: [USER_SKILLS_DIR],
   });
 }

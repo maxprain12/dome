@@ -459,7 +459,7 @@ export interface HomeDashboardWidgets {
   continueActivity: boolean;
 }
 
-/** Celda del grid del dashboard (react-grid-layout); `i` es el id del bloque */
+/** Celda del grid del dashboard; `i` es el id del bloque */
 export interface DashboardLayoutItem {
   i: string;
   x: number;

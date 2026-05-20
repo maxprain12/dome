@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-18T07:29:07.897Z
+> Última generación: 2026-05-20T07:22:20.724Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -16,11 +16,11 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:350` |
 | `ai:testConnection` | `electron/ipc/ai.cjs:492` |
 | `ai:testWebSearch` | `electron/ipc/ai.cjs:572` |
-| `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:857` |
-| `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:883` |
-| `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:844` |
-| `ai:tools:calendarListEvents` | `electron/ipc/ai-tools.cjs:831` |
-| `ai:tools:calendarUpdateEvent` | `electron/ipc/ai-tools.cjs:870` |
+| `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:853` |
+| `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:879` |
+| `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:840` |
+| `ai:tools:calendarListEvents` | `electron/ipc/ai-tools.cjs:827` |
+| `ai:tools:calendarUpdateEvent` | `electron/ipc/ai-tools.cjs:866` |
 | `ai:tools:docxCreate` | `electron/ipc/ai-tools.cjs:605` |
 | `ai:tools:docxDelete` | `electron/ipc/ai-tools.cjs:637` |
 | `ai:tools:docxGet` | `electron/ipc/ai-tools.cjs:573` |
@@ -36,20 +36,20 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:excelSetRange` | `electron/ipc/ai-tools.cjs:492` |
 | `ai:tools:flashcardCreate` | `electron/ipc/ai-tools.cjs:349` |
 | `ai:tools:getCurrentProject` | `electron/ipc/ai-tools.cjs:262` |
-| `ai:tools:getDocumentStructure` | `electron/ipc/ai-tools.cjs:899` |
+| `ai:tools:getDocumentStructure` | `electron/ipc/ai-tools.cjs:895` |
 | `ai:tools:getLibraryOverview` | `electron/ipc/ai-tools.cjs:280` |
 | `ai:tools:getRecentResources` | `electron/ipc/ai-tools.cjs:241` |
-| `ai:tools:getRelatedResources` | `electron/ipc/ai-tools.cjs:937` |
+| `ai:tools:getRelatedResources` | `electron/ipc/ai-tools.cjs:933` |
 | `ai:tools:imageDescribe` | `electron/ipc/ai-tools.cjs:761` |
 | `ai:tools:importFileToLibrary` | `electron/ipc/ai-tools.cjs:397` |
 | `ai:tools:interactionList` | `electron/ipc/ai-tools.cjs:220` |
-| `ai:tools:linkResources` | `electron/ipc/ai-tools.cjs:918` |
-| `ai:tools:pdfExtractTables` | `electron/ipc/ai-tools.cjs:1064` |
-| `ai:tools:pdfExtractText` | `electron/ipc/ai-tools.cjs:956` |
-| `ai:tools:pdfGetMetadata` | `electron/ipc/ai-tools.cjs:983` |
-| `ai:tools:pdfGetStructure` | `electron/ipc/ai-tools.cjs:1010` |
+| `ai:tools:linkResources` | `electron/ipc/ai-tools.cjs:914` |
+| `ai:tools:pdfExtractTables` | `electron/ipc/ai-tools.cjs:1060` |
+| `ai:tools:pdfExtractText` | `electron/ipc/ai-tools.cjs:952` |
+| `ai:tools:pdfGetMetadata` | `electron/ipc/ai-tools.cjs:979` |
+| `ai:tools:pdfGetStructure` | `electron/ipc/ai-tools.cjs:1006` |
 | `ai:tools:pdfRenderPage` | `electron/ipc/ai-tools.cjs:793` |
-| `ai:tools:pdfSummarize` | `electron/ipc/ai-tools.cjs:1037` |
+| `ai:tools:pdfSummarize` | `electron/ipc/ai-tools.cjs:1033` |
 | `ai:tools:pptCreate` | `electron/ipc/ai-tools.cjs:654` |
 | `ai:tools:pptExport` | `electron/ipc/ai-tools.cjs:745` |
 | `ai:tools:pptGetFilePath` | `electron/ipc/ai-tools.cjs:713` |
@@ -285,21 +285,21 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `kbllm:setProjectOverride` | `electron/ipc/kb-llm.cjs:56` |
 | `kbllm:syncAll` | `electron/ipc/kb-llm.cjs:89` |
 | `kbllm:syncProject` | `electron/ipc/kb-llm.cjs:75` |
-| `marketplace:browse-skill-repo` | `electron/ipc/marketplace.cjs:845` |
-| `marketplace:fetch-agents` | `electron/ipc/marketplace.cjs:489` |
-| `marketplace:fetch-all` | `electron/ipc/marketplace.cjs:453` |
-| `marketplace:fetch-mcp` | `electron/ipc/marketplace.cjs:525` |
-| `marketplace:fetch-plugins` | `electron/ipc/marketplace.cjs:561` |
-| `marketplace:fetch-skills` | `electron/ipc/marketplace.cjs:543` |
-| `marketplace:fetch-workflows` | `electron/ipc/marketplace.cjs:507` |
-| `marketplace:get-config` | `electron/ipc/marketplace.cjs:578` |
-| `marketplace:install-plugin` | `electron/ipc/marketplace.cjs:660` |
-| `marketplace:install-skill` | `electron/ipc/marketplace.cjs:694` |
+| `marketplace:browse-skill-repo` | `electron/ipc/marketplace.cjs:807` |
+| `marketplace:fetch-agents` | `electron/ipc/marketplace.cjs:491` |
+| `marketplace:fetch-all` | `electron/ipc/marketplace.cjs:455` |
+| `marketplace:fetch-mcp` | `electron/ipc/marketplace.cjs:527` |
+| `marketplace:fetch-plugins` | `electron/ipc/marketplace.cjs:563` |
+| `marketplace:fetch-skills` | `electron/ipc/marketplace.cjs:545` |
+| `marketplace:fetch-workflows` | `electron/ipc/marketplace.cjs:509` |
+| `marketplace:get-config` | `electron/ipc/marketplace.cjs:580` |
+| `marketplace:install-plugin` | `electron/ipc/marketplace.cjs:662` |
+| `marketplace:install-skill` | `electron/ipc/marketplace.cjs:696` |
 | `marketplace:install-skill-from-url` | `electron/ipc/marketplace.cjs:787` |
-| `marketplace:rate-limit` | `electron/ipc/marketplace.cjs:648` |
-| `marketplace:refresh` | `electron/ipc/marketplace.cjs:608` |
-| `marketplace:uninstall-skill` | `electron/ipc/marketplace.cjs:949` |
-| `marketplace:update-config` | `electron/ipc/marketplace.cjs:589` |
+| `marketplace:rate-limit` | `electron/ipc/marketplace.cjs:650` |
+| `marketplace:refresh` | `electron/ipc/marketplace.cjs:610` |
+| `marketplace:uninstall-skill` | `electron/ipc/marketplace.cjs:833` |
+| `marketplace:update-config` | `electron/ipc/marketplace.cjs:591` |
 | `mcp:getOAuthProviders` | `electron/ipc/mcp.cjs:84` |
 | `mcp:startOAuthFlow` | `electron/ipc/mcp.cjs:65` |
 | `mcp:testConnection` | `electron/ipc/mcp.cjs:13` |
@@ -338,21 +338,21 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `plugin:read-asset` | `electron/ipc/plugins.cjs:89` |
 | `plugin:setEnabled` | `electron/ipc/plugins.cjs:77` |
 | `plugin:uninstall` | `electron/ipc/plugins.cjs:65` |
-| `resource:delete` | `electron/ipc/resources.cjs:677` |
-| `resource:export` | `electron/ipc/resources.cjs:627` |
-| `resource:extractPptImages` | `electron/ipc/resources.cjs:405` |
+| `resource:delete` | `electron/ipc/resources.cjs:710` |
+| `resource:export` | `electron/ipc/resources.cjs:660` |
+| `resource:extractPptImages` | `electron/ipc/resources.cjs:438` |
 | `resource:getFilePath` | `electron/ipc/resources.cjs:275` |
 | `resource:import` | `electron/ipc/resources.cjs:18` |
-| `resource:importFromContent` | `electron/ipc/resources.cjs:783` |
+| `resource:importFromContent` | `electron/ipc/resources.cjs:816` |
 | `resource:importMultiple` | `electron/ipc/resources.cjs:167` |
-| `resource:readDocumentContent` | `electron/ipc/resources.cjs:442` |
+| `resource:readDocumentContent` | `electron/ipc/resources.cjs:475` |
 | `resource:readFile` | `electron/ipc/resources.cjs:364` |
 | `resource:readFileBuffer` | `electron/ipc/resources.cjs:315` |
-| `resource:regenerateThumbnail` | `electron/ipc/resources.cjs:711` |
-| `resource:saveDocxFromHtml` | `electron/ipc/resources.cjs:540` |
+| `resource:regenerateThumbnail` | `electron/ipc/resources.cjs:744` |
+| `resource:saveDocxFromHtml` | `electron/ipc/resources.cjs:573` |
 | `resource:scheduleIndex` | `electron/ipc/resources.cjs:137` |
-| `resource:setThumbnail` | `electron/ipc/resources.cjs:750` |
-| `resource:writeExcelContent` | `electron/ipc/resources.cjs:483` |
+| `resource:setThumbnail` | `electron/ipc/resources.cjs:783` |
+| `resource:writeExcelContent` | `electron/ipc/resources.cjs:516` |
 | `runs:abort` | `electron/ipc/runs.cjs:66` |
 | `runs:delete` | `electron/ipc/runs.cjs:77` |
 | `runs:get` | `electron/ipc/runs.cjs:6` |
@@ -369,9 +369,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `shell:file:search` | `electron/ipc/shell.cjs:82` |
 | `show-item-in-folder` | `electron/ipc/system.cjs:121` |
 | `show-save-dialog` | `electron/ipc/system.cjs:95` |
-| `skills:installBundled` | `electron/ipc/skills.cjs:43` |
-| `skills:list` | `electron/ipc/skills.cjs:15` |
-| `skills:openFolder` | `electron/ipc/skills.cjs:33` |
+| `skills:add` | `electron/ipc/skills.cjs:67` |
+| `skills:browseRepo` | `electron/ipc/skills.cjs:88` |
+| `skills:installBundled` | `electron/ipc/skills.cjs:45` |
+| `skills:list` | `electron/ipc/skills.cjs:17` |
+| `skills:openFolder` | `electron/ipc/skills.cjs:35` |
+| `skills:readFile` | `electron/ipc/skills.cjs:122` |
+| `skills:remove` | `electron/ipc/skills.cjs:108` |
 | `storage:cleanup` | `electron/ipc/storage.cjs:20` |
 | `storage:getPath` | `electron/ipc/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/storage.cjs:3` |

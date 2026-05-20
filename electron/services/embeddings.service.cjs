@@ -16,7 +16,7 @@
  *   floatsToBlob(arr: Float32Array): Buffer
  *   blobToFloats(buf: Buffer|Uint8Array): Float32Array
  *   configureTransformersEnv({ modelsDir: string }): void
- *   resetPipeline(): void
+ *   resetPipeline(): Promise<void>
  *   MODEL_VERSION, NOMIC_MODEL_ID, EMBED_DIM, EMBED_BATCH, MAX_QUERY_CHARS
  */
 
@@ -44,6 +44,7 @@ let _pending = new Map(); // id → { resolve, reject }
 let _degraded = false;
 let _respawnCount = 0;
 let _respawnWindowStart = Date.now();
+let _workerOpChain = Promise.resolve();
 
 function _spawnWorker() {
   if (_worker) {
@@ -104,7 +105,13 @@ function _spawnWorker() {
 }
 
 function _sendInit() {
-  _postMessage({ type: 'init', payload: { modelsDir: _modelsDir } }).catch(console.warn);
+  _enqueueWorkerOp(() => _postMessage({ type: 'init', payload: { modelsDir: _modelsDir } })).catch(console.warn);
+}
+
+function _enqueueWorkerOp(fn) {
+  const run = _workerOpChain.then(() => fn());
+  _workerOpChain = run.catch(() => {});
+  return run;
 }
 
 function _postMessage(msg) {
@@ -152,7 +159,9 @@ async function embedDocuments(texts) {
     console.warn('[EmbeddingsService] degraded — returning zero vectors');
     return (texts || []).map(() => new Float32Array(EMBED_DIM));
   }
-  const buf = await _postMessage({ type: 'embedDocuments', payload: { texts } });
+  const buf = await _enqueueWorkerOp(() =>
+    _postMessage({ type: 'embedDocuments', payload: { texts } }),
+  );
   return _unpackVectors(buf);
 }
 
@@ -164,15 +173,16 @@ async function embedQuery(text) {
   if (_degraded) {
     return new Float32Array(EMBED_DIM);
   }
-  const buf = await _postMessage({ type: 'embedQuery', payload: { text } });
+  const buf = await _enqueueWorkerOp(() =>
+    _postMessage({ type: 'embedQuery', payload: { text } }),
+  );
   const rows = _unpackVectors(buf);
   return rows[0] || new Float32Array(EMBED_DIM);
 }
 
-function resetPipeline() {
-  if (_worker) {
-    _postMessage({ type: 'reset' }).catch(console.warn);
-  }
+async function resetPipeline() {
+  if (!_worker) return;
+  return _enqueueWorkerOp(() => _postMessage({ type: 'reset' }));
 }
 
 /**
@@ -207,7 +217,9 @@ function blobToFloats(buf) {
 }
 
 // Keep for test harness compatibility
-function resetForTests() { resetPipeline(); }
+function resetForTests() {
+  void resetPipeline();
+}
 
 module.exports = {
   configureTransformersEnv,

@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { init as initPptxPreview } from 'pptx-preview';
+import { init as initPptxPreview } from '@/lib/pptx-preview';
 import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
+import { normalizePptxArrayBuffer, countSlidesInArrayBuffer } from '@/lib/pptx-normalize';
 
 // Fixed internal resolution — used for aspect ratio and scaling
 const SLIDE_W = 960;
@@ -23,9 +24,21 @@ interface PptxTheme {
 interface PptxPreviewer {
   pptx?: {
     themes?: PptxTheme[];
+    slides?: unknown[];
   };
+  slideCount?: number;
+  currentIndex?: number;
   renderSingleSlide?: (index: number) => void;
   destroy?: () => void;
+}
+
+function safeRenderSlide(previewer: PptxPreviewer, index: number, slideCount: number): void {
+  if (index < 0 || index >= slideCount) return;
+  try {
+    previewer.renderSingleSlide?.(index);
+  } catch (err) {
+    console.warn('[PptViewer] renderSingleSlide failed:', err);
+  }
 }
 
 interface PptViewerProps {
@@ -67,8 +80,31 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     const [error, setError] = useState<string | null>(null);
     const [scale, setScale] = useState(1);
     const loadedResourceId = useRef<string | null>(null);
+    const lastRenderedIndexRef = useRef<number | null>(null);
 
-    useImperativeHandle(ref, () => ({}), []);
+    // pptx-preview injects nav chrome + black wrapper; scope overrides to this viewer.
+    useEffect(() => {
+      const style = document.createElement('style');
+      style.setAttribute('data-ppt-viewer', '');
+      style.textContent = `
+        .ppt-viewer-host .pptx-preview-wrapper {
+          background: #ffffff !important;
+          width: 100% !important;
+          height: 100% !important;
+          margin: 0 !important;
+        }
+        .ppt-viewer-host .pptx-preview-wrapper-pre,
+        .ppt-viewer-host .pptx-preview-wrapper-next,
+        .ppt-viewer-host .pptx-preview-wrapper-pagination {
+          display: none !important;
+        }
+        .ppt-viewer-host .pptx-preview-slide-wrapper {
+          color: var(--ppt-text-default, #1a1a1a);
+        }
+      `;
+      document.head.appendChild(style);
+      return () => { style.remove(); };
+    }, []);
 
     // Scale so the slide fits inside the host div
     const computeScale = useCallback(() => {
@@ -89,12 +125,60 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
       return () => ro.disconnect();
     }, [computeScale]);
 
+    useImperativeHandle(ref, () => ({}), []);
+
+    const mountPresentation = useCallback(async (
+      previewer: PptxPreviewer & { load?: (data: ArrayBuffer) => Promise<unknown>; preview?: (data: ArrayBuffer) => Promise<unknown> },
+      buffer: ArrayBuffer,
+      slideIndex: number,
+      options?: { trackRendered?: boolean; rootEl?: HTMLElement | null },
+    ): Promise<number> => {
+      if (typeof previewer.load === 'function') {
+        await previewer.load(buffer);
+      } else if (typeof previewer.preview === 'function') {
+        await previewer.preview(buffer);
+      } else {
+        throw new Error('Visor PPT no disponible');
+      }
+
+      const count = previewer.slideCount ?? previewer.pptx?.slides?.length ?? 0;
+      if (count <= 0) {
+        const zipCount = await countSlidesInArrayBuffer(buffer);
+        if (zipCount === 0) {
+          throw new Error(
+            'Esta presentación está vacía (0 diapositivas). El agente probablemente no ejecutó addSlide() al crearla. Pídele que la genere de nuevo con ppt_create.',
+          );
+        }
+        throw new Error(
+          'El archivo tiene diapositivas pero el visor no pudo interpretarlas. Pide al agente que regenere la presentación con ppt_create.',
+        );
+      }
+
+      const safeIndex = Math.min(Math.max(0, slideIndex), count - 1);
+      safeRenderSlide(previewer, safeIndex, count);
+      if (options?.trackRendered !== false) {
+        lastRenderedIndexRef.current = safeIndex;
+      }
+
+      const root = options?.rootEl ?? containerRef.current;
+      const wrapper = root?.querySelector('.pptx-preview-slide-wrapper');
+      if (!wrapper) {
+        throw new Error('No se pudo renderizar la presentación');
+      }
+
+      return count;
+    }, []);
+
     // When activeIndex changes, tell the existing previewer to show that slide,
     // then re-apply the dark-slide color fix on the freshly rendered content.
     useEffect(() => {
       const previewer = previewerRef.current;
       if (!previewer || isLoading) return;
-      previewer.renderSingleSlide?.(activeIndex);
+      const count = previewer.slideCount ?? previewer.pptx?.slides?.length ?? 0;
+      if (count <= 0) return;
+      if (lastRenderedIndexRef.current === activeIndex) return;
+      safeRenderSlide(previewer, activeIndex, count);
+      lastRenderedIndexRef.current = activeIndex;
       // pptx-preview re-renders the DOM synchronously; we need one paint cycle
       // before getComputedStyle reliably reflects the new slide's background.
       const rafId = requestAnimationFrame(() =>
@@ -131,7 +215,12 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
-        const buffer = bytes.buffer;
+        let buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+        try {
+          buffer = await normalizePptxArrayBuffer(buffer);
+        } catch (normErr) {
+          console.warn('[PptViewer] normalize failed (non-fatal):', normErr);
+        }
 
         // ── 3. Init pptx-preview directly in the visible container ────────
         containerRef.current.innerHTML = '';
@@ -142,21 +231,17 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         });
         previewerRef.current = previewer;
 
-        // Renders slide 0 and resolves when done
-        await previewer.preview(buffer);
+        const count = await mountPresentation(previewer, buffer, 0);
 
         // Apply theme color CSS variable and capture lt1 for DOM-level color fix
         const lightColor = applyThemeTextColor(previewer, containerRef.current);
         lightColorRef.current = lightColor;
 
-        const count: number = previewer.slideCount;
         loadedResourceId.current = resource.id;
         onSlidesLoaded?.(count);
 
-        // Show the active slide (might not be 0 if user navigated before load)
-        if (activeIndex > 0 && activeIndex < count) {
-          previewer.renderSingleSlide(activeIndex);
-        }
+        // Parent resets activeIndex to 0 via onSlidesLoaded; avoid stale index here.
+        setIsLoading(false);
 
         // Fix near-black text on dark slides (pptx-preview applies dk1 inline
         // which overrides any CSS rule — must be done with DOM manipulation).
@@ -168,8 +253,6 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         if (containerRef.current) {
           fixDarkSlideTextColors(containerRef.current, lightColor);
         }
-
-        setIsLoading(false);
 
         // ── 4. Generate thumbnail elements in the background ──────────────
         // Uses a separate off-screen previewer so the main view is undisturbed.
@@ -188,12 +271,13 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
 
           (async () => {
             try {
-              await thumbPreviewer.preview(buffer);
+              await mountPresentation(thumbPreviewer, buffer, 0, { trackRendered: false, rootEl: thumbDiv });
               const thumbLightColor = applyThemeTextColor(thumbPreviewer, thumbDiv);
+              const thumbCount = thumbPreviewer.slideCount ?? count;
 
               const elements: HTMLElement[] = [];
-              for (let i = 0; i < count; i++) {
-                thumbPreviewer.renderSingleSlide(i);
+              for (let i = 0; i < thumbCount; i++) {
+                if (i !== 0) safeRenderSlide(thumbPreviewer, i, thumbCount);
                 // Two rAF cycles to let the DOM settle
                 await new Promise<void>((r) =>
                   requestAnimationFrame(() => requestAnimationFrame(() => r())),
@@ -222,12 +306,12 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         setError(err instanceof Error ? err.message : 'Failed to load presentation');
         setIsLoading(false);
       }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [resource.id]);
+    }, [resource.id, mountPresentation]);
 
     // Load on mount and when resource changes
     useEffect(() => {
       loadedResourceId.current = null;
+      lastRenderedIndexRef.current = null;
       const id = setTimeout(loadPptx, 50);
       return () => clearTimeout(id);
     }, [loadPptx]);
@@ -253,7 +337,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     return (
       <div
         ref={hostRef}
-        className="size-full flex items-center justify-center"
+        className="ppt-viewer-host size-full flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}
       >
         <div
@@ -272,6 +356,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
           {/* pptx-preview renders directly into this div */}
           <div
             ref={containerRef}
+            className="ppt-viewer-canvas"
             style={{
               width: SLIDE_W,
               height: SLIDE_H,

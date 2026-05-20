@@ -16,6 +16,8 @@ const { URL } = require('url');
 
 const marketplaceConfig = require('../marketplace-config.cjs');
 const githubClient = require('../github-client.cjs');
+const skillInstall = require('../skills/install.cjs');
+const { userSkillsDir } = require('../skills/index.cjs');
 
 // ---------------------------------------------------------------------------
 // Helpers for skill-from-URL installation
@@ -283,7 +285,7 @@ async function fetchLocalPlugins() {
  * Fetch local skills
  */
 async function fetchLocalSkills() {
-  const skillsDir = marketplaceConfig.getSkillsDir();
+  const skillsDir = userSkillsDir();
   
   if (!fs.existsSync(skillsDir)) {
     return [];
@@ -712,7 +714,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       }
 
       const sourceDir = sanitizePath(filePaths[0], true);
-      const skillsDir = marketplaceConfig.getSkillsDir();
+      const skillsDir = userSkillsDir();
       
       // Read skill.json or SKILL.md from selected folder
       const skillJsonPath = path.join(sourceDir, 'skill.json');
@@ -780,9 +782,7 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   /**
-   * Fetch a SKILL.md from a GitHub URL and install it to ~/.dome/skills/
-   * Accepts: github.com/user/repo, github.com/user/repo/tree/branch/subdir,
-   *          raw.githubusercontent.com/... URLs, or any direct URL to a SKILL.md
+   * Fetch a skill folder from a GitHub URL and install to ~/.dome/skills/
    */
   ipcMain.handle('marketplace:install-skill-from-url', async (event, { url }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -793,45 +793,8 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
 
     try {
-      const rawUrls = resolveSkillRawUrls(url.trim());
-      let skillMdContent = null;
-
-      for (const rawUrl of rawUrls) {
-        try {
-          skillMdContent = await fetchText(rawUrl);
-          if (skillMdContent) break;
-        } catch (_) {
-          // try next candidate
-        }
-      }
-
-      if (!skillMdContent) {
-        return { success: false, error: 'Could not find a SKILL.md at that URL. Make sure the repository is public and contains a SKILL.md file.' };
-      }
-
-      const meta = parseSkillMdFrontmatter(skillMdContent);
-      if (!meta.name) {
-        return { success: false, error: 'SKILL.md is missing the required "name" field in its frontmatter.' };
-      }
-
-      const skillId = meta.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-');
-      const skillsDir = marketplaceConfig.getSkillsDir();
-      const destDir = path.join(skillsDir, skillId);
-
-      if (!fs.existsSync(skillsDir)) fs.mkdirSync(skillsDir, { recursive: true });
-      if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
-
-      fs.writeFileSync(path.join(destDir, 'SKILL.md'), skillMdContent, 'utf8');
-
-      return {
-        success: true,
-        data: {
-          id: skillId,
-          name: meta.name,
-          description: meta.description || '',
-          dir: destDir,
-        },
-      };
+      const data = await skillInstall.installSkillFromUrl(url.trim());
+      return { success: true, data };
     } catch (err) {
       console.error('[Marketplace] install-skill-from-url error:', err);
       return { success: false, error: err.message };
@@ -839,8 +802,7 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   /**
-   * Browse a GitHub repo for available skills.
-   * Returns an array of skills found (from skills.json index or by scanning subdirs for SKILL.md).
+   * Browse a GitHub repo for available skills (delegates to skills/install.cjs).
    */
   ipcMain.handle('marketplace:browse-skill-repo', async (event, { repoUrl }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -851,92 +813,14 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
 
     try {
-      const repoInfo = parseGitHubRepoUrl(repoUrl.trim());
-      if (!repoInfo) {
-        return { success: false, error: 'Not a valid GitHub repository URL.' };
-      }
-
-      const { owner, repo, branch, subdir } = repoInfo;
-
-      // 1. Try skills.json index in the root (or subdir)
-      const indexBase = subdir
-        ? `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${subdir}`
-        : `https://raw.githubusercontent.com/${owner}/${repo}/${branch}`;
-
-      let skills = [];
-
-      try {
-        const indexJson = await fetchText(`${indexBase}/skills.json`);
-        if (indexJson) {
-          const entries = JSON.parse(indexJson);
-          if (Array.isArray(entries)) {
-            skills = entries.map(e => ({
-              id: e.id || e.name?.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-              name: e.name || e.id,
-              description: e.description || '',
-              skillUrl: `https://github.com/${owner}/${repo}/tree/${branch}/${subdir ? subdir + '/' : ''}${e.path || e.id}`,
-            }));
-          }
-        }
-      } catch (_) {
-        // no index — fall through to directory scan
-      }
-
-      // 2. Fall back: use GitHub API to list subdirectories and check for SKILL.md
-      if (skills.length === 0) {
-        const apiPath = subdir
-          ? `https://api.github.com/repos/${owner}/${repo}/contents/${subdir}?ref=${branch}`
-          : `https://api.github.com/repos/${owner}/${repo}/contents?ref=${branch}`;
-
-        try {
-          const listing = await fetchText(apiPath, { 'User-Agent': 'Dome-Marketplace/1.0', 'Accept': 'application/vnd.github.v3+json' });
-          if (listing) {
-            const entries = JSON.parse(listing);
-            if (Array.isArray(entries)) {
-              // Check each dir for SKILL.md in parallel (limit to 20 dirs)
-              const dirs = entries.filter(e => e.type === 'dir').slice(0, 20);
-              // Also check root-level SKILL.md
-              const hasRootSkill = entries.some(e => e.type === 'file' && e.name === 'SKILL.md');
-              if (hasRootSkill) {
-                const rootMd = await fetchText(`${indexBase}/SKILL.md`);
-                const meta = rootMd ? parseSkillMdFrontmatter(rootMd) : {};
-                if (meta.name) {
-                  skills.push({
-                    id: meta.name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-                    name: meta.name,
-                    description: meta.description || '',
-                    skillUrl: repoUrl,
-                  });
-                }
-              }
-              const dirResults = await Promise.all(
-                dirs.map(async (d) => {
-                  try {
-                    const rawUrl = `${indexBase}/${d.name}/SKILL.md`;
-                    const md = await fetchText(rawUrl);
-                    if (!md) return null;
-                    const meta = parseSkillMdFrontmatter(md);
-                    if (!meta.name) return null;
-                    return {
-                      id: meta.name.toLowerCase().replace(/[^a-z0-9-]/g, '-'),
-                      name: meta.name,
-                      description: meta.description || '',
-                      skillUrl: `https://github.com/${owner}/${repo}/tree/${branch}/${subdir ? subdir + '/' : ''}${d.name}`,
-                    };
-                  } catch (_) {
-                    return null;
-                  }
-                }),
-              );
-              skills.push(...dirResults.filter(Boolean));
-            }
-          }
-        } catch (apiErr) {
-          console.warn('[Marketplace] GitHub API browse failed:', apiErr.message);
-        }
-      }
-
-      return { success: true, data: skills };
+      const { skills } = await skillInstall.discoverSkillsInRepo(repoUrl.trim());
+      const data = skills.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        skillUrl: s.skillUrl,
+      }));
+      return { success: true, data };
     } catch (err) {
       console.error('[Marketplace] browse-skill-repo error:', err);
       return { success: false, error: err.message };
@@ -944,26 +828,19 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   /**
-   * Uninstall a skill
+   * Uninstall a skill from ~/.dome/skills/
    */
   ipcMain.handle('marketplace:uninstall-skill', async (event, skillId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    
+
     if (!skillId || typeof skillId !== 'string') {
       return { success: false, error: 'Invalid skillId' };
     }
-    
+
     try {
-      const skillsDir = marketplaceConfig.getSkillsDir();
-      const skillDir = path.join(skillsDir, skillId);
-      
-      if (!fs.existsSync(skillDir)) {
-        return { success: false, error: 'Skill not found' };
-      }
-      
-      fs.rmSync(skillDir, { recursive: true });
+      skillInstall.removeSkill(skillId);
       return { success: true };
     } catch (err) {
       console.error('[Marketplace] uninstall-skill error:', err);

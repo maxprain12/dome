@@ -717,7 +717,6 @@ Los siguientes módulos se desempaquetan del ASAR:
 "asarUnpack": [
   "node_modules/better-sqlite3/**",
   "node_modules/sharp/**",
-  "node_modules/node-pty/**",
   "node_modules/@napi-rs/canvas/**",
   "node_modules/archiver/**",
   "node_modules/yauzl/**"

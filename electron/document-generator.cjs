@@ -15,6 +15,7 @@ const os = require('os');
 const { app } = require('electron');
 const pptSlideExtractor = require('./ppt-slide-extractor.cjs');
 const { generatePptFromSpec } = require('./ppt-spec-pptxgen.cjs');
+const { normalizePptxBuffer } = require('./pptx-normalize.cjs');
 
 // python-build-standalone version used for the bundled sandbox Python
 const STANDALONE_PYTHON_VERSION = '3.12.9';
@@ -397,9 +398,15 @@ async function generatePptFromNodeScript(scriptCode) {
           return;
         }
 
-        const buffer = fs.readFileSync(outputPath);
+        const bufferRaw = fs.readFileSync(outputPath);
         fs.unlinkSync(outputPath);
-        resolve({ success: true, buffer });
+        let buffer = bufferRaw;
+        normalizePptxBuffer(buffer)
+          .then((normalized) => resolve({ success: true, buffer: normalized }))
+          .catch((normErr) => {
+            console.warn('[DocGen] normalizePptxBuffer failed (non-fatal):', normErr?.message);
+            resolve({ success: true, buffer });
+          });
       } catch (e) {
         try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch {}
         resolve({ success: false, error: e.message || 'Failed to read generated file' });
