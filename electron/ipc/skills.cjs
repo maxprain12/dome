@@ -1,12 +1,14 @@
 /* eslint-disable no-console */
 /**
  * IPC: native skills backed by deepagents listSkills.
- * Channels: skills:list, skills:openFolder, skills:installBundled.
+ * Channels: skills:list, skills:openFolder, skills:installBundled,
+ *           skills:add, skills:browseRepo, skills:remove, skills:readFile.
  */
 const path = require('node:path');
 const fs = require('node:fs');
 const { shell } = require('electron');
 const { listAllSkills, userSkillsDir } = require('../skills/index.cjs');
+const skillInstall = require('../skills/install.cjs');
 
 /**
  * @param {object} param0
@@ -58,6 +60,78 @@ function register({ ipcMain, windowManager, validateSender }) {
       return { success: true };
     } catch (err) {
       console.error('[Skills] installBundled:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skills:add', async (event, { source, skillNames, overwrite }) => {
+    try {
+      validateSender(event, windowManager);
+      if (!source || typeof source !== 'string') {
+        return { success: false, error: 'Invalid source URL' };
+      }
+      const names = Array.isArray(skillNames)
+        ? skillNames.filter((n) => typeof n === 'string' && n.trim())
+        : undefined;
+      const data = await skillInstall.installSkillsFromRepo({
+        repoUrl: source.trim(),
+        skillNames: names,
+        overwrite: overwrite !== false,
+      });
+      return { success: true, data };
+    } catch (err) {
+      console.error('[Skills] add:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skills:browseRepo', async (event, { repoUrl }) => {
+    try {
+      validateSender(event, windowManager);
+      if (!repoUrl || typeof repoUrl !== 'string') {
+        return { success: false, error: 'Invalid URL' };
+      }
+      const { skills } = await skillInstall.discoverSkillsInRepo(repoUrl.trim());
+      const data = skills.map((s) => ({
+        id: s.id,
+        name: s.name,
+        description: s.description,
+        skillUrl: s.skillUrl,
+      }));
+      return { success: true, data };
+    } catch (err) {
+      console.error('[Skills] browseRepo:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skills:remove', async (event, { skillId }) => {
+    try {
+      validateSender(event, windowManager);
+      if (!skillId || typeof skillId !== 'string') {
+        return { success: false, error: 'Invalid skill id' };
+      }
+      skillInstall.removeSkill(skillId);
+      return { success: true };
+    } catch (err) {
+      console.error('[Skills] remove:', err);
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('skills:readFile', async (event, { skillId, path: relativePath }) => {
+    try {
+      validateSender(event, windowManager);
+      if (!skillId || typeof skillId !== 'string') {
+        return { success: false, error: 'Invalid skill id' };
+      }
+      if (!relativePath || typeof relativePath !== 'string') {
+        return { success: false, error: 'Invalid path' };
+      }
+      const content = skillInstall.readSkillFile(skillId, relativePath);
+      return { success: true, data: { skillId, path: relativePath, content } };
+    } catch (err) {
+      console.error('[Skills] readFile:', err);
       return { success: false, error: err.message };
     }
   });

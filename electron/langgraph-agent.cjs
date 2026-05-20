@@ -6,11 +6,6 @@
  * Converts Dome's OpenAI-format tool definitions to LangChain tools,
  * creates a model from provider config, and streams results.
  *
- * Sandbox (LangChain / deepagents): when DOME_LANGGRAPH_VFS_SANDBOX is not
- * disabled, injects createFilesystemMiddleware with @langchain/node-vfs so the
- * model gets ls/read_file/write_file/edit_file/glob/grep/execute against an
- * isolated VFS (see electron/langgraph-vfs-thread.cjs for lifecycle).
- *
  * Context engineering: optional LangChain summarizationMiddleware (disable with
  * DOME_LANGGRAPH_SUMMARIZATION=0), trim-by-token middleware, tool-result caps
  * (electron/tool-result-cap.cjs), typed runtimeContext (agent-runtime-context.cjs),
@@ -30,7 +25,6 @@
  */
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
-const vfsThread = require('./langgraph-vfs-thread.cjs');
 const { executeToolInMain } = toolDispatcher;
 const { createSubagentTools } = require('./subagents.cjs');
 const { createAsyncSubagentTools } = require('./async-subagents.cjs');
@@ -1265,35 +1259,22 @@ async function createConfiguredLangGraphAgent(llm, opts) {
   const trimMiddleware = await createTrimmingMiddleware(provider, llm);
   const summarizationMw = await createSummarizationMiddlewareMaybe(provider, llm);
 
-  /** LangChain / deepagents sandbox: isolated VFS + execute (read_file, write_file, …). */
-  let fsMiddleware = null;
-  if (!vfsThread.isVfsSandboxDisabled()) {
-    const vfsBackend = await vfsThread.ensureThreadVfsSandbox(threadId, 120_000);
-    if (vfsBackend) {
-      const { createFilesystemMiddleware } = await import('deepagents');
-      fsMiddleware = createFilesystemMiddleware({ backend: vfsBackend });
-    }
-  }
-
   const skillsMw = await buildSkillsMiddleware();
   const guardrailsMw = buildGuardrailsMiddleware();
 
   // DomeTrimMessages must be the innermost wrapModelCall wrapper so it sees ALL
-  // injected messages (incl. those added by fsMiddleware) before ChatAnthropic validates.
-  // Order (outermost→innermost): guardrails → summarization → HITL → skills → fs → trim → model
+  // injected messages before ChatAnthropic validates.
+  // Order (outermost→innermost): guardrails → summarization → HITL → skills → trim → model
   const middleware = (() => {
     const base = [
       ...(guardrailsMw ? [guardrailsMw] : []),
       ...(summarizationMw ? [summarizationMw] : []),
     ];
+    const skillsStack = skillsMw ? [skillsMw] : [];
     if (skipHitl) {
-      return fsMiddleware
-        ? [...base, skillsMw, fsMiddleware, trimMiddleware]
-        : [...base, skillsMw, trimMiddleware];
+      return [...base, ...skillsStack, trimMiddleware];
     }
-    return fsMiddleware
-      ? [...base, hitlMiddleware, skillsMw, fsMiddleware, trimMiddleware]
-      : [...base, hitlMiddleware, skillsMw, trimMiddleware];
+    return [...base, hitlMiddleware, ...skillsStack, trimMiddleware];
   })();
 
   const agent = createAgent({
@@ -1345,22 +1326,21 @@ async function invokeLangGraphAgent(opts) {
     console.warn('[AI LangGraph] project memory (AGENTS.md) skipped:', e?.message || e);
   }
 
-  try {
-    const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
-      useDirectTools,
-      toolDefinitions: opts.toolDefinitions,
-      mcpServerIds,
-      subagentIds,
-      skipHitl,
-      onChunk,
-      threadId: effectiveThreadId,
-      automationProjectId,
-      provider,
-      customTools: opts.customTools,
-      runtimeContext: opts.runtimeContext,
-    });
+  const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
+    useDirectTools,
+    toolDefinitions: opts.toolDefinitions,
+    mcpServerIds,
+    subagentIds,
+    skipHitl,
+    onChunk,
+    threadId: effectiveThreadId,
+    automationProjectId,
+    provider,
+    customTools: opts.customTools,
+    runtimeContext: opts.runtimeContext,
+  });
 
-    // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
+  // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
     // that intermediate tool turns also stay within the provider budget.
     const lcMessages = await toLangChainMessages(domeMessages);
 
@@ -1426,11 +1406,6 @@ async function invokeLangGraphAgent(opts) {
       }
       throw err;
     }
-  } finally {
-    if (!vfsThread.isVfsSandboxDisabled() && !hitInterrupt) {
-      await vfsThread.disposeThreadSandbox(effectiveThreadId);
-    }
-  }
 }
 
 /**
@@ -1488,22 +1463,21 @@ async function resumeLangGraphAgent(opts) {
   const skipHitl = skipHitlArg === true;
   let hitInterrupt = false;
 
-  try {
-    const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
-      useDirectTools,
-      toolDefinitions: toolDefinitionsArg,
-      mcpServerIds,
-      subagentIds,
-      skipHitl,
-      onChunk,
-      threadId,
-      automationProjectId: automationProjectIdArg,
-      provider,
-      customTools: customToolsArg,
-      runtimeContext: rest.runtimeContext,
-    });
+  const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
+    useDirectTools,
+    toolDefinitions: toolDefinitionsArg,
+    mcpServerIds,
+    subagentIds,
+    skipHitl,
+    onChunk,
+    threadId,
+    automationProjectId: automationProjectIdArg,
+    provider,
+    customTools: customToolsArg,
+    runtimeContext: rest.runtimeContext,
+  });
 
-    const config = withLangfuseCallbacks({
+  const config = withLangfuseCallbacks({
       configurable: { thread_id: threadId },
       recursionLimit: RECURSION_LIMIT,
       signal,
@@ -1550,11 +1524,6 @@ async function resumeLangGraphAgent(opts) {
       }
       throw err;
     }
-  } finally {
-    if (!vfsThread.isVfsSandboxDisabled() && !hitInterrupt) {
-      await vfsThread.disposeThreadSandbox(threadId);
-    }
-  }
 }
 
 module.exports = {

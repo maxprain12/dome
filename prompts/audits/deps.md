@@ -23,7 +23,13 @@ cat package.json | jq '.dependencies, .devDependencies'
 
 Record the exact list of authorized package names BEFORE any change. You
 MUST NOT add packages that weren't already listed — removing or bumping is
-fine, adding new packages is forbidden in this audit.
+fine. **Exception:** add a direct dependency when `electron/` (or `scripts/`)
+uses `require('pkg')` / dynamic import and the package is not yet listed —
+depcheck will not see it. Verify with:
+
+```bash
+rg "require\(['\"]" electron/ --glob "*.cjs"
+```
 
 ### Step 2 — Vulnerability scan
 
@@ -61,7 +67,7 @@ Skip packages listed in the FROZEN whitelist (Step 4).
 - `vite`, `@vitejs/plugin-react`
 - `react`, `react-dom`
 - `@tiptap/*` (breaking changes between minors)
-- `node-pty`, `sharp`, `@napi-rs/canvas`, `archiver`, `yauzl` (native modules)
+- `sharp`, `@napi-rs/canvas`, `archiver`, `yauzl` (native modules)
 
 If you believe a frozen package MUST be bumped for security, do NOT bump it.
 Instead append an entry to `SECURITY.md` with the CVE and a TODO for manual review.
@@ -96,9 +102,20 @@ After fixes, write a short bulleted summary at the top of the PR body
 describing: N CVEs auto-fixed, M packages bumped (patch+minor), K frozen
 packages deferred, exact list of bumped packages with from→to versions.
 
+### Dead / duplicate direct dependencies
+
+Before removing a package, confirm **no** `import`/`require` in `app/`,
+`electron/`, or `scripts/` (depcheck misses config files and optional
+`require()` in main). Safe to drop when only listed as a direct dep but
+installed transitively (e.g. `@floating-ui/dom` via `@tiptap/react`,
+`@hono/node-server` via `@modelcontextprotocol/sdk`). Keep security pins
+in `SECURITY.md` (`path-to-regexp`, `picomatch`, `protobufjs`) and peers
+(`apache-arrow` for `@lancedb/lancedb`, `emoji-mart` for `@emoji-mart/react`).
+
 ### HARD RULES
 
-- NEVER add a package not already in `package.json`.
+- NEVER add a package unless it is imported/required in the codebase or
+  needed as a documented security pin / peer (see exception in Step 1).
 - NEVER remove a package that's still imported in the codebase.
 - NEVER bump a frozen package.
 - NEVER run `pnpm audit --fix --force` — it ignores semver constraints.

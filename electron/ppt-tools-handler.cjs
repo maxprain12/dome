@@ -12,6 +12,7 @@ const database = require('./database.cjs');
 const fileStorage = require('./file-storage.cjs');
 const documentStaging = require('./document-staging.cjs');
 const documentGenerator = require('./document-generator.cjs');
+const { normalizePptxBuffer } = require('./pptx-normalize.cjs');
 
 let windowManagerRef = null;
 function setWindowManager(wm) {
@@ -144,6 +145,24 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
       return { success: false, error: result.error || 'Failed to generate PPT' };
     }
 
+    try {
+      result.buffer = await normalizePptxBuffer(result.buffer);
+    } catch (normErr) {
+      console.warn('[PptTools] normalizePptxBuffer failed (non-fatal):', normErr?.message);
+    }
+
+    const { validatePptxBuffer } = require('./pptx-validate.cjs');
+    const pptCheck = await validatePptxBuffer(result.buffer, { minSlides: 1 });
+    if (!pptCheck.ok) {
+      return {
+        success: false,
+        error:
+          `${pptCheck.error} ` +
+          'Ensure the script calls pres.addSlide() for every slide and ends with ' +
+          '`await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })` (or `await pres.write({ outputType: "nodebuffer" })`).',
+      };
+    }
+
     const filename = (title || 'Untitled').replace(/\.pptx$/i, '') + '.pptx';
 
     // Stage → validate → promote (no orphans on failure)
@@ -255,6 +274,22 @@ async function pptGetFilePath(resourceId) {
 }
 
 /**
+ * Render slide PNGs for visual QA (uses hidden BrowserWindow + pptx-preview).
+ */
+async function pptGetSlideImages(resourceId) {
+  try {
+    const pathResult = await pptGetFilePath(resourceId);
+    if (!pathResult.success || !pathResult.file_path) {
+      return { success: false, error: pathResult.error || 'Failed to get file path' };
+    }
+    return documentGenerator.extractPptImages(pathResult.file_path);
+  } catch (error) {
+    console.error('[PptTools] pptGetSlideImages error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Export PPT to base64 or destination path.
  */
 async function pptExport(resourceId, options = {}) {
@@ -330,4 +365,5 @@ module.exports = {
   pptGetFilePath,
   pptExport,
   pptGetSlides,
+  pptGetSlideImages,
 };

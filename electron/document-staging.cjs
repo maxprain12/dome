@@ -89,6 +89,9 @@ async function validateStaging(stagingId, type) {
       if (type === 'ppt') {
         const hasRoot = files.some((f) => f === 'ppt/presentation.xml' || f.startsWith('ppt/'));
         if (!hasRoot) return { ok: false, error: 'PPTX file is missing ppt/ entries' };
+        const { validatePptxBuffer } = require('./pptx-validate.cjs');
+        const pptCheck = await validatePptxBuffer(buf, { minSlides: 1 });
+        if (!pptCheck.ok) return { ok: false, error: pptCheck.error };
       }
       return { ok: true };
     }

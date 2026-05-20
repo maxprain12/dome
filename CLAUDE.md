@@ -294,7 +294,7 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 
 - **Dev**: Vite on port 5173, Electron loads `http://localhost:5173`
 - **Prod**: Vite builds to `dist/`, Electron loads via `app://dome/` protocol
-- **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `node-pty`, `@napi-rs/canvas`, `archiver`, `yauzl`
+- **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `@napi-rs/canvas`, `archiver`, `yauzl`
 
 ## Security Requirements
 

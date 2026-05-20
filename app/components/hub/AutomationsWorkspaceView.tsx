@@ -632,6 +632,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
 
   const load = useCallback(async () => {
     setLoading(true);
+    setAutomations([]);
     try {
       const all = await listAutomations({ projectId });
       setAutomations(all.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
@@ -904,13 +905,16 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
               icon={Zap}
               title={t('automationHub.tab_automations')}
               subtitle={(() => {
+                const scopeSuffix = t('automation.project_scope_suffix', { name: scopeProjectName ?? projectId });
+                if (loading) return t('automation.loading_list') + scopeSuffix;
+                const visibleCount = filtered.length;
                 const base =
-                  automations.length === 0
+                  visibleCount === 0
                     ? t('automation.no_automations')
-                    : automations.length === 1
-                      ? t('automationHub.automations_list_one', { count: automations.length })
-                      : t('automationHub.automations_list_other', { count: automations.length });
-                return base + t('automation.project_scope_suffix', { name: scopeProjectName ?? projectId });
+                    : visibleCount === 1
+                      ? t('automationHub.automations_list_one', { count: visibleCount })
+                      : t('automationHub.automations_list_other', { count: visibleCount });
+                return base + scopeSuffix;
               })()}
             />
           }
@@ -983,8 +987,16 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
               variant="empty"
               compact
               icon={<Zap className="size-7" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} />}
-              title={t('automation.no_automations')}
-              description={t('automation.empty_list_hint')}
+              title={
+                automations.length > 0 && searchText.trim()
+                  ? t('automation.search_no_results')
+                  : t('automation.no_automations')
+              }
+              description={
+                automations.length > 0 && searchText.trim()
+                  ? undefined
+                  : t('automation.empty_list_hint')
+              }
               action={
                 <DomeButton
                   type="button"

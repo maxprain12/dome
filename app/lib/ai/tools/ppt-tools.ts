@@ -16,7 +16,7 @@ const PptCreateSchema = Type.Object({
   script: Type.Optional(
     Type.String({
       description:
-        'PptxGenJS-only script (CommonJS). Example: `const pptxgen = require("pptxgenjs"); const pres = new pptxgen(); pres.layout = "LAYOUT_16x9";` add slides with pres.addSlide(), slide.addText(), shapes, charts per PptxGenJS docs; end with `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })`. Python is not supported. Populate every slide with real content. Use sync=true for immediate visual QA with ppt_get_slide_images.',
+        'PptxGenJS-only script (CommonJS). Example: `const pptxgen = require("pptxgenjs"); const pres = new pptxgen(); pres.layout = "LAYOUT_16x9";` add slides with pres.addSlide() for EVERY slide, slide.addText(), etc.; end with `await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })` OR `await pres.write({ outputType: "nodebuffer" })`. Empty decks (no addSlide) are rejected. Python is not supported.',
     })
   ),
   sync: Type.Optional(

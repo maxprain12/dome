@@ -60,15 +60,44 @@ Write the body as clear, numbered instructions telling the agent exactly what to
 
 ## Installing a skill
 
-Place the `SKILL.md` file inside a directory named with the skill ID:
+### From Settings (recommended)
+
+1. Open **Settings → Skills → Install from GitHub**
+2. Paste the repository URL (e.g. `https://github.com/anthropics/skills`)
+3. Enter the skill name (e.g. `pptx`) or click **Browse** to pick from the list
+4. Click **Install**
+
+This is equivalent to the open ecosystem CLI:
+
+```bash
+npx skills add https://github.com/anthropics/skills --skill pptx
+```
+
+Dome downloads the **full skill folder** (SKILL.md plus scripts, references, etc.) into `~/.dome/skills/<name>/`.
+
+### Manual install
+
+Place the skill folder inside your personal skills directory:
 
 ```
 ~/.dome/skills/
 └── my-skill-id/
-    └── SKILL.md
+    ├── SKILL.md
+    └── (optional scripts, references, assets…)
 ```
 
 Dome picks it up automatically on next agent invocation — no restart needed.
+
+### Compatible repository layouts
+
+Dome discovers skills in repos using the same conventions as [vercel-labs/skills](https://github.com/vercel-labs/skills):
+
+- `.claude-plugin/marketplace.json` (Anthropic plugin repos)
+- `skills/<skill-name>/SKILL.md` (e.g. `anthropics/skills`)
+- `skills.json` index at repo root
+- Single-skill repo with `SKILL.md` at root or in a subdirectory
+
+> **Note:** Some skills (e.g. Anthropic's `pptx`) reference external tools (Python, LibreOffice, npm). Dome installs the skill **files**; running bundled scripts depends on your system environment.
 
 ---
 
@@ -81,13 +110,14 @@ github.com/you/my-skill/
 ├── SKILL.md          ← single-skill repo (Dome will find this)
 └── README.md
 
-# OR multi-skill repo:
+# OR multi-skill repo (Anthropic-style):
 github.com/you/skill-pack/
-├── skill-one/
-│   └── SKILL.md
-├── skill-two/
-│   └── SKILL.md
-└── skills.json       ← optional index for the Dome marketplace browser
+├── skills/
+│   ├── skill-one/
+│   │   └── SKILL.md
+│   └── skill-two/
+│       └── SKILL.md
+└── .claude-plugin/marketplace.json   ← optional plugin manifest
 ```
 
 ### `skills.json` index (optional, for multi-skill repos)
@@ -99,7 +129,7 @@ github.com/you/skill-pack/
 ]
 ```
 
-Users install your skill via **Settings → Skills → Install from GitHub** by pasting your repo URL.
+Users install your skill via **Settings → Skills → Install from GitHub** by pasting your repo URL and skill name.
 
 ---
 

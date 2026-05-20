@@ -8,7 +8,7 @@
  * API exposed here.
  */
 import { useEffect, useRef } from 'react';
-import { init as initPptxPreview } from 'pptx-preview';
+import { init as initPptxPreview } from '@/lib/pptx-preview';
 import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
 
 const SLIDE_W = 960;

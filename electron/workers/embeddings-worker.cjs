@@ -24,6 +24,8 @@ const PIPELINE_RESET_INTERVAL = 4;
 
 let _modelsDir = null;
 let _pipelinePromise = null;
+/** @type {Promise<void> | null} */
+let _disposeInFlight = null;
 
 let _embedMutexChain = Promise.resolve();
 function runEmbedExclusive(fn) {
@@ -41,12 +43,18 @@ async function disposePipeline() {
   _pipelinePromise = null;
 }
 
-function resetPipeline() {
-  // Fire-and-forget dispose so native ONNX session is released.
-  void disposePipeline();
+async function resetPipeline() {
+  if (_disposeInFlight) await _disposeInFlight;
+  _disposeInFlight = disposePipeline();
+  try {
+    await _disposeInFlight;
+  } finally {
+    _disposeInFlight = null;
+  }
 }
 
 async function getPipeline() {
+  if (_disposeInFlight) await _disposeInFlight;
   if (!_pipelinePromise) {
     _pipelinePromise = (async () => {
       const { pipeline, env } = await import('@huggingface/transformers');
@@ -89,13 +97,13 @@ async function handleEmbedDocuments(texts) {
     const arr = texts || [];
     const len = arr.length;
     if (len === 0) return packVectors([]);
-    if (len >= 32) resetPipeline();
+    if (len >= 32) await resetPipeline();
     const out = [];
     let pipe = await getPipeline();
     let batchIdx = 0;
     for (let i = 0; i < len; i += EMBED_BATCH) {
       if (batchIdx > 0 && batchIdx % PIPELINE_RESET_INTERVAL === 0) {
-        resetPipeline();
+        await resetPipeline();
         pipe = await getPipeline();
       }
       const slice = [];
@@ -106,7 +114,7 @@ async function handleEmbedDocuments(texts) {
       try {
         tensor = await pipe(slice, { pooling: 'mean', normalize: true });
       } catch (e) {
-        resetPipeline();
+        await resetPipeline();
         throw e;
       }
       out.push(...tensorToRowVectors(tensor));
@@ -129,7 +137,7 @@ async function handleEmbedQuery(text) {
     try {
       tensor = await pipe(`search_query: ${q}`, { pooling: 'mean', normalize: true });
     } catch (e) {
-      resetPipeline();
+      await resetPipeline();
       throw e;
     }
     const rows = tensorToRowVectors(tensor);
@@ -155,7 +163,7 @@ process.parentPort.on('message', async ({ data }) => {
       process.parentPort.postMessage({ id, type: 'success', payload: buf }, [buf]);
 
     } else if (type === 'reset') {
-      resetPipeline();
+      await runEmbedExclusive(() => resetPipeline());
       process.parentPort.postMessage({ id, type: 'success' });
 
     } else {

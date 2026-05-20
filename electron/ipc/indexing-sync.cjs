@@ -78,7 +78,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       title: null,
     });
 
-    resetPipeline();
+    await resetPipeline();
 
     for (let i = 0; i < total; i++) {
       const res = resources[i];

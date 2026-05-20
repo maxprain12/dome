@@ -3290,6 +3290,28 @@ async function fileRead(args) {
   }
 }
 
+async function skillRead(args) {
+  const skillId = typeof args.skill_id === 'string' ? args.skill_id
+    : typeof args.skill === 'string' ? args.skill : '';
+  const relativePath = typeof args.path === 'string' ? args.path
+    : typeof args.file === 'string' ? args.file : '';
+  if (!skillId) return { status: 'error', error: 'skill_id is required' };
+  if (!relativePath) return { status: 'error', error: 'path is required' };
+  try {
+    const { readSkillFile } = require('./skills/install.cjs');
+    const content = readSkillFile(skillId, relativePath);
+    return {
+      status: 'success',
+      skill_id: skillId,
+      path: relativePath,
+      content,
+      size: content.length,
+    };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
 async function fileWrite(args) {
   const filePath = typeof args.file_path === 'string' ? args.file_path
     : typeof args.path === 'string' ? args.path : '';
@@ -3830,6 +3852,7 @@ module.exports = {
   pptGetFilePath: pptToolsHandler.pptGetFilePath,
   pptExport: pptToolsHandler.pptExport,
   pptGetSlides: pptToolsHandler.pptGetSlides,
+  pptGetSlideImages: pptToolsHandler.pptGetSlideImages,
 
   // Dynamic context
   getToolDefinition,
@@ -3872,6 +3895,7 @@ module.exports = {
 
   // Native file & shell tools
   fileRead,
+  skillRead,
   fileWrite,
   fileList,
   fileSearch,

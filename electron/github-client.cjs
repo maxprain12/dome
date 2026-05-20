@@ -181,6 +181,20 @@ function sanitizePathComponent(component) {
 }
 
 /**
+ * Sanitize a multi-segment repository path (e.g. skills/pptx).
+ * @param {string} repoPath
+ * @returns {string}
+ */
+function sanitizeRepoPath(repoPath) {
+  if (!repoPath) return '';
+  return repoPath
+    .split('/')
+    .map((segment) => sanitizePathComponent(segment))
+    .filter(Boolean)
+    .join('/');
+}
+
+/**
  * Fetch repository contents at a specific path
  * @param {string} owner - Repository owner
  * @param {string} repo - Repository name
@@ -191,7 +205,7 @@ function sanitizePathComponent(component) {
 async function getRepoContents(owner, repo, path = '', ref = 'main') {
   const sanitizedOwner = sanitizePathComponent(owner);
   const sanitizedRepo = sanitizePathComponent(repo);
-  const sanitizedPath = sanitizePathComponent(path);
+  const sanitizedPath = sanitizeRepoPath(path);
   
   const cacheKey = `contents:${sanitizedOwner}:${sanitizedRepo}:${sanitizedPath}:${ref}`;
   const cached = cache.get(cacheKey);
@@ -199,7 +213,8 @@ async function getRepoContents(owner, repo, path = '', ref = 'main') {
     return cached;
   }
 
-  const url = `${GITHUB_API_BASE}/repos/${sanitizedOwner}/${sanitizedRepo}/contents/${sanitizedPath}?ref=${ref}`;
+  const pathSegment = sanitizedPath ? `/${sanitizedPath}` : '';
+  const url = `${GITHUB_API_BASE}/repos/${sanitizedOwner}/${sanitizedRepo}/contents${pathSegment}?ref=${ref}`;
   const result = await request({ url });
   
   cache.set(cacheKey, result);
@@ -217,7 +232,7 @@ async function getRepoContents(owner, repo, path = '', ref = 'main') {
 async function getFileContent(owner, repo, path, ref = 'main') {
   const sanitizedOwner = sanitizePathComponent(owner);
   const sanitizedRepo = sanitizePathComponent(repo);
-  const sanitizedPath = sanitizePathComponent(path);
+  const sanitizedPath = sanitizeRepoPath(path);
   
   const cacheKey = `file:${sanitizedOwner}:${sanitizedRepo}:${sanitizedPath}:${ref}`;
   const cached = cache.get(cacheKey);
@@ -419,5 +434,6 @@ module.exports = {
   clearCache,
   getRateLimitStatus,
   fetchDirectoryItems,
-  sanitizePathComponent
+  sanitizePathComponent,
+  sanitizeRepoPath,
 };

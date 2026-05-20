@@ -361,7 +361,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
     }
   });
 
-  ipcMain.handle('resource:readFile', (event, resourceId) => {
+  ipcMain.handle('resource:readFile', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -374,18 +374,51 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
+      const isPptx =
+        resource.type === 'ppt' ||
+        (resource.file_mime_type || '').includes('presentationml') ||
+        (resource.original_filename || resource.title || '').toLowerCase().endsWith('.pptx');
+
       // Prefer internal_path
       if (resource.internal_path) {
-        const dataUrl = fileStorage.readFileAsDataUrl(resource.internal_path);
-        if (dataUrl) {
-          return { success: true, data: dataUrl };
+        const fullPath = fileStorage.getFullPath(resource.internal_path);
+        if (!fs.existsSync(fullPath)) {
+          return { success: false, error: 'Internal file not found' };
         }
-        return { success: false, error: 'Internal file not found' };
+        let buffer = fs.readFileSync(fullPath);
+        if (isPptx) {
+          try {
+            const { normalizePptxBuffer } = require('../pptx-normalize.cjs');
+            const normalized = await normalizePptxBuffer(buffer);
+            if (!normalized.equals(buffer)) {
+              fs.writeFileSync(fullPath, normalized);
+            }
+            buffer = normalized;
+          } catch (normErr) {
+            console.warn('[Resource] PPTX normalize failed (non-fatal):', normErr?.message);
+          }
+        }
+        const ext = path.extname(fullPath).toLowerCase();
+        const mimeType = fileStorage.getMimeType(ext);
+        const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
+        return { success: true, data: dataUrl };
       }
 
       // Legacy: read from file_path
       if (resource.file_path && fs.existsSync(resource.file_path)) {
-        const buffer = fs.readFileSync(resource.file_path);
+        let buffer = fs.readFileSync(resource.file_path);
+        if (isPptx) {
+          try {
+            const { normalizePptxBuffer } = require('../pptx-normalize.cjs');
+            const normalized = await normalizePptxBuffer(buffer);
+            if (!normalized.equals(buffer)) {
+              fs.writeFileSync(resource.file_path, normalized);
+            }
+            buffer = normalized;
+          } catch (normErr) {
+            console.warn('[Resource] PPTX normalize failed (non-fatal):', normErr?.message);
+          }
+        }
         const ext = path.extname(resource.file_path).toLowerCase();
         const mimeType = fileStorage.getMimeType(ext);
         const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;

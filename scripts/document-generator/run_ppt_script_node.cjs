@@ -55,15 +55,49 @@ async function main() {
   // Patch PptxGenJS.prototype.writeFile to capture async promises so we can
   // await them even if the user script doesn't use `await`.
   const pendingWrites = [];
+  const DEFAULT_SLIDE_BG = 'FFFFFF';
   try {
     const PptxGenJS = require('pptxgenjs');
     const origWriteFile = PptxGenJS.prototype.writeFile;
     PptxGenJS.prototype.writeFile = function (...args) {
-      const promise = origWriteFile.apply(this, args);
+      let opts = args[0];
+      if (typeof opts === 'string') opts = { fileName: opts };
+      if (!opts || typeof opts !== 'object') opts = {};
+      if (!opts.fileName && process.env.PPTX_OUTPUT_PATH) {
+        opts = { ...opts, fileName: process.env.PPTX_OUTPUT_PATH };
+      }
+      const promise = origWriteFile.call(this, opts);
       if (promise && typeof promise.then === 'function') {
         pendingWrites.push(promise.catch(() => {}));
       }
       return promise;
+    };
+    const origWrite = PptxGenJS.prototype.write;
+    PptxGenJS.prototype.write = function (...args) {
+      const promise = origWrite.apply(this, args);
+      if (promise && typeof promise.then === 'function') {
+        pendingWrites.push(
+          promise
+            .then((result) => {
+              const outPath = process.env.PPTX_OUTPUT_PATH;
+              if (outPath && !fs.existsSync(outPath) && result) {
+                const buf = Buffer.isBuffer(result) ? result : Buffer.from(result);
+                fs.writeFileSync(outPath, buf);
+              }
+              return result;
+            })
+            .catch(() => {}),
+        );
+      }
+      return promise;
+    };
+    const origAddSlide = PptxGenJS.prototype.addSlide;
+    PptxGenJS.prototype.addSlide = function (...args) {
+      const slide = origAddSlide.apply(this, args);
+      if (slide && !slide.background) {
+        slide.background = { color: DEFAULT_SLIDE_BG };
+      }
+      return slide;
     };
   } catch (_e) {
     // pptxgenjs unavailable — the script will fail naturally with a useful error
@@ -108,8 +142,22 @@ async function main() {
       success: false,
       error:
         'Script completed but output file was not created. ' +
-        'Make sure to call: await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH })',
+        'Make sure to call: await pres.writeFile({ fileName: process.env.PPTX_OUTPUT_PATH }) ' +
+        'or await pres.write({ outputType: "nodebuffer" })',
     });
+    process.exit(1);
+  }
+
+  try {
+    const { validatePptxBuffer } = require('../../electron/pptx-validate.cjs');
+    const buf = fs.readFileSync(resolvedOutputPath);
+    const check = await validatePptxBuffer(buf, { minSlides: 1 });
+    if (!check.ok) {
+      output({ success: false, error: check.error });
+      process.exit(1);
+    }
+  } catch (e) {
+    output({ success: false, error: e.message || 'PPTX validation failed' });
     process.exit(1);
   }
 

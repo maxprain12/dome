@@ -17,6 +17,8 @@ export default tseslint.config(
       'node_modules/**',
       'release/**',
       'build/**',
+      'app/lib/vendor/**',
+      'vendor/**',
     ],
   },
 
