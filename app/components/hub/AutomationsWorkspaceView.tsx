@@ -35,6 +35,7 @@ import HubBentoCard from '@/components/ui/HubBentoCard';
 import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
+import { useEditorialHub } from '@/lib/context/EditorialHubContext';
 import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
@@ -554,6 +555,7 @@ interface AutomationsTabProps {
 
 function AutomationsTab({ projectId, initialFilter, agents, workflows }: AutomationsTabProps) {
   const { t } = useTranslation();
+  const editorialHub = useEditorialHub();
   const appProject = useAppStore((s) => s.currentProject);
   const [scopeProjectName, setScopeProjectName] = useState<string | null>(null);
   const automationImportInputRef = useRef<HTMLInputElement>(null);
@@ -901,6 +903,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
         <HubToolbar
           dense
           leading={
+            editorialHub ? undefined : (
             <HubTitleBlock
               icon={Zap}
               title={t('automationHub.tab_automations')}
@@ -917,6 +920,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                 return base + scopeSuffix;
               })()}
             />
+            )
           }
           center={
             <HubSearchField

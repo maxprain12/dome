@@ -41,6 +41,7 @@ import HubBentoCard from '@/components/ui/HubBentoCard';
 import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
+import { useEditorialHub } from '@/lib/context/EditorialHubContext';
 import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
@@ -1299,6 +1300,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
 
 function RunsTab() {
   const { t } = useTranslation();
+  const editorialHub = useEditorialHub();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [allRuns, setAllRuns] = useState<PersistentRun[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1487,11 +1489,13 @@ function RunsTab() {
       <HubToolbar
         dense
         leading={
+          editorialHub ? undefined : (
           <HubTitleBlock
             icon={Activity}
             title={t('automationHub.tab_runs')}
             subtitle={countLabel}
           />
+          )
         }
         center={null}
         trailing={null}

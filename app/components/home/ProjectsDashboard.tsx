@@ -1,14 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ArrowRight, CalendarDays, Layers3, Plus, Sparkles, WalletCards,
-  MessageCircle, Trash2, Check, FolderOpen,
-  ChevronDown, Brain,
-} from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
+import { HomeSectionHeader } from '@/components/home/dashboard/editorial/HomeSectionHeader';
+import { ProjectsHero } from '@/components/home/projects/ProjectsHero';
+import { ProjectCard } from '@/components/home/projects/ProjectCard';
 
 type DashboardStats = {
   resourceCount: number;
@@ -44,23 +43,6 @@ const DELETE_IMPACT_ORDER = [
   'agentFolders',
   'workflowFolders',
 ] as const;
-
-function KbBadge({ value }: { value: 'inherit' | 'enabled' | 'disabled' }) {
-  const { t } = useTranslation();
-  if (value === 'enabled') return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-      style={{ background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)', color: 'var(--dome-accent)' }}>
-      <Brain className="size-2.5" /> {t('projects.kb_llm_on')}
-    </span>
-  );
-  if (value === 'disabled') return (
-    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-      style={{ background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)', color: 'var(--dome-text-muted)' }}>
-      {t('projects.kb_llm_off')}
-    </span>
-  );
-  return null;
-}
 
 export default function ProjectsDashboard({
   currentProject,
@@ -299,387 +281,189 @@ export default function ProjectsDashboard({
     }
   }, [allSelected, selectableProjects]);
 
-  const cards = [
-    { label: t('projects.resources'), value: stats.resourceCount, icon: Layers3, color: 'var(--dome-accent)' },
-    { label: t('projects.studio'), value: stats.studioCount, icon: Sparkles, color: 'var(--warning)' },
-    { label: t('projects.flashcards'), value: stats.dueFlashcards, icon: WalletCards, color: 'var(--success)' },
-    { label: t('projects.agenda_7d'), value: stats.upcomingEvents, icon: CalendarDays, color: 'var(--info)' },
-    { label: t('projects.chats'), value: stats.recentChats, icon: MessageCircle, color: 'var(--secondary)' },
-  ];
+  const resourceCountByProject = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const resource of resources) {
+      map.set(resource.project_id, (map.get(resource.project_id) ?? 0) + 1);
+    }
+    return map;
+  }, [resources]);
+
+  const pulseCells = [
+    { key: 'resources', value: stats.resourceCount, labelKey: 'projects.resources' },
+    { key: 'studio', value: stats.studioCount, labelKey: 'projects.studio' },
+    { key: 'cards', value: stats.dueFlashcards, labelKey: 'projects.flashcards' },
+    { key: 'agenda', value: stats.upcomingEvents, labelKey: 'projects.agenda_7d' },
+    { key: 'chats', value: stats.recentChats, labelKey: 'projects.chats' },
+  ] as const;
+
+  const handleKbOverride = useCallback(
+    async (projectId: string, val: 'inherit' | 'enabled' | 'disabled') => {
+      setKbMenuFor(null);
+      try {
+        const r = await window.electron?.kbllm?.setProjectOverride?.({ projectId, override: val });
+        const ok = r && typeof r === 'object' && 'success' in r && (r as { success?: boolean }).success;
+        if (ok) setKbOverrides((prev) => ({ ...prev, [projectId]: val }));
+        else showToast('error', t('settings.kb_llm.error_save'));
+      } catch {
+        showToast('error', t('settings.kb_llm.error_save'));
+      }
+    },
+    [t],
+  );
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto p-8">
-        <div className="mx-auto flex max-w-5xl flex-col gap-7">
+    <>
+      <div className="home-shell">
+        <div className="home-scroll">
+          <div className="home-canvas">
+            <ProjectsHero
+              projectCount={projects.length}
+              currentProject={currentProject}
+              activeResourceCount={stats.resourceCount}
+              selectionMode={selectionMode}
+              selectableCount={selectableProjects.length}
+              selectedCount={selectedIds.size}
+              allSelected={allSelected}
+              onSwitchToDome={() => domeProject && onSelectProject(domeProject)}
+              onToggleSelectMode={() => setSelectionMode(true)}
+              onToggleSelectAll={toggleSelectAll}
+              onBulkDelete={() => setBulkDeleteOpen(true)}
+              onCancelSelection={() => {
+                setSelectionMode(false);
+                setSelectedIds(new Set());
+              }}
+              onCreateClick={() => setShowCreateForm((v) => !v)}
+              canSwitchToDome={Boolean(domeProject) && currentProject?.id !== 'default'}
+            />
 
-          {/* ── Header ─────────────────────────────────────────────────────── */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {t('projects.title')}
-              </h2>
-              <p className="mt-0.5 text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('projects.subtitle')}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {selectionMode ? (
-                <>
+            <section className="p-projects-section">
+              <HomeSectionHeader title={t('dashboard.section_pulse')} />
+              <div className="h-stats">
+                {pulseCells.map((cell) => (
+                  <div key={cell.key} className="cell">
+                    {loading ? (
+                      <span className="v">—</span>
+                    ) : (
+                      <span className="v">{cell.value}</span>
+                    )}
+                    <span className="k">{t(cell.labelKey)}</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {showCreateForm ? (
+              <div className="h-card p-projects-create">
+                <h3 className="h-card-title">{t('projects.new_project')}</h3>
+                <p className="p-projects-create-desc">{t('projects.new_project_desc')}</p>
+                <input
+                  value={newProjectName}
+                  onChange={(e) => setNewProjectName(e.target.value)}
+                  placeholder={t('projects.project_name')}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
+                  }}
+                  className="p-projects-field"
+                />
+                <textarea
+                  value={newProjectDescription}
+                  onChange={(e) => setNewProjectDescription(e.target.value)}
+                  placeholder={t('projects.brief_description')}
+                  rows={2}
+                  className="p-projects-field p-projects-field-area"
+                  style={{ marginTop: 10 }}
+                />
+                <div className="p-projects-create-actions">
                   <button
                     type="button"
-                    onClick={toggleSelectAll}
-                    className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs"
-                    style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                  >
-                    <span className={`size-3.5 rounded flex items-center justify-center border transition-colors ${allSelected ? 'border-[var(--dome-accent)] bg-[var(--dome-accent)]' : 'border-[var(--dome-border)]'}`}>
-                      {allSelected && <Check className="size-2.5" style={{ color: 'var(--base-text)' }} />}
-                    </span>
-                    {allSelected ? t('common.deselect_all') : t('common.select_all')}
-                  </button>
-                  {selectedIds.size > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setBulkDeleteOpen(true)}
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
-                      style={{ background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)', color: 'var(--dome-error)' }}
-                    >
-                      <Trash2 className="size-3.5" />
-                      {t('common.delete')} ({selectedIds.size})
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => { setSelectionMode(false); setSelectedIds(new Set()); }}
-                    className="rounded-lg border px-3 py-1.5 text-xs"
-                    style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                    className="h-pill-btn"
+                    onClick={() => {
+                      setShowCreateForm(false);
+                      setNewProjectName('');
+                      setNewProjectDescription('');
+                    }}
                   >
                     {t('common.cancel')}
                   </button>
-                </>
-              ) : (
-                <>
                   <button
                     type="button"
-                    onClick={() => domeProject && onSelectProject(domeProject)}
-                    disabled={!domeProject}
-                    className="rounded-lg border px-3 py-1.5 text-xs"
-                    style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                    className="h-pill-btn primary"
+                    onClick={() => void handleCreateProject()}
+                    disabled={creating || !newProjectName.trim()}
                   >
-                    {t('projects.switch_to_dome')}
+                    <Plus size={13} strokeWidth={2} aria-hidden />
+                    {creating ? t('projects.creating') : t('projects.create_project')}
                   </button>
-                  {selectableProjects.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectionMode(true)}
-                      className="rounded-lg border px-3 py-1.5 text-xs"
-                      style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                    >
-                      {t('common.select')}
-                    </button>
-                  )}
+                </div>
+              </div>
+            ) : null}
+
+            <section>
+              <HomeSectionHeader
+                title={t('projects.your_projects')}
+                linkLabel={t('projects.open_library')}
+                onLinkClick={onOpenProjectLibrary}
+              />
+
+              {loading ? (
+                <div className="p-projects-skeleton">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} />
+                  ))}
+                </div>
+              ) : projects.length === 0 ? (
+                <div className="p-projects-empty">
+                  <p>{t('projects.empty')}</p>
                   <button
                     type="button"
-                    onClick={() => setShowCreateForm((v) => !v)}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
-                    style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
+                    className="h-pill-btn primary"
+                    style={{ marginTop: 14 }}
+                    onClick={() => setShowCreateForm(true)}
                   >
-                    <Plus className="size-3.5" />
+                    <Plus size={13} strokeWidth={2} aria-hidden />
                     {t('projects.create_project')}
                   </button>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* ── Stats strip ────────────────────────────────────────────────── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            {cards.map((card) => {
-              const Icon = card.icon;
-              return (
-                <div
-                  key={card.label}
-                  className="rounded-xl border p-3.5 flex flex-col gap-1.5"
-                  style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
-                      {card.label}
-                    </span>
-                    <Icon className="size-3.5" style={{ color: card.color }} />
-                  </div>
-                  <span className="text-2xl font-semibold tabular-nums" style={{ color: 'var(--dome-text)' }}>
-                    {card.value}
-                  </span>
                 </div>
-              );
-            })}
-          </div>
-
-          {/* ── Create form (collapsible) ──────────────────────────────────── */}
-          {showCreateForm && (
-            <div
-              className="rounded-xl border p-4 space-y-3"
-              style={{ borderColor: 'var(--dome-accent)', background: 'color-mix(in srgb, var(--dome-accent) 5%, var(--dome-surface))' }}
-            >
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {t('projects.new_project')}
-              </h3>
-              <input
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder={t('projects.project_name')}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject(); }}
-                className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-[var(--dome-accent)]"
-                style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
-              />
-              <textarea
-                value={newProjectDescription}
-                onChange={(e) => setNewProjectDescription(e.target.value)}
-                placeholder={t('projects.brief_description')}
-                rows={2}
-                className="w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none"
-                style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
-              />
-              <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setShowCreateForm(false); setNewProjectName(''); setNewProjectDescription(''); }}
-                  className="rounded-lg border px-3 py-1.5 text-sm"
-                  style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleCreateProject()}
-                  disabled={creating || !newProjectName.trim()}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-                  style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
-                >
-                  <Plus className="size-3.5" />
-                  {creating ? t('projects.creating') : t('projects.create_project')}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Projects grid ─────────────────────────────────────────────── */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {t('projects.your_projects')}
-                {projects.length > 0 && (
-                  <span className="ml-1.5 text-xs font-normal" style={{ color: 'var(--dome-text-muted)' }}>
-                    ({projects.length})
-                  </span>
-                )}
-              </h3>
-              <button
-                type="button"
-                onClick={onOpenProjectLibrary}
-                className="flex items-center gap-1 text-xs"
-                style={{ color: 'var(--dome-accent)' }}
-              >
-                <FolderOpen className="size-3.5" />
-                {t('projects.open_library')}
-              </button>
-            </div>
-
-            {loading ? (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="rounded-xl border h-28 animate-pulse"
-                    style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }} />
-                ))}
-              </div>
-            ) : projects.length === 0 ? (
-              <div className="rounded-xl border border-dashed py-12 flex flex-col items-center gap-3"
-                style={{ borderColor: 'var(--dome-border)' }}>
-                <Layers3 className="size-8" style={{ color: 'var(--dome-text-muted)', opacity: 0.4 }} />
-                <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('projects.empty')}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateForm(true)}
-                  className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
-                  style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
-                >
-                  <Plus className="size-3.5" />
-                  {t('projects.create_project')}
-                </button>
-              </div>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {projects.map((project) => {
-                  const projectResources = resources.filter((r) => r.project_id === project.id);
-                  const isActive = currentProject?.id === project.id;
-                  const isSelected = selectedIds.has(project.id);
-                  const isDome = project.id === 'default';
-
-                  return (
-                    <div
+              ) : (
+                <div className="p-projects-grid">
+                  {projects.map((project) => (
+                    <ProjectCard
                       key={project.id}
-                      className="group relative rounded-xl border transition-all"
-                      style={{
-                        borderColor: isSelected
-                          ? 'var(--dome-accent)'
-                          : isActive
-                            ? 'color-mix(in srgb, var(--dome-accent) 50%, var(--dome-border))'
-                            : 'var(--dome-border)',
-                        background: isSelected
-                          ? 'color-mix(in srgb, var(--dome-accent) 8%, var(--dome-surface))'
-                          : isActive
-                            ? 'color-mix(in srgb, var(--dome-accent) 5%, var(--dome-surface))'
-                            : 'var(--dome-surface)',
-                        boxShadow: isActive ? '0 0 0 1px color-mix(in srgb, var(--dome-accent) 30%, transparent)' : 'none',
-                      }}
-                    >
-                      {/* Selection checkbox */}
-                      {selectionMode && !isDome && (
-                        <button
-                          type="button"
-                          onClick={() => toggleSelect(project.id)}
-                          className="absolute top-3 left-3 z-10 size-5 rounded flex items-center justify-center border-2 transition-colors"
-                          style={{
-                            borderColor: isSelected ? 'var(--dome-accent)' : 'var(--dome-border)',
-                            background: isSelected ? 'var(--dome-accent)' : 'var(--dome-bg)',
-                          }}
-                          aria-checked={isSelected}
-                          aria-label={t('projects.select_project_aria', { name: project.name })}
-                        >
-                          {isSelected && <Check className="size-3" style={{ color: 'var(--base-text)' }} />}
-                        </button>
-                      )}
-
-                      {/* Main card content */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (selectionMode && !isDome) { toggleSelect(project.id); return; }
-                          onSelectProject(project);
-                        }}
-                        className="w-full text-left p-4"
-                        style={{ paddingLeft: selectionMode && !isDome ? '2.5rem' : undefined }}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-semibold text-sm truncate" style={{ color: 'var(--dome-text)' }}>
-                                {project.name}
-                              </p>
-                              {isActive && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium shrink-0"
-                                  style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}>
-                                  {t('projects.active')}
-                                </span>
-                              )}
-                              <KbBadge value={kbOverrides[project.id] ?? 'inherit'} />
-                            </div>
-                            {project.description?.trim() && (
-                              <p className="mt-1 text-xs line-clamp-2" style={{ color: 'var(--dome-text-muted)' }}>
-                                {project.description}
-                              </p>
-                            )}
-                            <div className="mt-2.5 flex items-center gap-3">
-                              <span className="flex items-center gap-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-                                <Layers3 className="size-3" />
-                                {projectResources.length}
-                              </span>
-                            </div>
-                          </div>
-                          {!selectionMode && (
-                            <ArrowRight className="size-4 shrink-0 opacity-0 group-hover:opacity-60 transition-opacity mt-0.5"
-                              style={{ color: 'var(--dome-text-muted)' }} />
-                          )}
-                        </div>
-                      </button>
-
-                      {/* Actions row */}
-                      {!selectionMode && (
-                        <div className="flex items-center gap-1 px-4 pb-3 border-t"
-                          style={{ borderColor: 'var(--dome-border)' }}>
-                          {/* KB override selector */}
-                          <div className="relative flex-1">
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); setKbMenuFor(kbMenuFor === project.id ? null : project.id); }}
-                              className="flex items-center gap-1 text-[11px] pt-2"
-                              style={{ color: 'var(--dome-text-muted)' }}
-                            >
-                              <Brain className="size-3" />
-                              <span>{t('projects.kb_llm')}:</span>
-                              <span className="font-medium">
-                                {kbOverrides[project.id] === 'enabled' ? t('projects.kb_llm_on')
-                                  : kbOverrides[project.id] === 'disabled' ? t('projects.kb_llm_off')
-                                    : t('projects.kb_llm_inherit')}
-                              </span>
-                              <ChevronDown className="size-2.5" />
-                            </button>
-                            {kbMenuFor === project.id && (
-                              <div
-                                className="absolute bottom-full left-0 mb-1 rounded-lg border shadow-lg z-20 py-1 min-w-[140px]"
-                                style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-                              >
-                                {(['inherit', 'enabled', 'disabled'] as const).map((val) => (
-                                  <button
-                                    key={val}
-                                    type="button"
-                                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-[var(--dome-bg)] flex items-center justify-between"
-                                    style={{ color: 'var(--dome-text)' }}
-                                    onClick={async (e) => {
-                                      e.stopPropagation();
-                                      setKbMenuFor(null);
-                                      try {
-                                        const r = await window.electron?.kbllm?.setProjectOverride?.({ projectId: project.id, override: val });
-                                        const ok = r && typeof r === 'object' && 'success' in r && (r as { success?: boolean }).success;
-                                        if (ok) setKbOverrides((prev) => ({ ...prev, [project.id]: val }));
-                                        else showToast('error', t('settings.kb_llm.error_save'));
-                                      } catch { showToast('error', t('settings.kb_llm.error_save')); }
-                                    }}
-                                  >
-                                    {val === 'inherit' ? t('projects.kb_llm_inherit') : val === 'enabled' ? t('projects.kb_llm_on') : t('projects.kb_llm_off')}
-                                    {(kbOverrides[project.id] ?? 'inherit') === val && <Check className="size-3 opacity-70" />}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {!isDome && (
-                            <button
-                              type="button"
-                              title={t('projects.delete_project')}
-                              onClick={(e) => { e.stopPropagation(); openDeleteProject(project); }}
-                              className="shrink-0 p-1.5 rounded-lg mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[color-mix(in_srgb,var(--dome-error)_10%,transparent)]"
-                              style={{ color: 'var(--dome-error)' }}
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                      project={project}
+                      resourceCount={resourceCountByProject.get(project.id) ?? 0}
+                      isActive={currentProject?.id === project.id}
+                      isSelected={selectedIds.has(project.id)}
+                      isDome={project.id === 'default'}
+                      selectionMode={selectionMode}
+                      kbOverride={kbOverrides[project.id] ?? 'inherit'}
+                      kbMenuOpen={kbMenuFor === project.id}
+                      onSelect={() => onSelectProject(project)}
+                      onToggleSelect={() => toggleSelect(project.id)}
+                      onKbMenuToggle={() =>
+                        setKbMenuFor(kbMenuFor === project.id ? null : project.id)
+                      }
+                      onKbOverrideChange={(val) => void handleKbOverride(project.id, val)}
+                      onDelete={() => openDeleteProject(project)}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
           </div>
         </div>
       </div>
 
-      {/* ── KB dropdown backdrop ──────────────────────────────────────────── */}
-      {kbMenuFor !== null && (
+      {kbMenuFor !== null ? (
         <button
           type="button"
-          className="fixed inset-0 z-10 cursor-default border-0 p-0"
+          className="fixed inset-0 z-40 cursor-default border-0 p-0"
           style={{ background: 'transparent' }}
           aria-label={t('common.close')}
           onClick={() => setKbMenuFor(null)}
         />
-      )}
+      ) : null}
 
-      {/* ── Single delete modal ────────────────────────────────────────────── */}
       {deleteTarget ? (
         <div
           className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
@@ -687,30 +471,35 @@ export default function ProjectsDashboard({
           aria-modal="true"
           aria-labelledby="delete-project-title"
         >
-          <div
-            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border p-5 shadow-xl"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-          >
-            <h3 id="delete-project-title" className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
+          <div className="p-projects-modal">
+            <h3 id="delete-project-title" className="p-projects-modal-title">
               {t('projects.delete_critical_title')}
             </h3>
-            <p className="mt-2 text-sm font-medium" style={{ color: 'var(--dome-error)' }}>
-              {t('projects.delete_critical_warning')}
+            <p className="p-projects-modal-warning">{t('projects.delete_critical_warning')}</p>
+            <p className="p-projects-modal-body">
+              <strong style={{ color: 'var(--home-ink)' }}>{deleteTarget.name}</strong>
             </p>
-            <p className="mt-3 text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{deleteTarget.name}</p>
 
-            <div className="mt-4 rounded-xl border border-dashed p-3 text-sm" style={{ borderColor: 'var(--dome-border)' }}>
+            <div
+              className="p-projects-modal-body"
+              style={{
+                marginTop: 12,
+                padding: 12,
+                borderRadius: 12,
+                border: '1px dashed var(--home-edge)',
+              }}
+            >
               {deleteImpactLoading ? (
-                <p style={{ color: 'var(--dome-text-muted)' }}>{t('projects.loading')}</p>
+                <p>{t('projects.loading')}</p>
               ) : (
-                <ul className="list-disc space-y-1 pl-4" style={{ color: 'var(--dome-text-muted)' }}>
+                <ul className="list-disc space-y-1 pl-4">
                   {DELETE_IMPACT_ORDER.map((key) => {
                     const n = deleteImpact?.[key] ?? 0;
                     if (n <= 0) return null;
                     return (
                       <li key={key}>
                         {t(`projects.delete_impact_${key}` as 'projects.delete_impact_resources')}:{' '}
-                        <span className="tabular-nums" style={{ color: 'var(--dome-text)' }}>{n}</span>
+                        <span className="tabular-nums">{n}</span>
                       </li>
                     );
                   })}
@@ -718,7 +507,7 @@ export default function ProjectsDashboard({
               )}
             </div>
 
-            <label className="mt-4 block text-sm" style={{ color: 'var(--dome-text)' }} htmlFor="delete-project-confirm-input">
+            <label className="p-projects-modal-body block" htmlFor="delete-project-confirm-input">
               {t('projects.delete_confirm_prompt')}
             </label>
             <input
@@ -727,29 +516,39 @@ export default function ProjectsDashboard({
               value={deleteConfirmName}
               onChange={(e) => setDeleteConfirmName(e.target.value)}
               placeholder={t('projects.delete_confirm_placeholder')}
-              className="mt-2 w-full rounded-xl border px-3 py-2 text-sm outline-none"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
+              className="p-projects-field"
+              style={{ marginTop: 8 }}
             />
             {deleteConfirmName && deleteConfirmName !== deleteTarget.name ? (
-              <p className="mt-2 text-xs" style={{ color: 'var(--dome-error)' }}>{t('projects.delete_confirm_mismatch')}</p>
+              <p className="p-projects-modal-warning" style={{ marginTop: 8, fontSize: 12 }}>
+                {t('projects.delete_confirm_mismatch')}
+              </p>
             ) : null}
 
-            <div className="mt-5 flex flex-wrap justify-end gap-2">
+            <div className="p-projects-modal-actions">
               <button
                 type="button"
+                className="h-pill-btn"
                 disabled={deleteSubmitting}
-                onClick={() => { setDeleteTarget(null); setDeleteConfirmName(''); setDeleteImpact(null); }}
-                className="rounded-xl border px-4 py-2 text-sm"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                onClick={() => {
+                  setDeleteTarget(null);
+                  setDeleteConfirmName('');
+                  setDeleteImpact(null);
+                }}
               >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
-                disabled={deleteSubmitting || deleteImpactLoading || deleteConfirmName !== deleteTarget.name}
+                className="h-pill-btn primary"
+                disabled={
+                  deleteSubmitting || deleteImpactLoading || deleteConfirmName !== deleteTarget.name
+                }
                 onClick={() => void executeDeleteProject()}
-                className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
-                style={{ background: 'var(--dome-error)', color: 'var(--base-text)' }}
+                style={{
+                  background: 'var(--home-rose)',
+                  borderColor: 'var(--home-rose)',
+                }}
               >
                 {deleteSubmitting ? t('projects.delete_deleting') : t('projects.delete_execute')}
               </button>
@@ -758,57 +557,59 @@ export default function ProjectsDashboard({
         </div>
       ) : null}
 
-      {/* ── Bulk delete modal ──────────────────────────────────────────────── */}
-      {bulkDeleteOpen && (
+      {bulkDeleteOpen ? (
         <div
           className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div
-            className="w-full max-w-sm rounded-2xl border p-5 shadow-xl"
-            style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-          >
-            <h3 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
-              {t('projects.delete_critical_title')}
-            </h3>
-            <p className="mt-2 text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('projects.delete_critical_warning')}
-            </p>
-            <ul className="mt-3 space-y-1 max-h-40 overflow-y-auto">
-              {[...selectedIds].filter((id) => id !== 'default').map((id) => {
-                const p = projects.find((x) => x.id === id);
-                return p ? (
-                  <li key={id} className="text-sm px-2 py-1 rounded-lg"
-                    style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}>
-                    {p.name}
-                  </li>
-                ) : null;
-              })}
+          <div className="p-projects-modal">
+            <h3 className="p-projects-modal-title">{t('projects.delete_critical_title')}</h3>
+            <p className="p-projects-modal-body">{t('projects.delete_critical_warning')}</p>
+            <ul className="p-projects-modal-body max-h-40 overflow-y-auto space-y-1">
+              {[...selectedIds]
+                .filter((id) => id !== 'default')
+                .map((id) => {
+                  const p = projects.find((x) => x.id === id);
+                  return p ? (
+                    <li
+                      key={id}
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 8,
+                        background: 'var(--home-surface-2)',
+                      }}
+                    >
+                      {p.name}
+                    </li>
+                  ) : null;
+                })}
             </ul>
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="p-projects-modal-actions">
               <button
                 type="button"
+                className="h-pill-btn"
                 disabled={bulkDeleteSubmitting}
                 onClick={() => setBulkDeleteOpen(false)}
-                className="rounded-xl border px-4 py-2 text-sm"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
+                className="h-pill-btn primary"
                 disabled={bulkDeleteSubmitting}
                 onClick={() => void executeBulkDelete()}
-                className="rounded-xl px-4 py-2 text-sm font-medium disabled:opacity-50"
-                style={{ background: 'var(--dome-error)', color: 'var(--base-text)' }}
+                style={{
+                  background: 'var(--home-rose)',
+                  borderColor: 'var(--home-rose)',
+                }}
               >
                 {bulkDeleteSubmitting ? t('projects.delete_deleting') : t('projects.delete_execute')}
               </button>
             </div>
           </div>
         </div>
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }

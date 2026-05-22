@@ -725,18 +725,13 @@ export default function CalendarGrid({
   }, [onCurrentDateChange, onViewModeChange]);
 
   return (
-    <div className="w-full flex flex-col h-full">
-      {/* Navigation bar */}
-      <div
-        className="flex items-center justify-between px-3 py-2 border-b shrink-0"
-        style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
-      >
-        <div className="flex items-center gap-1">
+    <div className="c-calendar-grid w-full flex flex-col h-full">
+      <div className="c-cal-nav">
+        <div className="c-cal-nav-left">
           <button
             type="button"
             onClick={handlePrev}
-            className="p-1.5 rounded-lg hover:bg-[var(--dome-surface)] transition-colors"
-            style={{ color: 'var(--dome-text)' }}
+            className="c-cal-nav-btn"
             aria-label={t('common.back')}
           >
             <ChevronLeft className="size-4" />
@@ -744,38 +739,24 @@ export default function CalendarGrid({
           <button
             type="button"
             onClick={handleNext}
-            className="p-1.5 rounded-lg hover:bg-[var(--dome-surface)] transition-colors"
-            style={{ color: 'var(--dome-text)' }}
+            className="c-cal-nav-btn"
             aria-label={t('common.next')}
           >
             <ChevronRight className="size-4" />
           </button>
-          <button
-            type="button"
-            onClick={handleToday}
-            className="text-xs px-2.5 py-1 rounded-lg border hover:bg-[var(--dome-surface)] transition-colors ml-1"
-            style={{ color: 'var(--dome-text)', borderColor: 'var(--dome-border)' }}
-          >
+          <button type="button" onClick={handleToday} className="c-cal-today-btn">
             {t('calendarPage.today')}
           </button>
-          <span className="text-sm font-semibold ml-2 capitalize" style={{ color: 'var(--dome-text)' }}>
-            {headerTitle}
-          </span>
+          <span className="c-cal-nav-title">{headerTitle}</span>
         </div>
 
-        {/* View mode switcher */}
-        <div className="flex rounded-lg border overflow-hidden" style={{ borderColor: 'var(--dome-border)' }}>
-          {MODES.map((m, i) => (
+        <div className="c-cal-mode-switch">
+          {MODES.map((m) => (
             <button
               key={m}
               type="button"
               onClick={() => onViewModeChange(m)}
-              className="text-[11px] px-3 py-1 transition-colors"
-              style={{
-                background: m === viewMode ? 'var(--dome-accent)' : 'var(--dome-surface)',
-                color: m === viewMode ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text-muted)',
-                borderRight: i < MODES.length - 1 ? '1px solid var(--dome-border)' : undefined,
-              }}
+              className={`c-cal-mode-btn ${m === viewMode ? 'is-active' : ''}`}
             >
               {modeLabels[m]}
             </button>

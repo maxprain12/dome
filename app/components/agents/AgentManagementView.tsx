@@ -44,6 +44,7 @@ import HubListState from '@/components/ui/HubListState';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeButton from '@/components/ui/DomeButton';
 import HubBentoCard from '@/components/ui/HubBentoCard';
+import { useEditorialHub } from '@/lib/context/EditorialHubContext';
 
 const DND_AGENT_MIME = 'application/x-dome-agent-id';
 
@@ -106,6 +107,7 @@ interface AgentManagementViewProps {
 
 export default function AgentManagementView({ onAgentSelect, onShowAutomations }: AgentManagementViewProps) {
   const { t } = useTranslation();
+  const editorialHub = useEditorialHub();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [folders, setFolders] = useState<DomeAgentFolder[]>([]);
@@ -643,6 +645,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
         <HubToolbar
           dense
           leading={
+            editorialHub ? undefined : (
             <HubTitleBlock
               icon={Bot}
               title={t('agents.agent_library')}
@@ -652,6 +655,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                   : t('agents.agents_configured_other', { count: agents.length })
               }
             />
+            )
           }
           center={
             <HubSearchField

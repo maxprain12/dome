@@ -889,6 +889,34 @@ function persistAssistantMessage(sessionId, payload) {
   );
 }
 
+function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
+  if (!sessionId) {
+    if (persistOpts.ownerType === 'many') {
+      console.warn('[RunEngine] Many run completed without sessionId — assistant reply not saved to chat_messages');
+    }
+    return;
+  }
+  try {
+    persistAssistantMessage(sessionId, {
+      content: context.fullResponse,
+      toolCalls: context.toolCalls,
+      thinking: context.fullThinking,
+      metadata: {
+        mode: persistOpts.ownerType,
+        runId: persistOpts.runId,
+      },
+      mode: persistOpts.ownerType === 'agent' ? 'agent' : 'many',
+      contextId: persistOpts.contextId ?? null,
+      threadId: context.threadId,
+      title: persistOpts.sessionTitle ?? null,
+      toolIds: persistOpts.toolIds ?? [],
+      mcpServerIds: persistOpts.mcpServerIds ?? [],
+    });
+  } catch (e) {
+    console.warn('[RunEngine] Could not persist assistant message to DB:', e?.message);
+  }
+}
+
 function createRunChunkEmitter(runId, context) {
   return (data) => {
     const heartbeat = now();
@@ -1014,6 +1042,9 @@ async function executeLangGraphRun(runId, params) {
       mcpServerIds: params.mcpServerIds ?? [],
       subagentIds: params.ownerType === 'many' ? [] : (params.subagentIds ?? []),
       title: params.title ?? '',
+      contextId: params.contextId ?? null,
+      sessionTitle: params.sessionTitle ?? null,
+      toolIds: params.toolIds ?? [],
     },
   });
   appendRunStep({
@@ -1065,25 +1096,18 @@ async function executeLangGraphRun(runId, params) {
       return getRun(runId);
     }
     if (params.sessionId) {
-      try {
-        persistAssistantMessage(params.sessionId, {
-          content: context.fullResponse,
-          toolCalls: context.toolCalls,
-          thinking: context.fullThinking,
-          metadata: {
-            mode: params.ownerType,
-            runId,
-          },
-          mode: params.ownerType === 'agent' ? 'agent' : 'many',
+      tryPersistRunAssistantMessage(
+        params.sessionId,
+        {
+          ownerType: params.ownerType,
+          runId,
           contextId: params.contextId ?? null,
-          threadId: context.threadId,
-          title: params.sessionTitle ?? null,
+          sessionTitle: params.sessionTitle ?? null,
           toolIds: params.toolIds ?? [],
           mcpServerIds: params.mcpServerIds ?? [],
-        });
-      } catch (e) {
-        console.warn('[RunEngine] Could not persist assistant message to DB:', e?.message);
-      }
+        },
+        context,
+      );
     }
     appendRunStep({
       runId,
@@ -1314,6 +1338,19 @@ async function resumeRun(runId, decisions) {
     if (latest?.status === 'waiting_approval') {
       return latest;
     }
+    const runMeta = run.metadata ?? {};
+    tryPersistRunAssistantMessage(
+      run.sessionId,
+      {
+        ownerType: run.ownerType,
+        runId: run.id,
+        contextId: runMeta.contextId ?? null,
+        sessionTitle: runMeta.sessionTitle ?? run.title ?? null,
+        toolIds: Array.isArray(runMeta.toolIds) ? runMeta.toolIds : [],
+        mcpServerIds: lgOpts.mcpServerIds ?? runMeta.mcpServerIds ?? [],
+      },
+      context,
+    );
     return patchRun(runId, {
       status: 'completed',
       outputText: context.fullResponse,

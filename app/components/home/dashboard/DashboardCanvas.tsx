@@ -30,8 +30,9 @@ import {
   Search,
   Zap,
   BarChart2,
-  CheckSquare,
   PlayCircle,
+  Target,
+  Columns2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type {
@@ -63,11 +64,11 @@ const ACTION_ICONS: Record<HomeQuickActionId, LucideIcon> = {
 
 const SECTION_ICONS: Record<string, LucideIcon> = {
   hero: Pencil,
+  dailyGoals: Target,
+  todayColumns: Columns2,
   search: Search,
   quickActions: Zap,
   momentum: BarChart2,
-  weeklyActivity: Layers,
-  pendingToday: CheckSquare,
   continueActivity: PlayCircle,
 };
 
@@ -75,15 +76,28 @@ type WidgetKey = keyof HomeDashboardWidgets;
 
 function widgetKeyForId(id: DashboardLayoutWidgetId): WidgetKey | null {
   switch (id) {
+    case 'dailyGoals':
+      return 'dailyGoals';
     case 'search':
     case 'momentum':
-    case 'weeklyActivity':
-    case 'pendingToday':
     case 'continueActivity':
       return id;
+    case 'todayColumns':
+      return null;
     default:
       return null;
   }
+}
+
+function hideTodayColumns(preferences: HomeDashboardPreferences): HomeDashboardPreferences {
+  return {
+    ...preferences,
+    widgets: {
+      ...preferences.widgets,
+      pendingToday: false,
+      weeklyActivity: false,
+    },
+  };
 }
 
 // ─── Slots type ──────────────────────────────────────────────────────────────
@@ -198,6 +212,10 @@ export function DashboardCanvas({
 
   const hideSection = useCallback(
     (id: DashboardLayoutWidgetId) => {
+      if (id === 'todayColumns') {
+        void onUpdatePreferences(hideTodayColumns(preferences));
+        return;
+      }
       const wk = widgetKeyForId(id);
       if (!wk) return;
       void onUpdatePreferences({ ...preferences, widgets: { ...preferences.widgets, [wk]: false } });
@@ -205,8 +223,21 @@ export function DashboardCanvas({
     [preferences, onUpdatePreferences],
   );
 
-  const showWidget = useCallback(
-    (wk: WidgetKey) => {
+  const showSection = useCallback(
+    (id: DashboardLayoutWidgetId) => {
+      if (id === 'todayColumns') {
+        void onUpdatePreferences({
+          ...preferences,
+          widgets: {
+            ...preferences.widgets,
+            pendingToday: true,
+            weeklyActivity: true,
+          },
+        });
+        return;
+      }
+      const wk = widgetKeyForId(id);
+      if (!wk) return;
       void onUpdatePreferences({ ...preferences, widgets: { ...preferences.widgets, [wk]: true } });
     },
     [preferences, onUpdatePreferences],
@@ -281,7 +312,7 @@ export function DashboardCanvas({
               <ul className="space-y-1.5">
                 {reorderableSections.map((id, _i) => {
                   const isVisible = visibleIds.has(id) && slots[id] != null;
-                  const canHide = widgetKeyForId(id) != null;
+                  const canHide = id === 'todayColumns' || widgetKeyForId(id as DashboardLayoutWidgetId) != null;
                   const Icon = SECTION_ICONS[id] ?? Layers;
                   // index within reorderable (for move buttons)
                   const posInVisible = reorderableVisible.indexOf(id);
@@ -354,7 +385,7 @@ export function DashboardCanvas({
                             onClick={() =>
                               isVisible
                                 ? hideSection(id as DashboardLayoutWidgetId)
-                                : showWidget(widgetKeyForId(id as DashboardLayoutWidgetId)!)
+                                : showSection(id as DashboardLayoutWidgetId)
                             }
                             aria-label={isVisible ? t('dashboard.hide_widget') : t('dashboard.show_widget')}
                             style={{ color: isVisible ? 'var(--dome-text-muted)' : 'var(--dome-accent, var(--accent))' }}
@@ -372,7 +403,7 @@ export function DashboardCanvas({
                 className="mt-3 text-[11px] leading-relaxed"
                 style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
               >
-                {t('dashboard.drag_hint')}
+                {t('dashboard.reorder_hint')}
               </p>
             </div>
 
@@ -480,7 +511,7 @@ export function DashboardCanvas({
         {visibleSections.map((id, _i) => {
           const node = slots[id];
           if (node == null) return null;
-          const canHide = widgetKeyForId(id) != null;
+          const canHide = id === 'todayColumns' || widgetKeyForId(id) != null;
           // Position among non-hero visible sections for move buttons
           const isHero = id === 'hero';
           const posInReorderable = (reorderableVisible as string[]).indexOf(id);

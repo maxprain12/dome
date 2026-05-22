@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import { useTabStore } from '@/lib/store/useTabStore';
@@ -6,20 +6,32 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useDashboardData } from '@/lib/hooks/useDashboardData';
 import type { ActivityItem, PendingTodayItem } from '@/lib/hooks/useDashboardData';
-import { InlineSearch } from '@/components/Search/SimpleSearch';
+import type { DailyGoalId } from '@/lib/hooks/dashboardGamification';
 import { showToast } from '@/lib/store/useToastStore';
 import type { HomeQuickActionId } from '@/types';
-import { DashboardHero } from '@/components/home/dashboard/DashboardHero';
-import { DashboardQuickActions } from '@/components/home/dashboard/DashboardQuickActions';
-import { DashboardMomentum } from '@/components/home/dashboard/DashboardMomentum';
-import { DashboardWeeklyActivity } from '@/components/home/dashboard/DashboardWeeklyActivity';
-import { DashboardPending } from '@/components/home/dashboard/DashboardPending';
-import { DashboardActivityContinue } from '@/components/home/dashboard/DashboardActivityContinue';
 import { DashboardCanvas } from '@/components/home/dashboard/DashboardCanvas';
+import { EditorialHero } from '@/components/home/dashboard/editorial/EditorialHero';
+import { DailyGoals } from '@/components/home/dashboard/editorial/DailyGoals';
+import { TodayBrief } from '@/components/home/dashboard/editorial/TodayBrief';
+import { ActivityHeatmap } from '@/components/home/dashboard/editorial/ActivityHeatmap';
+import { TodayColumns } from '@/components/home/dashboard/editorial/TodayColumns';
+import { PulseStats } from '@/components/home/dashboard/editorial/PulseStats';
+import { HomeSearchBar } from '@/components/home/dashboard/editorial/HomeSearchBar';
+import { EditorialQuickActions } from '@/components/home/dashboard/editorial/EditorialQuickActions';
+import { ContinueActivityList } from '@/components/home/dashboard/editorial/ContinueActivityList';
+
+const QUICK_KBD: Record<string, HomeQuickActionId> = {
+  n: 'newNote',
+  u: 'upload',
+  c: 'newChat',
+  l: 'learn',
+  g: 'calendar',
+};
 
 export default function DashboardView() {
   const { t } = useTranslation();
   const { name } = useUserStore();
+  const activeTabId = useTabStore((s) => s.activeTabId);
   const {
     openResourceTab,
     openFolderTab,
@@ -42,27 +54,44 @@ export default function DashboardView() {
   const homeDashboard = useAppStore((s) => s.homeDashboard);
   const updateHomeDashboard = useAppStore((s) => s.updateHomeDashboard);
 
-  const { stats, activity, gamification, activityDayCounts, pendingToday, loading } = useDashboardData(
-    currentProject?.id ?? 'default',
-  );
+  const {
+    stats,
+    statsDeltas,
+    activity,
+    gamification,
+    activityDayCounts,
+    pendingToday,
+    loading,
+  } = useDashboardData(currentProject?.id ?? 'default');
 
   const [isEditing, setIsEditing] = useState(false);
 
   const firstName = name?.split(' ')[0] || '';
-
   const widgets = homeDashboard.widgets;
+  const appearance = homeDashboard.appearance;
   const quickActionsOrder = homeDashboard.quickActions;
 
   const visibleIds = useMemo(() => {
     const s = new Set<string>(['hero']);
+    if (widgets.dailyGoals) s.add('dailyGoals');
+    if (widgets.pendingToday || widgets.weeklyActivity) s.add('todayColumns');
+    if (widgets.momentum) s.add('momentum');
     if (widgets.search) s.add('search');
     if (quickActionsOrder.length > 0) s.add('quickActions');
-    if (widgets.momentum) s.add('momentum');
-    if (widgets.weeklyActivity) s.add('weeklyActivity');
-    if (widgets.pendingToday) s.add('pendingToday');
     if (widgets.continueActivity) s.add('continueActivity');
     return s;
   }, [widgets, quickActionsOrder]);
+
+  const shellAttrs = useMemo(
+    () => ({
+      'data-home-layout': appearance.layout,
+      'data-home-width': appearance.width,
+      'data-home-density': appearance.density,
+      'data-home-hero': appearance.heroStyle,
+      'data-home-edit': isEditing ? 'true' : 'false',
+    }),
+    [appearance, isEditing],
+  );
 
   const handleResourceSelect = useCallback(
     (resource: { id: string; type: string; title: string }) => {
@@ -168,44 +197,121 @@ export default function DashboardView() {
     [openFolderTab, openResourceTab, openChatTab, t],
   );
 
+  const onGoalClick = useCallback(
+    (id: DailyGoalId) => {
+      if (id === 'write') {
+        void handleNewNote();
+        return;
+      }
+      if (id === 'think') {
+        void handleNewChat();
+        return;
+      }
+      openAgentsTab();
+    },
+    [handleNewNote, handleNewChat, openAgentsTab],
+  );
+
+  const onAskMany = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
+  }, []);
+
+  useEffect(() => {
+    if (activeTabId !== 'home') return undefined;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      const action = QUICK_KBD[e.key.toLowerCase()];
+      if (action) {
+        e.preventDefault();
+        onQuickAction(action);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeTabId, onQuickAction]);
+
   return (
-    <div className="h-full overflow-y-auto" style={{ background: 'var(--dome-bg)' }}>
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
-        <DashboardCanvas
-          isEditing={isEditing}
-          preferences={homeDashboard}
-          onUpdatePreferences={updateHomeDashboard}
-          visibleIds={visibleIds}
-          slots={{
-            hero: (
-              <DashboardHero
-                nameFirst={firstName}
-                gamification={gamification}
-                loading={loading}
-                isEditing={isEditing}
-                onStartCustomize={() => setIsEditing(true)}
-                onDoneEditing={() => setIsEditing(false)}
-              />
-            ),
-            search: widgets.search ? <InlineSearch onResourceSelect={handleResourceSelect} /> : undefined,
-            quickActions:
-              quickActionsOrder.length > 0 ? (
-                <DashboardQuickActions orderedIds={quickActionsOrder} onAction={onQuickAction} />
+    <div className="home-shell" {...shellAttrs}>
+      <div className="home-scroll">
+        <div className="home-canvas">
+          {isEditing ? (
+            <div className="edit-toolbar">
+              <span>{t('dashboard.edit_toolbar_hint')}</span>
+              <span className="spacer" />
+              <button type="button" className="h-pill-btn primary" onClick={() => setIsEditing(false)}>
+                {t('dashboard.edit_mode_done')}
+              </button>
+            </div>
+          ) : null}
+
+          <DashboardCanvas
+            isEditing={isEditing}
+            preferences={homeDashboard}
+            onUpdatePreferences={updateHomeDashboard}
+            visibleIds={visibleIds}
+            slots={{
+              hero: (
+                <EditorialHero
+                  nameFirst={firstName}
+                  gamification={gamification}
+                  loading={loading}
+                  isEditing={isEditing}
+                  onStartCustomize={() => setIsEditing(true)}
+                  onDoneEditing={() => setIsEditing(false)}
+                  onAskMany={onAskMany}
+                />
+              ),
+              dailyGoals: widgets.dailyGoals ? (
+                <DailyGoals gamification={gamification} loading={loading} onGoalClick={onGoalClick} />
               ) : undefined,
-            momentum: widgets.momentum ? (
-              <DashboardMomentum stats={stats} gamification={gamification} loading={loading} />
-            ) : undefined,
-            weeklyActivity: widgets.weeklyActivity ? (
-              <DashboardWeeklyActivity activityDayCounts={activityDayCounts} loading={loading} />
-            ) : undefined,
-            pendingToday: widgets.pendingToday ? (
-              <DashboardPending items={pendingToday} loading={loading} onItemClick={onPendingClick} />
-            ) : undefined,
-            continueActivity: widgets.continueActivity ? (
-              <DashboardActivityContinue activity={activity} loading={loading} onContinue={onContinueActivity} />
-            ) : undefined,
-          }}
-        />
+              todayColumns:
+                widgets.pendingToday || widgets.weeklyActivity ? (
+                  <TodayColumns
+                    left={
+                      widgets.pendingToday ? (
+                        <TodayBrief items={pendingToday} loading={loading} onItemClick={onPendingClick} />
+                      ) : undefined
+                    }
+                    right={
+                      widgets.weeklyActivity ? (
+                        <ActivityHeatmap activityDayCounts={activityDayCounts} loading={loading} />
+                      ) : undefined
+                    }
+                  />
+                ) : undefined,
+              momentum: widgets.momentum ? (
+                <PulseStats
+                  stats={stats}
+                  deltas={statsDeltas}
+                  loading={loading}
+                  onOpenAnalytics={openAgentsTab}
+                />
+              ) : undefined,
+              search: widgets.search ? (
+                <HomeSearchBar onResourceSelect={handleResourceSelect} />
+              ) : undefined,
+              quickActions:
+                quickActionsOrder.length > 0 ? (
+                  <EditorialQuickActions
+                    orderedIds={quickActionsOrder}
+                    onAction={onQuickAction}
+                    onManage={() => setIsEditing(true)}
+                  />
+                ) : undefined,
+              continueActivity: widgets.continueActivity ? (
+                <ContinueActivityList
+                  activity={activity}
+                  loading={loading}
+                  onContinue={onContinueActivity}
+                  onViewAll={() => openFolderTab(currentProject?.id ?? 'default', currentProject?.name ?? 'Home')}
+                />
+              ) : undefined,
+            }}
+          />
+        </div>
       </div>
     </div>
   );
