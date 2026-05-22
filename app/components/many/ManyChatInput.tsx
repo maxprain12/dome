@@ -3,24 +3,29 @@ import { memo, useCallback, useEffect, useRef, useState, type Dispatch, type Set
 import { createPortal } from 'react-dom';
 import {
   ArrowUp,
-  StopCircle,
-  FileText,
+  AtSign,
+  BookOpen,
+  Brain,
+  Globe,
   Plus,
+  Slash,
+  StopCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 import { useManyStore } from '@/lib/store/useManyStore';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
+import { newAttachmentId } from '@/lib/chat/attachmentTypes';
 import { processAttachmentFile } from '@/lib/chat/processAttachmentFile';
 import { ChatComposerPlusMenuContent, type ChatComposerSkillsHandlers } from '@/components/chat/ChatComposerPlusMenu';
 import { ChatSkillChip } from '@/components/chat/ChatSkillChip';
 import {
   AI_COMPOSER_INPUT_HANDLER,
   AI_COMPOSER_TEXTAREA_CLASS,
-  AIComposerAttachmentTray,
   AIComposerFrame,
-  AIComposerPinnedResourceChip,
 } from '@/components/chat/AIComposer';
+import ManyComposerAttachmentRow from './ManyComposerAttachmentRow';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useResourceMention } from '@/lib/chat/useResourceMention';
 import { useSlashSkills, type SlashSkillItem } from '@/lib/chat/useSlashSkills';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
@@ -33,9 +38,11 @@ export interface ManyChatInputProps {
   isLoading: boolean;
   toolsEnabled: boolean;
   resourceToolsEnabled: boolean;
+  memoryEnabled?: boolean;
   mcpEnabled: boolean;
   setToolsEnabled: (v: boolean) => void;
   setResourceToolsEnabled: (v: boolean) => void;
+  setMemoryEnabled?: (v: boolean) => void;
   setMcpEnabled: (v: boolean) => void;
   supportsTools: boolean;
   hasMcp: boolean;
@@ -47,6 +54,8 @@ export interface ManyChatInputProps {
   onAttachmentsChange?: (items: ChatAttachment[]) => void;
   /** `full` = slash skills, nested + menu, inline model switcher; `legacy` = previous single-scroll + menu */
   variant?: 'full' | 'legacy';
+  /** Show Enter / Shift+Enter hint under the composer (Many redesign). */
+  showComposerKeyboardHint?: boolean;
 }
 
 export default memo(function ManyChatInput({
@@ -56,9 +65,11 @@ export default memo(function ManyChatInput({
   isLoading,
   toolsEnabled,
   resourceToolsEnabled,
+  memoryEnabled = true,
   mcpEnabled,
   setToolsEnabled,
   setResourceToolsEnabled,
+  setMemoryEnabled,
   setMcpEnabled,
   supportsTools,
   hasMcp,
@@ -69,6 +80,7 @@ export default memo(function ManyChatInput({
   attachments = [],
   onAttachmentsChange,
   variant = 'full',
+  showComposerKeyboardHint = true,
 }: ManyChatInputProps) {
   const { t } = useTranslation();
   const enhanced = variant === 'full';
@@ -165,12 +177,22 @@ export default memo(function ManyChatInput({
   const handlePickFiles = useCallback(
     async (fileList: FileList | null) => {
       if (!fileList?.length || !onAttachmentsChange) return;
-      const next: ChatAttachment[] = [...attachments];
+      let working = [...attachments];
       for (const file of Array.from(fileList)) {
+        const isImage = file.type.startsWith('image/');
+        const pendingId = isImage ? null : newAttachmentId();
+        if (pendingId) {
+          working = [
+            ...working,
+            { id: pendingId, kind: 'document' as const, name: file.name, text: null, status: 'loading' as const },
+          ];
+          onAttachmentsChange(working);
+        }
         const a = await processAttachmentFile(file);
-        if (a) next.push(a);
+        working = pendingId ? working.filter((item) => item.id !== pendingId) : working;
+        if (a) working = [...working, a];
+        onAttachmentsChange(working);
       }
-      onAttachmentsChange(next);
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
     [attachments, onAttachmentsChange],
@@ -179,6 +201,25 @@ export default memo(function ManyChatInput({
   const insertAtSymbol = useCallback(() => {
     mention.insertAtSymbol();
   }, [mention]);
+
+  const insertSlashToken = useCallback(() => {
+    const el = inputRef.current;
+    const cursor = el?.selectionStart ?? input.length;
+    const before = input.slice(0, cursor);
+    const after = input.slice(cursor);
+    const needsSpace = before.length > 0 && !/\s$/.test(before);
+    const token = `${needsSpace ? ' ' : ''}/`;
+    const next = `${before}${token}${after}`;
+    setInput(next);
+    const nextCursor = before.length + token.length;
+    requestAnimationFrame(() => {
+      if (el) {
+        el.focus();
+        el.setSelectionRange(nextCursor, nextCursor);
+      }
+      slash.updateFromText(next, nextCursor);
+    });
+  }, [input, inputRef, setInput, slash]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -255,19 +296,15 @@ export default memo(function ManyChatInput({
 
   return (
     <div className={outerCls}>
-      {(pinnedResources.length > 0 ||
-        (enhanced && (pendingOneShotSkillId || activeStickySkillId))) && (
-        <div className={`flex flex-wrap gap-1.5 mb-2 ${isWelcomeScreen ? 'justify-center' : ''}`}>
-          {pinnedResources.map((resource) => (
-            <AIComposerPinnedResourceChip key={resource.id} resource={resource} onRemove={removePinnedResource} />
-          ))}
-          {enhanced && pendingOneShotSkillId ? (
+      {enhanced && (pendingOneShotSkillId || activeStickySkillId) ? (
+        <div className={`mb-2 flex flex-wrap gap-1.5 ${isWelcomeScreen ? 'justify-center' : ''}`}>
+          {pendingOneShotSkillId ? (
             <ChatSkillChip
               label={skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId}
               onRemove={() => setPendingOneShotSkill(null)}
             />
           ) : null}
-          {enhanced && activeStickySkillId ? (
+          {activeStickySkillId ? (
             <ChatSkillChip
               sticky
               label={skillLabels[activeStickySkillId] || activeStickySkillId}
@@ -275,7 +312,7 @@ export default memo(function ManyChatInput({
             />
           ) : null}
         </div>
-      )}
+      ) : null}
 
       <AIComposerFrame
         containerRef={containerRef}
@@ -296,12 +333,12 @@ export default memo(function ManyChatInput({
           void handlePickFiles(e.dataTransfer?.files ?? null);
         }}
       >
-        {onAttachmentsChange ? (
-          <AIComposerAttachmentTray
-            attachments={attachments}
-            onRemove={(id) => onAttachmentsChange(attachments.filter((item) => item.id !== id))}
-          />
-        ) : null}
+        <ManyComposerAttachmentRow
+          attachments={attachments}
+          pinnedResources={pinnedResources}
+          onRemoveAttachment={(id) => onAttachmentsChange?.(attachments.filter((item) => item.id !== id))}
+          onRemovePinned={removePinnedResource}
+        />
         {onAttachmentsChange ? (
           <input
             ref={fileInputRef}
@@ -335,47 +372,105 @@ export default memo(function ManyChatInput({
             inputPlaceholderOverride != null && inputPlaceholderOverride !== ''
               ? inputPlaceholderOverride
               : isWelcomeScreen
-                ? t('chat.ask_placeholder')
-                : resourceToolsEnabled
-                  ? t('many.input_placeholder_docs')
-                  : toolsEnabled
-                    ? t('many.input_placeholder_web')
-                    : t('many.input_placeholder_docs')
+                ? t('many.input_placeholder_docs')
+                : t('many.input_placeholder_many')
           }
           disabled={isLoading}
           rows={isWelcomeScreen ? 2 : 1}
           className={AI_COMPOSER_TEXTAREA_CLASS}
           style={{
-            lineHeight: '1.6',
+            lineHeight: '1.55',
             border: 'none',
             boxShadow: 'none',
-            minHeight: isWelcomeScreen ? 72 : 48,
+            padding: isWelcomeScreen ? '20px 22px 8px' : '14px 18px 6px',
+            minHeight: isWelcomeScreen ? 72 : 24,
             maxHeight: 200,
           }}
         />
 
-        <div className="flex min-w-0 items-center justify-between gap-2 px-3 pb-3">
-          <div className="flex min-w-0 flex-1 items-center gap-1">
-              <button
+        <div className="many-composer-tools">
+          <button
+            type="button"
+            ref={buttonRef}
+            onClick={() => setShowDropdown(!showDropdown)}
+            className={`many-composer-icon-btn ${
+              showDropdown || hasActiveCapabilities ? 'many-composer-icon-btn--active' : ''
+            }`}
+            title={t('chat.compose_more')}
+            aria-haspopup="menu"
+            aria-expanded={showDropdown}
+            aria-label={t('chat.compose_more')}
+          >
+            <Plus size={15} strokeWidth={2} />
+          </button>
+
+          <button
+            type="button"
+            onClick={insertAtSymbol}
+            className="many-composer-icon-btn"
+            title={t('many.add_to_context')}
+            aria-label={t('many.add_to_context')}
+          >
+            <AtSign size={14} strokeWidth={2} />
+          </button>
+
+          {enhanced ? (
+            <button
               type="button"
-              ref={buttonRef}
-              onClick={() => setShowDropdown(!showDropdown)}
-              className={`flex size-8 shrink-0 items-center justify-center rounded-full transition-all ${
-                showDropdown || hasActiveCapabilities
-                  ? 'bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]'
-                  : 'text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--secondary-text)]'
-              }`}
-              title={t('chat.compose_more')}
-              aria-haspopup="menu"
-              aria-expanded={showDropdown}
-              aria-label={t('chat.compose_more')}
+              onClick={insertSlashToken}
+              className={`many-composer-icon-btn ${slash.slashActive ? 'many-composer-icon-btn--active' : ''}`}
+              title={t('chat.slash_skills_title')}
+              aria-label={t('chat.slash_skills_title')}
             >
-              <Plus size={18} strokeWidth={2} />
+              <Slash size={13} strokeWidth={2} />
             </button>
+          ) : null}
 
-            {enhanced ? <InlineModelSwitcher /> : null}
+          {supportsTools ? <span className="many-composer-divider" aria-hidden /> : null}
 
-            {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
+          {supportsTools ? (
+            <>
+              <button
+                type="button"
+                className={`many-tool-toggle ${toolsEnabled ? 'many-tool-toggle--on' : ''}`}
+                onClick={() => setToolsEnabled(!toolsEnabled)}
+                title={t('chat.capability_web')}
+              >
+                <Globe size={12} strokeWidth={2} />
+                <span>{t('chat.capability_web')}</span>
+              </button>
+              {setMemoryEnabled ? (
+                <button
+                  type="button"
+                  className={`many-tool-toggle ${memoryEnabled ? 'many-tool-toggle--on' : ''}`}
+                  onClick={() => setMemoryEnabled(!memoryEnabled)}
+                  title={t('many.capability_memory')}
+                >
+                  <Brain size={12} strokeWidth={2} />
+                  <span>{t('many.capability_memory')}</span>
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={`many-tool-toggle ${resourceToolsEnabled ? 'many-tool-toggle--on' : ''}`}
+                onClick={() => setResourceToolsEnabled(!resourceToolsEnabled)}
+                title={t('chat.capability_resources')}
+              >
+                <BookOpen size={12} strokeWidth={2} />
+                <span>{t('chat.capability_resources')}</span>
+              </button>
+            </>
+          ) : null}
+
+          <span className="many-composer-tools__spacer" aria-hidden />
+
+          {enhanced ? (
+            <span className="many-model-pill shrink min-w-0">
+              <InlineModelSwitcher />
+            </span>
+          ) : null}
+
+          {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
               <div
                 ref={dropdownRef}
                 className="fixed z-[var(--z-popover)]"
@@ -419,40 +514,47 @@ export default memo(function ManyChatInput({
               </div>,
               document.body
             )}
-          </div>
 
-          <div className="flex shrink-0 items-center gap-2">
-            {isLoading ? (
-              <button
-                type="button"
-                onClick={onAbort}
-                className="flex size-9 items-center justify-center rounded-full transition-all"
-                style={{ background: 'var(--primary-text)', color: 'var(--bg)' }}
-                title={t('chat.stop')}
-                aria-label={t('chat.stop')}
-              >
-                <StopCircle size={16} />
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={onSend}
-                disabled={!input.trim() && attachments.length === 0}
-                className="flex size-9 items-center justify-center rounded-full transition-all"
-                style={{
-                  background: input.trim() || attachments.length > 0 ? 'var(--primary-text)' : 'var(--bg-tertiary)',
-                  color: input.trim() || attachments.length > 0 ? 'var(--bg)' : 'var(--tertiary-text)',
-                  opacity: input.trim() || attachments.length > 0 ? 1 : 0.5,
-                }}
-                title={t('chat.send')}
-                aria-label={t('chat.send')}
-              >
-                <ArrowUp size={17} strokeWidth={2.5} />
-              </button>
-            )}
-          </div>
+          {isLoading ? (
+            <button
+              type="button"
+              onClick={onAbort}
+              className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all"
+              style={{ background: 'var(--error)', color: 'var(--base-text, #ffffff)' }}
+              title={t('chat.stop')}
+              aria-label={t('chat.stop')}
+            >
+              <StopCircle size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSend}
+              disabled={!input.trim() && attachments.length === 0}
+              className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-50"
+              style={{
+                background:
+                  input.trim() || attachments.length > 0 ? 'var(--accent)' : 'var(--bg-tertiary)',
+                color:
+                  input.trim() || attachments.length > 0
+                    ? 'var(--base-text, #ffffff)'
+                    : 'var(--quaternary-text)',
+              }}
+              title={t('chat.send')}
+              aria-label={t('chat.send')}
+            >
+              <ArrowUp size={16} strokeWidth={2.4} />
+            </button>
+          )}
         </div>
       </AIComposerFrame>
+
+      {showComposerKeyboardHint && !isWelcomeScreen ? (
+        <p className="many-composer-hint px-1">
+          <kbd>↵</kbd> {t('many.composer_hint_send')} · <kbd>⇧↵</kbd> {t('many.composer_hint_newline')} ·{' '}
+          <kbd>/</kbd> {t('many.composer_hint_skills')} · <kbd>@</kbd> {t('many.composer_hint_docs')}
+        </p>
+      ) : null}
 
       {enhanced && slash.slashActive && slash.slashRect && typeof document !== 'undefined' && createPortal(
         <div
@@ -553,7 +655,7 @@ export default memo(function ManyChatInput({
                   fontSize: 13,
                 }}
               >
-                <FileText size={12} style={{ flexShrink: 0, color: 'var(--tertiary-text)' }} />
+                <DomeResourceIcon type={resource.type} name={resource.title} size={12} className="shrink-0 text-[var(--tertiary-text)]" />
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {resource.title}
                 </span>

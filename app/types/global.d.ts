@@ -191,7 +191,7 @@ declare global {
         readFileAsText: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
         readAttachment: (filePath: string) => Promise<{
           success: boolean;
-          data?: { name: string; text: string | null };
+          data?: { name: string; text: string | null; pageCount?: number | null };
           error?: string;
         }>;
         writeFile: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>;

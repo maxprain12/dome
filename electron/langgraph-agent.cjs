@@ -988,12 +988,14 @@ async function createConfiguredLangGraphAgent(llm, opts) {
 
   const runtimeContext = parseRuntimeContext(runtimeContextRaw);
 
-  const toolContext = (automationProjectId || runtimeContext)
-    ? {
-        ...(automationProjectId ? { automationProjectId } : {}),
-        ...(runtimeContext ? { runtimeContext } : {}),
-      }
-    : null;
+  const toolContext =
+    automationProjectId || runtimeContext || opts.senderWebContentsId != null
+      ? {
+          ...(automationProjectId ? { automationProjectId } : {}),
+          ...(runtimeContext ? { runtimeContext } : {}),
+          ...(opts.senderWebContentsId != null ? { senderWebContentsId: opts.senderWebContentsId } : {}),
+        }
+      : null;
 
   const rtEmittedCallIds = new Set();
   const rtEmittedResultIds = new Set();

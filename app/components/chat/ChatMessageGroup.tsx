@@ -2,7 +2,7 @@
 import { memo } from 'react';
 import { User } from 'lucide-react';
 import ChatMessage, { type ChatMessageData, type ChatSurfaceVariant } from './ChatMessage';
-import ManyAvatar from '@/components/many/ManyAvatar';
+import ManyAvatar, { type ManyAvatarState } from '@/components/many/ManyAvatar';
 
 /**
  * ChatMessageGroup - Groups consecutive messages from the same role
@@ -19,6 +19,8 @@ interface ChatMessageGroupProps {
   showAvatar?: boolean;
   /** Visual skin for Many panel vs default agent chat */
   surfaceVariant?: ChatSurfaceVariant;
+  /** State of the last message in this group — drives avatar animation */
+  assistantState?: ManyAvatarState;
   className?: string;
 }
 
@@ -29,6 +31,7 @@ export default memo(function ChatMessageGroup({
   assistantAvatarSrc,
   showAvatar = true,
   surfaceVariant = 'default',
+  assistantState = 'idle',
   className = '',
 }: ChatMessageGroupProps) {
   const firstMessage = messages[0];
@@ -39,14 +42,15 @@ export default memo(function ChatMessageGroup({
   const isUser = role === 'user';
   const isAssistant = role === 'assistant';
   const showThreadRule = surfaceVariant === 'many' && isAssistant && showAvatar;
+  const hideUserAvatar = surfaceVariant === 'many' && isUser;
 
   return (
     <div
-      className={`flex ${isUser ? 'flex-row-reverse gap-3' : showThreadRule ? 'gap-2' : 'gap-3'} ${className}`}
+      className={`flex ${isUser ? `flex-row-reverse ${hideUserAvatar ? 'gap-1' : 'gap-3'}` : showThreadRule ? 'gap-2' : 'gap-3'} ${className}`}
     >
       {/* Avatar - only for first message in group */}
-      <div className={`flex-shrink-0 ${showAvatar ? 'w-8' : 'w-0 overflow-hidden'}`}>
-        {isAssistant ? (
+      <div className={`flex-shrink-0 ${showAvatar && !hideUserAvatar ? 'w-8' : 'w-0 overflow-hidden'}`}>
+        {hideUserAvatar ? null : isAssistant ? (
           assistantAvatarSrc ? (
             <img
               src={assistantAvatarSrc}
@@ -54,7 +58,7 @@ export default memo(function ChatMessageGroup({
               className="size-8 object-contain rounded-lg"
             />
           ) : (
-            <ManyAvatar size="sm" />
+            <ManyAvatar size="sm" state={surfaceVariant === 'many' ? assistantState : 'idle'} />
           )
         ) : isUser ? (
           <div

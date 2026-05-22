@@ -1,22 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import {
-  Search,
-  Plus,
-  Upload,
-  Link2,
-  X,
-  FileText,
-  File,
-  Video,
-  Music,
-  Image as ImageIcon,
-  Notebook,
-  Presentation,
-  FolderOpen,
-  MessageSquare,
-  Sparkles,
-  GitBranch,
-} from 'lucide-react';
+import { Search, Plus, Upload, Link2, X } from 'lucide-react';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { orderUnifiedResourcesByHybrid } from '@/lib/search/hybrid-search';
@@ -30,23 +14,6 @@ interface SearchResult {
   type: string;
   updated_at?: number;
 }
-
-const TYPE_ICONS: Record<string, React.ReactNode> = {
-  note:         <FileText     className="size-4 shrink-0" strokeWidth={1.5} />,
-  notebook:     <Notebook     className="size-4 shrink-0" strokeWidth={1.5} />,
-  pdf:          <File         className="size-4 shrink-0" strokeWidth={1.5} />,
-  video:        <Video        className="size-4 shrink-0" strokeWidth={1.5} />,
-  audio:        <Music        className="size-4 shrink-0" strokeWidth={1.5} />,
-  image:        <ImageIcon    className="size-4 shrink-0" strokeWidth={1.5} />,
-  url:          <Link2        className="size-4 shrink-0" strokeWidth={1.5} />,
-  ppt:          <Presentation className="size-4 shrink-0" strokeWidth={1.5} />,
-  document:     <File         className="size-4 shrink-0" strokeWidth={1.5} />,
-  folder:       <FolderOpen   className="size-4 shrink-0" strokeWidth={1.5} />,
-  chat:         <MessageSquare className="size-4 shrink-0" strokeWidth={1.5} />,
-  annotation:   <FileText     className="size-4 shrink-0" strokeWidth={1.5} />,
-  studio:       <Sparkles     className="size-4 shrink-0" strokeWidth={1.5} />,
-  graph:        <GitBranch    className="size-4 shrink-0" strokeWidth={1.5} />,
-};
 
 interface UseSimpleSearchOptions {
   onResourceSelect?: (resource: { id: string; type: string; title: string }) => void;
@@ -371,7 +338,7 @@ export function SearchModal({
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-[var(--dome-surface)]"
               >
                 <span style={{ color: 'var(--dome-text-muted)' }}>
-                  {TYPE_ICONS[result.type] || <File className="size-4 shrink-0" strokeWidth={1.5} />}
+                  <DomeResourceIcon type={result.type} name={result.title} size={16} className="size-4 shrink-0" strokeWidth={1.5} />
                 </span>
                 <span className="flex-1 truncate text-sm" style={{ color: 'var(--dome-text)' }}>
                   {result.title || 'Untitled'}
@@ -817,7 +784,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
                                 className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg"
                                 style={{ background: iconBg, color: iconColor }}
                               >
-                                {TYPE_ICONS[result.type] ?? <File className="size-4 shrink-0" strokeWidth={1.5} />}
+                                <DomeResourceIcon type={result.type} name={result.title} size={16} className="size-4 shrink-0" strokeWidth={1.5} />
                               </span>
                             );
                           })()}

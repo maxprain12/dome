@@ -708,6 +708,9 @@ async function executeToolInMain(toolName, args, toolContext) {
       case 'artifactDesign':
         result = await fn(args);
         break;
+      case 'shellExec':
+        result = await fn(args, toolContext);
+        break;
       default:
         result = await fn(args);
     }

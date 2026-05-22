@@ -9,6 +9,7 @@ import SourceReference from './SourceReference';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import AgentRunTimeline from './AgentRunTimeline';
 import ManyMinimalStatusRow from '@/components/many/ManyMinimalStatusRow';
+import { cn } from '@/lib/utils';
 import { extractCitationNumbers, type ParsedCitation } from '@/lib/utils/citations';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { buildPdfRegionHandoff } from '@/lib/pdf/pdf-region-handoff';
@@ -360,18 +361,35 @@ export default function ChatMessage({
             )}
 
             <div
-              className={`relative min-w-0 text-[14px] leading-relaxed ${isUser ? 'inline-block max-w-[88%]' : 'block w-full'}`}
-              style={isUser ? {
-                background: 'transparent',
-                borderRight: surfaceVariant === 'many' ? '1px solid var(--border)' : '2px solid var(--border)',
-                padding: surfaceVariant === 'many' ? '2px 12px 2px 0' : '2px 14px 2px 0',
-                color: 'var(--primary-text)',
-              } : {
-                background: 'transparent',
-                borderLeft: surfaceVariant === 'many' ? '1px solid var(--border)' : '2px solid var(--border)',
-                padding: surfaceVariant === 'many' ? '2px 0 2px 12px' : '2px 0 2px 14px',
-                color: 'var(--primary-text)',
-              }}
+              className={cn(
+                'relative min-w-0',
+                surfaceVariant === 'many'
+                  ? cn(
+                      'many-bubble-clean',
+                      isUser ? 'many-bubble-clean--user inline-block max-w-[88%]' : 'many-bubble-clean--assistant block w-full',
+                    )
+                  : cn(
+                      'text-[14px] leading-relaxed',
+                      isUser ? 'inline-block max-w-[88%]' : 'block w-full',
+                    ),
+              )}
+              style={
+                surfaceVariant === 'many'
+                  ? undefined
+                  : isUser
+                    ? {
+                        background: 'transparent',
+                        borderRight: '2px solid var(--border)',
+                        padding: '2px 14px 2px 0',
+                        color: 'var(--primary-text)',
+                      }
+                    : {
+                        background: 'transparent',
+                        borderLeft: '2px solid var(--border)',
+                        padding: '2px 0 2px 14px',
+                        color: 'var(--primary-text)',
+                      }
+              }
             >
               {/* Message text — segments interleaved: text | artifact | text | ... */}
               {message.content ? (
@@ -426,7 +444,7 @@ export default function ChatMessage({
                 </div>
               ) : message.isStreaming ? (
                 surfaceVariant === 'many' ? (
-                  <ManyMinimalStatusRow label={message.streamingLabel || t('chat.processing')} />
+                  <ManyMinimalStatusRow variant="dots" label={message.streamingLabel || t('chat.processing')} />
                 ) : (
                   <div className="flex items-center gap-2">
                     <ReadingIndicator className="opacity-60 text-[var(--secondary-text)]" />

@@ -13,12 +13,6 @@ import {
   Store,
   Folder,
   FileText,
-  Globe,
-  File,
-  Image,
-  Music,
-  Video,
-  Presentation,
   RefreshCw,
   X,
   MoreHorizontal,
@@ -57,26 +51,7 @@ import {
   AUTOMATIONS_CHANGED_EVENT,
 } from '@/lib/automations/api';
 import { db } from '@/lib/db/client';
-
-// ---------------------------------------------------------------------------
-// Icons
-// ---------------------------------------------------------------------------
-function getResourceIcon(type: string) {
-  switch (type) {
-    case 'note': return <FileText className="size-3.5" strokeWidth={1.75} />;
-    case 'notebook': return <BookOpen className="size-3.5" strokeWidth={1.75} />;
-    case 'url': return <Globe className="size-3.5" strokeWidth={1.75} />;
-    case 'youtube':
-    case 'video': return <Video className="size-3.5" strokeWidth={1.75} />;
-    case 'pdf': return <File className="size-3.5" strokeWidth={1.75} />;
-    case 'image': return <Image className="size-3.5" strokeWidth={1.75} />;
-    case 'audio': return <Music className="size-3.5" strokeWidth={1.75} />;
-    case 'ppt': return <Presentation className="size-3.5" strokeWidth={1.75} />;
-    case 'artifact': return <Layers className="size-3.5" strokeWidth={1.75} />;
-    case 'folder': return <Folder className="size-3.5" strokeWidth={1.75} />;
-    default: return <File className="size-3.5" strokeWidth={1.75} />;
-  }
-}
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
 // ---------------------------------------------------------------------------
 // Folder colors
@@ -671,7 +646,7 @@ function TreeNode({
             </span>
           ) : (
             <span className="shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
-              {getResourceIcon(node.type)}
+              <DomeResourceIcon type={node.type} name={node.name} size={14} className="size-3.5" strokeWidth={1.75} />
             </span>
           )}
 
@@ -839,6 +814,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
           minWidth: 560,
           minHeight: 480,
           title: `${r.title || 'Nota'} — Dome`,
+          transparent: false,
         },
       });
     } catch (err) {

@@ -19,6 +19,9 @@ export type EditorAIAction =
   | 'improve'
   | 'translate'
   | 'continue'
+  | 'shorten'
+  | 'todo'
+  | 'explain'
   | 'custom';
 
 // Action prompts are loaded from prompts/editor/actions/*.txt via getEditorActionPrompt

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Home, Folder, FileText } from 'lucide-react';
 import NoteEditor from '@/components/editor/NoteEditor';
 import SidePanel from '@/components/workspace/SidePanel';
+import type { SidePanelTab } from '@/components/workspace/SidePanel';
 import SourcesPanel from '@/components/workspace/SourcesPanel';
 import StudioPanel from '@/components/workspace/StudioPanel';
 import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
@@ -29,6 +30,10 @@ import NoteMetaBar from '@/components/notes/NoteMetaBar';
 import NoteEmptyState from '@/components/notes/NoteEmptyState';
 import NoteHeroCover from '@/components/notes/NoteHeroCover';
 import NoteQuickTagModal from '@/components/notes/NoteQuickTagModal';
+import {
+  notifyResourceRelationsChanged,
+  syncNoteMentionRelations,
+} from '@/lib/utils/content-resources';
 
 interface NoteWorkspaceClientProps {
   resourceId: string;
@@ -67,6 +72,7 @@ export default function NoteWorkspaceClient({
 
   const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [showMetadata, setShowMetadata] = useState(false);
+  const [sidePanelPreferredTab, setSidePanelPreferredTab] = useState<SidePanelTab | null>(null);
   const [splitPickerOpen, setSplitPickerOpen] = useState(false);
 
   const [projectLabel, setProjectLabel] = useState<string>('');
@@ -139,6 +145,7 @@ export default function NoteWorkspaceClient({
     setSidePanelOpen(false);
     setShowMetadata(false);
     setSplitPickerOpen(false);
+    setSidePanelPreferredTab(null);
     setSaveError(null);
     setIsDirty(false);
     setResourceTags([]);
@@ -216,6 +223,21 @@ export default function NoteWorkspaceClient({
 
   const savePillState: NoteSavePillState = saveError ? 'error' : isSaving ? 'saving' : isDirty ? 'dirty' : 'saved';
 
+  const refreshBacklinkCount = useCallback(async (id: string) => {
+    if (!window.electron?.db?.resources?.getBacklinks) return;
+    const bl = await window.electron.db.resources.getBacklinks(id);
+    setBacklinkCount(bl?.success && Array.isArray(bl.data) ? bl.data.length : 0);
+  }, []);
+
+  const syncMentionsAndNotify = useCallback(
+    async (sourceId: string, serialized: string) => {
+      const targetIds = await syncNoteMentionRelations(sourceId, serialized);
+      notifyResourceRelationsChanged(sourceId, targetIds);
+      await refreshBacklinkCount(sourceId);
+    },
+    [refreshBacklinkCount],
+  );
+
   const handleSave = useCallback(async () => {
     if (readOnly || !resource || !window.electron?.db?.resources || !editorRef.current) return;
     const serialized = serializeNoteContent(editorRef.current);
@@ -232,13 +254,14 @@ export default function NoteWorkspaceClient({
       setIsDirty(false);
       setSavePillSavedAt(now);
       setResource((prev) => (prev ? { ...prev, content: serialized, updated_at: now } : prev));
+      await syncMentionsAndNotify(resourceId, serialized);
     } catch (err) {
       console.error('Error saving note:', err);
       setSaveError(err instanceof Error ? err.message : 'save failed');
     } finally {
       setIsSaving(false);
     }
-  }, [readOnly, resource, resourceId, title]);
+  }, [readOnly, resource, resourceId, title, syncMentionsAndNotify]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -275,10 +298,11 @@ export default function NoteWorkspaceClient({
       setResource((prev) => (prev ? { ...prev, title, content: serialized ?? undefined, updated_at: now } : prev));
       setIsDirty(false);
       setSavePillSavedAt(now);
+      if (serialized) await syncMentionsAndNotify(resourceId, serialized);
     } catch (err) {
       console.error('Error saving title:', err);
     }
-  }, [readOnly, resource, resourceId, title, isDirty]);
+  }, [readOnly, resource, resourceId, title, isDirty, syncMentionsAndNotify]);
 
   const handleContentUpdate = useCallback(
     (json: JSONContent) => {
@@ -314,8 +338,12 @@ export default function NoteWorkspaceClient({
       editor.on('update', onUp);
       patchWordCountFromEditor(editor);
       setEditorReady(true);
+      const serialized = serializeNoteContent(editor);
+      if (serialized) {
+        void syncMentionsAndNotify(resourceId, serialized);
+      }
     },
-    [patchWordCountFromEditor],
+    [patchWordCountFromEditor, resourceId, syncMentionsAndNotify],
   );
 
   const handleSaveMetadata = useCallback(
@@ -336,6 +364,22 @@ export default function NoteWorkspaceClient({
     },
     [resource],
   );
+
+  const handleToggleInsightsPanel = useCallback(() => {
+    setSidePanelOpen((o) => {
+      const next = !o;
+      if (next) setSidePanelPreferredTab(null);
+      return next;
+    });
+  }, []);
+
+  const handleOpenBacklinksFromToolbar = useCallback(() => {
+    setSidePanelPreferredTab('backlinks');
+    setSidePanelOpen(true);
+  }, []);
+
+  const domeShareLink =
+    typeof resource?.id === 'string' ? `dome://resource/${resource.id}/note` : null;
 
   const handlePickTemplate = useCallback(
     (id: string) => {
@@ -425,6 +469,7 @@ export default function NoteWorkspaceClient({
           minWidth: 560,
           minHeight: 480,
           title: `${resource.title} — Dome`,
+          transparent: false,
         },
       });
     } catch (err) {
@@ -523,7 +568,7 @@ export default function NoteWorkspaceClient({
 
   return (
     <div
-      className="note-area flex flex-col h-full min-h-0 overflow-hidden"
+      className={`note-area flex flex-col h-full min-h-0 overflow-hidden${isPopout ? ' note-area--popout' : ''}`}
       data-note-mode={viewMode === 'focused' ? 'focused' : 'standard'}
       data-doc-width={docWidthPreset}
       data-doc-size={docTypographyPreset}
@@ -539,9 +584,11 @@ export default function NoteWorkspaceClient({
         onOpenSplit={() => setSplitPickerOpen(true)}
         onOpenPopout={() => void handlePopoutNote()}
         onOpenMetadata={() => setShowMetadata(true)}
+        domeLinkToCopy={domeShareLink}
+        onOpenBacklinksPanel={handleOpenBacklinksFromToolbar}
         hideWindowControls={isPopout}
         sidePanelOpen={sidePanelOpen}
-        onToggleSidePanel={() => setSidePanelOpen((o) => !o)}
+        onToggleSidePanel={handleToggleInsightsPanel}
       />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -611,7 +658,14 @@ export default function NoteWorkspaceClient({
         {activeStudioOutput ? (
           <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} />
         ) : null}
-        <SidePanel resourceId={resource.id} resource={resource} isOpen={sidePanelOpen} onClose={() => setSidePanelOpen(false)} />
+        <SidePanel
+          resourceId={resource.id}
+          resource={resource}
+          isOpen={sidePanelOpen}
+          onClose={() => setSidePanelOpen(false)}
+          preferredTab={sidePanelPreferredTab}
+          onPreferredTabApplied={() => setSidePanelPreferredTab(null)}
+        />
       </div>
 
       <SplitResourcePicker

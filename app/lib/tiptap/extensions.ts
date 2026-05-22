@@ -16,10 +16,8 @@ import TableCell from '@tiptap/extension-table-cell';
 import Placeholder from '@tiptap/extension-placeholder';
 import UniqueID from '@tiptap/extension-unique-id';
 import Youtube from '@tiptap/extension-youtube';
-import { Collaboration } from '@tiptap/extension-collaboration';
 import { NodeRange } from '@tiptap/extension-node-range';
 import { createLowlight, common } from 'lowlight';
-import type { Doc } from 'yjs';
 
 import { NoteEditorBridge } from '@/lib/tiptap/extensions/note-editor-bridge';
 import { Callout } from '@/lib/tiptap/extensions/callout';
@@ -42,30 +40,20 @@ const lowlight = createLowlight(common);
 
 export interface BuildCoreNoteExtensionsOptions {
   placeholder?: string;
-  /** Yjs document backing the fragment — required so `@tiptap/extension-drag-handle` can sync with collaboration. */
-  collaborationDocument: Doc;
-  /**
-   * Fired once when Collaboration has applied the Y.Xml fragment to the editor.
-   * Use this with a standalone `Y.Doc` (no provider) to seed content from persisted storage.
-   */
-  collaborationOnFirstRender?: () => void;
 }
 
 /** Core note blocks (TipTap). Slash + Mention are composed in NoteEditor. */
-export function buildCoreNoteExtensions(options: BuildCoreNoteExtensionsOptions) {
+export function buildCoreNoteExtensions(options: BuildCoreNoteExtensionsOptions = {}) {
   const placeholder = options.placeholder ?? 'Escribe algo...';
 
   const starterConfigure = {
     codeBlock: false as const,
-    undoRedo: false as const,
+    /** DragHandle reorders blocks via HTML5 DnD — dropcursor lines break the note UI. */
+    dropcursor: false as const,
   };
 
   return [
     NoteEditorBridge,
-    Collaboration.configure({
-      document: options.collaborationDocument,
-      onFirstRender: options.collaborationOnFirstRender,
-    }),
     NodeRange,
     StarterKit.configure(starterConfigure),
     Underline,

@@ -171,6 +171,8 @@ export default function WorkspaceHeader({
   const hasFile = !!(resource.internal_path || resource.file_path);
   const typeMeta = getTypeMeta(resource.type);
   const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
+  const isLinux = typeof window !== 'undefined' && window.electron?.isLinux;
+  const needsChromeRightInset = Boolean(isWindows || isLinux);
 
   // Close menu on outside click / Escape
   useEffect(() => {
@@ -257,6 +259,7 @@ export default function WorkspaceHeader({
           minWidth: 560,
           minHeight: 480,
           title: `${resource.title} — Dome`,
+          transparent: false,
         },
       });
     } catch (err) {
@@ -266,7 +269,7 @@ export default function WorkspaceHeader({
 
   return (
     <header
-      className={`drag-region shrink-0${isWindows ? ' win-titlebar-padding' : ''}`}
+      className="drag-region shrink-0"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -277,7 +280,8 @@ export default function WorkspaceHeader({
         paddingTop: `calc(10px + var(--safe-area-inset-top))`,
         paddingBottom: 10,
         paddingLeft: 16,
-        paddingRight: 12,
+        /** Inline pisaba `.win-titlebar-padding` desde globals; Win/Linux necesitan hueco derecho para controles nativos/decó. */
+        paddingRight: needsChromeRightInset ? 140 : 12,
       }}
     >
       {/* ── Left: type badge + title + saving ─────────────────────────── */}

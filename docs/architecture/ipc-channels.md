@@ -1,21 +1,21 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-20T07:22:20.724Z
+> Última generación: 2026-05-22T14:33:35.712Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
 | `ai:chat` | `electron/ipc/ai.cjs:24` |
-| `ai:langgraph:abort` | `electron/ipc/ai.cjs:400` |
-| `ai:langgraph:resume` | `electron/ipc/ai.cjs:414` |
+| `ai:langgraph:abort` | `electron/ipc/ai.cjs:401` |
+| `ai:langgraph:resume` | `electron/ipc/ai.cjs:415` |
 | `ai:langgraph:stream` | `electron/ipc/ai.cjs:261` |
 | `ai:stream` | `electron/ipc/ai.cjs:100` |
 | `ai:team:abort` | `electron/ipc/agent-team.cjs:477` |
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:350` |
-| `ai:testConnection` | `electron/ipc/ai.cjs:492` |
-| `ai:testWebSearch` | `electron/ipc/ai.cjs:572` |
+| `ai:testConnection` | `electron/ipc/ai.cjs:493` |
+| `ai:testWebSearch` | `electron/ipc/ai.cjs:573` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:853` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:879` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:840` |
@@ -68,7 +68,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai.cjs:587` |
+| `ai:webSearch` | `electron/ipc/ai.cjs:588` |
 | `approval:respond` | `electron/ipc/approval.cjs:43` |
 | `artifact:buildDesign` | `electron/ipc/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
@@ -254,18 +254,18 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `domeauth:getSession` | `electron/ipc/dome-auth.cjs:19` |
 | `domeauth:openDashboard` | `electron/ipc/dome-auth.cjs:32` |
 | `domeauth:startOAuthFlow` | `electron/ipc/dome-auth.cjs:5` |
-| `file:cleanTemp` | `electron/ipc/files.cjs:261` |
-| `file:copyFile` | `electron/ipc/files.cjs:155` |
-| `file:deleteFile` | `electron/ipc/files.cjs:103` |
-| `file:extractPDFText` | `electron/ipc/files.cjs:294` |
-| `file:generateHash` | `electron/ipc/files.cjs:17` |
-| `file:getInfo` | `electron/ipc/files.cjs:201` |
-| `file:imageToBase64` | `electron/ipc/files.cjs:231` |
-| `file:listDirectory` | `electron/ipc/files.cjs:125` |
-| `file:readAttachment` | `electron/ipc/files.cjs:177` |
-| `file:readFile` | `electron/ipc/files.cjs:44` |
-| `file:readFileAsText` | `electron/ipc/files.cjs:66` |
-| `file:writeFile` | `electron/ipc/files.cjs:85` |
+| `file:cleanTemp` | `electron/ipc/files.cjs:273` |
+| `file:copyFile` | `electron/ipc/files.cjs:156` |
+| `file:deleteFile` | `electron/ipc/files.cjs:104` |
+| `file:extractPDFText` | `electron/ipc/files.cjs:306` |
+| `file:generateHash` | `electron/ipc/files.cjs:18` |
+| `file:getInfo` | `electron/ipc/files.cjs:213` |
+| `file:imageToBase64` | `electron/ipc/files.cjs:243` |
+| `file:listDirectory` | `electron/ipc/files.cjs:126` |
+| `file:readAttachment` | `electron/ipc/files.cjs:178` |
+| `file:readFile` | `electron/ipc/files.cjs:45` |
+| `file:readFileAsText` | `electron/ipc/files.cjs:67` |
+| `file:writeFile` | `electron/ipc/files.cjs:86` |
 | `get-app-version` | `electron/ipc/system.cjs:26` |
 | `get-home-path` | `electron/ipc/system.cjs:16` |
 | `get-theme` | `electron/ipc/system.cjs:145` |

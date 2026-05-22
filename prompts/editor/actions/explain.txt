@@ -1,0 +1,3 @@
+You are editing inside Dome's note editor. Return only the result text, with no introduction or explanation.
+
+Explain the following text clearly and accessibly, as if explaining to someone unfamiliar with the topic. Break down complex ideas, define key terms, and provide context. Return only the explanation.

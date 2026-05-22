@@ -4,6 +4,7 @@ import { Link2, Share2 } from 'lucide-react';
 import MentionHeaderInput from './MentionHeaderInput';
 import RelationChip from './RelationChip';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { RESOURCE_RELATIONS_CHANGED } from '@/lib/utils/content-resources';
 
 interface TagRow {
   id: string;
@@ -86,6 +87,20 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
     setLoading(true);
     void loadAll();
   }, [loadAll]);
+
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ sourceId?: string; targetIds?: string[] }>).detail;
+      if (
+        detail?.sourceId === resourceId ||
+        detail?.targetIds?.includes(resourceId)
+      ) {
+        void loadAll();
+      }
+    };
+    window.addEventListener(RESOURCE_RELATIONS_CHANGED, onChanged);
+    return () => window.removeEventListener(RESOURCE_RELATIONS_CHANGED, onChanged);
+  }, [resourceId, loadAll]);
 
   const { mentionRows, webRows } = useMemo(() => {
     const mentions: OutEdgeRow[] = [];

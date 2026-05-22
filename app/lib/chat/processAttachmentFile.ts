@@ -13,6 +13,7 @@ export async function processAttachmentFile(file: File): Promise<ChatAttachment 
           name: file.name,
           dataUrl: r.result as string,
           mime: file.type,
+          status: 'ready' as const,
         });
       r.onerror = () => resolve(null);
       r.readAsDataURL(file);
@@ -23,12 +24,25 @@ export async function processAttachmentFile(file: File): Promise<ChatAttachment 
   if (p && window.electron?.file?.readAttachment) {
     const res = await window.electron.file.readAttachment(p);
     if (res.success && res.data) {
-      return { id, kind: 'document' as const, name: res.data.name, text: res.data.text };
+      return {
+        id,
+        kind: 'document' as const,
+        name: res.data.name,
+        text: res.data.text,
+        pageCount: res.data.pageCount ?? null,
+        status: 'ready' as const,
+      };
     }
   }
   if (file.type === 'text/plain' || /\.(txt|md|csv|json)$/i.test(file.name)) {
     const text = await file.text();
-    return { id, kind: 'document' as const, name: file.name, text: text.slice(0, 80_000) };
+    return {
+      id,
+      kind: 'document' as const,
+      name: file.name,
+      text: text.slice(0, 80_000),
+      status: 'ready' as const,
+    };
   }
   return null;
 }

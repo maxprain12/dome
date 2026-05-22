@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { TextInput } from '@mantine/core';
+import { useTranslation } from 'react-i18next';
+import { Slash } from 'lucide-react';
+import { SlashCommandIcon } from '@/lib/tiptap/slash-icons';
 import type { SlashCommand } from '@/lib/tiptap/slash-commands';
+import { useSuggestionPortalPosition } from './useSuggestionPortalPosition';
 
 interface SlashMenuProps {
   items: SlashCommand[];
@@ -14,8 +17,10 @@ export interface SlashMenuHandle {
 
 export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
   ({ items, command }, ref) => {
+    const { t } = useTranslation();
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [menuFilter, setMenuFilter] = useState('');
+    const inputRef = useRef<HTMLInputElement>(null);
 
     const visibleItems = useMemo(() => {
       const q = menuFilter.trim().toLowerCase();
@@ -26,7 +31,6 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
     }, [items, menuFilter]);
 
     useEffect(() => setSelectedIndex(0), [visibleItems]);
-
     useEffect(() => setMenuFilter(''), [items]);
 
     const selectItem = useCallback(
@@ -70,99 +74,64 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
     }
 
     return (
-      <div
-        style={{
-          background: 'var(--dome-surface)',
-          border: '1px solid var(--dome-border)',
-          borderRadius: 8,
-          padding: '6px',
-          minWidth: 280,
-          maxHeight: 380,
-          overflowY: 'auto',
-        }}
-      >
-        <div style={{ padding: '4px 6px 8px' }}>
-          <TextInput
-            size="xs"
-            placeholder="Filtrar comandos…"
+      <div className="note-slash-menu-shell slash-menu-proto">
+        {/* Search bar */}
+        <div className="slash-search-row">
+          <span className="slash-search-icon" aria-hidden>
+            <Slash size={13} strokeWidth={2} />
+          </span>
+          <input
+            ref={inputRef}
+            className="slash-search-input"
+            placeholder={t('notes.slash_filter_placeholder')}
             value={menuFilter}
             onChange={(e) => setMenuFilter(e.currentTarget.value)}
             onKeyDown={(e) => e.stopPropagation()}
           />
+          <span className="slash-kbd-chip">esc</span>
         </div>
-        {Object.entries(groups).map(([group, cmds]) => (
-          <div key={group}>
-            <div
-              style={{
-                fontSize: 12,
-                fontWeight: 600,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                color: 'var(--dome-text-muted)',
-                padding: '6px 10px 2px',
-              }}
-            >
-              {group}
-            </div>
-            {cmds.map((item) => {
-              const globalIndex = visibleItems.indexOf(item);
-              const isSelected = globalIndex === selectedIndex;
-              return (
-                <button
-                  key={`${group}-${item.title}-${item.description}`}
-                  type="button"
-                  onClick={() => selectItem(globalIndex)}
-                  onMouseEnter={() => setSelectedIndex(globalIndex)}
-                  style={{
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    width: '100%',
-                    padding: '8px 10px',
-                    border: 'none',
-                    borderRadius: 8,
-                    background: isSelected
-                      ? 'color-mix(in srgb, var(--dome-accent) 10%, transparent)'
-                      : 'transparent',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'background 100ms',
-                    boxShadow: isSelected
-                      ? 'inset 2px 0 0 var(--dome-accent)'
-                      : 'none',
-                  }}
-                >
-                  <span
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 28,
-                      height: 28,
-                      borderRadius: 6,
-                      background: 'transparent',
-                      fontSize: 12,
-                      fontWeight: 500,
-                      color: 'var(--dome-text-muted)',
-                      flexShrink: 0,
-                    }}
+
+        {/* Items list */}
+        <div className="slash-items-list">
+          {Object.entries(groups).map(([group, cmds]) => (
+            <div key={group}>
+              <div className="slash-section-header">{group}</div>
+              {cmds.map((item) => {
+                const globalIndex = visibleItems.indexOf(item);
+                const isSelected = globalIndex === selectedIndex;
+                return (
+                  <button
+                    key={`${group}-${item.title}`}
+                    type="button"
+                    className={`slash-item-btn${isSelected ? ' active' : ''}`}
+                    onClick={() => selectItem(globalIndex)}
+                    onMouseEnter={() => setSelectedIndex(globalIndex)}
                   >
-                    {item.icon}
-                  </span>
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--dome-text)', lineHeight: 1.3 }}>
-                      {item.title}
+                    <span
+                      className={`slash-item-icon${item.accent ? ' slash-item-icon--accent' : ''}${isSelected ? ' is-active' : ''}`}
+                    >
+                      <SlashCommandIcon id={item.iconId} />
+                    </span>
+                    <div className="slash-item-text">
+                      <div className="slash-item-name">{item.title}</div>
+                      <div className="slash-item-desc">{item.description}</div>
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--dome-text-muted)', lineHeight: 1.3 }}>
-                      {item.description}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        ))}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+          {visibleItems.length === 0 && (
+            <div className="slash-empty">{t('notes.slash_no_results')}</div>
+          )}
+        </div>
+
+        {/* Footer hints */}
+        <div className="slash-footer note-slash-footer">
+          <span>↑↓ {t('notes.slash_hint_nav')}</span>
+          <span>↵ {t('notes.slash_hint_pick')}</span>
+          <span>esc {t('notes.slash_hint_close')}</span>
+        </div>
       </div>
     );
   },
@@ -177,25 +146,20 @@ interface SlashMenuPortalProps {
   menuRef: React.RefObject<SlashMenuHandle | null>;
 }
 
-export function SlashMenuPortal({ items, command, clientRect, menuRef }: SlashMenuPortalProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+const SLASH_MENU_WIDTH = 340;
 
-  useEffect(() => {
-    if (!clientRect) return;
-    const rect = clientRect();
-    if (!rect) return;
-    setPosition({
-      top: rect.bottom + 6,
-      left: Math.min(rect.left, window.innerWidth - 280),
-    });
-  }, [clientRect, items]);
+export function SlashMenuPortal({ items, command, clientRect, menuRef }: SlashMenuPortalProps) {
+  const position = useSuggestionPortalPosition(
+    clientRect,
+    items.length > 0,
+    SLASH_MENU_WIDTH,
+    items,
+  );
+
+  if (!position || items.length === 0) return null;
 
   return createPortal(
-    <div
-      ref={containerRef}
-      style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999 }}
-    >
+    <div style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 9999 }}>
       <SlashCommandMenu ref={menuRef as React.Ref<SlashMenuHandle>} items={items} command={command} />
     </div>,
     document.body,

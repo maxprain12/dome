@@ -25,6 +25,9 @@ export async function initPostHog(analyticsEnabled: boolean): Promise<void> {
     posthog.init(API_KEY!, {
       api_host: API_HOST,
       person_profiles: 'identified_only',
+      /** Dome does not use PostHog feature flags — skip /flags requests (avoids 401 noise in dev). */
+      advanced_disable_flags: true,
+      advanced_disable_feature_flags: true,
       capture_exceptions: {
         capture_unhandled_errors: true,
         capture_unhandled_rejections: true,
@@ -77,5 +80,3 @@ export function shutdownPostHog(): void {
     // ignore
   }
 }
-
-export { posthog };

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { JSONContent, Editor } from '@tiptap/core';
 import type { SuggestionProps } from '@tiptap/suggestion';
-import * as Y from 'yjs';
+
 import { buildCoreNoteExtensions } from '@/lib/tiptap/extensions';
 import { SlashCommandExtension, SLASH_ITEMS, type SlashCommand } from '@/lib/tiptap/slash-commands';
 import { buildDomeResourceMention } from '@/lib/tiptap/extensions/resource-mention';
@@ -22,27 +22,7 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { NoteBubbleMenu, NoteLinkPopoverField } from './NoteBubbleMenu';
 import { NoteFloatingInsertMenu } from './NoteFloatingInsertMenu';
 import { NoteDragHandle } from './NoteDragHandle';
-
-/** TipTap starter doc we treat as stored "empty". */
-function isBareEmptyStarterDoc(raw: unknown): boolean {
-  if (!raw || typeof raw !== 'object') return false;
-  const doc = raw as JSONContent;
-  if (doc.type !== 'doc') return false;
-  const roots = doc.content ?? [];
-  if (roots.length === 0) return true;
-  if (roots.length === 1) {
-    const b0 = roots[0];
-    if (!b0 || typeof b0 !== 'object') return false;
-    if ((b0 as JSONContent).type === 'paragraph' && !(b0 as JSONContent).content?.length) return true;
-  }
-  return false;
-}
-
-function isHydratablePersistedContent(content: JSONContent | string | undefined): content is JSONContent | string {
-  if (content === undefined || content === null) return false;
-  if (typeof content === 'string') return content.trim().length > 0;
-  return !isBareEmptyStarterDoc(content);
-}
+import './note-editor.css';
 
 interface NoteEditorProps {
   /** Initial editor content — Tiptap JSON or legacy HTML fallback. */
@@ -83,8 +63,6 @@ export default function NoteEditor({
   const isZen = Boolean(zenMode ?? focused);
   const openLinksInSplit = Boolean(splitLinkNav || isZen);
 
-  const ydoc = useMemo(() => new Y.Doc(), []);
-
   const [slashItems, setSlashItems] = useState<SlashCommand[]>([]);
   const [slashClientRect, setSlashClientRect] = useState<(() => DOMRect | null) | null>(null);
   const slashMenuRef = useRef<SlashMenuHandle | null>(null);
@@ -96,44 +74,25 @@ export default function NoteEditor({
     onPick: (item: DomeMentionItem) => void;
   } | null>(null);
   const mentionMenuRef = useRef<MentionMenuHandle | null>(null);
-
-  const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
-  const [resourcePickerMode, setResourcePickerMode] = useState<'link' | 'split' | 'mention'>('link');
-  const [imagePickerOpen, setImagePickerOpen] = useState(false);
-  const [embedOpen, setEmbedOpen] = useState(false);
-  const [embedKind, setEmbedKind] = useState<NoteEmbedKind | null>(null);
-
   const editorRef = useRef<Editor | null>(null);
-  const collaborationReadyEmittedRef = useRef(false);
-  const latestContentRef = useRef(content);
-  latestContentRef.current = content;
 
-  const onEditorReadyRef = useRef(onEditorReady);
-  onEditorReadyRef.current = onEditorReady;
-
-  const collaborationHydrateRef = useRef<() => void>(() => {});
-  collaborationHydrateRef.current = () => {
+  const isEditorSuggestionActive = useCallback(() => {
     const ed = editorRef.current;
-    if (!ed || ed.isDestroyed || collaborationReadyEmittedRef.current) return;
-    collaborationReadyEmittedRef.current = true;
-    const stored = latestContentRef.current;
-    try {
-      if (isHydratablePersistedContent(stored) && !ed.getText().trim()) {
-        ed.commands.setContent(stored, { emitUpdate: false });
-      }
-    } catch (e) {
-      console.warn('[NoteEditor] collaboration hydrate skipped:', e);
-    }
-    onEditorReadyRef.current?.(ed);
-  };
-
-  const collaborationOnFirstRender = useCallback(() => {
-    collaborationHydrateRef.current();
+    if (!ed || ed.isDestroyed) return false;
+    return Boolean(
+      ed.view.dom.querySelector('.suggestion') ||
+        ed.view.dom.querySelector('[data-decoration-id]'),
+    );
   }, []);
 
-  const [isAIBusy, setIsAIBusy] = useState(false);
-  const [aiError, setAIError] = useState<string | null>(null);
-  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
+  const openResourceTarget = useCallback(
+    (id: string, resourceType: string, title: string) => {
+      const store = useTabStore.getState();
+      if (openLinksInSplit) store.openResourceInSplit(id, resourceType, title);
+      else store.openResourceTab(id, resourceType, title);
+    },
+    [openLinksInSplit],
+  );
 
   const mentionRender = useCallback(() => {
     return {
@@ -151,7 +110,13 @@ export default function NoteEditor({
           onPick: (item) => props.command(item),
         });
       },
-      onExit: () => setMentionUi(null),
+      onExit: () => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!isEditorSuggestionActive()) setMentionUi(null);
+          });
+        });
+      },
       onKeyDown: (props: { event: KeyboardEvent }) => {
         if (props.event.key === 'Escape') {
           setMentionUi(null);
@@ -160,15 +125,54 @@ export default function NoteEditor({
         return mentionMenuRef.current?.onKeyDown(props) ?? false;
       },
     };
-  }, []);
+  }, [isEditorSuggestionActive]);
+
+  const slashRender = useCallback(() => {
+    return {
+      onStart: (props: SuggestionProps<SlashCommand, unknown>) => {
+        setSlashItems(props.items);
+        setSlashClientRect(() => () => props.clientRect?.() ?? null);
+        slashCommandRef.current = props.command;
+      },
+      onUpdate: (props: SuggestionProps<SlashCommand, unknown>) => {
+        setSlashItems(props.items);
+        setSlashClientRect(() => () => props.clientRect?.() ?? null);
+        slashCommandRef.current = props.command;
+      },
+      onKeyDown: (props: { event: KeyboardEvent }) => {
+        if (props.event.key === 'Escape') {
+          setSlashItems([]);
+          setSlashClientRect(null);
+          return true;
+        }
+        return slashMenuRef.current?.onKeyDown(props) ?? false;
+      },
+      onExit: () => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (!isEditorSuggestionActive()) {
+              setSlashItems([]);
+              setSlashClientRect(null);
+            }
+          });
+        });
+      },
+    };
+  }, [isEditorSuggestionActive]);
+
+  const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
+  const [resourcePickerMode, setResourcePickerMode] = useState<'link' | 'split' | 'mention'>('link');
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
+  const [embedOpen, setEmbedOpen] = useState(false);
+  const [embedKind, setEmbedKind] = useState<NoteEmbedKind | null>(null);
+
+  const [isAIBusy, setIsAIBusy] = useState(false);
+  const [aiError, setAIError] = useState<string | null>(null);
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
 
   const extensions = useMemo(
     () => [
-      ...buildCoreNoteExtensions({
-        placeholder,
-        collaborationDocument: ydoc,
-        collaborationOnFirstRender,
-      }),
+      ...buildCoreNoteExtensions({ placeholder }),
       buildDomeResourceMention({ render: mentionRender }),
       SlashCommandExtension.configure({
         suggestion: {
@@ -181,33 +185,11 @@ export default function NoteEditor({
               ),
             );
           },
-          render: () => ({
-            onStart: (props: SuggestionProps<SlashCommand, unknown>) => {
-              setSlashItems(props.items);
-              setSlashClientRect(() => () => props.clientRect?.() ?? null);
-              slashCommandRef.current = props.command;
-            },
-            onUpdate: (props: SuggestionProps<SlashCommand, unknown>) => {
-              setSlashItems(props.items);
-              setSlashClientRect(() => () => props.clientRect?.() ?? null);
-              slashCommandRef.current = props.command;
-            },
-            onKeyDown: (props: { event: KeyboardEvent }) => {
-              if (props.event.key === 'Escape') {
-                setSlashItems([]);
-                return true;
-              }
-              return slashMenuRef.current?.onKeyDown(props) ?? false;
-            },
-            onExit: () => {
-              setSlashItems([]);
-              setSlashClientRect(null);
-            },
-          }),
+          render: slashRender,
         },
       }),
     ],
-    [placeholder, mentionRender, ydoc, collaborationOnFirstRender],
+    [placeholder, mentionRender, slashRender],
   );
 
   const editor = useEditor(
@@ -217,6 +199,18 @@ export default function NoteEditor({
       editable,
       immediatelyRender: false,
       editorProps: {
+        handleClickOn: (_view, _pos, node, _nodePos, event) => {
+          if (node.type.name !== 'mention') return false;
+          const id = typeof node.attrs.id === 'string' ? node.attrs.id : '';
+          if (!id) return false;
+          event.preventDefault();
+          openResourceTarget(
+            id,
+            typeof node.attrs.resourceType === 'string' ? node.attrs.resourceType : 'note',
+            typeof node.attrs.label === 'string' ? node.attrs.label : '',
+          );
+          return true;
+        },
         handlePaste: (_view, event) => {
           const ed = editorRef.current;
           if (!ed) return false;
@@ -248,9 +242,7 @@ export default function NoteEditor({
               const rt = link.getAttribute('data-resource-type') ?? 'note';
               if (id) {
                 event.preventDefault();
-                const store = useTabStore.getState();
-                if (openLinksInSplit) store.openResourceInSplit(id, rt, title);
-                else store.openResourceTab(id, rt, title);
+                openResourceTarget(id, rt, title);
                 return true;
               }
             }
@@ -261,9 +253,7 @@ export default function NoteEditor({
               const rt = men.getAttribute('data-resource-type') ?? 'note';
               if (id) {
                 event.preventDefault();
-                const store = useTabStore.getState();
-                if (openLinksInSplit) store.openResourceInSplit(id, rt, label);
-                else store.openResourceTab(id, rt, label);
+                openResourceTarget(id, rt, label);
                 return true;
               }
             }
@@ -276,17 +266,11 @@ export default function NoteEditor({
       },
       onCreate: ({ editor: ed }) => {
         editorRef.current = ed;
+        onEditorReady?.(ed);
       },
     },
     [extensions],
   );
-
-  /** If Collaboration never fires onFirstRender (defensive), still hook onEditorReady once. */
-  useEffect(() => {
-    if (!editor) return undefined;
-    const t = window.setTimeout(() => collaborationHydrateRef.current(), 450);
-    return () => window.clearTimeout(t);
-  }, [editor]);
 
   const runEditorAI = useCallback(
     (action: EditorAIAction, mode: 'insert' | 'replace_selection' | 'append' = 'replace_selection') => {
@@ -380,14 +364,6 @@ export default function NoteEditor({
         onRequestLinkPopover={() => setLinkPopoverOpen(true)}
       />
 
-      {showFloatingInsert ? (
-      <NoteFloatingInsertMenu
-        editor={editor}
-        zenMode={isZen}
-        onInsertAiBlock={onInsertAiBlock}
-      />
-      ) : null}
-
       <NoteDragHandle editor={editor} editable={editable && !editor.isDestroyed} />
 
       {linkPopoverOpen && (
@@ -480,6 +456,14 @@ export default function NoteEditor({
       />
 
       <EditorContent editor={editor} className="note-editor-content tiptap-surface-padding" />
+
+      {showFloatingInsert ? (
+        <NoteFloatingInsertMenu
+          editor={editor}
+          onInsertAiBlock={onInsertAiBlock}
+          onRequestLinkPopover={() => setLinkPopoverOpen(true)}
+        />
+      ) : null}
     </div>
   );
 }

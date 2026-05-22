@@ -3,16 +3,20 @@ import { Suggestion } from '@tiptap/suggestion';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import type { Editor } from '@tiptap/core';
 
-export type SlashCommandCategory = 'Texto' | 'Multimedia' | 'Estructura' | 'Dome';
+import type { SlashIconId } from '@/lib/tiptap/slash-icons';
+
+export type SlashCommandCategory = 'Texto' | 'Listas' | 'Bloques Dome' | 'AI' | 'Embebidos';
 
 export interface SlashCommand {
   title: string;
   description: string;
-  icon: string;
+  iconId: SlashIconId;
   /** Category for grouping in the slash menu */
   category: SlashCommandCategory;
   /** Shown in menu header (same as category by default) */
   group: string;
+  /** AI items get olive accent styling */
+  accent?: boolean;
   command: (editor: Editor) => void;
 }
 
@@ -37,221 +41,195 @@ const pasteImageFromClipboard = async (editor: Editor) => {
   }
 };
 
-export const SLASH_COMMANDS: SlashCommand[] = [
+export const SLASH_ITEMS: SlashCommand[] = [
   // ── Texto
   {
     title: 'Texto',
     description: 'Párrafo normal',
-    icon: '¶',
+    iconId: 'text',
     category: 'Texto',
     group: 'Texto',
     command: (editor) => editor.chain().focus().setParagraph().run(),
   },
   {
-    title: 'Título 1',
-    description: 'Sección grande',
-    icon: 'H1',
+    title: 'Heading 1',
+    description: 'Título grande',
+    iconId: 'h1',
     category: 'Texto',
     group: 'Texto',
     command: (editor) => editor.chain().focus().toggleHeading({ level: 1 }).run(),
   },
   {
-    title: 'Título 2',
-    description: 'Sección mediana',
-    icon: 'H2',
+    title: 'Heading 2',
+    description: 'Subtítulo',
+    iconId: 'h2',
     category: 'Texto',
     group: 'Texto',
     command: (editor) => editor.chain().focus().toggleHeading({ level: 2 }).run(),
   },
   {
-    title: 'Título 3',
-    description: 'Sección pequeña',
-    icon: 'H3',
+    title: 'Heading 3',
+    description: 'Sub-subtítulo',
+    iconId: 'h3',
     category: 'Texto',
     group: 'Texto',
     command: (editor) => editor.chain().focus().toggleHeading({ level: 3 }).run(),
   },
   {
-    title: 'Callout información',
-    description: 'Aviso informativo',
-    icon: 'ℹ',
-    category: 'Texto',
-    group: 'Texto',
-    command: (editor) => editor.chain().focus().setCallout({ variant: 'info' }).run(),
-  },
-  {
-    title: 'Callout aviso',
-    description: 'Advertencia',
-    icon: '⚠',
-    category: 'Texto',
-    group: 'Texto',
-    command: (editor) => editor.chain().focus().setCallout({ variant: 'warning' }).run(),
-  },
-  {
-    title: 'Callout error',
-    description: 'Mensaje de error',
-    icon: '✕',
-    category: 'Texto',
-    group: 'Texto',
-    command: (editor) => editor.chain().focus().setCallout({ variant: 'error' }).run(),
-  },
-  {
-    title: 'Callout éxito',
-    description: 'Confirmación positiva',
-    icon: '✓',
-    category: 'Texto',
-    group: 'Texto',
-    command: (editor) => editor.chain().focus().setCallout({ variant: 'success' }).run(),
-  },
-  {
-    title: 'Toggle',
-    description: 'Bloque colapsable',
-    icon: '▸',
-    category: 'Texto',
-    group: 'Texto',
-    command: (editor) => editor.chain().focus().setToggle({ collapsed: false }).run(),
-  },
-  {
     title: 'Cita',
-    description: 'Bloque de cita',
-    icon: '"',
+    description: 'Bloque de cita destacado',
+    iconId: 'quote',
     category: 'Texto',
     group: 'Texto',
     command: (editor) => editor.chain().focus().toggleBlockquote().run(),
   },
+  // ── Listas
   {
-    title: 'Código',
-    description: 'Bloque de código',
-    icon: '</>',
-    category: 'Texto',
-    group: 'Texto',
-    command: (editor) => editor.chain().focus().toggleCodeBlock().run(),
-  },
-  // ── Multimedia
-  {
-    title: 'Imagen (portapapeles)',
-    description: 'Pegar imagen desde el portapapeles',
-    icon: '📋',
-    category: 'Multimedia',
-    group: 'Multimedia',
-    command: (editor) => void pasteImageFromClipboard(editor),
-  },
-  {
-    title: 'Imagen (Dome)',
-    description: 'Elegir imagen de la librería',
-    icon: '🖼',
-    category: 'Multimedia',
-    group: 'Multimedia',
-    command: (editor) => editor.storage.noteEditorBridge.openImagePicker(),
-  },
-  {
-    title: 'YouTube',
-    description: 'Insertar vídeo de YouTube',
-    icon: '▶',
-    category: 'Multimedia',
-    group: 'Multimedia',
-    command: (editor) => editor.storage.noteEditorBridge.openEmbedModal('youtube'),
-  },
-  {
-    title: 'Iframe / embed',
-    description: 'Insertar página incrustada (URL)',
-    icon: '▢',
-    category: 'Multimedia',
-    group: 'Multimedia',
-    command: (editor) => editor.storage.noteEditorBridge.openEmbedModal('iframe'),
-  },
-  // ── Estructura
-  {
-    title: 'Lista',
-    description: 'Lista con viñetas',
-    icon: '•',
-    category: 'Estructura',
-    group: 'Estructura',
+    title: 'Lista con viñetas',
+    description: 'Lista no ordenada',
+    iconId: 'bullet-list',
+    category: 'Listas',
+    group: 'Listas',
     command: (editor) => editor.chain().focus().toggleBulletList().run(),
   },
   {
     title: 'Lista numerada',
     description: 'Lista ordenada',
-    icon: '1.',
-    category: 'Estructura',
-    group: 'Estructura',
+    iconId: 'ordered-list',
+    category: 'Listas',
+    group: 'Listas',
     command: (editor) => editor.chain().focus().toggleOrderedList().run(),
   },
   {
-    title: 'Lista de tareas',
-    description: 'Con checkboxes',
-    icon: '☐',
-    category: 'Estructura',
-    group: 'Estructura',
+    title: 'To-do',
+    description: 'Lista con checkboxes',
+    iconId: 'task-list',
+    category: 'Listas',
+    group: 'Listas',
     command: (editor) => editor.chain().focus().toggleTaskList().run(),
   },
+  // ── Bloques Dome
   {
-    title: 'Separador',
-    description: 'Línea horizontal clásica',
-    icon: '—',
-    category: 'Estructura',
-    group: 'Estructura',
+    title: 'Callout',
+    description: 'Nota destacada con icono',
+    iconId: 'callout',
+    category: 'Bloques Dome',
+    group: 'Bloques Dome',
+    command: (editor) => editor.chain().focus().setCallout({ variant: 'info' }).run(),
+  },
+  {
+    title: 'Toggle',
+    description: 'Bloque plegable',
+    iconId: 'toggle',
+    category: 'Bloques Dome',
+    group: 'Bloques Dome',
+    command: (editor) => editor.chain().focus().setToggle({ collapsed: false }).run(),
+  },
+  {
+    title: 'Código',
+    description: 'Bloque de código con syntax',
+    iconId: 'code',
+    category: 'Bloques Dome',
+    group: 'Bloques Dome',
+    command: (editor) => editor.chain().focus().toggleCodeBlock().run(),
+  },
+  {
+    title: 'Divisor',
+    description: 'Línea horizontal',
+    iconId: 'divider',
+    category: 'Bloques Dome',
+    group: 'Bloques Dome',
     command: (editor) => editor.chain().focus().setHorizontalRule().run(),
   },
   {
-    title: 'Separador ···',
-    description: 'Puntos decorativos',
-    icon: '···',
-    category: 'Estructura',
-    group: 'Estructura',
-    command: (editor) => editor.chain().focus().setDivider({ variant: 'dots' }).run(),
-  },
-  {
-    title: 'Separador espacio',
-    description: 'Espacio vertical amplio',
-    icon: '⎵',
-    category: 'Estructura',
-    group: 'Estructura',
-    command: (editor) => editor.chain().focus().setDivider({ variant: 'space' }).run(),
-  },
-  {
-    title: '2 columnas',
-    description: 'Dos columnas paralelas',
-    icon: '⫯',
-    category: 'Estructura',
-    group: 'Estructura',
+    title: 'Columnas',
+    description: 'Layout en 2 o 3 columnas',
+    iconId: 'columns',
+    category: 'Bloques Dome',
+    group: 'Bloques Dome',
     command: (editor) => editor.chain().focus().insertTwoColumns().run(),
   },
   {
-    title: '3 columnas',
-    description: 'Tres columnas paralelas',
-    icon: '▥',
-    category: 'Estructura',
-    group: 'Estructura',
-    command: (editor) => editor.chain().focus().insertThreeColumns().run(),
-  },
-  {
     title: 'Tabla',
-    description: 'Tabla 3×3',
-    icon: '⊞',
-    category: 'Estructura',
-    group: 'Estructura',
+    description: 'Tabla editable',
+    iconId: 'table',
+    category: 'Bloques Dome',
+    group: 'Bloques Dome',
     command: (editor) =>
       editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(),
   },
-  // ── Dome
+  // ── AI
   {
-    title: 'Referencia a recurso',
-    description: 'Enlace a nota o archivo de Dome',
-    icon: '⌘',
-    category: 'Dome',
-    group: 'Dome',
-    command: (editor) => editor.storage.noteEditorBridge.openResourcePicker('link'),
+    title: 'Pedir a Many',
+    description: 'Genera contenido desde un prompt',
+    iconId: 'ai-spark',
+    category: 'AI',
+    group: 'AI',
+    accent: true,
+    command: (editor) =>
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: 'aiBlock', attrs: { prompt: '', response: '', status: 'idle' } })
+        .run(),
   },
   {
-    title: 'Mención @…',
-    description: 'Insertar @ para buscar recursos',
-    icon: '@',
-    category: 'Dome',
-    group: 'Dome',
-    command: (editor) => editor.storage.noteEditorBridge.openResourcePicker('mention'),
+    title: 'Continuar escribiendo',
+    description: 'Many continúa el texto',
+    iconId: 'ai-continue',
+    category: 'AI',
+    group: 'AI',
+    accent: true,
+    command: (editor) =>
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: 'aiBlock', attrs: { prompt: 'Continúa el texto anterior de forma natural', response: '', status: 'idle' } })
+        .run(),
+  },
+  {
+    title: 'Resumen del documento',
+    description: 'Resumen ejecutivo automático',
+    iconId: 'ai-summary',
+    category: 'AI',
+    group: 'AI',
+    accent: true,
+    command: (editor) =>
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: 'aiBlock', attrs: { prompt: 'Genera un resumen ejecutivo de este documento', response: '', status: 'idle' } })
+        .run(),
+  },
+  // ── Embebidos
+  {
+    title: 'Imagen',
+    description: 'Subir o pegar URL',
+    iconId: 'image',
+    category: 'Embebidos',
+    group: 'Embebidos',
+    command: (editor) => editor.storage.noteEditorBridge.openImagePicker(),
+  },
+  {
+    title: 'Mencionar @',
+    description: 'Añadir recurso del workspace',
+    iconId: 'mention',
+    category: 'Embebidos',
+    group: 'Embebidos',
+    command: (editor) => editor.chain().focus().insertContent('@').run(),
+  },
+  {
+    title: 'Embed',
+    description: 'YouTube, iframe, Figma…',
+    iconId: 'embed',
+    category: 'Embebidos',
+    group: 'Embebidos',
+    command: (editor) => editor.storage.noteEditorBridge.openEmbedModal('youtube'),
   },
 ];
+
+/** Back-compat — prefer {@link SLASH_ITEMS}. */
+export const SLASH_COMMANDS = SLASH_ITEMS;
 
 export type SlashCommandSuggestionOptions = Omit<SuggestionOptions<SlashCommand>, 'editor'>;
 
@@ -266,8 +244,8 @@ export const SlashCommandExtension = Extension.create<{ suggestion: Partial<Slas
         allowSpaces: false,
         items: ({ query }: { query: string }) => {
           const q = query.toLowerCase();
-          if (!q) return SLASH_COMMANDS;
-          return SLASH_COMMANDS.filter((cmd) =>
+          if (!q) return SLASH_ITEMS;
+          return SLASH_ITEMS.filter((cmd) =>
             [cmd.title, cmd.description, cmd.category, cmd.group].some((s) => s.toLowerCase().includes(q)),
           );
         },

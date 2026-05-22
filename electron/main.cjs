@@ -812,7 +812,7 @@ app
       console.warn('[Main] skills bootstrap:', e?.message || e);
     }
 
-    // Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v1)
+    // Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
     try {
       const { seedGuide } = require('./guide-bootstrap.cjs');
       seedGuide(database.getDB());

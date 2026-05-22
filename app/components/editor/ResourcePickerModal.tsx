@@ -2,26 +2,19 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, TextInput, Stack, Text, ScrollArea, UnstyledButton } from '@mantine/core';
-import { FileText, Image as ImageIcon, Video, Music, Notebook, Link2, Folder } from 'lucide-react';
 import type { Resource, ResourceType } from '@/types';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
-const TYPE_ICONS: Partial<Record<ResourceType, typeof FileText>> = {
-  note: FileText,
-  pdf: FileText,
-  image: ImageIcon,
-  video: Video,
-  audio: Music,
-  notebook: Notebook,
-  url: Link2,
-  folder: Folder,
-  document: FileText,
-  excel: FileText,
-  ppt: FileText,
-};
-
-function ResourceRowIcon({ type }: { type: ResourceType }) {
-  const Icon = TYPE_ICONS[type] ?? FileText;
-  return <Icon size={16} strokeWidth={1.75} style={{ flexShrink: 0, opacity: 0.85 }} />;
+function ResourceRowIcon({ type, title }: { type: ResourceType; title?: string }) {
+  return (
+    <DomeResourceIcon
+      type={type}
+      name={title}
+      size={16}
+      strokeWidth={1.75}
+      className="shrink-0 opacity-85"
+    />
+  );
 }
 
 export interface ResourcePickerModalProps {
@@ -114,7 +107,7 @@ export default function ResourcePickerModal({
                 }}
                 className="hover:bg-[var(--dome-bg-hover)]"
               >
-                <ResourceRowIcon type={r.type} />
+                <ResourceRowIcon type={r.type} title={r.title} />
                 <div style={{ minWidth: 0 }}>
                   <Text size="sm" fw={500} truncate>
                     {r.title || 'Sin título'}

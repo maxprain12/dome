@@ -6,10 +6,12 @@ import type {
   ReactNode,
   Ref,
 } from 'react';
-import { FileText, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
+import { attachmentVisualKind, type ChatAttachment } from '@/lib/chat/attachmentTypes';
+import { resourceVisualCssSuffix } from '@/lib/resources/resourceVisual';
 import type { PinnedResource } from '@/lib/store/useManyStore';
+import DomeResourceIcon, { DomeResourceIconBox } from '@/components/ui/DomeResourceIcon';
 import { cn } from '@/lib/utils';
 
 interface AIComposerFrameProps {
@@ -56,11 +58,63 @@ export function AIComposerFrame({
 interface AIComposerAttachmentTrayProps {
   attachments: ChatAttachment[];
   onRemove: (id: string) => void;
+  /** Many redesign: chips inside composer (prototype attach-chip). */
+  variant?: 'default' | 'many';
 }
 
-export function AIComposerAttachmentTray({ attachments, onRemove }: AIComposerAttachmentTrayProps) {
+export function AIComposerAttachmentTray({
+  attachments,
+  onRemove,
+  variant = 'default',
+}: AIComposerAttachmentTrayProps) {
   const { t } = useTranslation();
   if (attachments.length === 0) return null;
+
+  if (variant === 'many') {
+    return (
+      <div className="composer-attachments">
+        {attachments.map((attachment) => {
+          const kind =
+            attachment.kind === 'image'
+              ? 'image'
+              : attachmentVisualKind(attachment.name);
+          const tone = resourceVisualCssSuffix(kind);
+          const isLoading = attachment.kind === 'document' && attachment.status === 'loading';
+          const meta =
+            attachment.kind === 'document' && attachment.pageCount
+              ? t('many.attachment_pages', { count: attachment.pageCount })
+              : null;
+
+          return (
+            <span key={attachment.id} className={`attach-chip attach-chip--${tone}`}>
+              {attachment.kind === 'image' ? (
+                <span className="attach-icon attach-icon--thumb">
+                  <img src={attachment.dataUrl} alt="" />
+                </span>
+              ) : (
+                <DomeResourceIconBox kind={kind} name={attachment.name} />
+              )}
+              <span className="attach-chip__name">{attachment.name}</span>
+              {meta ? <span className="attach-chip__meta">· {meta}</span> : null}
+              {isLoading ? (
+                <span className="attach-chip__spinner" aria-hidden />
+              ) : (
+                <button
+                  type="button"
+                  className="attach-chip__remove"
+                  onClick={() => onRemove(attachment.id)}
+                  aria-label={t('chat.remove_attachment')}
+                  title={t('chat.remove_attachment')}
+                >
+                  <X size={11} strokeWidth={2} aria-hidden />
+                </button>
+              )}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap gap-1.5 border-b border-dashed border-[var(--border)] px-3 pt-2">
@@ -72,7 +126,7 @@ export function AIComposerAttachmentTray({ attachments, onRemove }: AIComposerAt
           {attachment.kind === 'image' ? (
             <img src={attachment.dataUrl} alt="" className="size-6 shrink-0 rounded object-cover" />
           ) : (
-            <FileText className="size-3.5 shrink-0" aria-hidden />
+            <DomeResourceIcon name={attachment.name} size={14} className="size-3.5 shrink-0" />
           )}
           <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
           <button
@@ -100,7 +154,7 @@ export function AIComposerPinnedResourceChip({ resource, onRemove }: AIComposerP
 
   return (
     <div className="ai-context-chip">
-      <FileText className="h-[11px] w-[11px] shrink-0 text-[var(--accent)]" aria-hidden />
+      <DomeResourceIcon type={resource.type} name={resource.title} size={11} className="shrink-0 text-[var(--accent)]" />
       <span className="min-w-0 flex-1 truncate">{resource.title}</span>
       <button
         type="button"

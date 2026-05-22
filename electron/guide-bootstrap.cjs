@@ -5,7 +5,7 @@
  * all editor capabilities and how to use each section of the app.
  *
  * Primary seed guarded by settings `guide_seeded_v2`. Empty guide bodies from
- * older builds are patched once via `guide_body_repaired_v1`.
+ * older builds are patched once via `guide_body_repaired_v2`.
  */
 
 'use strict';
@@ -13,8 +13,19 @@
 const { randomUUID } = require('crypto');
 
 const SEED_FLAG = 'guide_seeded_v2';
-const GUIDE_REPAIR_FLAG = 'guide_body_repaired_v1';
+/** Bump when repair heuristics change (forces one more SQLite pass). */
+const GUIDE_REPAIR_FLAG = 'guide_body_repaired_v2';
 const PROJECT_ID = 'default';
+/** Sidebar may truncate emoji; recognize both seeded title and alias. */
+const GUIDE_FOLDER_TITLES = ['📚 Guía de Dome', 'Guía de Dome'];
+
+/** @returns {Array<{ id: string }>} */
+function listGuideRootFolders(db) {
+  const placeholders = GUIDE_FOLDER_TITLES.map(() => '?').join(',');
+  return db.prepare(`SELECT id FROM resources WHERE type = 'folder' AND title IN (${placeholders})`).all(
+    ...GUIDE_FOLDER_TITLES,
+  );
+}
 
 // ─── Tiny JSON content helpers ───────────────────────────────────────────────
 
@@ -548,9 +559,7 @@ function resolveGuideBodyBuilder(noteTitle) {
 function listGuideNotebookRows(db) {
   /** @type {Array<{ id: string, title: string, content: string | null, type: string }>} */
   const notes = [];
-  const roots = db.prepare(
-    "SELECT id FROM resources WHERE title = '📚 Guía de Dome' AND type = 'folder'",
-  ).all();
+  const roots = listGuideRootFolders(db);
   for (const root of roots) {
     /** @type {string} */
     const folderId = root.id;
@@ -630,9 +639,7 @@ function seedGuide(db) {
 
     // Clean up any previous guide attempts (v1 may have left empty notes)
     const deleteOldGuide = db.transaction(() => {
-      const oldFolders = db.prepare(
-        "SELECT id FROM resources WHERE title = '📚 Guía de Dome' AND type = 'folder'"
-      ).all();
+      const oldFolders = listGuideRootFolders(db);
       for (const folder of oldFolders) {
         // Delete resources in sub-folders
         const subFolders = db.prepare(

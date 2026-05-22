@@ -1117,6 +1117,9 @@ async function executeLangGraphRun(runId, params) {
     if (context.autoSpeak) {
       streamingTts.cancel(runId);
     }
+    for (const entry of context.toolCalls) {
+      if (entry.status === 'running') entry.status = 'cancelled';
+    }
     appendRunStep({
       runId,
       stepType: aborted ? 'cancelled' : 'error',
@@ -1124,13 +1127,44 @@ async function executeLangGraphRun(runId, params) {
       status: aborted ? 'cancelled' : 'failed',
       content: error?.message || String(error),
     });
-    return patchRun(runId, {
+    const currentMeta = getRun(runId)?.metadata ?? {};
+    const patched = await patchRun(runId, {
       status: aborted ? 'cancelled' : 'failed',
       outputText: context.fullResponse,
       summary: context.fullResponse.slice(0, 280) || null,
       error: aborted ? null : (error?.message || String(error)),
       finishedAt: now(),
+      metadata: {
+        ...currentMeta,
+        kind: currentMeta.kind ?? 'langgraph',
+        provider: context.provider,
+        model: context.model,
+        toolCalls: context.toolCalls,
+      },
     });
+    if (
+      aborted &&
+      params.sessionId &&
+      (context.fullResponse.trim().length > 0 || context.toolCalls.length > 0)
+    ) {
+      try {
+        persistAssistantMessage(params.sessionId, {
+          content: context.fullResponse.trim(),
+          toolCalls: context.toolCalls,
+          thinking: context.fullThinking,
+          metadata: { mode: params.ownerType, runId, cancelled: true },
+          mode: params.ownerType === 'agent' ? 'agent' : 'many',
+          contextId: params.contextId ?? null,
+          threadId: context.threadId,
+          title: params.sessionTitle ?? null,
+          toolIds: params.toolIds ?? [],
+          mcpServerIds: params.mcpServerIds ?? [],
+        });
+      } catch (e) {
+        console.warn('[RunEngine] Could not persist partial assistant message on cancel:', e?.message);
+      }
+    }
+    return patched;
   } finally {
     const latest = getRun(runId);
     if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {

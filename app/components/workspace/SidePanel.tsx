@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Link2, MessageSquare, X, FolderOpen, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
@@ -6,8 +6,11 @@ import PDFTab from './PDFTab';
 import RelationsTab from './RelationsTab';
 import { type Resource } from '@/types';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { RESOURCE_RELATIONS_CHANGED } from '@/lib/utils/content-resources';
 
-type TabType = 'relations' | 'backlinks' | 'workspace' | 'pdf';
+export type SidePanelTab = 'relations' | 'backlinks' | 'workspace' | 'pdf';
+
+type TabType = SidePanelTab;
 
 const TAB_ORDER: TabType[] = ['relations', 'backlinks', 'workspace', 'pdf'];
 
@@ -31,6 +34,9 @@ interface SidePanelProps {
   resource: Resource;
   isOpen: boolean;
   onClose: () => void;
+  /** Al abrir o al cambiar mientras está abierto, enfoca esta pestaña (p. ej. backlinks). */
+  preferredTab?: TabType | null;
+  onPreferredTabApplied?: () => void;
   /** For notebooks: workspace folder path and change handler */
   notebookWorkspacePath?: string;
   onNotebookWorkspacePathChange?: (path: string) => Promise<void>;
@@ -44,6 +50,8 @@ export default function SidePanel({
   resource,
   isOpen,
   onClose,
+  preferredTab,
+  onPreferredTabApplied,
   notebookWorkspacePath,
   onNotebookWorkspacePathChange,
   notebookVenvPath,
@@ -86,10 +94,12 @@ export default function SidePanel({
   }, [resourceId, isPdf, tabs]);
 
   useEffect(() => {
-    if (isOpen && isNotebook && tabs.includes('workspace')) {
-      setActiveTab('workspace');
+    if (!isOpen || preferredTab == null) return;
+    if (tabs.includes(preferredTab)) {
+      setActiveTab(preferredTab);
+      onPreferredTabApplied?.();
     }
-  }, [isOpen, isNotebook, tabs]);
+  }, [isOpen, preferredTab, tabs, onPreferredTabApplied]);
 
   useEffect(() => {
     if (resource) {
@@ -179,21 +189,37 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
   const [backlinks, setBacklinks] = useState<ResourceSemanticBacklink[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadBacklinks() {
-      try {
-        const result = await window.electron.db.resources.getBacklinks(resourceId);
-        if (result?.success && result.data) {
-          setBacklinks(result.data);
-        }
-      } catch (error) {
-        console.error('Error loading backlinks:', error);
-      } finally {
-        setIsLoading(false);
+  const loadBacklinks = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const result = await window.electron.db.resources.getBacklinks(resourceId);
+      if (result?.success && result.data) {
+        setBacklinks(result.data);
       }
+    } catch (error) {
+      console.error('Error loading backlinks:', error);
+    } finally {
+      setIsLoading(false);
     }
-    loadBacklinks();
   }, [resourceId]);
+
+  useEffect(() => {
+    void loadBacklinks();
+  }, [loadBacklinks]);
+
+  useEffect(() => {
+    const onChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ sourceId?: string; targetIds?: string[] }>).detail;
+      if (
+        detail?.sourceId === resourceId ||
+        detail?.targetIds?.includes(resourceId)
+      ) {
+        void loadBacklinks();
+      }
+    };
+    window.addEventListener(RESOURCE_RELATIONS_CHANGED, onChanged);
+    return () => window.removeEventListener(RESOURCE_RELATIONS_CHANGED, onChanged);
+  }, [resourceId, loadBacklinks]);
 
   if (isLoading) {
     return (

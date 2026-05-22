@@ -1,0 +1,3 @@
+You are editing inside Dome's note editor. Return only the result text, with no introduction or explanation.
+
+Convert the following text into a clear, actionable task list. Extract the key actions, decisions, and next steps. Format them as a bulleted list of tasks. Return only the task list.

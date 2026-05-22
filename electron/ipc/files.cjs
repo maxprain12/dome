@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { extractChatAttachmentText } = require('../document-extractor.cjs');
+const pdfExtractor = require('../pdf-extractor.cjs');
 
 function register({ ipcMain, app, windowManager, sanitizePath }) {
   ipcMain.handle('file:generateHash', (event, filePath) => {
@@ -185,10 +186,21 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
       }
       const name = path.basename(safePath);
       const text = await extractChatAttachmentText(safePath);
-      if (text == null || String(text).trim() === '') {
-        return { success: true, data: { name, text: null } };
+      let pageCount = null;
+      if (path.extname(safePath).toLowerCase() === '.pdf') {
+        try {
+          const meta = await pdfExtractor.getPdfMetadata(safePath);
+          if (meta?.success && meta.metadata?.pageCount) {
+            pageCount = Number(meta.metadata.pageCount) || null;
+          }
+        } catch {
+          pageCount = null;
+        }
       }
-      return { success: true, data: { name, text: String(text) } };
+      if (text == null || String(text).trim() === '') {
+        return { success: true, data: { name, text: null, pageCount } };
+      }
+      return { success: true, data: { name, text: String(text), pageCount } };
     } catch (error) {
       console.error('[File] readAttachment:', error);
       return { success: false, error: error.message || String(error) };

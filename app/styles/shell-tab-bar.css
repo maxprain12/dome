@@ -1,0 +1,282 @@
+/* ─── Dome tab bar (prototype-aligned) ─── */
+
+.dome-tab-strip {
+  height: 100%;
+  background: var(--dome-bg);
+}
+
+.dome-tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  shrink: 0;
+  position: relative;
+  height: 100%;
+  max-width: 168px;
+  min-width: 72px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-right: 1px solid var(--dome-border);
+  cursor: pointer;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.dome-tab-item[data-active='true'] {
+  color: var(--dome-text);
+  background: var(--dome-surface);
+  box-shadow: inset 0 -2px 0 var(--dome-tab-accent, var(--dome-accent));
+}
+
+.dome-tab-item[data-active='false'] {
+  color: var(--dome-text-muted);
+  background: transparent;
+}
+
+.dome-tab-item[data-active='false']:hover {
+  color: var(--dome-text);
+  background: var(--dome-bg-hover);
+}
+
+.dome-tab-item-title {
+  flex: 1;
+  min-width: 0;
+  max-width: 108px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.dome-tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--dome-text-muted);
+  transition: opacity 0.1s ease, background 0.1s ease, color 0.1s ease;
+}
+
+.dome-tab-item:hover .dome-tab-close,
+.dome-tab-item:focus-within .dome-tab-close {
+  opacity: 0.55;
+}
+
+.dome-tab-close:hover {
+  opacity: 1 !important;
+  background: color-mix(in srgb, var(--dome-text) 8%, transparent);
+  color: var(--dome-text);
+}
+
+.dome-tab-overflow-btn {
+  height: 100%;
+  width: 32px;
+  flex-shrink: 0;
+  border: none;
+  border-right: 1px solid var(--dome-border);
+  background: var(--dome-bg);
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.dome-tab-overflow-btn:hover,
+.dome-tab-overflow-btn[aria-expanded='true'] {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.dome-tab-overflow-menu {
+  position: fixed;
+  z-index: 100000;
+  width: 280px;
+  max-height: min(520px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--dome-border);
+  background: var(--dome-surface);
+  box-shadow:
+    0 16px 48px rgb(0 0 0 / 0.14),
+    0 2px 8px rgb(0 0 0 / 0.06);
+}
+
+.dome-tab-overflow-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+}
+
+.dome-tab-overflow-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dome-text);
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.dome-tab-overflow-item:hover {
+  background: var(--dome-bg-hover);
+}
+
+.dome-tab-overflow-item[data-active='true'] {
+  background: color-mix(in srgb, var(--dome-accent) 12%, var(--dome-bg-hover));
+}
+
+.dome-tab-overflow-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dome-tab-overflow-footer {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--dome-border);
+  background: var(--dome-surface);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dome-tab-overflow-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+}
+
+.dome-tab-overflow-action--secondary {
+  background: var(--dome-bg);
+  border-color: var(--dome-border);
+  color: var(--dome-text);
+}
+
+.dome-tab-overflow-action--secondary:hover {
+  background: var(--dome-bg-hover);
+}
+
+.dome-tab-overflow-action--danger {
+  background: color-mix(in srgb, var(--dome-danger, #ef4444) 14%, var(--dome-surface));
+  border-color: color-mix(in srgb, var(--dome-danger, #ef4444) 35%, transparent);
+  color: var(--dome-danger, #dc2626);
+}
+
+.dome-tab-overflow-action--danger:hover {
+  background: color-mix(in srgb, var(--dome-danger, #ef4444) 22%, var(--dome-surface));
+}
+
+.dome-tab-scroll {
+  display: flex;
+  align-items: stretch;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dome-tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dome-tab-scroll-spacer {
+  flex: 0 0 8px;
+  min-width: 8px;
+  align-self: stretch;
+}
+
+.dome-tab-new-btn {
+  height: 100%;
+  width: 34px;
+  flex-shrink: 0;
+  border: none;
+  border-right: 1px solid var(--dome-border);
+  background: transparent;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  transition: background 0.1s ease, color 0.1s ease;
+}
+
+.dome-tab-new-btn:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.dome-tab-ctx-menu {
+  position: fixed;
+  z-index: 100000;
+  min-width: 204px;
+  max-width: 280px;
+  padding: 6px;
+  border-radius: 12px;
+  border: 1px solid var(--dome-border);
+  background: var(--dome-surface);
+  box-shadow:
+    0 16px 48px rgb(0 0 0 / 0.14),
+    0 2px 8px rgb(0 0 0 / 0.06);
+}
+
+.dome-tab-ctx-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dome-text);
+  transition: background 0.1s ease;
+}
+
+.dome-tab-ctx-item:hover:not(:disabled) {
+  background: var(--dome-bg-hover);
+}
+
+.dome-tab-ctx-item:disabled {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.dome-tab-ctx-item[data-danger='true'] {
+  color: var(--dome-danger, #ef4444);
+}
