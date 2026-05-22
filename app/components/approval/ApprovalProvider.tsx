@@ -1,13 +1,12 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect } from 'react';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
-import ApprovalModal from './ApprovalModal';
 
 /**
- * Mount once in AppShell. Listens to approval:requested from the main process,
- * queues modals, and forwards responses back via window.electron.approval.respond.
+ * Enqueues shell/tool approvals from the main process. UI is inline in ManyPanel
+ * (ManyHitlInlineSection), not a modal overlay.
  */
 export default function ApprovalProvider() {
-  const { queue, enqueue, dequeue } = useApprovalStore();
+  const enqueue = useApprovalStore((s) => s.enqueue);
 
   useEffect(() => {
     if (!window.electron?.approval?.onRequested) return;
@@ -22,17 +21,5 @@ export default function ApprovalProvider() {
     return cleanup;
   }, [enqueue]);
 
-  const handleRespond = useCallback(
-    (approvalId: string, approved: boolean) => {
-      dequeue(approvalId);
-      window.electron?.approval?.respond?.(approvalId, approved);
-    },
-    [dequeue],
-  );
-
-  // Only show the first queued request (next shows after this one is resolved).
-  const current = queue[0] ?? null;
-  if (!current) return null;
-
-  return <ApprovalModal key={current.approvalId} request={current} onRespond={handleRespond} />;
+  return null;
 }

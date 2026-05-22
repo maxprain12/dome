@@ -362,6 +362,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           signal: controller.signal,
           threadId,
           skipHitl,
+          senderWebContentsId: event.sender.id,
         });
         if (result && typeof result === 'object' && result.__interrupt__) {
           return { success: true, interrupted: true, threadId: result.threadId };

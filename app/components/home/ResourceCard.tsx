@@ -1,8 +1,9 @@
 
 import { memo } from 'react';
 import type { Resource } from '@/types';
-import { FileText, File, FileSpreadsheet, Video, Music, Image as ImageIcon, Link2, Trash2, FolderOpen, Loader2, AlertCircle, Notebook, Play, MoreHorizontal, Presentation } from 'lucide-react';
+import { File, Trash2, FolderOpen, Loader2, AlertCircle, Play, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow, formatShortDistance, formatFileSize, getResourceTypeLabel } from '@/lib/utils';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -67,29 +68,6 @@ export default memo(function ResourceCard({
   };
 
   const excelSubType = getExcelSubType();
-
-  const getIcon = () => {
-    // Excel sub-type specific icons
-    if (resource.type === 'excel') {
-      switch (excelSubType) {
-        case 'xlsx': return <FileSpreadsheet className="size-5" strokeWidth={1.5} />;
-        default: return <File className="size-5" strokeWidth={1.5} />;
-      }
-    }
-
-    switch (resource.type) {
-      case 'note': return <FileText className="size-5" strokeWidth={1.5} />;
-      case 'notebook': return <Notebook className="size-5" strokeWidth={1.5} />;
-      case 'pdf': return <File className="size-5" strokeWidth={1.5} />;
-      case 'video': return <Video className="size-5" strokeWidth={1.5} />;
-      case 'audio': return <Music className="size-5" strokeWidth={1.5} />;
-      case 'image': return <ImageIcon className="size-5" strokeWidth={1.5} />;
-      case 'url': return <Link2 className="size-5" strokeWidth={1.5} />;
-      case 'folder': return <FolderOpen className="size-5" strokeWidth={1.5} />;
-      case 'ppt': return <Presentation className="size-5" strokeWidth={1.5} />;
-      default: return <File className="size-5" strokeWidth={1.5} />;
-    }
-  };
 
   const getTypeColor = () => {
     if (resource.type === 'excel') {
@@ -190,7 +168,7 @@ export default memo(function ResourceCard({
                 className="flex items-center justify-center size-8 rounded shrink-0"
                 style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
               >
-                {getIcon()}
+                <DomeResourceIcon type={resource.type} name={resource.title} size={20} className="size-5" strokeWidth={1.5} />
               </span>
               <span className="flex flex-col min-w-0">
                 <span className="text-sm font-medium truncate text-[var(--dome-text)]">
@@ -220,7 +198,7 @@ export default memo(function ResourceCard({
                 className="flex items-center justify-center size-8 rounded shrink-0"
                 style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
               >
-                {getIcon()}
+                <DomeResourceIcon type={resource.type} name={resource.title} size={20} className="size-5" strokeWidth={1.5} />
               </span>
               <span className="flex flex-col min-w-0">
                 <span className="text-sm font-medium truncate text-[var(--dome-text)]">
@@ -300,7 +278,7 @@ export default memo(function ResourceCard({
         className="flex items-center justify-center size-8 rounded shrink-0"
         style={{ background: `${getTypeColor()}15`, color: getTypeColor() }}
       >
-        {getIcon()}
+        <DomeResourceIcon type={resource.type} name={resource.title} size={20} className="size-5" strokeWidth={1.5} />
       </div>
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium text-[var(--dome-text)] truncate" title={resource.title}>

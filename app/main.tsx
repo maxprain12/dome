@@ -10,6 +10,8 @@ import './styles/_keyframe-animations.scss';
 import './styles/_tiptap-dome-bridge.scss';
 import App from './App';
 import './globals.css';
+import './styles/notes-editor.css';
+import './styles/shell-tab-bar.css';
 import './lib/i18n';
 
 /**

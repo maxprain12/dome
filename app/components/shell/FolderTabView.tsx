@@ -1,10 +1,9 @@
-import { useMemo, useCallback, useState, useRef, useEffect } from 'react';
+import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
 import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
 import { formatDistanceToNow } from 'date-fns';
 import {
-  FolderOpen, Folder, FileText, FileEdit, BookOpen, Globe, File as FileIcon,
-  Image, Music, Video, Plus, Home, ChevronRight, FileQuestion,
-  MoreVertical, Trash2, Pencil, X, Check, Presentation, Upload, Link2, ChevronDown,
+  FolderOpen, Folder, FileText, Plus, Home, ChevronRight,
+  MoreVertical, Trash2, Pencil, X, Check, Upload, Link2, ChevronDown,
   Palette, FolderInput,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +13,7 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,19 +29,16 @@ function getFolderColor(folder: Resource): string {
   return meta?.color ?? 'var(--dome-text-muted)';
 }
 
-function ResourceTypeIcon({ type, className }: { type: string; className?: string }) {
-  const cls = className ?? 'size-4 shrink-0';
-  switch (type) {
-    case 'note':     return <FileEdit className={cls} />;
-    case 'notebook': return <BookOpen className={cls} />;
-    case 'url':      return <Globe className={cls} />;
-    case 'image':    return <Image className={cls} />;
-    case 'audio':    return <Music className={cls} />;
-    case 'video':    return <Video className={cls} />;
-    case 'pdf':      return <FileIcon className={cls} />;
-    case 'ppt':      return <Presentation className={cls} />;
-    default:         return <FileQuestion className={cls} />;
-  }
+function ResourceTypeIcon({ type, name, className }: { type: string; name?: string; className?: string }) {
+  return (
+    <DomeResourceIcon
+      type={type}
+      name={name}
+      size={16}
+      className={className ?? 'size-4 shrink-0'}
+      strokeWidth={1.75}
+    />
+  );
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -397,7 +394,7 @@ function FileRow({
       ) : null}
       <div className="size-1.5 rounded-full shrink-0" style={{ background: typeColor }} />
       <div style={{ color: typeColor }}>
-        <ResourceTypeIcon type={file.type} />
+        <ResourceTypeIcon type={file.type} name={file.title} />
       </div>
 
       {renaming ? (
@@ -901,10 +898,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             <span>{t('common.home')}</span>
           </button>
           {breadcrumb.map((folder) => (
-            <>
-              <ChevronRight key={`sep-${folder.id}`} className="size-3 shrink-0" />
+            <Fragment key={folder.id}>
+              <ChevronRight className="size-3 shrink-0" />
               <button
-                key={folder.id}
                 type="button"
                 onClick={() => openFolderTab(folder.id, folder.title, getFolderColor(folder))}
                 className="hover:text-[var(--dome-text)] transition-colors truncate"
@@ -913,7 +909,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               >
                 {folder.title}
               </button>
-            </>
+            </Fragment>
           ))}
           {breadcrumb.length > 0 && <ChevronRight className="size-3 shrink-0" />}
           <span style={{ color: 'var(--dome-text)' }}>{currentFolder?.title ?? folderTitle}</span>

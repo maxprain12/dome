@@ -20,6 +20,9 @@ import editorSummarize from '../../../prompts/editor/actions/summarize.txt?raw';
 import editorImprove from '../../../prompts/editor/actions/improve.txt?raw';
 import editorTranslate from '../../../prompts/editor/actions/translate.txt?raw';
 import editorContinue from '../../../prompts/editor/actions/continue.txt?raw';
+import editorShorten from '../../../prompts/editor/actions/shorten.txt?raw';
+import editorTodo from '../../../prompts/editor/actions/todo.txt?raw';
+import editorExplain from '../../../prompts/editor/actions/explain.txt?raw';
 import studioWithTools from '../../../prompts/studio/with-tools.txt?raw';
 import studioWithoutTools from '../../../prompts/studio/without-tools.txt?raw';
 
@@ -48,6 +51,9 @@ export const prompts = {
       improve: editorImprove,
       translate: editorTranslate,
       continue: editorContinue,
+      shorten: editorShorten,
+      todo: editorTodo,
+      explain: editorExplain,
     },
   },
   studio: {
@@ -147,7 +153,7 @@ export function buildEditorSystemPrompt(contextSnippet: string): string {
  * Get editor action prompt by action type.
  */
 export function getEditorActionPrompt(
-  action: 'review' | 'expand' | 'summarize' | 'improve' | 'translate' | 'continue',
+  action: 'review' | 'expand' | 'summarize' | 'improve' | 'translate' | 'continue' | 'shorten' | 'todo' | 'explain',
 ): string {
   return prompts.editor.actions[action];
 }

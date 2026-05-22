@@ -669,16 +669,15 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
             ) : null}
           </>
         )}
+        {pendingApproval ? (
+          <HITLReviewPanel
+            pendingApproval={pendingApproval}
+            onDismiss={() => setPendingApproval(null)}
+            inline
+          />
+        ) : null}
         <div ref={messagesEndRef} />
       </UnifiedChatMessageArea>
-
-      {/* HITL approval panel */}
-      {pendingApproval && (
-        <HITLReviewPanel
-          pendingApproval={pendingApproval}
-          onDismiss={() => setPendingApproval(null)}
-        />
-      )}
 
       {/* Fixed Input */}
       <UnifiedChatInput

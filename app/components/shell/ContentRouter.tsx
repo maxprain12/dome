@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import HubListState from '@/components/ui/HubListState';
@@ -16,7 +16,7 @@ const NoteWorkspaceClient = lazy(() => import('@/workspace/note/[[...params]]/cl
 const PptWorkspaceClient = lazy(() => import('@/workspace/ppt/client'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
-const ManyPanel = lazy(() => import('@/components/many/ManyPanel'));
+import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
@@ -50,15 +50,27 @@ function NoResource() {
 }
 
 function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
+  const [ManyPanelComp, setManyPanelComp] = useState<ManyPanelComponent | null>(null);
+
   useEffect(() => {
     if (sessionId) useManyStore.getState().switchSession(sessionId);
   }, [sessionId]);
 
-  return (
-    <Suspense fallback={<Loading />}>
-      <ManyPanel width={0} onClose={onClose} isVisible isFullscreen />
-    </Suspense>
-  );
+  useEffect(() => {
+    let cancelled = false;
+    void loadManyPanelModule().then((m) => {
+      if (!cancelled) setManyPanelComp(() => m.default);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!ManyPanelComp) {
+    return <Loading />;
+  }
+
+  return <ManyPanelComp width={0} onClose={onClose} isVisible isFullscreen />;
 }
 
 function getResourceTabType(resourceType: string): DomeTab['type'] {

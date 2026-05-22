@@ -8,6 +8,8 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  Check,
+  ChevronRight,
   Database,
   Plug,
   FileTextIcon,
@@ -419,6 +421,36 @@ function formatArgsSummary(args: Record<string, unknown>): string {
   return joined;
 }
 
+/** Human-readable one-liner summary for the many panel card style */
+function smartToolSummary(name: string, args: Record<string, unknown>): string {
+  const n = name.toLowerCase();
+  if (n === 'file_write' || n.includes('resource_create') || n.includes('notebook')) {
+    const fp = String(args.file_path ?? args.path ?? '');
+    if (fp) return `~/${fp.split('/').slice(-2).join('/')}`;
+    const title = String(args.title ?? '');
+    return title.length > 64 ? title.slice(0, 61) + '…' : title;
+  }
+  if (n === 'file_read') {
+    const fp = String(args.file_path ?? args.path ?? '');
+    return fp ? fp.split('/').slice(-1)[0]! : 'file';
+  }
+  if (n === 'shell_exec' || n.includes('shell')) {
+    const cmd = String(args.command ?? '').trim();
+    return cmd.length > 72 ? cmd.slice(0, 69) + '…' : cmd;
+  }
+  if (n.includes('web_search') || n.includes('resource_search') || n.includes('memory')) {
+    return `"${String(args.query ?? args.q ?? '').slice(0, 60)}"`;
+  }
+  if (n.includes('web_fetch')) return String(args.url ?? '').slice(0, 72);
+  if (n.includes('resource_get')) {
+    return String(args.title ?? args.resourceId ?? args.id ?? '').slice(0, 64);
+  }
+  if (n.includes('calendar')) {
+    return String(args.title ?? args.summary ?? '').slice(0, 64);
+  }
+  return formatArgsSummary(args);
+}
+
 export default function ChatToolCard({ toolCall, className = '', surfaceVariant = 'default' }: ChatToolCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -747,20 +779,119 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
 
   const hasResult = Boolean(toolCall.result || toolCall.error);
   const canExpand = !isPending && hasResult;
+  const cardSummary = smartToolSummary(toolCall.name, toolCall.arguments);
 
+  // ── Many panel: new card-based design ──────────────────────────────────────
+  if (surfaceVariant === 'many') {
+    const stateKey = isPending ? (toolCall.status === 'running' ? 'running' : 'pending') : toolCall.status;
+    return (
+      <div className={`many-tool-card-v2 state-${stateKey} ${className}`.trim()}>
+        <button
+          type="button"
+          className="many-tool-card-v2-trigger"
+          onClick={() => { if (canExpand) setExpanded((o) => !o); }}
+          aria-expanded={expanded}
+        >
+          {/* Icon box */}
+          <div className={`many-tool-card-v2-icon state-${stateKey}`}>
+            {isPending
+              ? <Loader2 size={12} className="many-tool-spinner animate-spin" />
+              : <Icon size={14} strokeWidth={1.8} />}
+          </div>
+
+          {/* Label + summary */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)', whiteSpace: 'nowrap' }}>
+                {label}
+              </span>
+              {/* Inline state icon */}
+              {toolCall.status === 'success' && !isPending && (
+                <Check size={12} strokeWidth={2.4} style={{ color: 'var(--accent)', flexShrink: 0 }} />
+              )}
+              {toolCall.status === 'error' && !isPending && (
+                <XCircle size={12} style={{ color: 'var(--error)', flexShrink: 0 }} />
+              )}
+            </div>
+            {cardSummary && (
+              <span
+                style={{
+                  fontSize: 11.5,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  color: 'var(--tertiary-text)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {cardSummary}
+              </span>
+            )}
+          </div>
+
+          {/* Chevron */}
+          {canExpand && (
+            <ChevronRight
+              size={14}
+              className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`}
+            />
+          )}
+        </button>
+
+        {/* Expanded body */}
+        {expanded && canExpand && (
+          <div className="many-tool-card-v2-body">
+            {/* Args */}
+            {Object.keys(toolCall.arguments).length > 0 && (
+              <>
+                <div className="many-tool-card-v2-section-label">Args</div>
+                <dl className="many-tool-card-v2-kv" style={{ marginBottom: 10 }}>
+                  {Object.entries(toolCall.arguments).slice(0, 4).map(([k, v]) => (
+                    <div key={k} style={{ display: 'contents' }}>
+                      <dt>{k}</dt>
+                      <dd style={{ color: typeof v === 'string' ? 'var(--accent)' : typeof v === 'number' ? 'var(--info)' : 'var(--primary-text)' }}>
+                        {typeof v === 'string' ? `"${v.slice(0, 120)}"` : JSON.stringify(v)}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </>
+            )}
+            {/* Result */}
+            {!toolCall.error && hasResult ? (
+              <>
+                <div className="many-tool-card-v2-section-label">Result</div>
+                <div className="mb-1.5">
+                  <DomeButton
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => setShowRawJson(!showRawJson)}
+                    className="!h-auto !px-0 !py-0 font-mono text-[11px] underline text-[var(--tertiary-text)] opacity-70 hover:opacity-100"
+                  >
+                    {showRawJson ? t('chat.formatted_view') : t('chat.view_json')}
+                  </DomeButton>
+                </div>
+              </>
+            ) : null}
+            {renderResultContent()}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Default surface: original left-border style ────────────────────────────
   return (
     <div
-      className={`${surfaceVariant === 'many' ? 'many-chat-tool-root' : ''} ${className}`.trim()}
+      className={className}
       style={{
         minWidth: 0,
         maxWidth: '100%',
-        fontSize: surfaceVariant === 'many' ? 12 : 13,
-        borderLeft: `${surfaceVariant === 'many' ? 1 : 2}px solid ${accentColor}`,
-        borderRadius: surfaceVariant === 'many' ? '0 var(--radius-md) var(--radius-md) 0' : '0 var(--radius-lg) var(--radius-lg) 0',
-        background:
-          surfaceVariant === 'many'
-            ? 'color-mix(in srgb, var(--bg-secondary) 72%, transparent)'
-            : 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
+        fontSize: 13,
+        borderLeft: `2px solid ${accentColor}`,
+        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
+        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
         transition: 'background 150ms ease',
       }}
     >
@@ -786,17 +917,13 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
             </div>
             <span className="flex flex-col min-w-0 flex-1">
               <span
-                className={`${surfaceVariant === 'many' ? 'text-[12px]' : 'text-[13px]'} font-semibold leading-snug`}
+                className="text-[13px] font-semibold leading-snug"
                 style={{ color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)' }}
               >
                 {label}
               </span>
               {argsSummary ? (
-                <span
-                  className={`text-[var(--tertiary-text)] leading-snug mt-px truncate ${
-                    surfaceVariant === 'many' ? 'text-[11px]' : 'text-[12px]'
-                  }`}
-                >
+                <span className="text-[var(--tertiary-text)] leading-snug mt-px truncate text-[12px]">
                   {argsSummary}
                 </span>
               ) : null}
@@ -852,20 +979,54 @@ export function ChatToolCardGroup({
   const hasError = calls.some((c) => c.status === 'error');
   const hasPending = calls.some((c) => c.status === 'pending' || c.status === 'running');
   const allSuccess = calls.every((c) => c.status === 'success');
+  const stateKey = hasPending ? 'running' : hasError ? 'error' : allSuccess ? 'success' : 'pending';
 
+  // ── Many panel: card-based group ──────────────────────────────────────────
+  if (surfaceVariant === 'many') {
+    return (
+      <div className={`many-tool-card-v2 state-${stateKey} ${className}`.trim()}>
+        <button
+          type="button"
+          className="many-tool-card-v2-trigger"
+          onClick={() => setExpanded((o) => !o)}
+          aria-expanded={expanded}
+        >
+          <div className={`many-tool-card-v2-icon state-${stateKey}`}>
+            {hasPending
+              ? <Loader2 size={12} className="many-tool-spinner animate-spin" />
+              : <Icon size={14} strokeWidth={1.8} />}
+          </div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)', flex: 1, textAlign: 'left' }}>
+            {t('chat.tool_group_count', { label, count })}
+          </span>
+          {allSuccess && <Check size={12} strokeWidth={2.4} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
+          {hasError && <XCircle size={12} style={{ color: 'var(--error)', flexShrink: 0 }} />}
+          <ChevronRight size={14} className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`} />
+        </button>
+        {expanded && (
+          <div className="many-tool-card-v2-body" style={{ paddingLeft: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {calls.map((tc) => (
+                <ChatToolCard key={tc.id} toolCall={tc} surfaceVariant={surfaceVariant} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── Default surface: original left-border style ────────────────────────────
   return (
     <div
-      className={`${surfaceVariant === 'many' ? 'many-chat-tool-root' : ''} ${className}`.trim()}
+      className={className}
       style={{
         minWidth: 0,
         maxWidth: '100%',
-        fontSize: surfaceVariant === 'many' ? 12 : 13,
-        borderLeft: `${surfaceVariant === 'many' ? 1 : 2}px solid ${accentColor}`,
-        borderRadius: surfaceVariant === 'many' ? '0 var(--radius-md) var(--radius-md) 0' : '0 var(--radius-lg) var(--radius-lg) 0',
-        background:
-          surfaceVariant === 'many'
-            ? 'color-mix(in srgb, var(--bg-secondary) 72%, transparent)'
-            : 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
+        fontSize: 13,
+        borderLeft: `2px solid ${accentColor}`,
+        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
+        background: 'color-mix(in srgb, var(--bg-secondary) 86%, transparent)',
         transition: 'background 150ms ease',
       }}
     >
@@ -886,11 +1047,7 @@ export function ChatToolCardGroup({
                 <Icon className="w-[13px] h-[13px] text-[var(--tertiary-text)]" />
               )}
             </div>
-            <span
-              className={`${
-                surfaceVariant === 'many' ? 'text-[12px]' : 'text-[13px]'
-              } font-semibold text-[var(--secondary-text)] leading-snug`}
-            >
+            <span className="text-[13px] font-semibold text-[var(--secondary-text)] leading-snug">
               {t('chat.tool_group_count', { label, count })}
             </span>
           </>

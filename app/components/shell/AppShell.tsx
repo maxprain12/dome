@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { shallow } from 'zustand/shallow';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
-import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
@@ -16,6 +15,7 @@ import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 import TranscriptionPill from '@/components/transcription/TranscriptionPill';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
+import { installDomeUiActionBridge } from '@/lib/shell/domeUiActionBridge';
 
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
 const MANY_MIN = 280;
@@ -38,7 +38,9 @@ function readInt(key: string, fallback: number, min: number, max: number): numbe
 // prevents React 18's concurrent scheduler from deferring the Suspense resolution
 // during the initial render burst (which caused the right panel to stay on its
 // "Loading..." fallback until the user clicked something).
-const _manyPanelImport = import('@/components/many/ManyPanel');
+import { loadManyPanelModule } from '@/components/many/manyPanelModule';
+
+void loadManyPanelModule();
 
 interface ManyPanelWithSuspenseProps {
   width: number;
@@ -53,9 +55,8 @@ function ManyPanelWithSuspense(props: ManyPanelWithSuspenseProps) {
   const [ManyPanelComp, setManyPanelComp] = useState<React.ComponentType<ManyPanelWithSuspenseProps> | null>(null);
 
   useEffect(() => {
-    _manyPanelImport.then(m => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setManyPanelComp(() => m.default as React.ComponentType<any>);
+    void loadManyPanelModule().then((m) => {
+      setManyPanelComp(() => m.default);
     });
   }, []);
 
@@ -93,9 +94,18 @@ export default function AppShell() {
 
   const isMac = typeof window !== 'undefined' && window.electron?.isMac;
   const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
+  const isLinux = typeof window !== 'undefined' && window.electron?.isLinux;
+  /** Windows overlay + controles dibujados en Linux (no usar titleBarOverlay de Win). */
+  const needsRightTitleInset = Boolean(isWindows || isLinux);
 
   useEffect(() => {
     setManyWidth(readInt(MANY_WIDTH_KEY, MANY_DEFAULT, MANY_MIN, MANY_MAX));
+  }, []);
+
+  /** LangGraph ui_* actions — exactly one ipcRenderer listener app-wide */
+  useEffect(() => {
+    const off = installDomeUiActionBridge();
+    return off;
   }, []);
 
   // Transcription: subscribe once to the main-process broadcast and prime settings.
@@ -161,22 +171,26 @@ export default function AppShell() {
     return () => unsub?.();
   }, []);
 
-  // Auto-open the right panel when the user switches INTO a chat tab.
-  // Tracking the previous tab id (instead of `rightSidebarOpen`) is what lets
-  // the user actually close the panel while still on a chat tab — otherwise
-  // every close immediately re-fires this effect and pops the panel back open.
+  // Auto-open the right Many panel when leaving chat; chat fullscreen keeps historial inside Many.
   const prevActiveTabIdRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevActiveTabIdRef.current;
     prevActiveTabIdRef.current = activeTabId ?? null;
     if (prev === activeTabId) return;
-    if (isChatTab && !rightSidebarOpen) {
+    if (isChatTab) {
+      setRightSidebarOpen(false);
+      return;
+    }
+    if (!rightSidebarOpen) {
       setRightSidebarOpen(true);
     }
   }, [activeTabId, isChatTab, rightSidebarOpen]);
 
   useEffect(() => {
     const onReq = () => {
+      const { tabs: tabList, activeTabId: aid } = useTabStore.getState();
+      const tab = tabList.find((x) => x.id === aid);
+      if (tab?.type === 'chat') return;
       setManyRightOverride(true);
       setRightSidebarOpen(true);
     };
@@ -189,12 +203,28 @@ export default function AppShell() {
     };
   }, []);
 
-  const showChatHistory = Boolean(isChatTab && !manyRightOverride);
-  const showManyInSidebar = Boolean(rightSidebarOpen && !showChatHistory);
-  const needsHeadlessMany = !showManyInSidebar;
+  /** Notes editor ⌘J / sparkle actions: reopen Many in the shell right column */
+  useEffect(() => {
+    const onOpenManySidebar = () => {
+      const { tabs: tabList, activeTabId: aid } = useTabStore.getState();
+      const tab = tabList.find((x) => x.id === aid);
+      if (tab?.type === 'chat') {
+        setManyRightOverride(true);
+      }
+      setRightSidebarOpen(true);
+    };
+    window.addEventListener('dome:many-sidebar-open', onOpenManySidebar);
+    return () => window.removeEventListener('dome:many-sidebar-open', onOpenManySidebar);
+  }, []);
+
+  const isChatCenterLayout = Boolean(isChatTab && !manyRightOverride);
+  const showManyInSidebar = Boolean(rightSidebarOpen && (!isChatTab || manyRightOverride));
+  const needsHeadlessMany = isChatCenterLayout;
 
   const SIDEBAR_W = 260;
-  const HEADER_DRAG_STRIP_W = isWindows ? 20 : 32;
+  /** Hueco mínimo para arrastrar la ventana entre pestañas y controles derechos. */
+  const HEADER_DRAG_GAP_MIN_PX = 28;
+
 
   return (
     <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
@@ -251,22 +281,25 @@ export default function AppShell() {
           className="flex flex-1 min-w-0 items-stretch"
           style={{
             paddingLeft: 6,
-            // leave room for Windows titleBarOverlay controls (~138px on right)
-            paddingRight: isWindows ? 138 : 0,
+            // Hueco derecho para titleBarOverlay (Win) / WindowControls absolutos (Linux)
+            paddingRight: needsRightTitleInset ? 140 : 0,
           } as React.CSSProperties}
         >
           <div
-            className="flex flex-1 min-w-0 items-stretch"
+            className="flex flex-1 min-w-0 min-h-0 items-stretch"
             style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
           >
             <DomeTabBar onNewChat={handleNewChat} />
           </div>
 
+          {/* Heredero de drag del padre: NO puede estar dentro del wrapper no-drag de DomeTabBar (rompe clics en tabs en Electron). */}
           <div
-            aria-hidden="true"
-            className="shrink-0"
+            aria-hidden
+            className="shrink-0 self-stretch select-none"
             style={{
-              width: HEADER_DRAG_STRIP_W,
+              flex: '0 1 48px',
+              minWidth: HEADER_DRAG_GAP_MIN_PX,
+              maxWidth: 96,
               WebkitAppRegion: 'drag',
             } as React.CSSProperties}
           />
@@ -324,31 +357,27 @@ export default function AppShell() {
           <ContentRouter />
         </main>
 
-        {/* Right sidebar with resize handle */}
-        {rightSidebarOpen && (
+        {/* Right sidebar: Many en modo panel (no en pestaña Chat fullscreen — historial va dentro de Many). */}
+        {showManyInSidebar ? (
           <>
-            {showManyInSidebar ? <ResizeHandle onResize={handleManyResize} direction="horizontal" /> : null}
+            <ResizeHandle onResize={handleManyResize} direction="horizontal" />
             <div
               className="dome-right-panel shrink-0 overflow-hidden"
               style={{
-                width: showChatHistory ? 280 : manyWidth,
-                minWidth: showChatHistory ? 280 : manyWidth,
+                width: manyWidth,
+                minWidth: manyWidth,
                 transition: 'width 200ms ease',
               }}
             >
-              {showChatHistory ? (
-                <ChatHistoryPanel onClose={handleToggleRightSidebar} />
-              ) : (
-                <ManyPanelWithSuspense
-                  width={manyWidth}
-                  onClose={handleToggleRightSidebar}
-                  isVisible
-                  isFullscreen={false}
-                />
-              )}
+              <ManyPanelWithSuspense
+                width={manyWidth}
+                onClose={handleToggleRightSidebar}
+                isVisible
+                isFullscreen={false}
+              />
             </div>
           </>
-        )}
+        ) : null}
 
         {needsHeadlessMany && (
           <div

@@ -46,10 +46,9 @@ import {
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { FOLDER_COLOR_SWATCHES } from '@/components/home/FolderColorPicker';
-import DomeButton from '@/components/ui/DomeButton';
 import DomeDivider from '@/components/ui/DomeDivider';
 
-const TAB_OVERFLOW_MIN_COUNT = 8;
+const TAB_OVERFLOW_MIN_COUNT = 5;
 
 function TabIcon({ tab }: { tab: DomeTab }) {
   const cls = 'size-3.5 shrink-0';
@@ -139,54 +138,32 @@ function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemP
       onClick={onActivate}
       onContextMenu={(e) => onContextMenu(e, tab)}
       data-ui-target={`tab-${tab.type}`}
-      className="flex items-center gap-1.5 px-3 shrink-0 relative group transition-colors duration-100"
+      className="dome-tab-item"
+      data-active={isActive ? 'true' : 'false'}
       style={{
-        height: '100%',
-        maxWidth: 180,
-        minWidth: 80,
-        fontSize: 12,
-        fontWeight: 500,
-        color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-        background: isActive
-          ? folderColor
-            ? `${folderColor}12`
-            : 'var(--dome-surface)'
-          : 'transparent',
-        borderRight: '1px solid var(--dome-border)',
-        borderBottom: isActive ? `2px solid ${accentColor}` : '2px solid transparent',
-        cursor: 'pointer',
-        userSelect: 'none',
-        WebkitAppRegion: 'no-drag',
-      } as CSSProperties}
-      onMouseEnter={(e) => {
-        if (!isActive) {
-          (e.currentTarget as HTMLButtonElement).style.background = folderColor
-            ? `${folderColor}0d`
-            : 'var(--dome-bg-hover)';
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!isActive) {
-          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-        }
+        ['--dome-tab-accent' as string]: accentColor,
+        ...(folderColor && isActive
+          ? { background: `${folderColor}12` }
+          : undefined),
       }}
     >
       <TabIcon tab={tab} />
-      <span className="truncate flex-1 text-left" style={{ maxWidth: 120 }}>
-        {displayTitle}
-      </span>
+      <span className="dome-tab-item-title">{displayTitle}</span>
       {!tab.pinned && (
         <span
           role="button"
           tabIndex={-1}
-          onClick={(e) => { e.stopPropagation(); onClose(); }}
-          onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onClose(); } }}
-          className="flex items-center justify-center rounded opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity shrink-0"
-          style={{
-            width: 16,
-            height: 16,
-            color: 'var(--dome-text-muted)',
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
           }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.stopPropagation();
+              onClose();
+            }
+          }}
+          className="dome-tab-close"
           aria-label={t('workspace.close_tab', { title: displayTitle })}
         >
           <X className="size-3" strokeWidth={2} />
@@ -227,7 +204,9 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<TabCtxState | null>(null);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const [overflowAnchor, setOverflowAnchor] = useState<{ top: number; left: number } | null>(null);
   const overflowWrapRef = useRef<HTMLDivElement>(null);
+  const overflowBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -247,12 +226,37 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   useEffect(() => {
     if (!overflowMenuOpen) return;
     const onDown = (e: MouseEvent) => {
-      if (overflowWrapRef.current?.contains(e.target as Node)) return;
+      const target = e.target as Node;
+      if (overflowWrapRef.current?.contains(target)) return;
+      if ((target as HTMLElement).closest?.('.dome-tab-overflow-menu')) return;
       setOverflowMenuOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOverflowMenuOpen(false);
+    };
     document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [overflowMenuOpen]);
+
+  const toggleOverflowMenu = useCallback(() => {
+    setOverflowMenuOpen((open) => {
+      const next = !open;
+      if (next && overflowBtnRef.current) {
+        const rect = overflowBtnRef.current.getBoundingClientRect();
+        setOverflowAnchor({
+          top: rect.bottom + 4,
+          left: Math.min(rect.left, window.innerWidth - 296),
+        });
+      } else if (!next) {
+        setOverflowAnchor(null);
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!ctxMenu) return;
@@ -296,92 +300,86 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   return (
     <>
       {ctxPortal}
-      <div
-        className="flex items-stretch flex-1 min-w-0"
-        style={{
-          height: '100%',
-          background: 'var(--dome-bg)',
-        }}
-      >
+      <div className="dome-tab-strip flex items-stretch flex-1 min-w-0">
         {showOverflowList && (
           <div
             ref={overflowWrapRef}
             className="relative shrink-0 self-stretch"
             style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
           >
-            <DomeButton
+            <button
+              ref={overflowBtnRef}
               type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={() => setOverflowMenuOpen((o) => !o)}
+              className="dome-tab-overflow-btn"
+              onClick={toggleOverflowMenu}
               aria-expanded={overflowMenuOpen}
               aria-haspopup="menu"
-              className="!rounded-none h-full w-8 min-h-0 rounded-none border-r border-[var(--dome-border)] text-[var(--dome-text-muted)] bg-[var(--dome-bg)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
               title={t('workspace.tab_menu_all_tabs')}
               aria-label={t('workspace.tab_menu_all_tabs')}
             >
               <MoreHorizontal className="size-4" strokeWidth={2} />
-            </DomeButton>
-            {overflowMenuOpen && (
-              <div
-                className="absolute left-0 top-full z-[9999] mt-0 w-[260px] overflow-hidden rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] py-1 shadow-lg"
-                role="menu"
-              >
-                {tabs.map((tab) => (
-                  <DomeButton
-                    key={tab.id}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    role="menuitem"
-                    className="w-full justify-start gap-2 rounded-none px-2.5 py-2 h-auto min-h-0 font-normal text-[var(--dome-text)] hover:bg-[var(--dome-bg-hover)]"
-                    leftIcon={<TabIcon tab={tab} />}
-                    onClick={() => {
-                      activateTab(tab.id);
-                      setOverflowMenuOpen(false);
-                    }}
-                  >
-                    <span className="truncate">{getDomeTabDisplayTitle(tab, t)}</span>
-                  </DomeButton>
-                ))}
-                <DomeDivider spacingClass="my-1" className="mx-1" />
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  role="menuitem"
-                  className="w-full justify-start rounded-none px-2.5 py-2 h-auto min-h-0 font-normal text-[var(--dome-text)] hover:bg-[var(--dome-bg-hover)]"
-                  onClick={() => {
-                    closeAllUnpinnedTabs();
-                    setOverflowMenuOpen(false);
-                  }}
-                >
-                  {t('workspace.tab_menu_close_all_unpinned')}
-                </DomeButton>
-                <DomeButton
-                  type="button"
-                  variant="danger"
-                  size="sm"
-                  role="menuitem"
-                  className="w-full justify-start rounded-none px-2.5 py-2 h-auto min-h-0 font-normal"
-                  onClick={() => {
-                    closeAllTabsToHome();
-                    setOverflowMenuOpen(false);
-                  }}
-                >
-                  {t('workspace.tab_menu_close_all')}
-                </DomeButton>
-              </div>
-            )}
+            </button>
           </div>
         )}
 
-        <div
-          ref={scrollRef}
-          className="flex items-stretch flex-1 min-w-0 overflow-x-auto scrollbar-none"
-          style={{ height: '100%' }}
-        >
+        {overflowMenuOpen && overflowAnchor
+          ? ReactDOM.createPortal(
+              <div
+                className="dome-tab-overflow-menu"
+                role="menu"
+                style={{ top: overflowAnchor.top, left: overflowAnchor.left }}
+              >
+                <div className="dome-tab-overflow-list">
+                  {tabs.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="menuitem"
+                      className="dome-tab-overflow-item"
+                      data-active={tab.id === activeTabId ? 'true' : 'false'}
+                      onClick={() => {
+                        activateTab(tab.id);
+                        setOverflowMenuOpen(false);
+                        setOverflowAnchor(null);
+                      }}
+                    >
+                      <TabIcon tab={tab} />
+                      <span>{getDomeTabDisplayTitle(tab, t)}</span>
+                    </button>
+                  ))}
+                </div>
+                <div className="dome-tab-overflow-footer">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="dome-tab-overflow-action dome-tab-overflow-action--secondary"
+                    onClick={() => {
+                      closeAllUnpinnedTabs();
+                      setOverflowMenuOpen(false);
+                      setOverflowAnchor(null);
+                    }}
+                  >
+                    {t('workspace.tab_menu_close_all_unpinned')}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="dome-tab-overflow-action dome-tab-overflow-action--danger"
+                    onClick={() => {
+                      closeAllTabsToHome();
+                      setOverflowMenuOpen(false);
+                      setOverflowAnchor(null);
+                    }}
+                  >
+                    {t('workspace.tab_menu_close_all')}
+                  </button>
+                </div>
+              </div>,
+              document.body,
+            )
+          : null}
+
+        <div ref={scrollRef} className="dome-tab-scroll">
           {tabs.map((tab) => (
             <TabItem
               key={tab.id}
@@ -393,42 +391,22 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             />
           ))}
 
-          <DomeButton
+          <button
             type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
+            className="dome-tab-new-btn"
             onClick={onNewChat}
-            className="!rounded-none h-full w-9 min-h-0 shrink-0 rounded-none border-r border-[var(--dome-border)] text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]"
-            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
             title={t('workspace.new_conversation')}
             aria-label={t('workspace.new_conversation')}
           >
             <Plus className="size-3.5" strokeWidth={2} />
-          </DomeButton>
+          </button>
 
-          <div className="flex-1 min-w-[12px]" />
+          <div className="dome-tab-scroll-spacer" aria-hidden />
         </div>
       </div>
     </>
   );
 }
-
-const TAB_CONTEXT_MENU_ITEM_BASE: CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 9,
-  width: '100%',
-  padding: '8px 10px',
-  border: 'none',
-  borderRadius: 6,
-  background: 'transparent',
-  cursor: 'pointer',
-  textAlign: 'left',
-  fontSize: 12.5,
-  fontWeight: 500,
-  color: 'var(--dome-text)',
-};
 
 function TabContextMenuItem({
   label,
@@ -441,23 +419,15 @@ function TabContextMenuItem({
   disabled?: boolean;
   danger?: boolean;
 }) {
-  const [hover, setHover] = useState(false);
   return (
     <button
       type="button"
       role="menuitem"
       disabled={disabled}
+      className="dome-tab-ctx-item"
+      data-danger={danger ? 'true' : undefined}
       onClick={() => {
         if (!disabled) onClick();
-      }}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      style={{
-        ...TAB_CONTEXT_MENU_ITEM_BASE,
-        opacity: disabled ? 0.45 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        background: hover && !disabled ? 'var(--dome-bg-hover)' : 'transparent',
-        color: danger ? 'var(--dome-danger, #ef4444)' : 'var(--dome-text)',
       }}
     >
       {label}
@@ -534,25 +504,17 @@ function TabContextMenuBridge({
     position: 'fixed',
     left: Math.min(x, window.innerWidth - 240),
     top: Math.min(y, window.innerHeight - 320),
-    zIndex: 99999,
-    minWidth: 200,
-    maxWidth: 280,
-    background: 'var(--dome-surface)',
-    border: '1px solid var(--dome-border)',
-    borderRadius: 10,
-    boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-    padding: 6,
+    zIndex: 100000,
   };
 
   if (view === 'colors' && showColors) {
     return ReactDOM.createPortal(
-      <div style={menuStyle} role="menu">
+      <div className="dome-tab-ctx-menu" style={menuStyle} role="menu">
         <button
           type="button"
+          className="dome-tab-ctx-item"
           onClick={onBackToMain}
-          style={{ ...TAB_CONTEXT_MENU_ITEM_BASE, marginBottom: 4 }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+          style={{ marginBottom: 4 }}
         >
           <ChevronLeft className="size-3.5 shrink-0" />
           {t('workspace.tab_menu_back')}
@@ -582,6 +544,7 @@ function TabContextMenuBridge({
 
   return ReactDOM.createPortal(
     <div
+      className="dome-tab-ctx-menu"
       style={menuStyle}
       role="menu"
       aria-label={displayTitle}

@@ -10,6 +10,8 @@ export interface UnifiedChatMessageAreaProps {
   fullHeight?: boolean;
   /** Scope CSS hooks for Many minimal skin */
   dataSurface?: 'many';
+  /** Message list density (Many redesign — compact spacing). */
+  dataDensity?: 'compact';
 }
 
 /**
@@ -17,13 +19,14 @@ export interface UnifiedChatMessageAreaProps {
  * Parents pass the same `ref` to attach scroll/scrollIntoView behavior.
  */
 export const UnifiedChatMessageArea = forwardRef(function UnifiedChatMessageArea(
-  { children, className, style, fullHeight = true, dataSurface }: UnifiedChatMessageAreaProps,
+  { children, className, style, fullHeight = true, dataSurface, dataDensity }: UnifiedChatMessageAreaProps,
   ref: Ref<HTMLDivElement>,
 ) {
   return (
     <div
       ref={ref}
       {...(dataSurface ? { 'data-surface': dataSurface } : {})}
+      {...(dataDensity ? { 'data-density': dataDensity } : {})}
       className={cn(
         'overflow-y-auto overflow-x-hidden overscroll-contain',
         fullHeight && 'flex-1 min-h-0',

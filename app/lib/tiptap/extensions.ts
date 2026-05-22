@@ -13,10 +13,10 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Placeholder from '@tiptap/extension-placeholder';
 import UniqueID from '@tiptap/extension-unique-id';
 import Youtube from '@tiptap/extension-youtube';
+import { NodeRange } from '@tiptap/extension-node-range';
 import { createLowlight, common } from 'lowlight';
 
 import { NoteEditorBridge } from '@/lib/tiptap/extensions/note-editor-bridge';
@@ -32,16 +32,30 @@ import {
 import { ResourceLink } from '@/lib/tiptap/extensions/resource-link';
 import { IframeEmbed } from '@/lib/tiptap/extensions/iframe-embed';
 import { AIBlock } from '@/lib/tiptap/extensions/ai-block';
+import {
+  DomeCodeBlockLowlight,
+} from '@/lib/tiptap/extensions/code-block-note-view-extension';
 
 const lowlight = createLowlight(common);
 
+export interface BuildCoreNoteExtensionsOptions {
+  placeholder?: string;
+}
+
 /** Core note blocks (TipTap). Slash + Mention are composed in NoteEditor. */
-export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
+export function buildCoreNoteExtensions(options: BuildCoreNoteExtensionsOptions = {}) {
+  const placeholder = options.placeholder ?? 'Escribe algo...';
+
+  const starterConfigure = {
+    codeBlock: false as const,
+    /** DragHandle reorders blocks via HTML5 DnD — dropcursor lines break the note UI. */
+    dropcursor: false as const,
+  };
+
   return [
     NoteEditorBridge,
-    StarterKit.configure({
-      codeBlock: false,
-    }),
+    NodeRange,
+    StarterKit.configure(starterConfigure),
     Underline,
     TextStyle,
     Color,
@@ -60,7 +74,7 @@ export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
     TableRow,
     TableHeader,
     TableCell,
-    CodeBlockLowlight.configure({ lowlight }),
+    DomeCodeBlockLowlight.configure({ lowlight }),
     Placeholder.configure({ placeholder }),
     Youtube.configure({
       width: 640,

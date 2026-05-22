@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { DomeMentionItem } from '@/lib/tiptap/extensions/resource-mention';
+import { useSuggestionPortalPosition } from './useSuggestionPortalPosition';
 
 export interface MentionMenuHandle {
   onKeyDown: (props: { event: KeyboardEvent }) => boolean;
@@ -73,7 +74,7 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
     if (!items.length) {
       return (
         <div
-          className="mention-suggestion-menu mention-suggestion-menu--empty"
+          className="mention-suggestion-menu note-mention-menu-shell mention-suggestion-menu--empty"
           style={{
             ...menuContainerStyle,
             overflowY: 'hidden',
@@ -88,7 +89,7 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
     }
 
     return (
-      <div className="mention-suggestion-menu" style={menuContainerStyle}>
+      <div className="mention-suggestion-menu note-mention-menu-shell" style={menuContainerStyle}>
         {items.map((item, index) => {
           const isSelected = index === selectedIndex;
           return (
@@ -129,18 +130,12 @@ interface MentionMenuPortalProps {
   menuRef: RefObject<MentionMenuHandle | null>;
 }
 
-export function MentionMenuPortal({ items, command, clientRect, menuRef }: MentionMenuPortalProps) {
-  const [position, setPosition] = useState({ top: 0, left: 0 });
+const MENTION_MENU_WIDTH = 240;
 
-  useEffect(() => {
-    if (!clientRect) return;
-    const rect = clientRect();
-    if (!rect) return;
-    setPosition({
-      top: rect.bottom + 6,
-      left: Math.min(rect.left, window.innerWidth - 240),
-    });
-  }, [clientRect, items]);
+export function MentionMenuPortal({ items, command, clientRect, menuRef }: MentionMenuPortalProps) {
+  const position = useSuggestionPortalPosition(clientRect, true, MENTION_MENU_WIDTH, items);
+
+  if (!position) return null;
 
   return createPortal(
     <div style={{ position: 'fixed', top: position.top, left: position.left, zIndex: 10000 }}>

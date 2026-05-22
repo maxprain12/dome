@@ -1,41 +1,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  File,
-  Video,
-  Music,
-  Image,
-  Link2,
-  Plus,
-  CheckSquare,
-  Square,
-  MinusSquare,
-} from 'lucide-react';
+import { Plus, CheckSquare, Square, MinusSquare } from 'lucide-react';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
 
 interface SourcesPanelProps {
   resourceId: string;
   projectId: string;
-}
-
-function getTypeIcon(type: string, size = 14) {
-  const props = { size, className: 'shrink-0' };
-  switch (type) {
-    case 'pdf':
-      return <File {...props} />;
-    case 'video':
-      return <Video {...props} />;
-    case 'audio':
-      return <Music {...props} />;
-    case 'image':
-      return <Image {...props} />;
-    case 'url':
-      return <Link2 {...props} />;
-    default:
-      return <File {...props} />;
-  }
 }
 
 export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProps) {
@@ -197,7 +170,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
 
                 {/* Type icon */}
                 <div style={{ color: 'var(--secondary-text)' }}>
-                  {getTypeIcon(res.type)}
+                  <DomeResourceIcon type={res.type} name={res.title} size={14} className="shrink-0" />
                 </div>
 
                 {/* Title */}

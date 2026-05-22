@@ -5,12 +5,26 @@ export function newAttachmentId(): string {
   return `att_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+import {
+  inferResourceVisualKind,
+  type ResourceVisualKind,
+} from '@/lib/resources/resourceVisual';
+
+/** @deprecated Prefer ResourceVisualKind — kept for chat composer call sites. */
+export type AttachmentVisualKind = ResourceVisualKind;
+
+export function attachmentVisualKind(name: string, mime?: string): ResourceVisualKind {
+  if (mime?.startsWith('image/')) return 'image';
+  return inferResourceVisualKind(undefined, name);
+}
+
 export type ChatAttachmentImage = {
   id: string;
   kind: 'image';
   name: string;
   dataUrl: string;
   mime: string;
+  status?: 'ready';
 };
 
 export type ChatAttachmentDocument = {
@@ -18,6 +32,8 @@ export type ChatAttachmentDocument = {
   kind: 'document';
   name: string;
   text: string | null;
+  pageCount?: number | null;
+  status?: 'loading' | 'ready' | 'error';
 };
 
 export type ChatAttachment = ChatAttachmentImage | ChatAttachmentDocument;

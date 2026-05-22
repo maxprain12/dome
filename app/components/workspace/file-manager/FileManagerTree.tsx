@@ -2,14 +2,6 @@ import { useState, useEffect, useCallback, useRef, useMemo, type MouseEvent } fr
 import {
   ChevronRight,
   ChevronDown,
-  Folder,
-  BookOpen,
-  Globe,
-  File,
-  Image,
-  Music,
-  Video,
-  Presentation,
   RefreshCw,
   Search,
   Trash2,
@@ -25,6 +17,7 @@ import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspa
 import { useTranslation } from 'react-i18next';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
+import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
 type TreeNodeData = {
   id: string;
@@ -37,30 +30,6 @@ type TreeNodeData = {
 interface FileManagerTreeProps {
   compact?: boolean;
   onRefresh?: () => void;
-}
-
-function getResourceIcon(type: string, className: string = "size-4") {
-  switch (type) {
-    case 'notebook':
-      return <BookOpen className={className} strokeWidth={1.75} />;
-    case 'url':
-      return <Globe className={className} strokeWidth={1.75} />;
-    case 'youtube':
-    case 'video':
-      return <Video className={className} strokeWidth={1.75} />;
-    case 'pdf':
-      return <File className={className} strokeWidth={1.75} />;
-    case 'image':
-      return <Image className={className} strokeWidth={1.75} />;
-    case 'audio':
-      return <Music className={className} strokeWidth={1.75} />;
-    case 'ppt':
-      return <Presentation className={className} strokeWidth={1.75} />;
-    case 'folder':
-      return <Folder className={className} strokeWidth={1.75} />;
-    default:
-      return <File className={className} strokeWidth={1.75} />;
-  }
 }
 
 interface ContextMenuState {
@@ -187,7 +156,7 @@ function TreeNodeComponent({
           )}
         </span>
         <span className="shrink-0 flex items-center" style={{ color: isFolder ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-          {getResourceIcon(node.type, iconSize)}
+          <DomeResourceIcon type={node.type} name={node.name} className={iconSize} size={16} strokeWidth={1.75} />
         </span>
         <span className="truncate flex-1" style={{ lineHeight: 1.3 }}>{node.name}</span>
       </button>

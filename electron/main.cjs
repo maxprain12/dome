@@ -812,6 +812,14 @@ app
       console.warn('[Main] skills bootstrap:', e?.message || e);
     }
 
+    // Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
+    try {
+      const { seedGuide } = require('./guide-bootstrap.cjs');
+      seedGuide(database.getDB());
+    } catch (e) {
+      console.warn('[Main] guide bootstrap:', e?.message || e);
+    }
+
     // Start the embeddings utilityProcess worker now that app is ready.
     try {
       require('./services/embeddings.service.cjs').initWorker();

@@ -63,7 +63,7 @@ export default function NoteFocusPage({ resourceId }: NoteFocusPageProps) {
 
   return (
     <div
-      className="flex size-screen flex-col"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden"
       style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
     >
       <NoteWorkspaceClient resourceId={resourceId} />

@@ -1,4 +1,5 @@
 import Mention from '@tiptap/extension-mention';
+import { mergeAttributes } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 
 export interface DomeMentionItem {
@@ -24,6 +25,26 @@ export function buildDomeResourceMention(
           },
         },
       };
+    },
+
+    renderHTML({ node, HTMLAttributes }) {
+      const label = node.attrs.label ?? node.attrs.id ?? 'Recurso';
+      return [
+        'span',
+        mergeAttributes(
+          { 'data-type': this.name },
+          this.options.HTMLAttributes,
+          HTMLAttributes,
+          {
+            'data-resource-id': node.attrs.id,
+            'data-id': node.attrs.id,
+            'data-label': label,
+            role: 'button',
+            tabindex: '0',
+          },
+        ),
+        label,
+      ];
     },
   }).configure({
     HTMLAttributes: {

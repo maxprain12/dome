@@ -5,6 +5,7 @@
   flex: 1;
   min-height: 0;
   height: 100%;
+  position: relative;
 }
 
 /* ─── Editor content area ─────────────────────────────────────────────────── */
@@ -252,30 +253,67 @@
 }
 
 /* ─── Tables ──────────────────────────────────────────────────────────────── */
+.note-editor-content .tiptap .tableWrapper {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+
+.note-editor-content .tiptap .tableWrapper > table,
 .note-editor-content .tiptap table {
   border-collapse: collapse;
+  table-layout: fixed;
   width: 100%;
-  margin: 0.75rem 0;
+  margin: 0;
   overflow: hidden;
   border-radius: 8px;
-  border: 1px solid var(--dome-border);
+  border: 1px solid var(--dome-border, var(--border-soft-note, var(--border)));
 }
 
 .note-editor-content .tiptap th,
 .note-editor-content .tiptap td {
-  border: 1px solid var(--dome-border);
+  border: 1px solid var(--dome-border, var(--border-soft-note, var(--border)));
   padding: 0.5rem 0.75rem;
   text-align: left;
   vertical-align: top;
   min-width: 60px;
   position: relative;
+  box-sizing: border-box;
+}
+
+.note-editor-content .tiptap th > p,
+.note-editor-content .tiptap td > p {
+  margin: 0;
 }
 
 .note-editor-content .tiptap th {
-  background: var(--dome-bg-secondary);
+  background: var(--dome-bg-secondary, var(--bg-secondary));
   font-weight: 600;
   font-size: 0.85em;
-  color: var(--dome-text-secondary);
+  color: var(--dome-text-secondary, var(--secondary-text));
+}
+
+.note-editor-content .tiptap .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: var(--dome-accent, var(--accent));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.note-editor-content .tiptap .tableWrapper:hover .column-resize-handle,
+.note-editor-content .tiptap .column-resize-handle.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.note-editor-content .tiptap .tableWrapper.ProseMirror-selectednode,
+.note-editor-content .tiptap table.ProseMirror-selectednode {
+  outline: 2px solid color-mix(in srgb, var(--dome-accent, var(--accent)) 35%, transparent);
+  background: transparent;
 }
 
 .note-editor-content .tiptap .selectedCell::after {

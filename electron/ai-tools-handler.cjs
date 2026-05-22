@@ -3381,25 +3381,42 @@ async function fileSearch(args) {
   return { status: 'success', directory, pattern, type, count: matches.length, matches };
 }
 
-async function shellExec(args) {
+async function shellExec(args, toolContext = null) {
   const command = typeof args.command === 'string' ? args.command.trim() : '';
   const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : undefined;
   if (!command) return { status: 'error', error: 'command is required' };
 
-  // Require user confirmation via native dialog
-  const win = windowManagerRef ? (windowManagerRef.getAll?.()[0] ?? null) : null;
+  const approval = require('./ipc/approval.cjs');
+  let senderId = toolContext?.senderWebContentsId;
+  if (senderId == null && windowManagerRef?.getFocused) {
+    const focused = windowManagerRef.getFocused();
+    if (focused && !focused.isDestroyed?.()) {
+      senderId = focused.webContents?.id;
+    }
+  }
+
   let confirmed = false;
   try {
-    const { response } = await electronDialog.showMessageBox(win, {
-      type: 'question',
-      title: 'Many quiere ejecutar un comando',
-      message: `$ ${command}`,
-      detail: cwd ? `en: ${cwd}` : 'en: directorio de trabajo actual',
-      buttons: ['Cancelar', 'Ejecutar'],
-      defaultId: 1,
-      cancelId: 0,
-    });
-    confirmed = response === 1;
+    if (senderId != null) {
+      confirmed = await approval.requestApproval({
+        kind: 'shell_exec',
+        payload: { command, cwd: cwd || null },
+        senderId,
+      });
+    } else {
+      const { dialog } = require('electron');
+      const win = windowManagerRef ? (windowManagerRef.getAll?.()[0] ?? null) : null;
+      const { response } = await dialog.showMessageBox(win, {
+        type: 'question',
+        title: 'Many quiere ejecutar un comando',
+        message: `$ ${command}`,
+        detail: cwd ? `en: ${cwd}` : 'en: directorio de trabajo actual',
+        buttons: ['Cancelar', 'Ejecutar'],
+        defaultId: 1,
+        cancelId: 0,
+      });
+      confirmed = response === 1;
+    }
   } catch (err) {
     return { status: 'error', error: `Dialog error: ${err.message}` };
   }

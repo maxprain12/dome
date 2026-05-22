@@ -540,7 +540,7 @@ export interface AppPreferences {
 export interface CalloutBlockAttributes {
   icon?: string;
   color?: string;
-  variant?: 'info' | 'warning' | 'error' | 'success';
+  variant?: 'info' | 'warning' | 'error' | 'success' | 'olive';
 }
 
 export interface ToggleBlockAttributes {
