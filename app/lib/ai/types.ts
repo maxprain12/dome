@@ -455,6 +455,7 @@ export type ProviderType =
   | 'copilot'
   | 'bedrock'
   | 'minimax'
+  | 'openrouter'
   | 'moonshot'
   | 'qwen'
   | 'deepseek';

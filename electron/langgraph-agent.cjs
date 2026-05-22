@@ -746,6 +746,17 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
       temperature: 0.7,
     });
   }
+  if (provider === 'openrouter') {
+    const { ChatOpenRouter } = await import('@langchain/openrouter');
+    const { OPENROUTER_SITE_URL, OPENROUTER_SITE_NAME } = require('./openrouter-config.cjs');
+    return new ChatOpenRouter({
+      model: model || 'anthropic/claude-sonnet-4.5',
+      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
+      siteUrl: OPENROUTER_SITE_URL,
+      siteName: OPENROUTER_SITE_NAME,
+      temperature: 0.7,
+    });
+  }
   throw new Error(`Unsupported provider: ${provider}`);
 }
 
@@ -782,6 +793,7 @@ const PROVIDER_TOKEN_BUDGETS = {
   google: 800000,
   minimax: 160000,
   dome: 64000,
+  openrouter: 128000,
 };
 
 const DEFAULT_TOKEN_BUDGET = 64000;

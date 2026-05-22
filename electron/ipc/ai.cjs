@@ -5,6 +5,7 @@ const langgraphAgent = require('../langgraph-agent.cjs');
 const llmService = require('../llm-service.cjs');
 const domeOauth = require('../dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
+const { fetchOpenRouterModels } = require('../openrouter-models.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
@@ -37,8 +38,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
 
     try {
       // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'minimax'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, or minimax');
+      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'minimax', 'openrouter'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, minimax, or openrouter');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
@@ -110,8 +111,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const { provider, messages, streamId } = params;
       let { model } = params;
 
-      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, ollama, or minimax');
+      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax', 'openrouter'].includes(provider)) {
+        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, ollama, minimax, or openrouter');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
@@ -291,8 +292,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     } = params);
 
     try {
-      if (!provider || !['openai', 'anthropic', 'google', 'ollama', 'minimax'].includes(provider)) {
-        throw new Error('Invalid provider for LangGraph. Must be openai, anthropic, google, ollama, or minimax');
+      if (!provider || !['openai', 'anthropic', 'google', 'ollama', 'minimax', 'openrouter'].includes(provider)) {
+        throw new Error('Invalid provider for LangGraph. Must be openai, anthropic, google, ollama, minimax, or openrouter');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
@@ -567,6 +568,25 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     } catch (error) {
       console.error('[AI Cloud] Test connection error:', error);
       return { success: false, error: error.message || 'Unknown error testing connection.' };
+    }
+  });
+
+  ipcMain.handle('ai:openrouter:listModels', async (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      let apiKey = '';
+      if (params && typeof params === 'object' && typeof params.apiKey === 'string') {
+        apiKey = params.apiKey.trim();
+      }
+      if (!apiKey) {
+        const queries = database.getQueries();
+        apiKey = String(queries.getSetting.get('ai_api_key')?.value || '').trim();
+      }
+      return await fetchOpenRouterModels(apiKey);
+    } catch (error) {
+      return { success: false, error: error.message || String(error) };
     }
   });
 

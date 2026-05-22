@@ -219,6 +219,17 @@ function discoverDeepSeek(): DiscoveredProvider {
   };
 }
 
+function discoverOpenRouter(): DiscoveredProvider {
+  const apiKey = getEnv(ENV_KEYS.OPENROUTER_API_KEY);
+  return {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    available: !!apiKey,
+    apiKey: apiKey ? '***' : undefined,
+    source: apiKey ? 'env' : 'config',
+  };
+}
+
 function discoverCopilot(): DiscoveredProvider {
   // Copilot requires GitHub authentication, can't detect from env
   const models = getCopilotModels();
@@ -246,6 +257,7 @@ export async function discoverProviders(): Promise<DiscoveryResult> {
     discoverOpenAI(),
     discoverAnthropic(),
     discoverGoogle(),
+    discoverOpenRouter(),
     ollama,
     discoverCopilot(),
     discoverDeepSeek(),

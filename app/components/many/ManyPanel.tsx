@@ -784,7 +784,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         return;
       }
 
-      const needsApiKey = ['openai', 'anthropic', 'google'].includes(config.provider);
+      const needsApiKey = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(config.provider);
       const hasApiKey = !!config.apiKey;
       if (needsApiKey && !hasApiKey && !['synthetic', 'venice'].includes(config.provider)) {
         setError(t('chat.api_key_error_inline'));

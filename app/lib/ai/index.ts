@@ -233,9 +233,14 @@ export {
   chatWithOpenAI,
   chatWithClaude,
   chatWithGemini,
+  chatWithMiniMax,
+  chatWithOpenRouter,
   streamOpenAI,
   streamClaude,
   streamGemini,
+  streamMiniMax,
+  streamOpenRouter,
+  fetchOpenRouterModels,
 
   // Utilities
   chunkText,

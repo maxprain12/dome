@@ -6,11 +6,14 @@ import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
   PROVIDERS,
+  FREE_COST,
   getDefaultModelId,
   type AIProviderType,
   type ModelDefinition,
 } from '@/lib/ai/models';
+import type { ModelInputType } from '@/lib/ai/types';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
+import { fetchOpenRouterModels } from '@/lib/ai/client';
 import ModelSelector from './ModelSelector';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
@@ -69,10 +72,85 @@ export default function AISettingsPanel() {
   const [checkingOllama, setCheckingOllama] = useState(false);
   const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [openRouterMergedModels, setOpenRouterMergedModels] = useState<ModelDefinition[]>([]);
+  const [openRouterModelsLoading, setOpenRouterModelsLoading] = useState(false);
+  const [openRouterModelsError, setOpenRouterModelsError] = useState<string | null>(null);
   const [cloudSyncBusy, setCloudSyncBusy] = useState(false);
   const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
 
-  const currentProviderModels: ModelDefinition[] = useMemo(() => PROVIDERS[provider]?.models || [], [provider]);
+  const mergeOpenRouterModelRows = useCallback(
+    (
+      rows: NonNullable<Awaited<ReturnType<typeof fetchOpenRouterModels>>['models']>,
+    ): ModelDefinition[] => {
+      const base = PROVIDERS.openrouter.models;
+      const map = new Map(base.map((m) => [m.id, { ...m }]));
+      for (const r of rows ?? []) {
+        if (map.has(r.id)) continue;
+        map.set(r.id, {
+          id: r.id,
+          name: r.name,
+          reasoning: r.reasoning,
+          input: [...r.input] as ModelInputType[],
+          contextWindow: r.contextWindow,
+          maxTokens: r.maxTokens,
+          recommended: r.recommended,
+          description: r.description,
+          api: 'openai-completions',
+          cost: FREE_COST,
+        });
+      }
+      return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    },
+    [],
+  );
+
+  const loadOpenRouterCatalog = useCallback(async () => {
+    if (provider !== 'openrouter') {
+      setOpenRouterMergedModels([]);
+      setOpenRouterModelsError(null);
+      setOpenRouterModelsLoading(false);
+      return;
+    }
+    const key = apiKey.trim();
+    const presets = PROVIDERS.openrouter.models;
+    if (!key) {
+      setOpenRouterMergedModels(presets);
+      setOpenRouterModelsError(null);
+      setOpenRouterModelsLoading(false);
+      return;
+    }
+    setOpenRouterModelsLoading(true);
+    setOpenRouterModelsError(null);
+    try {
+      const res = await fetchOpenRouterModels(key);
+      if (!res.success || !res.models?.length) {
+        setOpenRouterModelsError(res.error ?? t('settings.ai.openrouter_models_error'));
+        setOpenRouterMergedModels(presets);
+      } else {
+        setOpenRouterMergedModels(mergeOpenRouterModelRows(res.models));
+      }
+    } catch (e) {
+      setOpenRouterModelsError(e instanceof Error ? e.message : t('settings.ai.openrouter_models_error'));
+      setOpenRouterMergedModels(presets);
+    } finally {
+      setOpenRouterModelsLoading(false);
+    }
+  }, [provider, apiKey, mergeOpenRouterModelRows, t]);
+
+  useEffect(() => {
+    if (provider !== 'openrouter') return;
+    const handle = window.setTimeout(() => {
+      void loadOpenRouterCatalog();
+    }, 500);
+    return () => window.clearTimeout(handle);
+  }, [provider, apiKey, loadOpenRouterCatalog]);
+
+  const currentProviderModels: ModelDefinition[] = useMemo(() => {
+    if (provider === 'openrouter') {
+      return openRouterMergedModels.length > 0 ? openRouterMergedModels : PROVIDERS.openrouter.models;
+    }
+    return PROVIDERS[provider]?.models || [];
+  }, [provider, openRouterMergedModels]);
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -187,6 +265,7 @@ export default function AISettingsPanel() {
       case 'google': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'dome': config.model = 'dome/auto'; config.base_url = ''; break;
       case 'minimax': config.api_key = apiKey; config.model = model; break;
+      case 'openrouter': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'ollama': config.ollama_base_url = ollamaBaseURL; config.ollama_model = ollamaModel; config.ollama_api_key = ollamaApiKey; break;
     }
     try {
@@ -469,7 +548,7 @@ export default function AISettingsPanel() {
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.configuration')}</DomeSectionLabel>
 
         {/* Cloud API key + model */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax') && (
+        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter') && (
           <DomeCard className="space-y-4">
             {/* API Key */}
             <div>
@@ -509,14 +588,37 @@ export default function AISettingsPanel() {
               )}
             </div>
 
+            {provider === 'openrouter' && openRouterModelsLoading ? (
+              <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+                <Loader2 className="size-3.5 animate-spin shrink-0" aria-hidden /> {t('settings.ai.openrouter_loading_models')}
+              </p>
+            ) : null}
+            {provider === 'openrouter' && openRouterModelsError && !openRouterModelsLoading ? (
+              <DomeCallout tone="warning">{openRouterModelsError}</DomeCallout>
+            ) : null}
+
             {/* Model */}
             {currentProviderModels.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">{t('settings.ai.model')}</span>
-                  <DomeButton type="button" variant="ghost" size="xs" onClick={() => setCustomModel((v) => !v)}>
-                    {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
-                  </DomeButton>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {provider === 'openrouter' ? (
+                      <DomeButton
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => void loadOpenRouterCatalog()}
+                        disabled={openRouterModelsLoading || !apiKey.trim()}
+                        leftIcon={<RefreshCw className={`size-3 ${openRouterModelsLoading ? 'animate-spin' : ''}`} aria-hidden />}
+                      >
+                        {t('settings.ai.refresh')}
+                      </DomeButton>
+                    ) : null}
+                    <DomeButton type="button" variant="ghost" size="xs" onClick={() => setCustomModel((v) => !v)}>
+                      {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
+                    </DomeButton>
+                  </div>
                 </div>
                 {customModel ? (
                   <DomeInput
@@ -536,6 +638,7 @@ export default function AISettingsPanel() {
                     searchable={currentProviderModels.length > 5}
                     placeholder={t('settings.ai.model')}
                     providerType="cloud"
+                    disabled={provider === 'openrouter' && openRouterModelsLoading}
                   />
                 )}
               </div>

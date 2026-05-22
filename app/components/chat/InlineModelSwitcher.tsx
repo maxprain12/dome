@@ -34,6 +34,7 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   const [currentModelId, setCurrentModelId] = useState<string>('');
   const [customMap, setCustomMap] = useState<Partial<Record<AIProviderType, string[]>>>({});
   const [ollamaIds, setOllamaIds] = useState<string[]>([]);
+  const [openRouterOpts, setOpenRouterOpts] = useState<ModelOption[]>([]);
   const [addingCustom, setAddingCustom] = useState(false);
   const [customDraft, setCustomDraft] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -68,6 +69,21 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       }
     } else {
       setOllamaIds([]);
+    }
+
+    if (p === 'openrouter' && cfg.apiKey?.trim() && window.electron?.ai?.listOpenRouterModels) {
+      try {
+        const res = await window.electron.ai.listOpenRouterModels(cfg.apiKey);
+        if (res?.success && Array.isArray(res.models)) {
+          setOpenRouterOpts(res.models.map((m) => ({ id: m.id, label: m.name })));
+        } else {
+          setOpenRouterOpts([]);
+        }
+      } catch {
+        setOpenRouterOpts([]);
+      }
+    } else {
+      setOpenRouterOpts([]);
     }
   }, []);
 
@@ -135,9 +151,12 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
     if (provider === 'ollama') {
       for (const o of ollamaIds) push(o, o);
     }
+    if (provider === 'openrouter') {
+      for (const o of openRouterOpts) push(o.id, o.label);
+    }
     if (currentModelId) push(currentModelId, currentModelId);
     return out;
-  }, [provider, catalog, customMap, ollamaIds, currentModelId]);
+  }, [provider, catalog, customMap, ollamaIds, openRouterOpts, currentModelId]);
 
   const allowCustom = provider != null && provider !== 'dome';
   const visible = useMemo(() => {

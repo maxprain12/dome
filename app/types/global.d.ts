@@ -842,7 +842,7 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'minimax',
+          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'minimax' | 'openrouter',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -880,7 +880,7 @@ declare global {
           cached?: boolean;
         }>;
         stream: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama' | 'minimax',
+          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama' | 'minimax' | 'openrouter',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -898,7 +898,7 @@ declare global {
           error?: string;
         }>;
         streamLangGraph: (
-          provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax',
+          provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax' | 'openrouter',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,
@@ -947,6 +947,21 @@ declare global {
           provider?: string;
           model?: string;
           message?: string;
+          error?: string;
+        }>;
+        listOpenRouterModels: (apiKey?: string) => Promise<{
+          success: boolean;
+          models?: Array<{
+            id: string;
+            name: string;
+            contextWindow: number;
+            reasoning: boolean;
+            input: Array<'text' | 'image'>;
+            maxTokens: number;
+            recommended?: boolean;
+            description?: string;
+            api: string;
+          }>;
           error?: string;
         }>;
         // AI Tools for Many agent

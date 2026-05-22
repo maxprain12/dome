@@ -1,21 +1,22 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-22T14:33:35.712Z
+> Última generación: 2026-05-22T18:32:40.753Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
-| `ai:chat` | `electron/ipc/ai.cjs:24` |
-| `ai:langgraph:abort` | `electron/ipc/ai.cjs:401` |
-| `ai:langgraph:resume` | `electron/ipc/ai.cjs:415` |
-| `ai:langgraph:stream` | `electron/ipc/ai.cjs:261` |
-| `ai:stream` | `electron/ipc/ai.cjs:100` |
+| `ai:chat` | `electron/ipc/ai.cjs:25` |
+| `ai:langgraph:abort` | `electron/ipc/ai.cjs:402` |
+| `ai:langgraph:resume` | `electron/ipc/ai.cjs:416` |
+| `ai:langgraph:stream` | `electron/ipc/ai.cjs:262` |
+| `ai:openrouter:listModels` | `electron/ipc/ai.cjs:574` |
+| `ai:stream` | `electron/ipc/ai.cjs:101` |
 | `ai:team:abort` | `electron/ipc/agent-team.cjs:477` |
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:350` |
-| `ai:testConnection` | `electron/ipc/ai.cjs:493` |
-| `ai:testWebSearch` | `electron/ipc/ai.cjs:573` |
+| `ai:testConnection` | `electron/ipc/ai.cjs:494` |
+| `ai:testWebSearch` | `electron/ipc/ai.cjs:593` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:853` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:879` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:840` |
@@ -68,7 +69,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai.cjs:588` |
+| `ai:webSearch` | `electron/ipc/ai.cjs:608` |
 | `approval:respond` | `electron/ipc/approval.cjs:43` |
 | `artifact:buildDesign` | `electron/ipc/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |
