@@ -1,5 +1,6 @@
 # dependencies
 node_modules
+.pnpm-store/
 bun.lock
 package-lock.json
 
@@ -59,6 +60,7 @@ dome-vector/
 
 # User data (local)
 dome-files/
+Dome Desktop/
 
 # Generated credentials (baked in during CI build)
 electron/app-credentials.cjs

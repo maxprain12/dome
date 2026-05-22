@@ -12,6 +12,10 @@ import App from './App';
 import './globals.css';
 import './styles/notes-editor.css';
 import './styles/shell-tab-bar.css';
+import './styles/home-dashboard.css';
+import './styles/projects-dashboard.css';
+import './styles/calendar-dashboard.css';
+import './styles/hub-dashboard.css';
 import './lib/i18n';
 
 /**

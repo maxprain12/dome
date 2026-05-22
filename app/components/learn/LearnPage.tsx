@@ -5,6 +5,8 @@ import { useLearnStore } from '@/lib/store/useLearnStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { LearnSection } from '@/lib/store/useLearnStore';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
+import { EditorialShell } from '@/components/home/editorial/EditorialShell';
+import { EditorialPageHero } from '@/components/home/editorial/EditorialPageHero';
 import ContentGrid from './ContentGrid';
 import GenerateModal from './GenerateModal';
 import DeckModal from './DeckModal';
@@ -70,47 +72,34 @@ export default function LearnPage() {
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-      {/* Actions toolbar */}
-      <div
-        className="flex items-center justify-between shrink-0 px-4"
-        style={{ borderBottom: '1px solid var(--dome-border)', height: 42 }}
-      >
-        <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
-          {t('learn.study_space')}
-        </span>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setDeckModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
-            style={{
-              background: 'var(--dome-surface)',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text)',
-            }}
-          >
-            <Plus className="size-3.5" />
-            {t('learn.new_deck')}
-          </button>
-          <button
-            type="button"
-            onClick={() => setGenerateModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
-            style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
-          >
-            <Wand2 className="size-3.5" />
-            {t('learn.generate')}
-          </button>
-        </div>
-      </div>
+    <EditorialShell shellClassName="hub-learn-shell">
+      <EditorialPageHero
+        title={t('learn.page_title')}
+        subtitle={t('learn.page_subtitle')}
+        stat={
+          decks.length > 0
+            ? {
+                label: t('learn.tab_decks'),
+                value: decks.length,
+                sub: t('learn.study_space'),
+              }
+            : undefined
+        }
+        actions={
+          <>
+            <button type="button" className="h-pill-btn" onClick={() => setDeckModalOpen(true)}>
+              <Plus size={12} strokeWidth={2} aria-hidden />
+              {t('learn.new_deck')}
+            </button>
+            <button type="button" className="h-pill-btn primary" onClick={() => setGenerateModalOpen(true)}>
+              <Wand2 size={12} strokeWidth={2} aria-hidden />
+              {t('learn.generate')}
+            </button>
+          </>
+        }
+      />
 
-      {/* Tab bar — full width, no competition with buttons */}
-      <div
-        ref={tabsRef}
-        className="flex items-center shrink-0 overflow-x-auto scrollbar-none"
-        style={{ borderBottom: '1px solid var(--dome-border)', height: 38 }}
-      >
+      <div ref={tabsRef} className="hub-section-tabs">
         {tabs.map((tab) => {
           const isActive = activeSection === tab.id;
           return (
@@ -118,44 +107,31 @@ export default function LearnPage() {
               key={tab.id}
               type="button"
               onClick={() => setActiveSection(tab.id)}
-              className="flex items-center gap-1.5 px-4 h-full text-xs font-medium transition-colors shrink-0 relative"
-              style={{
-                color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                background: 'transparent',
-                borderBottom: isActive ? '2px solid var(--dome-accent)' : '2px solid transparent',
-              }}
+              className={`hub-section-tab${isActive ? ' active' : ''}`}
             >
               {tab.icon}
               {tab.label}
-              {tab.id === 'decks' && decks.length > 0 && (
-                <span
-                  className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                  style={{ background: 'var(--dome-accent-bg)', color: 'var(--dome-accent)' }}
-                >
-                  {decks.length}
-                </span>
-              )}
+              {tab.id === 'decks' && decks.length > 0 ? (
+                <span className="hub-section-tab-badge">{decks.length}</span>
+              ) : null}
             </button>
           );
         })}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        <ContentGrid />
-      </div>
+      <ContentGrid />
 
-      {isGenerateModalOpen && (
+      {isGenerateModalOpen ? (
         <GenerateModal onClose={() => setGenerateModalOpen(false)} />
-      )}
+      ) : null}
 
-      {isDeckModalOpen && (
+      {isDeckModalOpen ? (
         <DeckModal onClose={() => setDeckModalOpen(false)} />
-      )}
+      ) : null}
 
-      {isDeckEditorOpen && (
+      {isDeckEditorOpen ? (
         <DeckEditor onClose={() => setDeckEditorOpen(false)} />
-      )}
-    </div>
+      ) : null}
+    </EditorialShell>
   );
 }

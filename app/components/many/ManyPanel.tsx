@@ -10,6 +10,7 @@ import ManyChatHistoryPanel from './ManyChatHistoryPanel';
 import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
+import { mergeManySessionMessages } from '@/lib/chat/mergeManySessionMessages';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import {
@@ -263,20 +264,20 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const hasAssistantMsg = persistedMessages.some((m) => m.role === 'assistant');
       if (!hasUserMsg || !hasAssistantMsg) return;
 
-      // Only hydrate if DB has strictly more messages than localStorage,
-      // OR if count matches but last message IDs differ (different persistence sources).
-      // Never replace localStorage with fewer DB messages (avoid losing messages).
-      const localCount = currentSession?.messages?.length ?? 0;
-      const shouldHydrate = persistedMessages.length > localCount;
+      const localMessages = currentSession?.messages ?? [];
+      const mergedMessages = mergeManySessionMessages(localMessages, persistedMessages);
+      const localCount = localMessages.length;
+      const localAssistants = localMessages.filter((m) => m.role === 'assistant').length;
+      const mergedAssistants = mergedMessages.filter((m) => m.role === 'assistant').length;
 
-      if (!shouldHydrate) {
+      if (mergedMessages.length <= localCount && mergedAssistants <= localAssistants) {
         return;
       }
 
       hydrateSession({
         id: currentSessionId,
         title: result.data.title || currentSession?.title || t('chat.session_fallback_new'),
-        messages: persistedMessages,
+        messages: mergedMessages,
         createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
       } satisfies ManyChatSession);
     }).catch((error) => {
@@ -373,10 +374,19 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     const hasContent = !!lastDbMessage.content?.trim();
     const hasToolCalls = Array.isArray(lastDbMessage.toolCalls) && lastDbMessage.toolCalls.length > 0;
     if (!hasContent && !hasToolCalls) return false;
+
+    const localMessages = useManyStore.getState().messages;
+    const mergedMessages = mergeManySessionMessages(localMessages, dbMessages);
+    const localAssistants = localMessages.filter((m) => m.role === 'assistant').length;
+    const mergedAssistants = mergedMessages.filter((m) => m.role === 'assistant').length;
+    if (mergedMessages.length < localMessages.length || mergedAssistants < localAssistants) {
+      return false;
+    }
+
     hydrateSession({
       id: currentSessionId,
       title: result.data.title || currentSession?.title || t('chat.session_fallback_new'),
-      messages: dbMessages,
+      messages: mergedMessages,
       createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
     } satisfies ManyChatSession);
     return true;
@@ -529,6 +539,15 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
       const persistPartialToSession = () => {
         if (!finalContent && finalToolCalls.length === 0) return;
+        const lastMessage = useManyStore.getState().messages.at(-1);
+        if (
+          lastMessage?.role === 'assistant' &&
+          lastMessage.content.trim() === finalContent.trim() &&
+          (lastMessage.toolCalls?.length ?? 0) === finalToolCalls.length
+        ) {
+          setStreamingMessage(null);
+          return;
+        }
         addMessage({
           role: 'assistant',
           content: finalContent,
@@ -537,33 +556,25 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setStreamingMessage(null);
       };
 
+      if (finalContent || finalToolCalls.length > 0) {
+        persistPartialToSession();
+      } else {
+        setStreamingMessage(null);
+      }
+
       const tryRefresh = (attemptsLeft: number) => {
         void refreshSessionFromDbRef
           .current()
           .then((hydrated) => {
-            if (hydrated) {
-              setStreamingMessage(null);
-              if (isFailed && errorMsg && !run.outputText) {
-                addMessage({ role: 'assistant', content: errorMsg, toolCalls: [] });
-              }
-            } else if (attemptsLeft > 0) {
+            if (!hydrated && attemptsLeft > 0) {
               setTimeout(() => tryRefresh(attemptsLeft - 1), 600);
-            } else {
-              persistPartialToSession();
             }
           })
           .catch((err) => {
-            console.warn('[Many] refreshSessionFromDb failed, persisting to localStorage:', err);
-            persistPartialToSession();
+            console.warn('[Many] refreshSessionFromDb failed after run terminal:', err);
           });
       };
-
-      if (isCancelled && (finalToolCalls.length > 0 || finalContent)) {
-        persistPartialToSession();
-        void refreshSessionFromDbRef.current().catch(() => {});
-      } else {
-        tryRefresh(2);
-      }
+      tryRefresh(2);
       if (run.status === 'completed') {
         window.dispatchEvent(new Event('dome:resources-changed'));
       }

@@ -15,6 +15,9 @@ import type { CanvasWorkflow } from '@/types/canvas';
 import { useTranslation } from 'react-i18next';
 import HubPageLayout from '@/components/ui/HubPageLayout';
 import HubSecondaryNav from '@/components/ui/HubSecondaryNav';
+import { EditorialShell } from '@/components/home/editorial/EditorialShell';
+import { HubTabHero } from '@/components/hub/HubTabHero';
+import { EditorialHubProvider } from '@/lib/context/EditorialHubContext';
 import AutomationsWorkspaceView, {
   type AutomationFilter,
 } from '@/components/hub/AutomationsWorkspaceView';
@@ -196,14 +199,8 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     }
   }, []);
 
-  return (
-    <HubPageLayout
-      secondaryNav={
-        !shellHubTab ? (
-          <HubSecondaryNav tabs={hubTabs} activeId={activeTab} onChange={handleTabChange} />
-        ) : undefined
-      }
-    >
+  const workspaceBody = (
+    <>
       {activeTab === 'agents' && (
         <div className="h-full min-h-0 flex flex-col overflow-hidden">
           {selectedAgentId ? (
@@ -253,6 +250,40 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
         </div>
       )}
       {activeTab === 'runs' && <RunsWorkspaceView />}
+    </>
+  );
+
+  if (shellHubTab) {
+    const showHero = shellHubTab !== 'agents' || !selectedAgentId;
+    return (
+      <EditorialHubProvider active>
+        <EditorialShell
+          shellClassName="hub-tab-shell"
+          variant="split"
+          body={workspaceBody}
+        >
+          {showHero ? (
+            <HubTabHero
+              tab={shellHubTab}
+              agentCount={agents.length}
+              workflowCount={workflows.length}
+              projectName={hubProjectName ?? hubProjectId}
+            />
+          ) : null}
+        </EditorialShell>
+      </EditorialHubProvider>
+    );
+  }
+
+  return (
+    <HubPageLayout
+      secondaryNav={
+        !shellHubTab ? (
+          <HubSecondaryNav tabs={hubTabs} activeId={activeTab} onChange={handleTabChange} />
+        ) : undefined
+      }
+    >
+      {workspaceBody}
     </HubPageLayout>
   );
 }

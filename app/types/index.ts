@@ -451,8 +451,22 @@ export type HomeQuickActionId =
   | 'learn'
   | 'calendar';
 
+export type HomeDashboardLayoutMode = 'editorial' | 'grid' | 'focus';
+export type HomeDashboardWidth = 'narrow' | 'regular' | 'wide';
+export type HomeDashboardDensity = 'compact' | 'regular' | 'comfy';
+export type HomeDashboardHeroStyle = 'serif' | 'sans';
+
+/** Apariencia editorial del home dashboard */
+export interface HomeDashboardAppearance {
+  layout: HomeDashboardLayoutMode;
+  width: HomeDashboardWidth;
+  density: HomeDashboardDensity;
+  heroStyle: HomeDashboardHeroStyle;
+}
+
 /** Widgets del dashboard gamificado del home */
 export interface HomeDashboardWidgets {
+  dailyGoals: boolean;
   momentum: boolean;
   weeklyActivity: boolean;
   pendingToday: boolean;
@@ -477,11 +491,11 @@ export interface DashboardLayoutItem {
 /** Orden e ids válidos del layout del home (hero siempre presente) */
 export const DASHBOARD_LAYOUT_WIDGET_IDS = [
   'hero',
+  'dailyGoals',
+  'todayColumns',
+  'momentum',
   'search',
   'quickActions',
-  'momentum',
-  'weeklyActivity',
-  'pendingToday',
   'continueActivity',
 ] as const;
 
@@ -490,6 +504,7 @@ export type DashboardLayoutWidgetId = (typeof DASHBOARD_LAYOUT_WIDGET_IDS)[numbe
 export interface HomeDashboardPreferences {
   quickActions: HomeQuickActionId[];
   widgets: HomeDashboardWidgets;
+  appearance: HomeDashboardAppearance;
   layout: DashboardLayoutItem[];
 }
 
@@ -503,6 +518,7 @@ export const DEFAULT_HOME_QUICK_ACTIONS: HomeQuickActionId[] = [
 ];
 
 export const DEFAULT_HOME_WIDGETS: HomeDashboardWidgets = {
+  dailyGoals: true,
   momentum: true,
   weeklyActivity: true,
   pendingToday: true,
@@ -510,20 +526,28 @@ export const DEFAULT_HOME_WIDGETS: HomeDashboardWidgets = {
   continueActivity: true,
 };
 
-/** Layout inicial del canvas (12 columnas; altura de fila definida en el componente) */
+export const DEFAULT_HOME_DASHBOARD_APPEARANCE: HomeDashboardAppearance = {
+  layout: 'editorial',
+  width: 'regular',
+  density: 'regular',
+  heroStyle: 'serif',
+};
+
+/** Layout inicial del canvas (orden vertical editorial) */
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayoutItem[] = [
   { i: 'hero', x: 0, y: 0, w: 12, h: 10, minW: 6, minH: 6, static: true },
-  { i: 'search', x: 0, y: 10, w: 12, h: 3, minW: 4, minH: 2 },
-  { i: 'quickActions', x: 0, y: 13, w: 12, h: 5, minW: 4, minH: 3 },
-  { i: 'momentum', x: 0, y: 18, w: 12, h: 5, minW: 4, minH: 4 },
-  { i: 'weeklyActivity', x: 0, y: 23, w: 12, h: 8, minW: 4, minH: 5 },
-  { i: 'pendingToday', x: 0, y: 31, w: 6, h: 8, minW: 3, minH: 4 },
-  { i: 'continueActivity', x: 6, y: 31, w: 6, h: 9, minW: 3, minH: 5 },
+  { i: 'dailyGoals', x: 0, y: 10, w: 12, h: 5, minW: 4, minH: 3 },
+  { i: 'todayColumns', x: 0, y: 20, w: 12, h: 8, minW: 4, minH: 5 },
+  { i: 'momentum', x: 0, y: 30, w: 12, h: 5, minW: 4, minH: 4 },
+  { i: 'search', x: 0, y: 40, w: 12, h: 3, minW: 4, minH: 2 },
+  { i: 'quickActions', x: 0, y: 50, w: 12, h: 5, minW: 4, minH: 3 },
+  { i: 'continueActivity', x: 0, y: 60, w: 12, h: 9, minW: 3, minH: 5 },
 ];
 
 export const DEFAULT_HOME_DASHBOARD_PREFERENCES: HomeDashboardPreferences = {
   quickActions: [...DEFAULT_HOME_QUICK_ACTIONS],
   widgets: { ...DEFAULT_HOME_WIDGETS },
+  appearance: { ...DEFAULT_HOME_DASHBOARD_APPEARANCE },
   layout: DEFAULT_DASHBOARD_LAYOUT.map((item) => ({ ...item })),
 };
 

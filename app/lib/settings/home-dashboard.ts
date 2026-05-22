@@ -1,12 +1,18 @@
 import type {
   DashboardLayoutItem,
   DashboardLayoutWidgetId,
+  HomeDashboardAppearance,
+  HomeDashboardDensity,
+  HomeDashboardHeroStyle,
+  HomeDashboardLayoutMode,
   HomeDashboardPreferences,
   HomeDashboardWidgets,
+  HomeDashboardWidth,
   HomeQuickActionId,
 } from '@/types';
 import {
   DASHBOARD_LAYOUT_WIDGET_IDS,
+  DEFAULT_HOME_DASHBOARD_APPEARANCE,
   DEFAULT_HOME_DASHBOARD_PREFERENCES,
   DEFAULT_HOME_QUICK_ACTIONS,
   DEFAULT_HOME_WIDGETS,
@@ -22,9 +28,16 @@ const VALID_QUICK_ACTIONS = new Set<HomeQuickActionId>([
 
 const VALID_LAYOUT_IDS = new Set<string>(DASHBOARD_LAYOUT_WIDGET_IDS);
 
+const LEGACY_LAYOUT_IDS = new Set(['pendingToday', 'weeklyActivity']);
+
 const DEFAULT_LAYOUT_BY_ID = new Map(
   DEFAULT_HOME_DASHBOARD_PREFERENCES.layout.map((item) => [item.i, item]),
 );
+
+const LAYOUT_MODES = new Set<HomeDashboardLayoutMode>(['editorial', 'grid', 'focus']);
+const WIDTHS = new Set<HomeDashboardWidth>(['narrow', 'regular', 'wide']);
+const DENSITIES = new Set<HomeDashboardDensity>(['compact', 'regular', 'comfy']);
+const HERO_STYLES = new Set<HomeDashboardHeroStyle>(['serif', 'sans']);
 
 function clampInt(n: number, min: number, max?: number): number {
   const x = Math.floor(n);
@@ -32,16 +45,85 @@ function clampInt(n: number, min: number, max?: number): number {
   return Math.max(min, x);
 }
 
+function normalizeAppearance(raw: unknown): HomeDashboardAppearance {
+  const base = { ...DEFAULT_HOME_DASHBOARD_APPEARANCE };
+  if (!raw || typeof raw !== 'object') return base;
+  const o = raw as Record<string, unknown>;
+  return {
+    layout:
+      typeof o.layout === 'string' && LAYOUT_MODES.has(o.layout as HomeDashboardLayoutMode)
+        ? (o.layout as HomeDashboardLayoutMode)
+        : base.layout,
+    width:
+      typeof o.width === 'string' && WIDTHS.has(o.width as HomeDashboardWidth)
+        ? (o.width as HomeDashboardWidth)
+        : base.width,
+    density:
+      typeof o.density === 'string' && DENSITIES.has(o.density as HomeDashboardDensity)
+        ? (o.density as HomeDashboardDensity)
+        : base.density,
+    heroStyle:
+      typeof o.heroStyle === 'string' && HERO_STYLES.has(o.heroStyle as HomeDashboardHeroStyle)
+        ? (o.heroStyle as HomeDashboardHeroStyle)
+        : base.heroStyle,
+  };
+}
+
+/** Migra layout legacy (pendingToday / weeklyActivity) al slot compuesto todayColumns. */
+function migrateLegacyLayout(raw: unknown): unknown {
+  if (!Array.isArray(raw)) return raw;
+  const hasTodayColumns = raw.some(
+    (entry) => entry && typeof entry === 'object' && (entry as { i?: string }).i === 'todayColumns',
+  );
+  if (hasTodayColumns) return raw;
+
+  const legacy = raw.filter(
+    (entry) =>
+      entry &&
+      typeof entry === 'object' &&
+      LEGACY_LAYOUT_IDS.has(String((entry as { i?: string }).i ?? '')),
+  );
+  if (legacy.length === 0) return raw;
+
+  const minY = Math.min(
+    ...legacy.map((entry) => {
+      const y = (entry as { y?: number }).y;
+      return typeof y === 'number' && Number.isFinite(y) ? y : 99;
+    }),
+  );
+
+  const withoutLegacy = raw.filter(
+    (entry) =>
+      !entry ||
+      typeof entry !== 'object' ||
+      !LEGACY_LAYOUT_IDS.has(String((entry as { i?: string }).i ?? '')),
+  );
+
+  return [
+    ...withoutLegacy,
+    {
+      i: 'todayColumns',
+      x: 0,
+      y: minY,
+      w: 12,
+      h: 8,
+      minW: 4,
+      minH: 5,
+    },
+  ];
+}
+
 function normalizeLayout(raw: unknown): DashboardLayoutItem[] {
+  const migrated = migrateLegacyLayout(raw);
   const defaults = DEFAULT_HOME_DASHBOARD_PREFERENCES.layout;
-  if (!Array.isArray(raw)) {
+  if (!Array.isArray(migrated)) {
     return defaults.map((item) => ({ ...item }));
   }
 
   const out: DashboardLayoutItem[] = [];
   const seen = new Set<string>();
 
-  for (const entry of raw) {
+  for (const entry of migrated) {
     if (!entry || typeof entry !== 'object') continue;
     const o = entry as Record<string, unknown>;
     const i = typeof o.i === 'string' ? o.i : '';
@@ -92,12 +174,15 @@ function normalizeLayout(raw: unknown): DashboardLayoutItem[] {
     }
   }
 
-  // Hero always gets y=0 so it is always rendered first.
   const hero = out.find((l) => l.i === 'hero');
   if (hero) hero.y = 0;
 
   const order = new Map(DASHBOARD_LAYOUT_WIDGET_IDS.map((id, idx) => [id, idx]));
-  out.sort((a, b) => (order.get(a.i as DashboardLayoutWidgetId) ?? 99) - (order.get(b.i as DashboardLayoutWidgetId) ?? 99));
+  out.sort(
+    (a, b) =>
+      (order.get(a.i as DashboardLayoutWidgetId) ?? 99) -
+      (order.get(b.i as DashboardLayoutWidgetId) ?? 99),
+  );
 
   return out;
 }
@@ -108,6 +193,7 @@ export function normalizeHomeDashboardPreferences(
   const base = {
     quickActions: [...DEFAULT_HOME_DASHBOARD_PREFERENCES.quickActions],
     widgets: { ...DEFAULT_HOME_DASHBOARD_PREFERENCES.widgets },
+    appearance: { ...DEFAULT_HOME_DASHBOARD_APPEARANCE },
     layout: DEFAULT_HOME_DASHBOARD_PREFERENCES.layout.map((item) => ({ ...item })),
   };
 
@@ -136,9 +222,13 @@ export function normalizeHomeDashboardPreferences(
   if (o.widgets && typeof o.widgets === 'object') {
     const w = o.widgets as Record<string, unknown>;
     widgets = {
+      dailyGoals:
+        typeof w.dailyGoals === 'boolean' ? w.dailyGoals : DEFAULT_HOME_WIDGETS.dailyGoals,
       momentum: typeof w.momentum === 'boolean' ? w.momentum : DEFAULT_HOME_WIDGETS.momentum,
       weeklyActivity:
-        typeof w.weeklyActivity === 'boolean' ? w.weeklyActivity : DEFAULT_HOME_WIDGETS.weeklyActivity,
+        typeof w.weeklyActivity === 'boolean'
+          ? w.weeklyActivity
+          : DEFAULT_HOME_WIDGETS.weeklyActivity,
       pendingToday:
         typeof w.pendingToday === 'boolean' ? w.pendingToday : DEFAULT_HOME_WIDGETS.pendingToday,
       search: typeof w.search === 'boolean' ? w.search : DEFAULT_HOME_WIDGETS.search,
@@ -149,9 +239,10 @@ export function normalizeHomeDashboardPreferences(
     };
   }
 
+  const appearance = normalizeAppearance(o.appearance);
   const layout = normalizeLayout(o.layout);
 
-  return { quickActions, widgets, layout };
+  return { quickActions, widgets, appearance, layout };
 }
 
 function layoutItemsEqual(a: DashboardLayoutItem[], b: DashboardLayoutItem[]): boolean {
@@ -233,6 +324,7 @@ export function serializeHomeDashboardPreferences(prefs: HomeDashboardPreference
   return JSON.stringify({
     quickActions: prefs.quickActions,
     widgets: prefs.widgets,
+    appearance: prefs.appearance,
     layout: prefs.layout,
   });
 }

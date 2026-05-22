@@ -43,9 +43,9 @@ import DomeButton from '@/components/ui/DomeButton';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeListState from '@/components/ui/DomeListState';
-import HubToolbar from '@/components/ui/HubToolbar';
-import HubTitleBlock from '@/components/ui/HubTitleBlock';
 import HubSearchField from '@/components/ui/HubSearchField';
+import { EditorialShell } from '@/components/home/editorial/EditorialShell';
+import { EditorialPageHero } from '@/components/home/editorial/EditorialPageHero';
 import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -664,170 +664,160 @@ export default function MarketplaceView() {
 
   const showFeatured = filterType === 'all' && !searchQuery.trim() && filterCategory === 'all' && featuredItems.length > 0;
 
-  // ── Render ────────────────────────────────────────────
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, background: 'var(--bg)' }}>
-      <HubToolbar
-        dense
-        leading={
-          <HubTitleBlock
-            icon={Store}
-            title={t('marketplace.title')}
-            subtitle={
-              initialLoading
-                ? t('marketplace.loading')
-                : t('marketplace.subtitle_count', { count: allItems.length })
-            }
+  const marketplaceBody = (
+    <div className="hub-marketplace-body">
+      <div className="hub-marketplace-sidebar">
+        <div>
+          <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
+            {t('marketplace.filter_type')}
+          </DomeSectionLabel>
+          <DomeFilterChipGroup
+            options={typeFilterOptions}
+            value={filterType}
+            onChange={(v) => { setFilterType(v); setFilterCategory('all'); }}
+            layout="vertical"
+            className="gap-0.5"
           />
-        }
-        center={
-          <HubSearchField
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder={t('marketplace.search_placeholder')}
-            ariaLabel={t('marketplace.search_placeholder')}
-            className="max-w-xl"
-          />
-        }
-        trailing={
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => void handleRefresh()}
-            disabled={loading}
-            leftIcon={<RefreshCw size={13} className={loading ? 'animate-spin' : ''} />}
-          >
-            {t('marketplace.refresh')}
-          </DomeButton>
-        }
-      />
+        </div>
 
-      {/* ── Body ── */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-
-        {/* Sidebar */}
-        <div style={{
-          width: 168, flexShrink: 0, overflowY: 'auto', padding: '16px 8px',
-          display: 'flex', flexDirection: 'column', gap: 20,
-          borderRight: '1px solid var(--border)', background: 'var(--bg-secondary)',
-        }}>
+        {availableCategories.length > 0 ? (
           <div>
             <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
-              {t('marketplace.filter_type')}
+              {t('marketplace.filter_category')}
             </DomeSectionLabel>
             <DomeFilterChipGroup
-              options={typeFilterOptions}
-              value={filterType}
-              onChange={(v) => { setFilterType(v); setFilterCategory('all'); }}
+              options={categoryFilterOptions}
+              value={filterCategory}
+              onChange={setFilterCategory}
               layout="vertical"
               className="gap-0.5"
             />
           </div>
-
-          {availableCategories.length > 0 && (
-            <div>
-              <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
-                {t('marketplace.filter_category')}
-              </DomeSectionLabel>
-              <DomeFilterChipGroup
-                options={categoryFilterOptions}
-                value={filterCategory}
-                onChange={setFilterCategory}
-                layout="vertical"
-                className="gap-0.5"
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Main content */}
-        <div style={{ flex: 1, overflowY: 'auto', overscrollBehavior: 'contain' }}>
-          {initialLoading ? (
-            <div style={{ padding: 20 }}>
-              <DomeSkeletonGrid count={8} cellHeightClass="h-28" />
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <DomeListState
-              variant="empty"
-              fullHeight
-              icon={<Search size={40} style={{ opacity: 0.2 }} />}
-              title={t('marketplace.no_results')}
-              description={t('marketplace.no_results_hint')}
-            />
-          ) : (
-            <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
-
-              {/* Featured strip */}
-              {showFeatured && (
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <Star size={13} fill="var(--warning, #f59e0b)" color="var(--warning, #f59e0b)" />
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
-                      {t('marketplace.featured', 'Featured')}
-                    </span>
-                  </div>
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: 12,
-                  }}>
-                    {featuredItems.map((item) => (
-                      <ItemCard
-                        key={`featured-${item.type}-${item.id}`}
-                        item={item}
-                        action={renderAction(item)}
-                        onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
-                          : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
-                          : undefined}
-                        featured
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* All / rest */}
-              {regularItems.length > 0 && (
-                <div>
-                  {showFeatured && (
-                    <div style={{ marginBottom: 12 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
-                        {t('marketplace.all_items', 'All')}
-                        <span style={{
-                          marginLeft: 8, fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
-                          backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
-                        }}>
-                          {regularItems.length}
-                        </span>
-                      </span>
-                    </div>
-                  )}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-                    gap: 10,
-                  }}>
-                    {regularItems.map((item) => (
-                      <ItemCard
-                        key={`${item.type}-${item.id}`}
-                        item={item}
-                        action={renderAction(item)}
-                        onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
-                          : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
-                          : undefined}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        ) : null}
       </div>
 
-      {/* Modals */}
-      {selectedAgent && (
+      <div className="hub-marketplace-main">
+        {initialLoading ? (
+          <div style={{ padding: 20 }}>
+            <DomeSkeletonGrid count={8} cellHeightClass="h-28" />
+          </div>
+        ) : filteredItems.length === 0 ? (
+          <DomeListState
+            variant="empty"
+            fullHeight
+            icon={<Search size={40} style={{ opacity: 0.2 }} />}
+            title={t('marketplace.no_results')}
+            description={t('marketplace.no_results_hint')}
+          />
+        ) : (
+          <div style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 24 }}>
+            {showFeatured ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <Star size={13} fill="var(--warning, #f59e0b)" color="var(--warning, #f59e0b)" />
+                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+                    {t('marketplace.featured', 'Featured')}
+                  </span>
+                </div>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                  gap: 12,
+                }}>
+                  {featuredItems.map((item) => (
+                    <ItemCard
+                      key={`featured-${item.type}-${item.id}`}
+                      item={item}
+                      action={renderAction(item)}
+                      onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
+                        : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
+                        : undefined}
+                      featured
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {regularItems.length > 0 ? (
+              <div>
+                {showFeatured ? (
+                  <div style={{ marginBottom: 12 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+                      {t('marketplace.all_items', 'All')}
+                      <span style={{
+                        marginLeft: 8, fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
+                        backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
+                      }}>
+                        {regularItems.length}
+                      </span>
+                    </span>
+                  </div>
+                ) : null}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gap: 10,
+                }}>
+                  {regularItems.map((item) => (
+                    <ItemCard
+                      key={`${item.type}-${item.id}`}
+                      item={item}
+                      action={renderAction(item)}
+                      onClick={item.type === 'agents' ? () => setSelectedAgent(item.raw as MarketplaceAgent)
+                        : item.type === 'workflows' ? () => setSelectedWorkflow(item.raw as WorkflowTemplate)
+                        : undefined}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+    <EditorialShell shellClassName="hub-tab-shell hub-marketplace-shell" variant="split" body={marketplaceBody}>
+      <EditorialPageHero
+        title={t('marketplace.title')}
+        subtitle={
+          initialLoading
+            ? t('marketplace.loading')
+            : t('marketplace.subtitle_count', { count: allItems.length })
+        }
+        stat={{
+          label: t('marketplace.filter_type'),
+          value: allItems.length,
+        }}
+        actions={
+          <>
+            <div className="hub-marketplace-toolbar" style={{ width: '100%', marginBottom: 0 }}>
+              <div className="hub-marketplace-search">
+                <HubSearchField
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder={t('marketplace.search_placeholder')}
+                  ariaLabel={t('marketplace.search_placeholder')}
+                />
+              </div>
+            </div>
+            <button
+              type="button"
+              className="h-pill-btn"
+              onClick={() => void handleRefresh()}
+              disabled={loading}
+            >
+              <RefreshCw size={12} strokeWidth={2} className={loading ? 'animate-spin' : ''} aria-hidden />
+              {t('marketplace.refresh')}
+            </button>
+          </>
+        }
+      />
+    </EditorialShell>
+
+      {selectedAgent ? (
         <MarketplaceAgentDetail
           agent={selectedAgent}
           isInstalled={installedIds.includes(selectedAgent.id)}
@@ -836,8 +826,8 @@ export default function MarketplaceView() {
           onInstall={handleInstallAgent}
           onClose={() => setSelectedAgent(null)}
         />
-      )}
-      {selectedWorkflow && (
+      ) : null}
+      {selectedWorkflow ? (
         <WorkflowDetail
           workflow={selectedWorkflow}
           isInstalled={installedWorkflowIds.includes(selectedWorkflow.id)}
@@ -846,7 +836,7 @@ export default function MarketplaceView() {
           onInstall={handleInstallWorkflow}
           onClose={() => setSelectedWorkflow(null)}
         />
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }

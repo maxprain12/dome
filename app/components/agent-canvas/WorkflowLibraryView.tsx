@@ -41,6 +41,7 @@ import HubListState from '@/components/ui/HubListState';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeButton from '@/components/ui/DomeButton';
 import HubBentoCard from '@/components/ui/HubBentoCard';
+import { useEditorialHub } from '@/lib/context/EditorialHubContext';
 import {
   exportWorkflowBundle,
   downloadHubBundle,
@@ -107,6 +108,7 @@ function folderVisibleInSearch(
 
 export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibraryViewProps) {
   const { t } = useTranslation();
+  const editorialHub = useEditorialHub();
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
   const [folders, setFolders] = useState<DomeWorkflowFolder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -562,11 +564,13 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       <HubToolbar
         dense
         leading={
+          editorialHub ? undefined : (
           <HubTitleBlock
             icon={Workflow}
             title={t('canvas.workflow_library')}
             subtitle={t('canvas.workflows_saved_count', { count: workflows.length })}
           />
+          )
         }
         center={
           <HubSearchField

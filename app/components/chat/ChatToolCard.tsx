@@ -800,47 +800,31 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
           </div>
 
           {/* Label + summary */}
-          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)', whiteSpace: 'nowrap' }}>
-                {label}
-              </span>
-              {/* Inline state icon */}
-              {toolCall.status === 'success' && !isPending && (
-                <Check size={12} strokeWidth={2.4} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-              )}
-              {toolCall.status === 'error' && !isPending && (
-                <XCircle size={12} style={{ color: 'var(--error)', flexShrink: 0 }} />
-              )}
-            </div>
-            {cardSummary && (
-              <span
-                style={{
-                  fontSize: 11.5,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  color: 'var(--tertiary-text)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {cardSummary}
-              </span>
-            )}
+          <div className="many-tool-card-v2-copy">
+            <span className="many-tool-card-v2-title">{label}</span>
+            {cardSummary ? <span className="many-tool-card-v2-summary">{cardSummary}</span> : null}
           </div>
 
-          {/* Chevron */}
-          {canExpand && (
-            <ChevronRight
-              size={14}
-              className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`}
-            />
-          )}
+          <div className="many-tool-card-v2-trail">
+            {toolCall.status === 'success' && !isPending ? (
+              <Check size={12} strokeWidth={2.4} className="many-tool-card-v2-status-icon" aria-hidden />
+            ) : null}
+            {toolCall.status === 'error' && !isPending ? (
+              <XCircle size={12} className="many-tool-card-v2-status-icon is-error" aria-hidden />
+            ) : null}
+            {canExpand ? (
+              <ChevronRight
+                size={14}
+                className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`}
+                aria-hidden
+              />
+            ) : null}
+          </div>
         </button>
 
         {/* Expanded body */}
-        {expanded && canExpand && (
-          <div className="many-tool-card-v2-body">
+        {expanded && canExpand ? (
+          <div className="many-tool-card-v2-body is-detail">
             {/* Args */}
             {Object.keys(toolCall.arguments).length > 0 && (
               <>
@@ -876,7 +860,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
             ) : null}
             {renderResultContent()}
           </div>
-        )}
+        ) : null}
       </div>
     );
   }
@@ -996,22 +980,24 @@ export function ChatToolCardGroup({
               ? <Loader2 size={12} className="many-tool-spinner animate-spin" />
               : <Icon size={14} strokeWidth={1.8} />}
           </div>
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary-text)', flex: 1, textAlign: 'left' }}>
-            {t('chat.tool_group_count', { label, count })}
+          <span className="many-tool-card-v2-copy">
+            <span className="many-tool-card-v2-title">{t('chat.tool_group_count', { label, count })}</span>
           </span>
-          {allSuccess && <Check size={12} strokeWidth={2.4} style={{ color: 'var(--accent)', flexShrink: 0 }} />}
-          {hasError && <XCircle size={12} style={{ color: 'var(--error)', flexShrink: 0 }} />}
-          <ChevronRight size={14} className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`} />
+          <div className="many-tool-card-v2-trail">
+            {allSuccess ? <Check size={12} strokeWidth={2.4} className="many-tool-card-v2-status-icon" aria-hidden /> : null}
+            {hasError ? <XCircle size={12} className="many-tool-card-v2-status-icon is-error" aria-hidden /> : null}
+            <ChevronRight size={14} className={`many-tool-card-v2-chevron ${expanded ? 'expanded' : ''}`} aria-hidden />
+          </div>
         </button>
-        {expanded && (
-          <div className="many-tool-card-v2-body" style={{ paddingLeft: 14 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {expanded ? (
+          <div className="many-tool-card-v2-body is-nested">
+            <div className="many-tool-card-v2-list">
               {calls.map((tc) => (
                 <ChatToolCard key={tc.id} toolCall={tc} surfaceVariant={surfaceVariant} />
               ))}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     );
   }

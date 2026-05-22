@@ -1,7 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { db } from '@/lib/db/client';
 import { listRuns, onRunUpdated } from '@/lib/automations/api';
 import type { PersistentRun } from '@/lib/automations/api';
+import {
+  buildDailyGoals,
+  computeMomentumPercent,
+  computeStreak,
+  computeWeeklyEnergyDelta,
+  countActiveRuns,
+  formatPendingTime,
+  localDayKey,
+  pendingTagForEvent,
+  pendingTagForRun,
+  startOfLocalDayMs,
+  toEpochMs,
+} from '@/lib/hooks/dashboardGamification';
+import type { DailyGoalItem, DashboardStatsDeltas, PendingTagKind } from '@/lib/hooks/dashboardGamification';
+export type { DashboardStatsDeltas, DailyGoalItem, DailyGoalId, PendingTagKind } from '@/lib/hooks/dashboardGamification';
 
 export interface DashboardStats {
   resourceCount: number;
@@ -9,6 +25,7 @@ export interface DashboardStats {
   dueFlashcards: number;
   upcomingEvents: number;
   recentChats: number;
+  activeRuns: number;
 }
 
 export type ActivityKind = 'resource' | 'chat';
@@ -37,12 +54,15 @@ export interface HomeGamification {
   streakDays: number;
   /** 0–100, resumen de actividad en la última semana */
   momentumPercent: number;
+  weeklyEnergyDelta: number;
   dailyGoalTarget: number;
   dailyGoalProgress: number;
+  dailyGoals: DailyGoalItem[];
   weeklyResourcesCreated: number;
   weeklyResourceTouches: number;
   weeklyChatSessions: number;
   weeklyRunsCompleted: number;
+  pendingTodayCount: number;
 }
 
 export type PendingTodayKind = 'flashcards' | 'calendar' | 'run';
@@ -52,18 +72,22 @@ export interface PendingTodayItem {
   kind: PendingTodayKind;
   title: string;
   subtitle?: string;
-  /** run id o event id para navegación */
   refId?: string;
   timestamp: number;
+  timeLabel?: string;
+  ampm?: string;
+  tag?: string;
+  tagKind?: PendingTagKind;
+  isNow?: boolean;
 }
 
 export interface DashboardData {
   stats: DashboardStats;
+  statsDeltas: DashboardStatsDeltas;
   activity: ActivityItem[];
   runs: PersistentRun[];
   upcomingEventsList: DashboardUpcomingEvent[];
   gamification: HomeGamification;
-  /** Conteo de señales de actividad por día local (`yyyy-mm-dd`) para heatmap estilo GitHub */
   activityDayCounts: Record<string, number>;
   pendingToday: PendingTodayItem[];
   loading: boolean;
@@ -76,72 +100,37 @@ const EMPTY_STATS: DashboardStats = {
   dueFlashcards: 0,
   upcomingEvents: 0,
   recentChats: 0,
+  activeRuns: 0,
+};
+
+const EMPTY_DELTAS: DashboardStatsDeltas = {
+  resources: 0,
+  chats: 0,
+  dueCards: 0,
+  studioDocs: 0,
+  activeRuns: 0,
 };
 
 const EMPTY_GAMIFICATION: HomeGamification = {
   streakDays: 0,
   momentumPercent: 0,
+  weeklyEnergyDelta: 0,
   dailyGoalTarget: 3,
   dailyGoalProgress: 0,
+  dailyGoals: [],
   weeklyResourcesCreated: 0,
   weeklyResourceTouches: 0,
   weeklyChatSessions: 0,
   weeklyRunsCompleted: 0,
+  pendingTodayCount: 0,
 };
 
-function localDayKey(tsMs: number): string {
-  const d = new Date(tsMs);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-}
-
-function startOfLocalDayMs(tsMs: number): number {
-  const d = new Date(tsMs);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function computeStreak(activityDays: Set<string>): number {
-  if (activityDays.size === 0) return 0;
-  const todayStart = startOfLocalDayMs(Date.now());
-  let streak = 0;
-  let cursor = todayStart;
-  let allowSkipFirstGap = true;
-
-  for (let i = 0; i < 365; i++) {
-    const key = localDayKey(cursor);
-    if (activityDays.has(key)) {
-      streak++;
-      allowSkipFirstGap = false;
-      cursor -= 86400000;
-    } else if (allowSkipFirstGap && streak === 0) {
-      cursor -= 86400000;
-      allowSkipFirstGap = false;
-    } else {
-      break;
-    }
-  }
-  return streak;
-}
-
-function computeMomentumPercent(params: {
-  weeklyCreated: number;
-  weeklyTouches: number;
-  weeklyChats: number;
-  weeklyRuns: number;
-}): number {
-  const raw =
-    params.weeklyCreated * 6 +
-    Math.min(params.weeklyTouches, 40) * 2 +
-    params.weeklyChats * 5 +
-    params.weeklyRuns * 8;
-  return Math.min(100, Math.round(raw / 4));
-}
+const BACKGROUND_RELOAD_DEBOUNCE_MS = 800;
 
 export function useDashboardData(projectId: string | null = null): DashboardData {
+  const { i18n } = useTranslation();
   const [stats, setStats] = useState<DashboardStats>(EMPTY_STATS);
+  const [statsDeltas, setStatsDeltas] = useState<DashboardStatsDeltas>(EMPTY_DELTAS);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [runs, setRuns] = useState<PersistentRun[]>([]);
   const [upcomingEventsList, setUpcomingEventsList] = useState<DashboardUpcomingEvent[]>([]);
@@ -149,15 +138,19 @@ export function useDashboardData(projectId: string | null = null): DashboardData
   const [pendingToday, setPendingToday] = useState<PendingTodayItem[]>([]);
   const [activityDayCounts, setActivityDayCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
+  const loadSeqRef = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    const seq = ++loadSeqRef.current;
+    if (!silent) setLoading(true);
+    const t = i18n.t.bind(i18n);
     try {
       const scopedPid = projectId ?? 'default';
       const [resourcesResult, eventsResult, chatsResult, decksResult, runsResult] = await Promise.all([
         window.electron?.db?.resources?.getAll?.(2000),
         window.electron?.calendar?.getUpcoming?.({ windowMinutes: 60 * 24 * 7, limit: 50 }),
-        db.getChatSessionsGlobal({ limit: 80, projectId: scopedPid }),
+        db.getChatSessionsGlobal({ limit: 5000, projectId: scopedPid }),
         window.electron?.db?.flashcards?.getAllDecks?.(200),
         listRuns({ limit: 80, projectId: scopedPid }).catch(() => [] as PersistentRun[]),
       ]);
@@ -177,10 +170,14 @@ export function useDashboardData(projectId: string | null = null): DashboardData
       const allResources = allResourcesRaw.filter((resource) => resource.project_id === scopedPid);
 
       let studioCount = 0;
+      let studioCreatedThisWeek = 0;
+      const studioRows: Array<{ created_at?: number; updated_at?: number }> = [];
       if (window.electron?.db?.studio?.getByProject) {
         const studioResult = await window.electron.db.studio.getByProject(scopedPid).catch(() => null);
-        studioCount =
-          studioResult?.success && Array.isArray(studioResult.data) ? studioResult.data.length : 0;
+        if (studioResult?.success && Array.isArray(studioResult.data)) {
+          studioRows.push(...studioResult.data);
+          studioCount = studioResult.data.length;
+        }
       }
 
       const decksRaw: Array<{ id: string; project_id?: string | null }> =
@@ -205,6 +202,9 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         calendar_color?: string;
       }> =
         eventsResult?.success && Array.isArray(eventsResult.events) ? eventsResult.events : [];
+
+      if (seq !== loadSeqRef.current) return;
+
       setUpcomingEventsList(
         eventsRaw.map((e) => ({
           id: e.id,
@@ -214,25 +214,16 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         })),
       );
 
-      const upcomingEvents = eventsRaw.length;
-
       const chats = chatsResult.success && Array.isArray(chatsResult.data) ? chatsResult.data : [];
+      const runsSafe = Array.isArray(runsResult) ? runsResult : [];
+      setRuns(runsSafe.slice(0, 8));
 
-      setStats({
-        resourceCount: allResources.length,
-        studioCount,
-        dueFlashcards,
-        upcomingEvents,
-        recentChats: chats.length,
-      });
-
+      const activeRuns = countActiveRuns(runsSafe);
       const nowMs = Date.now();
       const startToday = startOfLocalDayMs(nowMs);
       const endToday = startToday + 86400000;
       const weekStartMs = nowMs - 7 * 86400000;
-
-      const runsSafe = Array.isArray(runsResult) ? runsResult : [];
-      setRuns(runsSafe.slice(0, 8));
+      const prevWeekStartMs = nowMs - 14 * 86400000;
 
       const activityDays = new Set<string>();
       const dayCountMap: Record<string, number> = {};
@@ -245,11 +236,44 @@ export function useDashboardData(projectId: string | null = null): DashboardData
       let weeklyResourceTouches = 0;
       let resourcesCreatedToday = 0;
       let resourcesEditedToday = 0;
+      let resourcesCreatedThisWeek = 0;
+      let prevWeeklyResourcesCreated = 0;
+      let prevWeeklyResourceTouches = 0;
+      let cardsStudiedThisWeek = 0;
+
+      for (const row of studioRows) {
+        const cMs = toEpochMs(row.created_at ?? row.updated_at);
+        const uMs = toEpochMs(row.updated_at ?? row.created_at);
+        activityDays.add(localDayKey(cMs));
+        if (uMs !== cMs) activityDays.add(localDayKey(uMs));
+        bumpDay(localDayKey(cMs));
+        if (localDayKey(uMs) !== localDayKey(cMs)) bumpDay(localDayKey(uMs));
+        if (cMs >= weekStartMs) studioCreatedThisWeek++;
+      }
+
+      if (window.electron?.db?.flashcards?.getSessions && decks.length > 0) {
+        const sessionResults = await Promise.all(
+          decks.map((deck) =>
+            window.electron.db.flashcards.getSessions(deck.id, 120).catch(() => null),
+          ),
+        );
+        for (const result of sessionResults) {
+          const sessions =
+            result?.success && Array.isArray(result.data) ? result.data : [];
+          for (const session of sessions) {
+            const st = toEpochMs(session.started_at);
+            activityDays.add(localDayKey(st));
+            bumpDay(localDayKey(st));
+            if (st >= weekStartMs) {
+              cardsStudiedThisWeek += Number(session.cards_studied ?? 0);
+            }
+          }
+        }
+      }
 
       for (const r of allResources) {
-        const createdSec = r.created_at ?? r.updated_at;
-        const cMs = createdSec * 1000;
-        const uMs = r.updated_at * 1000;
+        const cMs = toEpochMs(r.created_at ?? r.updated_at);
+        const uMs = toEpochMs(r.updated_at);
         activityDays.add(localDayKey(cMs));
         activityDays.add(localDayKey(uMs));
         bumpDay(localDayKey(cMs));
@@ -260,44 +284,61 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         if (uMs >= weekStartMs) weeklyResourceTouches++;
         if (cMs >= startToday && cMs < endToday) resourcesCreatedToday++;
         if (uMs >= startToday && uMs < endToday && uMs > cMs + 30 * 1000) resourcesEditedToday++;
+        if (cMs >= weekStartMs) resourcesCreatedThisWeek++;
+        else if (cMs >= prevWeekStartMs && cMs < weekStartMs) prevWeeklyResourcesCreated++;
+        if (uMs >= prevWeekStartMs && uMs < weekStartMs) prevWeeklyResourceTouches++;
       }
 
       let chatsToday = 0;
       let weeklyChatSessions = 0;
+      let chatsThisWeek = 0;
+      let prevWeeklyChatSessions = 0;
       for (const s of chats) {
-        const ca = (s.created_at ?? 0) * 1000;
-        const ua = (s.updated_at ?? s.created_at) * 1000;
+        const ca = toEpochMs(s.created_at);
+        const ua = toEpochMs(s.updated_at ?? s.created_at);
         activityDays.add(localDayKey(ca));
         activityDays.add(localDayKey(ua));
         bumpDay(localDayKey(ca));
         const uak = localDayKey(ua);
         if (uak !== localDayKey(ca)) bumpDay(uak);
-        if (Math.max(ca, ua) >= weekStartMs) weeklyChatSessions++;
+        const maxTs = Math.max(ca, ua);
+        if (maxTs >= weekStartMs) weeklyChatSessions++;
         if (ua >= startToday && ua < endToday) chatsToday++;
+        if (maxTs >= weekStartMs) chatsThisWeek++;
+        else if (maxTs >= prevWeekStartMs && maxTs < weekStartMs) prevWeeklyChatSessions++;
       }
 
       let runsCompletedToday = 0;
       let weeklyRunsCompleted = 0;
+      let prevWeeklyRunsCompleted = 0;
+      let runsStartedThisWeek = 0;
       for (const run of runsSafe) {
-        const finished = run.finishedAt ?? run.updatedAt;
-        activityDays.add(localDayKey(run.startedAt));
-        activityDays.add(localDayKey(run.updatedAt));
-        if (run.finishedAt) activityDays.add(localDayKey(run.finishedAt));
-        bumpDay(localDayKey(run.startedAt));
-        if (run.finishedAt) bumpDay(localDayKey(run.finishedAt));
+        const startedAt = toEpochMs(run.startedAt);
+        const finished = toEpochMs(run.finishedAt ?? run.updatedAt);
+        const updatedAt = toEpochMs(run.updatedAt);
+        activityDays.add(localDayKey(startedAt));
+        activityDays.add(localDayKey(updatedAt));
+        if (run.finishedAt) activityDays.add(localDayKey(finished));
+        bumpDay(localDayKey(startedAt));
+        if (run.finishedAt) bumpDay(localDayKey(finished));
+        if (startedAt >= weekStartMs) runsStartedThisWeek++;
         if (run.status === 'completed') {
           if (finished >= weekStartMs) weeklyRunsCompleted++;
           if (finished >= startToday && finished < endToday) runsCompletedToday++;
+          if (finished >= prevWeekStartMs && finished < weekStartMs) prevWeeklyRunsCompleted++;
         }
       }
 
-      const dailyGoalProgress = Math.min(
-        3,
-        (resourcesCreatedToday > 0 ? 1 : 0) +
-          (resourcesEditedToday > 0 ? 1 : 0) +
-          (chatsToday > 0 ? 1 : 0) +
-          (runsCompletedToday > 0 ? 1 : 0),
-      );
+      const dailyGoals = buildDailyGoals({
+        resourcesCreatedToday,
+        resourcesEditedToday,
+        chatsToday,
+        runsCompletedToday,
+        activeRuns,
+        t,
+      });
+
+      const dailyGoalProgress = dailyGoals.filter((g) => g.done).length;
 
       const streakDays = computeStreak(activityDays);
       const momentumPercent = computeMomentumPercent({
@@ -306,43 +347,131 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         weeklyChats: weeklyChatSessions,
         weeklyRuns: weeklyRunsCompleted,
       });
+      const weeklyEnergyDelta = computeWeeklyEnergyDelta(
+        {
+          weeklyCreated: weeklyResourcesCreated,
+          weeklyTouches: weeklyResourceTouches,
+          weeklyChats: weeklyChatSessions,
+          weeklyRuns: weeklyRunsCompleted,
+        },
+        {
+          weeklyCreated: prevWeeklyResourcesCreated,
+          weeklyTouches: prevWeeklyResourceTouches,
+          weeklyChats: prevWeeklyChatSessions,
+          weeklyRuns: prevWeeklyRunsCompleted,
+        },
+      );
+
+      const pending: PendingTodayItem[] = [];
+      if (dueFlashcards > 0) {
+        const tagInfo = { tag: t('dashboard.tag_study'), tagKind: 'warn' as PendingTagKind };
+        pending.push({
+          id: 'pending-flashcards',
+          kind: 'flashcards',
+          title: t('dashboard.pending_flashcards', { count: dueFlashcards }),
+          subtitle: t('dashboard.pending_flashcards_sub'),
+          timestamp: nowMs,
+          ...formatPendingTime(nowMs),
+          ...tagInfo,
+        });
+      }
+      for (const ev of eventsRaw) {
+        const st = toEpochMs(ev.start_at);
+        if (st >= startToday && st < endToday + 86400000) {
+          const { time, ampm } = formatPendingTime(st);
+          const tagInfo = pendingTagForEvent(st, nowMs, t);
+          pending.push({
+            id: `pending-cal-${ev.id}`,
+            kind: 'calendar',
+            title: ev.title || t('dashboard.pending_event'),
+            subtitle: t('dashboard.pending_calendar_sub'),
+            refId: ev.id,
+            timestamp: st,
+            timeLabel: time,
+            ampm,
+            ...tagInfo,
+          });
+        }
+      }
+      for (const run of runsSafe) {
+        if (run.status === 'running' || run.status === 'waiting_approval' || run.status === 'queued') {
+          const updatedAt = toEpochMs(run.updatedAt);
+          const { time, ampm } = formatPendingTime(updatedAt);
+          const tagInfo = pendingTagForRun(run.status, t);
+          pending.push({
+            id: `pending-run-${run.id}`,
+            kind: 'run',
+            title: run.title || t('dashboard.pending_run'),
+            subtitle: t('dashboard.pending_run_sub'),
+            refId: run.id,
+            timestamp: updatedAt,
+            timeLabel: time,
+            ampm,
+            ...tagInfo,
+          });
+        }
+      }
+
+      pending.sort((a, b) => a.timestamp - b.timestamp);
+      const pendingTodayCount = pending.length;
 
       setGamification({
         streakDays,
         momentumPercent,
+        weeklyEnergyDelta,
         dailyGoalTarget: 3,
         dailyGoalProgress,
+        dailyGoals,
         weeklyResourcesCreated,
         weeklyResourceTouches,
         weeklyChatSessions,
         weeklyRunsCompleted,
+        pendingTodayCount,
+      });
+
+      setStats({
+        resourceCount: allResources.length,
+        studioCount,
+        dueFlashcards,
+        upcomingEvents: eventsRaw.length,
+        recentChats: chats.length,
+        activeRuns,
+      });
+
+      setStatsDeltas({
+        resources: resourcesCreatedThisWeek,
+        chats: chatsThisWeek,
+        dueCards: cardsStudiedThisWeek,
+        studioDocs: studioCreatedThisWeek,
+        activeRuns: runsStartedThisWeek,
       });
 
       setActivityDayCounts(dayCountMap);
 
       const resourcesById = new Map(allResources.map((r) => [r.id, r]));
-      const sevenDaysAgoSecs = (Date.now() - 7 * 24 * 60 * 60 * 1000) / 1000;
+      const sevenDaysAgoMs = nowMs - 7 * 86400000;
       const resourceActivity: ActivityItem[] = allResources
-        .filter((r) => r.updated_at > sevenDaysAgoSecs)
-        .sort((a, b) => b.updated_at - a.updated_at)
+        .filter((r) => toEpochMs(r.updated_at) >= sevenDaysAgoMs)
+        .sort((a, b) => toEpochMs(b.updated_at) - toEpochMs(a.updated_at))
         .slice(0, 8)
         .map((r) => ({
           id: `resource-${r.id}`,
           kind: 'resource' as ActivityKind,
           title: r.title || 'Untitled',
           subtitle: r.type,
-          timestamp: r.updated_at * 1000,
+          timestamp: toEpochMs(r.updated_at),
           resourceId: r.id,
           resourceType: r.type,
         }));
 
       const chatActivity: ActivityItem[] = chats.slice(0, 8).map((s) => {
         const linked = s.resource_id ? resourcesById.get(s.resource_id) : undefined;
+        const sessionTitle = 'title' in s && typeof s.title === 'string' ? s.title.trim() : '';
         return {
           id: `chat-${s.id}`,
           kind: 'chat' as ActivityKind,
-          title: linked?.title ? `Chat · ${linked.title}` : 'Chat',
-          timestamp: ((s.updated_at ?? s.created_at) || s.created_at) * 1000,
+          title: sessionTitle || linked?.title || t('dashboard.activity_chat_default'),
+          timestamp: toEpochMs(s.updated_at ?? s.created_at),
           sessionId: s.id,
         };
       });
@@ -352,50 +481,16 @@ export function useDashboardData(projectId: string | null = null): DashboardData
         .slice(0, 12);
       setActivity(merged);
 
-      const pending: PendingTodayItem[] = [];
-      if (dueFlashcards > 0) {
-        pending.push({
-          id: 'pending-flashcards',
-          kind: 'flashcards',
-          title: '',
-          subtitle: String(dueFlashcards),
-          timestamp: nowMs,
-        });
-      }
-      for (const ev of eventsRaw) {
-        const st = ev.start_at;
-        if (st >= startToday && st < endToday) {
-          pending.push({
-            id: `pending-cal-${ev.id}`,
-            kind: 'calendar',
-            title: ev.title || 'Event',
-            refId: ev.id,
-            timestamp: st,
-          });
-        }
-      }
-      for (const run of runsSafe) {
-        if (run.status === 'running' || run.status === 'waiting_approval' || run.status === 'queued') {
-          pending.push({
-            id: `pending-run-${run.id}`,
-            kind: 'run',
-            title: run.title || 'Run',
-            subtitle: run.status,
-            refId: run.id,
-            timestamp: run.updatedAt,
-          });
-        }
-      }
-
-      pending.sort((a, b) => a.timestamp - b.timestamp);
       setPendingToday(pending.slice(0, 8));
     } catch (error) {
+      if (seq !== loadSeqRef.current) return;
       console.error('[useDashboardData] Error loading dashboard data:', error);
       setActivityDayCounts({});
     } finally {
-      setLoading(false);
+      if (seq !== loadSeqRef.current) return;
+      if (!silent) setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, i18n.language]);
 
   useEffect(() => {
     void load();
@@ -404,17 +499,27 @@ export function useDashboardData(projectId: string | null = null): DashboardData
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return undefined;
 
-    const unsubscribeCreated = window.electron.on('resource:created', () => void load());
-    const unsubscribeUpdated = window.electron.on('resource:updated', () => void load());
-    const unsubscribeDeleted = window.electron.on('resource:deleted', () => void load());
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleSilentReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        debounceTimer = null;
+        void load({ silent: true });
+      }, BACKGROUND_RELOAD_DEBOUNCE_MS);
+    };
+
+    const unsubscribeCreated = window.electron.on('resource:created', scheduleSilentReload);
+    const unsubscribeUpdated = window.electron.on('resource:updated', scheduleSilentReload);
+    const unsubscribeDeleted = window.electron.on('resource:deleted', scheduleSilentReload);
     let unsubscribeRuns: (() => void) | undefined;
     try {
-      unsubscribeRuns = onRunUpdated(() => void load());
+      unsubscribeRuns = onRunUpdated(() => scheduleSilentReload());
     } catch {
       /* Electron API not fully available */
     }
 
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       unsubscribeCreated();
       unsubscribeUpdated();
       unsubscribeDeleted();
@@ -424,6 +529,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
 
   return {
     stats,
+    statsDeltas,
     activity,
     runs,
     upcomingEventsList,
@@ -431,6 +537,6 @@ export function useDashboardData(projectId: string | null = null): DashboardData
     activityDayCounts,
     pendingToday,
     loading,
-    refresh: load,
+    refresh: () => load({ silent: false }),
   };
 }

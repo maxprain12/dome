@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Loader2, RefreshCw, Upload, Link2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import {
   startOfWeek, endOfWeek,
   startOfYear, endOfYear, startOfMonth, endOfMonth,
@@ -9,6 +9,8 @@ import {
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import type { EventDateChangePayload } from '@/components/calendar/CalendarGrid';
 import EventModal from '@/components/calendar/EventModal';
+import { CalendarHero } from '@/components/calendar/CalendarHero';
+import { CalendarUpcoming } from '@/components/calendar/CalendarUpcoming';
 import { useCalendarStore, type CalendarEvent } from '@/lib/store/useCalendarStore';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
@@ -231,6 +233,12 @@ export default function CalendarPage() {
     }, 80);
   };
 
+  const openNewEvent = () => {
+    setSelectedEvent(null);
+    setInitialModalDate(new Date());
+    setShowModal(true);
+  };
+
   const handleDayClick = (date: Date) => {
     setSelectedEvent(null);
     setInitialModalDate(date);
@@ -285,69 +293,22 @@ export default function CalendarPage() {
         : t('calendarPage.sync_never');
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-      <div className="flex-1 min-h-0 flex flex-col" style={{ padding: '24px 32px 16px' }}>
-        <div className="max-w-6xl mx-auto w-full flex flex-col flex-1 min-h-0 gap-4">
-          <div className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="page-title">{t('calendarPage.title')}</h1>
-              <p className="page-subtitle">{t('calendarPage.subtitle')}</p>
-              <p className="text-xs mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {syncHint}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 mt-1">
-              <button
-                type="button"
-                onClick={() => void openCalendarSettings()}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-[var(--dome-surface)]"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                title={t('calendarPage.open_settings')}
-              >
-                <Link2 className="size-4" />
-                <span className="hidden sm:inline">{t('calendarPage.google_settings')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void openImport()}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-[var(--dome-surface)]"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-              >
-                <Upload className="size-4" />
-                <span className="hidden sm:inline">{t('calendarPage.import_ics')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleSyncNow()}
-                disabled={syncing}
-                className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm transition-colors hover:bg-[var(--dome-surface)]"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                title={t('calendarPage.sync')}
-              >
-                <RefreshCw className={`size-4 ${syncing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{t('calendarPage.sync')}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedEvent(null);
-                  setInitialModalDate(new Date());
-                  setShowModal(true);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
-              >
-                <Plus className="size-4" strokeWidth={2} />
-                {t('calendarPage.new_event')}
-              </button>
-            </div>
-          </div>
+    <div className="home-shell c-calendar-shell">
+      <div className="home-scroll">
+        <div className="home-canvas">
+          <CalendarHero
+            syncHint={syncHint}
+            syncing={syncing}
+            upcomingCount={upcomingEvents.length}
+            onOpenSettings={openCalendarSettings}
+            onImport={() => void openImport()}
+            onSync={() => void handleSyncNow()}
+            onNewEvent={openNewEvent}
+          />
 
-          {calendars.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('calendarPage.filter_calendars')}
-              </span>
+          {calendars.length > 0 ? (
+            <div className="c-calendar-filters">
+              <span className="c-calendar-filters-label">{t('calendarPage.filter_calendars')}</span>
               {calendars.map((c) => {
                 const on = visibleCalendarIds.includes(c.id);
                 return (
@@ -355,32 +316,24 @@ export default function CalendarPage() {
                     key={c.id}
                     type="button"
                     onClick={() => toggleCalendarFilter(c.id)}
-                    className="text-xs px-2.5 py-1 rounded-full border transition-colors"
-                    style={{
-                      borderColor: c.color || 'var(--dome-border)',
-                      background: on ? 'var(--dome-surface)' : 'transparent',
-                      color: 'var(--dome-text)',
-                      opacity: on ? 1 : 0.55,
-                    }}
+                    className={`c-calendar-filter-chip ${on ? 'is-on' : 'is-off'}`}
+                    style={{ borderColor: c.color || undefined }}
                   >
                     {c.title}
                   </button>
                 );
               })}
             </div>
-          )}
+          ) : null}
 
-          <div className="flex gap-4 flex-1 min-h-0">
-            <div className="flex-1 min-h-0 min-w-0">
+          <div className="c-calendar-body">
+            <div className="c-calendar-main">
               {loading ? (
-                <div className="flex items-center justify-center h-64">
-                  <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                <div className="c-calendar-loading">
+                  <Loader2 className="size-7 animate-spin" aria-hidden />
                 </div>
               ) : (
-                <div
-                  className="h-full rounded-xl overflow-hidden border flex flex-col"
-                  style={{ borderColor: 'var(--dome-border)' }}
-                >
+                <div className="c-calendar-grid-panel">
                   <CalendarGrid
                     currentDate={currentDate}
                     viewMode={viewMode}
@@ -395,96 +348,33 @@ export default function CalendarPage() {
               )}
             </div>
 
-            <aside className="w-[280px] shrink-0 hidden lg:block">
-              <div
-                className="rounded-xl border p-4 h-full overflow-auto"
-                style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-              >
-                <h2 className="text-sm font-semibold mb-1" style={{ color: 'var(--dome-text)' }}>
-                  {t('calendarPage.upcoming')}
-                </h2>
-                <p className="text-xs mb-4 leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('calendarPage.upcoming_hint')}
-                </p>
-
-                <div className="space-y-2">
-                  {upcomingEvents.length === 0 ? (
-                    <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-                      {t('calendarPage.no_upcoming')}
-                    </p>
-                  ) : (
-                    upcomingEvents.map((event) => (
-                      <button
-                        key={event.id}
-                        type="button"
-                        onClick={() => handleEventClick(event)}
-                        className="w-full text-left rounded-lg border p-3 transition-colors hover:bg-[var(--dome-bg)]"
-                        style={{ borderColor: 'var(--dome-border)' }}
-                      >
-                        <div className="flex items-start gap-2">
-                          <div
-                            className="size-2.5 rounded-full mt-1.5 shrink-0 ring-1 ring-[var(--dome-border)]"
-                            style={{ background: event.calendar_color ?? 'var(--dome-accent)' }}
-                          />
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium leading-snug" style={{ color: 'var(--dome-text)' }}>
-                              {event.title}
-                            </p>
-                            <p className="text-xs mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                              {new Date(event.start_at).toLocaleString(dateLocale, {
-                                weekday: 'short',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: event.all_day ? undefined : '2-digit',
-                                minute: event.all_day ? undefined : '2-digit',
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            </aside>
+            <CalendarUpcoming events={upcomingEvents} onEventClick={handleEventClick} />
           </div>
         </div>
       </div>
 
-      {showImport && importPreview && (
+      {showImport && importPreview ? (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="calendar-import-dialog-title"
         >
-          <button
-            type="button"
-            className="absolute inset-0 min-h-full w-full cursor-default border-0 p-0"
-            style={{ background: 'rgba(0,0,0,0.5)' }}
-            aria-label={t('common.close')}
-            disabled={importBusy}
-            onClick={() => setShowImport(false)}
-          />
-          <div
-            className="relative z-10 max-h-[90vh] overflow-y-auto rounded-xl shadow-xl max-w-md w-full p-5"
-            style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-          >
-            <h3 id="calendar-import-dialog-title" className="text-base font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+          <div className="p-projects-modal">
+            <h3 id="calendar-import-dialog-title" className="p-projects-modal-title">
               {t('calendarPage.import_title')}
             </h3>
-            <p className="text-sm mb-4" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="p-projects-modal-body">
               {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
             </p>
-            <label htmlFor="calendar-import-target-select" className="block text-sm mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+            <label htmlFor="calendar-import-target-select" className="p-projects-create-desc block">
               {t('calendarPage.import_target')}
             </label>
             <select
               id="calendar-import-target-select"
               value={importTargetId}
               onChange={(e) => setImportTargetId(e.target.value)}
-              className="w-full rounded-lg border px-3 py-2 text-sm mb-4"
-              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
+              className="p-projects-field"
             >
               {calendars.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -492,35 +382,28 @@ export default function CalendarPage() {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-sm mb-4 cursor-pointer" style={{ color: 'var(--dome-text)' }}>
+            <label className="c-calendar-modal-check mt-3">
               <input type="checkbox" checked={importSkipDup} onChange={(e) => setImportSkipDup(e.target.checked)} />
               {t('calendarPage.import_skip_dup')}
             </label>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={importBusy}
-                onClick={() => setShowImport(false)}
-                className="px-3 py-2 text-sm rounded-lg border"
-                style={{ borderColor: 'var(--dome-border)' }}
-              >
+            <div className="p-projects-modal-actions">
+              <button type="button" disabled={importBusy} onClick={() => setShowImport(false)} className="h-pill-btn">
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
                 disabled={importBusy || importPreview.events.length === 0}
                 onClick={() => void runImport()}
-                className="px-4 py-2 text-sm rounded-lg font-medium"
-                style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
+                className="h-pill-btn primary"
               >
-                {importBusy ? <Loader2 className="size-4 animate-spin inline" /> : t('calendarPage.import_confirm')}
+                {importBusy ? <Loader2 className="size-4 animate-spin" aria-hidden /> : t('calendarPage.import_confirm')}
               </button>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {showModal && (
+      {showModal ? (
         <EventModal
           event={selectedEvent}
           initialDate={initialModalDate}
@@ -531,7 +414,7 @@ export default function CalendarPage() {
           onSave={handleSave}
           onDelete={selectedEvent ? handleDelete : undefined}
         />
-      )}
+      ) : null}
     </div>
   );
 }

@@ -90,38 +90,26 @@ export default function EventModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="presentation">
+    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4" role="presentation">
       <button
         type="button"
-        className="absolute inset-0 min-h-full w-full border-0 p-0 cursor-pointer"
-        style={{ background: 'rgba(0,0,0,0.5)' }}
+        className="absolute inset-0 min-h-full w-full border-0 p-0 cursor-pointer bg-black/50"
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-auto"
-        style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="event-modal-title"
-      >
-        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--dome-border)' }}>
-          <h2 id="event-modal-title" className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+      <div className="c-calendar-modal relative z-10" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
+        <div className="c-calendar-modal-hd">
+          <h2 id="event-modal-title" className="c-calendar-modal-title">
             {event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
           </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1 rounded hover:bg-[var(--dome-bg)]"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
+          <button type="button" onClick={onClose} className="c-calendar-modal-close" aria-label={t('ui.close')}>
             <X className="size-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form onSubmit={handleSubmit} className="c-calendar-modal-form">
           <div>
-            <label htmlFor="event-modal-title-input" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="event-modal-title-input" className="c-calendar-modal-label">
               {t('common.name')}
             </label>
             <input
@@ -129,19 +117,14 @@ export default function EventModal({
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border"
-              style={{
-                background: 'var(--dome-bg)',
-                borderColor: 'var(--dome-border)',
-                color: 'var(--dome-text)',
-              }}
+              className="c-calendar-modal-field"
               placeholder={t('calendarPage.event_title_placeholder')}
               required
             />
           </div>
 
           <div>
-            <label htmlFor="event-modal-location" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="event-modal-location" className="c-calendar-modal-label">
               {t('common.location')}
             </label>
             <input
@@ -149,32 +132,20 @@ export default function EventModal({
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg border"
-              style={{
-                background: 'var(--dome-bg)',
-                borderColor: 'var(--dome-border)',
-                color: 'var(--dome-text)',
-              }}
+              className="c-calendar-modal-field"
               placeholder={t('calendarPage.event_location_placeholder')}
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="allDay"
-              checked={allDay}
-              onChange={(e) => setAllDay(e.target.checked)}
-            />
-            <label htmlFor="allDay" className="text-sm" style={{ color: 'var(--dome-text)' }}>
-              {t('calendarPage.all_day')}
-            </label>
-          </div>
+          <label className="c-calendar-modal-check">
+            <input type="checkbox" id="allDay" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} />
+            {t('calendarPage.all_day')}
+          </label>
 
-          {!allDay && (
+          {!allDay ? (
             <>
               <div>
-                <label htmlFor="event-modal-start-dt" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-start-dt" className="c-calendar-modal-label">
                   {t('calendarPage.event_start')}
                 </label>
                 <input
@@ -182,16 +153,11 @@ export default function EventModal({
                   type="datetime-local"
                   value={startAt}
                   onChange={(e) => setStartAt(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border"
-                  style={{
-                    background: 'var(--dome-bg)',
-                    borderColor: 'var(--dome-border)',
-                    color: 'var(--dome-text)',
-                  }}
+                  className="c-calendar-modal-field"
                 />
               </div>
               <div>
-                <label htmlFor="event-modal-end-dt" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-end-dt" className="c-calendar-modal-label">
                   {t('calendarPage.event_end')}
                 </label>
                 <input
@@ -199,58 +165,41 @@ export default function EventModal({
                   type="datetime-local"
                   value={endAt}
                   onChange={(e) => setEndAt(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border"
-                  style={{
-                    background: 'var(--dome-bg)',
-                    borderColor: 'var(--dome-border)',
-                    color: 'var(--dome-text)',
-                  }}
+                  className="c-calendar-modal-field"
                 />
               </div>
             </>
-          )}
-
-          {allDay && (
+          ) : (
             <>
               <div>
-                <label htmlFor="event-modal-start-date" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-start-date" className="c-calendar-modal-label">
                   {t('calendarPage.start_date')}
                 </label>
                 <input
                   id="event-modal-start-date"
                   type="date"
                   value={startAt.slice(0, 10)}
-                  onChange={(e) => setStartAt(e.target.value + 'T00:00')}
-                  className="w-full px-3 py-2 rounded-lg border"
-                  style={{
-                    background: 'var(--dome-bg)',
-                    borderColor: 'var(--dome-border)',
-                    color: 'var(--dome-text)',
-                  }}
+                  onChange={(e) => setStartAt(`${e.target.value}T00:00`)}
+                  className="c-calendar-modal-field"
                 />
               </div>
               <div>
-                <label htmlFor="event-modal-end-date" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                <label htmlFor="event-modal-end-date" className="c-calendar-modal-label">
                   {t('calendarPage.end_date')}
                 </label>
                 <input
                   id="event-modal-end-date"
                   type="date"
                   value={endAt.slice(0, 10)}
-                  onChange={(e) => setEndAt(e.target.value + 'T23:59')}
-                  className="w-full px-3 py-2 rounded-lg border"
-                  style={{
-                    background: 'var(--dome-bg)',
-                    borderColor: 'var(--dome-border)',
-                    color: 'var(--dome-text)',
-                  }}
+                  onChange={(e) => setEndAt(`${e.target.value}T23:59`)}
+                  className="c-calendar-modal-field"
                 />
               </div>
             </>
           )}
 
           <div>
-            <label htmlFor="event-modal-description" className="block text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+            <label htmlFor="event-modal-description" className="c-calendar-modal-label">
               {t('common.description')}
             </label>
             <textarea
@@ -258,43 +207,28 @@ export default function EventModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border resize-none"
-              style={{
-                background: 'var(--dome-bg)',
-                borderColor: 'var(--dome-border)',
-                color: 'var(--dome-text)',
-              }}
+              className="c-calendar-modal-field resize-none"
               placeholder={t('calendarPage.event_notes_placeholder')}
             />
           </div>
 
-          <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              disabled={saving || !title.trim()}
-              className="px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-              style={{ background: 'var(--dome-accent)', color: 'var(--dome-accent-fg)' }}
-            >
-              {saving ? t('common.saving') : t('common.save')}
-            </button>
-            {event && onDelete && (
+          <div className="c-calendar-modal-actions">
+            {event && onDelete ? (
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={() => void handleDelete()}
                 disabled={deleting}
-                className="px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-                style={{ background: 'var(--dome-error-bg)', color: 'var(--dome-error)' }}
+                className="h-pill-btn mr-auto"
+                style={{ color: 'var(--home-rose)' }}
               >
                 {deleting ? t('calendarPage.deleting') : t('common.delete')}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg font-medium"
-              style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
-            >
+            ) : null}
+            <button type="button" onClick={onClose} className="h-pill-btn">
               {t('common.cancel')}
+            </button>
+            <button type="submit" disabled={saving || !title.trim()} className="h-pill-btn primary">
+              {saving ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </form>
