@@ -401,6 +401,7 @@ export type AIProviderType =
   | 'copilot'
   | 'deepseek'
   | 'minimax'
+  | 'openrouter'
   | 'moonshot'
   | 'qwen';
 

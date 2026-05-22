@@ -72,7 +72,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
       provider: provider as AIProviderType,
     };
 
-    if (provider === 'openai' || provider === 'anthropic' || provider === 'google') {
+    if (provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter') {
       if (!apiKey.trim()) return;
       config.api_key = apiKey;
       config.model = model;
@@ -163,7 +163,7 @@ export default function AISetupStep({ onComplete }: AISetupStepProps) {
     provider === 'skip' ||
     provider === 'dome' ||
     (provider === 'ollama' && ollamaAvailable === true) ||
-    ((provider === 'openai' || provider === 'anthropic' || provider === 'google') && apiKey.trim().length > 0);
+    ((provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter') && apiKey.trim().length > 0);
 
   return (
     <div className="space-y-4">

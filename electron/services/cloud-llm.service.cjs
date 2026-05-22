@@ -11,7 +11,7 @@ const database = require('../database.cjs');
 const domeOauth = require('../dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 
-const VISION_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'minimax', 'dome', 'ollama']);
+const VISION_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'minimax', 'dome', 'ollama', 'openrouter']);
 
 /**
  * @param {() => import('better-sqlite3').Database extends infer _ ? ReturnType<typeof database.getQueries> : never} getQueries
@@ -40,7 +40,7 @@ function resolveConfig(getQueries) {
   const openaiBase = rawBase && String(rawBase).trim() ? String(rawBase).trim().replace(/\/$/, '') : 'https://api.openai.com';
 
   return {
-    provider: ['openai', 'anthropic', 'google', 'minimax'].includes(provider) ? provider : 'openai',
+    provider: ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(provider) ? provider : 'openai',
     apiKey: q.getSetting.get('ai_api_key')?.value,
     model: q.getSetting.get('ai_model')?.value,
     openaiBase: provider === 'minimax' ? MINIMAX_BASE_URL : openaiBase,

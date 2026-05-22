@@ -10,8 +10,8 @@ import type {
   ModelCost,
   ModelCompatConfig,
   ModelInputType,
-  ZERO_COST,
 } from './types';
+import { OPENROUTER_CURATED_SPECS } from './catalogs/openrouter';
 
 // =============================================================================
 // Types
@@ -72,6 +72,7 @@ export type AIProviderType =
   | 'copilot'
   | 'deepseek'
   | 'minimax'
+  | 'openrouter'
   | 'moonshot'
   | 'qwen';
 
@@ -107,6 +108,20 @@ export const FREE_COST: ModelCost = {
   cacheRead: 0,
   cacheWrite: 0,
 };
+
+/** OpenRouter preset list; full catalog loaded via API in Settings. */
+export const OPENROUTER_MODELS: ModelDefinition[] = OPENROUTER_CURATED_SPECS.map((s) => ({
+  id: s.id,
+  name: s.name,
+  reasoning: s.reasoning,
+  input: [...s.input] as ModelInputType[],
+  contextWindow: s.contextWindow,
+  maxTokens: s.maxTokens,
+  recommended: s.recommended,
+  description: s.description,
+  api: 'openai-completions',
+  cost: FREE_COST,
+}));
 
 // =============================================================================
 // OpenAI Models
@@ -436,6 +451,19 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     apiKeyPlaceholder: 'sk-cp-...',
     baseUrl: 'https://api.minimax.io',
   },
+  openrouter: {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    description: 'API unificada para cientos de modelos (OpenAI, Anthropic, Google…)',
+    icon: 'openrouter',
+    models: OPENROUTER_MODELS,
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'sk-or-v1-…',
+    docsUrl: 'https://openrouter.ai/settings/keys',
+    baseUrl: 'https://openrouter.ai/api/v1',
+  },
   moonshot: {
     id: 'moonshot',
     name: 'Moonshot',
@@ -539,6 +567,7 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';
     case 'minimax': return 'MiniMax-M2.5';
+    case 'openrouter': return 'anthropic/claude-sonnet-4.5';
     case 'moonshot': return 'moonshot-v1-8k';
     case 'qwen': return 'qwen-max';
     default: return '';
@@ -611,6 +640,7 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
     case 'copilot':
     case 'deepseek':
     case 'minimax':
+    case 'openrouter':
     case 'moonshot':
     case 'qwen':
       return 'openai-completions';

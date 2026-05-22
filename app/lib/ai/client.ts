@@ -410,6 +410,106 @@ export async function* streamMiniMax(
   }
 }
 
+export async function chatWithOpenRouter(
+  messages: Array<{ role: string; content: string }>,
+  _apiKey: string,
+  model: string = 'anthropic/claude-sonnet-4.5',
+  _tools?: ToolDefinition[],
+): Promise<string> {
+  if (!isElectron()) {
+    throw new Error('AI chat requires Electron environment');
+  }
+
+  const result = await window.electron.ai.chat('openrouter', messages, model);
+  if (!result.success || !result.content) {
+    throw new Error(result.error || 'OpenRouter chat failed');
+  }
+  return result.content;
+}
+
+export async function* streamOpenRouter(
+  messages: Array<{ role: string; content: string }>,
+  _apiKey: string,
+  model: string = 'anthropic/claude-sonnet-4.5',
+  tools?: ToolDefinition[],
+  _signal?: AbortSignal,
+): AsyncIterable<ChatStreamChunk> {
+  if (!isElectron()) {
+    throw new Error('AI streaming requires Electron environment');
+  }
+
+  const streamId = generateStreamId();
+  const chunks: ChatStreamChunk[] = [];
+  let done = false;
+  let error: Error | null = null;
+  let resolveWait: (() => void) | null = null;
+
+  const unsubscribe = window.electron.ai.onStreamChunk((data: { streamId: string; type?: string; text?: string; error?: string; toolCall?: { id: string; name: string; arguments: string } }) => {
+    if (data.streamId !== streamId) return;
+
+    if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+    } else if (data.type === 'error') {
+      error = new Error(data.error || 'Stream error');
+      done = true;
+    }
+
+    if (resolveWait) resolveWait();
+  });
+
+  window.electron.ai.stream('openrouter', messages, model, streamId, tools);
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        yield chunks.shift()!;
+      } else if (!done) {
+        await new Promise<void>((resolve) => { resolveWait = resolve; });
+        resolveWait = null;
+      }
+    }
+
+    if (error) throw error;
+  } finally {
+    unsubscribe();
+  }
+}
+
+export async function fetchOpenRouterModels(
+  apiKey?: string,
+): Promise<{
+  success: boolean;
+  models?: Array<{
+    id: string;
+    name: string;
+    contextWindow: number;
+    reasoning: boolean;
+    input: Array<'text' | 'image'>;
+    maxTokens: number;
+    recommended?: boolean;
+    description?: string;
+    api: string;
+  }>;
+  error?: string;
+}> {
+  if (!isElectron()) {
+    return { success: false, error: 'OpenRouter listing requires Electron.' };
+  }
+  return window.electron.ai.listOpenRouterModels(apiKey);
+}
+
 export async function chatWithDome(
   messages: Array<{ role: string; content: string }>,
   model: string = 'dome/auto',
@@ -653,6 +753,15 @@ export async function chat(
         tools,
       );
 
+    case 'openrouter':
+      if (!config.apiKey) throw new Error('OpenRouter API key not configured');
+      return chatWithOpenRouter(
+        messages,
+        config.apiKey,
+        config.model || getDefaultModelId('openrouter'),
+        tools,
+      );
+
     case 'dome':
       return chatWithDome(messages, config.model || getDefaultModelId('dome'));
 
@@ -719,6 +828,17 @@ export async function* chatStream(
         messages,
         config.apiKey,
         config.model || getDefaultModelId('minimax'),
+        undefined,
+        signal,
+      );
+      break;
+
+    case 'openrouter':
+      if (!config.apiKey) throw new Error('OpenRouter API key not configured');
+      yield* streamOpenRouter(
+        messages,
+        config.apiKey,
+        config.model || getDefaultModelId('openrouter'),
         undefined,
         signal,
       );
@@ -857,7 +977,7 @@ export async function* chatWithToolsStream(
   });
 
   const invokePromise = window.electron.ai.streamLangGraph(
-    provider as 'openai' | 'anthropic' | 'google' | 'ollama',
+    provider as 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax' | 'openrouter',
     messages,
     model,
     streamId,

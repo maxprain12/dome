@@ -3,7 +3,7 @@
  * Single source of truth for order, labels, descriptions, badges, and icons.
  */
 
-import { Cpu, Globe, Shield, Sparkles, Zap } from 'lucide-react';
+import { Cpu, Globe, Route, Shield, Sparkles, Zap } from 'lucide-react';
 import { PROVIDERS } from '@/lib/ai/models';
 import type { AIProviderType } from '@/lib/ai/models';
 
@@ -40,6 +40,12 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.google.name,
     description: PROVIDERS.google.description + '. Requires API key.',
     icon: Globe,
+  },
+  {
+    value: 'openrouter',
+    label: PROVIDERS.openrouter.name,
+    description: PROVIDERS.openrouter.description + '. Requires OpenRouter API key.',
+    icon: Route,
   },
   {
     value: 'dome',

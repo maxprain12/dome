@@ -4,6 +4,9 @@
  * Re-exports all model catalogs for easy access.
  */
 
+// OpenRouter curated presets
+export { OPENROUTER_CURATED_SPECS, type OpenRouterCuratedSpec } from './openrouter';
+
 // GitHub Copilot Models
 export {
   COPILOT_BASE_URL,

@@ -322,7 +322,7 @@ export function useStudioGenerate(options?: {
           return false;
         }
 
-        const needsApiKey = ['openai', 'anthropic', 'google'].includes(config.provider);
+        const needsApiKey = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(config.provider);
         if (needsApiKey && !config.apiKey) {
           showToast('error', 'API key not configured. Go to Settings > AI.');
           return false;
