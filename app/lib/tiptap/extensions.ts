@@ -13,11 +13,13 @@ import { Table } from '@tiptap/extension-table';
 import TableRow from '@tiptap/extension-table-row';
 import TableHeader from '@tiptap/extension-table-header';
 import TableCell from '@tiptap/extension-table-cell';
-import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
 import Placeholder from '@tiptap/extension-placeholder';
 import UniqueID from '@tiptap/extension-unique-id';
 import Youtube from '@tiptap/extension-youtube';
+import { Collaboration } from '@tiptap/extension-collaboration';
+import { NodeRange } from '@tiptap/extension-node-range';
 import { createLowlight, common } from 'lowlight';
+import type { Doc } from 'yjs';
 
 import { NoteEditorBridge } from '@/lib/tiptap/extensions/note-editor-bridge';
 import { Callout } from '@/lib/tiptap/extensions/callout';
@@ -32,16 +34,40 @@ import {
 import { ResourceLink } from '@/lib/tiptap/extensions/resource-link';
 import { IframeEmbed } from '@/lib/tiptap/extensions/iframe-embed';
 import { AIBlock } from '@/lib/tiptap/extensions/ai-block';
+import {
+  DomeCodeBlockLowlight,
+} from '@/lib/tiptap/extensions/code-block-note-view-extension';
 
 const lowlight = createLowlight(common);
 
+export interface BuildCoreNoteExtensionsOptions {
+  placeholder?: string;
+  /** Yjs document backing the fragment — required so `@tiptap/extension-drag-handle` can sync with collaboration. */
+  collaborationDocument: Doc;
+  /**
+   * Fired once when Collaboration has applied the Y.Xml fragment to the editor.
+   * Use this with a standalone `Y.Doc` (no provider) to seed content from persisted storage.
+   */
+  collaborationOnFirstRender?: () => void;
+}
+
 /** Core note blocks (TipTap). Slash + Mention are composed in NoteEditor. */
-export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
+export function buildCoreNoteExtensions(options: BuildCoreNoteExtensionsOptions) {
+  const placeholder = options.placeholder ?? 'Escribe algo...';
+
+  const starterConfigure = {
+    codeBlock: false as const,
+    undoRedo: false as const,
+  };
+
   return [
     NoteEditorBridge,
-    StarterKit.configure({
-      codeBlock: false,
+    Collaboration.configure({
+      document: options.collaborationDocument,
+      onFirstRender: options.collaborationOnFirstRender,
     }),
+    NodeRange,
+    StarterKit.configure(starterConfigure),
     Underline,
     TextStyle,
     Color,
@@ -60,7 +86,7 @@ export function buildCoreNoteExtensions(placeholder = 'Escribe algo...') {
     TableRow,
     TableHeader,
     TableCell,
-    CodeBlockLowlight.configure({ lowlight }),
+    DomeCodeBlockLowlight.configure({ lowlight }),
     Placeholder.configure({ placeholder }),
     Youtube.configure({
       width: 640,

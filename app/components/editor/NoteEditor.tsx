@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import type { JSONContent, Editor } from '@tiptap/core';
 import type { SuggestionProps } from '@tiptap/suggestion';
-import ReactDOM from 'react-dom';
+import * as Y from 'yjs';
 import { buildCoreNoteExtensions } from '@/lib/tiptap/extensions';
-import { SlashCommandExtension, SLASH_COMMANDS, type SlashCommand } from '@/lib/tiptap/slash-commands';
+import { SlashCommandExtension, SLASH_ITEMS, type SlashCommand } from '@/lib/tiptap/slash-commands';
 import { buildDomeResourceMention } from '@/lib/tiptap/extensions/resource-mention';
 import { createTipTapAIActions } from '@/lib/tiptap/ai-actions';
 import { executeEditorAIAction } from '@/lib/ai/editor-ai';
@@ -18,29 +18,50 @@ import type { MentionMenuHandle } from './MentionSuggestionMenu';
 import ResourcePickerModal from './ResourcePickerModal';
 import ImagePickerModal from './ImagePickerModal';
 import EmbedModal from './EmbedModal';
-import BlockHandles from './BlockHandles';
 import { useTabStore } from '@/lib/store/useTabStore';
-import { Bot, Check, FileText, Link, Highlighter, Sparkles } from 'lucide-react';
-import { Button as TiptapButton } from '@/components/tiptap-ui-primitive/button';
-import { Separator as TiptapSeparator } from '@/components/tiptap-ui-primitive/separator';
-import { MarkButton } from '@/components/tiptap-ui/mark-button';
-import './note-editor.css';
+import { NoteBubbleMenu, NoteLinkPopoverField } from './NoteBubbleMenu';
+import { NoteFloatingInsertMenu } from './NoteFloatingInsertMenu';
+import { NoteDragHandle } from './NoteDragHandle';
+
+/** TipTap starter doc we treat as stored "empty". */
+function isBareEmptyStarterDoc(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object') return false;
+  const doc = raw as JSONContent;
+  if (doc.type !== 'doc') return false;
+  const roots = doc.content ?? [];
+  if (roots.length === 0) return true;
+  if (roots.length === 1) {
+    const b0 = roots[0];
+    if (!b0 || typeof b0 !== 'object') return false;
+    if ((b0 as JSONContent).type === 'paragraph' && !(b0 as JSONContent).content?.length) return true;
+  }
+  return false;
+}
+
+function isHydratablePersistedContent(content: JSONContent | string | undefined): content is JSONContent | string {
+  if (content === undefined || content === null) return false;
+  if (typeof content === 'string') return content.trim().length > 0;
+  return !isBareEmptyStarterDoc(content);
+}
 
 interface NoteEditorProps {
-  /**
-   * Initial editor content. Accepts either a Tiptap JSON document (the
-   * canonical persisted format) or an HTML string (used as a fallback when
-   * legacy notes were stored as raw markdown — see `loadNoteContent`).
-   */
+  /** Initial editor content — Tiptap JSON or legacy HTML fallback. */
   content?: JSONContent | string;
   editable?: boolean;
   placeholder?: string;
   projectId?: string;
-  /** Current note resource (excluded from link picker) */
   currentResourceId?: string;
+  /**
+   * Distraction-free / zen typing: wider column, serif, extra AI shortcuts in bubble + slash.
+   */
+  zenMode?: boolean;
+  /** Legacy alias — passed from older layouts; behaves like zenMode when set. */
   focused?: boolean;
-  /** Show Notion-style ⋮⋮ + ➕ controls on hover. Defaults to focused. */
-  showBlockHandles?: boolean;
+  /** When true, Dome resource links/mentions open in split instead of replacing the tab. */
+  splitLinkNav?: boolean;
+  /** Barra insert flotante (/ bloques rápidos) — Tweaks pueden desactivarla. */
+  showFloatingInsert?: boolean;
+  onInsertAiBlock?: () => void;
   onUpdate?: (json: JSONContent) => void;
   onEditorReady?: (editor: Editor) => void;
 }
@@ -51,12 +72,19 @@ export default function NoteEditor({
   placeholder = 'Escribe algo, o escribe / para ver comandos…',
   projectId = '',
   currentResourceId,
+  zenMode,
   focused = false,
-  showBlockHandles,
+  splitLinkNav = false,
+  showFloatingInsert = true,
+  onInsertAiBlock,
   onUpdate,
   onEditorReady,
 }: NoteEditorProps) {
-  const blockHandlesEnabled = (showBlockHandles ?? focused) && editable;
+  const isZen = Boolean(zenMode ?? focused);
+  const openLinksInSplit = Boolean(splitLinkNav || isZen);
+
+  const ydoc = useMemo(() => new Y.Doc(), []);
+
   const [slashItems, setSlashItems] = useState<SlashCommand[]>([]);
   const [slashClientRect, setSlashClientRect] = useState<(() => DOMRect | null) | null>(null);
   const slashMenuRef = useRef<SlashMenuHandle | null>(null);
@@ -76,8 +104,36 @@ export default function NoteEditor({
   const [embedKind, setEmbedKind] = useState<NoteEmbedKind | null>(null);
 
   const editorRef = useRef<Editor | null>(null);
+  const collaborationReadyEmittedRef = useRef(false);
+  const latestContentRef = useRef(content);
+  latestContentRef.current = content;
+
+  const onEditorReadyRef = useRef(onEditorReady);
+  onEditorReadyRef.current = onEditorReady;
+
+  const collaborationHydrateRef = useRef<() => void>(() => {});
+  collaborationHydrateRef.current = () => {
+    const ed = editorRef.current;
+    if (!ed || ed.isDestroyed || collaborationReadyEmittedRef.current) return;
+    collaborationReadyEmittedRef.current = true;
+    const stored = latestContentRef.current;
+    try {
+      if (isHydratablePersistedContent(stored) && !ed.getText().trim()) {
+        ed.commands.setContent(stored, { emitUpdate: false });
+      }
+    } catch (e) {
+      console.warn('[NoteEditor] collaboration hydrate skipped:', e);
+    }
+    onEditorReadyRef.current?.(ed);
+  };
+
+  const collaborationOnFirstRender = useCallback(() => {
+    collaborationHydrateRef.current();
+  }, []);
+
   const [isAIBusy, setIsAIBusy] = useState(false);
   const [aiError, setAIError] = useState<string | null>(null);
+  const [linkPopoverOpen, setLinkPopoverOpen] = useState(false);
 
   const mentionRender = useCallback(() => {
     return {
@@ -108,48 +164,50 @@ export default function NoteEditor({
 
   const extensions = useMemo(
     () => [
-      ...buildCoreNoteExtensions(placeholder),
+      ...buildCoreNoteExtensions({
+        placeholder,
+        collaborationDocument: ydoc,
+        collaborationOnFirstRender,
+      }),
       buildDomeResourceMention({ render: mentionRender }),
       SlashCommandExtension.configure({
         suggestion: {
           items: ({ query }: { query: string }) => {
             const q = query.toLowerCase();
-            if (!q) return SLASH_COMMANDS;
-            return SLASH_COMMANDS.filter((cmd: SlashCommand) =>
+            if (!q) return SLASH_ITEMS;
+            return SLASH_ITEMS.filter((cmd: SlashCommand) =>
               [cmd.title, cmd.description, cmd.category, cmd.group].some((s) =>
                 s.toLowerCase().includes(q),
               ),
             );
           },
-          render: () => {
-            return {
-              onStart: (props: SuggestionProps<SlashCommand, unknown>) => {
-                setSlashItems(props.items);
-                setSlashClientRect(() => () => props.clientRect?.() ?? null);
-                slashCommandRef.current = props.command;
-              },
-              onUpdate: (props: SuggestionProps<SlashCommand, unknown>) => {
-                setSlashItems(props.items);
-                setSlashClientRect(() => () => props.clientRect?.() ?? null);
-                slashCommandRef.current = props.command;
-              },
-              onKeyDown: (props: { event: KeyboardEvent }) => {
-                if (props.event.key === 'Escape') {
-                  setSlashItems([]);
-                  return true;
-                }
-                return slashMenuRef.current?.onKeyDown(props) ?? false;
-              },
-              onExit: () => {
+          render: () => ({
+            onStart: (props: SuggestionProps<SlashCommand, unknown>) => {
+              setSlashItems(props.items);
+              setSlashClientRect(() => () => props.clientRect?.() ?? null);
+              slashCommandRef.current = props.command;
+            },
+            onUpdate: (props: SuggestionProps<SlashCommand, unknown>) => {
+              setSlashItems(props.items);
+              setSlashClientRect(() => () => props.clientRect?.() ?? null);
+              slashCommandRef.current = props.command;
+            },
+            onKeyDown: (props: { event: KeyboardEvent }) => {
+              if (props.event.key === 'Escape') {
                 setSlashItems([]);
-                setSlashClientRect(null);
-              },
-            };
-          },
+                return true;
+              }
+              return slashMenuRef.current?.onKeyDown(props) ?? false;
+            },
+            onExit: () => {
+              setSlashItems([]);
+              setSlashClientRect(null);
+            },
+          }),
         },
       }),
     ],
-    [placeholder, mentionRender],
+    [placeholder, mentionRender, ydoc, collaborationOnFirstRender],
   );
 
   const editor = useEditor(
@@ -160,56 +218,56 @@ export default function NoteEditor({
       immediatelyRender: false,
       editorProps: {
         handlePaste: (_view, event) => {
-        const ed = editorRef.current;
-        if (!ed) return false;
-        const data = event.clipboardData;
-        if (!data) return false;
-        for (const item of data.items) {
-          if (item.type.startsWith('image/')) {
-            event.preventDefault();
-            const file = item.getAsFile();
-            if (!file) continue;
-            const reader = new FileReader();
-            reader.onload = () => {
-              const src = reader.result as string;
-              ed.chain().focus().setImage({ src }).run();
-            };
-            reader.readAsDataURL(file);
-            return true;
-          }
-        }
-        return false;
-        },
-        handleDOMEvents: {
-          click: (_view, event) => {
-          const el = event.target as HTMLElement | null;
-          const link = el?.closest?.('.dome-resource-link');
-          if (link) {
-            const id = link.getAttribute('data-resource-id');
-            const title = link.getAttribute('data-title') ?? '';
-            const rt = link.getAttribute('data-resource-type') ?? 'note';
-            if (id) {
+          const ed = editorRef.current;
+          if (!ed) return false;
+          const data = event.clipboardData;
+          if (!data) return false;
+          for (const item of data.items) {
+            if (item.type.startsWith('image/')) {
               event.preventDefault();
-              const store = useTabStore.getState();
-              if (focused) store.openResourceInSplit(id, rt, title);
-              else store.openResourceTab(id, rt, title);
-              return true;
-            }
-          }
-          const men = el?.closest?.('.dome-resource-mention');
-          if (men) {
-            const id = men.getAttribute('data-id') ?? men.getAttribute('data-resource-id');
-            const label = men.getAttribute('data-label') ?? men.getAttribute('data-title') ?? '';
-            const rt = men.getAttribute('data-resource-type') ?? 'note';
-            if (id) {
-              event.preventDefault();
-              const store = useTabStore.getState();
-              if (focused) store.openResourceInSplit(id, rt, label);
-              else store.openResourceTab(id, rt, label);
+              const file = item.getAsFile();
+              if (!file) continue;
+              const reader = new FileReader();
+              reader.onload = () => {
+                const src = reader.result as string;
+                ed.chain().focus().setImage({ src }).run();
+              };
+              reader.readAsDataURL(file);
               return true;
             }
           }
           return false;
+        },
+        handleDOMEvents: {
+          click: (_view, event) => {
+            const el = event.target as HTMLElement | null;
+            const link = el?.closest?.('.dome-resource-link');
+            if (link) {
+              const id = link.getAttribute('data-resource-id');
+              const title = link.getAttribute('data-title') ?? '';
+              const rt = link.getAttribute('data-resource-type') ?? 'note';
+              if (id) {
+                event.preventDefault();
+                const store = useTabStore.getState();
+                if (openLinksInSplit) store.openResourceInSplit(id, rt, title);
+                else store.openResourceTab(id, rt, title);
+                return true;
+              }
+            }
+            const men = el?.closest?.('.dome-resource-mention');
+            if (men) {
+              const id = men.getAttribute('data-id') ?? men.getAttribute('data-resource-id');
+              const label = men.getAttribute('data-label') ?? men.getAttribute('data-title') ?? '';
+              const rt = men.getAttribute('data-resource-type') ?? 'note';
+              if (id) {
+                event.preventDefault();
+                const store = useTabStore.getState();
+                if (openLinksInSplit) store.openResourceInSplit(id, rt, label);
+                else store.openResourceTab(id, rt, label);
+                return true;
+              }
+            }
+            return false;
           },
         },
       },
@@ -218,38 +276,47 @@ export default function NoteEditor({
       },
       onCreate: ({ editor: ed }) => {
         editorRef.current = ed;
-        onEditorReady?.(ed);
       },
     },
     [extensions],
   );
 
-  const runEditorAI = useCallback((action: EditorAIAction, mode: 'insert' | 'replace_selection' | 'append' = 'replace_selection') => {
-    const ed = editorRef.current;
-    if (!ed) return;
-    const aiActions = ed.storage.noteEditorBridge?.aiActions;
-    const selectedText = aiActions?.getSelectedMarkdownContext?.() ?? '';
-    const documentText = ed.state.doc.textBetween(0, ed.state.doc.content.size, '\n\n');
-    const sourceText = selectedText || documentText.slice(0, 4000);
-    if (!sourceText.trim() && action !== 'continue') return;
+  /** If Collaboration never fires onFirstRender (defensive), still hook onEditorReady once. */
+  useEffect(() => {
+    if (!editor) return undefined;
+    const t = window.setTimeout(() => collaborationHydrateRef.current(), 450);
+    return () => window.clearTimeout(t);
+  }, [editor]);
 
-    setAIError(null);
-    setIsAIBusy(true);
-    void (async () => {
-      try {
-        const result = await executeEditorAIAction(action, sourceText, documentText);
-        aiActions?.insertMarkdown(result, mode);
-      } catch (err) {
-        setAIError(err instanceof Error ? err.message : 'No se pudo ejecutar la acción de IA.');
-      } finally {
-        setIsAIBusy(false);
-      }
-    })();
-  }, []);
+  const runEditorAI = useCallback(
+    (action: EditorAIAction, mode: 'insert' | 'replace_selection' | 'append' = 'replace_selection') => {
+      const ed = editorRef.current;
+      if (!ed) return;
+      const aiActions = ed.storage.noteEditorBridge?.aiActions;
+      const selectedText = aiActions?.getSelectedMarkdownContext?.() ?? '';
+      const documentText = ed.state.doc.textBetween(0, ed.state.doc.content.size, '\n\n');
+      const sourceText = selectedText || documentText.slice(0, 4000);
+      if (!sourceText.trim() && action !== 'continue') return;
+
+      setAIError(null);
+      setIsAIBusy(true);
+      void (async () => {
+        try {
+          const result = await executeEditorAIAction(action, sourceText, documentText);
+          aiActions?.insertMarkdown(result, mode);
+        } catch (err) {
+          setAIError(err instanceof Error ? err.message : 'No se pudo ejecutar la acción de IA.');
+        } finally {
+          setIsAIBusy(false);
+        }
+      })();
+    },
+    [],
+  );
 
   useEffect(() => {
     editorRef.current = editor ?? null;
-  }, [editor, focused]);
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
@@ -268,7 +335,7 @@ export default function NoteEditor({
   }, [editor, projectId]);
 
   useEffect(() => {
-    if (!focused) return;
+    if (!isZen) return;
     const handleAI = () => runEditorAI('improve', 'replace_selection');
     const handleReference = () => {
       setResourcePickerMode('split');
@@ -280,7 +347,21 @@ export default function NoteEditor({
       window.removeEventListener('dome:focused-editor-ai', handleAI);
       window.removeEventListener('dome:focused-editor-reference', handleReference);
     };
-  }, [focused, runEditorAI]);
+  }, [isZen, runEditorAI]);
+
+  useEffect(() => {
+    const onMany = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key !== 'j' && e.key !== 'J') return;
+      const target = e.target as HTMLElement | null;
+      const inEditorArea = !!target?.closest?.('.note-editor-wrapper');
+      if (!inEditorArea) return;
+      e.preventDefault();
+      window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
+    };
+    window.addEventListener('keydown', onMany, true);
+    return () => window.removeEventListener('keydown', onMany, true);
+  }, []);
 
   if (!editor) return null;
 
@@ -290,25 +371,45 @@ export default function NoteEditor({
   };
 
   return (
-    <div className={`note-editor-wrapper${focused ? ' focused' : ''}`}>
-      <SelectionBubbleMenu editor={editor} focused={focused} isAIPending={isAIBusy} onAIAction={runEditorAI} />
-      <BlockHandles editor={editor} enabled={blockHandlesEnabled} />
-      {aiError && (
+    <div className={`note-editor-wrapper${isZen ? ' focused' : ''}`}>
+      <NoteBubbleMenu
+        editor={editor}
+        zenMode={isZen}
+        isAIBusy={isAIBusy}
+        onAIAction={runEditorAI}
+        onRequestLinkPopover={() => setLinkPopoverOpen(true)}
+      />
+
+      {showFloatingInsert ? (
+      <NoteFloatingInsertMenu
+        editor={editor}
+        zenMode={isZen}
+        onInsertAiBlock={onInsertAiBlock}
+      />
+      ) : null}
+
+      <NoteDragHandle editor={editor} editable={editable && !editor.isDestroyed} />
+
+      {linkPopoverOpen && (
+        <NoteLinkPopoverField editor={editor} open={linkPopoverOpen} onOpenChange={setLinkPopoverOpen} />
+      )}
+
+      {aiError ? (
         <div className="focused-editor-ai-error" role="status">
           {aiError}
         </div>
-      )}
+      ) : null}
 
-      {slashItems.length > 0 && slashClientRect && (
+      {slashItems.length > 0 && slashClientRect ? (
         <SlashMenuPortal
           items={slashItems}
           command={handleSlashCommand}
           clientRect={slashClientRect}
           menuRef={slashMenuRef}
         />
-      )}
+      ) : null}
 
-      {mentionUi && (
+      {mentionUi ? (
         <MentionMenuPortal
           items={mentionUi.items}
           command={(item) => {
@@ -318,7 +419,7 @@ export default function NoteEditor({
           clientRect={mentionUi.clientRect}
           menuRef={mentionMenuRef}
         />
-      )}
+      ) : null}
 
       <ResourcePickerModal
         opened={resourcePickerOpen}
@@ -378,158 +479,7 @@ export default function NoteEditor({
         kind={embedKind}
       />
 
-      <EditorContent editor={editor} className="note-editor-content" />
+      <EditorContent editor={editor} className="note-editor-content tiptap-surface-padding" />
     </div>
-  );
-}
-
-function SelectionBubbleMenu({
-  editor,
-  focused,
-  isAIPending,
-  onAIAction,
-}: {
-  editor: Editor;
-  focused: boolean;
-  isAIPending: boolean;
-  onAIAction: (action: EditorAIAction, mode?: 'insert' | 'replace_selection' | 'append') => void;
-}) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-
-  useEffect(() => {
-    const update = () => {
-      const { from, to } = editor.state.selection;
-      if (from === to || !editor.isFocused) {
-        setPos(null);
-        return;
-      }
-
-      const domSel = window.getSelection();
-      if (!domSel || domSel.rangeCount === 0) {
-        setPos(null);
-        return;
-      }
-
-      const rect = domSel.getRangeAt(0).getBoundingClientRect();
-      if (!rect.width) {
-        setPos(null);
-        return;
-      }
-
-      const menuW = focused ? 390 : 270;
-      setPos({
-        top: rect.top - 48,
-        left: Math.min(Math.max(rect.left + rect.width / 2 - menuW / 2, 8), window.innerWidth - menuW - 8),
-      });
-    };
-
-    editor.on('selectionUpdate', update);
-    editor.on('blur', () => setPos(null));
-    return () => {
-      editor.off('selectionUpdate', update);
-    };
-  }, [editor, focused]);
-
-  if (!pos) return null;
-
-  const linkActive = editor.isActive('link');
-  const highlightActive = editor.isActive('highlight');
-
-  return ReactDOM.createPortal(
-    <div
-      className="note-bubble-menu"
-      role="toolbar"
-      aria-label="Formato de nota"
-      style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      <MarkButton editor={editor} type="bold" />
-      <MarkButton editor={editor} type="italic" />
-      <MarkButton editor={editor} type="underline" />
-      <MarkButton editor={editor} type="strike" />
-      <MarkButton editor={editor} type="code" />
-      <TiptapSeparator orientation="vertical" />
-      <TiptapButton
-        type="button"
-        variant="ghost"
-        tooltip="Resaltado"
-        aria-label="Resaltado"
-        aria-pressed={highlightActive}
-        data-active-state={highlightActive ? 'on' : 'off'}
-        onClick={() => editor.chain().focus().toggleHighlight().run()}
-      >
-        <Highlighter className="tiptap-button-icon" size={13} strokeWidth={2} />
-      </TiptapButton>
-      <TiptapButton
-        type="button"
-        variant="ghost"
-        tooltip="Enlace"
-        shortcutKeys="mod+k"
-        aria-label="Enlace"
-        aria-pressed={linkActive}
-        data-active-state={linkActive ? 'on' : 'off'}
-        onClick={() => {
-          if (linkActive) {
-            editor.chain().focus().unsetLink().run();
-            return;
-          }
-          const url = window.prompt('URL');
-          if (url) editor.chain().focus().setLink({ href: url }).run();
-        }}
-      >
-        <Link className="tiptap-button-icon" size={13} strokeWidth={2} />
-      </TiptapButton>
-      {focused && (
-        <>
-          <TiptapSeparator orientation="vertical" />
-          <TiptapButton
-            type="button"
-            variant="ghost"
-            tooltip="Mejorar con IA"
-            aria-label="Mejorar con IA"
-            data-active-state={isAIPending ? 'on' : 'off'}
-            disabled={isAIPending}
-            onClick={() => onAIAction('improve', 'replace_selection')}
-          >
-            <Sparkles className="tiptap-button-icon" size={13} strokeWidth={2} />
-          </TiptapButton>
-          <TiptapButton
-            type="button"
-            variant="ghost"
-            tooltip="Resumir selección"
-            aria-label="Resumir selección"
-            onClick={() => onAIAction('summarize', 'insert')}
-          >
-            <FileText className="tiptap-button-icon" size={13} strokeWidth={2} />
-          </TiptapButton>
-          <TiptapButton
-            type="button"
-            variant="ghost"
-            tooltip="Continuar escribiendo"
-            aria-label="Continuar escribiendo"
-            onClick={() => onAIAction('continue', 'append')}
-          >
-            <Bot className="tiptap-button-icon" size={13} strokeWidth={2} />
-          </TiptapButton>
-          <TiptapButton
-            type="button"
-            variant="ghost"
-            tooltip="Copiar selección"
-            aria-label="Copiar selección"
-            onClick={() => {
-              const text = editor.state.doc.textBetween(
-                editor.state.selection.from,
-                editor.state.selection.to,
-                '\n\n',
-              );
-              navigator.clipboard?.writeText(text).catch(() => undefined);
-            }}
-          >
-            <Check className="tiptap-button-icon" size={13} strokeWidth={2} />
-          </TiptapButton>
-        </>
-      )}
-    </div>,
-    document.body,
   );
 }
