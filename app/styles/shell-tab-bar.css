@@ -1,6 +1,7 @@
 /* ─── Dome tab bar (prototype-aligned) ─── */
 
 .dome-tab-strip {
+  --dome-tab-max-width: 176px;
   height: 100%;
   background: var(--dome-bg);
 }
@@ -10,11 +11,12 @@
   align-items: center;
   gap: 6px;
   padding: 0 10px;
-  shrink: 0;
+  flex: 0 0 auto;
+  width: max-content;
+  max-width: var(--dome-tab-max-width);
+  flex-shrink: 0;
   position: relative;
   height: 100%;
-  max-width: 168px;
-  min-width: 72px;
   font-size: 12px;
   font-weight: 500;
   border: none;
@@ -42,9 +44,8 @@
 }
 
 .dome-tab-item-title {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
-  max-width: 108px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

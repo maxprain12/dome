@@ -31,11 +31,8 @@ export interface AgentChatInputProps {
   onAbort: () => void;
   placeholder?: string;
   mcpServerIds: string[];
-  toolIds: string[];
   disabledMcpIds: Set<string>;
-  disabledToolIds: Set<string>;
   onToggleMcp: (id: string) => void;
-  onToggleTool: (id: string) => void;
   hasAgentFunctions?: boolean;
   attachments?: ChatAttachment[];
   onAttachmentsChange?: (items: ChatAttachment[]) => void;
@@ -58,11 +55,8 @@ export default memo(function AgentChatInput({
   onAbort,
   placeholder,
   mcpServerIds,
-  toolIds,
   disabledMcpIds,
-  disabledToolIds,
   onToggleMcp,
-  onToggleTool,
   hasAgentFunctions,
   attachments = [],
   onAttachmentsChange,
@@ -150,7 +144,6 @@ export default memo(function AgentChatInput({
   );
 
   const hasMcp = mcpServerIds.length > 0;
-  const hasTools = toolIds.length > 0;
 
   useEffect(() => {
     if (!showDropdown) return;
@@ -222,9 +215,7 @@ export default memo(function AgentChatInput({
 
   const handleInput = AI_COMPOSER_INPUT_HANDLER;
 
-  const hasActiveAgentTools =
-    (hasMcp && mcpServerIds.some((id) => !disabledMcpIds.has(id))) ||
-    (hasTools && toolIds.some((id) => !disabledToolIds.has(id)));
+  const hasActiveAgentTools = hasMcp && mcpServerIds.some((id) => !disabledMcpIds.has(id));
 
   const showPlus = hasAgentFunctions || onAttachmentsChange || enhanced;
   const menuLayout = enhanced ? 'nested' : 'flat';
@@ -396,11 +387,7 @@ export default memo(function AgentChatInput({
                             mcpServerIds={mcpServerIds}
                             disabledMcpIds={disabledMcpIds}
                             onToggleMcp={onToggleMcp}
-                            toolIds={toolIds}
-                            disabledToolIds={disabledToolIds}
-                            onToggleTool={onToggleTool}
                             hasMcp={hasMcp}
-                            hasTools={hasTools}
                           />
                         ) : null
                       }

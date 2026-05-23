@@ -747,8 +747,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         (updates.name !== undefined && updates.name !== current.name) ||
         (updates.systemInstructions !== undefined &&
           updates.systemInstructions !== current.system_instructions) ||
-        (updates.toolIds !== undefined &&
-          JSON.stringify(updates.toolIds) !== current.tool_ids);
+        (updates.mcpServerIds !== undefined &&
+          JSON.stringify(updates.mcpServerIds) !== (current.mcp_server_ids ?? '[]'));
       if (snapshotChanged) {
         try {
           const latestRow = queries.getLatestAgentVersion.get(id);

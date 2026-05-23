@@ -18,7 +18,7 @@ import CanvasWorkspace from './CanvasWorkspace';
 import PropertiesPanel from './PropertiesPanel';
 import ExecutionLog from './ExecutionLog';
 
-export default function AgentCanvasView() {
+export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?: () => void }) {
   const { t } = useTranslation();
   const store = useCanvasStore();
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
@@ -247,6 +247,14 @@ export default function AgentCanvasView() {
     }
   }, [store, hubProjectId, t]);
 
+  const handleBackToLibrary = useCallback(() => {
+    if (onBackToLibrary) {
+      onBackToLibrary();
+      return;
+    }
+    setHomeSidebarSection('automations-hub');
+  }, [onBackToLibrary, setHomeSidebarSection]);
+
   const selectedNode = selectedNodeId ? (nodes.find((n) => n.id === selectedNodeId) ?? null) : null;
 
   return (
@@ -256,7 +264,7 @@ export default function AgentCanvasView() {
         onStop={handleStop}
         onSave={handleSave}
         onClear={handleClear}
-        onBackToLibrary={() => setHomeSidebarSection('automations-hub')}
+        onBackToLibrary={handleBackToLibrary}
         onRename={handleRename}
       />
 

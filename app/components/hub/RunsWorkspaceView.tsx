@@ -5,7 +5,6 @@ import {
   Activity,
   Trash2,
   Loader2,
-  Filter,
   Clock,
   CheckCircle2,
   XCircle,
@@ -18,6 +17,7 @@ import {
   listRuns,
   getRun,
   deleteRun,
+  abortRun,
   onRunUpdated,
   onRunStep,
   type PersistentRun,
@@ -42,10 +42,14 @@ import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
 import { useEditorialHub } from '@/lib/context/EditorialHubContext';
+import { useHubWorkspace } from '@/lib/context/HubWorkspaceContext';
+import { useHubListLoader } from '@/lib/hub/useHubListLoader';
+import { HUB_RUNS_CHANGED } from '@/lib/hub/hubEvents';
+import { PENDING_RUN_ID_KEY } from '@/lib/hub/hubStorageKeys';
 import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
-import DomeDivider from '@/components/ui/DomeDivider';
+import { HubFilterBar, HubFilterRow } from '@/components/ui/HubFilterBar';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
@@ -567,7 +571,13 @@ function getStepUsageShort(step: PersistentRunStep, locale: string): string | nu
   return null;
 }
 
-function StepStatusIcon({ step }: { step: PersistentRunStep }) {
+function StepStatusIcon({
+  step,
+  runIsTerminal = false,
+}: {
+  step: PersistentRunStep;
+  runIsTerminal?: boolean;
+}) {
   const muted = 'var(--dome-text-muted)';
   if (step.status === 'failed' || step.status === 'error' || getStepVisualKind(step) === 'error') {
     return <XCircle className="size-3 shrink-0" style={{ color: 'var(--error)' }} aria-hidden />;
@@ -579,6 +589,9 @@ function StepStatusIcon({ step }: { step: PersistentRunStep }) {
     return <Clock className="size-3 shrink-0 opacity-80" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'running') {
+    if (runIsTerminal) {
+      return <CheckCircle2 className="size-3 shrink-0 opacity-70" style={{ color: muted }} aria-hidden />;
+    }
     return <Loader2 className="size-3 shrink-0 animate-spin" style={{ color: muted }} aria-hidden />;
   }
   if (step.status === 'completed' || step.status === 'done') {
@@ -596,6 +609,7 @@ function StepListItem({
   runStartedAt,
   stepOrdinal,
   totalSteps,
+  runIsTerminal = false,
 }: {
   step: PersistentRunStep;
   selected: boolean;
@@ -605,6 +619,7 @@ function StepListItem({
   runStartedAt: number;
   stepOrdinal: number;
   totalSteps: number;
+  runIsTerminal?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const durSec = getStepDurationSec(step, nextStep ?? undefined, runEndAt);
@@ -652,7 +667,7 @@ function StepListItem({
         <span className="whitespace-nowrap">
           {durSec}s · {clock}
         </span>
-        <StepStatusIcon step={step} />
+        <StepStatusIcon step={step} runIsTerminal={runIsTerminal} />
       </div>
     </button>
   );
@@ -942,9 +957,13 @@ function RunRightOverview({
 interface RunDetailScreenProps {
   run: PersistentRun;
   onBack: () => void;
+  onStop?: () => void;
+  onDelete?: () => void;
+  stopping?: boolean;
+  deleting?: boolean;
 }
 
-function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
+function RunDetailScreen({ run, onBack, onStop, onDelete, stopping, deleting }: RunDetailScreenProps) {
   const { t, i18n } = useTranslation();
   const steps = useMemo(() => run.steps ?? [], [run.steps]);
   const sortedSteps = useMemo(
@@ -968,6 +987,8 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
   }, [selectedStepId]);
 
   const isRunning = run.status === 'running' || run.status === 'queued';
+  const runIsTerminal =
+    run.status === 'completed' || run.status === 'failed' || run.status === 'cancelled';
   const progress = getRunProgress(run);
 
   const meta = useMemo(() => (run.metadata ?? {}) as Record<string, unknown>, [run.metadata]);
@@ -1124,7 +1145,41 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
         title={<span className="break-words">{run.title || run.id}</span>}
         onBack={onBack}
         backLabel={t('common.back')}
-        trailing={<DomeStatusBadge status={run.status} />}
+        trailing={
+          <div className="flex items-center gap-2">
+            {isRunning && onStop ? (
+              <DomeButton
+                type="button"
+                variant="secondary"
+                size="xs"
+                disabled={stopping || deleting}
+                onClick={onStop}
+              >
+                {stopping ? t('chat.stop') : t('runLog.stop_run')}
+              </DomeButton>
+            ) : null}
+            {onDelete ? (
+              <DomeButton
+                type="button"
+                variant="ghost"
+                size="xs"
+                iconOnly
+                title={t('runLog.delete_run_aria')}
+                aria-label={t('runLog.delete_run_aria')}
+                disabled={deleting || stopping}
+                className="!text-[var(--error)] hover:!bg-[var(--error-bg)] disabled:!opacity-50"
+                onClick={onDelete}
+              >
+                {deleting ? (
+                  <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
+                ) : (
+                  <Trash2 className="size-3.5" aria-hidden />
+                )}
+              </DomeButton>
+            ) : null}
+            <DomeStatusBadge status={run.status} />
+          </div>
+        }
         className="px-4 py-3 border-[var(--dome-border)] bg-[var(--dome-bg)] shrink-0"
         subtitle={null}
       />
@@ -1206,6 +1261,7 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
                       runStartedAt={run.startedAt}
                       stepOrdinal={stepOrdinalById.get(entry.step.id) ?? 0}
                       totalSteps={sortedSteps.length}
+                      runIsTerminal={runIsTerminal}
                     />
                   );
                 })}
@@ -1298,35 +1354,77 @@ function RunDetailScreen({ run, onBack }: RunDetailScreenProps) {
 
 // ─── Runs Tab ─────────────────────────────────────────────────────────────────
 
-function RunsTab() {
+interface RunsTabProps {
+  onRegisterSilentRefresh?: (refresh: (() => void) | null) => void;
+}
+
+function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
   const { t } = useTranslation();
   const editorialHub = useEditorialHub();
+  const hubCardVariant = editorialHub ? 'editorial' : 'card';
+  const hubListClass = editorialHub
+    ? 'hub-list-stack hub-list-stack--runs w-full max-w-full'
+    : 'flex w-full max-w-full flex-col gap-3';
+  const hubWorkspace = useHubWorkspace();
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [allRuns, setAllRuns] = useState<PersistentRun[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedRun, setSelectedRun] = useState<PersistentRun | null>(null);
   const [loadingDetail, setLoadingDetail] = useState<string | null>(null);
   const [filter, setFilter] = useState<RunFilter>({ ownerType: 'all', status: 'all' });
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [stoppingId, setStoppingId] = useState<string | null>(null);
   const selectedRunIdRef = useRef<string | null>(null);
   const detailRefreshTimeoutRef = useRef<number | null>(null);
+  const pendingRunHandledRef = useRef(false);
 
   useEffect(() => {
     selectedRunIdRef.current = selectedRun?.id ?? null;
-  }, [selectedRun]);
+    hubWorkspace?.reportRunsDetailActive(selectedRun != null);
+  }, [selectedRun, hubWorkspace]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const all = await listRuns({ limit: 100, projectId });
-      // Exclude many — those are the user's own chat conversations, not automated flows
-      setAllRuns(all.filter((r) => r.ownerType !== 'many'));
-    } finally {
-      setLoading(false);
-    }
+  useEffect(() => {
+    return () => {
+      hubWorkspace?.reportRunsDetailActive(false);
+    };
+  }, [hubWorkspace]);
+
+  const fetchListData = useCallback(async () => {
+    const all = await listRuns({ limit: 100, projectId });
+    setAllRuns(all.filter((r) => r.ownerType !== 'many'));
   }, [projectId]);
 
-  useEffect(() => { void load(); }, [load]);
+  const { initialLoading: loading, reload: load } = useHubListLoader(fetchListData, [projectId], {
+    eventName: HUB_RUNS_CHANGED,
+  });
+
+  useEffect(() => {
+    if (!onRegisterSilentRefresh) return;
+    onRegisterSilentRefresh(() => {
+      void load({ silent: true });
+    });
+    return () => onRegisterSilentRefresh(null);
+  }, [load, onRegisterSilentRefresh]);
+
+  useEffect(() => {
+    if (pendingRunHandledRef.current) return;
+    let pendingRunId: string | null = null;
+    try {
+      pendingRunId = sessionStorage.getItem(PENDING_RUN_ID_KEY);
+      if (pendingRunId) sessionStorage.removeItem(PENDING_RUN_ID_KEY);
+    } catch {
+      /* ignore */
+    }
+    if (!pendingRunId) return;
+    pendingRunHandledRef.current = true;
+    void (async () => {
+      try {
+        const full = await getRun(pendingRunId);
+        if (full) setSelectedRun(full);
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
 
   const scheduleRefreshSelectedRun = useCallback((runId: string) => {
     if (typeof window === 'undefined') return;
@@ -1355,7 +1453,15 @@ function RunsTab() {
         const filteredPrev = prev.filter((entry) => entry.ownerType !== 'many');
         const existing = filteredPrev.find((entry) => entry.id === run.id);
         const merged = existing
-          ? { ...existing, ...run, steps: existing.steps ?? run.steps, links: existing.links ?? run.links }
+          ? {
+              ...existing,
+              ...run,
+              steps:
+                Array.isArray(run.steps) && run.steps.length > 0
+                  ? run.steps
+                  : existing.steps ?? run.steps,
+              links: run.links ?? existing.links,
+            }
           : run;
         const next = existing
           ? filteredPrev.map((entry) => (entry.id === run.id ? merged : entry))
@@ -1368,7 +1474,15 @@ function RunsTab() {
       if (selectedRunIdRef.current === run.id) {
         setSelectedRun((prev) =>
           prev?.id === run.id
-            ? { ...prev, ...run, steps: prev.steps, links: prev.links }
+            ? {
+                ...prev,
+                ...run,
+                steps:
+                  Array.isArray(run.steps) && run.steps.length > 0
+                    ? run.steps
+                    : prev.steps,
+                links: run.links ?? prev.links,
+              }
             : prev,
         );
         scheduleRefreshSelectedRun(run.id);
@@ -1412,6 +1526,25 @@ function RunsTab() {
     return result;
   }, [allRuns, filter]);
 
+  const runsMetrics = useMemo(() => {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const endOfDay = startOfDay + 86_400_000;
+    const todayRuns = allRuns.filter((r) => {
+      const ts = r.updatedAt ?? r.startedAt;
+      return ts >= startOfDay && ts < endOfDay;
+    });
+    const running = todayRuns.filter(
+      (r) =>
+        r.status === 'running' || r.status === 'queued' || r.status === 'waiting_approval',
+    ).length;
+    const completed = todayRuns.filter((r) => r.status === 'completed').length;
+    const failed = todayRuns.filter((r) => r.status === 'failed').length;
+    const successRate =
+      todayRuns.length > 0 ? Math.round((completed / todayRuns.length) * 100) : 100;
+    return { totalToday: todayRuns.length, running, completed, failed, successRate };
+  }, [allRuns]);
+
   const handleSelectRun = async (run: PersistentRun) => {
     setLoadingDetail(run.id);
     try {
@@ -1424,9 +1557,34 @@ function RunsTab() {
     }
   };
 
+  const handleStop = async (runId: string) => {
+    setStoppingId(runId);
+    try {
+      await abortRun(runId);
+      const full = await getRun(runId);
+      if (full) {
+        setAllRuns((prev) => prev.map((r) => (r.id === runId ? full : r)));
+        if (selectedRun?.id === runId) setSelectedRun(full);
+      }
+    } catch {
+      showToast('error', t('toast.run_stop_error'));
+    } finally {
+      setStoppingId(null);
+    }
+  };
+
   const handleDelete = async (runId: string) => {
     setDeletingId(runId);
     try {
+      const run = allRuns.find((r) => r.id === runId) ?? selectedRun;
+      if (
+        run &&
+        (run.status === 'running' ||
+          run.status === 'queued' ||
+          run.status === 'waiting_approval')
+      ) {
+        await abortRun(runId);
+      }
       await deleteRun(runId);
       if (selectedRun?.id === runId) setSelectedRun(null);
       setAllRuns((prev) => prev.filter((r) => r.id !== runId));
@@ -1475,6 +1633,16 @@ function RunsTab() {
       <RunDetailScreen
         run={selectedRun}
         onBack={() => setSelectedRun(null)}
+        onStop={
+          selectedRun.status === 'running' ||
+          selectedRun.status === 'queued' ||
+          selectedRun.status === 'waiting_approval'
+            ? () => void handleStop(selectedRun.id)
+            : undefined
+        }
+        onDelete={() => void handleDelete(selectedRun.id)}
+        stopping={stoppingId === selectedRun.id}
+        deleting={deletingId === selectedRun.id}
       />
     );
   }
@@ -1486,49 +1654,115 @@ function RunsTab() {
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
-      <HubToolbar
-        dense
-        leading={
-          editorialHub ? undefined : (
-          <HubTitleBlock
-            icon={Activity}
-            title={t('automationHub.tab_runs')}
-            subtitle={countLabel}
-          />
-          )
-        }
-        center={null}
-        trailing={null}
-      />
-      <div
-        className="flex flex-col gap-1.5 px-4 py-2 shrink-0"
-        style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
-      >
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <Filter className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
-          <DomeFilterChipGroup
-            dense
-            options={ownerFilters.map(({ key, label }) => ({
-              value: key,
-              label,
-              selectedColor: 'var(--dome-accent)',
-            }))}
-            value={filter.ownerType}
-            onChange={(key) => setFilter((f) => ({ ...f, ownerType: key }))}
-          />
-          <DomeDivider orientation="vertical" spacingClass="mx-0.5 h-3 self-center min-h-[12px]" />
-          <DomeFilterChipGroup
-            dense
-            options={statusFilters.map(({ key, label }) => ({
-              value: key,
-              label,
-              selectedColor: runStatusColor(key === 'all' ? 'completed' : key),
-            }))}
-            value={filter.status}
-            onChange={(key) => setFilter((f) => ({ ...f, status: key }))}
-          />
+      {!editorialHub ? (
+        <HubToolbar
+          dense
+          leading={
+            <HubTitleBlock
+              icon={Activity}
+              title={t('automationHub.tab_runs')}
+              subtitle={countLabel}
+            />
+          }
+          center={null}
+          trailing={null}
+        />
+      ) : null}
+      {editorialHub ? (
+        <div className="hub-runs-metrics" aria-label={t('runLog.metrics_total_today')}>
+          <div className="hub-runs-metric-card">
+            <span className="label">{t('runLog.metrics_total_today')}</span>
+            <span className="value">{runsMetrics.totalToday}</span>
+            <span className="sub">
+              {runsMetrics.running > 0
+                ? t('runLog.metrics_in_progress', { count: runsMetrics.running })
+                : t('runLog.metrics_in_progress_zero')}
+            </span>
+          </div>
+          <div className="hub-runs-metric-card">
+            <span className="label">{t('runLog.metrics_completed')}</span>
+            <span className="value is-success">{runsMetrics.completed}</span>
+            <span className="sub">{t('runLog.metrics_success_rate', { rate: runsMetrics.successRate })}</span>
+          </div>
+          <div className="hub-runs-metric-card">
+            <span className="label">{t('runLog.metrics_failed')}</span>
+            <span className={cn('value', runsMetrics.failed > 0 && 'is-error')}>{runsMetrics.failed}</span>
+            <span className="sub">
+              {runsMetrics.failed === 0
+                ? t('runLog.metrics_no_errors_today')
+                : t('runLog.metrics_errors_today', { count: runsMetrics.failed })}
+            </span>
+          </div>
         </div>
-      </div>
+      ) : null}
+      {editorialHub ? (
+        <HubFilterBar aria-label={t('runLog.filter_group_type')}>
+          <HubFilterRow label={t('runLog.filter_group_type')}>
+            <DomeFilterChipGroup
+              variant="editorial"
+              options={ownerFilters.map(({ key, label }) => ({
+                value: key,
+                label,
+              }))}
+              value={filter.ownerType}
+              onChange={(key) => setFilter((f) => ({ ...f, ownerType: key }))}
+            />
+          </HubFilterRow>
+          <HubFilterRow label={t('runLog.filter_group_status')}>
+            <DomeFilterChipGroup
+              variant="editorial"
+              options={statusFilters.map(({ key, label }) => ({
+                value: key,
+                label,
+              }))}
+              value={filter.status}
+              onChange={(key) => setFilter((f) => ({ ...f, status: key }))}
+            />
+          </HubFilterRow>
+        </HubFilterBar>
+      ) : (
+        <div
+          className="flex flex-col gap-2 px-4 py-2 shrink-0"
+          style={{ borderBottom: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}
+        >
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide shrink-0"
+              style={{ color: 'var(--dome-text-muted)' }}
+            >
+              {t('runLog.filter_group_type')}
+            </span>
+            <DomeFilterChipGroup
+              dense
+              options={ownerFilters.map(({ key, label }) => ({
+                value: key,
+                label,
+                selectedColor: 'var(--dome-accent)',
+              }))}
+              value={filter.ownerType}
+              onChange={(key) => setFilter((f) => ({ ...f, ownerType: key }))}
+            />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className="text-[10px] font-semibold uppercase tracking-wide shrink-0"
+              style={{ color: 'var(--dome-text-muted)' }}
+            >
+              {t('runLog.filter_group_status')}
+            </span>
+            <DomeFilterChipGroup
+              dense
+              options={statusFilters.map(({ key, label }) => ({
+                value: key,
+                label,
+                selectedColor: runStatusColor(key === 'all' ? 'completed' : key),
+              }))}
+              value={filter.status}
+              onChange={(key) => setFilter((f) => ({ ...f, status: key }))}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 min-h-0 overflow-y-auto">
         {loading ? (
@@ -1544,8 +1778,8 @@ function RunsTab() {
             description={t('runLog.empty_runs_hint')}
           />
         ) : (
-          <div className="p-4">
-            <div className="flex w-full max-w-full flex-col gap-3" role="list">
+          <div className={editorialHub ? '' : 'p-4'}>
+            <div className={hubListClass} role="list">
               {filtered.map((run) => {
                 const progress = getRunProgress(run);
                 const ownerLabel =
@@ -1557,33 +1791,56 @@ function RunsTab() {
                     ? t('runLog.step_singular')
                     : t('runLog.step_plural', { count: run.steps.length })
                   : '';
+                const progressPercent =
+                  progress?.mode === 'determinate' ? (progress.percent ?? 0) : run.status === 'completed' ? 100 : 0;
                 return (
                   <HubBentoCard
                     key={run.id}
+                    variant={hubCardVariant}
                     onClick={() => void handleSelectRun(run)}
                     disabled={loadingDetail === run.id}
                     icon={<HubEntityIcon kind={run.ownerType === 'agent' ? 'agent' : 'workflow'} size="md" />}
                     title={
                       <div className="flex items-start gap-2 min-w-0 flex-wrap">
                         <span
-                          className="min-w-0 flex-1 break-words text-sm font-semibold"
-                          style={{ color: 'var(--dome-text)' }}
+                          className={cn('min-w-0 flex-1 break-words', !editorialHub && 'text-sm font-semibold')}
+                          style={editorialHub ? undefined : { color: 'var(--dome-text)' }}
                           title={run.title || run.id}
                         >
                           {run.title || run.id}
                         </span>
                         <DomeStatusBadge status={run.status} />
+                        {editorialHub ? (
+                          <span
+                            className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-md"
+                            style={{
+                              background: 'var(--dome-bg-hover)',
+                              color: 'var(--dome-text-muted)',
+                              border: '1px solid var(--dome-border)',
+                            }}
+                          >
+                            {ownerLabel}
+                          </span>
+                        ) : null}
                       </div>
                     }
                     subtitle={
                       <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 min-w-0 break-words">
-                        <span>{ownerLabel}</span>
-                        <span aria-hidden>·</span>
+                        {!editorialHub ? <span>{ownerLabel}</span> : null}
+                        {!editorialHub ? <span aria-hidden>·</span> : null}
                         <span className="inline-flex items-center gap-0.5">
                           <Clock className="size-3 shrink-0" aria-hidden />
                           {formatHubDate(run.updatedAt, t('runLog.never'))}
                         </span>
-                        {stepLine ? (
+                        {editorialHub && (progress?.mode === 'determinate' || run.status === 'completed') ? (
+                          <>
+                            <span aria-hidden>·</span>
+                            <span style={{ color: 'var(--dome-accent)' }}>
+                              {progressPercent}% · {progress?.completed ?? 1}/{progress?.total ?? 1}
+                            </span>
+                          </>
+                        ) : null}
+                        {!editorialHub && stepLine ? (
                           <>
                             <span aria-hidden>·</span>
                             <span>{stepLine}</span>
@@ -1592,7 +1849,14 @@ function RunsTab() {
                       </span>
                     }
                     meta={
-                      progress?.mode === 'determinate' ? (
+                      editorialHub ? (
+                        <div className="hub-run-progress" aria-hidden>
+                          <div
+                            className="hub-run-progress-fill"
+                            style={{ width: `${Math.min(100, Math.max(0, progressPercent))}%` }}
+                          />
+                        </div>
+                      ) : progress?.mode === 'determinate' ? (
                         <p className="text-[11px] font-medium mt-1" style={{ color: 'var(--dome-accent)' }}>
                           {progress.percent ?? 0}% · {progress.completed}/{progress.total}
                         </p>

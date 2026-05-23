@@ -11,6 +11,7 @@ import AnalyticsProvider from '@/components/analytics/AnalyticsProvider';
 import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
+import { ensureHubEventsBridge } from '@/lib/hub/hubEventsBridge';
 import PptCapturePage from './pages/PptCapturePage';
 import NoteFocusPage from './pages/NoteFocusPage';
 
@@ -19,6 +20,7 @@ function MainApp() {
   const { t } = useTranslation();
   useEffect(() => {
     void reconcileLanguageWithOsIfNeeded();
+    ensureHubEventsBridge();
   }, []);
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);

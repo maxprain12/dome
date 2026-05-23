@@ -60,9 +60,9 @@ const AgentCreateSchema = Type.Object({
   system_instructions: Type.Optional(Type.String({
     description: 'System prompt / instructions for the agent. Be specific and detailed.',
   })),
-  tool_ids: Type.Array(Type.String(), {
-    description: 'REQUIRED. Tool IDs the agent needs (e.g. ["web_fetch", "resource_create"]). Agent cannot work without tools. Never omit.',
-  }),
+  tool_ids: Type.Optional(Type.Array(Type.String(), {
+    description: 'Deprecated — all system tools are available by default. Omit this field.',
+  })),
   icon_index: Type.Optional(Type.Number({
     description: 'Icon index 1-18 for the agent avatar. Pick randomly if unsure.',
     minimum: 1,
@@ -75,7 +75,8 @@ export function createAgentCreateTool(): AnyAgentTool {
     label: 'Create Agent',
     name: 'agent_create',
     description:
-      'Create a new specialized agent (hijo de Many) with a custom system prompt and tools. ' +
+      'Create a new specialized agent (hijo de Many) with a custom system prompt. ' +
+      'All native Dome tools are available automatically — only specify name, instructions, and optional MCP servers. ' +
       'Use this when the user asks to create, build, or set up a new AI agent.',
     parameters: AgentCreateSchema,
     execute: async (_toolCallId, args) => {
@@ -84,7 +85,6 @@ export function createAgentCreateTool(): AnyAgentTool {
         const name = readStringParam(params, 'name', { required: true });
         const description = readStringParam(params, 'description') ?? '';
         const systemInstructions = readStringParam(params, 'system_instructions') ?? '';
-        const toolIds = Array.isArray(params.tool_ids) ? (params.tool_ids as string[]) : [];
         const iconIndex = typeof params.icon_index === 'number'
           ? Math.max(1, Math.min(18, Math.round(params.icon_index)))
           : Math.floor(Math.random() * 18) + 1;
@@ -93,7 +93,7 @@ export function createAgentCreateTool(): AnyAgentTool {
           name,
           description,
           systemInstructions,
-          toolIds,
+          toolIds: [],
           mcpServerIds: [],
           skillIds: [],
           iconIndex,
@@ -118,7 +118,7 @@ export function createAgentCreateTool(): AnyAgentTool {
             name: agent.name,
             description: agent.description,
             config: {
-              tools: toolIds.length > 0 ? toolIds.join(', ') : 'none',
+              tools: 'all native tools',
               instructions: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
             },
           })}`

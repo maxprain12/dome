@@ -8,7 +8,7 @@ import { useAgentChatStore } from '@/lib/store/useAgentChatStore';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 import {
   getAIConfig,
-  createToolsForAgent,
+  createCustomAgentTools,
   toOpenAIToolDefinitions,
   providerSupportsTools,
   type AIProviderType,
@@ -79,7 +79,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [providerInfo, setProviderInfo] = useState('');
   const [supportsTools, setSupportsTools] = useState(false);
   const [disabledMcpIds, setDisabledMcpIds] = useState<Set<string>>(new Set());
-  const [disabledToolIds, setDisabledToolIds] = useState<Set<string>>(new Set());
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [pendingOneShotSkillId, setPendingOneShotSkillId] = useState<string | null>(null);
   const [activeStickySkillId, setActiveStickySkillId] = useState<string | null>(null);
@@ -108,6 +107,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
   useEffect(() => {
     getManyAgentById(agentId).then(setAgent);
+    const handler = () => {
+      void getManyAgentById(agentId).then(setAgent);
+    };
+    window.addEventListener('dome:agents-changed', handler);
+    return () => window.removeEventListener('dome:agents-changed', handler);
   }, [agentId]);
 
   useEffect(() => {
@@ -302,29 +306,19 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
   const hasLangGraph =
     typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
-  const hasMcpForAgent =
-    Array.isArray(agent?.mcpServerIds) && agent.mcpServerIds.length > 0;
   const enabledMcpIds = useMemo(
     () => (agent?.mcpServerIds ?? []).filter((id) => !disabledMcpIds.has(id)),
     [agent?.mcpServerIds, disabledMcpIds]
   );
-  const enabledToolIds = useMemo(
-    () => (agent?.toolIds ?? []).filter((id) => !disabledToolIds.has(id)),
-    [agent?.toolIds, disabledToolIds]
-  );
-  const activeTools = useMemo(() => {
-    if (!enabledToolIds.length) return [];
-    return createToolsForAgent(enabledToolIds);
-  }, [enabledToolIds]);
-  const toolDefs = useMemo(
-    () => (activeTools.length > 0 ? toOpenAIToolDefinitions(activeTools) : []),
+  const activeTools = useMemo(() => createCustomAgentTools(), []);
+  const toolDefs = useMemo(() => toOpenAIToolDefinitions(activeTools), [activeTools]);
+  const activeToolIds = useMemo(
+    () => activeTools.map((t) => (t.name || '').toLowerCase().replace(/[^a-z0-9_]/g, '_')),
     [activeTools]
   );
-  const hasAgentTools = (agent?.toolIds?.length ?? 0) > 0 || hasMcpForAgent;
-  const useToolsStream =
-    supportsTools &&
-    hasLangGraph &&
-    (enabledMcpIds.length > 0 || toolDefs.length > 0);
+  const hasMcpForAgent =
+    Array.isArray(agent?.mcpServerIds) && agent.mcpServerIds.length > 0;
+  const useToolsStream = supportsTools && hasLangGraph;
 
   const handleSend = useCallback(async () => {
     const attPrefix = buildAttachmentPrefix(chatAttachments, t('chat.attachment_extraction_empty'));
@@ -424,7 +418,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
               contextId: agentId,
               threadId,
               title: agent?.name ?? null,
-              toolIds: agent?.toolIds ?? [],
+              toolIds: activeToolIds,
               mcpServerIds: enabledMcpIds,
               projectId: chatProjectId,
             });
@@ -450,7 +444,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           sessionTitle: agent.name,
           messages: apiMessages,
           toolDefinitions: toolDefs,
-          toolIds: agent.toolIds ?? [],
+          toolIds: activeToolIds,
           mcpServerIds: enabledMcpIds,
           threadId,
           projectId: chatProjectId,
@@ -461,7 +455,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setActiveRunId(run.id);
         applyRunSnapshot(run);
       } else {
-        if (hasAgentTools && !hasLangGraph) {
+        if (!hasLangGraph) {
           throw new Error(
             'Este agente usa herramientas y requiere LangGraph. Reinicia Dome o revisa la configuración.'
           );
@@ -519,6 +513,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     buildSystemPrompt,
     useToolsStream,
     toolDefs,
+    activeToolIds,
     enabledMcpIds,
     scrollToBottom,
     currentSessionId,
@@ -527,7 +522,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
     chatAttachments,
     pinnedResources,
-    hasAgentTools,
     hasLangGraph,
   ]);
 
@@ -690,9 +684,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         onAbort={handleAbort}
         placeholder={t('chat.ask_agent_placeholder', { name: agent.name })}
         mcpServerIds={agent.mcpServerIds ?? []}
-        toolIds={agent.toolIds ?? []}
         disabledMcpIds={disabledMcpIds}
-        disabledToolIds={disabledToolIds}
         onToggleMcp={(id) =>
           setDisabledMcpIds((prev) => {
             const next = new Set(prev);
@@ -701,15 +693,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
             return next;
           })
         }
-        onToggleTool={(id) =>
-          setDisabledToolIds((prev) => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-          })
-        }
-        hasAgentFunctions={hasAgentTools}
+        hasAgentFunctions={hasMcpForAgent}
         attachments={chatAttachments}
         onAttachmentsChange={setChatAttachments}
         pinnedResources={pinnedResources}

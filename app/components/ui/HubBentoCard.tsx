@@ -7,6 +7,8 @@ export interface HubBentoCardProps {
   subtitle?: ReactNode;
   meta?: ReactNode;
   trailing?: ReactNode;
+  /** Always visible actions (e.g. favorite star) — editorial rows only. */
+  persistentTrailing?: ReactNode;
   onClick?: () => void;
   selected?: boolean;
   disabled?: boolean;
@@ -19,6 +21,8 @@ export interface HubBentoCardProps {
    * `card` = diseño tipo mosaico apilado (columna).
    */
   layout?: 'card' | 'list';
+  /** `editorial` = fila plana con divisor (hub tabs); `card` = tarjeta con borde (legacy). */
+  variant?: 'card' | 'editorial';
 }
 
 /**
@@ -30,6 +34,7 @@ export default function HubBentoCard({
   subtitle,
   meta,
   trailing,
+  persistentTrailing,
   onClick,
   selected,
   disabled,
@@ -38,7 +43,9 @@ export default function HubBentoCard({
   onDragStart,
   onDragEnd,
   layout = 'list',
+  variant = 'card',
 }: HubBentoCardProps) {
+  const isEditorial = variant === 'editorial';
   const interactive = Boolean(onClick) && !disabled;
   const surfaceRole = interactive ? 'button' : draggable ? 'group' : undefined;
 
@@ -55,37 +62,54 @@ export default function HubBentoCard({
     onClick?.();
   };
 
-  const trailingWrap = trailing ? (
-    <div
-      role="toolbar"
-      aria-orientation="horizontal"
-      className="shrink-0 flex items-center gap-0.5"
-      onClick={(e) => e.stopPropagation()}
-      onKeyDown={(e) => e.stopPropagation()}
-    >
-      {trailing}
-    </div>
-  ) : null;
+  const trailingWrap =
+    trailing || persistentTrailing ? (
+      <div className="shrink-0 flex items-center gap-0.5">
+        {persistentTrailing}
+        {trailing ? (
+          <div
+            role="toolbar"
+            aria-orientation="horizontal"
+            className={cn('flex items-center gap-0.5', isEditorial && 'hub-row-actions')}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            {trailing}
+          </div>
+        ) : null}
+      </div>
+    ) : null;
 
   const subtitleBlock = subtitle ? (
-    <div className="text-xs leading-relaxed min-w-0" style={{ color: 'var(--dome-text-muted)' }}>
+    <div
+      className={cn('text-xs leading-relaxed min-w-0', isEditorial && 'hub-list-row-sub')}
+      style={{ color: 'var(--dome-text-muted)' }}
+    >
       {subtitle}
     </div>
   ) : null;
 
   const metaBlock = meta ? (
-    <div className="border-t pt-3 mt-0" style={{ borderColor: 'var(--dome-border)' }}>
+    <div
+      className={cn(
+        isEditorial ? 'hub-list-row-meta' : 'border-t pt-3 mt-0',
+      )}
+      style={isEditorial ? undefined : { borderColor: 'var(--dome-border)' }}
+    >
       {meta}
     </div>
   ) : null;
 
-  const baseStyle = {
-    background: selected ? 'var(--dome-surface)' : 'var(--dome-bg)',
-    borderColor: selected ? 'var(--dome-accent)' : 'var(--dome-border)',
-    opacity: disabled ? 0.55 : 1,
-  } as const;
+  const baseStyle = isEditorial
+    ? { opacity: disabled ? 0.55 : 1 }
+    : ({
+        background: selected ? 'var(--dome-surface)' : 'var(--dome-bg)',
+        borderColor: selected ? 'var(--dome-accent)' : 'var(--dome-border)',
+        opacity: disabled ? 0.55 : 1,
+      } as const);
 
   const interactiveCls =
+    !isEditorial &&
     interactive &&
     'focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1 hover:shadow-md hover:-translate-y-0.5';
   const cursorCls = (interactive || draggable) && 'cursor-pointer';
@@ -102,7 +126,10 @@ export default function HubBentoCard({
         onClick={interactive ? handleClick : undefined}
         onKeyDown={interactive ? handleKey : undefined}
         className={cn(
-          'flex w-full max-w-full min-w-0 flex-row items-start gap-4 rounded-xl border p-4 transition-all outline-none',
+          isEditorial
+            ? 'hub-list-row flex w-full max-w-full min-w-0 flex-row items-start gap-4 px-4 py-4 transition-colors outline-none'
+            : 'flex w-full max-w-full min-w-0 flex-row items-start gap-4 rounded-xl border p-4 transition-all outline-none',
+          isEditorial && selected && 'hub-list-row-selected',
           interactiveCls,
           cursorCls,
           className,
@@ -113,7 +140,14 @@ export default function HubBentoCard({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
           <div className="flex items-start justify-between gap-3 min-w-0">
             <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 flex-wrap items-center gap-2">{title}</div>
+              <div
+                className={cn(
+                  'flex min-w-0 flex-wrap items-center gap-2',
+                  isEditorial && 'hub-list-row-title',
+                )}
+              >
+                {title}
+              </div>
             </div>
             {trailingWrap}
           </div>

@@ -3,10 +3,12 @@
 const crypto = require('crypto');
 const { setMaxListeners } = require('events');
 const langgraphAgent = require('./langgraph-agent.cjs');
-const { getToolDefinitionsByIds } = require('./tool-dispatcher.cjs');
+const { getToolDefinitionsByIds, getAllToolDefinitions } = require('./tool-dispatcher.cjs');
 const streamingTts = require('./streaming-tts.cjs');
 const { getOpenAIKey } = require('./openai-key.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
+const { buildDomeSystemPrompt } = require('./system-prompt.cjs');
+const { readPrompt } = require('./prompts-loader.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -370,7 +372,8 @@ function patchRun(runId, patch) {
   const queries = getQueries();
   const current = normalizeRunRow(queries.getAutomationRunById.get(runId));
   if (!current) {
-    throw new Error(`Run not found: ${runId}`);
+    console.warn('[RunEngine] patchRun skipped — run not found:', runId);
+    return null;
   }
   const next = {
     ...current,
@@ -414,6 +417,10 @@ function patchRun(runId, patch) {
 
 function appendRunStep(params) {
   const queries = getQueries();
+  if (!queries.getAutomationRunById.get(params.runId)) {
+    console.warn('[RunEngine] appendRunStep skipped — run not found:', params.runId);
+    return null;
+  }
   const timestamp = now();
   const step = {
     id: params.id ?? crypto.randomUUID(),
@@ -427,18 +434,23 @@ function appendRunStep(params) {
     createdAt: params.createdAt ?? timestamp,
     updatedAt: params.updatedAt ?? timestamp,
   };
-  queries.createAutomationRunStep.run(
-    step.id,
-    step.runId,
-    step.parentStepId,
-    step.stepType,
-    step.title,
-    step.status,
-    step.content,
-    toJson(step.metadata),
-    step.createdAt,
-    step.updatedAt,
-  );
+  try {
+    queries.createAutomationRunStep.run(
+      step.id,
+      step.runId,
+      step.parentStepId,
+      step.stepType,
+      step.title,
+      step.status,
+      step.content,
+      toJson(step.metadata),
+      step.createdAt,
+      step.updatedAt,
+    );
+  } catch (error) {
+    console.warn('[RunEngine] appendRunStep failed:', error?.message || error);
+    return null;
+  }
   emit(RUN_STEP_CHANNEL, { step });
   return step;
 }
@@ -465,6 +477,44 @@ function updateRunStep(stepId, patch, existingStep = null) {
   );
   if (nextStep) emit(RUN_STEP_CHANNEL, { step: nextStep });
   return nextStep;
+}
+
+function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
+  const stepStatus =
+    runTerminalStatus === 'completed' ? 'done'
+      : runTerminalStatus === 'cancelled' ? 'cancelled'
+        : 'failed';
+
+  if (context?.toolSteps instanceof Map) {
+    for (const [toolCallId, step] of context.toolSteps.entries()) {
+      if (!step || step.status !== 'running') continue;
+      const next = updateRunStep(step.id, {
+        status: stepStatus,
+        metadata: { ...(step.metadata ?? {}), autoFinalized: true },
+      }, step);
+      if (next) context.toolSteps.set(toolCallId, next);
+    }
+  }
+
+  const queries = getQueries();
+  if (!queries.getAutomationRunById.get(runId)) return;
+  const steps = queries.getAutomationRunSteps.all(runId).map(normalizeStepRow);
+  for (const step of steps) {
+    if (step.status !== 'running') continue;
+    updateRunStep(step.id, {
+      status: stepStatus,
+      metadata: { ...(step.metadata ?? {}), autoFinalized: true },
+    }, step);
+  }
+
+  if (Array.isArray(context?.toolCalls)) {
+    for (const entry of context.toolCalls) {
+      if (entry.status === 'running') {
+        entry.status = runTerminalStatus === 'completed' ? 'success'
+          : runTerminalStatus === 'cancelled' ? 'cancelled' : 'error';
+      }
+    }
+  }
 }
 
 function getRun(runId) {
@@ -605,8 +655,15 @@ function deleteAutomation(id) {
 }
 
 function deleteRun(runId) {
+  abortRun(runId);
+  activeRunContexts.delete(runId);
   const queries = getQueries();
+  const row = queries.getAutomationRunById.get(runId);
+  if (!row) return;
+  const snapshot = normalizeRunRow(row);
   queries.deleteAutomationRun.run(runId);
+  emit(RUN_EVENT_CHANNEL, { run: snapshot, deleted: true });
+  emit('dome:runs-changed');
 }
 
 function getAutomation(id) {
@@ -963,6 +1020,7 @@ function createRunChunkEmitter(runId, context) {
         status: 'running',
         metadata: { toolCallId: data.toolCall.id, arguments: args },
       });
+      if (!step) return;
       context.toolStepIds.set(data.toolCall.id, step.id);
       context.toolSteps.set(data.toolCall.id, step);
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'tool_call', toolCall: data.toolCall });
@@ -1120,6 +1178,7 @@ async function executeLangGraphRun(runId, params) {
     if (context.autoSpeak) {
       streamingTts.flush(runId);
     }
+    finalizeRunningRunSteps(runId, 'completed', context);
     return patchRun(runId, {
       status: 'completed',
       outputText: context.fullResponse,
@@ -1142,8 +1201,9 @@ async function executeLangGraphRun(runId, params) {
       streamingTts.cancel(runId);
     }
     for (const entry of context.toolCalls) {
-      if (entry.status === 'running') entry.status = 'cancelled';
+      if (entry.status === 'running') entry.status = aborted ? 'cancelled' : 'error';
     }
+    finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
     appendRunStep({
       runId,
       stepType: aborted ? 'cancelled' : 'error',
@@ -1384,6 +1444,16 @@ function abortRun(runId) {
   if (context?.controller) {
     context.controller.abort();
   }
+  const current = getRun(runId);
+  if (current && !RUN_TERMINAL_STATUSES.has(current.status)) {
+    patchRun(runId, {
+      status: 'cancelled',
+      finishedAt: now(),
+      error: null,
+      summary: current.summary || 'Run cancelado',
+    });
+    finalizeRunningRunSteps(runId, 'cancelled', context);
+  }
 }
 
 function resolveWorkflowAgent(nodeData, projectId = 'default') {
@@ -1519,6 +1589,9 @@ async function executeWorkflowRun(runId, params, workflow) {
           return { payloads: { [node.id]: payload } };
         }
         if (data.type === 'agent') {
+          if (context.controller?.signal?.aborted || !getRun(runId)) {
+            return { payloads: { [node.id]: { kind: 'text', text: '' } } };
+          }
           const agentDef = resolveWorkflowAgent(data, workflow.projectId ?? 'default');
           if (!agentDef) {
             appendRunStep({
@@ -1541,7 +1614,9 @@ async function executeWorkflowRun(runId, params, workflow) {
             params.inputTemplate?.prompt ? String(params.inputTemplate.prompt) : null,
             inputPayload.text || '',
           ].filter(Boolean).join('\n\n');
-          const toolDefinitions = getToolDefinitionsByIds(agentDef.toolIds || []);
+          const toolDefinitions = data.agentId
+            ? getAllToolDefinitions()
+            : getToolDefinitionsByIds(agentDef.toolIds || []);
           const mcpServerIds = Array.isArray(agentDef.mcpServerIds)
             ? agentDef.mcpServerIds
             : (Array.isArray(params.inputTemplate?.mcpServerIds) ? params.inputTemplate.mcpServerIds : []);
@@ -1559,66 +1634,87 @@ async function executeWorkflowRun(runId, params, workflow) {
             status: 'running',
             metadata: { nodeId: node.id, agentId: data.agentId ?? null, systemAgentRole: data.systemAgentRole ?? null },
           });
-          await langgraphAgent.invokeLangGraphAgent({
-            provider: workflowProviderConfig.provider,
-            model: workflowProviderConfig.model,
-            apiKey: workflowProviderConfig.apiKey,
-            baseUrl: workflowProviderConfig.baseUrl,
-            messages: [
-              { role: 'system', content: `Respond in the same language the user uses.\n\n${agentDef.systemPrompt || ''}` },
-              { role: 'user', content: userPrompt },
-            ],
-            toolDefinitions,
-            useDirectTools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
-            mcpServerIds,
-            signal: context.controller.signal,
-            threadId: nodeCtx.threadId,
-            skipHitl: true,
-            automationProjectId: workflow.projectId ?? 'default',
-            onChunk: (chunk) => {
-              if (chunk.type === 'text' && chunk.text) {
-                nodeCtx.fullResponse += chunk.text;
-                patchRun(runId, { lastHeartbeatAt: now() });
-              } else if (chunk.type === 'thinking' && chunk.text) {
-                nodeCtx.fullThinking += chunk.text;
-              } else if (chunk.type === 'usage' && chunk.usage) {
-                workflowLlmUsage = mergeLlmUsage(workflowLlmUsage, chunk.usage);
-              } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-                const step = appendRunStep({
-                  runId,
-                  parentStepId: nodeStep.id,
-                  stepType: 'tool_call',
-                  title: `${data.label || agentDef.name}: ${chunk.toolCall.name}`,
-                  status: 'running',
-                  metadata: {
-                    nodeId: node.id,
-                    toolCallId: chunk.toolCall.id,
-                    arguments: parseToolArguments(chunk.toolCall.arguments),
-                  },
-                });
-                nodeCtx.toolStepIds.set(chunk.toolCall.id, step.id);
-                nodeCtx.toolSteps.set(chunk.toolCall.id, step);
-                patchRun(runId, { lastHeartbeatAt: now() });
-              } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
-                const stepId = nodeCtx.toolStepIds.get(chunk.toolCallId);
-                if (stepId) {
-                  const existingStep = nodeCtx.toolSteps.get(chunk.toolCallId) ?? null;
-                  const nextStep = updateRunStep(
-                    stepId,
-                    getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }),
-                    existingStep,
-                  );
-                  if (nextStep) nodeCtx.toolSteps.set(chunk.toolCallId, nextStep);
+          const systemContent = data.agentId
+            ? buildDomeSystemPrompt({ staticPersona: agentDef.systemPrompt || '' })
+            : `Respond in the same language the user uses.\n\n${agentDef.systemPrompt || ''}`;
+          let nodeError = null;
+          try {
+            await langgraphAgent.invokeLangGraphAgent({
+              provider: workflowProviderConfig.provider,
+              model: workflowProviderConfig.model,
+              apiKey: workflowProviderConfig.apiKey,
+              baseUrl: workflowProviderConfig.baseUrl,
+              messages: [
+                { role: 'system', content: systemContent },
+                { role: 'user', content: userPrompt },
+              ],
+              toolDefinitions,
+              useDirectTools: toolDefinitions.length > 0 || mcpServerIds.length > 0,
+              mcpServerIds,
+              signal: context.controller.signal,
+              threadId: nodeCtx.threadId,
+              skipHitl: true,
+              automationProjectId: workflow.projectId ?? 'default',
+              onChunk: (chunk) => {
+                if (chunk.type === 'text' && chunk.text) {
+                  nodeCtx.fullResponse += chunk.text;
+                  patchRun(runId, { lastHeartbeatAt: now() });
+                } else if (chunk.type === 'thinking' && chunk.text) {
+                  nodeCtx.fullThinking += chunk.text;
+                } else if (chunk.type === 'usage' && chunk.usage) {
+                  workflowLlmUsage = mergeLlmUsage(workflowLlmUsage, chunk.usage);
+                } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+                  const step = appendRunStep({
+                    runId,
+                    parentStepId: nodeStep?.id ?? null,
+                    stepType: 'tool_call',
+                    title: `${data.label || agentDef.name}: ${chunk.toolCall.name}`,
+                    status: 'running',
+                    metadata: {
+                      nodeId: node.id,
+                      toolCallId: chunk.toolCall.id,
+                      arguments: parseToolArguments(chunk.toolCall.arguments),
+                    },
+                  });
+                  if (step) {
+                    nodeCtx.toolStepIds.set(chunk.toolCall.id, step.id);
+                    nodeCtx.toolSteps.set(chunk.toolCall.id, step);
+                  }
+                  patchRun(runId, { lastHeartbeatAt: now() });
+                } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
+                  const stepId = nodeCtx.toolStepIds.get(chunk.toolCallId);
+                  if (stepId) {
+                    const existingStep = nodeCtx.toolSteps.get(chunk.toolCallId) ?? null;
+                    const nextStep = updateRunStep(
+                      stepId,
+                      getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }),
+                      existingStep,
+                    );
+                    if (nextStep) nodeCtx.toolSteps.set(chunk.toolCallId, nextStep);
+                  }
+                  patchRun(runId, { lastHeartbeatAt: now() });
                 }
-                patchRun(runId, { lastHeartbeatAt: now() });
-              }
-            },
-          });
-          updateRunStep(nodeStep.id, {
-            status: 'done',
-            content: nodeCtx.fullResponse.slice(0, 8000),
-            metadata: { nodeId: node.id, thinking: nodeCtx.fullThinking },
-          }, nodeStep);
+              },
+            });
+          } catch (err) {
+            nodeError = err;
+            throw err;
+          } finally {
+            const aborted = context.controller?.signal?.aborted
+              || nodeError?.name === 'AbortError'
+              || `${nodeError?.message || ''}`.toLowerCase().includes('abort');
+            const terminal = aborted ? 'cancelled' : nodeError ? 'failed' : 'completed';
+            finalizeRunningRunSteps(runId, terminal, nodeCtx);
+            if (nodeStep && nodeStep.status === 'running') {
+              updateRunStep(nodeStep.id, {
+                status: aborted ? 'cancelled' : nodeError ? 'failed' : 'done',
+                content: nodeError
+                  ? (nodeError.message || String(nodeError))
+                  : nodeCtx.fullResponse.slice(0, 8000),
+                metadata: { nodeId: node.id, thinking: nodeCtx.fullThinking },
+              }, nodeStep);
+            }
+          }
           syncWorkflowProgress(node.id);
           const outputPayload = {
             kind: inputPayload.resources?.length ? 'bundle' : 'text',
@@ -1667,6 +1763,7 @@ async function executeWorkflowRun(runId, params, workflow) {
         now(),
       );
     }
+    finalizeRunningRunSteps(runId, 'completed', context);
     appendRunStep({
       runId,
       stepType: 'completion',
@@ -1696,28 +1793,33 @@ async function executeWorkflowRun(runId, params, workflow) {
       },
     });
   } catch (error) {
-    appendRunStep({
-      runId,
-      stepType: 'error',
-      title: 'Workflow con error',
-      status: 'failed',
-      content: error?.message || String(error),
-      metadata: { workflowId: workflow.id },
-    });
-    return patchRun(runId, {
-      status: 'failed',
-      error: error?.message || String(error),
-      finishedAt: now(),
-      metadata: {
-        provider: workflowProviderConfig.provider,
-        model: workflowProviderConfig.model,
-        progress: {
-          ...getWorkflowProgressMetadata(workflow, completedNodeIds),
-          completedNodeIds: [...completedNodeIds],
+    const aborted = error?.name === 'AbortError' || `${error?.message || ''}`.toLowerCase().includes('abort');
+    if (getRun(runId)) {
+      finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
+      appendRunStep({
+        runId,
+        stepType: aborted ? 'cancelled' : 'error',
+        title: aborted ? 'Workflow cancelado' : 'Workflow con error',
+        status: aborted ? 'cancelled' : 'failed',
+        content: error?.message || String(error),
+        metadata: { workflowId: workflow.id },
+      });
+      patchRun(runId, {
+        status: aborted ? 'cancelled' : 'failed',
+        error: aborted ? null : (error?.message || String(error)),
+        finishedAt: now(),
+        metadata: {
+          provider: workflowProviderConfig.provider,
+          model: workflowProviderConfig.model,
+          progress: {
+            ...getWorkflowProgressMetadata(workflow, completedNodeIds),
+            completedNodeIds: [...completedNodeIds],
+          },
+          ...(workflowLlmUsage ? { usage: workflowLlmUsage } : {}),
         },
-        ...(workflowLlmUsage ? { usage: workflowLlmUsage } : {}),
-      },
-    });
+      });
+    }
+    return null;
   } finally {
     activeRunContexts.delete(runId);
   }
@@ -1800,6 +1902,31 @@ function buildAutomationUserContent(automation) {
   return content;
 }
 
+function buildAutomationMessages(automation, title, targetLabel) {
+  const userContent = String(targetLabel || title);
+  if (automation.targetType === 'agent') {
+    const agent = loadManyAgents(automation.projectId ?? 'default').find((item) => item.id === automation.targetId);
+    const persona =
+      agent?.systemInstructions ||
+      agent?.description ||
+      (agent ? `You are ${agent.name}.` : '');
+    if (persona.trim()) {
+      return [
+        { role: 'system', content: buildDomeSystemPrompt({ staticPersona: persona.trim() }) },
+        { role: 'user', content: userContent },
+      ];
+    }
+  }
+  if (automation.targetType === 'many') {
+    const manyPersona = readPrompt('martin/floating-base.txt') || readPrompt('martin/base.txt') || '';
+    return [
+      { role: 'system', content: buildDomeSystemPrompt({ staticPersona: manyPersona.trim() }) },
+      { role: 'user', content: userContent },
+    ];
+  }
+  return [{ role: 'user', content: userContent }];
+}
+
 async function startAutomationNow(automationId) {
   const automation = getAutomation(automationId);
   if (!automation) {
@@ -1819,10 +1946,14 @@ async function startAutomationNow(automationId) {
   }
   const targetOwnerType = automation.targetType === 'many' ? 'many' : 'agent';
   const targetLabel = buildAutomationUserContent(automation);
-  const toolIds = automation.inputTemplate?.toolIds || [];
-  const toolDefinitions = Array.isArray(toolIds) && toolIds.length > 0
-    ? getToolDefinitionsByIds(toolIds)
-    : [];
+  const configuredToolIds = automation.inputTemplate?.toolIds || [];
+  const toolDefinitions =
+    automation.targetType === 'many' || automation.targetType === 'agent'
+      ? getAllToolDefinitions()
+      : (Array.isArray(configuredToolIds) && configuredToolIds.length > 0
+        ? getToolDefinitionsByIds(configuredToolIds)
+        : []);
+  const activeToolIds = toolDefinitions.map((def) => def.function?.name).filter(Boolean);
   // Persistent thread per automation: schedule-based automations accumulate
   // context across runs. The thread lives in the SqliteSaver checkpointer so
   // the agent remembers previous outputs. Set persistThread: false in
@@ -1835,13 +1966,13 @@ async function startAutomationNow(automationId) {
     ownerType: targetOwnerType,
     ownerId: automation.targetId,
     title,
-    messages: [{ role: 'user', content: String(targetLabel || title) }],
+    messages: buildAutomationMessages(automation, title, targetLabel),
     toolDefinitions,
     threadId: automationThreadId,
     mcpServerIds: Array.isArray(automation.inputTemplate?.mcpServerIds) ? automation.inputTemplate.mcpServerIds : [],
     subagentIds: Array.isArray(automation.inputTemplate?.subagentIds) ? automation.inputTemplate.subagentIds : [],
     skipHitl: true,
-    toolIds,
+    toolIds: activeToolIds,
     contextId: automation.inputTemplate?.contextId ?? null,
   });
   setAutomationRunStatus(automation.id, run?.status || 'queued');

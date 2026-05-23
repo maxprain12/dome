@@ -1,7 +1,7 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Save, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, ArrowLeft } from 'lucide-react';
+import { Play, Square, Save, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, ChevronLeft } from 'lucide-react';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 
 interface CanvasToolbarProps {
@@ -36,7 +36,7 @@ export default function CanvasToolbar({
 
   return (
     <div
-      className="flex items-center gap-2 px-4 py-2.5 shrink-0"
+      className="flex items-center gap-2 px-3 py-2 shrink-0"
       style={{
         background: 'var(--dome-surface)',
         borderBottom: '1px solid var(--dome-border)',
@@ -45,13 +45,24 @@ export default function CanvasToolbar({
     >
       <button
         type="button"
+        onClick={onBackToLibrary}
+        className="flex items-center justify-center size-8 rounded-lg shrink-0 transition-colors hover:bg-[var(--dome-bg-hover)]"
+        style={{ color: 'var(--dome-text-muted)' }}
+        title={t('canvas.back_to_library')}
+        aria-label={t('canvas.back_to_library')}
+      >
+        <ChevronLeft className="size-4" aria-hidden />
+      </button>
+
+      <button
+        type="button"
         onClick={onRename}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-medium transition-colors max-w-[200px] truncate hover:bg-[var(--dome-bg)]"
+        className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-medium transition-colors max-w-[min(240px,40vw)] truncate hover:bg-[var(--dome-bg)]"
         style={{ color: 'var(--dome-text)' }}
         title={t('canvas.rename_workflow')}
       >
         <span className="truncate">{activeWorkflowName}</span>
-        {isDirty && <span className="size-1.5 rounded-full bg-[var(--dome-accent)] shrink-0" />}
+        {isDirty ? <span className="size-1.5 rounded-full bg-[var(--dome-accent)] shrink-0" /> : null}
         <Pencil className="size-3 shrink-0 opacity-40" />
       </button>
 
@@ -107,11 +118,6 @@ export default function CanvasToolbar({
       )}
 
       <div className="flex-1 min-w-2" />
-
-      <button type="button" onClick={onBackToLibrary} className={ghostBtn} style={ghostBtnStyle} title={t('canvas.back_to_library')}>
-        <ArrowLeft className="size-3.5" />
-        <span>{t('canvas.workflow_library')}</span>
-      </button>
 
       <button
         type="button"

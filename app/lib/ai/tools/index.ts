@@ -340,6 +340,7 @@ import { createFileTools } from './file-tools';
 import { createShellTools } from './shell-tools';
 import { createUiTools } from './ui-tools';
 import { createArtifactTools } from './artifact-tools';
+import { createRememberFactTool } from './memory';
 
 /**
  * Configuration for creating default tools
@@ -544,10 +545,19 @@ export function createManyToolsForContext(
   return tools;
 }
 
+/**
+ * Full system toolkit for custom agents (same freedom as Many / global skills).
+ * Per-agent tool allowlists are deprecated; agents always receive all native tools.
+ */
+export function createCustomAgentTools(config?: DefaultToolsConfig): AnyAgentTool[] {
+  const tools = createAllMartinTools(config);
+  tools.push(createRememberFactTool());
+  return tools;
+}
 
 /**
- * Create tools filtered by a list of tool IDs (for specialized Many agents).
- * Uses createAllMartinTools and filters by normalized name.
+ * @deprecated Per-agent tool allowlists are no longer used in the UI. Prefer {@link createCustomAgentTools}.
+ * Kept for system agents, marketplace legacy, and workflow roles with curated tool sets.
  */
 export function createToolsForAgent(
   toolIds: string[],

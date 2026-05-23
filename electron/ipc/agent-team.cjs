@@ -27,7 +27,7 @@
 const { setMaxListeners } = require('events');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 const { createModelFromConfig, createLangChainToolsFromOpenAIDefinitions } = require('../langgraph-agent.cjs');
-const { getToolDefinitionsByIds, executeToolInMain } = require('../tool-dispatcher.cjs');
+const { getAllToolDefinitions, executeToolInMain } = require('../tool-dispatcher.cjs');
 const { getDomeCheckpointer } = require('../checkpointer.cjs');
 const { buildSkillsMiddleware } = require('../skills/index.cjs');
 const domeOauth = require('../dome-oauth.cjs');
@@ -128,11 +128,8 @@ function toolNameForAgent(agent) {
 /**
  * Build LangChain tools for a member agent (direct execution via tool-dispatcher).
  */
-async function buildMemberDirectTools(agent, teamToolIds, teamMcpServerIds, agentName) {
-  const toolDefinitions = getToolDefinitionsByIds([
-    ...(Array.isArray(agent.toolIds) ? agent.toolIds : []),
-    ...(Array.isArray(teamToolIds) ? teamToolIds : []),
-  ]);
+async function buildMemberDirectTools(agent, _teamToolIds, _teamMcpServerIds, _agentName) {
+  const toolDefinitions = getAllToolDefinitions();
   const executeFn = async (name, args) => {
     try {
       return await executeToolInMain(name, args, null);

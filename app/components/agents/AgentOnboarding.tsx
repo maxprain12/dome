@@ -8,13 +8,12 @@ import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { showToast } from '@/lib/store/useToastStore';
 import AgentNameStep, { type AgentNameData } from './steps/AgentNameStep';
 import AgentInstructionsStep from './steps/AgentInstructionsStep';
-import AgentToolsStep from './steps/AgentToolsStep';
 import AgentMcpStep from './steps/AgentMcpStep';
 import AgentIconStep from './steps/AgentIconStep';
 
-type Step = 'name' | 'instructions' | 'tools' | 'mcp' | 'icon';
+type Step = 'name' | 'instructions' | 'mcp' | 'icon';
 
-const STEP_ORDER: Step[] = ['name', 'instructions', 'tools', 'mcp', 'icon'];
+const STEP_ORDER: Step[] = ['name', 'instructions', 'mcp', 'icon'];
 
 interface AgentOnboardingProps {
   onComplete: (agent: ManyAgent) => void;
@@ -33,7 +32,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
   const [name, setName] = useState(initialAgent?.name ?? '');
   const [description, setDescription] = useState(initialAgent?.description ?? '');
   const [systemInstructions, setSystemInstructions] = useState(initialAgent?.systemInstructions ?? '');
-  const [toolIds, setToolIds] = useState<string[]>(initialAgent?.toolIds ?? []);
   const [mcpServerIds, setMcpServerIds] = useState<string[]>(initialAgent?.mcpServerIds ?? []);
   const [iconIndex, setIconIndex] = useState(initialAgent?.iconIndex ?? 1);
   const [canProceed, setCanProceed] = useState((initialAgent?.name ?? '').trim().length > 0);
@@ -47,7 +45,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
       setName(initialAgent.name);
       setDescription(initialAgent.description);
       setSystemInstructions(initialAgent.systemInstructions);
-      setToolIds(initialAgent.toolIds ?? []);
       setMcpServerIds(initialAgent.mcpServerIds ?? []);
       setIconIndex(initialAgent.iconIndex ?? 1);
       setCanProceed(initialAgent.name.trim().length > 0);
@@ -65,9 +62,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
             name: name.trim(),
             description: description.trim(),
             systemInstructions: systemInstructions.trim(),
-            toolIds,
             mcpServerIds,
-
             iconIndex,
           });
           if (result.success && result.data) {
@@ -81,9 +76,8 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
             name: name.trim(),
             description: description.trim(),
             systemInstructions: systemInstructions.trim(),
-            toolIds,
+            toolIds: [],
             mcpServerIds,
-
             iconIndex,
             projectId,
           });
@@ -105,7 +99,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
     if (nextIdx < STEP_ORDER.length) {
       setCurrentStep(STEP_ORDER[nextIdx]);
     }
-  }, [currentStep, stepIndex, name, description, systemInstructions, toolIds, mcpServerIds, iconIndex, onComplete, isEditMode, initialAgent, projectId, t]);
+  }, [currentStep, stepIndex, name, description, systemInstructions, mcpServerIds, iconIndex, onComplete, isEditMode, initialAgent, projectId, t]);
 
   const handleBack = useCallback(() => {
     if (stepIndex > 0) {
@@ -130,7 +124,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
         name: name.trim(),
         description: description.trim(),
         systemInstructions: systemInstructions.trim(),
-        toolIds,
         mcpServerIds,
         iconIndex,
       });
@@ -145,7 +138,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
     } finally {
       setSaving(false);
     }
-  }, [isEditMode, initialAgent, name, description, systemInstructions, toolIds, mcpServerIds, iconIndex, onComplete, t]);
+  }, [isEditMode, initialAgent, name, description, systemInstructions, mcpServerIds, iconIndex, onComplete, t]);
 
   // Formulario único para edición (sin etapas)
   if (isEditMode) {
@@ -189,13 +182,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
               initialInstructions={systemInstructions}
               onChange={setSystemInstructions}
             />
-          </section>
-
-          <section>
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              {t('onboarding.step_tools')}
-            </h3>
-            <AgentToolsStep selectedIds={toolIds} onChange={setToolIds} />
           </section>
 
           <section>
@@ -248,7 +234,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
   const STEP_LABELS: Record<Step, string> = {
     name: t('onboarding.step_name'),
     instructions: t('onboarding.step_instructions'),
-    tools: t('onboarding.step_tools'),
     mcp: t('onboarding.step_mcp'),
     icon: t('onboarding.step_icon'),
   };
@@ -314,9 +299,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
             initialInstructions={systemInstructions}
             onChange={setSystemInstructions}
           />
-        )}
-        {currentStep === 'tools' && (
-          <AgentToolsStep selectedIds={toolIds} onChange={setToolIds} />
         )}
         {currentStep === 'mcp' && (
           <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />

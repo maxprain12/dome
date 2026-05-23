@@ -6,7 +6,6 @@ import { ChevronRight, ChevronLeft, X, Users, Cpu, Check } from 'lucide-react';
 import type { ManyAgent, AgentTeam } from '@/types';
 import { getManyAgents } from '@/lib/agents/api';
 import { createAgentTeam } from '@/lib/agent-team/api';
-import AgentToolsStep from '@/components/agents/steps/AgentToolsStep';
 import AgentMcpStep from '@/components/agents/steps/AgentMcpStep';
 import DomeButton from '@/components/ui/DomeButton';
 import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
@@ -50,7 +49,6 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
-  const [toolIds, setToolIds] = useState<string[]>([]);
   const [mcpServerIds, setMcpServerIds] = useState<string[]>([]);
   const [supervisorInstructions, setSupervisorInstructions] = useState(DEFAULT_SUPERVISOR_INSTRUCTIONS);
   const [iconIndex, setIconIndex] = useState(1);
@@ -94,7 +92,6 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         description: description.trim(),
         supervisorInstructions: supervisorInstructions.trim(),
         memberAgentIds: selectedAgentIds,
-        toolIds,
         mcpServerIds,
         iconIndex,
       });
@@ -289,21 +286,13 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
 
         {step === 'capabilities' && (
           <div className="flex flex-col gap-6">
-            <DomeCallout tone="info" className="!text-xs" title="Capacidades del equipo">
-              Puedes añadir tools y MCPs al nivel del equipo. Se sumarán a las capacidades de los agentes miembros y
-              compartirán la misma configuración global de tools MCP.
+            <DomeCallout tone="info" className="!text-xs" title={t('agentTeam.capabilities_title')}>
+              {t('agentTeam.capabilities_mcp_hint')}
             </DomeCallout>
 
             <section>
               <DomeSectionLabel compact={false} className="mb-3 !text-sm !normal-case !tracking-normal text-[var(--dome-text)]">
-                Tools del equipo
-              </DomeSectionLabel>
-              <AgentToolsStep selectedIds={toolIds} onChange={setToolIds} />
-            </section>
-
-            <section>
-              <DomeSectionLabel compact={false} className="mb-3 !text-sm !normal-case !tracking-normal text-[var(--dome-text)]">
-                MCP del equipo
+                {t('onboarding.step_mcp')}
               </DomeSectionLabel>
               <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
             </section>

@@ -589,6 +589,11 @@ const ALLOWED_CHANNELS = {
     'runs:updated',
     'runs:step',
     'runs:chunk',
+    // Hub entity invalidation (main → renderer bridge)
+    'dome:agents-changed',
+    'dome:workflows-changed',
+    'dome:automations-changed',
+    'dome:runs-changed',
     // Cloud Storage OAuth result
     'cloud:auth-result',
     'semantic:progress',
