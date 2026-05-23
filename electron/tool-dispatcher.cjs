@@ -136,13 +136,21 @@ const TOOL_HANDLER_MAP = {
   ui_hide_cursor: 'uiHideCursor',
 };
 
+const TOOL_NAME_ALIASES = {
+  read_file: 'file_read',
+  write_file: 'file_write',
+  list_directory: 'file_list',
+  list_dir: 'file_list',
+};
+
 function normalizeToolName(name) {
-  return (name || '')
+  const normalized = (name || '')
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_]/g, '_')
     .replace(/_+/g, '_')
     .replace(/^_|_$/g, '');
+  return TOOL_NAME_ALIASES[normalized] || normalized;
 }
 
 /**
@@ -2000,6 +2008,103 @@ function getAllToolDefinitions() {
             quality: { type: 'number' },
           },
           required: ['imagePath'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_read',
+        description:
+          'Read the text content of a file from the filesystem. Returns the full content as a string. Use to inspect source code, configs, logs, or any text file.',
+        parameters: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string', description: 'Absolute path to the file to read.' },
+            start_line: { type: 'number', description: 'Line number to start reading from (0-based). Default: 0.' },
+            limit: { type: 'number', description: 'Maximum number of lines to read. Default: 200.' },
+          },
+          required: ['file_path'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_write',
+        description:
+          'Write text content to a file. Creates parent directories if needed. Overwrites existing content. Use to create project files on disk (e.g. Remotion, scripts, configs).',
+        parameters: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string', description: 'Absolute path to the file to write.' },
+            content: { type: 'string', description: 'Text content to write (UTF-8).' },
+          },
+          required: ['file_path', 'content'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_list',
+        description:
+          'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory.',
+        parameters: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string', description: 'Absolute path to the directory to list.' },
+            path: { type: 'string', description: 'Alias for file_path.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'file_search',
+        description:
+          'Recursively search a directory for files matching a name pattern or containing a text string. Returns up to 200 matches.',
+        parameters: {
+          type: 'object',
+          properties: {
+            directory: { type: 'string', description: 'Root directory to search from.' },
+            pattern: { type: 'string', description: 'Filename glob (e.g. "*.ts") or text regex for content search.' },
+            type: { type: 'string', description: 'Search mode: "name" (default) or "content".' },
+          },
+          required: ['directory', 'pattern'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'skill_read',
+        description:
+          'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). Use for auxiliary skill docs referenced in SKILL.md.',
+        parameters: {
+          type: 'object',
+          properties: {
+            skill_id: { type: 'string', description: 'Skill folder name, e.g. "pptx".' },
+            path: { type: 'string', description: 'Relative path within the skill folder, e.g. "editing.md".' },
+          },
+          required: ['skill_id', 'path'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'shell_exec',
+        description:
+          'Execute a shell command. A native confirmation dialog appears before running — the user must approve. Returns stdout, stderr, and exit code.',
+        parameters: {
+          type: 'object',
+          properties: {
+            command: { type: 'string', description: 'Shell command to execute (e.g. "pnpm run build").' },
+            cwd: { type: 'string', description: 'Working directory for the command.' },
+          },
+          required: ['command'],
         },
       },
     },

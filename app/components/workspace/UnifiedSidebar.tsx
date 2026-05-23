@@ -50,6 +50,12 @@ import {
   onRunUpdated,
   AUTOMATIONS_CHANGED_EVENT,
 } from '@/lib/automations/api';
+import {
+  HUB_AGENTS_CHANGED,
+  HUB_AUTOMATIONS_CHANGED,
+  HUB_RUNS_CHANGED,
+  HUB_WORKFLOWS_CHANGED,
+} from '@/lib/hub/hubEvents';
 import { db } from '@/lib/db/client';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
@@ -1340,13 +1346,18 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const onAgents = () => void refreshHubCounts();
     const onWorkflows = () => void refreshHubCounts();
     const onAutos = () => void refreshHubCounts();
-    window.addEventListener('dome:agents-changed', onAgents);
-    window.addEventListener('dome:workflows-changed', onWorkflows);
+    const onRuns = () => void refreshHubCounts();
+    window.addEventListener(HUB_AGENTS_CHANGED, onAgents);
+    window.addEventListener(HUB_WORKFLOWS_CHANGED, onWorkflows);
+    window.addEventListener(HUB_AUTOMATIONS_CHANGED, onAutos);
+    window.addEventListener(HUB_RUNS_CHANGED, onRuns);
     window.addEventListener(AUTOMATIONS_CHANGED_EVENT, onAutos);
     const unsubRuns = onRunUpdated(() => void refreshHubCounts());
     return () => {
-      window.removeEventListener('dome:agents-changed', onAgents);
-      window.removeEventListener('dome:workflows-changed', onWorkflows);
+      window.removeEventListener(HUB_AGENTS_CHANGED, onAgents);
+      window.removeEventListener(HUB_WORKFLOWS_CHANGED, onWorkflows);
+      window.removeEventListener(HUB_AUTOMATIONS_CHANGED, onAutos);
+      window.removeEventListener(HUB_RUNS_CHANGED, onRuns);
       window.removeEventListener(AUTOMATIONS_CHANGED_EVENT, onAutos);
       unsubRuns();
     };

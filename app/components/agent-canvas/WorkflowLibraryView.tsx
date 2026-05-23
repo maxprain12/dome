@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import {
   FolderOpen,
   Trash2,
@@ -30,6 +30,13 @@ import {
 import { syncMarketplaceOnWorkflowDelete } from '@/lib/marketplace/api';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useHubWorkspace } from '@/lib/context/HubWorkspaceContext';
+import { useHubListLoader } from '@/lib/hub/useHubListLoader';
+import {
+  HUB_WORKFLOWS_CHANGED,
+  notifyHubAgentsChanged,
+  notifyHubWorkflowsChanged,
+} from '@/lib/hub/hubEvents';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
@@ -109,9 +116,12 @@ function folderVisibleInSearch(
 export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibraryViewProps) {
   const { t } = useTranslation();
   const editorialHub = useEditorialHub();
+  const hubCardVariant = editorialHub ? 'editorial' : 'card';
+  const hubListClass = editorialHub
+    ? 'hub-list-stack w-full max-w-full'
+    : 'flex w-full max-w-full flex-col gap-3';
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
   const [folders, setFolders] = useState<DomeWorkflowFolder[]>([]);
-  const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -124,13 +134,13 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
   const loadWorkflow = useCanvasStore((s) => s.loadWorkflow);
   const clearCanvas = useCanvasStore((s) => s.clearCanvas);
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
+  const hubWorkspace = useHubWorkspace();
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const folderMap = useMemo(() => folderByIdMap(folders), [folders]);
   const q = search.trim().toLowerCase();
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  const fetchListData = useCallback(async () => {
     const [wfs, fds] = await Promise.all([getWorkflows(hubProjectId), listWorkflowFolders(hubProjectId)]);
     setWorkflows(wfs.sort((a, b) => b.updatedAt - a.updatedAt));
     setFolders(fds);
@@ -139,18 +149,13 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       for (const f of fds) next.add(f.id);
       return next;
     });
-    setLoading(false);
   }, [hubProjectId]);
 
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  useEffect(() => {
-    const handler = () => void refresh();
-    window.addEventListener('dome:workflows-changed', handler);
-    return () => window.removeEventListener('dome:workflows-changed', handler);
-  }, [refresh]);
+  const { initialLoading: loading, reload: refresh } = useHubListLoader(
+    fetchListData,
+    [hubProjectId],
+    { eventName: HUB_WORKFLOWS_CHANGED },
+  );
 
   const visibleWorkflows = useMemo(() => {
     if (!q) return workflows;
@@ -183,12 +188,20 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
 
   const handleOpen = (workflow: CanvasWorkflow) => {
     loadWorkflow(workflow);
-    setHomeSidebarSection(`workflow:${workflow.id}`);
+    if (hubWorkspace) {
+      hubWorkspace.openWorkflowCanvas(workflow.id);
+    } else {
+      setHomeSidebarSection(`workflow:${workflow.id}`);
+    }
   };
 
   const handleNew = () => {
     clearCanvas();
-    setHomeSidebarSection('workflow:new');
+    if (hubWorkspace) {
+      hubWorkspace.openNewWorkflowCanvas();
+    } else {
+      setHomeSidebarSection('workflow:new');
+    }
   };
 
   const handleExportWorkflow = async (wf: CanvasWorkflow) => {
@@ -229,8 +242,8 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
         }),
       );
       await refresh();
-      window.dispatchEvent(new CustomEvent('dome:agents-changed'));
-      window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+      notifyHubAgentsChanged();
+      notifyHubWorkflowsChanged();
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : t('hubExport.error_import'));
     } finally {
@@ -245,7 +258,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       await syncMarketplaceOnWorkflowDelete(id);
       setWorkflows((prev) => prev.filter((w) => w.id !== id));
       showToast('success', t('toast.workflow_deleted'));
-      window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+      notifyHubWorkflowsChanged();
     } else {
       showToast('error', result.error ?? t('toast.workflow_delete_error'));
     }
@@ -257,7 +270,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
     if (result.success && result.data) {
       setWorkflows((prev) => prev.map((w) => (w.id === workflowId ? result.data! : w)));
       showToast('success', t('canvas.workflow_moved'));
-      window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+      notifyHubWorkflowsChanged();
     } else {
       showToast('error', result.error ?? t('toast.workflow_delete_error'));
     }
@@ -287,7 +300,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       setFolders((prev) => [...prev, result.data!]);
       setExpanded((p) => new Set(p).add(result.data!.id));
       showToast('success', t('canvas.workflow_folder_created'));
-      window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+      notifyHubWorkflowsChanged();
     }
   };
 
@@ -299,7 +312,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       setFolders((prev) => [...prev, result.data!]);
       setExpanded((p) => new Set(p).add(result.data!.id));
       showToast('success', t('canvas.workflow_folder_created'));
-      window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+      notifyHubWorkflowsChanged();
     }
     setMenuFolderId(null);
   };
@@ -311,7 +324,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       setDeleteFolderTarget(null);
       showToast('success', t('canvas.workflow_folder_deleted'));
       await refresh();
-      window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+      notifyHubWorkflowsChanged();
     } else {
       showToast('error', result.error ?? t('toast.workflow_delete_error'));
     }
@@ -324,6 +337,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
     return (
       <HubBentoCard
         key={wf.id}
+        variant={hubCardVariant}
         draggable
         onDragStart={(e) => {
           e.dataTransfer.setData(DND_WORKFLOW_MIME, wf.id);
@@ -339,9 +353,13 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           </div>
         }
         title={
-          <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
-            {wf.name}
-          </span>
+          editorialHub ? (
+            <span className="min-w-0 break-words">{wf.name}</span>
+          ) : (
+            <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
+              {wf.name}
+            </span>
+          )
         }
         subtitle={
           <span className="break-words" title={desc || undefined}>
@@ -500,7 +518,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                       if (result.success) {
                         setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, name: trimmed } : f)));
                         showToast('success', t('canvas.workflow_folder_renamed'));
-                        window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
+                        notifyHubWorkflowsChanged();
                       }
                     })();
                   }}
@@ -526,7 +544,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           <div className="flex flex-col gap-2">
             {kids.map((k) => renderFolder(k, depth + 1))}
             {wfs.length > 0 ? (
-              <div className="flex w-full max-w-full flex-col gap-3" style={{ marginLeft: pad + 8 }}>
+              <div className={hubListClass} style={{ marginLeft: pad + 8 }}>
                 {wfs.map((wf) => renderWorkflowRow(wf))}
               </div>
             ) : null}
@@ -665,7 +683,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                     {t('canvas.ungrouped_workflows')}
                   </p>
                 ) : null}
-                <div className="flex w-full max-w-full flex-col gap-3">
+                <div className={hubListClass}>
                   {rootWorkflows.map((wf) => renderWorkflowRow(wf))}
                 </div>
               </div>

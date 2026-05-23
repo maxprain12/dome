@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-22T18:32:40.753Z
+> Última generación: 2026-05-23T11:10:12.449Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -13,8 +13,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:langgraph:stream` | `electron/ipc/ai.cjs:262` |
 | `ai:openrouter:listModels` | `electron/ipc/ai.cjs:574` |
 | `ai:stream` | `electron/ipc/ai.cjs:101` |
-| `ai:team:abort` | `electron/ipc/agent-team.cjs:477` |
-| `ai:team:stream` | `electron/ipc/agent-team.cjs:350` |
+| `ai:team:abort` | `electron/ipc/agent-team.cjs:474` |
+| `ai:team:stream` | `electron/ipc/agent-team.cjs:347` |
 | `ai:testConnection` | `electron/ipc/ai.cjs:494` |
 | `ai:testWebSearch` | `electron/ipc/ai.cjs:593` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:853` |

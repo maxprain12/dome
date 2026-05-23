@@ -130,6 +130,7 @@ export {
   createMemoryGetStub,
   createDefaultTools,
   createAllMartinTools,
+  createCustomAgentTools,
   createManyToolsForContext,
   createToolsForAgent,
   createToolRegistry,

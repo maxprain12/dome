@@ -1,5 +1,11 @@
 'use client';
 
+import {
+  AUTOMATIONS_CHANGED_EVENT,
+  notifyHubAutomationsChanged,
+  notifyHubRunsChanged,
+} from '@/lib/hub/hubEvents';
+
 export type AutomationTargetType = 'many' | 'agent' | 'workflow';
 export type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
 export type AutomationOutputMode = 'chat_only' | 'studio_output' | 'mixed';
@@ -145,12 +151,10 @@ interface Result<T> {
   error?: string;
 }
 
-export const AUTOMATIONS_CHANGED_EVENT = 'dome:automations-changed';
+export { AUTOMATIONS_CHANGED_EVENT };
 
 function notifyAutomationsChanged() {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(AUTOMATIONS_CHANGED_EVENT));
-  }
+  notifyHubAutomationsChanged();
 }
 
 function ensureElectron() {
@@ -213,6 +217,7 @@ export async function getRun(runId: string): Promise<PersistentRun | null> {
 
 export async function deleteRun(runId: string): Promise<void> {
   await invoke<void>('runs:delete', runId);
+  notifyHubRunsChanged();
 }
 
 export async function getActiveRunBySession(sessionId: string): Promise<PersistentRun | null> {

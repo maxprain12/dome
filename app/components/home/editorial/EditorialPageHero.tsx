@@ -12,6 +12,7 @@ export interface EditorialPageHeroProps {
   subtitle?: string;
   eyebrowExtra?: string;
   actions?: ReactNode;
+  /** Legacy stat card (Learn, Tags, Marketplace). */
   stat?: EditorialHeroStat;
   className?: string;
 }

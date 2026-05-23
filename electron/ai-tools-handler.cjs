@@ -2358,19 +2358,14 @@ function deepResearch(args) {
  * @returns {Promise<Object>} { success, definition?, error? }
  */
 async function getToolDefinition(toolName) {
-  const norm = String(toolName || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
+  const { getAllToolDefinitions, normalizeToolName } = require('./tool-dispatcher.cjs');
+  const norm = normalizeToolName(toolName);
   if (!norm) {
     return { success: false, error: 'tool_name is required' };
   }
 
   // Dome tools (lazy require to avoid circular dependency)
   try {
-    const { getAllToolDefinitions } = require('./tool-dispatcher.cjs');
     const all = getAllToolDefinitions();
     const dome = all.find((d) => {
       const n = String(d?.function?.name || '')

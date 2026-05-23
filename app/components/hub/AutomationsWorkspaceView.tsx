@@ -12,6 +12,7 @@ import {
   deleteAutomation,
   runAutomationNow,
   saveAutomation,
+  onRunUpdated,
   AUTOMATIONS_CHANGED_EVENT,
   type AutomationDefinition,
   type AutomationOutputMode,
@@ -22,6 +23,7 @@ import type { CanvasWorkflow } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
+import { cn } from '@/lib/utils';
 import {
   exportAutomationBundle,
   downloadHubBundle,
@@ -36,6 +38,10 @@ import HubEntityIcon from '@/components/ui/HubEntityIcon';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
 import { useEditorialHub } from '@/lib/context/EditorialHubContext';
+import { useHubWorkspace } from '@/lib/context/HubWorkspaceContext';
+import { useHubListLoader } from '@/lib/hub/useHubListLoader';
+import { PENDING_RUN_ID_KEY } from '@/lib/hub/hubStorageKeys';
+import { useTabStore } from '@/lib/store/useTabStore';
 import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
@@ -551,11 +557,23 @@ interface AutomationsTabProps {
   initialFilter?: AutomationFilter;
   agents: ManyAgent[];
   workflows: CanvasWorkflow[];
+  onRegisterSilentRefresh?: (refresh: (() => void) | null) => void;
 }
 
-function AutomationsTab({ projectId, initialFilter, agents, workflows }: AutomationsTabProps) {
+function AutomationsTab({
+  projectId,
+  initialFilter,
+  agents,
+  workflows,
+  onRegisterSilentRefresh,
+}: AutomationsTabProps) {
   const { t } = useTranslation();
   const editorialHub = useEditorialHub();
+  const hubCardVariant = editorialHub ? 'editorial' : 'card';
+  const hubListClass = editorialHub
+    ? 'hub-list-stack w-full max-w-full'
+    : 'flex w-full max-w-full flex-col gap-3';
+  const hubWorkspace = useHubWorkspace();
   const appProject = useAppStore((s) => s.currentProject);
   const [scopeProjectName, setScopeProjectName] = useState<string | null>(null);
   const automationImportInputRef = useRef<HTMLInputElement>(null);
@@ -570,9 +588,8 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
     [t],
   );
   const [automations, setAutomations] = useState<AutomationDefinition[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<AutomationFilter>(initialFilter ?? { targetType: 'all' });
-  // 'hidden' = list, 'new' = full-screen create page, 'edit' = side drawer (editing existing)
+  // 'hidden' = list, 'new' | 'edit' = full-screen form
   const [formMode, setFormMode] = useState<'hidden' | 'new' | 'edit'>('hidden');
   const [draft, setDraft] = useState<DraftState>({ ...EMPTY_DRAFT });
   const [saving, setSaving] = useState(false);
@@ -632,24 +649,51 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
     };
   }, [projectId, appProject?.id, appProject?.name]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setAutomations([]);
-    try {
-      const all = await listAutomations({ projectId });
-      setAutomations(all.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    hubWorkspace?.reportAutomationsFormMode(formMode);
+  }, [formMode, hubWorkspace]);
 
   useEffect(() => {
-    const handler = () => { void load(); };
-    window.addEventListener(AUTOMATIONS_CHANGED_EVENT, handler);
-    return () => window.removeEventListener(AUTOMATIONS_CHANGED_EVENT, handler);
-  }, [load]);
+    return () => {
+      hubWorkspace?.reportAutomationsFormMode('hidden');
+    };
+  }, [hubWorkspace]);
+
+  const fetchListData = useCallback(async () => {
+    const all = await listAutomations({ projectId });
+    setAutomations(all.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)));
+  }, [projectId]);
+
+  const { initialLoading: loading, reload: load } = useHubListLoader(
+    fetchListData,
+    [projectId],
+    { eventName: AUTOMATIONS_CHANGED_EVENT },
+  );
+
+  useEffect(() => {
+    if (!onRegisterSilentRefresh) return;
+    onRegisterSilentRefresh(() => {
+      void load({ silent: true });
+    });
+    return () => onRegisterSilentRefresh(null);
+  }, [load, onRegisterSilentRefresh]);
+
+  useEffect(() => {
+    const unsub = onRunUpdated(({ run }) => {
+      if (run.ownerType === 'many') return;
+      setAutomations((prev) =>
+        prev.map((a) => {
+          if (run.automationId !== a.id) return a;
+          return {
+            ...a,
+            lastRunAt: run.finishedAt ?? run.startedAt ?? run.updatedAt ?? a.lastRunAt,
+            lastRunStatus: run.status,
+          };
+        }),
+      );
+    });
+    return unsub;
+  }, []);
 
   const filtered = useMemo(() => {
     let result = automations;
@@ -752,7 +796,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
       setFormMode('hidden');
-      await load();
+      await load({ silent: true });
     } catch {
       showToast('error', t('toast.automation_save_error'));
     } finally {
@@ -763,9 +807,25 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   const handleRun = async (id: string) => {
     setRunningId(id);
     try {
-      await runAutomationNow(id);
-      showToast('success', t('toast.automation_started'));
-      await load();
+      const run = await runAutomationNow(id);
+      setAutomations((prev) =>
+        prev.map((a) =>
+          a.id === id
+            ? {
+                ...a,
+                lastRunAt: run.startedAt ?? run.updatedAt ?? Date.now(),
+                lastRunStatus: run.status,
+              }
+            : a,
+        ),
+      );
+      showToast('success', t('toast.automation_started_view_run'));
+      try {
+        sessionStorage.setItem(PENDING_RUN_ID_KEY, run.id);
+      } catch {
+        /* ignore */
+      }
+      useTabStore.getState().openRunsTab();
     } catch {
       showToast('error', t('toast.automation_run_error'));
     } finally {
@@ -820,7 +880,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
       window.dispatchEvent(new CustomEvent('dome:agents-changed'));
       window.dispatchEvent(new CustomEvent('dome:workflows-changed'));
       window.dispatchEvent(new CustomEvent(AUTOMATIONS_CHANGED_EVENT));
-      await load();
+      await load({ silent: true });
     } catch (err) {
       showToast('error', err instanceof Error ? err.message : t('hubExport.error_import'));
     } finally {
@@ -834,15 +894,16 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
   const targetName = (a: AutomationDefinition) =>
     a.targetType === 'agent' ? agentName(a.targetId) : workflowName(a.targetId);
 
-  // Full-screen creation page — replaces the list entirely
-  if (formMode === 'new') {
+  // Full-screen create / edit — replaces the list entirely
+  if (formMode === 'new' || formMode === 'edit') {
+    const isNew = formMode === 'new';
     return (
       <DomeDrawerLayout
-        className="bg-[var(--dome-bg)]"
+        className="bg-[var(--dome-bg)] h-full min-h-0"
         header={
           <DomeSubpageHeader
-            title={t('automation.new_page_title')}
-            subtitle={t('automation.new_page_subtitle')}
+            title={isNew ? t('automation.new_page_title') : t('automation.edit_page_title')}
+            subtitle={isNew ? t('automation.new_page_subtitle') : t('automation.edit_page_subtitle')}
             onBack={() => setFormMode('hidden')}
             backLabel={t('common.back')}
             className="border-[var(--dome-border)] bg-[var(--dome-bg)]"
@@ -864,7 +925,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                   disabled={saving || !draft.title.trim() || !draft.targetId}
                   onClick={() => void handleSave()}
                 >
-                  {t('automation.create_footer')}
+                  {isNew ? t('automation.create_footer') : t('automation.save_changes')}
                 </DomeButton>
               </>
             }
@@ -877,7 +938,7 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
             agents={agents}
             workflows={workflows}
             hubArtifacts={hubArtifacts}
-            isNew={true}
+            isNew={isNew}
             saving={saving}
             onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
             onSave={() => void handleSave()}
@@ -1016,22 +1077,27 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
               }
             />
           ) : (
-            <div className="p-4">
-              <div className="flex w-full max-w-full flex-col gap-3" role="list">
+            <div className={editorialHub ? 'px-0' : 'p-4'}>
+              <div className={hubListClass} role="list">
                 {filtered.map((a) => {
                   const desc = (a.description || '').trim();
                   const targetLine = `${targetName(a)} · ${triggerLabel(a.triggerType)}`;
                   return (
                     <HubBentoCard
                       key={a.id}
+                      variant={hubCardVariant}
+                      onClick={() => handleEdit(a)}
                       icon={
                         <HubEntityIcon kind={a.targetType === 'agent' ? 'agent' : 'workflow'} size="md" />
                       }
                       title={
                         <div className="flex w-full min-w-0 items-start gap-2 flex-wrap">
                           <span
-                            className="text-sm font-semibold min-w-0 flex-1 break-words"
-                            style={{ color: 'var(--dome-text)' }}
+                            className={cn(
+                              'min-w-0 flex-1 break-words',
+                              !editorialHub && 'text-sm font-semibold',
+                            )}
+                            style={editorialHub ? undefined : { color: 'var(--dome-text)' }}
                             title={a.title}
                           >
                             {a.title}
@@ -1100,7 +1166,10 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             iconOnly
                             title={t('hubExport.title_export_automation')}
                             aria-label={t('hubExport.title_export_automation')}
-                            onClick={() => void handleExportAutomation(a)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleExportAutomation(a);
+                            }}
                           >
                             <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
                           </DomeButton>
@@ -1111,7 +1180,10 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             iconOnly
                             title={t('automation.title_edit')}
                             aria-label={t('automation.title_edit')}
-                            onClick={() => handleEdit(a)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEdit(a);
+                            }}
                           >
                             <Pencil className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
                           </DomeButton>
@@ -1123,7 +1195,10 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
                             title={t('automation.title_run_now')}
                             aria-label={t('automation.title_run_now')}
                             disabled={runningId === a.id}
-                            onClick={() => void handleRun(a.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleRun(a.id);
+                            }}
                           >
                             {runningId === a.id ? (
                               <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
@@ -1153,26 +1228,6 @@ function AutomationsTab({ projectId, initialFilter, agents, workflows }: Automat
           )}
         </div>
       </div>
-
-      {/* Edit drawer — only for editing existing automations */}
-      {formMode === 'edit' && (
-        <div
-          className="shrink-0 overflow-y-auto"
-          style={{ width: 340, minWidth: 320 }}
-        >
-          <AutomationEditDrawer
-            draft={draft}
-            agents={agents}
-            workflows={workflows}
-            hubArtifacts={hubArtifacts}
-            isNew={false}
-            saving={saving}
-            onDraftChange={(partial) => setDraft((prev) => ({ ...prev, ...partial }))}
-            onSave={() => void handleSave()}
-            onCancel={() => setFormMode('hidden')}
-          />
-        </div>
-      )}
     </div>
   );
 }

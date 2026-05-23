@@ -163,8 +163,8 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           contextId: team.id,
           title: team.name,
           threadId: streamId,
-          toolIds: memberAgents.flatMap((agent) => agent.toolIds ?? []),
-          mcpServerIds: memberAgents.flatMap((agent) => agent.mcpServerIds ?? []),
+          toolIds: [],
+          mcpServerIds: team.mcpServerIds ?? [],
           projectId: teamProjectId,
         });
         if (sessionResult.success && sessionResult.data) {

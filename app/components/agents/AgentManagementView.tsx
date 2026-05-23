@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   Bot,
   Pencil,
@@ -45,6 +45,8 @@ import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeButton from '@/components/ui/DomeButton';
 import HubBentoCard from '@/components/ui/HubBentoCard';
 import { useEditorialHub } from '@/lib/context/EditorialHubContext';
+import { useHubListLoader } from '@/lib/hub/useHubListLoader';
+import { HUB_AGENTS_CHANGED, notifyHubAgentsChanged } from '@/lib/hub/hubEvents';
 
 const DND_AGENT_MIME = 'application/x-dome-agent-id';
 
@@ -108,10 +110,13 @@ interface AgentManagementViewProps {
 export default function AgentManagementView({ onAgentSelect, onShowAutomations }: AgentManagementViewProps) {
   const { t } = useTranslation();
   const editorialHub = useEditorialHub();
+  const hubCardVariant = editorialHub ? 'editorial' : 'card';
+  const hubListClass = editorialHub
+    ? 'hub-list-stack w-full max-w-full'
+    : 'flex w-full max-w-full flex-col gap-3';
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [folders, setFolders] = useState<DomeAgentFolder[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [editingAgent, setEditingAgent] = useState<ManyAgent | null>(null);
   const [showNewAgent, setShowNewAgent] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ManyAgent | null>(null);
@@ -124,8 +129,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
 
   const folderMap = useMemo(() => folderByIdMap(folders), [folders]);
 
-  const loadAll = useCallback(async () => {
-    setIsLoading(true);
+  const fetchListData = useCallback(async () => {
     const [list, fds] = await Promise.all([getManyAgents(projectId), listAgentFolders(projectId)]);
     setAgents(list);
     setFolders(fds);
@@ -134,18 +138,13 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
       for (const f of fds) next.add(f.id);
       return next;
     });
-    setIsLoading(false);
   }, [projectId]);
 
-  useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
-
-  useEffect(() => {
-    const handler = () => void loadAll();
-    window.addEventListener('dome:agents-changed', handler);
-    return () => window.removeEventListener('dome:agents-changed', handler);
-  }, [loadAll]);
+  const { initialLoading: isLoading, reload: loadAll } = useHubListLoader(
+    fetchListData,
+    [projectId],
+    { eventName: HUB_AGENTS_CHANGED },
+  );
 
   const q = search.trim().toLowerCase();
 
@@ -186,7 +185,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
   );
 
   const notifyAgentsChanged = useCallback(() => {
-    window.dispatchEvent(new CustomEvent('dome:agents-changed'));
+    notifyHubAgentsChanged();
   }, []);
 
   const handleEditComplete = useCallback(
@@ -231,7 +230,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     if (result.success) {
       setDeleteFolderTarget(null);
       showToast('success', t('agents.folder_deleted'));
-      await loadAll();
+      await loadAll({ silent: true });
       notifyAgentsChanged();
     } else {
       showToast('error', result.error || t('agents.error_delete'));
@@ -349,15 +348,12 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
 
   const renderAgentRow = (agent: ManyAgent) => {
     const desc = (agent.description || '').trim();
-    const subtitleText =
-      desc ||
-      t(agent.toolIds?.length === 1 ? 'agents.tools_count_one' : 'agents.tools_count_other', {
-        count: agent.toolIds?.length ?? 0,
-      });
+    const subtitleText = desc || t('agents.all_tools_available');
 
     return (
       <HubBentoCard
         key={agent.id}
+        variant={hubCardVariant}
         draggable
         onDragStart={(e) => {
           e.dataTransfer.setData(DND_AGENT_MIME, agent.id);
@@ -377,9 +373,13 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           </div>
         }
         title={
-          <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
-            {agent.name}
-          </span>
+          editorialHub ? (
+            <span className="min-w-0 break-words">{agent.name}</span>
+          ) : (
+            <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
+              {agent.name}
+            </span>
+          )
         }
         subtitle={
           <span className="break-words" title={desc || undefined}>
@@ -392,10 +392,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             style={{ color: 'var(--dome-text-muted)' }}
           >
             <span>
-              {t('agents.row_capabilities', {
-                tools: agent.toolIds?.length ?? 0,
+              {t('agents.row_mcp_capabilities', {
                 mcp: agent.mcpServerIds?.length ?? 0,
-                skills: agent.skillIds?.length ?? 0,
               })}
             </span>
             {agent.updatedAt ? (
@@ -407,8 +405,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
             ) : null}
           </div>
         }
-        trailing={
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
+        persistentTrailing={
+          editorialHub ? (
             <DomeButton
               type="button"
               variant="ghost"
@@ -427,6 +425,30 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 aria-hidden
               />
             </DomeButton>
+          ) : undefined
+        }
+        trailing={
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
+            {!editorialHub ? (
+              <DomeButton
+                type="button"
+                variant="ghost"
+                size="xs"
+                iconOnly
+                title={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
+                aria-label={agent.favorite ? t('agents.unpin_agent') : t('agents.pin_agent')}
+                onClick={() => void toggleFavorite(agent)}
+              >
+                <Star
+                  className="size-3.5"
+                  style={{
+                    color: agent.favorite ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                    fill: agent.favorite ? 'var(--dome-accent)' : 'none',
+                  }}
+                  aria-hidden
+                />
+              </DomeButton>
+            ) : null}
             {onShowAutomations ? (
               <DomeButton
                 type="button"
@@ -588,7 +610,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           <div className="flex flex-col gap-2">
             {kids.map((k) => renderFolder(k, depth + 1))}
             {folderAgents.length > 0 ? (
-              <div className="flex w-full max-w-full flex-col gap-3" style={{ marginLeft: pad + 8 }}>
+              <div className={hubListClass} style={{ marginLeft: pad + 8 }}>
                 {folderAgents.map((a) => renderAgentRow(a))}
               </div>
             ) : null}
@@ -670,8 +692,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               <button
                 type="button"
                 onClick={() => void handleNewRootFolder()}
-                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors"
-                style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
+                className={editorialHub ? 'hub-toolbar-btn' : 'flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-colors'}
+                style={editorialHub ? undefined : { borderColor: 'var(--dome-border)', color: 'var(--dome-text)' }}
               >
                 <FolderPlus className="size-3" />
                 {t('filter.new_folder')}
@@ -680,12 +702,29 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 type="button"
                 onClick={handleExport}
                 disabled={agents.length === 0}
-                className="flex items-center justify-center size-7 rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]"
+                className={
+                  editorialHub
+                    ? 'hub-toolbar-btn disabled:opacity-40 disabled:cursor-not-allowed'
+                    : 'flex items-center justify-center size-7 rounded-md transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:bg-[var(--dome-surface)]'
+                }
                 title={t('agents.export_agents')}
               >
-                <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
+                {editorialHub ? (
+                  <>
+                    <Download className="size-3" aria-hidden />
+                    {t('automationHub.export_btn')}
+                  </>
+                ) : (
+                  <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
+                )}
               </button>
-              <label className="flex items-center justify-center size-7 rounded-md transition-all hover:bg-[var(--dome-surface)] cursor-pointer">
+              <label
+                className={
+                  editorialHub
+                    ? 'hub-toolbar-btn cursor-pointer'
+                    : 'flex items-center justify-center size-7 rounded-md transition-all hover:bg-[var(--dome-surface)] cursor-pointer'
+                }
+              >
                 <input
                   type="file"
                   accept=".json,application/json"
@@ -695,6 +734,11 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 />
                 {importing ? (
                   <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
+                ) : editorialHub ? (
+                  <>
+                    <Upload className="size-3" aria-hidden />
+                    {t('automationHub.import_btn')}
+                  </>
                 ) : (
                   <Upload className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
                 )}
@@ -702,8 +746,12 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               <button
                 type="button"
                 onClick={() => setShowNewAgent(true)}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all hover:opacity-90"
-                style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
+                className={
+                  editorialHub
+                    ? 'hub-toolbar-btn hub-toolbar-btn-primary'
+                    : 'flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all hover:opacity-90'
+                }
+                style={editorialHub ? undefined : { background: 'var(--dome-accent)', color: 'var(--base-text)' }}
               >
                 <Plus className="size-3" />
                 {t('ui.add')}
@@ -759,7 +807,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                       {t('agents.ungrouped_agents')}
                     </p>
                   ) : null}
-                  <div className="flex w-full max-w-full flex-col gap-3">
+                  <div className={hubListClass}>
                     {rootAgents.map((a) => renderAgentRow(a))}
                   </div>
                 </div>

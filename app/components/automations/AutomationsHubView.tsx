@@ -10,6 +10,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { getWorkflows } from '@/lib/agent-canvas/api';
+import { HUB_AGENTS_CHANGED, HUB_WORKFLOWS_CHANGED } from '@/lib/hub/hubEvents';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { useTranslation } from 'react-i18next';
@@ -18,16 +19,24 @@ import HubSecondaryNav from '@/components/ui/HubSecondaryNav';
 import { EditorialShell } from '@/components/home/editorial/EditorialShell';
 import { HubTabHero } from '@/components/hub/HubTabHero';
 import { EditorialHubProvider } from '@/lib/context/EditorialHubContext';
+import {
+  HubWorkspaceProvider,
+  type HubAutomationsFormMode,
+} from '@/lib/context/HubWorkspaceContext';
 import AutomationsWorkspaceView, {
   type AutomationFilter,
 } from '@/components/hub/AutomationsWorkspaceView';
 import RunsWorkspaceView from '@/components/hub/RunsWorkspaceView';
+import { useCanvasStore } from '@/lib/store/useCanvasStore';
+import {
+  HUB_TAB_STORAGE_KEY,
+  HUB_AGENT_STORAGE_KEY,
+  HUB_WORKFLOW_STORAGE_KEY,
+  PENDING_AUTOMATIONS_FILTER_KEY,
+} from '@/lib/hub/hubStorageKeys';
 
 export type HubTab = 'agents' | 'workflows' | 'automations' | 'runs';
-
-const HUB_TAB_STORAGE_KEY = 'dome:hub:activeTab';
-const HUB_AGENT_STORAGE_KEY = 'dome:hub:selectedAgentId';
-const PENDING_AUTOMATIONS_FILTER_KEY = 'dome:hub:pendingAutomationsFilter';
+export { PENDING_RUN_ID_KEY } from '@/lib/hub/hubStorageKeys';
 
 function readStoredHubTab(): HubTab {
   try {
@@ -42,6 +51,15 @@ function readStoredHubTab(): HubTab {
 function readStoredSelectedAgentId(): string | null {
   try {
     const v = sessionStorage.getItem(HUB_AGENT_STORAGE_KEY);
+    return v && v.length > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredActiveWorkflowId(): string | null {
+  try {
+    const v = sessionStorage.getItem(HUB_WORKFLOW_STORAGE_KEY);
     return v && v.length > 0 ? v : null;
   } catch {
     return null;
@@ -69,13 +87,20 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
   const [activeTab, setActiveTab] = useState<HubTab>(() => shellHubTab ?? readStoredHubTab());
   const [automationsFilter, setAutomationsFilter] = useState<AutomationFilter | undefined>();
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => readStoredSelectedAgentId());
-  const [automationsListEpoch, setAutomationsListEpoch] = useState(0);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(() => readStoredActiveWorkflowId());
+  const [automationsFormMode, setAutomationsFormMode] = useState<HubAutomationsFormMode>('hidden');
+  const [runsDetailActive, setRunsDetailActive] = useState(false);
 
   const activeShellTabId = useTabStore((s) => s.activeTabId);
   const shellTabs = useTabStore((s) => s.tabs);
   const automationsShellTabId = shellTabs.find((tab) => tab.type === 'automations')?.id;
+  const runsShellTabId = shellTabs.find((tab) => tab.type === 'runs')?.id;
   const automationsShellVisible = automationsShellTabId != null && activeShellTabId === automationsShellTabId;
+  const runsShellVisible = runsShellTabId != null && activeShellTabId === runsShellTabId;
   const prevAutomationsShellVisible = useRef<boolean | null>(null);
+  const prevRunsShellVisible = useRef<boolean | null>(null);
+  const automationsSilentRefreshRef = useRef<(() => void) | null>(null);
+  const runsSilentRefreshRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (shellHubTab) setActiveTab(shellHubTab);
@@ -90,7 +115,6 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
       const parsed = JSON.parse(raw) as AutomationFilter;
       sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
       setAutomationsFilter(parsed);
-      setAutomationsListEpoch((n) => n + 1);
     } catch {
       try {
         sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
@@ -102,23 +126,23 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
 
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const hubProjectName = useAppStore((s) => s.currentProject?.name);
-  const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
-  const isWorkflowCanvasActive = typeof homeSidebarSection === 'string' && homeSidebarSection.startsWith('workflow:');
+  const prevHubProjectId = useRef(hubProjectId);
 
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
 
   useEffect(() => {
     const refreshMeta = () => {
-      getManyAgents(hubProjectId).then(setAgents).catch(() => {});
-      getWorkflows(hubProjectId).then(setWorkflows).catch(() => {});
+      const pid = hubProjectId;
+      getManyAgents(pid).then(setAgents).catch(() => {});
+      getWorkflows(pid).then(setWorkflows).catch(() => {});
     };
     refreshMeta();
-    window.addEventListener('dome:agents-changed', refreshMeta);
-    window.addEventListener('dome:workflows-changed', refreshMeta);
+    window.addEventListener(HUB_AGENTS_CHANGED, refreshMeta);
+    window.addEventListener(HUB_WORKFLOWS_CHANGED, refreshMeta);
     return () => {
-      window.removeEventListener('dome:agents-changed', refreshMeta);
-      window.removeEventListener('dome:workflows-changed', refreshMeta);
+      window.removeEventListener(HUB_AGENTS_CHANGED, refreshMeta);
+      window.removeEventListener(HUB_WORKFLOWS_CHANGED, refreshMeta);
     };
   }, [hubProjectId]);
 
@@ -129,13 +153,50 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
   }, [activeTab, hubProjectId]);
 
   useEffect(() => {
+    if (prevHubProjectId.current === hubProjectId) return;
+    prevHubProjectId.current = hubProjectId;
+    setSelectedAgentId(null);
+    setActiveWorkflowId(null);
+    setAutomationsFormMode('hidden');
+    setRunsDetailActive(false);
+    setAutomationsFilter(undefined);
+    try {
+      sessionStorage.removeItem(HUB_AGENT_STORAGE_KEY);
+      sessionStorage.removeItem(HUB_WORKFLOW_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [hubProjectId]);
+
+  useEffect(() => {
+    if (!selectedAgentId || agents.length === 0) return;
+    if (!agents.some((a) => a.id === selectedAgentId)) {
+      setSelectedAgentId(null);
+      try {
+        sessionStorage.removeItem(HUB_AGENT_STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [agents, selectedAgentId]);
+
+  useEffect(() => {
     const prev = prevAutomationsShellVisible.current;
     const becameVisible = prev === false && automationsShellVisible;
     prevAutomationsShellVisible.current = automationsShellVisible;
-    if (becameVisible && activeTab === 'automations') {
-      setAutomationsListEpoch((n) => n + 1);
+    if (becameVisible && (shellHubTab === 'automations' || activeTab === 'automations')) {
+      automationsSilentRefreshRef.current?.();
     }
-  }, [automationsShellVisible, activeTab]);
+  }, [automationsShellVisible, activeTab, shellHubTab]);
+
+  useEffect(() => {
+    const prev = prevRunsShellVisible.current;
+    const becameVisible = prev === false && runsShellVisible;
+    prevRunsShellVisible.current = runsShellVisible;
+    if (becameVisible && (shellHubTab === 'runs' || activeTab === 'runs')) {
+      runsSilentRefreshRef.current?.();
+    }
+  }, [runsShellVisible, activeTab, shellHubTab]);
 
   const handleShowAutomations = useCallback(
     (targetType: 'agent' | 'workflow', targetId: string, targetLabel: string) => {
@@ -173,6 +234,14 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
           /* ignore */
         }
       }
+      if (tab !== 'workflows') {
+        setActiveWorkflowId(null);
+        try {
+          sessionStorage.removeItem(HUB_WORKFLOW_STORAGE_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
     },
     [shellHubTab],
   );
@@ -199,6 +268,94 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     }
   }, []);
 
+  const openWorkflowCanvas = useCallback((workflowId: string) => {
+    setActiveWorkflowId(workflowId);
+    try {
+      sessionStorage.setItem(HUB_WORKFLOW_STORAGE_KEY, workflowId);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const openNewWorkflowCanvas = useCallback(() => {
+    setActiveWorkflowId('new');
+    try {
+      sessionStorage.setItem(HUB_WORKFLOW_STORAGE_KEY, 'new');
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const closeWorkflowCanvas = useCallback(() => {
+    setActiveWorkflowId(null);
+    try {
+      sessionStorage.removeItem(HUB_WORKFLOW_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activeWorkflowId) return;
+    if (activeWorkflowId === 'new') {
+      useCanvasStore.getState().clearCanvas();
+      return;
+    }
+    const canvas = useCanvasStore.getState();
+    if (canvas.activeWorkflowId === activeWorkflowId) return;
+    void getWorkflows(hubProjectId).then((wfs) => {
+      const wf = wfs.find((w) => w.id === activeWorkflowId);
+      if (wf) {
+        useCanvasStore.getState().loadWorkflow(wf);
+      } else {
+        closeWorkflowCanvas();
+      }
+    });
+  }, [activeWorkflowId, hubProjectId, closeWorkflowCanvas]);
+
+  const reportAutomationsFormMode = useCallback((mode: HubAutomationsFormMode) => {
+    setAutomationsFormMode(mode);
+  }, []);
+
+  const reportRunsDetailActive = useCallback((active: boolean) => {
+    setRunsDetailActive(active);
+  }, []);
+
+  const hubWorkspaceValue = useMemo(
+    () => ({
+      openWorkflowCanvas,
+      openNewWorkflowCanvas,
+      closeWorkflowCanvas,
+      reportAutomationsFormMode,
+      reportRunsDetailActive,
+    }),
+    [
+      openWorkflowCanvas,
+      openNewWorkflowCanvas,
+      closeWorkflowCanvas,
+      reportAutomationsFormMode,
+      reportRunsDetailActive,
+    ],
+  );
+
+  const effectiveTab = shellHubTab ?? activeTab;
+  const isWorkflowCanvasActive = activeWorkflowId != null;
+
+  const hubInDetailMode = useMemo(() => {
+    switch (effectiveTab) {
+      case 'agents':
+        return selectedAgentId != null;
+      case 'workflows':
+        return isWorkflowCanvasActive;
+      case 'automations':
+        return automationsFormMode !== 'hidden';
+      case 'runs':
+        return runsDetailActive;
+      default:
+        return false;
+    }
+  }, [effectiveTab, selectedAgentId, isWorkflowCanvasActive, automationsFormMode, runsDetailActive]);
+
   const workspaceBody = (
     <>
       {activeTab === 'agents' && (
@@ -216,7 +373,7 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
       {activeTab === 'workflows' && (
         <div className="h-full min-h-0 flex flex-col overflow-hidden relative">
           {isWorkflowCanvasActive ? (
-            <AgentCanvasView />
+            <AgentCanvasView onBackToLibrary={closeWorkflowCanvas} />
           ) : (
             <WorkflowLibraryView
               onShowAutomations={(id, label) => handleShowAutomations('workflow', id, label)}
@@ -226,64 +383,77 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
       )}
       {activeTab === 'automations' && (
         <div className="flex flex-col h-full min-h-0 overflow-hidden">
-          <div
-            className="shrink-0 px-4 py-2.5 text-[11px] leading-snug border-b"
-            style={{
-              borderColor: 'var(--dome-border)',
-              color: 'var(--dome-text-muted)',
-              background: 'color-mix(in srgb, var(--dome-accent) 6%, var(--dome-surface))',
-            }}
-          >
-            {t('automationHub.automations_scope_banner', {
-              name: hubProjectName ?? hubProjectId,
-            })}
-          </div>
+          {automationsFormMode === 'hidden' ? (
+            <div
+              className="shrink-0 px-4 py-2.5 text-[11px] leading-snug border-b"
+              style={{
+                borderColor: 'var(--dome-border)',
+                color: 'var(--dome-text-muted)',
+                background: 'color-mix(in srgb, var(--dome-accent) 6%, var(--dome-surface))',
+              }}
+            >
+              {t('automationHub.automations_scope_banner', {
+                name: hubProjectName ?? hubProjectId,
+              })}
+            </div>
+          ) : null}
           <div className="flex-1 min-h-0 overflow-hidden">
             <AutomationsWorkspaceView
-              key={`${hubProjectId}:${automationsFilter?.targetId ?? 'all'}:${automationsListEpoch}`}
               projectId={hubProjectId}
               initialFilter={automationsFilter}
               agents={agents}
               workflows={workflows}
+              onRegisterSilentRefresh={(fn) => {
+                automationsSilentRefreshRef.current = fn;
+              }}
             />
           </div>
         </div>
       )}
-      {activeTab === 'runs' && <RunsWorkspaceView />}
+      {activeTab === 'runs' && (
+        <RunsWorkspaceView
+          onRegisterSilentRefresh={(fn) => {
+            runsSilentRefreshRef.current = fn;
+          }}
+        />
+      )}
     </>
   );
 
   if (shellHubTab) {
-    const showHero = shellHubTab !== 'agents' || !selectedAgentId;
+    const showHero = !hubInDetailMode;
     return (
       <EditorialHubProvider active>
-        <EditorialShell
-          shellClassName="hub-tab-shell"
-          variant="split"
-          body={workspaceBody}
-        >
-          {showHero ? (
-            <HubTabHero
-              tab={shellHubTab}
-              agentCount={agents.length}
-              workflowCount={workflows.length}
-              projectName={hubProjectName ?? hubProjectId}
-            />
-          ) : null}
-        </EditorialShell>
+        <HubWorkspaceProvider value={hubWorkspaceValue}>
+          <EditorialShell
+            shellClassName="hub-tab-shell"
+            variant="split"
+            body={workspaceBody}
+            bodyClassName={showHero ? '' : 'hub-workspace-body--detail'}
+          >
+            {showHero ? (
+              <HubTabHero
+                tab={shellHubTab}
+                projectName={hubProjectName ?? hubProjectId}
+              />
+            ) : null}
+          </EditorialShell>
+        </HubWorkspaceProvider>
       </EditorialHubProvider>
     );
   }
 
   return (
-    <HubPageLayout
-      secondaryNav={
-        !shellHubTab ? (
-          <HubSecondaryNav tabs={hubTabs} activeId={activeTab} onChange={handleTabChange} />
-        ) : undefined
-      }
-    >
-      {workspaceBody}
-    </HubPageLayout>
+    <HubWorkspaceProvider value={hubWorkspaceValue}>
+      <HubPageLayout
+        secondaryNav={
+          !shellHubTab ? (
+            <HubSecondaryNav tabs={hubTabs} activeId={activeTab} onChange={handleTabChange} />
+          ) : undefined
+        }
+      >
+        {workspaceBody}
+      </HubPageLayout>
+    </HubWorkspaceProvider>
   );
 }

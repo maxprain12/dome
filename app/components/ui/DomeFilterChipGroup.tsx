@@ -16,6 +16,8 @@ export interface DomeFilterChipGroupProps<T extends string | number> {
   dense?: boolean;
   /** Columna (p. ej. sidebar marketplace). */
   layout?: 'horizontal' | 'vertical';
+  /** Pills editoriales del hub (selección oscura, sin acento por chip). */
+  variant?: 'default' | 'editorial';
 }
 
 /**
@@ -28,16 +30,23 @@ export default function DomeFilterChipGroup<T extends string | number>({
   className,
   dense = true,
   layout = 'horizontal',
+  variant = 'default',
 }: DomeFilterChipGroupProps<T>) {
-  const pad = dense ? 'px-2 py-0.5' : 'px-3 py-1';
-  const text = dense ? 'text-[10px] font-medium' : 'text-xs font-medium';
+  const isEditorial = variant === 'editorial';
+  const pad = isEditorial ? 'px-3 py-1' : dense ? 'px-2 py-0.5' : 'px-3 py-1';
+  const text = isEditorial
+    ? 'text-[11px] font-medium'
+    : dense
+      ? 'text-[10px] font-medium'
+      : 'text-xs font-medium';
   const vertical = layout === 'vertical';
 
   return (
     <div
       className={cn(
-        'flex gap-1',
+        'flex gap-1.5',
         vertical ? 'flex-col items-stretch' : 'flex-wrap items-center',
+        isEditorial && 'hub-filter-chip-group',
         className,
       )}
       role="group"
@@ -52,23 +61,27 @@ export default function DomeFilterChipGroup<T extends string | number>({
             type="button"
             onClick={() => onChange(opt.value)}
             className={cn(
-              'rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--bg)]',
+              'border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--bg)]',
+              isEditorial ? 'rounded-full hub-filter-chip' : 'rounded-md',
               pad,
               text,
               vertical && 'w-full justify-between text-left inline-flex items-center',
+              selected && isEditorial && 'hub-filter-chip-selected',
             )}
             style={
-              selected
-                ? {
-                    borderColor: accent,
-                    background: `color-mix(in srgb, ${accent} 22%, transparent)`,
-                    color: accent,
-                  }
-                : {
-                    borderColor: 'var(--border)',
-                    background: 'var(--bg-secondary)',
-                    color: 'var(--secondary-text)',
-                  }
+              isEditorial
+                ? undefined
+                : selected
+                  ? {
+                      borderColor: accent,
+                      background: `color-mix(in srgb, ${accent} 22%, transparent)`,
+                      color: accent,
+                    }
+                  : {
+                      borderColor: 'var(--border)',
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--secondary-text)',
+                    }
             }
           >
             {opt.label}

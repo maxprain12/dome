@@ -12,6 +12,8 @@ export interface EditorialShellProps {
   variant?: 'scroll' | 'split';
   /** Content below hero in split mode */
   body?: ReactNode;
+  /** Extra class on hub-workspace-body (e.g. hub-workspace-body--detail) */
+  bodyClassName?: string;
 }
 
 export function EditorialShell({
@@ -20,6 +22,7 @@ export function EditorialShell({
   canvasClassName = '',
   variant = 'scroll',
   body,
+  bodyClassName = '',
 }: EditorialShellProps) {
   const shellClass = ['home-shell', 'hub-editorial-shell', shellClassName].filter(Boolean).join(' ');
 
@@ -29,7 +32,9 @@ export function EditorialShell({
         <div className="hub-tab-hero-strip">
           <div className={`home-canvas ${canvasClassName}`.trim()}>{children}</div>
         </div>
-        {body ? <div className="hub-workspace-body">{body}</div> : null}
+        {body ? (
+          <div className={['hub-workspace-body', bodyClassName].filter(Boolean).join(' ')}>{body}</div>
+        ) : null}
       </div>
     );
   }
