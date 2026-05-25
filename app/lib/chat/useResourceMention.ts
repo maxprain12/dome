@@ -68,14 +68,17 @@ export function useResourceMention({
   const selectMentionResource = useCallback(
     (resource: MentionResource) => {
       const cursor = inputRef.current?.selectionStart ?? input.length;
-      const atIdx = input.slice(0, cursor).lastIndexOf('@');
+      const textUpToCursor = input.slice(0, cursor);
+      const atIdx = textUpToCursor.lastIndexOf('@');
       if (atIdx !== -1) {
-        const newInput = input.slice(0, atIdx) + input.slice(cursor);
+        const insertion = `@${resource.title} `;
+        const newInput = input.slice(0, atIdx) + insertion + input.slice(cursor);
         setInput(newInput);
+        const pos = atIdx + insertion.length;
         requestAnimationFrame(() => {
           if (inputRef.current) {
-            inputRef.current.selectionStart = atIdx;
-            inputRef.current.selectionEnd = atIdx;
+            inputRef.current.selectionStart = pos;
+            inputRef.current.selectionEnd = pos;
             inputRef.current.focus();
           }
         });

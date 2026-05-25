@@ -242,6 +242,7 @@ export {
   streamMiniMax,
   streamOpenRouter,
   fetchOpenRouterModels,
+  fetchProviderModels,
 
   // Utilities
   chunkText,

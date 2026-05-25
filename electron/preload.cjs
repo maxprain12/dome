@@ -316,6 +316,7 @@ const ALLOWED_CHANNELS = {
     'ai:langgraph:resume',
     'ai:testConnection',
     'ai:openrouter:listModels',
+    'ai:provider:listModels',
     'ai:testWebSearch',
     'ai:webSearch',
     // Agent Team orchestration
@@ -1346,6 +1347,9 @@ const electronHandler = {
 
     listOpenRouterModels: (apiKey) =>
       ipcRenderer.invoke('ai:openrouter:listModels', { apiKey }),
+
+    listProviderModels: (params) =>
+      ipcRenderer.invoke('ai:provider:listModels', params),
 
     testWebSearch: () =>
       ipcRenderer.invoke('ai:testWebSearch'),

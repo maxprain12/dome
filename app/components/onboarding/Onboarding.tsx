@@ -38,7 +38,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
       className="fixed inset-0 flex items-center justify-center"
       style={{
         zIndex: 'var(--z-modal)',
-        backgroundColor: 'rgba(0,0,0,0.5)',
+        backgroundColor: 'color-mix(in srgb, var(--dome-text) 40%, transparent)',
         backdropFilter: 'blur(8px)',
       }}
     >

@@ -19,6 +19,22 @@ interface DBResponse<T> {
   error?: string;
 }
 
+interface ProviderModelsListResult {
+  success: boolean;
+  models?: Array<{
+    id: string;
+    name: string;
+    contextWindow: number;
+    reasoning: boolean;
+    input: Array<'text' | 'image'>;
+    maxTokens: number;
+    recommended?: boolean;
+    description?: string;
+    api: string;
+  }>;
+  error?: string;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -949,21 +965,8 @@ declare global {
           message?: string;
           error?: string;
         }>;
-        listOpenRouterModels: (apiKey?: string) => Promise<{
-          success: boolean;
-          models?: Array<{
-            id: string;
-            name: string;
-            contextWindow: number;
-            reasoning: boolean;
-            input: Array<'text' | 'image'>;
-            maxTokens: number;
-            recommended?: boolean;
-            description?: string;
-            api: string;
-          }>;
-          error?: string;
-        }>;
+        listOpenRouterModels: (apiKey?: string) => Promise<ProviderModelsListResult>;
+        listProviderModels: (params: { provider: string; apiKey?: string }) => Promise<ProviderModelsListResult>;
         // AI Tools for Many agent
         tools: {
           resourceSearch: (

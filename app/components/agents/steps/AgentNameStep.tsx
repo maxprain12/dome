@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
 
 export interface AgentNameData {
   name: string;
@@ -20,10 +22,10 @@ export default function AgentNameStep({
   onChange,
   onValidationChange,
 }: AgentNameStepProps) {
+  const { t } = useTranslation();
   const [name, setName] = useState(initialName);
   const [description, setDescription] = useState(initialDescription);
 
-  // Sync when parent passes new initial values (e.g. edit mode)
   useEffect(() => {
     setName(initialName);
     setDescription(initialDescription);
@@ -36,48 +38,24 @@ export default function AgentNameStep({
 
   return (
     <div className="space-y-4">
-      <div>
-        <label htmlFor="agent-name-step-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
-          Nombre *
-        </label>
-        <input
-          id="agent-name-step-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Ej: Investigador, Editor, Resumidor..."
-          className="w-full px-3 py-2 rounded-lg text-sm border"
-          style={{
-            borderColor: 'var(--border)',
-            backgroundColor: 'var(--bg)',
-            color: 'var(--primary-text)',
-          }}
-          maxLength={80}
-        />
-        {name.trim().length === 0 && (
-          <p className="text-xs mt-1" style={{ color: 'var(--warning)' }}>
-            El agente necesita un nombre para empezar.
-          </p>
-        )}
-      </div>
-      <div>
-        <label htmlFor="agent-name-step-description" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
-          Descripción
-        </label>
-        <textarea
-          id="agent-name-step-description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Describe qué hace este agente y para qué sirve."
-          rows={3}
-          className="w-full px-3 py-2 rounded-lg text-sm border resize-none"
-          style={{
-            borderColor: 'var(--border)',
-            backgroundColor: 'var(--bg)',
-            color: 'var(--primary-text)',
-          }}
-        />
-      </div>
+      <DomeInput
+        id="agent-name-step-name"
+        label={`${t('onboarding.agent_name_label')} *`}
+        type="text"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={t('onboarding.agent_name_placeholder')}
+        maxLength={80}
+        hint={name.trim().length === 0 ? t('onboarding.agent_name_required') : undefined}
+      />
+      <DomeTextarea
+        id="agent-name-step-description"
+        label={t('onboarding.agent_description_label')}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder={t('onboarding.agent_description_placeholder')}
+        rows={3}
+      />
     </div>
   );
 }

@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
-import type { ManyAgent } from '@/types';
+import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import { getManyAgentById } from '@/lib/agents/api';
+import type { ManyAgent } from '@/types';
 import { useAgentChatStore } from '@/lib/store/useAgentChatStore';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 import {
@@ -77,6 +78,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [providerInfo, setProviderInfo] = useState('');
+  const [providerId, setProviderId] = useState('');
   const [supportsTools, setSupportsTools] = useState(false);
   const [disabledMcpIds, setDisabledMcpIds] = useState<Set<string>>(new Set());
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
@@ -118,12 +120,14 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const load = async () => {
       const config = await getAIConfig();
       if (config?.provider) {
+        setProviderId(String(config.provider));
         setProviderInfo(
           `${config.provider} / ${config.provider === 'ollama' ? config.ollamaModel || 'default' : config.model || 'default'}`
         );
         setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
       } else {
         setProviderInfo('Not configured');
+        setProviderId('');
         setSupportsTools(false);
       }
     };
@@ -602,7 +606,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           />
         }
         title={agent.name}
-        subtitle={providerInfo}
+        subtitle={
+          providerInfo ? (
+            <ProviderModelChip provider={providerId} label={providerInfo} />
+          ) : null
+        }
         actions={
           <button
             type="button"

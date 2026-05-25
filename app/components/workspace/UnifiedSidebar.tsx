@@ -58,6 +58,7 @@ import {
 } from '@/lib/hub/hubEvents';
 import { db } from '@/lib/db/client';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ManyIcon from '@/components/many/ManyIcon';
 
 // ---------------------------------------------------------------------------
 // Folder colors
@@ -1787,7 +1788,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           }}
         >
           <div className="size-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
-            <img src="/many.png" alt="" width={16} height={16} style={{ objectFit: 'contain' }} />
+            <ManyIcon size={16} />
           </div>
           <span
             className="truncate flex-1 min-w-0"

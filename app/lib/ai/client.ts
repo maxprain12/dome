@@ -487,27 +487,44 @@ export async function* streamOpenRouter(
   }
 }
 
+export type ProviderModelRow = {
+  id: string;
+  name: string;
+  contextWindow: number;
+  reasoning: boolean;
+  input: Array<'text' | 'image'>;
+  maxTokens: number;
+  recommended?: boolean;
+  description?: string;
+  api: string;
+};
+
+export type ProviderModelsListResult = {
+  success: boolean;
+  models?: ProviderModelRow[];
+  error?: string;
+};
+
 export async function fetchOpenRouterModels(
   apiKey?: string,
-): Promise<{
-  success: boolean;
-  models?: Array<{
-    id: string;
-    name: string;
-    contextWindow: number;
-    reasoning: boolean;
-    input: Array<'text' | 'image'>;
-    maxTokens: number;
-    recommended?: boolean;
-    description?: string;
-    api: string;
-  }>;
-  error?: string;
-}> {
+): Promise<ProviderModelsListResult> {
   if (!isElectron()) {
     return { success: false, error: 'OpenRouter listing requires Electron.' };
   }
   return window.electron.ai.listOpenRouterModels(apiKey);
+}
+
+export async function fetchProviderModels(
+  provider: AIProviderType,
+  apiKey?: string,
+): Promise<ProviderModelsListResult> {
+  if (!isElectron()) {
+    return { success: false, error: 'Provider model listing requires Electron.' };
+  }
+  if (provider === 'openrouter') {
+    return fetchOpenRouterModels(apiKey);
+  }
+  return window.electron.ai.listProviderModels({ provider, apiKey });
 }
 
 export async function chatWithDome(

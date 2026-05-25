@@ -40,6 +40,7 @@ const { buildSkillsMiddleware } = require('./skills/index.cjs');
 const { buildGuardrailsMiddleware } = require('./guardrails.cjs');
 const { DOME_LOAD_DOC_DESCRIPTION } = require('./prompt-sections.cjs');
 const { capToolResultString } = require('./tool-result-cap.cjs');
+const { temperatureOptions } = require('./model-params.cjs');
 
 function pickTokenNumber(obj, keys) {
   if (!obj || typeof obj !== 'object') return null;
@@ -702,7 +703,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatOpenAI({
       model: model || 'gpt-4o',
       apiKey: apiKey || process.env.OPENAI_API_KEY,
-      temperature: 0.7,
+      ...temperatureOptions(model),
     });
   }
   if (provider === 'anthropic') {
@@ -710,7 +711,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatAnthropic({
       model: model || 'claude-sonnet-4-20250514',
       apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
-      temperature: 0.7,
+      ...temperatureOptions(model),
     });
   }
   if (provider === 'google') {
@@ -718,7 +719,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
     return new ChatGoogleGenerativeAI({
       model: model || 'gemini-3-flash-preview',
       apiKey: apiKey || process.env.GOOGLE_API_KEY,
-      temperature: 0.7,
+      ...temperatureOptions(model),
     });
   }
   if (provider === 'minimax') {
@@ -730,7 +731,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
       model: model || 'MiniMax-M2.7',
       anthropicApiKey: apiKey,
       anthropicApiUrl: `${MINIMAX_BASE_URL}/anthropic`,
-      temperature: 0.7,
+      ...temperatureOptions(model),
       maxTokens: 8192,
     });
   }
@@ -743,7 +744,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
       // which dome's API rejects with HTTP 400.
       streamUsage: false,
       configuration: { baseURL: baseUrl, fetch: domeFetch },
-      temperature: 0.7,
+      ...temperatureOptions(model),
     });
   }
   if (provider === 'openrouter') {
@@ -754,7 +755,7 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
       apiKey: apiKey || process.env.OPENROUTER_API_KEY,
       siteUrl: OPENROUTER_SITE_URL,
       siteName: OPENROUTER_SITE_NAME,
-      temperature: 0.7,
+      ...temperatureOptions(model),
     });
   }
   throw new Error(`Unsupported provider: ${provider}`);

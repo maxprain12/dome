@@ -1,35 +1,37 @@
 
-import { memo, useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUp,
-  AtSign,
-  BookOpen,
-  Brain,
-  Globe,
   Plus,
-  Slash,
   StopCircle,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
-import { useManyStore } from '@/lib/store/useManyStore';
+import { ChatComposerPlusMenuContent } from '@/components/chat/ChatComposerPlusMenu';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { newAttachmentId } from '@/lib/chat/attachmentTypes';
 import { processAttachmentFile } from '@/lib/chat/processAttachmentFile';
-import { ChatComposerPlusMenuContent, type ChatComposerSkillsHandlers } from '@/components/chat/ChatComposerPlusMenu';
-import { ChatSkillChip } from '@/components/chat/ChatSkillChip';
-import {
-  AI_COMPOSER_INPUT_HANDLER,
-  AI_COMPOSER_TEXTAREA_CLASS,
-  AIComposerFrame,
-} from '@/components/chat/AIComposer';
-import ManyComposerAttachmentRow from './ManyComposerAttachmentRow';
+import { AIComposerFrame } from '@/components/chat/AIComposer';
+import ManyComposerRichInput from './ManyComposerRichInput';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useResourceMention } from '@/lib/chat/useResourceMention';
 import { useSlashSkills, type SlashSkillItem } from '@/lib/chat/useSlashSkills';
+import { useHashMcpMention } from '@/lib/chat/useHashMcpMention';
+import { useRotatingComposerPlaceholder } from '@/lib/chat/useRotatingComposerPlaceholder';
+import type { ComposerTokenTooltip } from '@/lib/chat/composerInlineHighlight';
+import { listSkills, type SkillItem } from '@/lib/skills/client';
+import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
+import { useManyStore } from '@/lib/store/useManyStore';
 import { db } from '@/lib/db/client';
+
+const MANY_PLACEHOLDER_HINT_KEYS = [
+  'many.input_placeholder_docs',
+  'many.input_placeholder_hint_skills',
+  'many.input_placeholder_hint_plus',
+  'many.input_placeholder_web',
+  'many.input_placeholder_hint_attach',
+] as const;
 
 export interface ManyChatInputProps {
   input: string;
@@ -39,13 +41,10 @@ export interface ManyChatInputProps {
   toolsEnabled: boolean;
   resourceToolsEnabled: boolean;
   memoryEnabled?: boolean;
-  mcpEnabled: boolean;
   setToolsEnabled: (v: boolean) => void;
   setResourceToolsEnabled: (v: boolean) => void;
   setMemoryEnabled?: (v: boolean) => void;
-  setMcpEnabled: (v: boolean) => void;
   supportsTools: boolean;
-  hasMcp: boolean;
   onSend: () => void;
   onAbort: () => void;
   isWelcomeScreen?: boolean;
@@ -56,6 +55,8 @@ export interface ManyChatInputProps {
   variant?: 'full' | 'legacy';
   /** Show Enter / Shift+Enter hint under the composer (Many redesign). */
   showComposerKeyboardHint?: boolean;
+  /** Sidebar / narrow panel: icon-only toolbar, capabilities in + menu. */
+  compact?: boolean;
 }
 
 export default memo(function ManyChatInput({
@@ -66,13 +67,10 @@ export default memo(function ManyChatInput({
   toolsEnabled,
   resourceToolsEnabled,
   memoryEnabled = true,
-  mcpEnabled,
   setToolsEnabled,
   setResourceToolsEnabled,
   setMemoryEnabled,
-  setMcpEnabled,
   supportsTools,
-  hasMcp,
   onSend,
   onAbort,
   isWelcomeScreen = false,
@@ -81,6 +79,7 @@ export default memo(function ManyChatInput({
   onAttachmentsChange,
   variant = 'full',
   showComposerKeyboardHint = true,
+  compact = false,
 }: ManyChatInputProps) {
   const { t } = useTranslation();
   const enhanced = variant === 'full';
@@ -116,6 +115,28 @@ export default memo(function ManyChatInput({
     };
   }, [pendingOneShotSkillId, activeStickySkillId]);
 
+  const [skillCatalog, setSkillCatalog] = useState<SkillItem[]>([]);
+  const [mcpCatalog, setMcpCatalog] = useState<Array<{ name: string; description?: string }>>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listSkills().then((res) => {
+      if (cancelled || !res.success || !Array.isArray(res.data)) return;
+      setSkillCatalog(res.data);
+    });
+    void loadMcpServersSetting().then((servers) => {
+      if (cancelled) return;
+      setMcpCatalog(
+        servers
+          .filter((s) => s.enabled !== false)
+          .map((s) => ({ name: s.name, description: undefined })),
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -141,20 +162,27 @@ export default memo(function ManyChatInput({
     enabled: enhanced,
   });
 
+  const hash = useHashMcpMention({
+    input,
+    setInput,
+    inputRef: inputRef as React.RefObject<HTMLTextAreaElement | null>,
+    containerRef,
+    enabled: enhanced,
+  });
+
   const applySlashOneShot = useCallback(
     (skill: SlashSkillItem) => {
-      const cursor = inputRef.current?.selectionStart ?? input.length;
-      slash.removeSlashTokenFromInput(cursor);
-      slash.setSlashActive(false);
+      slash.insertSlashSkill(skill);
       setPendingOneShotSkill(skill.id);
       setSkillLabels((prev) => ({ ...prev, [skill.id]: skill.name }));
     },
-    [input.length, inputRef, slash, setPendingOneShotSkill],
+    [slash, setPendingOneShotSkill],
   );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (enhanced) {
+        if (hash.hashKeyDown(e)) return;
         const slashRes = slash.handleSlashKeyDown(e);
         if (slashRes.handled) {
           if (slashRes.skill) {
@@ -169,10 +197,8 @@ export default memo(function ManyChatInput({
         onSend();
       }
     },
-    [enhanced, slash, mention, applySlashOneShot, onSend],
+    [enhanced, hash, slash, mention, applySlashOneShot, onSend],
   );
-
-  const handleInput = AI_COMPOSER_INPUT_HANDLER;
 
   const handlePickFiles = useCallback(
     async (fileList: FileList | null) => {
@@ -190,8 +216,16 @@ export default memo(function ManyChatInput({
         }
         const a = await processAttachmentFile(file);
         working = pendingId ? working.filter((item) => item.id !== pendingId) : working;
-        if (a) working = [...working, a];
-        onAttachmentsChange(working);
+        if (a) {
+          working = [...working, a];
+          onAttachmentsChange(working);
+          setInput((prev) => {
+            const gap = prev.length > 0 && !/\s$/.test(prev) ? ' ' : '';
+            return `${prev}${gap}@${a.name} `;
+          });
+        } else if (pendingId) {
+          onAttachmentsChange(working);
+        }
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
@@ -229,9 +263,41 @@ export default memo(function ManyChatInput({
       mention.updateFromText(val, cursor);
       if (enhanced) {
         slash.updateFromText(val, cursor);
+        hash.updateFromText(val, cursor);
+      }
+      for (const pin of pinnedResources) {
+        if (!val.includes(`@${pin.title}`)) {
+          removePinnedResource(pin.id);
+        }
+      }
+      if (pendingOneShotSkillId) {
+        const label = skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId;
+        if (!val.includes(`/${label}`)) {
+          setPendingOneShotSkill(null);
+        }
+      }
+      if (activeStickySkillId && currentSessionId) {
+        const label = skillLabels[activeStickySkillId] || activeStickySkillId;
+        if (!val.includes(`/${label}`)) {
+          setActiveSkillForSession(currentSessionId, null);
+        }
       }
     },
-    [setInput, enhanced, mention, slash],
+    [
+      setInput,
+      enhanced,
+      mention,
+      slash,
+      hash,
+      pinnedResources,
+      removePinnedResource,
+      pendingOneShotSkillId,
+      activeStickySkillId,
+      currentSessionId,
+      skillLabels,
+      setPendingOneShotSkill,
+      setActiveSkillForSession,
+    ],
   );
 
   useEffect(() => {
@@ -271,49 +337,88 @@ export default memo(function ManyChatInput({
     });
   }, [showDropdown]);
 
-  const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled || mcpEnabled;
+  const hasActiveCapabilities = resourceToolsEnabled || toolsEnabled;
+
+  const menuLayout = 'flat';
+
+  const hasPlaceholderOverride =
+    inputPlaceholderOverride != null && inputPlaceholderOverride !== '';
+
+  const rotatingPlaceholder = useRotatingComposerPlaceholder(MANY_PLACEHOLDER_HINT_KEYS, {
+    enabled: !hasPlaceholderOverride && !isLoading,
+  });
+
+  const composerPlaceholder = hasPlaceholderOverride ? inputPlaceholderOverride! : rotatingPlaceholder;
+
+  const canSend = !!input.trim() || attachments.length > 0 || pinnedResources.length > 0;
+
+  const mentionHighlightLabels = pinnedResources.map((r) => r.title);
+  const fileHighlightNames = attachments.map((a) => a.name);
+  const skillHighlightLabels = [
+    ...(pendingOneShotSkillId ? [skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId] : []),
+    ...(activeStickySkillId ? [skillLabels[activeStickySkillId] || activeStickySkillId] : []),
+  ];
+
+  const tokenTooltips = useMemo(() => {
+    const map: Record<string, ComposerTokenTooltip> = {};
+    const skillByKey = new Map<string, SkillItem>();
+    for (const skill of skillCatalog) {
+      skillByKey.set(skill.name.toLowerCase(), skill);
+      skillByKey.set(skill.slug.toLowerCase(), skill);
+    }
+
+    for (const resource of pinnedResources) {
+      map[`mention:${resource.title}`] = {
+        title: t('many.token_doc_title', { name: resource.title }),
+        description: t('many.token_doc_desc', { type: resource.type }),
+      };
+    }
+
+    for (const attachment of attachments) {
+      map[`file:${attachment.name}`] = {
+        title: t('many.token_file_title', { name: attachment.name }),
+        description: t('many.token_file_desc'),
+      };
+    }
+
+    for (const skill of skillCatalog) {
+      map[`skill:${skill.name}`] = {
+        title: t('many.token_skill_title', { name: skill.name }),
+        description: skill.description?.trim() || t('many.token_skill_desc'),
+      };
+      if (skill.slug !== skill.name) {
+        map[`skill:${skill.slug}`] = map[`skill:${skill.name}`]!;
+      }
+    }
+
+    for (const name of skillHighlightLabels) {
+      if (map[`skill:${name}`]) continue;
+      const found = skillByKey.get(name.toLowerCase());
+      map[`skill:${name}`] = {
+        title: t('many.token_skill_title', { name }),
+        description: found?.description?.trim() || t('many.token_skill_desc'),
+      };
+    }
+
+    for (const server of mcpCatalog) {
+      const slug = server.name.replace(/\s+/g, '-');
+      map[`mcp:${slug}`] = {
+        title: t('many.token_mcp_title', { name: server.name }),
+        description: server.description?.trim() || t('many.token_mcp_desc'),
+      };
+    }
+
+    return map;
+  }, [t, pinnedResources, attachments, skillCatalog, mcpCatalog, skillHighlightLabels]);
+
+  const inputPadding = isWelcomeScreen ? '16px 22px 8px' : '12px 18px 6px';
 
   const outerCls = isWelcomeScreen
     ? 'many-input-area bg-transparent px-0 pb-0'
     : 'many-input-area border-t border-[var(--border)] bg-[var(--bg)] px-4 py-3';
 
-  const skillsHandlers: ChatComposerSkillsHandlers | null = enhanced
-    ? {
-        onInvokeOneShot: (id) => {
-          setPendingOneShotSkill(id);
-          setShowDropdown(false);
-        },
-        onSetSticky: (id) => {
-          if (currentSessionId) setActiveSkillForSession(currentSessionId, id);
-          setShowDropdown(false);
-        },
-        activeStickySkillId: activeStickySkillId,
-        onCloseMenu: () => setShowDropdown(false),
-      }
-    : null;
-
-  const menuLayout = enhanced ? 'nested' : 'flat';
-
   return (
     <div className={outerCls}>
-      {enhanced && (pendingOneShotSkillId || activeStickySkillId) ? (
-        <div className={`mb-2 flex flex-wrap gap-1.5 ${isWelcomeScreen ? 'justify-center' : ''}`}>
-          {pendingOneShotSkillId ? (
-            <ChatSkillChip
-              label={skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId}
-              onRemove={() => setPendingOneShotSkill(null)}
-            />
-          ) : null}
-          {activeStickySkillId ? (
-            <ChatSkillChip
-              sticky
-              label={skillLabels[activeStickySkillId] || activeStickySkillId}
-              onRemove={() => currentSessionId && setActiveSkillForSession(currentSessionId, null)}
-            />
-          ) : null}
-        </div>
-      ) : null}
-
       <AIComposerFrame
         containerRef={containerRef}
         isDragging={isDragging}
@@ -333,12 +438,6 @@ export default memo(function ManyChatInput({
           void handlePickFiles(e.dataTransfer?.files ?? null);
         }}
       >
-        <ManyComposerAttachmentRow
-          attachments={attachments}
-          pinnedResources={pinnedResources}
-          onRemoveAttachment={(id) => onAttachmentsChange?.(attachments.filter((item) => item.id !== id))}
-          onRemovePinned={removePinnedResource}
-        />
         {onAttachmentsChange ? (
           <input
             ref={fileInputRef}
@@ -349,12 +448,11 @@ export default memo(function ManyChatInput({
             onChange={(e) => { void handlePickFiles(e.target.files); }}
           />
         ) : null}
-        <textarea
-          ref={inputRef}
+        <ManyComposerRichInput
           value={input}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onInput={handleInput}
+          inputRef={inputRef}
           onPaste={(e) => {
             if (!onAttachmentsChange) return;
             const items = e.clipboardData?.items;
@@ -368,109 +466,47 @@ export default memo(function ManyChatInput({
               }
             }
           }}
-          placeholder={
-            inputPlaceholderOverride != null && inputPlaceholderOverride !== ''
-              ? inputPlaceholderOverride
-              : isWelcomeScreen
-                ? t('many.input_placeholder_docs')
-                : t('many.input_placeholder_many')
-          }
+          placeholder={composerPlaceholder}
           disabled={isLoading}
           rows={isWelcomeScreen ? 2 : 1}
-          className={AI_COMPOSER_TEXTAREA_CLASS}
+          mentionLabels={mentionHighlightLabels}
+          skillLabels={skillHighlightLabels}
+          fileNames={fileHighlightNames}
+          tokenTooltips={tokenTooltips}
           style={{
             lineHeight: '1.55',
             border: 'none',
             boxShadow: 'none',
-            padding: isWelcomeScreen ? '20px 22px 8px' : '14px 18px 6px',
+            padding: inputPadding,
             minHeight: isWelcomeScreen ? 72 : 24,
             maxHeight: 200,
           }}
         />
 
-        <div className="many-composer-tools">
-          <button
-            type="button"
-            ref={buttonRef}
-            onClick={() => setShowDropdown(!showDropdown)}
-            className={`many-composer-icon-btn ${
-              showDropdown || hasActiveCapabilities ? 'many-composer-icon-btn--active' : ''
-            }`}
-            title={t('chat.compose_more')}
-            aria-haspopup="menu"
-            aria-expanded={showDropdown}
-            aria-label={t('chat.compose_more')}
-          >
-            <Plus size={15} strokeWidth={2} />
-          </button>
-
-          <button
-            type="button"
-            onClick={insertAtSymbol}
-            className="many-composer-icon-btn"
-            title={t('many.add_to_context')}
-            aria-label={t('many.add_to_context')}
-          >
-            <AtSign size={14} strokeWidth={2} />
-          </button>
-
-          {enhanced ? (
+        <div className={`many-composer-tools${compact ? ' many-composer-tools--compact' : ''}`}>
+          <div className="many-composer-tools__bar">
             <button
               type="button"
-              onClick={insertSlashToken}
-              className={`many-composer-icon-btn ${slash.slashActive ? 'many-composer-icon-btn--active' : ''}`}
-              title={t('chat.slash_skills_title')}
-              aria-label={t('chat.slash_skills_title')}
+              ref={buttonRef}
+              onClick={() => setShowDropdown(!showDropdown)}
+              className={`many-composer-icon-btn ${
+                showDropdown || hasActiveCapabilities ? 'many-composer-icon-btn--active' : ''
+              }`}
+              title={t('chat.compose_more')}
+              aria-haspopup="menu"
+              aria-expanded={showDropdown}
+              aria-label={t('chat.compose_more')}
             >
-              <Slash size={13} strokeWidth={2} />
+              <Plus size={15} strokeWidth={2} />
             </button>
-          ) : null}
 
-          {supportsTools ? <span className="many-composer-divider" aria-hidden /> : null}
+            {enhanced ? (
+              <span className="many-model-pill shrink min-w-0">
+                <InlineModelSwitcher />
+              </span>
+            ) : null}
 
-          {supportsTools ? (
-            <>
-              <button
-                type="button"
-                className={`many-tool-toggle ${toolsEnabled ? 'many-tool-toggle--on' : ''}`}
-                onClick={() => setToolsEnabled(!toolsEnabled)}
-                title={t('chat.capability_web')}
-              >
-                <Globe size={12} strokeWidth={2} />
-                <span>{t('chat.capability_web')}</span>
-              </button>
-              {setMemoryEnabled ? (
-                <button
-                  type="button"
-                  className={`many-tool-toggle ${memoryEnabled ? 'many-tool-toggle--on' : ''}`}
-                  onClick={() => setMemoryEnabled(!memoryEnabled)}
-                  title={t('many.capability_memory')}
-                >
-                  <Brain size={12} strokeWidth={2} />
-                  <span>{t('many.capability_memory')}</span>
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={`many-tool-toggle ${resourceToolsEnabled ? 'many-tool-toggle--on' : ''}`}
-                onClick={() => setResourceToolsEnabled(!resourceToolsEnabled)}
-                title={t('chat.capability_resources')}
-              >
-                <BookOpen size={12} strokeWidth={2} />
-                <span>{t('chat.capability_resources')}</span>
-              </button>
-            </>
-          ) : null}
-
-          <span className="many-composer-tools__spacer" aria-hidden />
-
-          {enhanced ? (
-            <span className="many-model-pill shrink min-w-0">
-              <InlineModelSwitcher />
-            </span>
-          ) : null}
-
-          {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
+            {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
               <div
                 ref={dropdownRef}
                 className="fixed z-[var(--z-popover)]"
@@ -491,6 +527,16 @@ export default memo(function ManyChatInput({
                     insertAtSymbol();
                     setShowDropdown(false);
                   }}
+                  showSlashSkills={enhanced}
+                  onSlashSkills={() => {
+                    insertSlashToken();
+                    setShowDropdown(false);
+                  }}
+                  showHashMcp={enhanced}
+                  onHashMcp={() => {
+                    hash.insertHashToken();
+                    setShowDropdown(false);
+                  }}
                   manyCapabilities={
                     supportsTools
                       ? {
@@ -498,61 +544,64 @@ export default memo(function ManyChatInput({
                           setResourceToolsEnabled,
                           toolsEnabled,
                           setToolsEnabled,
-                          mcpEnabled,
-                          setMcpEnabled,
-                          hasMcp,
+                          memoryEnabled,
+                          setMemoryEnabled,
                         }
                       : null
                   }
-                  toolsSlot={hasMcp ? <McpCapabilitiesSection /> : null}
                   disableQuick={isLoading}
                   menuLayout={menuLayout}
                   isMenuOpen={showDropdown}
-                  skillsHandlers={skillsHandlers}
                   onCloseMenu={() => setShowDropdown(false)}
                 />
               </div>,
               document.body
             )}
 
-          {isLoading ? (
-            <button
-              type="button"
-              onClick={onAbort}
-              className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all"
-              style={{ background: 'var(--error)', color: 'var(--base-text, #ffffff)' }}
-              title={t('chat.stop')}
-              aria-label={t('chat.stop')}
-            >
-              <StopCircle size={16} />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={onSend}
-              disabled={!input.trim() && attachments.length === 0}
-              className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-50"
-              style={{
-                background:
-                  input.trim() || attachments.length > 0 ? 'var(--accent)' : 'var(--bg-tertiary)',
-                color:
-                  input.trim() || attachments.length > 0
-                    ? 'var(--base-text, #ffffff)'
-                    : 'var(--quaternary-text)',
-              }}
-              title={t('chat.send')}
-              aria-label={t('chat.send')}
-            >
-              <ArrowUp size={16} strokeWidth={2.4} />
-            </button>
-          )}
+            {isLoading ? (
+              <button
+                type="button"
+                onClick={onAbort}
+                className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all"
+                style={{ background: 'var(--error)', color: 'var(--base-text, #ffffff)' }}
+                title={t('chat.stop')}
+                aria-label={t('chat.stop')}
+              >
+                <StopCircle size={16} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={onSend}
+                disabled={!canSend}
+                className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-50"
+                style={{
+                  background: canSend ? 'var(--accent)' : 'var(--bg-tertiary)',
+                  color: canSend ? 'var(--base-text, #ffffff)' : 'var(--quaternary-text)',
+                }}
+                title={t('chat.send')}
+                aria-label={t('chat.send')}
+              >
+                <ArrowUp size={16} strokeWidth={2.4} />
+              </button>
+            )}
+          </div>
         </div>
       </AIComposerFrame>
 
       {showComposerKeyboardHint && !isWelcomeScreen ? (
-        <p className="many-composer-hint px-1">
-          <kbd>↵</kbd> {t('many.composer_hint_send')} · <kbd>⇧↵</kbd> {t('many.composer_hint_newline')} ·{' '}
-          <kbd>/</kbd> {t('many.composer_hint_skills')} · <kbd>@</kbd> {t('many.composer_hint_docs')}
+        <p className={`many-composer-hint px-1${compact ? ' many-composer-hint--compact' : ''}`}>
+          {compact ? (
+            <>
+              <kbd>↵</kbd> {t('many.composer_hint_send')} · <kbd>⇧↵</kbd> {t('many.composer_hint_newline')}
+            </>
+          ) : (
+            <>
+              <kbd>↵</kbd> {t('many.composer_hint_send')} · <kbd>⇧↵</kbd> {t('many.composer_hint_newline')} ·{' '}
+              <kbd>/</kbd> {t('many.composer_hint_skills')} · <kbd>@</kbd> {t('many.composer_hint_docs')} ·{' '}
+              <kbd>#</kbd> MCP
+            </>
+          )}
         </p>
       ) : null}
 
@@ -603,10 +652,22 @@ export default memo(function ManyChatInput({
                       checked={activeStickySkillId === skill.id}
                       onChange={() => {
                         if (!currentSessionId) return;
-                        const next = activeStickySkillId === skill.id ? null : skill.id;
-                        setActiveSkillForSession(currentSessionId, next);
-                        const cursor = inputRef.current?.selectionStart ?? input.length;
-                        slash.removeSlashTokenFromInput(cursor);
+                        const enabling = activeStickySkillId !== skill.id;
+                        if (enabling) {
+                          setActiveSkillForSession(currentSessionId, skill.id);
+                          setSkillLabels((prev) => ({ ...prev, [skill.id]: skill.name }));
+                          setInput((prev) => {
+                            const token = `/${skill.name}`;
+                            if (prev.includes(token)) return prev;
+                            const gap = prev.length > 0 && !/\s$/.test(prev) ? ' ' : '';
+                            return `${prev}${gap}${token} `;
+                          });
+                        } else {
+                          setActiveSkillForSession(currentSessionId, null);
+                          setInput((prev) =>
+                            prev.replace(new RegExp(`/${skill.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s?`, 'g'), ''),
+                          );
+                        }
                         slash.setSlashActive(false);
                       }}
                       className="rounded border-[var(--border)]"
@@ -660,6 +721,49 @@ export default memo(function ManyChatInput({
                   {resource.title}
                 </span>
                 <span style={{ fontSize: 12, color: 'var(--tertiary-text)', flexShrink: 0 }}>{resource.type}</span>
+              </button>
+            ))
+          )}
+        </div>,
+        document.body
+      )}
+
+      {enhanced && hash.hashActive && hash.hashRect && typeof document !== 'undefined' && createPortal(
+        <div
+          ref={hash.hashDropdownRef}
+          className="fixed rounded-xl border shadow-lg py-1 overflow-y-auto"
+          style={{
+            bottom: window.innerHeight - hash.hashRect.top + 6,
+            left: hash.hashRect.left,
+            width: 280,
+            maxHeight: 240,
+            backgroundColor: 'var(--bg)',
+            borderColor: 'var(--border)',
+            zIndex: 'var(--z-popover)',
+          }}
+        >
+          <div className="px-3 py-1.5 text-[12px] font-medium uppercase tracking-wider" style={{ color: 'var(--tertiary-text)' }}>
+            {t('chat.quick_mcp')}
+          </div>
+          {hash.filteredServers.length === 0 ? (
+            <div className="px-3 py-2 text-[12px]" style={{ color: 'var(--tertiary-text)' }}>
+              {t('chat.mcp_no_servers')}
+            </div>
+          ) : (
+            hash.filteredServers.map((server, idx) => (
+              <button
+                key={server.name}
+                type="button"
+                onClick={() => hash.insertHashServer(server)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors"
+                style={{
+                  background: idx === hash.hashSelectedIdx ? 'var(--bg-hover)' : 'transparent',
+                  color: 'var(--primary-text)',
+                  fontSize: 13,
+                }}
+                onMouseEnter={() => hash.setHashSelectedIdx(idx)}
+              >
+                <span className="font-medium">#{server.name.replace(/\s+/g, '-')}</span>
               </button>
             ))
           )}

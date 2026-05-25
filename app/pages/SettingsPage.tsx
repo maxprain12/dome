@@ -12,7 +12,6 @@ import IndexingSettings from '@/components/settings/IndexingSettings';
 import CloudStorageSettings from '@/components/settings/CloudStorageSettings';
 import DomeSyncSettings from '@/components/settings/DomeSyncSettings';
 import LanguageSettings from '@/components/settings/LanguageSettings';
-import TranscriptionSettingsPanel from '@/components/settings/TranscriptionSettingsPanel';
 import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
 import CalendarSettingsPanel from '@/components/settings/CalendarSettingsPanel';
 import DomeMcpServerSettings from '@/components/settings/DomeMcpServerSettings';
@@ -37,34 +36,34 @@ const VALID_SECTIONS = [
   'calendar',
 ] as const;
 
+function normalizeSection(section: string | null): SettingsSection {
+  if (!section) return 'general';
+  if (section === 'transcription') return 'ai';
+  if (VALID_SECTIONS.includes(section as SettingsSection)) {
+    return section as SettingsSection;
+  }
+  return 'general';
+}
+
 export default function SettingsPage() {
   const [searchParams] = useSearchParams();
-  const sectionParam = searchParams.get('section') as SettingsSection | null;
+  const sectionParam = searchParams.get('section');
   const [activeSection, setActiveSection] = useState<SettingsSection>(
-    sectionParam && VALID_SECTIONS.includes(sectionParam as SettingsSection)
-      ? sectionParam as SettingsSection
-      : 'general'
+    normalizeSection(sectionParam),
   );
   const { loadUserProfile } = useUserStore();
 
   useEffect(() => {
-    if (sectionParam && VALID_SECTIONS.includes(sectionParam as SettingsSection)) {
-      setActiveSection(sectionParam as SettingsSection);
-    }
+    setActiveSection(normalizeSection(sectionParam));
   }, [sectionParam]);
 
-  // Listen for navigate-to-section from IPC or sidebar custom event
   useEffect(() => {
     const unsub = window.electron?.on?.('settings:navigate-to-section', (section: string) => {
-      if (VALID_SECTIONS.includes(section as SettingsSection)) {
-        setActiveSection(section as SettingsSection);
-      }
+      setActiveSection(normalizeSection(section));
     });
     const handleCustomNav = (e: Event) => {
       const section = (e as CustomEvent<string>).detail;
-      if (VALID_SECTIONS.includes(section as SettingsSection)) {
-        setActiveSection(section as SettingsSection);
-      }
+      setActiveSection(normalizeSection(section));
     };
     window.addEventListener('dome:goto-settings-section', handleCustomNav);
     return () => {
@@ -75,7 +74,6 @@ export default function SettingsPage() {
   const { loadPreferences } = useAppStore();
 
   useEffect(() => {
-    // Load user data when settings page opens
     loadUserProfile();
     loadPreferences();
   }, [loadUserProfile, loadPreferences]);
@@ -87,9 +85,8 @@ export default function SettingsPage() {
       case 'appearance':
         return <AppearanceSettings />;
       case 'ai':
-        return <AISettingsPanel />;
       case 'transcription':
-        return <TranscriptionSettingsPanel />;
+        return <AISettingsPanel />;
       case 'mcp':
         return <MCPSettingsPanel />;
       case 'dome_mcp':

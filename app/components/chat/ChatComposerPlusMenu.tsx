@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Paperclip, AtSign, ChevronRight, ChevronLeft, X, Sparkles, type LucideIcon } from 'lucide-react';
+import { Paperclip, AtSign, ChevronRight, ChevronLeft, X, Sparkles, Slash, Hash, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Database, Search, Plug2 } from 'lucide-react';
+import { BookOpen, Brain, Globe, Plug2 } from 'lucide-react';
 import { ChatInputToggle } from '@/components/chat/ChatInputToggle';
 import { listSkills } from '@/lib/skills/client';
 
@@ -69,41 +69,64 @@ export interface ManyCapabilitiesBlockProps {
   setResourceToolsEnabled: (v: boolean) => void;
   toolsEnabled: boolean;
   setToolsEnabled: (v: boolean) => void;
-  mcpEnabled: boolean;
-  setMcpEnabled: (v: boolean) => void;
-  hasMcp: boolean;
+  memoryEnabled?: boolean;
+  setMemoryEnabled?: (v: boolean) => void;
+}
+
+function CapabilityToggleRow({
+  icon: Icon,
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  icon: LucideIcon;
+  label: string;
+  description: string;
+  checked: boolean;
+  onChange: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2 rounded-lg px-2 py-2 transition-colors hover:bg-[var(--bg-hover)]">
+      <div className="flex min-w-0 items-center gap-2">
+        <Icon className="size-3.5 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+        <div className="min-w-0">
+          <p className="truncate text-[12px] font-medium text-[var(--primary-text)]">{label}</p>
+          <p className="truncate text-[10px] text-[var(--secondary-text)]">{description}</p>
+        </div>
+      </div>
+      <ChatInputToggle checked={checked} onChange={onChange} />
+    </div>
+  );
 }
 
 export function ManyCapabilitiesToggles(p: ManyCapabilitiesBlockProps) {
   const { t } = useTranslation();
   return (
     <div className="space-y-1 px-1">
-      <div className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[var(--bg-hover)]">
-        <div className="flex min-w-0 items-center gap-2.5 text-[13px] font-medium text-[var(--primary-text)]">
-          <Database className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
-          <span className="truncate">{t('chat.capability_resources')}</span>
-        </div>
-        <ChatInputToggle
-          checked={p.resourceToolsEnabled}
-          onChange={() => p.setResourceToolsEnabled(!p.resourceToolsEnabled)}
+      <CapabilityToggleRow
+        icon={Globe}
+        label={t('chat.capability_web')}
+        description={t('chat.capability_web_desc')}
+        checked={p.toolsEnabled}
+        onChange={() => p.setToolsEnabled(!p.toolsEnabled)}
+      />
+      {p.setMemoryEnabled ? (
+        <CapabilityToggleRow
+          icon={Brain}
+          label={t('many.capability_memory')}
+          description={t('chat.capability_memory_desc')}
+          checked={p.memoryEnabled ?? true}
+          onChange={() => p.setMemoryEnabled!(!(p.memoryEnabled ?? true))}
         />
-      </div>
-      <div className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[var(--bg-hover)]">
-        <div className="flex min-w-0 items-center gap-2.5 text-[13px] font-medium text-[var(--primary-text)]">
-          <Search className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
-          <span className="truncate">{t('chat.capability_web')}</span>
-        </div>
-        <ChatInputToggle checked={p.toolsEnabled} onChange={() => p.setToolsEnabled(!p.toolsEnabled)} />
-      </div>
-      {p.hasMcp ? (
-        <div className="flex items-center justify-between gap-3 rounded-xl p-3 transition-colors hover:bg-[var(--bg-hover)]">
-          <div className="flex min-w-0 items-center gap-2.5 text-[13px] font-medium text-[var(--primary-text)]">
-            <Plug2 className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
-            <span className="truncate">{t('chat.capability_mcp')}</span>
-          </div>
-          <ChatInputToggle checked={p.mcpEnabled} onChange={() => p.setMcpEnabled(!p.mcpEnabled)} />
-        </div>
       ) : null}
+      <CapabilityToggleRow
+        icon={BookOpen}
+        label={t('chat.capability_resources')}
+        description={t('chat.capability_resources_desc')}
+        checked={p.resourceToolsEnabled}
+        onChange={() => p.setResourceToolsEnabled(!p.resourceToolsEnabled)}
+      />
     </div>
   );
 }
@@ -116,13 +139,105 @@ export type ChatComposerSkillsHandlers = {
   onCloseMenu?: () => void;
 };
 
-type PlusMenuView = 'root' | 'skills' | 'capabilities' | 'tools';
+type PlusMenuView = 'root' | 'skills' | 'tools';
+
+function PlusMenuQuickActions({
+  t,
+  showAttach,
+  onAttach,
+  showAddContext,
+  onAddContext,
+  showSlashSkills,
+  onSlashSkills,
+  showHashMcp,
+  onHashMcp,
+  showSkillsNav,
+  skillsHandlers,
+  setView,
+  showToolsNav,
+  disableQuick,
+}: {
+  t: (key: string) => string;
+  showAttach: boolean;
+  onAttach: () => void;
+  showAddContext: boolean;
+  onAddContext: () => void;
+  showSlashSkills: boolean;
+  onSlashSkills?: () => void;
+  showHashMcp: boolean;
+  onHashMcp?: () => void;
+  showSkillsNav: boolean;
+  skillsHandlers: ChatComposerSkillsHandlers | null;
+  setView: (view: PlusMenuView) => void;
+  showToolsNav: boolean;
+  disableQuick?: boolean;
+}) {
+  return (
+    <>
+      <p
+        className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider"
+        style={{ color: 'var(--tertiary-text)' }}
+      >
+        {t('chat.menu_quick_actions')}
+      </p>
+      <div className="space-y-1">
+        {showAttach ? (
+          <MenuPillButton icon={Paperclip} label={t('chat.quick_attach')} onClick={onAttach} disabled={disableQuick} />
+        ) : null}
+        {showAddContext ? (
+          <MenuPillButton icon={AtSign} label={t('chat.quick_context')} onClick={onAddContext} disabled={disableQuick} />
+        ) : null}
+        {showSlashSkills && onSlashSkills ? (
+          <MenuPillButton icon={Slash} label={t('chat.quick_skill')} onClick={onSlashSkills} disabled={disableQuick} />
+        ) : null}
+        {showHashMcp && onHashMcp ? (
+          <MenuPillButton icon={Hash} label={t('chat.quick_mcp')} onClick={onHashMcp} disabled={disableQuick} />
+        ) : null}
+        {showSkillsNav && skillsHandlers ? (
+          <MenuNavRow
+            icon={Sparkles}
+            label={t('chat.plus_skills')}
+            onNavigate={() => setView('skills')}
+            disabled={disableQuick}
+          />
+        ) : null}
+        {showToolsNav ? (
+          <MenuNavRow
+            icon={Plug2}
+            label={t('chat.plus_tools')}
+            onNavigate={() => setView('tools')}
+            disabled={disableQuick}
+          />
+        ) : null}
+      </div>
+    </>
+  );
+}
+
+function PlusMenuCapabilitiesSection({ manyCapabilities, t }: { manyCapabilities: ManyCapabilitiesBlockProps; t: (key: string) => string }) {
+  return (
+    <>
+      <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" />
+      <p
+        className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
+        style={{ color: 'var(--tertiary-text)' }}
+      >
+        {t('chat.capabilities_base')}
+      </p>
+      <ManyCapabilitiesToggles {...manyCapabilities} />
+    </>
+  );
+}
 
 type ChatComposerPlusMenuContentProps = {
   showAttach: boolean;
   onAttach: () => void;
   showAddContext: boolean;
   onAddContext: () => void;
+  showSlashSkills?: boolean;
+  onSlashSkills?: () => void;
+  showHashMcp?: boolean;
+  onHashMcp?: () => void;
   manyCapabilities?: ManyCapabilitiesBlockProps | null;
   toolsSlot?: React.ReactNode;
   disableQuick?: boolean;
@@ -222,6 +337,10 @@ export function ChatComposerPlusMenuContent({
   onAttach,
   showAddContext,
   onAddContext,
+  showSlashSkills = false,
+  onSlashSkills,
+  showHashMcp = false,
+  onHashMcp,
   manyCapabilities,
   toolsSlot,
   disableQuick,
@@ -240,72 +359,49 @@ export function ChatComposerPlusMenuContent({
   }, [isMenuOpen]);
 
   const showSkillsNav = Boolean(skillsHandlers);
-  const showCapabilitiesNav = Boolean(manyCapabilities);
   const showToolsNav = Boolean(toolsSlot);
+
+  const menuShellClass =
+    'flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl';
+  const menuShellStyle = {
+    background: 'var(--bg-secondary)',
+    borderColor: 'var(--border)',
+    boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
+  } as const;
 
   if (menuLayout === 'flat') {
     return (
-      <div
-        className="flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
-        style={{
-          background: 'var(--bg-secondary)',
-          borderColor: 'var(--border)',
-          boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
-        }}
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
-          <p
-            className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider"
-            style={{ color: 'var(--tertiary-text)' }}
-          >
-            {t('chat.menu_quick_actions')}
-          </p>
-          <div className="space-y-1">
-            {showAttach ? (
-              <MenuPillButton
-                icon={Paperclip}
-                label={t('chat.attach_files')}
-                onClick={onAttach}
-                disabled={disableQuick}
-              />
-            ) : null}
-            {showAddContext ? (
-              <MenuPillButton
-                icon={AtSign}
-                label={t('many.add_to_context')}
-                onClick={onAddContext}
-                disabled={disableQuick}
-              />
-            ) : null}
+      <div className={menuShellClass} style={menuShellStyle}>
+        {onCloseMenu ? (
+          <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-0.5">
+            <button
+              type="button"
+              className="flex size-8 items-center justify-center rounded-lg text-[var(--tertiary-text)] hover:bg-[var(--bg-hover)]"
+              onClick={onCloseMenu}
+              aria-label={t('common.close')}
+            >
+              <X className="h-[16px] w-[16px]" />
+            </button>
           </div>
-
-          {manyCapabilities ? (
-            <>
-              <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" />
-              <p
-                className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
-                style={{ color: 'var(--tertiary-text)' }}
-              >
-                {t('chat.capabilities_base')}
-              </p>
-              <ManyCapabilitiesToggles {...manyCapabilities} />
-            </>
-          ) : null}
-
-          {toolsSlot ? (
-            <>
-              <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" />
-              {!hideToolsSectionHeader ? (
-                <p
-                  className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
-                  style={{ color: 'var(--tertiary-text)' }}
-                >
-                  {t(toolsSectionLabelKey)}
-                </p>
-              ) : null}
-              <div className="px-0 pb-0.5">{toolsSlot}</div>
-            </>
-          ) : null}
+        ) : null}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 py-2">
+          <PlusMenuQuickActions
+            t={t}
+            showAttach={showAttach}
+            onAttach={onAttach}
+            showAddContext={showAddContext}
+            onAddContext={onAddContext}
+            showSlashSkills={showSlashSkills}
+            onSlashSkills={onSlashSkills}
+            showHashMcp={showHashMcp}
+            onHashMcp={onHashMcp}
+            showSkillsNav={false}
+            skillsHandlers={null}
+            setView={setView}
+            showToolsNav={false}
+            disableQuick={disableQuick}
+          />
+          {manyCapabilities ? <PlusMenuCapabilitiesSection manyCapabilities={manyCapabilities} t={t} /> : null}
         </div>
       </div>
     );
@@ -314,11 +410,9 @@ export function ChatComposerPlusMenuContent({
   const subTitle =
     view === 'skills'
       ? t('chat.plus_skills')
-      : view === 'capabilities'
-        ? t('chat.capabilities_base')
-        : view === 'tools'
-          ? t(toolsSectionLabelKey)
-          : '';
+      : view === 'tools'
+        ? t(toolsSectionLabelKey)
+        : '';
 
   return (
     <div
@@ -370,54 +464,23 @@ export function ChatComposerPlusMenuContent({
       >
         {view === 'root' ? (
           <>
-            <p
-              className="px-1 pb-1 pt-0.5 text-[9px] font-semibold uppercase tracking-wider"
-              style={{ color: 'var(--tertiary-text)' }}
-            >
-              {t('chat.menu_quick_actions')}
-            </p>
-            <div className="space-y-1">
-              {showAttach ? (
-                <MenuPillButton
-                  icon={Paperclip}
-                  label={t('chat.attach_files')}
-                  onClick={onAttach}
-                  disabled={disableQuick}
-                />
-              ) : null}
-              {showAddContext ? (
-                <MenuPillButton
-                  icon={AtSign}
-                  label={t('many.add_to_context')}
-                  onClick={onAddContext}
-                  disabled={disableQuick}
-                />
-              ) : null}
-              {showSkillsNav && skillsHandlers ? (
-                <MenuNavRow
-                  icon={Sparkles}
-                  label={t('chat.plus_skills')}
-                  onNavigate={() => setView('skills')}
-                  disabled={disableQuick}
-                />
-              ) : null}
-              {showCapabilitiesNav && manyCapabilities ? (
-                <MenuNavRow
-                  icon={Database}
-                  label={t('chat.plus_capabilities')}
-                  onNavigate={() => setView('capabilities')}
-                  disabled={disableQuick}
-                />
-              ) : null}
-              {showToolsNav ? (
-                <MenuNavRow
-                  icon={Plug2}
-                  label={t('chat.plus_tools')}
-                  onNavigate={() => setView('tools')}
-                  disabled={disableQuick}
-                />
-              ) : null}
-            </div>
+            <PlusMenuQuickActions
+              t={t}
+              showAttach={showAttach}
+              onAttach={onAttach}
+              showAddContext={showAddContext}
+              onAddContext={onAddContext}
+              showSlashSkills={showSlashSkills}
+              onSlashSkills={onSlashSkills}
+              showHashMcp={showHashMcp}
+              onHashMcp={onHashMcp}
+              showSkillsNav={showSkillsNav}
+              skillsHandlers={skillsHandlers}
+              setView={setView}
+              showToolsNav={showToolsNav}
+              disableQuick={disableQuick}
+            />
+            {manyCapabilities ? <PlusMenuCapabilitiesSection manyCapabilities={manyCapabilities} t={t} /> : null}
           </>
         ) : null}
 
@@ -429,8 +492,6 @@ export function ChatComposerPlusMenuContent({
             }}
           />
         ) : null}
-
-        {view === 'capabilities' && manyCapabilities ? <ManyCapabilitiesToggles {...manyCapabilities} /> : null}
 
         {view === 'tools' && toolsSlot ? (
           <div className="px-0 pb-0.5">{toolsSlot}</div>

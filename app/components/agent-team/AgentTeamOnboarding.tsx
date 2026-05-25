@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronRight, ChevronLeft, X, Users, Cpu, Check } from 'lucide-react';
 import type { ManyAgent, AgentTeam } from '@/types';
@@ -19,29 +19,13 @@ type Step = 'basics' | 'members' | 'capabilities' | 'supervisor' | 'icon';
 
 const STEP_ORDER: Step[] = ['basics', 'members', 'capabilities', 'supervisor', 'icon'];
 
-const STEP_LABELS: Record<Step, string> = {
-  basics: 'Nombre',
-  members: 'Agentes',
-  capabilities: 'Capacidades',
-  supervisor: 'Supervisor',
-  icon: 'Icono',
-};
+const ICON_COUNT = 18;
+const MAX_MEMBERS = 5;
 
 interface AgentTeamOnboardingProps {
   onComplete: (team: AgentTeam) => void;
   onCancel: () => void;
 }
-
-const ICON_COUNT = 18;
-const MAX_MEMBERS = 5;
-
-const DEFAULT_SUPERVISOR_INSTRUCTIONS = `Eres el supervisor de este equipo de agentes. Cuando el usuario te dé una tarea:
-1. Analiza la solicitud y decide qué agentes del equipo son más adecuados.
-2. Desglosa la tarea en subtareas específicas para cada agente.
-3. Delega cada subtarea al agente correspondiente usando la herramienta delegate_to_agent.
-4. Una vez que todos los agentes hayan respondido, sintetiza los resultados en una respuesta coherente y bien estructurada.
-5. Asegúrate de que las respuestas de los agentes se complementen y no se repitan innecesariamente.
-Responde siempre en el idioma del usuario.`;
 
 export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamOnboardingProps) {
   const { t } = useTranslation();
@@ -50,11 +34,26 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
   const [description, setDescription] = useState('');
   const [selectedAgentIds, setSelectedAgentIds] = useState<string[]>([]);
   const [mcpServerIds, setMcpServerIds] = useState<string[]>([]);
-  const [supervisorInstructions, setSupervisorInstructions] = useState(DEFAULT_SUPERVISOR_INSTRUCTIONS);
+  const [supervisorInstructions, setSupervisorInstructions] = useState('');
   const [iconIndex, setIconIndex] = useState(1);
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const stepLabels = useMemo(
+    (): Record<Step, string> => ({
+      basics: t('agentTeam.step_basics'),
+      members: t('agentTeam.step_members'),
+      capabilities: t('agentTeam.step_capabilities'),
+      supervisor: t('agentTeam.step_supervisor'),
+      icon: t('agentTeam.step_icon'),
+    }),
+    [t],
+  );
+
+  useEffect(() => {
+    setSupervisorInstructions(t('agentTeam.default_supervisor_instructions'));
+  }, [t]);
 
   useEffect(() => {
     getManyAgents().then(setAgents);
@@ -98,7 +97,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
       if (result.success && result.data) {
         onComplete(result.data);
       } else {
-        setError(result.error ?? 'Error al crear el equipo');
+        setError(result.error ?? t('agentTeam.create_error'));
       }
     } finally {
       setIsCreating(false);
@@ -110,44 +109,41 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
       prev.includes(id)
         ? prev.filter((a) => a !== id)
         : prev.length < MAX_MEMBERS
-        ? [...prev, id]
-        : prev
+          ? [...prev, id]
+          : prev,
     );
   };
 
   return (
     <div className="flex flex-col h-full">
-      <header
-        className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--dome-border,var(--border))] bg-[var(--bg)]"
-      >
+      <header className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--dome-border)] bg-[var(--dome-bg)]">
         <div className="flex items-center gap-2 min-w-0">
-          <Cpu className="size-4 text-[var(--accent)] shrink-0" aria-hidden />
-          <h1 className="text-base font-semibold text-[var(--primary-text)] truncate">{t('agentTeam.new_team_title')}</h1>
+          <Cpu className="size-4 text-[var(--dome-accent)] shrink-0" aria-hidden />
+          <h1 className="text-base font-semibold text-[var(--dome-text)] truncate">{t('agentTeam.new_team_title')}</h1>
         </div>
         <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('common.close')}>
           <X className="size-4" />
         </DomeButton>
       </header>
 
-      {/* Step progress */}
       <div className="flex items-center gap-1 px-6 py-3 shrink-0">
         {STEP_ORDER.map((s, i) => (
           <div key={s} className="flex items-center gap-1">
             <div
               className="flex items-center justify-center size-6 rounded-full text-xs font-medium transition-all"
-                style={{
+              style={{
                 background:
                   s === step
-                    ? 'var(--accent)'
+                    ? 'var(--dome-accent)'
                     : i < currentStepIndex
-                      ? 'color-mix(in srgb, var(--accent) 18%, var(--bg-secondary))'
-                      : 'var(--border)',
+                      ? 'color-mix(in srgb, var(--dome-accent) 18%, var(--dome-surface))'
+                      : 'var(--dome-border)',
                 color:
                   s === step
                     ? 'var(--base-text)'
                     : i < currentStepIndex
-                      ? 'var(--accent)'
-                      : 'var(--dome-text-muted,var(--tertiary-text))',
+                      ? 'var(--dome-accent)'
+                      : 'var(--dome-text-muted)',
               }}
             >
               {i < currentStepIndex ? <Check size={12} /> : i + 1}
@@ -156,13 +152,13 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
               className="text-xs hidden sm:inline"
               style={{ color: s === step ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
             >
-              {STEP_LABELS[s]}
+              {stepLabels[s]}
             </span>
             {i < STEP_ORDER.length - 1 && (
               <div
                 className="w-4 h-0.5 mx-1"
                 style={{
-                  background: i < currentStepIndex ? 'var(--accent)' : 'var(--border)',
+                  background: i < currentStepIndex ? 'var(--dome-accent)' : 'var(--dome-border)',
                 }}
               />
             )}
@@ -170,26 +166,21 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         ))}
       </div>
 
-      {/* Step content */}
       <div className="flex-1 overflow-y-auto px-6 py-4">
         {step === 'basics' && (
           <div className="flex flex-col gap-4">
             <DomeInput
-              label="Nombre del equipo *"
+              label={t('agentTeam.team_name_label')}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Equipo de Investigación"
-              className="[&_label]:text-[var(--dome-text-muted)]"
-              inputClassName="bg-[var(--dome-bg)] text-[var(--dome-text)] border-[var(--dome-border)] rounded-xl"
+              placeholder={t('agentTeam.team_name_placeholder')}
             />
             <DomeTextarea
-              label="Descripción (opcional)"
+              label={t('agentTeam.team_description_label')}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="¿Qué hace este equipo?"
+              placeholder={t('agentTeam.team_description_placeholder')}
               rows={3}
-              className="[&_label]:text-[var(--dome-text-muted)]"
-              textareaClassName="bg-[var(--dome-bg)] text-[var(--dome-text)] border-[var(--dome-border)] rounded-xl resize-none"
             />
           </div>
         )}
@@ -197,14 +188,11 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         {step === 'members' && (
           <div className="flex flex-col gap-3">
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              Selecciona entre 2 y {MAX_MEMBERS} agentes para el equipo. ({selectedAgentIds.length}/{MAX_MEMBERS})
+              {t('agentTeam.members_hint', { max: MAX_MEMBERS, count: selectedAgentIds.length })}
             </p>
             {agents.length === 0 ? (
-              <div
-                className="text-center py-10 text-sm"
-                style={{ color: 'var(--dome-text-muted)' }}
-              >
-                No tienes agentes creados. Crea agentes en la sección de Agentes primero.
+              <div className="text-center py-10 text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('agentTeam.no_agents')}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
@@ -216,13 +204,13 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                       key={agent.id}
                       padding="sm"
                       className={cn(
-                        'flex items-center gap-3 transition-all cursor-pointer border-[var(--dome-border,var(--border))]',
-                        selected && 'ring-2 ring-[var(--accent)]',
+                        'flex items-center gap-3 transition-all cursor-pointer border-[var(--dome-border)]',
+                        selected && 'ring-2 ring-[var(--dome-accent)]',
                         disabled && 'opacity-40 cursor-not-allowed pointer-events-none',
                       )}
                       style={
                         selected
-                          ? { backgroundColor: 'color-mix(in srgb, var(--accent) 12%, var(--bg-secondary))' }
+                          ? { backgroundColor: 'color-mix(in srgb, var(--dome-accent) 12%, var(--dome-surface))' }
                           : undefined
                       }
                       onClick={() => !disabled && toggleAgent(agent.id)}
@@ -247,13 +235,13 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                           {agent.name}
                         </div>
                         <div className="text-xs truncate" style={{ color: 'var(--dome-text-muted)' }}>
-                          {agent.description || 'Sin descripción'}
+                          {agent.description || t('agentTeam.no_description')}
                         </div>
                       </div>
                       <div
                         className="size-5 rounded-full shrink-0 flex items-center justify-center"
                         style={{
-                          background: selected ? 'var(--accent)' : 'var(--border)',
+                          background: selected ? 'var(--dome-accent)' : 'var(--dome-border)',
                           color: 'var(--base-text)',
                         }}
                       >
@@ -269,17 +257,15 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
 
         {step === 'supervisor' && (
           <div className="flex flex-col gap-4">
-            <DomeCallout tone="info" className="!text-xs" title="Rol del supervisor">
-              El supervisor recibe la tarea del usuario y coordina los agentes del equipo. Define cómo quieres que organice
-              y distribuya el trabajo.
+            <DomeCallout tone="info" className="!text-xs" title={t('agentTeam.supervisor_role_title')}>
+              {t('agentTeam.supervisor_role_desc')}
             </DomeCallout>
             <DomeTextarea
-              label="Instrucciones del supervisor *"
+              label={t('agentTeam.supervisor_instructions_label')}
               value={supervisorInstructions}
               onChange={(e) => setSupervisorInstructions(e.target.value)}
               rows={10}
-              className="[&_label]:text-[var(--dome-text-muted)]"
-              textareaClassName="bg-[var(--dome-bg)] text-[var(--dome-text)] border-[var(--dome-border)] rounded-xl resize-none font-mono text-xs leading-relaxed"
+              textareaClassName="font-mono text-xs leading-relaxed"
             />
           </div>
         )}
@@ -302,7 +288,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         {step === 'icon' && (
           <div className="flex flex-col gap-4">
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              Elige un icono para representar este equipo
+              {t('agentTeam.icon_hint')}
             </p>
             <div className="grid grid-cols-6 gap-2">
               {Array.from({ length: ICON_COUNT }, (_, i) => i + 1).map((idx) => (
@@ -312,27 +298,23 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                   variant="ghost"
                   className={cn(
                     'aspect-square !p-1 rounded-xl overflow-hidden h-auto min-h-0 min-w-0',
-                    iconIndex === idx && 'ring-2 ring-[var(--accent)]',
+                    iconIndex === idx && 'ring-2 ring-[var(--dome-accent)]',
                   )}
                   style={
                     iconIndex === idx
-                      ? { backgroundColor: 'color-mix(in srgb, var(--accent) 12%, var(--bg-secondary))' }
+                      ? { backgroundColor: 'color-mix(in srgb, var(--dome-accent) 12%, var(--dome-surface))' }
                       : undefined
                   }
                   onClick={() => setIconIndex(idx)}
                 >
-                  <img
-                    src={`/agents/sprite_${idx}.png`}
-                    alt={`Icono ${idx}`}
-                    className="size-full object-contain"
-                  />
+                  <img src={`/agents/sprite_${idx}.png`} alt={`Icon ${idx}`} className="size-full object-contain" />
                 </DomeButton>
               ))}
             </div>
           </div>
         )}
 
-        {error && <p className="mt-3 text-xs text-[var(--error)]">{error}</p>}
+        {error && <p className="mt-3 text-xs text-[var(--dome-error)]">{error}</p>}
       </div>
 
       <DomeSubpageFooter
@@ -345,7 +327,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
             onClick={currentStepIndex === 0 ? onCancel : handleBack}
             leftIcon={currentStepIndex === 0 ? undefined : <ChevronLeft className="size-4" />}
           >
-            {currentStepIndex === 0 ? 'Cancelar' : 'Atrás'}
+            {currentStepIndex === 0 ? t('common.cancel') : t('common.back')}
           </DomeButton>
         }
         trailing={
@@ -359,7 +341,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
               loading={isCreating}
               leftIcon={!isCreating ? <Users className="size-4" /> : undefined}
             >
-              {isCreating ? 'Creando...' : 'Crear equipo'}
+              {isCreating ? t('agentTeam.creating') : t('agentTeam.create_team')}
             </DomeButton>
           ) : (
             <DomeButton
@@ -370,7 +352,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
               disabled={!canProceed()}
               rightIcon={<ChevronRight className="size-4" />}
             >
-              Siguiente
+              {t('onboarding.continue')}
             </DomeButton>
           )
         }

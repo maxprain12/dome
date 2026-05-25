@@ -3,6 +3,7 @@ import { useImperativeHandle, forwardRef } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import ManyAvatar from '@/components/many/ManyAvatar';
+import DomeButton from '@/components/ui/DomeButton';
 
 interface OnboardingStepProps {
   message: string;
@@ -43,7 +44,6 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
 
     return (
       <div className="p-8 flex flex-col flex-1 min-h-0">
-        {/* Many's message */}
         <div className="flex gap-4 mb-6 flex-shrink-0">
           <ManyAvatar size="lg" />
           <div
@@ -59,34 +59,30 @@ const OnboardingStep = forwardRef<OnboardingStepRef, OnboardingStepProps>(
           </div>
         </div>
 
-        {/* Step content - scrollable */}
         <div className="flex-1 min-h-0 overflow-y-auto ml-16 pr-2">{children}</div>
 
-        {/* Navigation buttons */}
-        <div className="flex items-center justify-between mt-8 pt-6 border-t flex-shrink-0" style={{ borderColor: 'var(--dome-border)' }}>
-          <button
+        <div
+          className="flex items-center justify-between mt-8 pt-6 border-t flex-shrink-0"
+          style={{ borderColor: 'var(--dome-border)' }}
+        >
+          <DomeButton
+            type="button"
+            variant="outline"
+            size="sm"
             onClick={onBack}
             disabled={!onBack}
-            className="px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: onBack ? 'var(--dome-surface)' : 'transparent',
-              color: 'var(--dome-text)',
-              border: onBack ? '1px solid var(--dome-border)' : 'none',
-            }}
           >
             {backLabel ?? t('onboarding.back_label')}
-          </button>
-          <button
+          </DomeButton>
+          <DomeButton
+            type="button"
+            variant="primary"
+            size="sm"
             onClick={onNext}
             disabled={!canProceed || !onNext}
-            className="px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: canProceed && onNext ? 'var(--dome-accent)' : 'var(--dome-surface)',
-              color: canProceed && onNext ? 'var(--base-text)' : 'var(--dome-text-muted)',
-            }}
           >
             {nextLabel ?? t('onboarding.continue')}
-          </button>
+          </DomeButton>
         </div>
       </div>
     );

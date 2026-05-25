@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 export function ChatSkillChip({
@@ -11,42 +11,29 @@ export function ChatSkillChip({
   sticky?: boolean;
 }) {
   const { t } = useTranslation();
+
   return (
-    <div
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 5,
-        padding: '3px 8px 3px 6px',
-        borderRadius: 6,
-        border: `1px solid color-mix(in srgb, var(--accent) ${sticky ? 40 : 25}%, var(--border))`,
-        background: sticky ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'color-mix(in srgb, var(--accent) 6%, transparent)',
-        fontSize: 12,
-        color: 'var(--secondary-text)',
-        maxWidth: 200,
-      }}
+    <span
+      className={`composer-inline-token composer-inline-token--skill${
+        sticky ? ' composer-inline-token--sticky' : ''
+      }`}
     >
-      <span style={{ flexShrink: 0, color: 'var(--accent)' }}>{sticky ? '∞' : '1×'}</span>
-      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+      <span className="composer-inline-token__icon" aria-hidden>
+        <Sparkles size={12} strokeWidth={2} />
+      </span>
+      <span className="composer-inline-token__badge">{sticky ? '∞' : '1×'}</span>
+      <span className="composer-inline-token__label" title={label}>
         {label}
       </span>
       <button
         type="button"
         onClick={onRemove}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flexShrink: 0,
-          color: 'var(--tertiary-text)',
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          padding: 0,
-        }}
+        className="composer-inline-token__remove"
         title={t('chat.remove_skill_context')}
+        aria-label={t('chat.remove_skill_context')}
       >
-        <X style={{ width: 11, height: 11 }} />
+        <X size={11} strokeWidth={2} aria-hidden />
       </button>
-    </div>
+    </span>
   );
 }

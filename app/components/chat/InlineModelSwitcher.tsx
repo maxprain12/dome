@@ -2,15 +2,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import {
-  getAIConfig,
-  saveChatModelForProvider,
-  getCustomModelsByProvider,
-  appendCustomModelId,
-} from '@/lib/ai';
+import { fetchProviderModels, getAIConfig, getCustomModelsByProvider, saveChatModelForProvider, appendCustomModelId } from '@/lib/ai';
 import type { AIProviderType } from '@/lib/ai/models';
 import { PROVIDERS } from '@/lib/ai/models';
-import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
+import { DOME_PROVIDER_ENABLED, isProviderWithBrandLogo } from '@/lib/ai/provider-options';
+import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 
 type ModelOption = { id: string; label: string };
 
@@ -34,7 +30,7 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   const [currentModelId, setCurrentModelId] = useState<string>('');
   const [customMap, setCustomMap] = useState<Partial<Record<AIProviderType, string[]>>>({});
   const [ollamaIds, setOllamaIds] = useState<string[]>([]);
-  const [openRouterOpts, setOpenRouterOpts] = useState<ModelOption[]>([]);
+  const [dynamicOpts, setDynamicOpts] = useState<ModelOption[]>([]);
   const [addingCustom, setAddingCustom] = useState(false);
   const [customDraft, setCustomDraft] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,19 +67,20 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       setOllamaIds([]);
     }
 
-    if (p === 'openrouter' && cfg.apiKey?.trim() && window.electron?.ai?.listOpenRouterModels) {
+    const dynamicProviders: AIProviderType[] = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'];
+    if (dynamicProviders.includes(p) && cfg.apiKey?.trim()) {
       try {
-        const res = await window.electron.ai.listOpenRouterModels(cfg.apiKey);
+        const res = await fetchProviderModels(p, cfg.apiKey);
         if (res?.success && Array.isArray(res.models)) {
-          setOpenRouterOpts(res.models.map((m) => ({ id: m.id, label: m.name })));
+          setDynamicOpts(res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name })));
         } else {
-          setOpenRouterOpts([]);
+          setDynamicOpts([]);
         }
       } catch {
-        setOpenRouterOpts([]);
+        setDynamicOpts([]);
       }
     } else {
-      setOpenRouterOpts([]);
+      setDynamicOpts([]);
     }
   }, []);
 
@@ -151,12 +148,12 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
     if (provider === 'ollama') {
       for (const o of ollamaIds) push(o, o);
     }
-    if (provider === 'openrouter') {
-      for (const o of openRouterOpts) push(o.id, o.label);
+    if (provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter') {
+      for (const o of dynamicOpts) push(o.id, o.label);
     }
     if (currentModelId) push(currentModelId, currentModelId);
     return out;
-  }, [provider, catalog, customMap, ollamaIds, openRouterOpts, currentModelId]);
+  }, [provider, catalog, customMap, ollamaIds, dynamicOpts, currentModelId]);
 
   const allowCustom = provider != null && provider !== 'dome';
   const visible = useMemo(() => {
@@ -204,11 +201,14 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex max-w-[min(140px,100%)] items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] px-2.5 py-1 text-left text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+        className="flex max-w-[min(180px,100%)] items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--bg-tertiary)] px-2.5 py-1 text-left text-[11px] font-medium text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
         title={t('chat.model_switcher_title')}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
+        {provider && isProviderWithBrandLogo(provider) ? (
+          <ProviderBrandIcon provider={provider} size={14} className="!p-0 shrink-0" />
+        ) : null}
         <span className="min-w-0 flex-1 truncate">{selectedLabel}</span>
         <ChevronDown className="size-3.5 shrink-0 opacity-70" aria-hidden />
       </button>

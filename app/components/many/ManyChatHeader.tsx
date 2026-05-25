@@ -1,11 +1,13 @@
 import { memo } from 'react';
-import { X, Plus, Sparkles, Clock } from 'lucide-react';
+import { X, Plus, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import ManyAvatar from './ManyAvatar';
 
 interface ManyChatHeaderProps {
   status: string;
   providerInfo: string;
+  providerId?: string;
   contextDescription: string;
   messagesCount: number;
   loadingHint?: string;
@@ -24,6 +26,7 @@ interface ManyChatHeaderProps {
 export default memo(function ManyChatHeader({
   status,
   providerInfo,
+  providerId,
   contextDescription,
   messagesCount: _messagesCount,
   onClear: _onClear,
@@ -91,12 +94,11 @@ export default memo(function ManyChatHeader({
         </div>
 
         <div className="flex items-center flex-wrap" style={{ gap: 5 }}>
-          {providerInfo && (
+          {providerInfo ? (
             <span className="many-hd-chip">
-              <Sparkles size={9} />
-              {providerInfo}
+              <ProviderModelChip provider={providerId ?? ''} label={providerInfo} />
             </span>
-          )}
+          ) : null}
           {contextDescription && (
             <span className="many-hd-chip many-hd-chip--accent">
               {contextDescription}
