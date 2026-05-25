@@ -4,6 +4,37 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.1.9](https://github.com/maxprain12/dome/releases/tag/v2.1.9) - 2026-05-25
+
+### Added
+
+- **OpenRouter** como proveedor IA de extremo a extremo (`@langchain/openrouter` / `ChatOpenRouter` en main): catálogo curado + listado dinámico vía `ai:openrouter:listModels`, caché en memoria, whitelist en chat/stream/LangGraph, visión en `cloud-llm`, onboarding, ajustes y selector inline de modelo. Icono de marca en `public/brandlogo/openrouter.svg`. *(Solicitud #331)*
+- **Visor PPTX** en el renderer con `pptx-preview` (parcheado); normalización y validación PPTX en main process.
+- **Compositor Many/chat enriquecido**: `ManyComposerRichInput` con resaltado inline (`/skills`, `@recursos`, `#MCP`), placeholders rotativos, menú plus rediseñado y hooks `composerInlineHighlight`, `useHashMcpMention`, `useRotatingComposerPlaceholder`.
+- **Ajustes de IA modulares**: componentes por proveedor (`AIProviderSelection`, `AICloudProviderConfig`, `AIOllamaProviderConfig`, `ProviderBrandIcon`); catálogo de modelos dinámico unificado vía IPC `ai:listProviderModels` (`provider-models.cjs`, `useProviderModels`); iconos de marca para OpenAI, Anthropic, Google Gemini, MiniMax, Ollama y OpenRouter.
+- **Rediseño de notas**: bubble menu, drag handle, hero cover, tweaks drawer, code blocks y acciones de editor AI (explain/shorten/todo); corrección de hidratación Collaboration y guía vacía.
+- **Many ampliado**: historial de sesiones, HITL inline (sin modal), adjuntos PDF con `pageCount`, presupuesto de tokens en vivo, `DomeResourceIcon` unificado.
+- **Shell editorial**: `EditorialShell`, `EditorialPageHero`, tokens `--home-*` en Home (hero, metas diarias, brief, heatmap, stats), Calendario, Proyectos y tabs del sidebar (Agentes, Workflows, Automatizaciones, Ejecuciones, Aprender, Etiquetas, Tienda).
+- **Hub workspace unificado**: `HubWorkspaceContext`, `HubFilterBar`, eventos compartidos (`hubEvents`); vistas Automations y Runs con filtros, bento cards y estilos editoriales (`hub-dashboard.css`).
+- **Transcripción**: panel dividido en secciones reutilizables (`TranscriptionSettingsSections.tsx`).
+- **Docs de diseño**: `UI-REDESIGN-SPEC.md`, `HOME-DASHBOARD-DESIGN.md`, `NOTES-SYSTEM-DESIGN.md`; onboarding actualizado en `docs/features/onboarding.md`.
+
+### Changed
+
+- **Onboarding**: eliminado `WelcomeStep`; `AISetupStep` y `ProfileStep` simplificados; paso de tools retirado del onboarding de agentes (skills globales vía middleware).
+- **AI Settings**: `AISettingsPanel` refactorizado (~600 líneas menos); tokens de acento unificados en `globals.css` y `app/lib/ui/accent.ts`.
+- **Tab bar y AppShell**: barra de pestañas y shell actualizados alineados con el rediseño de notas/Many.
+- **Run engine / tool dispatcher**: mejoras en persistencia y ejecución; HITL por `senderWebContentsId`; merge local + SQLite del historial Many (`mergeManySessionMessages`).
+- **LangGraph**: retirado `langgraph-vfs-thread`; parámetros de modelo centralizados en `model-params.cjs`.
+- **i18n**: cadenas nuevas en en/es/fr/pt para OpenRouter, compositor, hub editorial, ajustes IA y transcripción.
+- **Inventario IPC**: sincronizado (416 canales); documentación en `docs/architecture/ipc-channels.md`.
+
+### Fixed
+
+- **Home durante streaming Many**: recarga silenciosa con debounce en `useDashboardData` — ya no parpadea en cada evento IPC.
+- **Historial Many tras HITL**: mensajes assistant persistidos antes de sync DB y tras completar runs (`resumeRun` en `run-engine.cjs`).
+- **CI release**: `GH_TOKEN` definido para electron-builder en el workflow de release (#329).
+
 ## [2.1.8](https://github.com/maxprain12/dome/releases/tag/v2.1.8) - 2026-05-18
 
 ### Added
