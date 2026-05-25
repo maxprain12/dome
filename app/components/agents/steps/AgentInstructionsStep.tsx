@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { DomeTextarea } from '@/components/ui/DomeInput';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 
 interface AgentInstructionsStepProps {
   initialInstructions?: string;
@@ -25,24 +27,17 @@ export default function AgentInstructionsStep({
 
   return (
     <div className="space-y-2">
-      <label htmlFor="agent-instructions-textarea" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--primary-text)' }}>
-        {t('onboarding.instructions_label')}
-      </label>
-      <p className="text-xs mb-2" style={{ color: 'var(--secondary-text)' }}>
+      <DomeSectionLabel>{t('onboarding.instructions_label')}</DomeSectionLabel>
+      <p className="text-xs mb-2" style={{ color: 'var(--dome-text-muted)' }}>
         {t('onboarding.instructions_tools_hint')}
       </p>
-      <textarea
+      <DomeTextarea
         id="agent-instructions-textarea"
         value={instructions}
         onChange={(e) => setInstructions(e.target.value)}
         placeholder={t('onboarding.instructions_placeholder')}
         rows={8}
-        className="w-full px-3 py-2 rounded-lg text-sm border resize-none font-mono"
-        style={{
-          borderColor: 'var(--border)',
-          backgroundColor: 'var(--bg)',
-          color: 'var(--primary-text)',
-        }}
+        textareaClassName="font-mono"
       />
     </div>
   );

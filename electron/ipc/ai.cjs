@@ -6,6 +6,7 @@ const llmService = require('../llm-service.cjs');
 const domeOauth = require('../dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 const { fetchOpenRouterModels } = require('../openrouter-models.cjs');
+const { fetchProviderModels } = require('../provider-models.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
@@ -585,6 +586,26 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         apiKey = String(queries.getSetting.get('ai_api_key')?.value || '').trim();
       }
       return await fetchOpenRouterModels(apiKey);
+    } catch (error) {
+      return { success: false, error: error.message || String(error) };
+    }
+  });
+
+  ipcMain.handle('ai:provider:listModels', async (event, params) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      if (!params || typeof params !== 'object' || typeof params.provider !== 'string') {
+        return { success: false, error: 'Invalid params: provider required' };
+      }
+      const provider = params.provider.trim().toLowerCase();
+      let apiKey = typeof params.apiKey === 'string' ? params.apiKey.trim() : '';
+      if (!apiKey && provider !== 'dome') {
+        const queries = database.getQueries();
+        apiKey = String(queries.getSetting.get('ai_api_key')?.value || '').trim();
+      }
+      return await fetchProviderModels(provider, { apiKey });
     } catch (error) {
       return { success: false, error: error.message || String(error) };
     }

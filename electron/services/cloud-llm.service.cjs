@@ -10,6 +10,7 @@ const { MINIMAX_BASE_URL } = require('../minimax-config.cjs');
 const database = require('../database.cjs');
 const domeOauth = require('../dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
+const { resolveTemperature } = require('../model-params.cjs');
 
 const VISION_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'minimax', 'dome', 'ollama', 'openrouter']);
 
@@ -211,10 +212,14 @@ async function generateText(opts) {
  */
 async function domeChatCompletions(body) {
   const db = database;
+  const temp = resolveTemperature(body?.model);
   const res = await domeOauth.fetchWithDomeAuth(db, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ temperature: 0.7, ...body }),
+    body: JSON.stringify({
+      ...(temp !== undefined ? { temperature: temp } : {}),
+      ...body,
+    }),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -232,10 +237,15 @@ async function domeChatCompletions(body) {
  */
 async function domeStreamChatCompletions(p, onChunk) {
   const db = database;
+  const temp = resolveTemperature(p?.model);
   const res = await domeOauth.fetchWithDomeAuth(db, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...p, stream: true, temperature: 0.7 }),
+    body: JSON.stringify({
+      ...p,
+      stream: true,
+      ...(temp !== undefined ? { temperature: temp } : {}),
+    }),
   });
   if (!res.ok) {
     const t = await res.text();

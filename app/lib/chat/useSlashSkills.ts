@@ -116,6 +116,29 @@ export function useSlashSkills({
     [enabled],
   );
 
+  const insertSlashSkill = useCallback(
+    (skill: SlashSkillItem) => {
+      const cursor = inputRef.current?.selectionStart ?? input.length;
+      const textUpToCursor = input.slice(0, cursor);
+      const trig = isSlashTriggerPosition(textUpToCursor);
+      const insertion = `/${skill.name} `;
+      const newInput = trig
+        ? input.slice(0, trig.slashIdx) + insertion + input.slice(cursor)
+        : input.slice(0, cursor) + insertion + input.slice(cursor);
+      setInput(newInput);
+      const pos = (trig ? trig.slashIdx : cursor) + insertion.length;
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.selectionStart = pos;
+          inputRef.current.selectionEnd = pos;
+          inputRef.current.focus();
+        }
+      });
+      setSlashActive(false);
+    },
+    [input, inputRef, setInput],
+  );
+
   const removeSlashTokenFromInput = useCallback(
     (cursor: number) => {
       const textUpToCursor = input.slice(0, cursor);
@@ -172,8 +195,6 @@ export function useSlashSkills({
         e.preventDefault();
         const selected = filteredSkills[slashSelectedIdx];
         if (selected) {
-          const cursor = inputRef.current?.selectionStart ?? input.length;
-          removeSlashTokenFromInput(cursor);
           setSlashActive(false);
           return { handled: true, skill: selected, sticky: false };
         }
@@ -185,7 +206,7 @@ export function useSlashSkills({
       }
       return { handled: false };
     },
-    [slashActive, filteredSkills, slashSelectedIdx, input.length, inputRef, removeSlashTokenFromInput],
+    [slashActive, filteredSkills, slashSelectedIdx],
   );
 
   return {
@@ -198,6 +219,7 @@ export function useSlashSkills({
     slashRect,
     slashDropdownRef,
     updateFromText,
+    insertSlashSkill,
     removeSlashTokenFromInput,
     setSlashActive,
     handleSlashKeyDown,

@@ -1,22 +1,23 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-23T11:10:12.449Z
+> Última generación: 2026-05-24T09:10:57.400Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
-| `ai:chat` | `electron/ipc/ai.cjs:25` |
-| `ai:langgraph:abort` | `electron/ipc/ai.cjs:402` |
-| `ai:langgraph:resume` | `electron/ipc/ai.cjs:416` |
-| `ai:langgraph:stream` | `electron/ipc/ai.cjs:262` |
-| `ai:openrouter:listModels` | `electron/ipc/ai.cjs:574` |
-| `ai:stream` | `electron/ipc/ai.cjs:101` |
+| `ai:chat` | `electron/ipc/ai.cjs:26` |
+| `ai:langgraph:abort` | `electron/ipc/ai.cjs:403` |
+| `ai:langgraph:resume` | `electron/ipc/ai.cjs:417` |
+| `ai:langgraph:stream` | `electron/ipc/ai.cjs:263` |
+| `ai:openrouter:listModels` | `electron/ipc/ai.cjs:575` |
+| `ai:provider:listModels` | `electron/ipc/ai.cjs:594` |
+| `ai:stream` | `electron/ipc/ai.cjs:102` |
 | `ai:team:abort` | `electron/ipc/agent-team.cjs:474` |
 | `ai:team:stream` | `electron/ipc/agent-team.cjs:347` |
-| `ai:testConnection` | `electron/ipc/ai.cjs:494` |
-| `ai:testWebSearch` | `electron/ipc/ai.cjs:593` |
+| `ai:testConnection` | `electron/ipc/ai.cjs:495` |
+| `ai:testWebSearch` | `electron/ipc/ai.cjs:614` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:853` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai-tools.cjs:879` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai-tools.cjs:840` |
@@ -69,7 +70,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai.cjs:608` |
+| `ai:webSearch` | `electron/ipc/ai.cjs:629` |
 | `approval:respond` | `electron/ipc/approval.cjs:43` |
 | `artifact:buildDesign` | `electron/ipc/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/artifacts.cjs:35` |

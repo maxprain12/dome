@@ -12,54 +12,48 @@ Documentation for Dome's first-run onboarding: steps (Welcome, Profile, AI), com
 interface MartinOnboardingProps {
   initialName?: string;
   initialEmail?: string;
-  initialAvatarPath?: string;
-  onComplete: (data: { name: string; email: string; avatarPath?: string }) => void;
+  onComplete: (data: { name: string; email: string }) => void;
 }
 
-type Step = 'welcome' | 'profile' | 'ai' | 'complete';
-// State: currentStep, profileData, canProceedProfile
-// Steps: welcome → profile → ai → complete (onComplete(profileData) after AI step)
+type Step = 'welcome' | 'profile' | 'ai';
 ```
 
 ### OnboardingStep
 
-- Reusable step wrapper: message (Many text), optional back, children (form or actions).
-- WelcomeStep: Welcome message + "Next" → profile.
-- ProfileStep: Name, email, avatar (select file); onComplete(profileData); canProceedProfile for validation.
-- AISetupStep: AI provider/config (can skip); onComplete() → parent calls onComplete(profileData).
+- Reusable step wrapper: Many avatar + message bubble, `DomeButton` footer (back / continue).
+- **Welcome**: `ManyAvatar` + intro message; Next → profile.
+- **ProfileStep**: Name + email via `DomeInput`; `onboarding:validate` event; `canProceedProfile`.
+- **AISetupStep**: Shared `AIProviderSelection`, `AICloudProviderConfig`, `AIOllamaProviderConfig`; skip allowed; Dome saves without OAuth; `onValidationChange` drives Finalizar button.
 
 ### Completion
 
-- **Flag**: settings key `onboarding_completed` = 'true' | 'false'. Persisted via db.setSetting (app/lib/settings: setOnboardingCompleted(true)).
-- **Check**: init:check-onboarding (IPC) returns whether onboarding is completed; app shows onboarding UI or home accordingly.
+- **Flag**: settings key `onboarding_completed` = 'true' | 'false'. Persisted via `db.setSetting` (`app/lib/settings`: `setOnboardingCompleted(true)`).
+- **Check**: `init:check-onboarding` (IPC) returns whether onboarding is completed; app shows onboarding modal on Home or main app accordingly.
 
 ---
 
 ## Design patterns
 
-- **Linear flow**: welcome → profile → ai → complete. Back goes profile←welcome, ai←profile.
-- **Profile data**: Collected in profile step; passed to onComplete only after AI step (so final save includes name, email, avatarPath).
-- **AI step**: Optional; user can skip and configure later in settings. onComplete still called so onboarding is marked done.
-- **Init**: On app load, main or renderer calls init:check-onboarding; if not completed, render onboarding (MartinOnboarding); onComplete → saveUserProfile, setOnboardingCompleted(true), then switch to main app (e.g. home).
+- **Linear flow**: welcome → profile → ai. Back: profile←welcome, ai←profile.
+- **Profile data**: Collected in profile step; passed to `onComplete` after AI step saves.
+- **AI step**: Optional skip; Dome provider saved without OAuth (connect later in Settings → AI).
+- **Shared AI UI**: Provider picker and config blocks live in `app/components/settings/ai/` and match `AISettingsPanel`.
 
 ---
 
 ## Data flow
 
-- **App start**: init:initialize or init:check-onboarding → if !onboarding_completed → show MartinOnboarding.
-- **Welcome**: User clicks Next → setCurrentStep('profile').
-- **Profile**: User fills name, email, optional avatar; Next → handleProfileComplete(data) → setProfileData(data), setCurrentStep('ai').
-- **AI**: User configures or skips; Complete → handleAIComplete() → onComplete(profileData) → parent saves profile (saveUserProfile), setOnboardingCompleted(true), navigate to home.
-- **Back**: From profile → welcome; from ai → profile.
+1. App start → `init:check-onboarding` → if not completed → show `Onboarding` modal on Home.
+2. Welcome → profile → AI (configure or skip) → `onComplete(profileData)` → `updateUserProfile`, `completeOnboarding`, close modal.
 
 ---
 
-## Functionality
+## Related onboarding wizards
 
-- **Welcome**: Intro from Many; single Next.
-- **Profile**: Name, email (required for canProceedProfile), avatar (select file → avatar:copy or select-avatar IPC → avatarPath).
-- **AI**: AISetupStep (same as settings AI panel or simplified); skip allowed.
-- **Completion**: Set onboarding_completed = true; save profile; transition to main app.
+| Wizard | Path | Notes |
+|--------|------|-------|
+| Agent create/edit | `app/components/agents/AgentOnboarding.tsx` | Dome* shell, step progress circles |
+| Agent team create | `app/components/agent-team/AgentTeamOnboarding.tsx` | i18n step labels, `--dome-*` tokens |
 
 ---
 
@@ -67,11 +61,10 @@ type Step = 'welcome' | 'profile' | 'ai' | 'complete';
 
 | Path | Role |
 |------|------|
-| `app/components/onboarding/MartinOnboarding.tsx` | Step state; welcome → profile → ai → complete; onComplete(profileData) |
-| `app/components/onboarding/OnboardingStep.tsx` | Step wrapper (message, back, children) |
-| `app/components/onboarding/WelcomeStep.tsx` | Welcome message + Next |
-| `app/components/onboarding/steps/ProfileStep.tsx` | Name, email, avatar form; onComplete |
-| `app/components/onboarding/steps/AISetupStep.tsx` | AI config; onComplete (optional skip) |
-| `app/lib/settings/index.ts` | isOnboardingCompleted(), setOnboardingCompleted(bool) |
-| `electron/init.cjs` | init:initialize, init:check-onboarding; may set default settings |
-| `electron/preload.cjs` | init.initialize, init.checkOnboarding, init.getStatus |
+| `app/components/onboarding/MartinOnboarding.tsx` | Step state machine |
+| `app/components/onboarding/OnboardingStep.tsx` | Step wrapper |
+| `app/components/onboarding/steps/ProfileStep.tsx` | Profile form |
+| `app/components/onboarding/steps/AISetupStep.tsx` | AI config (shared components) |
+| `app/components/settings/ai/AIProviderSelection.tsx` | Provider grid (Settings + onboarding) |
+| `app/lib/settings/index.ts` | `isOnboardingCompleted()`, `setOnboardingCompleted()` |
+| `electron/init.cjs` | `init:check-onboarding` |

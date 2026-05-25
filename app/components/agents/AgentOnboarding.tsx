@@ -1,15 +1,17 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Bot, Check, X } from 'lucide-react';
 import type { ManyAgent } from '@/types';
 import { createManyAgent, updateManyAgent } from '@/lib/agents/api';
-import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { showToast } from '@/lib/store/useToastStore';
 import AgentNameStep, { type AgentNameData } from './steps/AgentNameStep';
 import AgentInstructionsStep from './steps/AgentInstructionsStep';
 import AgentMcpStep from './steps/AgentMcpStep';
 import AgentIconStep from './steps/AgentIconStep';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 
 type Step = 'name' | 'instructions' | 'mcp' | 'icon';
 
@@ -18,15 +20,69 @@ const STEP_ORDER: Step[] = ['name', 'instructions', 'mcp', 'icon'];
 interface AgentOnboardingProps {
   onComplete: (agent: ManyAgent) => void;
   onCancel: () => void;
-  /** When provided, runs in edit mode (prefilled, saves via updateManyAgent) */
   initialAgent?: ManyAgent | null;
-  /** Project scope for new agents (default: default) */
   projectId?: string;
+}
+
+function StepProgress({ currentStep }: { currentStep: Step }) {
+  const { t } = useTranslation();
+  const currentStepIndex = STEP_ORDER.indexOf(currentStep);
+  const STEP_LABELS: Record<Step, string> = {
+    name: t('onboarding.step_name'),
+    instructions: t('onboarding.step_instructions'),
+    mcp: t('onboarding.step_mcp'),
+    icon: t('onboarding.step_icon'),
+  };
+
+  return (
+    <div className="flex items-center gap-1 px-6 py-3 shrink-0">
+      {STEP_ORDER.map((s, i) => (
+        <div key={s} className="flex items-center gap-1">
+          <div
+            className="flex items-center justify-center size-6 rounded-full text-xs font-medium transition-all"
+            style={{
+              background:
+                s === currentStep
+                  ? 'var(--dome-accent)'
+                  : i < currentStepIndex
+                    ? accentMixStep(18)
+                    : 'var(--dome-border)',
+              color:
+                s === currentStep
+                  ? 'var(--base-text)'
+                  : i < currentStepIndex
+                    ? 'var(--dome-accent)'
+                    : 'var(--dome-text-muted)',
+            }}
+          >
+            {i < currentStepIndex ? <Check size={12} /> : i + 1}
+          </div>
+          <span
+            className="text-xs hidden sm:inline"
+            style={{ color: s === currentStep ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
+          >
+            {STEP_LABELS[s]}
+          </span>
+          {i < STEP_ORDER.length - 1 && (
+            <div
+              className="w-4 h-0.5 mx-1"
+              style={{
+                background: i < currentStepIndex ? 'var(--dome-accent)' : 'var(--dome-border)',
+              }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function accentMixStep(pct: number): string {
+  return `color-mix(in srgb, var(--dome-accent) ${pct}%, var(--dome-surface))`;
 }
 
 export default function AgentOnboarding({ onComplete, onCancel, initialAgent, projectId = 'default' }: AgentOnboardingProps) {
   const { t } = useTranslation();
-  const stepsRef = useRef<HTMLDivElement>(null);
   const isEditMode = !!initialAgent;
   const [currentStep, setCurrentStep] = useState<Step>('name');
   const [name, setName] = useState(initialAgent?.name ?? '');
@@ -37,9 +93,6 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
   const [canProceed, setCanProceed] = useState((initialAgent?.name ?? '').trim().length > 0);
   const [saving, setSaving] = useState(false);
 
-  useHorizontalScroll(stepsRef);
-
-  // Sync when initialAgent changes (e.g. switching to edit another agent)
   useEffect(() => {
     if (initialAgent) {
       setName(initialAgent.name);
@@ -140,152 +193,74 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
     }
   }, [isEditMode, initialAgent, name, description, systemInstructions, mcpServerIds, iconIndex, onComplete, t]);
 
-  // Formulario único para edición (sin etapas)
+  const editSections = (
+    <>
+      <section>
+        <DomeSectionLabel className="mb-3">{t('onboarding.step_name')}</DomeSectionLabel>
+        <AgentNameStep
+          initialName={name}
+          initialDescription={description}
+          onChange={handleNameChange}
+          onValidationChange={setCanProceed}
+        />
+      </section>
+      <section>
+        <DomeSectionLabel className="mb-3">{t('onboarding.step_instructions')}</DomeSectionLabel>
+        <AgentInstructionsStep initialInstructions={systemInstructions} onChange={setSystemInstructions} />
+      </section>
+      <section>
+        <DomeSectionLabel className="mb-3">{t('onboarding.step_mcp')}</DomeSectionLabel>
+        <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
+      </section>
+      <section>
+        <DomeSectionLabel className="mb-3">{t('onboarding.step_icon')}</DomeSectionLabel>
+        <AgentIconStep selectedIndex={iconIndex} onChange={setIconIndex} />
+      </section>
+    </>
+  );
+
   if (isEditMode) {
     return (
       <div className="flex flex-col h-full min-h-0">
-        <div
-          className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <h2 className="text-base font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {t('agents.edit_agent')}
-          </h2>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-sm px-2 py-1 rounded hover:bg-[var(--bg-hover)]"
-            style={{ color: 'var(--secondary-text)' }}
-          >
+        <header className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--dome-border)] bg-[var(--dome-bg)]">
+          <div className="flex items-center gap-2 min-w-0">
+            <Bot className="size-4 text-[var(--dome-accent)] shrink-0" aria-hidden />
+            <h1 className="text-base font-semibold text-[var(--dome-text)] truncate">{t('agents.edit_agent')}</h1>
+          </div>
+          <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('common.close')}>
+            <X className="size-4" />
+          </DomeButton>
+        </header>
+
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-8">{editSections}</div>
+
+        <footer className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[var(--dome-border)] shrink-0">
+          <DomeButton type="button" variant="outline" size="sm" onClick={onCancel}>
             {t('common.cancel')}
-          </button>
-        </div>
-
-        <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-8">
-          <section>
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              {t('onboarding.step_name')}
-            </h3>
-            <AgentNameStep
-              initialName={name}
-              initialDescription={description}
-              onChange={handleNameChange}
-              onValidationChange={setCanProceed}
-            />
-          </section>
-
-          <section>
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              {t('onboarding.step_instructions')}
-            </h3>
-            <AgentInstructionsStep
-              initialInstructions={systemInstructions}
-              onChange={setSystemInstructions}
-            />
-          </section>
-
-          <section>
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              {t('onboarding.step_mcp')}
-            </h3>
-            <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
-          </section>
-
-          <section>
-            <h3 className="text-sm font-medium mb-3" style={{ color: 'var(--primary-text)' }}>
-              {t('onboarding.step_icon')}
-            </h3>
-            <AgentIconStep selectedIndex={iconIndex} onChange={setIconIndex} />
-          </section>
-        </div>
-
-        <div
-          className="flex items-center justify-end gap-3 px-4 py-3 border-t shrink-0"
-          style={{ borderColor: 'var(--border)' }}
-        >
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg"
-            style={{
-              backgroundColor: 'var(--bg-secondary)',
-              color: 'var(--primary-text)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={!canProceed || saving}
-            className="px-6 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-            style={{
-              backgroundColor: !canProceed || saving ? 'var(--bg-tertiary)' : 'var(--accent)',
-            }}
-          >
+          </DomeButton>
+          <DomeButton type="button" variant="primary" size="sm" onClick={() => void handleSave()} disabled={!canProceed || saving} loading={saving}>
             {saving ? t('common.saving') : t('common.save')}
-          </button>
-        </div>
+          </DomeButton>
+        </footer>
       </div>
     );
   }
 
-  const STEP_LABELS: Record<Step, string> = {
-    name: t('onboarding.step_name'),
-    instructions: t('onboarding.step_instructions'),
-    mcp: t('onboarding.step_mcp'),
-    icon: t('onboarding.step_icon'),
-  };
-
-  // Wizard por etapas para creación
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <h2 className="text-base font-semibold" style={{ color: 'var(--primary-text)' }}>
-          {t('agents.new_agent')}
-        </h2>
-        <div className="flex items-center gap-2">
-          <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
-            {stepIndex + 1} / {STEP_ORDER.length}
-          </span>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="text-sm px-2 py-1 rounded"
-            style={{ color: 'var(--secondary-text)' }}
-          >
-            {t('common.cancel')}
-          </button>
+      <header className="shrink-0 flex items-center justify-between gap-3 px-6 py-4 border-b border-[var(--dome-border)] bg-[var(--dome-bg)]">
+        <div className="flex items-center gap-2 min-w-0">
+          <Bot className="size-4 text-[var(--dome-accent)] shrink-0" aria-hidden />
+          <h1 className="text-base font-semibold text-[var(--dome-text)] truncate">{t('agents.new_agent')}</h1>
         </div>
-      </div>
+        <DomeButton type="button" variant="ghost" size="sm" iconOnly onClick={onCancel} aria-label={t('common.close')}>
+          <X className="size-4" />
+        </DomeButton>
+      </header>
 
-      <div
-        ref={stepsRef}
-        className="flex gap-1 px-4 py-2 overflow-x-auto shrink-0 scrollbar-none"
-        style={{ backgroundColor: 'var(--bg-secondary)' }}
-      >
-        {STEP_ORDER.map((s, i) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => i <= stepIndex && setCurrentStep(s)}
-            className={`px-2 py-1 rounded text-xs whitespace-nowrap ${currentStep === s ? 'font-medium' : ''
-              }`}
-            style={{
-              color: currentStep === s ? 'var(--accent)' : 'var(--secondary-text)',
-              backgroundColor: currentStep === s ? 'var(--accent-bg)' : 'transparent',
-            }}
-          >
-            {STEP_LABELS[s]}
-          </button>
-        ))}
-      </div>
+      <StepProgress currentStep={currentStep} />
 
-      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+      <div className="flex-1 overflow-y-auto px-6 py-4">
         {currentStep === 'name' && (
           <AgentNameStep
             initialName={name}
@@ -295,47 +270,27 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
           />
         )}
         {currentStep === 'instructions' && (
-          <AgentInstructionsStep
-            initialInstructions={systemInstructions}
-            onChange={setSystemInstructions}
-          />
+          <AgentInstructionsStep initialInstructions={systemInstructions} onChange={setSystemInstructions} />
         )}
-        {currentStep === 'mcp' && (
-          <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />
-        )}
-        {currentStep === 'icon' && (
-          <AgentIconStep selectedIndex={iconIndex} onChange={setIconIndex} />
-        )}
+        {currentStep === 'mcp' && <AgentMcpStep selectedIds={mcpServerIds} onChange={setMcpServerIds} />}
+        {currentStep === 'icon' && <AgentIconStep selectedIndex={iconIndex} onChange={setIconIndex} />}
       </div>
 
-      <div
-        className="flex items-center justify-between px-4 py-3 border-t shrink-0"
-        style={{ borderColor: 'var(--border)' }}
-      >
-        <button
-          type="button"
-          onClick={handleBack}
-          className="px-4 py-2 text-sm font-medium rounded-lg"
-          style={{
-            backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--primary-text)',
-            border: '1px solid var(--border)',
-          }}
-        >
+      <footer className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[var(--dome-border)] shrink-0">
+        <DomeButton type="button" variant="outline" size="sm" onClick={handleBack}>
           {stepIndex === 0 ? t('common.cancel') : t('common.back')}
-        </button>
-        <button
+        </DomeButton>
+        <DomeButton
           type="button"
-          onClick={handleNext}
+          variant="primary"
+          size="sm"
+          onClick={() => void handleNext()}
           disabled={(currentStep === 'name' && !canProceed) || saving}
-          className="px-6 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{
-            backgroundColor: (currentStep === 'name' && !canProceed) || saving ? 'var(--bg-tertiary)' : 'var(--accent)',
-          }}
+          loading={saving}
         >
           {saving ? t('common.saving') : isLastStep ? t('agents.new_agent') : t('onboarding.continue')}
-        </button>
-      </div>
+        </DomeButton>
+      </footer>
     </div>
   );
 }

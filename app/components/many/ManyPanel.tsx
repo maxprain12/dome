@@ -144,6 +144,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const showHitlInline = Boolean(pendingApproval || approvalQueueLen > 0);
   const prefersReducedMotion = useReducedMotion();
   const [providerInfo, setProviderInfo] = useState<string>('');
+  const [providerId, setProviderId] = useState<string>('');
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
   const [budgetCapApprox, setBudgetCapApprox] = useState(200_000);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -179,6 +180,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             ? (config.ollamaModel || 'default')
             : (config.model || 'default');
         const displayInfo = model.startsWith(`${config.provider}/`) ? config.provider : `${config.provider} / ${model}`;
+        setProviderId(String(config.provider));
         setProviderInfo(displayInfo);
         setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
         const modelId = config.provider === 'ollama' ? config.ollamaModel : config.model;
@@ -186,6 +188,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setBudgetCapApprox(found?.model.contextWindow ?? 200_000);
       } else {
         setProviderInfo(t('chat.not_configured'));
+        setProviderId('');
         setSupportsTools(false);
         setBudgetCapApprox(200_000);
       }
@@ -610,12 +613,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     t,
   });
 
-  const setMcpEnabled = useCallback(async (value: boolean) => {
-    setMcpEnabledState(value);
-    if (db.isAvailable()) {
-      await db.setMcpGlobalEnabled(value);
-    }
-  }, []);
 
   const activeTools = useMemo(() => {
     const tools: AnyAgentTool[] = createManyToolsForContext(pathname || '/', {
@@ -1219,6 +1216,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       <ManyChatHeader
         status={status}
         providerInfo={providerInfo}
+        providerId={providerId}
         contextDescription={contextDescription}
         messagesCount={messages.length}
         loadingHint={loadingHint}
@@ -1281,13 +1279,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               toolsEnabled={toolsEnabled}
               resourceToolsEnabled={resourceToolsEnabled}
               memoryEnabled={memoryEnabled}
-              mcpEnabled={mcpEnabled}
               setToolsEnabled={setToolsEnabled}
               setResourceToolsEnabled={setResourceToolsEnabled}
               setMemoryEnabled={setMemoryEnabled}
-              setMcpEnabled={setMcpEnabled}
               supportsTools={supportsTools}
-              hasMcp={hasLangGraph}
               onSend={() => handleSend()}
               onAbort={handleAbort}
               isWelcomeScreen
@@ -1484,13 +1479,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 toolsEnabled={toolsEnabled}
                 resourceToolsEnabled={resourceToolsEnabled}
                 memoryEnabled={memoryEnabled}
-                mcpEnabled={mcpEnabled}
                 setToolsEnabled={setToolsEnabled}
                 setResourceToolsEnabled={setResourceToolsEnabled}
                 setMemoryEnabled={setMemoryEnabled}
-                setMcpEnabled={setMcpEnabled}
                 supportsTools={supportsTools}
-                hasMcp={hasLangGraph}
                 onSend={() => handleSend()}
                 onAbort={handleAbort}
                 inputPlaceholderOverride={
@@ -1512,13 +1504,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             toolsEnabled={toolsEnabled}
             resourceToolsEnabled={resourceToolsEnabled}
             memoryEnabled={memoryEnabled}
-            mcpEnabled={mcpEnabled}
             setToolsEnabled={setToolsEnabled}
             setResourceToolsEnabled={setResourceToolsEnabled}
             setMemoryEnabled={setMemoryEnabled}
-            setMcpEnabled={setMcpEnabled}
             supportsTools={supportsTools}
-            hasMcp={hasLangGraph}
             onSend={() => handleSend()}
             onAbort={handleAbort}
             inputPlaceholderOverride={
@@ -1527,6 +1516,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             attachments={chatAttachments}
             onAttachmentsChange={setChatAttachments}
             showComposerKeyboardHint
+            compact={!isFullscreen}
           />
         )
       )}

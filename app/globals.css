@@ -1421,35 +1421,36 @@ a:hover {
 }
 
 .many-composer-tools {
+  padding: 2px 12px 10px;
+  min-width: 0;
+}
+
+.many-composer-tools__bar {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 10px 10px;
-  flex-wrap: nowrap;
+  gap: 8px;
   min-width: 0;
-  overflow-x: auto;
 }
 
-.many-composer-tools .many-tool-toggle {
-  flex-shrink: 0;
-}
-
-.many-composer-tools__spacer {
-  flex: 1;
-  min-width: 8px;
+.many-model-pill {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-start;
 }
 
 .many-composer-icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
   border-radius: var(--radius-md, 8px);
-  border: none;
-  background: transparent;
+  border: 1px solid transparent;
+  background: var(--bg-secondary);
   color: var(--tertiary-text);
-  transition: background var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease);
+  flex-shrink: 0;
+  transition: background var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease), border-color var(--transition-fast, 120ms ease);
 }
 
 .many-composer-icon-btn:hover {
@@ -1459,6 +1460,7 @@ a:hover {
 
 .many-composer-icon-btn--active {
   background: var(--accent-bg);
+  border-color: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--accent);
 }
 
@@ -1504,7 +1506,130 @@ a:hover {
 .many-composer-send {
   width: 32px;
   height: 32px;
-  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.many-composer-send:disabled {
+  opacity: 1;
+  border: 1px solid var(--border-soft);
+}
+
+.many-composer-tools--compact {
+  padding: 2px 8px 8px;
+}
+
+.many-composer-tools--compact .many-model-pill button {
+  max-width: 100%;
+}
+
+.many-composer-rich-input {
+  position: relative;
+  min-width: 0;
+}
+
+.many-composer-rich-input__mirror,
+.many-composer-rich-input__field {
+  box-sizing: border-box;
+  margin: 0;
+  border: none;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 400;
+  font-style: normal;
+  letter-spacing: normal;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  tab-size: 8;
+}
+
+.many-composer-rich-input__mirror {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  color: var(--primary-text);
+  scrollbar-width: none;
+}
+
+.many-composer-rich-input__mirror::-webkit-scrollbar {
+  display: none;
+}
+
+.many-composer-rich-input__field {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--primary-text);
+  background: transparent;
+  resize: none;
+}
+
+.many-composer-rich-input__field::placeholder {
+  color: var(--tertiary-text);
+  -webkit-text-fill-color: var(--tertiary-text);
+  opacity: 1;
+}
+
+.composer-text-ref {
+  font-weight: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-skip-ink: none;
+}
+
+.composer-text-ref--mention,
+.composer-text-ref--file {
+  color: var(--info);
+  text-decoration-color: var(--info);
+}
+
+.composer-text-ref--skill {
+  color: var(--warning);
+  text-decoration-color: var(--warning);
+}
+
+.composer-text-ref--mcp {
+  color: var(--success);
+  text-decoration-color: var(--success);
+}
+
+.composer-token-tooltip {
+  position: fixed;
+  z-index: var(--z-popover);
+  max-width: 260px;
+  padding: 8px 10px;
+  border-radius: var(--radius-lg, 10px);
+  border: 1px solid var(--border-soft);
+  background: var(--bg);
+  box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, 0.12));
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+.composer-token-tooltip__title {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--primary-text);
+}
+
+.composer-token-tooltip__desc {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--secondary-text);
+}
+
+.many-composer-hint--compact {
+  font-size: 10px;
+  line-height: 1.35;
 }
 
 .many-composer-meta-row {

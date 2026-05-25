@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  User, Palette, Brain, Mic, Settings as SettingsIcon,
+  User, Palette, Brain, Settings as SettingsIcon,
   Puzzle, Plug2, Wand2, Database, Cloud, CloudCog,
   Globe, BookMarked, Calendar, Server,
 } from 'lucide-react';
@@ -52,10 +52,9 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    labelKey: 'settings.groups.ai_voice',
+    labelKey: 'settings.groups.ai',
     items: [
-      { id: 'ai',           icon: <Brain className="size-3.5" /> },
-      { id: 'transcription', icon: <Mic className="size-3.5" /> },
+      { id: 'ai', icon: <Brain className="size-3.5" /> },
     ],
   },
   {

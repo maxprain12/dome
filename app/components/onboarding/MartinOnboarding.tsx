@@ -15,7 +15,7 @@ interface MartinOnboardingProps {
   }) => void;
 }
 
-type Step = 'welcome' | 'profile' | 'ai' | 'complete';
+type Step = 'welcome' | 'profile' | 'ai';
 
 export default function MartinOnboarding({
   initialName,
@@ -29,6 +29,7 @@ export default function MartinOnboarding({
     email: string;
   } | null>(null);
   const [canProceedProfile, setCanProceedProfile] = useState(false);
+  const [canProceedAI, setCanProceedAI] = useState(false);
 
   const handleWelcomeNext = () => {
     setCurrentStep('profile');
@@ -53,7 +54,6 @@ export default function MartinOnboarding({
     }
   };
 
-  // Welcome step
   if (currentStep === 'welcome') {
     return (
       <OnboardingStep
@@ -69,14 +69,12 @@ export default function MartinOnboarding({
     );
   }
 
-  // Profile step
   if (currentStep === 'profile') {
     return (
       <OnboardingStep
         message={t('onboarding.profile_message')}
         onNext={() => {
-          const event = new CustomEvent('onboarding:validate');
-          window.dispatchEvent(event);
+          window.dispatchEvent(new CustomEvent('onboarding:validate'));
         }}
         onBack={handleBack}
         nextLabel={t('onboarding.continue')}
@@ -92,27 +90,15 @@ export default function MartinOnboarding({
     );
   }
 
-  // AI Setup step
-  if (currentStep === 'ai') {
-    return (
-      <OnboardingStep
-        message={t('onboarding.ai_message')}
-        onNext={() => window.dispatchEvent(new CustomEvent('onboarding:finalize'))}
-        onBack={handleBack}
-        nextLabel={t('onboarding.finalize')}
-        canProceed={true}
-      >
-        <AISetupStep onComplete={handleAIComplete} />
-      </OnboardingStep>
-    );
-  }
-
-  // Complete step
   return (
-    <OnboardingStep message={t('onboarding.complete_message')} canProceed={false}>
-      <div className="flex items-center justify-center py-8">
-        <ManyAvatar size="xl" />
-      </div>
+    <OnboardingStep
+      message={t('onboarding.ai_message')}
+      onNext={() => window.dispatchEvent(new CustomEvent('onboarding:finalize'))}
+      onBack={handleBack}
+      nextLabel={t('onboarding.finalize')}
+      canProceed={canProceedAI}
+    >
+      <AISetupStep onComplete={handleAIComplete} onValidationChange={setCanProceedAI} />
     </OnboardingStep>
   );
 }

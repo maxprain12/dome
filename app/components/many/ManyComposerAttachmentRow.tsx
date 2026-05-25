@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import type { ReactNode } from 'react';
 import { inferResourceVisualKind, resourceVisualCssSuffix } from '@/lib/resources/resourceVisual';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import type { PinnedResource } from '@/lib/store/useManyStore';
@@ -10,6 +11,7 @@ interface ManyComposerAttachmentRowProps {
   pinnedResources: PinnedResource[];
   onRemoveAttachment: (id: string) => void;
   onRemovePinned: (id: string) => void;
+  contextExtras?: ReactNode;
 }
 
 function AttachChip({
@@ -29,9 +31,11 @@ function AttachChip({
 }) {
   const tone = resourceVisualCssSuffix(kind);
   return (
-    <span className={`attach-chip attach-chip--${tone}`}>
-      <DomeResourceIconBox kind={kind} name={name} />
-      <span className="attach-chip__name" title={name}>
+    <span className={`composer-inline-token composer-inline-token--file attach-chip attach-chip--${tone}`}>
+      <span className="composer-inline-token__icon attach-icon">
+        <DomeResourceIconBox kind={kind} name={name} />
+      </span>
+      <span className="composer-inline-token__label attach-chip__name" title={name}>
         {name}
       </span>
       {meta ? <span className="attach-chip__meta">· {meta}</span> : null}
@@ -40,7 +44,7 @@ function AttachChip({
       ) : (
         <button
           type="button"
-          className="attach-chip__remove"
+          className="composer-inline-token__remove attach-chip__remove"
           onClick={onRemove}
           aria-label={removeLabel}
           title={removeLabel}
@@ -52,62 +56,54 @@ function AttachChip({
   );
 }
 
-/**
- * Context + file attachments inside the composer frame (prototype layout).
- */
+/** Inline tokens (skills, docs, attachments) rendered inside the text input area. */
 export default function ManyComposerAttachmentRow({
   attachments,
   pinnedResources,
   onRemoveAttachment,
   onRemovePinned,
+  contextExtras,
 }: ManyComposerAttachmentRowProps) {
   const { t } = useTranslation();
-  const total = attachments.length + pinnedResources.length;
-  if (total === 0) return null;
+  const attachmentCount = attachments.length + pinnedResources.length;
+  if (attachmentCount === 0 && !contextExtras) return null;
 
   return (
-    <div className="many-composer-attach-section" data-many-composer-attachments>
-      <div className="many-composer-attach-head">
-        <span className="many-composer-attach-label">{t('many.composer_context_label')}</span>
-        <span className="many-composer-attach-count">{total}</span>
-      </div>
-      <div className="composer-attachments">
-        {pinnedResources.map((resource) => {
-          const kind = inferResourceVisualKind(resource.type, resource.title);
-          return (
-            <AttachChip
-              key={`pin-${resource.id}`}
-              kind={kind}
-              name={resource.title}
-              onRemove={() => onRemovePinned(resource.id)}
-              removeLabel={t('chat.remove_from_context')}
-            />
-          );
-        })}
-        {attachments.map((attachment) => {
-          const kind =
-            attachment.kind === 'image'
-              ? 'image'
-              : inferResourceVisualKind(undefined, attachment.name);
-          const meta =
-            attachment.kind === 'document' && attachment.pageCount
-              ? t('many.attachment_pages', { count: attachment.pageCount })
-              : null;
-          const isLoading = attachment.kind === 'document' && attachment.status === 'loading';
+    <div className="many-composer-inline-tokens" data-many-composer-attachments>
+      {contextExtras}
+      {pinnedResources.map((resource) => {
+        const kind = inferResourceVisualKind(resource.type, resource.title);
+        return (
+          <AttachChip
+            key={`pin-${resource.id}`}
+            kind={kind}
+            name={resource.title}
+            onRemove={() => onRemovePinned(resource.id)}
+            removeLabel={t('chat.remove_from_context')}
+          />
+        );
+      })}
+      {attachments.map((attachment) => {
+        const kind =
+          attachment.kind === 'image' ? 'image' : inferResourceVisualKind(undefined, attachment.name);
+        const meta =
+          attachment.kind === 'document' && attachment.pageCount
+            ? t('many.attachment_pages', { count: attachment.pageCount })
+            : null;
+        const isLoading = attachment.kind === 'document' && attachment.status === 'loading';
 
-          return (
-            <AttachChip
-              key={attachment.id}
-              kind={kind}
-              name={attachment.name}
-              meta={meta}
-              isLoading={isLoading}
-              onRemove={() => onRemoveAttachment(attachment.id)}
-              removeLabel={t('chat.remove_attachment')}
-            />
-          );
-        })}
-      </div>
+        return (
+          <AttachChip
+            key={attachment.id}
+            kind={kind}
+            name={attachment.name}
+            meta={meta}
+            isLoading={isLoading}
+            onRemove={() => onRemoveAttachment(attachment.id)}
+            removeLabel={t('chat.remove_attachment')}
+          />
+        );
+      })}
     </div>
   );
 }

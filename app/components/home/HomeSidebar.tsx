@@ -9,6 +9,7 @@ import { getManyAgents } from '@/lib/agents/api';
 import { getAgentTeams } from '@/lib/agent-team/api';
 import type { ManyAgent, AgentTeam } from '@/types';
 import AgentOnboarding from '@/components/agents/AgentOnboarding';
+import ManyIcon from '@/components/many/ManyIcon';
 import { startDomeTour } from '@/lib/tour/domeTour';
 
 type SidebarSection = 'library' | 'flashcards' | 'chat' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | 'automations-hub';
@@ -141,13 +142,7 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
         style={{ padding: '0 8px' }}
       >
         <div className="size-8 shrink-0 start-item" title="Dome" style={{ filter: 'var(--dome-logo-filter)' }}>
-          <img
-            src="/many.png"
-            alt="Dome"
-            width={32}
-            height={32}
-            style={{ objectFit: 'contain' }}
-          />
+          <ManyIcon size={32} />
         </div>
       </div>
 

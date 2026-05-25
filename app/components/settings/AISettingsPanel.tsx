@@ -1,42 +1,33 @@
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, CheckCircle2, XCircle, Loader2, Shield, Search, Zap, RefreshCw, Lock, HardDrive, Cloud } from 'lucide-react';
+import { Cloud, Search, MessageSquare, Mic } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
   PROVIDERS,
-  FREE_COST,
   getDefaultModelId,
   type AIProviderType,
-  type ModelDefinition,
 } from '@/lib/ai/models';
-import type { ModelInputType } from '@/lib/ai/types';
-import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
-import { fetchOpenRouterModels } from '@/lib/ai/client';
-import ModelSelector from './ModelSelector';
+import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
+import { useProviderModels } from '@/lib/ai/useProviderModels';
+import { accentMix } from '@/lib/ui/accent';
+import AIProviderSelection, { isCloudAIProvider } from './ai/AIProviderSelection';
+import AICloudProviderConfig from './ai/AICloudProviderConfig';
+import AIOllamaProviderConfig from './ai/AIOllamaProviderConfig';
+import TranscriptionSettingsSections, {
+  type TranscriptionSettingsSectionsHandle,
+} from './TranscriptionSettingsSections';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
-import { DomeInput } from '@/components/ui/DomeInput';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
-import DomeBadge from '@/components/ui/DomeBadge';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
+import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 
-/** Mezcla del acento de marca para fondos/bordes (compatible con temas). */
-function accentMix(pct: number): string {
-  return `color-mix(in srgb, var(--dome-accent) ${pct}%, transparent)`;
-}
-
-const ACCENT_END = 'color-mix(in srgb, var(--dome-accent) 72%, black)';
-
-interface OllamaModel {
-  name: string;
-  size: number;
-  modified_at: string;
-}
+type AISettingsTab = 'chat' | 'transcription' | 'tools';
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -55,8 +46,6 @@ export default function AISettingsPanel() {
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
   const [ollamaModel, setOllamaModel] = useState('llama3.2');
   const [ollamaApiKey, setOllamaApiKey] = useState('');
-  const [showOllamaApiKey, setShowOllamaApiKey] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -68,89 +57,15 @@ export default function AISettingsPanel() {
     planId?: string; limit?: number; used?: number; remaining?: number;
     periodEnd?: number; subscriptionStatus?: string;
   } | null>(null);
-  const [ollamaAvailable, setOllamaAvailable] = useState<boolean | null>(null);
-  const [checkingOllama, setCheckingOllama] = useState(false);
-  const [ollamaModels, setOllamaModels] = useState<OllamaModel[]>([]);
-  const [loadingModels, setLoadingModels] = useState(false);
-  const [openRouterMergedModels, setOpenRouterMergedModels] = useState<ModelDefinition[]>([]);
-  const [openRouterModelsLoading, setOpenRouterModelsLoading] = useState(false);
-  const [openRouterModelsError, setOpenRouterModelsError] = useState<string | null>(null);
   const [cloudSyncBusy, setCloudSyncBusy] = useState(false);
   const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
+  const transcriptionRef = useRef<TranscriptionSettingsSectionsHandle>(null);
+  const [activeTab, setActiveTab] = useState<AISettingsTab>('chat');
 
-  const mergeOpenRouterModelRows = useCallback(
-    (
-      rows: NonNullable<Awaited<ReturnType<typeof fetchOpenRouterModels>>['models']>,
-    ): ModelDefinition[] => {
-      const base = PROVIDERS.openrouter.models;
-      const map = new Map(base.map((m) => [m.id, { ...m }]));
-      for (const r of rows ?? []) {
-        if (map.has(r.id)) continue;
-        map.set(r.id, {
-          id: r.id,
-          name: r.name,
-          reasoning: r.reasoning,
-          input: [...r.input] as ModelInputType[],
-          contextWindow: r.contextWindow,
-          maxTokens: r.maxTokens,
-          recommended: r.recommended,
-          description: r.description,
-          api: 'openai-completions',
-          cost: FREE_COST,
-        });
-      }
-      return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-    },
-    [],
-  );
-
-  const loadOpenRouterCatalog = useCallback(async () => {
-    if (provider !== 'openrouter') {
-      setOpenRouterMergedModels([]);
-      setOpenRouterModelsError(null);
-      setOpenRouterModelsLoading(false);
-      return;
-    }
-    const key = apiKey.trim();
-    const presets = PROVIDERS.openrouter.models;
-    if (!key) {
-      setOpenRouterMergedModels(presets);
-      setOpenRouterModelsError(null);
-      setOpenRouterModelsLoading(false);
-      return;
-    }
-    setOpenRouterModelsLoading(true);
-    setOpenRouterModelsError(null);
-    try {
-      const res = await fetchOpenRouterModels(key);
-      if (!res.success || !res.models?.length) {
-        setOpenRouterModelsError(res.error ?? t('settings.ai.openrouter_models_error'));
-        setOpenRouterMergedModels(presets);
-      } else {
-        setOpenRouterMergedModels(mergeOpenRouterModelRows(res.models));
-      }
-    } catch (e) {
-      setOpenRouterModelsError(e instanceof Error ? e.message : t('settings.ai.openrouter_models_error'));
-      setOpenRouterMergedModels(presets);
-    } finally {
-      setOpenRouterModelsLoading(false);
-    }
-  }, [provider, apiKey, mergeOpenRouterModelRows, t]);
-
-  useEffect(() => {
-    if (provider !== 'openrouter') return;
-    const handle = window.setTimeout(() => {
-      void loadOpenRouterCatalog();
-    }, 500);
-    return () => window.clearTimeout(handle);
-  }, [provider, apiKey, loadOpenRouterCatalog]);
-
-  const currentProviderModels: ModelDefinition[] = useMemo(() => {
-    if (provider === 'openrouter') {
-      return openRouterMergedModels.length > 0 ? openRouterMergedModels : PROVIDERS.openrouter.models;
-    }
-    return PROVIDERS[provider]?.models || [];
-  }, [provider, openRouterMergedModels]);
+  const {
+    models: currentProviderModels,
+    loading: providerModelsLoading,
+  } = useProviderModels({ provider, apiKey });
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -223,32 +138,6 @@ export default function AISettingsPanel() {
     return () => window.removeEventListener('focus', onFocus);
   }, [refreshDomeSession]);
 
-  const checkOllamaConnection = useCallback(async () => {
-    if (!window.electron) return;
-    setCheckingOllama(true);
-    try {
-      await saveAIConfig({ ollama_base_url: ollamaBaseURL });
-      const result = await window.electron.ollama.checkAvailability();
-      setOllamaAvailable(result.success && result.available === true);
-    } catch { setOllamaAvailable(false); }
-    finally { setCheckingOllama(false); }
-  }, [ollamaBaseURL]);
-
-  const loadOllamaModels = useCallback(async () => {
-    if (!window.electron) return;
-    setLoadingModels(true);
-    try {
-      await saveAIConfig({ ollama_base_url: ollamaBaseURL });
-      const result = await window.electron.ollama.listModels();
-      setOllamaModels(result.success && Array.isArray(result.models) ? result.models : []);
-    } catch { setOllamaModels([]); }
-    finally { setLoadingModels(false); }
-  }, [ollamaBaseURL]);
-
-  useEffect(() => {
-    if (provider === 'ollama') { void checkOllamaConnection(); void loadOllamaModels(); }
-  }, [provider, ollamaBaseURL, checkOllamaConnection, loadOllamaModels]);
-
   const handleProviderChange = (newProvider: AIProviderType) => {
     setProvider(newProvider);
     setCustomModel(false);
@@ -270,6 +159,7 @@ export default function AISettingsPanel() {
     }
     try {
       await saveAIConfig(config);
+      await transcriptionRef.current?.save();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
@@ -386,402 +276,49 @@ export default function AISettingsPanel() {
         subtitle={t('settings.ai.subtitle')}
       />
 
-      {/* ── PROVIDER SELECTION ── */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.provider')}</DomeSectionLabel>
+      <DomeSegmentedControl
+        className="w-full !flex"
+        size="sm"
+        aria-label={t('settings.ai.title')}
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as AISettingsTab)}
+        options={[
+          { value: 'chat', label: t('settings.ai.tab_chat'), icon: <MessageSquare className="size-3.5" /> },
+          { value: 'transcription', label: t('settings.ai.tab_transcription'), icon: <Mic className="size-3.5" /> },
+          { value: 'tools', label: t('settings.ai.tab_tools'), icon: <Search className="size-3.5" /> },
+        ]}
+      />
 
-        <div className="space-y-2">
-          {/* Dome featured card */}
-          {DOME_PROVIDER_ENABLED && (
-            <button
-              type="button"
-              onClick={() => handleProviderChange('dome')}
-              className="relative w-full p-4 rounded-xl text-left transition-all cursor-pointer overflow-hidden"
-              style={{
-                background: provider === 'dome'
-                  ? `linear-gradient(135deg, var(--dome-accent) 0%, ${ACCENT_END} 100%)`
-                  : 'var(--dome-surface)',
-                border: provider === 'dome' ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-                boxShadow: provider === 'dome' ? `0 4px 16px ${accentMix(25)}` : 'none',
-              }}
-            >
-              {provider === 'dome' && (
-                <div className="absolute inset-0 pointer-events-none opacity-10"
-                  style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, var(--dome-accent-bg), transparent 60%)' }}
-                />
-              )}
-              <div className="relative flex items-center gap-3">
-                <DomeIconBox
-                  size="md"
-                  className="!w-9 !h-9 !rounded-lg"
-                  background={provider === 'dome' ? 'rgba(255,255,255,0.15)' : 'var(--dome-accent-bg)'}
-                >
-                  <Shield className="size-4" style={{ color: provider === 'dome' ? 'var(--dome-accent-bg)' : 'var(--dome-accent)' }} />
-                </DomeIconBox>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-semibold" style={{ color: provider === 'dome' ? 'var(--base-text)' : 'var(--dome-text)' }}>
-                      {PROVIDERS.dome.name}
-                    </span>
-                    <DomeBadge
-                      label={t('settings.ai.recommended')}
-                      size="xs"
-                      variant={provider === 'dome' ? 'outline' : 'soft'}
-                      color={provider === 'dome' ? '#ffffff' : 'var(--dome-accent)'}
-                      className={provider === 'dome' ? '!border-white/30 !text-white' : ''}
-                    />
-                  </div>
-                  <p className="text-xs" style={{ color: provider === 'dome' ? 'rgba(255,255,255,0.7)' : 'var(--dome-text-muted)' }}>
-                    {`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {[{ icon: Lock, label: t('settings.ai.private') }, { icon: Zap, label: t('settings.ai.fast') }].map(({ icon: Icon, label }) => (
-                    <div key={label} className="flex items-center gap-1 px-2 py-1 rounded-md"
-                      style={{ backgroundColor: provider === 'dome' ? 'rgba(255,255,255,0.12)' : accentMix(10), color: provider === 'dome' ? 'rgba(255,255,255,0.85)' : 'var(--dome-accent)' }}>
-                      <Icon className="size-2.5" />
-                      <span className="text-[10px] font-medium">{label}</span>
-                    </div>
-                  ))}
-                  {provider === 'dome' && <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent-bg)' }} />}
-                </div>
-              </div>
-            </button>
-          )}
+      {activeTab === 'chat' ? (
+      <>
+      <AIProviderSelection provider={provider} onProviderChange={handleProviderChange} />
 
-          {/* Cloud providers grid */}
-          <div className="grid grid-cols-3 gap-2">
-            {AI_PROVIDER_OPTIONS.filter(o => o.value !== 'dome' && o.value !== 'ollama').map((option) => {
-              const isSelected = provider === option.value;
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => !option.disabled && handleProviderChange(option.value)}
-                  disabled={option.disabled}
-                  className="relative p-3 rounded-xl text-left transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    backgroundColor: isSelected ? accentMix(8) : 'transparent',
-                    border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-                    boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
-                  }}
-                >
-                  {option.badge ? (
-                    <span className="absolute -top-1.5 -right-1.5">
-                      <DomeBadge label={option.badge} size="xs" variant="filled" color="var(--dome-accent)" className="!text-[8px] !py-0.5 !px-1.5" />
-                    </span>
-                  ) : null}
-                  <div className="flex flex-col items-start gap-2">
-                    <div className="flex items-center justify-between w-full">
-                      <DomeIconBox
-                        size="sm"
-                        className="!w-6 !h-6 !rounded-md"
-                        background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
-                      >
-                        <span style={{ color: isSelected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-                          <Icon className="size-3.5" aria-hidden />
-                        </span>
-                      </DomeIconBox>
-                      {isSelected && <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />}
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold leading-none mb-0.5" style={{ color: 'var(--dome-text)' }}>{option.label}</p>
-                      <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.api_key_required')}</p>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Ollama local */}
-          {(() => {
-            const ollamaOption = AI_PROVIDER_OPTIONS.find(o => o.value === 'ollama');
-            if (!ollamaOption) return null;
-            const isSelected = provider === 'ollama';
-            const Icon = ollamaOption.icon;
-            return (
-              <button
-                type="button"
-                onClick={() => handleProviderChange('ollama')}
-                className="relative w-full p-3 rounded-xl text-left transition-all cursor-pointer"
-                style={{
-                  backgroundColor: isSelected ? accentMix(8) : 'transparent',
-                  border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-                  boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
-                }}
-              >
-                <div className="flex items-center gap-3">
-                  <DomeIconBox
-                    size="sm"
-                    className="!w-7 !h-7"
-                    background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
-                  >
-                    <span style={{ color: isSelected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
-                      <Icon className="size-3.5" aria-hidden />
-                    </span>
-                  </DomeIconBox>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{ollamaOption.label}</p>
-                      <DomeBadge label={t('settings.ai.local_badge')} size="xs" color="var(--dome-accent)" />
-                    </div>
-                    <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.private_local')}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: accentMix(10), color: 'var(--dome-accent)' }}>
-                      <HardDrive className="size-2.5" />
-                      <span className="text-[10px] font-medium">Offline</span>
-                    </div>
-                    {isSelected && <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />}
-                  </div>
-                </div>
-              </button>
-            );
-          })()}
-        </div>
-      </div>
-
-      {/* ── CONFIGURATION ── */}
       <div>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.configuration')}</DomeSectionLabel>
 
-        {/* Cloud API key + model */}
-        {(provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter') && (
-          <DomeCard className="space-y-4">
-            {/* API Key */}
-            <div>
-              <label htmlFor="ai-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
-                API Key
-              </label>
-              <div className="relative w-full">
-                <DomeInput
-                  id="ai-api-key"
-                  type={showApiKey ? 'text' : 'password'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={PROVIDERS[provider]?.apiKeyPlaceholder || 'Introduce tu API key...'}
-                  inputClassName="pr-10"
-                  className="w-full [&_input]:pr-10"
-                />
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  iconOnly
-                  className="absolute right-1 top-1/2 -translate-y-1/2 text-[var(--dome-text-muted)]"
-                  onClick={() => setShowApiKey((v) => !v)}
-                  aria-label={showApiKey ? 'Ocultar API key' : 'Mostrar API key'}
-                >
-                  {showApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </DomeButton>
-              </div>
-              {PROVIDERS[provider]?.docsUrl && (
-                <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('settings.ai.free_key_at')}{' '}
-                  <a href={PROVIDERS[provider].docsUrl} target="_blank" rel="noopener noreferrer"
-                    className="underline hover:opacity-80" style={{ color: 'var(--dome-accent)' }}>
-                    {PROVIDERS[provider].docsUrl.replace('https://', '')}
-                  </a>
-                </p>
-              )}
-            </div>
-
-            {provider === 'openrouter' && openRouterModelsLoading ? (
-              <p className="text-[11px] flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-                <Loader2 className="size-3.5 animate-spin shrink-0" aria-hidden /> {t('settings.ai.openrouter_loading_models')}
-              </p>
-            ) : null}
-            {provider === 'openrouter' && openRouterModelsError && !openRouterModelsLoading ? (
-              <DomeCallout tone="warning">{openRouterModelsError}</DomeCallout>
-            ) : null}
-
-            {/* Model */}
-            {currentProviderModels.length > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-1.5 gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">{t('settings.ai.model')}</span>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {provider === 'openrouter' ? (
-                      <DomeButton
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => void loadOpenRouterCatalog()}
-                        disabled={openRouterModelsLoading || !apiKey.trim()}
-                        leftIcon={<RefreshCw className={`size-3 ${openRouterModelsLoading ? 'animate-spin' : ''}`} aria-hidden />}
-                      >
-                        {t('settings.ai.refresh')}
-                      </DomeButton>
-                    ) : null}
-                    <DomeButton type="button" variant="ghost" size="xs" onClick={() => setCustomModel((v) => !v)}>
-                      {customModel ? t('settings.ai.use_presets') : t('settings.ai.custom_model')}
-                    </DomeButton>
-                  </div>
-                </div>
-                {customModel ? (
-                  <DomeInput
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder={getDefaultModelId(provider)}
-                    autoComplete="off"
-                  />
-                ) : (
-                  <ModelSelector
-                    models={currentProviderModels}
-                    selectedModelId={model}
-                    onChange={setModel}
-                    showBadges={true}
-                    showDescription={true}
-                    showContextWindow={true}
-                    searchable={currentProviderModels.length > 5}
-                    placeholder={t('settings.ai.model')}
-                    providerType="cloud"
-                    disabled={provider === 'openrouter' && openRouterModelsLoading}
-                  />
-                )}
-              </div>
-            )}
-          </DomeCard>
+        {isCloudAIProvider(provider) && (
+          <AICloudProviderConfig
+            provider={provider}
+            apiKey={apiKey}
+            onApiKeyChange={setApiKey}
+            model={model}
+            onModelChange={setModel}
+            customModel={customModel}
+            onCustomModelChange={setCustomModel}
+          />
         )}
 
-        {/* Ollama config */}
         {provider === 'ollama' && (
-          <DomeCard className="space-y-4">
-            {/* Status row */}
-            <div className="flex items-center justify-between p-3 rounded-lg"
-              style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>Estado</span>
-                {checkingOllama ? (
-                  <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    <Loader2 className="size-3 animate-spin" /> {t('settings.ai.status_checking')}
-                  </span>
-                ) : ollamaAvailable === true ? (
-                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-accent)' }}>
-                    <CheckCircle2 className="size-3.5" /> {t('settings.ai.status_connected')}
-                  </span>
-                ) : ollamaAvailable === false ? (
-                  <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error, #ef4444)' }}>
-                    <XCircle className="size-3.5" /> {t('settings.ai.status_disconnected')}
-                  </span>
-                ) : (
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.status_unverified')}</span>
-                )}
-              </div>
-              <DomeButton
-                type="button"
-                variant="primary"
-                size="sm"
-                onClick={() => void checkOllamaConnection()}
-                disabled={checkingOllama}
-                leftIcon={<RefreshCw className={`size-3 ${checkingOllama ? 'animate-spin' : ''}`} aria-hidden />}
-              >
-                {t('settings.ai.test_btn')}
-              </DomeButton>
-            </div>
-
-            {ollamaAvailable === false ? (
-              <DomeCallout tone="warning">
-                {t('settings.ai.ollama_install')}{' '}
-                <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline font-medium">
-                  ollama.ai
-                </a>
-              </DomeCallout>
-            ) : null}
-
-            {/* Base URL */}
-            <div>
-              <DomeInput
-                id="ai-ollama-url"
-                label={t('settings.ai.base_url')}
-                type="url"
-                value={ollamaBaseURL}
-                onChange={(e) => setOllamaBaseURL(e.target.value)}
-                placeholder="http://localhost:11434"
-              />
-              <p className="text-[11px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                Para Ollama Cloud usa <code className="font-mono">https://api.ollama.com</code>
-              </p>
-            </div>
-
-            {/* API Key (optional) */}
-            <div>
-              <label htmlFor="ai-ollama-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
-                API Key <span className="normal-case font-normal opacity-60">(opcional — Ollama Cloud)</span>
-              </label>
-              <div className="relative w-full">
-                <DomeInput
-                  id="ai-ollama-api-key"
-                  type={showOllamaApiKey ? 'text' : 'password'}
-                  value={ollamaApiKey}
-                  onChange={(e) => setOllamaApiKey(e.target.value)}
-                  placeholder="ollama_..."
-                  autoComplete="off"
-                  inputClassName="pr-10"
-                  className="w-full [&_input]:pr-10"
-                />
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  iconOnly
-                  className="absolute right-1 top-1/2 -translate-y-1/2"
-                  onClick={() => setShowOllamaApiKey((v) => !v)}
-                  aria-label={showOllamaApiKey ? 'Ocultar' : 'Mostrar'}
-                >
-                  {showOllamaApiKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                </DomeButton>
-              </div>
-            </div>
-
-            {/* Chat model */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">{t('settings.ai.chat_model')}</span>
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  onClick={() => void loadOllamaModels()}
-                  disabled={loadingModels}
-                  leftIcon={<RefreshCw className={`size-2.5 ${loadingModels ? 'animate-spin' : ''}`} aria-hidden />}
-                >
-                  {t('settings.ai.refresh')}
-                </DomeButton>
-              </div>
-              {loadingModels ? (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-                  <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} />
-                  <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('settings.ai.loading_models')}</span>
-                </div>
-              ) : ollamaModels.length > 0 ? (
-                <ModelSelector
-                  models={ollamaModels.map(m => ({ id: m.name, name: m.name, description: `${Math.round(m.size / 1024 / 1024 / 1024)}GB`, reasoning: false, input: ['text'], contextWindow: 0, maxTokens: 0 }))}
-                  selectedModelId={ollamaModel}
-                  onChange={setOllamaModel}
-                  searchable={true}
-                  showBadges={false}
-                  showDescription={true}
-                  showContextWindow={false}
-                  placeholder={t('settings.ai.chat_model')}
-                  disabled={loadingModels}
-                  providerType="ollama"
-                />
-              ) : (
-                <DomeInput value={ollamaModel} onChange={(e) => setOllamaModel(e.target.value)} placeholder="llama3.2" />
-              )}
-            </div>
-
-            <DomeCallout tone="info" title="OCR en PDFs escaneados:">
-              el modelo debe soportar visión. Compatibles: <code className="font-mono">llava</code>,{' '}
-              <code className="font-mono">minicpm-v</code>, <code className="font-mono">glm4v</code>.
-            </DomeCallout>
-          </DomeCard>
+          <AIOllamaProviderConfig
+            ollamaBaseURL={ollamaBaseURL}
+            onOllamaBaseURLChange={setOllamaBaseURL}
+            ollamaModel={ollamaModel}
+            onOllamaModelChange={setOllamaModel}
+            ollamaApiKey={ollamaApiKey}
+            onOllamaApiKeyChange={setOllamaApiKey}
+          />
         )}
 
-        {/* Dome provider config */}
         {provider === 'dome' && (
           <DomeCard className="space-y-4">
             <div className="rounded-lg p-4" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
@@ -882,7 +419,20 @@ export default function AISettingsPanel() {
           </DomeCard>
         )}
       </div>
+      </>
+      ) : null}
 
+      {activeTab === 'transcription' ? (
+        <TranscriptionSettingsSections
+          ref={transcriptionRef}
+          embedded
+          summaryModels={currentProviderModels}
+          summaryModelsLoading={providerModelsLoading}
+        />
+      ) : null}
+
+      {activeTab === 'tools' ? (
+      <>
       {/* ── WEB SEARCH ── */}
       <div>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.brave_search_title')}</DomeSectionLabel>
@@ -919,11 +469,13 @@ export default function AISettingsPanel() {
           ) : null}
         </DomeCard>
       </div>
+      </>
+      ) : null}
 
       {/* ── ACTIONS ── */}
       <div className="flex items-center gap-3 pt-2 flex-wrap">
         <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()}>
-          {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
+          {saved ? t('settings.ai.saved_config') : t('settings.ai.save_all')}
         </DomeButton>
         <DomeButton
           type="button"

@@ -6,7 +6,7 @@ export interface UnifiedChatHeaderProps {
   startSlot?: ReactNode;
   left: ReactNode;
   title: string;
-  subtitle: string;
+  subtitle?: ReactNode;
   /** Toolbar on the right (e.g. new, clear, close) */
   actions?: ReactNode;
   className?: string;
@@ -37,7 +37,7 @@ export const UnifiedChatHeader = memo(function UnifiedChatHeader({
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-[14px] font-medium text-[var(--primary-text)]">{title}</div>
-        <div className="truncate text-[11px] text-[var(--tertiary-text)]">{subtitle}</div>
+        <div className="truncate text-[11px] text-[var(--tertiary-text)]">{subtitle ?? null}</div>
       </div>
       {actions ? <div className="flex items-center gap-0.5 shrink-0">{actions}</div> : null}
     </div>
