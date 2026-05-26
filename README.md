@@ -45,14 +45,14 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | **Agent Canvas** | Visual drag-and-drop workflow builder (D3 + SVG edges) |
 | **Agent Teams** | Multi-agent collaboration in a shared chat session |
 | **Studio** | Generate mindmaps, quizzes, flashcards, guides, FAQs, and timelines from your content |
-| **Semantic search** | Local Nomic embeddings in SQLite, hybrid search (vectors + FTS + graph); PDF/image text via your cloud LLM (vision) |
+| **Semantic search** | Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB, hybrid search (vectors + FTS + graph); PDF/image text via your cloud LLM (vision) |
 | **Flashcards** | SM-2 spaced repetition with AI-generated decks |
 | **Calendar** | Google Calendar sync + AI tools to create and manage events from chat |
 | **Google Drive** | Native import with PKCE OAuth 2.0 — tokens stored locally, never on Dome servers |
 | **PDF Viewer** | Highlight, underline, comment, and annotate |
 | **PowerPoint Viewer** | Full `.pptx` rendering and presentation mode, no LibreOffice needed |
 | **Notion-style Editor** | Tiptap-based with slash commands, tables, columns, toggles, callouts |
-| **Web Scraper** | Playwright-based — no Brave API key required |
+| **Artifact Feeders** | Scheduled sandbox scripts that feed persisted mini-apps with external JSON (Redfish, APIs, etc.) |
 | **Academic Library** | APA, MLA, Chicago, Harvard, Vancouver, IEEE citations |
 | **MCP Integration** | Connect `stdio` or `http` MCP servers; tools available to all agents |
 | **Marketplace** | Community agents, plugins, skills, and workflows |
@@ -71,11 +71,11 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
 | Database | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
-| Semantic index | Nomic embeddings (`resource_chunks`) + hybrid search; see `docs/features/indexing.md` |
+| Semantic index | LangChain embeddings + LanceDB + hybrid search; see `docs/features/indexing.md` |
 | State | [Zustand](https://github.com/pmndrs/zustand) |
 | Editor | [Tiptap](https://tiptap.dev/) + Dome Editor (MIT) |
 | Graphs | [D3.js](https://d3js.org/) |
-| Web automation | [Playwright](https://playwright.dev/) |
+| Web search / fetch | Configurable providers (Brave, Tavily, SearXNG, DDG, Jina, Readability) |
 | PDF | [PDF.js](https://mozilla.github.io/pdf.js/) |
 | PowerPoint | [pptx-preview](https://github.com/mesmerize-dev/pptx-preview) |
 | i18n | [react-i18next](https://react.i18next.com/) |

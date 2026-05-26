@@ -1,6 +1,6 @@
 # Manual Técnico — Dome Desktop
 
-> Referencia técnica consolidada para desarrolladores de Dome (v2.1.7).
+> Referencia técnica consolidada para desarrolladores de Dome (v2.2.0).
 > Asume conocimiento de TypeScript, React y Electron.
 
 ---
@@ -12,7 +12,7 @@
 3. [Estructura de directorios](#3-estructura-de-directorios)
 4. [IPC — Comunicación entre procesos](#4-ipc--comunicación-entre-procesos)
 5. [Base de datos SQLite](#5-base-de-datos-sqlite)
-6. [Indexación semántica (IA en la nube + Nomic)](#6-indexación-semántica-ia-en-la-nube--nomic) (incl. [KB LLM](#kb-llm-wiki-compilada-por-agentes))
+6. [Indexación semántica (LangChain + LanceDB)](#6-indexación-semántica-langchain--lancedb) (incl. [KB LLM](#kb-llm-wiki-compilada-por-agentes))
 7. [AI Integration](#7-ai-integration)
 8. [Run Engine y Automatizaciones](#8-run-engine-y-automatizaciones)
 9. [State Management (Zustand)](#9-state-management-zustand)
@@ -80,7 +80,7 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 | UI components | Mantine | latest |
 | Styling | Tailwind CSS + CSS Variables | — |
 | Database | better-sqlite3 | latest |
-| Vector search | Nomic embeddings en SQLite (`resource_chunks`) | — |
+| Vector search | LangChain embeddings + LanceDB (`dome-lance`) | — |
 | AI orchestration | LangChain + LangGraph | latest |
 | AI providers | OpenAI, Anthropic, Google, Ollama, Dome | — |
 | Editor | Tiptap (ProseMirror) | — |
@@ -305,9 +305,9 @@ const resource = await dbClient.getResourceById(id);
 
 ---
 
-## 6. Indexación semántica (IA en la nube + Nomic)
+## 6. Indexación semántica (LangChain + LanceDB)
 
-La búsqueda híbrida usa **chunks vectoriales locales** (Nomic en `resource_chunks`) más FTS5 y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** del usuario (Ajustes → IA, visión / multimodal). No hay runtime Python embebido en el proceso principal; el índice semántico vive en SQLite. La transcripción on-device vía **Gemma** se retiró en versiones recientes.
+La búsqueda híbrida usa **vectores en LanceDB** (embeddings LangChain configurables: OpenAI, Google Gemini u Ollama) más FTS y el grafo. Los PDFs y las imágenes se transcriben o describen con el **LLM en la nube** del usuario (Ajustes → IA, visión / multimodal). Configuración en **Ajustes → IA → Embeddings**; IPC `embeddings:*` y `db:semantic:*`.
 
 Documentación detallada: **[indexing.md](./features/indexing.md)**.
 
@@ -316,14 +316,14 @@ Documentación detallada: **[indexing.md](./features/indexing.md)**.
 ```
 Recursos → semantic-index-scheduler → indexing.pipeline.cjs
     → (texto) resource-text / cloud PDF / cloud imagen
-    → chunking.cjs → embeddings Nomic → resource_chunks
+    → chunking.cjs → embeddings.service.cjs (LangChain) → lancedb-semantic.cjs
 ```
 
 ### IPC principal
 
 | Área | Canales / módulo |
 |------|------------------|
-| Embeddings / índice | `db:semantic:*`, `semantic:progress` |
+| Embeddings / índice | `embeddings:*`, `db:semantic:*`, `semantic:progress` |
 | Cloud LLM (visión) | `cloud:llm:pdf-region-stream`, streaming `cloud:llm:stream-*` |
 | Reindex biblioteca | `indexing:full-sync` |
 | Vista página PDF (chat) | `pdf:render-page`, `ai:tools:pdfRenderPage` |
@@ -393,7 +393,7 @@ Definidas en `electron/ai-chat-with-tools.cjs` y `app/lib/ai/tools/`:
 | `web_fetch` | Descarga y procesa URLs |
 | `deep_research` | Investigación multi-paso |
 | `resource_search` | FTS en biblioteca Dome |
-| `resource_semantic_search` | Búsqueda semántica (embeddings Nomic, chunks + `page_number`) |
+| `resource_semantic_search` | Búsqueda semántica (embeddings LangChain + LanceDB, chunks + `page_number`) |
 | `resource_get` | Lee contenido de recurso |
 | `resource_create` | Crea nota nueva |
 | `resource_update` | Edita nota existente |
@@ -783,4 +783,4 @@ Checklist:
 
 ---
 
-*Manual Técnico — Dome v2.1.7*
+*Manual Técnico — Dome v2.2.0*

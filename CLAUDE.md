@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Desktop**: Electron 41 with strict security (contextIsolation, no nodeIntegration)
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
-- **Semantic search**: Local Nomic embeddings in SQLite (`resource_chunks`); PDF/image text via your configured cloud LLM (vision) where applicable
+- **Semantic search**: Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB (`dome-lance`); hybrid search combines FTS + graph + vectors; PDF/image text via your configured cloud LLM (vision) where applicable
 - **AI**: LangChain + LangGraph for agent workflows; multi-provider (OpenAI, Anthropic, Google, Ollama)
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
@@ -97,7 +97,7 @@ IPC handlers are organized in `electron/ipc/` (one file per domain). All channel
 3. **Whitelist** (`electron/preload.cjs`): Add channel to ALLOWED_CHANNELS
 4. **Renderer** (`app/`): Call via `window.electron.invoke('channel', args)`
 
-IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-llm`, `cloud-storage`, `database`, `dome-auth`, `files`, `flashcards`, `graph`, `images`, `indexing-sync`, `interactions`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pdf-render`, `personality`, `plugins`, `resources`, `runs`, `semantic`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `window`.
+IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-llm`, `cloud-storage`, `database`, `dome-auth`, `embeddings`, `feeders`, `files`, `flashcards`, `graph`, `images`, `indexing-sync`, `interactions`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pdf-render`, `personality`, `plugins`, `resources`, `runs`, `semantic`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `window`.
 
 ### Database Architecture
 
@@ -143,7 +143,7 @@ dome/
 │   ├── pdf-extractor.cjs       # PDF text/page extraction
 │   ├── github-client.cjs       # GitHub API integration
 │   ├── crop-image.cjs          # Image cropping utilities
-│   ├── services/               # Nomic embeddings, indexing.pipeline, chunking, hybrid search
+│   ├── services/               # LangChain embeddings, indexing.pipeline, chunking, hybrid search, feeders, web providers
 │   └── ppt-slide-extractor.cjs # PPTX slide extraction (hidden BrowserWindow)
 │
 ├── app/                         # Renderer Process (Browser context)
