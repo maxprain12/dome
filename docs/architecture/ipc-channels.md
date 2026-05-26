@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-26T07:19:08.883Z
+> Última generación: 2026-05-26T07:24:25.145Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -256,24 +256,24 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `domeauth:getSession` | `electron/ipc/dome-auth.cjs:19` |
 | `domeauth:openDashboard` | `electron/ipc/dome-auth.cjs:32` |
 | `domeauth:startOAuthFlow` | `electron/ipc/dome-auth.cjs:5` |
-| `embeddings:apply` | `electron/ipc/embeddings.cjs:103` |
-| `embeddings:getStatus` | `electron/ipc/embeddings.cjs:14` |
-| `embeddings:listModels` | `electron/ipc/embeddings.cjs:78` |
-| `embeddings:test` | `electron/ipc/embeddings.cjs:46` |
-| `feeder-secrets:delete` | `electron/ipc/feeders.cjs:176` |
-| `feeder-secrets:list` | `electron/ipc/feeders.cjs:147` |
-| `feeder-secrets:set` | `electron/ipc/feeders.cjs:161` |
-| `feeder-secrets:vault-status` | `electron/ipc/feeders.cjs:191` |
-| `feeders:approve` | `electron/ipc/feeders.cjs:89` |
-| `feeders:create` | `electron/ipc/feeders.cjs:21` |
-| `feeders:delete` | `electron/ipc/feeders.cjs:104` |
-| `feeders:get` | `electron/ipc/feeders.cjs:37` |
-| `feeders:history` | `electron/ipc/feeders.cjs:135` |
-| `feeders:list` | `electron/ipc/feeders.cjs:50` |
-| `feeders:listAll` | `electron/ipc/feeders.cjs:62` |
-| `feeders:request-secret` | `electron/ipc/feeders.cjs:198` |
-| `feeders:run` | `electron/ipc/feeders.cjs:121` |
-| `feeders:update-script` | `electron/ipc/feeders.cjs:74` |
+| `embeddings:apply` | `electron/ipc/embeddings.cjs:134` |
+| `embeddings:getStatus` | `electron/ipc/embeddings.cjs:37` |
+| `embeddings:listModels` | `electron/ipc/embeddings.cjs:105` |
+| `embeddings:test` | `electron/ipc/embeddings.cjs:69` |
+| `feeder-secrets:delete` | `electron/ipc/feeders.cjs:240` |
+| `feeder-secrets:list` | `electron/ipc/feeders.cjs:206` |
+| `feeder-secrets:set` | `electron/ipc/feeders.cjs:220` |
+| `feeder-secrets:vault-status` | `electron/ipc/feeders.cjs:259` |
+| `feeders:approve` | `electron/ipc/feeders.cjs:130` |
+| `feeders:create` | `electron/ipc/feeders.cjs:45` |
+| `feeders:delete` | `electron/ipc/feeders.cjs:149` |
+| `feeders:get` | `electron/ipc/feeders.cjs:65` |
+| `feeders:history` | `electron/ipc/feeders.cjs:189` |
+| `feeders:list` | `electron/ipc/feeders.cjs:82` |
+| `feeders:listAll` | `electron/ipc/feeders.cjs:98` |
+| `feeders:request-secret` | `electron/ipc/feeders.cjs:266` |
+| `feeders:run` | `electron/ipc/feeders.cjs:170` |
+| `feeders:update-script` | `electron/ipc/feeders.cjs:110` |
 | `file:cleanTemp` | `electron/ipc/files.cjs:299` |
 | `file:copyFile` | `electron/ipc/files.cjs:182` |
 | `file:deleteFile` | `electron/ipc/files.cjs:104` |
