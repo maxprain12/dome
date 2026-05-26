@@ -1,6 +1,29 @@
 /* eslint-disable no-console */
 'use strict';
 
+const { z } = require('zod');
+
+const EmbeddingsTestSchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    api_key: z.string().optional(),
+    apiKey: z.string().optional(),
+    base_url: z.string().optional(),
+    baseUrl: z.string().optional(),
+  })
+  .optional();
+
+const EmbeddingsListModelsSchema = z
+  .object({
+    provider: z.string().optional(),
+    api_key: z.string().optional(),
+    apiKey: z.string().optional(),
+    base_url: z.string().optional(),
+    baseUrl: z.string().optional(),
+  })
+  .optional();
+
 const database = require('../database.cjs');
 const embeddingsService = require('../services/embeddings.service.cjs');
 const { clearContextCache } = require('../services/embedding-context.cjs');
@@ -46,14 +69,18 @@ function register({ ipcMain, windowManager, validateSender }) {
   ipcMain.handle('embeddings:test', async (event, override) => {
     try {
       validateSender(event, windowManager);
+      const parsed = EmbeddingsTestSchema.safeParse(override);
+      if (!parsed.success) {
+        return { success: false, error: 'Invalid payload' };
+      }
       const queries = database.getQueries();
       let cfg;
-      if (override && typeof override === 'object' && override.provider && override.model) {
+      if (parsed.data && parsed.data.provider && parsed.data.model) {
         cfg = {
-          provider: String(override.provider),
-          model: String(override.model),
-          apiKey: String(override.api_key ?? override.apiKey ?? ''),
-          baseUrl: String(override.base_url ?? override.baseUrl ?? 'http://127.0.0.1:11434'),
+          provider: String(parsed.data.provider),
+          model: String(parsed.data.model),
+          apiKey: String(parsed.data.api_key ?? parsed.data.apiKey ?? ''),
+          baseUrl: String(parsed.data.base_url ?? parsed.data.baseUrl ?? 'http://127.0.0.1:11434'),
         };
       } else {
         const saved = embeddingsService.readEmbeddingsSettings(queries);
@@ -78,10 +105,14 @@ function register({ ipcMain, windowManager, validateSender }) {
   ipcMain.handle('embeddings:listModels', async (event, params) => {
     try {
       validateSender(event, windowManager);
+      const parsed = EmbeddingsListModelsSchema.safeParse(params);
+      if (!parsed.success) {
+        return { success: false, error: 'Invalid payload' };
+      }
       const queries = database.getQueries();
-      const provider = String(params?.provider || '').toLowerCase();
-      let apiKey = String(params?.api_key ?? params?.apiKey ?? '').trim();
-      let baseUrl = String(params?.base_url ?? params?.baseUrl ?? '').trim();
+      const provider = String(parsed.data?.provider || '').toLowerCase();
+      let apiKey = String(parsed.data?.api_key ?? parsed.data?.apiKey ?? '').trim();
+      let baseUrl = String(parsed.data?.base_url ?? parsed.data?.baseUrl ?? '').trim();
 
       if (!apiKey) {
         apiKey = String(queries.getSetting.get('embeddings_api_key')?.value || '').trim();
