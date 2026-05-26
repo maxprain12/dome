@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-26T00:01:20.593Z
+> Última generación: 2026-05-26T07:19:08.883Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -223,12 +223,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `db:settings:set` | `electron/ipc/database.cjs:648` |
 | `db:skills:list` | `electron/ipc/database.cjs:1305` |
 | `db:skills:replaceAll` | `electron/ipc/database.cjs:1316` |
-| `db:studio:create` | `electron/ipc/studio.cjs:10` |
-| `db:studio:delete` | `electron/ipc/studio.cjs:136` |
-| `db:studio:getAll` | `electron/ipc/studio.cjs:46` |
-| `db:studio:getById` | `electron/ipc/studio.cjs:86` |
-| `db:studio:getByProject` | `electron/ipc/studio.cjs:66` |
-| `db:studio:update` | `electron/ipc/studio.cjs:102` |
+| `db:studio:create` | `electron/ipc/studio.cjs:33` |
+| `db:studio:delete` | `electron/ipc/studio.cjs:187` |
+| `db:studio:getAll` | `electron/ipc/studio.cjs:78` |
+| `db:studio:getById` | `electron/ipc/studio.cjs:118` |
+| `db:studio:getByProject` | `electron/ipc/studio.cjs:98` |
+| `db:studio:update` | `electron/ipc/studio.cjs:134` |
 | `db:tags:addToResource` | `electron/ipc/tags.cjs:78` |
 | `db:tags:create` | `electron/ipc/tags.cjs:50` |
 | `db:tags:getAll` | `electron/ipc/tags.cjs:20` |
