@@ -2279,7 +2279,7 @@ async function webSearch(args) {
     }
     const payload = {
       query,
-      provider: result.provider || 'playwright',
+      provider: result.provider || 'http',
       engine: result.engine || 'duckduckgo',
       count: typeof result.count === 'number' ? result.count : Array.isArray(result.results) ? result.results.length : 0,
       results: Array.isArray(result.results) ? result.results : [],
@@ -2296,12 +2296,12 @@ async function webSearch(args) {
 async function testWebSearchConnection() {
   const result = await webSearch({ query: 'Dome app', count: 1 });
   if (result?.status === 'error') {
-    return { success: false, error: result.error || 'No se pudo validar la búsqueda web con Playwright.' };
+    return { success: false, error: result.error || 'No se pudo validar la búsqueda web.' };
   }
 
   return {
     success: true,
-    provider: result.provider || 'playwright',
+    provider: result.provider || 'http',
     count: typeof result.count === 'number' ? result.count : Array.isArray(result.results) ? result.results.length : 0,
   };
 }
@@ -3272,6 +3272,7 @@ const nodePath = require('path');
 
 const SHELL_EXEC_TIMEOUT_MS = 60_000;
 const FILE_SEARCH_MAX = 200;
+const { buildFileTree, MAX_LIST_ITEMS } = require('./file-tree.cjs');
 
 async function fileRead(args) {
   const filePath = typeof args.file_path === 'string' ? args.file_path
@@ -3329,15 +3330,34 @@ async function fileList(args) {
   try {
     const resolved = nodePath.resolve(dirPath);
     const entries = fs.readdirSync(resolved, { withFileTypes: true });
-    const items = entries.map((e) => ({
+    const allItems = entries.map((e) => ({
       name: e.name,
       path: nodePath.join(resolved, e.name),
       isDirectory: e.isDirectory(),
     }));
-    return { status: 'success', path: dirPath, count: items.length, items };
+    const truncated = allItems.length > MAX_LIST_ITEMS;
+    const items = truncated ? allItems.slice(0, MAX_LIST_ITEMS) : allItems;
+    return {
+      status: 'success',
+      path: dirPath,
+      count: items.length,
+      total: allItems.length,
+      truncated,
+      items,
+    };
   } catch (err) {
     return { status: 'error', error: err.message };
   }
+}
+
+async function fileTree(args) {
+  const dirPath = typeof args.file_path === 'string' ? args.file_path
+    : typeof args.path === 'string' ? args.path : '';
+  if (!dirPath) return { status: 'error', error: 'file_path is required' };
+  const maxDepth = args.max_depth ?? args.maxDepth;
+  const maxEntries = args.max_entries ?? args.maxEntries;
+  const exclude = Array.isArray(args.exclude) ? args.exclude : undefined;
+  return buildFileTree(dirPath, { maxDepth, maxEntries, exclude });
 }
 
 function _walkDirForSearch(dir, visitor) {
@@ -3773,6 +3793,128 @@ async function artifactDesign(args) {
 }
 
 // =============================================================================
+// Artifact feeders (sandbox scripts → runtime data)
+// =============================================================================
+
+const {
+  runFeeder: runFeederScript,
+  createFeederRecord,
+  updateFeederScript: updateFeederScriptRecord,
+} = require('./services/feeder-runner.cjs');
+const { serializeFeederRow, serializeFeederRunRow } = require('./services/feeder-serialize.cjs');
+
+async function feederCreate(args) {
+  try {
+    const envRefsRaw = Array.isArray(args?.env_secret_refs) ? args.env_secret_refs : args?.envSecretRefs || [];
+    const envSecretRefs = envRefsRaw.map((ref) => ({
+      envName: String(ref?.env_name || ref?.envName || ''),
+      secretName: String(ref?.secret_name || ref?.secretName || ref?.name || ''),
+    }));
+    const feeder = createFeederRecord(database, {
+      artifactResourceId: args?.artifact_resource_id ?? args?.artifactResourceId,
+      name: args?.name,
+      interpreter: args?.interpreter,
+      script: args?.script,
+      description: args?.description,
+      slot: args?.slot,
+      envSecretRefs,
+      envStatic: args?.env_static ?? args?.envStatic ?? {},
+      outputMode: args?.output_mode ?? args?.outputMode,
+      updatePolicy: args?.update_policy ?? args?.updatePolicy,
+      timeoutMs: args?.timeout_ms ?? args?.timeoutMs,
+    });
+    if (windowManagerRef?.broadcast) {
+      windowManagerRef.broadcast('feeder:created', feeder);
+    }
+    return { success: true, data: feeder };
+  } catch (error) {
+    console.error('[AI Tools] feederCreate error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function feederList(args) {
+  try {
+    const artifactResourceId = args?.artifact_resource_id ?? args?.artifactResourceId;
+    if (!artifactResourceId) return { success: false, error: 'artifact_resource_id is required' };
+    const rows = database.getQueries().listFeedersByArtifact.all(artifactResourceId);
+    return { success: true, data: rows.map(serializeFeederRow) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function feederRun(args) {
+  try {
+    const feederId = args?.feeder_id ?? args?.feederId;
+    if (!feederId) return { success: false, error: 'feeder_id is required' };
+    const result = await runFeederScript(database, windowManagerRef, feederId, { triggeredBy: 'agent' });
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function feederUpdateScript(args) {
+  try {
+    const feederId = args?.feeder_id ?? args?.feederId;
+    const script = args?.script;
+    if (!feederId) return { success: false, error: 'feeder_id is required' };
+    if (!script) return { success: false, error: 'script is required' };
+    const feeder = updateFeederScriptRecord(database, feederId, String(script));
+    if (windowManagerRef?.broadcast) {
+      windowManagerRef.broadcast('feeder:updated', feeder);
+    }
+    return { success: true, data: feeder };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function feederDelete(args) {
+  try {
+    const feederId = args?.feeder_id ?? args?.feederId;
+    if (!feederId) return { success: false, error: 'feeder_id is required' };
+    database.getQueries().deleteFeeder.run(feederId);
+    if (windowManagerRef?.broadcast) {
+      windowManagerRef.broadcast('feeder:deleted', { feederId });
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function feederHistory(args) {
+  try {
+    const feederId = args?.feeder_id ?? args?.feederId;
+    if (!feederId) return { success: false, error: 'feeder_id is required' };
+    const limit = Math.min(Number(args?.limit) || 20, 100);
+    const rows = database.getQueries().listFeederRuns.all(feederId, limit);
+    return { success: true, data: rows.map(serializeFeederRunRow) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function feederSecretRequest(args) {
+  try {
+    const name = String(args?.name || '').trim();
+    if (!name) return { success: false, error: 'name is required' };
+    const feederId = args?.feeder_id ?? args?.feederId ?? null;
+    if (windowManagerRef?.broadcast) {
+      windowManagerRef.broadcast('feeder:secret-request', { name, feederId });
+    }
+    return {
+      success: true,
+      message: `Secret request sent to UI for "${name}". Ask the user to enter the value in the Feeders panel.`,
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+// =============================================================================
 // Exports
 // =============================================================================
 
@@ -3815,6 +3957,15 @@ module.exports = {
   artifactDelete,
   artifactLinkResource,
   artifactDesign,
+
+  // Artifact feeders
+  feederCreate,
+  feederList,
+  feederRun,
+  feederUpdateScript,
+  feederDelete,
+  feederHistory,
+  feederSecretRequest,
 
   // Project tools
   projectList,
@@ -3910,6 +4061,7 @@ module.exports = {
   skillRead,
   fileWrite,
   fileList,
+  fileTree,
   fileSearch,
   shellExec,
 

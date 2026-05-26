@@ -11,7 +11,9 @@ import DomeCallout from '@/components/ui/DomeCallout';
 const DOME_GREEN = 'var(--dome-accent)';
 
 interface SemanticIndexingStatusPayload {
-  modelVersion: string;
+  modelVersion: string | null;
+  configured?: boolean;
+  dimensions?: number | null;
   indexableTotal: number;
   indexedResourceCount: number;
   pendingCount: number;
@@ -227,13 +229,18 @@ export default function IndexingSettings() {
         {t('settings.indexing.section_separate')}
       </DomeSectionLabel>
 
-      {/* Embeddings locales (Nomic / resource_chunks) */}
       <div className="pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
         <DomeSubpageHeader
           className="!border-0 p-0 bg-transparent mt-2"
           title={t('settings.embeddings.section_title')}
           subtitle={t('settings.embeddings.section_hint')}
         />
+
+        {embedStatus && embedStatus.configured === false && !embedLoading ? (
+          <DomeCallout tone="warning" className="mt-3">
+            {t('settings.ai.embeddings.status.not_configured')}
+          </DomeCallout>
+        ) : null}
 
         {embedLoading ? (
           <p className="text-xs mt-3 flex items-center gap-2" style={{ color: 'var(--dome-text-muted)' }}>
@@ -246,14 +253,21 @@ export default function IndexingSettings() {
 
         {embedStatus && !embedLoading ? (
           <div className="mt-4 space-y-3">
-            <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
-              <span className="font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
-                {t('settings.embeddings.model')}:
-              </span>{' '}
-              <code className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--dome-surface)' }}>
-                {embedStatus.modelVersion}
-              </code>
-            </p>
+            {embedStatus.modelVersion ? (
+              <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+                <span className="font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
+                  {t('settings.ai.embeddings.status.model_active')}:
+                </span>{' '}
+                <code className="text-[10px] px-1 py-0.5 rounded" style={{ background: 'var(--dome-surface)' }}>
+                  {embedStatus.modelVersion}
+                </code>
+                {embedStatus.dimensions != null ? (
+                  <span className="ml-2">
+                    ({embedStatus.dimensions} {t('settings.ai.embeddings.status.dimensions').toLowerCase()})
+                  </span>
+                ) : null}
+              </p>
+            ) : null}
 
             {embedStatus.indexableTotal === 0 ? (
               <DomeCallout tone="info" icon={Sparkles}>

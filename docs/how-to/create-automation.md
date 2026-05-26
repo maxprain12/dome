@@ -1,20 +1,32 @@
 # How to Create an Automation
 
-Automations are scheduled rules that run an agent on a recurring cadence and save the output to your library or chat. They are managed through the **Automations** UI (Settings → Automations) and stored in your local SQLite database.
+Automations are scheduled rules that run an **agent**, a **workflow** or a **feeder** on a recurring cadence. They are managed through the **Automations Hub** tab and stored in your local SQLite database (`automation_definitions`).
 
 ---
 
 ## Creating an automation from the UI
 
-1. Open **Settings → Automations**.
-2. Click **New Automation**.
-3. Fill in:
+1. Open the **Automations** tab in the Hub.
+2. Click **New**.
+3. Pick a **Destination** (target):
+   - **Agent** — runs a LangGraph agent and saves the run in `automation_runs`.
+   - **Workflow** — runs a canvas workflow node graph.
+   - **Feeder** — runs an approved sandboxed script that merges JSON into an artifact (no LLM). The selector lists all feeders across all artifacts; only `approved` + `enabled` ones are pickable.
+4. Fill in:
    - **Name** — human-readable label.
-   - **Agent** — which agent will run (your installed agents or a system agent).
-   - **Prompt** — the instruction sent to the agent on each run.
-   - **Schedule** — when to run (see below).
-   - **Output mode** — where the result goes (see below).
-4. Toggle the automation on.
+   - **Trigger** — `manual` | `scheduled` | `contextual` (see below).
+   - **Prompt** / **Output mode** / **Artifact bindings** — only relevant for agent and workflow targets. Hidden for feeders (the feeder script owns the data merge).
+5. Toggle it on.
+
+### Refrescar un feeder cada N minutos (caso iDRAC)
+
+1. Crea el artefacto y su feeder desde la pestaña **Feeders** del artefacto.
+2. Aprueba el feeder y verifica que se ejecuta manualmente.
+3. En **Automations → New**:
+   - **Destination**: `Feeder` y selecciona el feeder.
+   - **Name**: `iDRAC Auto Refresh` (lo que quieras).
+   - **Trigger**: `Scheduled` con **Cadence = «cada N minutos»** y `intervalMinutes = 5`.
+4. Guarda con el toggle activado. El tick de 60s detectará el `cron-lite` y ejecutará `runFeeder` con `triggeredBy: 'automation'`.
 
 ---
 
@@ -83,31 +95,45 @@ interface Automation {
 
 ## IPC channels (for programmatic creation)
 
-If you need to create automations from code (e.g. an agent tool or a plugin), use these IPC channels from the renderer:
+The real channels (renderer → main) are:
 
 ```typescript
-// List all automations
-const automations = await window.electron.invoke('automations:list');
+// List
+const automations = await window.electron.invoke('automations:list', { projectId });
 
-// Create a new automation
-const created = await window.electron.invoke('automations:create', {
-  name: 'Daily News Digest',
-  enabled: true,
+// Create or update (single channel — no separate create/update/toggle)
+const created = await window.electron.invoke('automations:upsert', {
+  title: 'Daily News Digest',
+  projectId,
+  targetType: 'agent',       // 'agent' | 'workflow' | 'feeder'
+  targetId: '<agentId>',
   triggerType: 'schedule',
+  enabled: true,
   schedule: { cadence: 'daily', hour: 8 },
-  systemAgentId: 'many',
-  prompt: 'Search the web for the top 5 AI news stories today and summarize them as bullet points.',
-  outputMode: 'note',
+  inputTemplate: { prompt: 'Search ...' },
+  outputMode: 'chat_only',
 });
 
-// Toggle on/off
-await window.electron.invoke('automations:toggle', { id: created.id, enabled: false });
-
 // Run immediately
-await window.electron.invoke('automations:runNow', { id: created.id });
+await window.electron.invoke('automations:runNow', created.id);
 
 // Delete
-await window.electron.invoke('automations:delete', { id: created.id });
+await window.electron.invoke('automations:delete', created.id);
+```
+
+### Feeder refresh example
+
+```typescript
+await window.electron.invoke('automations:upsert', {
+  title: 'iDRAC Auto Refresh',
+  projectId,
+  targetType: 'feeder',
+  targetId: '<feeders.id>',
+  triggerType: 'schedule',
+  enabled: true,
+  schedule: { cadence: 'cron-lite', intervalMinutes: 5 },
+  // No prompt / outputMode / artifactBindings — feeders ignore them.
+});
 ```
 
 ---

@@ -176,6 +176,10 @@ const ALLOWED_CHANNELS = {
     'db:semantic:search',
     'db:semantic:getIndexingStatus',
     'db:semantic:resourceHasChunks',
+    'embeddings:getStatus',
+    'embeddings:test',
+    'embeddings:listModels',
+    'embeddings:apply',
     'cloud:llm:pdf-region-stream',
     // Database - Knowledge Graph
     'db:graph:createNode',
@@ -254,6 +258,7 @@ const ALLOWED_CHANNELS = {
     'file:deleteFile',
     'file:copyFile',
     'file:listDirectory',
+    'file:tree',
     'file:getInfo',
     'file:imageToBase64',
     'file:cleanTemp',
@@ -530,6 +535,21 @@ const ALLOWED_CHANNELS = {
     'artifact:list',
     'artifact:export',
     'artifact:import',
+    // Artifact feeders (sandbox scripts → runtime data)
+    'feeders:create',
+    'feeders:get',
+    'feeders:list',
+    'feeders:listAll',
+    'feeders:update-script',
+    'feeders:approve',
+    'feeders:delete',
+    'feeders:run',
+    'feeders:history',
+    'feeders:request-secret',
+    'feeder-secrets:list',
+    'feeder-secrets:set',
+    'feeder-secrets:delete',
+    'feeder-secrets:vault-status',
   ],
   // Canales para on/once (main → renderer)
   on: [
@@ -613,6 +633,14 @@ const ALLOWED_CHANNELS = {
     'artifact:deleted',
     'artifact:refresh-linked',
     'artifact:set-linked-resource',
+    // Feeder events
+    'feeder:created',
+    'feeder:updated',
+    'feeder:deleted',
+    'feeder:run-completed',
+    'feeder:secret-request',
+    'feeder:secret-updated',
+    'feeder:secret-deleted',
     // In-app approval (HITL — main requests approval, renderer shows modal)
     'approval:requested',
     'cloud-sync:revision',
@@ -1252,6 +1280,7 @@ const electronHandler = {
 
     // List directory contents (workspace, etc.)
     listDirectory: (dirPath) => ipcRenderer.invoke('file:listDirectory', dirPath),
+    treeDirectory: (payload) => ipcRenderer.invoke('file:tree', payload),
 
     // Get file information
     getInfo: (filePath) => ipcRenderer.invoke('file:getInfo', filePath),
@@ -1725,6 +1754,16 @@ const electronHandler = {
   },
 
   // ============================================
+  // EMBEDDINGS — LangChain providers for semantic index
+  // ============================================
+  embeddings: {
+    getStatus: () => ipcRenderer.invoke('embeddings:getStatus'),
+    test: (override) => ipcRenderer.invoke('embeddings:test', override),
+    listModels: (params) => ipcRenderer.invoke('embeddings:listModels', params),
+    apply: () => ipcRenderer.invoke('embeddings:apply'),
+  },
+
+  // ============================================
   // DOME MCP SERVER — manage the external MCP server
   // ============================================
   domeMcp: {
@@ -1749,6 +1788,28 @@ const electronHandler = {
     refreshLinked: (resourceId) => ipcRenderer.invoke('artifact:refresh-linked', resourceId),
     setLinkedResource: (resourceId, linkedResourceId) =>
       ipcRenderer.invoke('artifact:set-linked-resource', { resourceId, linkedResourceId }),
+  },
+
+  // ============================================
+  // ARTIFACT FEEDERS
+  // ============================================
+  feeders: {
+    create: (input) => ipcRenderer.invoke('feeders:create', input),
+    get: (feederId) => ipcRenderer.invoke('feeders:get', feederId),
+    list: (artifactResourceId) => ipcRenderer.invoke('feeders:list', artifactResourceId),
+    listAll: () => ipcRenderer.invoke('feeders:listAll'),
+    updateScript: (feederId, script) => ipcRenderer.invoke('feeders:update-script', { feederId, script }),
+    approve: (feederId) => ipcRenderer.invoke('feeders:approve', feederId),
+    delete: (feederId) => ipcRenderer.invoke('feeders:delete', feederId),
+    run: (feederId, triggeredBy) => ipcRenderer.invoke('feeders:run', { feederId, triggeredBy }),
+    history: (feederId, limit) => ipcRenderer.invoke('feeders:history', { feederId, limit }),
+    requestSecret: (name, feederId) => ipcRenderer.invoke('feeders:request-secret', { name, feederId }),
+    secrets: {
+      list: () => ipcRenderer.invoke('feeder-secrets:list'),
+      set: (name, value) => ipcRenderer.invoke('feeder-secrets:set', { name, value }),
+      delete: (secretId) => ipcRenderer.invoke('feeder-secrets:delete', secretId),
+      vaultStatus: () => ipcRenderer.invoke('feeder-secrets:vault-status'),
+    },
   },
 };
 

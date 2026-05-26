@@ -1,7 +1,7 @@
 /**
  * Web Fetch Tool
  *
- * Delegates all HTML extraction to the main-process Playwright scraper.
+ * Delegates HTML extraction to the main-process HTTP fetch providers.
  */
 
 import { Type } from '@sinclair/typebox';
@@ -27,7 +27,7 @@ const WebFetchSchema = Type.Object({
   url: Type.String({ description: 'URL to fetch content from.' }),
   extract_text: Type.Optional(
     Type.Boolean({
-      description: 'Deprecated. The Playwright scraper already returns cleaned markdown/text content.',
+      description: 'Deprecated. HTTP fetch providers already return cleaned markdown/text content.',
     }),
   ),
   include_metadata: Type.Optional(
@@ -49,7 +49,7 @@ const WebFetchSchema = Type.Object({
   ),
   use_advanced_scraper: Type.Optional(
     Type.Boolean({
-      description: 'Deprecated. Dome now uses the Playwright scraper for web content by default.',
+      description: 'Deprecated. Dome uses HTTP fetch providers for web content by default.',
     }),
   ),
   include_screenshot: Type.Optional(

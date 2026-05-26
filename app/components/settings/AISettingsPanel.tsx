@@ -1,7 +1,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Search, MessageSquare, Mic } from 'lucide-react';
+import { Cloud, Search, MessageSquare, Mic, Layers } from 'lucide-react';
+import AIEmbeddingsTab from './ai/AIEmbeddingsTab';
+import AIWebSearchTab from './ai/AIWebSearchTab';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -27,7 +29,7 @@ import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 
-type AISettingsTab = 'chat' | 'transcription' | 'tools';
+type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools';
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -49,8 +51,6 @@ export default function AISettingsPanel() {
   const [saved, setSaved] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [testingWebSearch, setTestingWebSearch] = useState(false);
-  const [webSearchResult, setWebSearchResult] = useState<{ success: boolean; message: string } | null>(null);
   const [domeConnected, setDomeConnected] = useState(false);
   const [domeConnecting, setDomeConnecting] = useState(false);
   const [domeQuota, setDomeQuota] = useState<{
@@ -251,23 +251,6 @@ export default function AISettingsPanel() {
     }
   };
 
-  const handleTestWebSearch = async () => {
-    setTestingWebSearch(true);
-    setWebSearchResult(null);
-    try {
-      if (!window.electron?.ai?.testWebSearch) {
-        setWebSearchResult({ success: false, message: 'No disponible en esta versión.' });
-        return;
-      }
-      const result = await window.electron.ai.testWebSearch();
-      setWebSearchResult(result.success
-        ? { success: true, message: result.warning ? `${result.warning} (${result.count ?? 0} resultado(s)).` : `Búsqueda web lista (${result.count ?? 0} resultado(s)).` }
-        : { success: false, message: result.error || 'No se pudo validar la búsqueda web.' });
-    } catch (error) {
-      setWebSearchResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido.' });
-    } finally { setTestingWebSearch(false); }
-  };
-
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <DomeSubpageHeader
@@ -284,6 +267,7 @@ export default function AISettingsPanel() {
         onChange={(v) => setActiveTab(v as AISettingsTab)}
         options={[
           { value: 'chat', label: t('settings.ai.tab_chat'), icon: <MessageSquare className="size-3.5" /> },
+          { value: 'embeddings', label: t('settings.ai.tab_embeddings'), icon: <Layers className="size-3.5" /> },
           { value: 'transcription', label: t('settings.ai.tab_transcription'), icon: <Mic className="size-3.5" /> },
           { value: 'tools', label: t('settings.ai.tab_tools'), icon: <Search className="size-3.5" /> },
         ]}
@@ -422,6 +406,8 @@ export default function AISettingsPanel() {
       </>
       ) : null}
 
+      {activeTab === 'embeddings' ? <AIEmbeddingsTab /> : null}
+
       {activeTab === 'transcription' ? (
         <TranscriptionSettingsSections
           ref={transcriptionRef}
@@ -431,65 +417,30 @@ export default function AISettingsPanel() {
         />
       ) : null}
 
-      {activeTab === 'tools' ? (
-      <>
-      {/* ── WEB SEARCH ── */}
-      <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.brave_search_title')}</DomeSectionLabel>
-        <DomeCard className="space-y-4">
-          <div className="flex items-start gap-3">
-            <DomeIconBox size="md" background="var(--dome-accent-bg)">
-              <Search className="size-4" style={{ color: 'var(--dome-accent)' }} />
-            </DomeIconBox>
-            <div>
-              <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>Playwright Web Search</p>
-              <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.ai.brave_search_desc')}
-              </p>
-            </div>
-          </div>
+      {activeTab === 'tools' ? <AIWebSearchTab /> : null}
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <DomeButton
-              type="button"
-              variant="primary"
-              size="sm"
-              onClick={() => void handleTestWebSearch()}
-              loading={testingWebSearch}
-            >
-              {t('settings.ai.test_brave')}
+      {(activeTab === 'chat' || activeTab === 'transcription') ? (
+        <>
+          <div className="flex items-center gap-3 pt-2 flex-wrap">
+            <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()}>
+              {saved ? t('settings.ai.saved_config') : t('settings.ai.save_all')}
             </DomeButton>
-            <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.ai.brave_desc')}
-            </span>
+            {activeTab === 'chat' ? (
+              <DomeButton
+                type="button"
+                variant="outline"
+                size="md"
+                onClick={() => void handleTestConnection()}
+                loading={testing}
+              >
+                {t('settings.ai.test_connection')}
+              </DomeButton>
+            ) : null}
           </div>
-
-          {webSearchResult ? (
-            <DomeCallout tone={webSearchResult.success ? 'success' : 'error'}>{webSearchResult.message}</DomeCallout>
+          {testResult && activeTab === 'chat' ? (
+            <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
           ) : null}
-        </DomeCard>
-      </div>
-      </>
-      ) : null}
-
-      {/* ── ACTIONS ── */}
-      <div className="flex items-center gap-3 pt-2 flex-wrap">
-        <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()}>
-          {saved ? t('settings.ai.saved_config') : t('settings.ai.save_all')}
-        </DomeButton>
-        <DomeButton
-          type="button"
-          variant="outline"
-          size="md"
-          onClick={() => void handleTestConnection()}
-          loading={testing}
-        >
-          {t('settings.ai.test_connection')}
-        </DomeButton>
-      </div>
-
-      {testResult ? (
-        <DomeCallout tone={testResult.success ? 'success' : 'error'}>{testResult.message}</DomeCallout>
+        </>
       ) : null}
     </div>
   );

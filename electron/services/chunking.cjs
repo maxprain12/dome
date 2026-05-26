@@ -6,6 +6,81 @@
 
 const DEFAULT_SEPARATORS = ['\n\n', '\n', '. ', '? ', '! ', ' '];
 
+/** @type {import('@langchain/textsplitters').RecursiveCharacterTextSplitter | null} */
+let _splitterCtor = null;
+
+/**
+ * @returns {Promise<typeof import('@langchain/textsplitters').RecursiveCharacterTextSplitter>}
+ */
+async function getRecursiveSplitterCtor() {
+  if (_splitterCtor) return _splitterCtor;
+  try {
+    const mod = await import('@langchain/textsplitters');
+    _splitterCtor = mod.RecursiveCharacterTextSplitter;
+    return _splitterCtor;
+  } catch (err) {
+    console.warn('[chunking] @langchain/textsplitters unavailable, using local splitter', err?.message || err);
+    return null;
+  }
+}
+
+/**
+ * @param {string} full
+ * @param {string[]} parts
+ * @returns {TextChunk[]}
+ */
+function mapPartsToChunks(full, parts) {
+  /** @type {TextChunk[]} */
+  const chunks = [];
+  let searchFrom = 0;
+  for (const part of parts) {
+    const trimmed = String(part ?? '');
+    if (!trimmed.trim()) continue;
+    let idx = full.indexOf(trimmed, searchFrom);
+    if (idx < 0) idx = full.indexOf(trimmed);
+    if (idx < 0) {
+      chunks.push({ text: trimmed, char_start: searchFrom, char_end: searchFrom + trimmed.length });
+      searchFrom += trimmed.length;
+      continue;
+    }
+    chunks.push({ text: trimmed, char_start: idx, char_end: idx + trimmed.length });
+    searchFrom = idx + trimmed.length;
+  }
+  return chunks;
+}
+
+/**
+ * Adaptive embedding chunks sized to model context window.
+ * @param {string} text
+ * @param {{ contextTokens?: number, charsPerToken?: number, safetyFactor?: number, overlapRatio?: number }} [opts]
+ * @returns {Promise<TextChunk[]>}
+ */
+async function chunkTextForEmbeddings(text, opts = {}) {
+  const contextTokens = typeof opts.contextTokens === 'number' && opts.contextTokens > 0 ? opts.contextTokens : 384;
+  const charsPerToken = typeof opts.charsPerToken === 'number' ? opts.charsPerToken : 3.3;
+  const safetyFactor = typeof opts.safetyFactor === 'number' ? opts.safetyFactor : 0.8;
+  const overlapRatio = typeof opts.overlapRatio === 'number' ? opts.overlapRatio : 0.12;
+
+  const maxChars = Math.max(256, Math.floor(contextTokens * charsPerToken * safetyFactor));
+  const overlapChars = Math.max(32, Math.floor(maxChars * overlapRatio));
+
+  const full = String(text ?? '');
+  if (!full.trim()) return [];
+
+  const Splitter = await getRecursiveSplitterCtor();
+  if (Splitter) {
+    const splitter = new Splitter({
+      chunkSize: maxChars,
+      chunkOverlap: overlapChars,
+      separators: DEFAULT_SEPARATORS,
+    });
+    const parts = await splitter.splitText(full);
+    return mapPartsToChunks(full, parts);
+  }
+
+  return chunkText(full, { maxChars, overlapChars, separators: DEFAULT_SEPARATORS });
+}
+
 /**
  * Character splitter with overlap (iterative, no deep recursion).
  * @param {string} text
@@ -127,5 +202,6 @@ function assignPageNumbersFromMarkers(fullText, chunks) {
 
 module.exports = {
   chunkText,
+  chunkTextForEmbeddings,
   assignPageNumbersFromMarkers,
 };

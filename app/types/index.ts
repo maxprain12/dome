@@ -422,6 +422,17 @@ export interface AISettings {
   ollama_num_predict?: number;
   /** Cuando true, modelos con "thinking" muestran el razonamiento interno. Por defecto false (solo respuesta final). */
   ollama_show_thinking?: boolean;
+  /** Proveedor de embeddings para búsqueda semántica (independiente del chat). */
+  embeddings_provider?: 'openai' | 'google' | 'ollama';
+  embeddings_api_key?: string;
+  embeddings_model?: string;
+  embeddings_base_url?: string;
+  /** Web search backend preference. */
+  web_search_provider?: 'auto' | 'tavily' | 'brave' | 'searxng' | 'ddg';
+  web_search_tavily_key?: string;
+  web_search_brave_key?: string;
+  /** Web fetch backend preference. */
+  web_fetch_provider?: 'auto' | 'jina' | 'readability' | 'tavily';
 }
 
 // Configuración general

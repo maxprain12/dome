@@ -11,6 +11,12 @@
  * - sse: url (required), SSE legacy transport
  */
 
+const { capToolResultString, getCapForTool } = require('./tool-result-cap.cjs');
+const {
+  isMcpToolDisabledByDefault,
+  normalizeMcpId,
+} = require('./mcp-tool-policy.cjs');
+
 const DEFAULT_MCP_SERVERS = [];
 
 function normalizeServerId(name) {
@@ -295,6 +301,44 @@ async function createClientForServers(servers) {
   });
 }
 
+/**
+ * Wrap LangChain MCP tools so large payloads are capped before entering agent state.
+ * @param {import('@langchain/core/tools').StructuredToolInterface} tool
+ * @returns {import('@langchain/core/tools').StructuredToolInterface}
+ */
+function wrapMcpToolWithCap(tool) {
+  if (!tool || typeof tool.invoke !== 'function') return tool;
+  const originalInvoke = tool.invoke.bind(tool);
+  const toolName = typeof tool.name === 'string' ? tool.name : 'mcp_tool';
+  tool.invoke = async (input, config) => {
+    const out = await originalInvoke(input, config);
+    const text = typeof out === 'string' ? out : JSON.stringify(out ?? '');
+    return capToolResultString(toolName, text, { maxChars: getCapForTool(toolName) });
+  };
+  return tool;
+}
+
+/**
+ * @param {import('@langchain/core/tools').StructuredToolInterface[]} tools
+ * @param {{ name?: string; command?: string; args?: string[]; enabledToolIds?: string[] }} server
+ * @returns {import('@langchain/core/tools').StructuredToolInterface[]}
+ */
+function filterToolsForServerPolicy(tools, server) {
+  if (!Array.isArray(tools)) return [];
+  const enabledSet = Array.isArray(server?.enabledToolIds) && server.enabledToolIds.length > 0
+    ? new Set(server.enabledToolIds.map((id) => normalizeMcpId(id)))
+    : null;
+
+  return tools.filter((tool) => {
+    const id = normalizeMcpId(tool?.name);
+    if (isMcpToolDisabledByDefault(id, server)) {
+      return enabledSet?.has(id) ?? false;
+    }
+    if (enabledSet) return enabledSet.has(id);
+    return true;
+  });
+}
+
 async function loadToolsForServer(server) {
   const client = await createClientForServers([server]);
   if (!client) {
@@ -302,7 +346,8 @@ async function loadToolsForServer(server) {
   }
 
   const tools = await client.getTools();
-  const safeTools = Array.isArray(tools) ? tools : [];
+  const safeTools = (Array.isArray(tools) ? tools : [])
+    .map((tool) => wrapMcpToolWithCap(tool));
   const manifest = safeTools
     .map((tool) => serializeTool(tool))
     .filter(Boolean);
@@ -342,14 +387,15 @@ async function getMCPTools(database, serverIds) {
     const allTools = [];
     for (const server of servers) {
       const { tools } = await loadToolsForServer(server);
+      const policyFiltered = filterToolsForServerPolicy(tools, server);
       const enabledToolIds = getEnabledToolIdsForServer(server);
       if (!enabledToolIds || enabledToolIds.length === 0) {
-        allTools.push(...tools);
+        allTools.push(...policyFiltered);
         continue;
       }
 
       const enabledSet = new Set(enabledToolIds);
-      const filteredTools = tools.filter((tool) => enabledSet.has(normalizeToolId(tool?.name)));
+      const filteredTools = policyFiltered.filter((tool) => enabledSet.has(normalizeToolId(tool?.name)));
       allTools.push(...filteredTools);
     }
     return allTools;

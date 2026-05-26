@@ -103,49 +103,10 @@ function parseJson(raw: unknown): unknown {
   return raw;
 }
 
-// ─── JsonPrettyPrinter (same as ChatToolCard) ─────────────────────────────
-// Note: JSON syntax highlighting colors (#f59e0b for boolean, #10b981 for number)
-// are code decoration colors, not theme colors. No CSS variables exist for these.
-export function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: number }) {
-  if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
-  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
-  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
-  if (typeof value === 'string') return <span style={{ color: 'var(--secondary-text)' }}>"{value}"</span>;
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
-    return (
-      <span>
-        {'[\u200B'}
-        <span style={{ paddingLeft: 16 * (depth + 1) }}>
-          {value.map((item, i) => (
-            <div key={i} style={{ paddingLeft: 16, background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)' }}>
-              <JsonPrettyPrinter value={item} depth={depth + 1} />
-              {i < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
-            </div>
-          ))}
-        </span>
-        {']'}
-      </span>
-    );
-  }
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>{'{}'}</span>;
-    return (
-      <div>
-        {entries.map(([k, v], i) => (
-          <div key={k} style={{ display: 'flex', gap: 6, padding: '2px 6px', borderRadius: 3, background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)' }}>
-            <span style={{ color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
-            <span style={{ wordBreak: 'break-word', minWidth: 0 }}>
-              <JsonPrettyPrinter value={v} depth={depth + 1} />
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return <span>{String(value)}</span>;
-}
+import { JsonPrettyPrinterRoot as JsonPrettyPrinter } from '@/lib/chat/jsonPrettyPrinter';
+
+// ─── JsonPrettyPrinter ───────────────────────────────────────────────────────
+export { JsonPrettyPrinterRoot as JsonPrettyPrinter } from '@/lib/chat/jsonPrettyPrinter';
 
 // ─── RunStepCard ─────────────────────────────────────────────────────────────
 

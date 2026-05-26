@@ -1,0 +1,106 @@
+# Artifact Feeders — sandbox scripts that feed persisted artifacts
+
+## When to use feeders
+
+Use a **feeder** when a persisted artifact (Kind B) needs **live or external data** that cannot be fetched from inside the sandboxed iframe (local APIs, Redfish, databases, shell tools, etc.).
+
+**Do NOT** ask the user to run scripts manually and paste JSON. Instead:
+
+1. `dome_load_doc('feeders')` (this doc)
+2. `dome_load_doc('artifact_persisted')` if creating the artifact too
+3. `artifact_create` — build the dashboard UI reading from `window.DOME_DATA`
+4. `feeder_secret_request` — for each credential (password, API key)
+5. `feeder_create` — attach the data-fetch script
+6. Tell the user to **approve** the feeder in the artifact Feeders panel (or approve via UI)
+7. `feeder_run` — populate the artifact immediately
+8. Optional: create a **schedule automation** with `target_type: "feeder"` for periodic refresh
+
+## Output contract
+
+- Default `output_mode: stdout_json` — script must print **valid JSON** to stdout (object or array).
+- Alternative `output_mode: output_file` — write JSON to `$OUTPUT_FILE` (also available as env var).
+- Feeder runner merges JSON into `state.data` using `update_policy` (default `replace`).
+
+## Interpreters (allow-list)
+
+| interpreter | script field | notes |
+|-------------|--------------|-------|
+| `python3` | `.py` source | Uses system Python; `requests`, etc. via pip if installed |
+| `node` | `.js` source | Runs under Electron Node (`ELECTRON_RUN_AS_NODE=1`) |
+| `bash` / `sh` | shell script | No `shell: true` — script file executed directly |
+| `curl` | JSON array of args | e.g. `["-sk", "-u", "root:$IDRAC_PASS", "https://192.168.1.50/redfish/v1/Systems/System.Embedded.1"]` |
+
+## Environment
+
+- `FEEDER_WORKSPACE` — isolated cwd (cleared between runs)
+- `OUTPUT_FILE` — path for `output_file` mode
+- `env_static` — non-secret vars (hostnames, usernames)
+- **Vault secrets are auto-injected**: every secret stored in the user's vault is exposed as `process.env.<secret_name>` / `os.environ["<secret_name>"]` by default. So if the user saves a secret named `IDRAC_PASS`, the script can read `os.environ["IDRAC_PASS"]` without any extra config.
+- `env_secret_refs` — **only needed when the script wants a different env-var name than the secret's vault name** (alias / rename). Otherwise omit it.
+
+Naming guidance:
+- Pick the env-var name **first** (what the script uses), then call `feeder_secret_request` with the **same name**. Then no `env_secret_refs` mapping is required.
+- Use uppercase snake_case for env names: `IDRAC_PASS`, `OPENAI_KEY`, `GITHUB_TOKEN`. Match what the script reads.
+
+Example with auto-injection (recommended):
+```python
+# Script just reads the secret by its vault name — no env_secret_refs needed.
+password = os.environ["IDRAC_PASS"]
+```
+→ `feeder_secret_request("IDRAC_PASS")` → user saves it → `feeder_run`.
+
+Example with explicit rename (only if you really need a different env-var name):
+```json
+"env_secret_refs": [{ "env_name": "DRAC_PASSWORD", "secret_name": "idrac_password" }]
+```
+
+## Approval model
+
+- `feeder_create` → `approved: false`
+- User approves once in UI (script hash pinned)
+- `feeder_update_script` resets approval
+- `feeder_run` fails clearly if not approved
+
+## Example: iDRAC Redfish (Python)
+
+```python
+#!/usr/bin/env python3
+import json, os, requests
+from requests.auth import HTTPBasicAuth
+
+host = "192.168.1.50"
+auth = HTTPBasicAuth("root", os.environ["IDRAC_PASS"])  # auto-injected from vault
+base = f"https://{host}/redfish/v1"
+r = requests.get(f"{base}/Systems/System.Embedded.1", auth=auth, verify=False, timeout=15)
+sys = r.json()
+print(json.dumps({
+  "system": {"model": sys.get("Model"), "health": sys.get("Status", {}).get("HealthRollup")},
+  "lastUpdated": __import__("datetime").datetime.now().isoformat(timespec="seconds"),
+}))
+```
+
+Then `feeder_create` with that script (no `env_secret_refs` needed), `feeder_secret_request("IDRAC_PASS")`, user approves, `feeder_run`.
+
+## Scheduling
+
+Create automation via `automation_create`:
+- `target_type: "feeder"`
+- `target_id: "<feeder_id>"`  (must be `approved=true` and `enabled=true`)
+- `trigger_type: "schedule"`
+- `schedule: { "cadence": "cron-lite", "interval_minutes": 5 }`
+
+`cadence: "cron-lite"` is REQUIRED for minute-based intervals — `interval_minutes` alone falls back to `daily`. Hour gate is bypassed for cron-lite.
+
+No LLM in the loop — deterministic refresh. Runs are visible in the artifact Feeders panel (not in the regular Runs tab).
+
+## Tools
+
+| Tool | Purpose |
+|------|---------|
+| `feeder_create` | Create feeder (pending approval) |
+| `feeder_list` | List feeders for artifact |
+| `feeder_run` | Execute approved feeder |
+| `feeder_update_script` | Change script (resets approval) |
+| `feeder_delete` | Remove feeder |
+| `feeder_history` | Run log |
+| `feeder_secret_request` | Prompt user for vault secret |

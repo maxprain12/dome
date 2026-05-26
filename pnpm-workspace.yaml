@@ -24,6 +24,6 @@ allowBuilds:
   electron-winstaller: true
   electron: true
   esbuild: true
-  onnxruntime-node: true
   protobufjs: true
   sharp: true
+  onnxruntime-node: set this to true or false

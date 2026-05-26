@@ -15,7 +15,7 @@ Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 - **Styling**: Tailwind + CSS variables — never hardcoded hex in inline styles
 - **i18n**: `app/lib/i18n.ts` — en, es, fr, pt (default `es`)
 - **Tabs**: `useTabStore` — not extra Electron windows
-- **Nomic / embeddings** (main only): `electron/services/embeddings.service.cjs` — `search_document:` / `search_query:`
+- **Embeddings** (main only): `electron/services/embeddings.service.cjs` — LangChain (OpenAI / Google / Ollama); settings `embeddings_*`
 
 Full rules: [docs/principles.md](docs/principles.md) · Architecture: [docs/architecture/README.md](docs/architecture/README.md) · New IPC: [.claude/sops/new-ipc-channel.md](.claude/sops/new-ipc-channel.md)
 

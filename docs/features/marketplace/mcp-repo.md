@@ -73,6 +73,16 @@ mi-mcp-servidor/
 }
 ```
 
+#### Filesystem MCP — evitar `directory_tree` en carpetas grandes
+
+El servidor `@modelcontextprotocol/server-filesystem` expone `directory_tree`, que recorre **todo** el árbol sin límite. En Windows (repos con `node_modules`, perfiles de usuario, etc.) puede saturar memoria y romper el chat.
+
+**Recomendaciones:**
+
+1. Monta el servidor solo en la **carpeta del proyecto**, no en `$HOME` ni en unidades enteras (`C:\`).
+2. Deja `directory_tree` **desactivada** en Ajustes → MCP (Dome la deshabilita por defecto al descubrir tools).
+3. Usa las tools nativas de Dome: `file_list` (un nivel), `file_tree` (profundidad acotada) o `file_search` (patrón, máx. 200).
+
 ### 2. Servidor Python
 
 ```json

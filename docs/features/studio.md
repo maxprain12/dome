@@ -92,6 +92,28 @@ El nombre del output generado incluye el tipo y el nombre del recurso origen:
 
 ---
 
+## Validación estricta al crear (P-002)
+
+Todas las salidas de Studio con contenido JSON pasan por [`electron/services/studio-validators.cjs`](../../electron/services/studio-validators.cjs) en el handler IPC `db:studio:create` y `db:studio:update` **antes** de persistir en SQLite.
+
+| Tipo | Qué se valida |
+|------|----------------|
+| **quiz** | `questions[]` no vacío; `correct` normalizado a entero 0-based (acepta reparación de string `"A"`, `"true"`, boolean, etc.) |
+| **mindmap** | `nodes[]` con `id`+`label`; `edges` solo si `source`/`target` existen |
+| **guide** | `sections[]` con `title`+`content` |
+| **faq** | `pairs[]` con `question`+`answer` |
+| **timeline** | `events[]` con `date`+`title`+`description` |
+| **table** | `columns[]` + al menos una fila con datos |
+| **flashcards** | Passthrough (contenido en el deck, no en `content`) |
+
+Si la validación falla, el IPC devuelve `{ success: false, error: 'studio.validation_failed', errors: [...] }` y **no** se inserta el registro.
+
+El componente [`Quiz.tsx`](../../app/components/studio/Quiz.tsx) aplica además [`normalizeQuizData`](../../app/lib/studio/normalizeQuizContent.ts) al renderizar, para reparar quizzes legacy ya guardados con `correct` como string o boolean (issue #338).
+
+Regresión: `pnpm run test:studio`
+
+---
+
 ## IPC Channels
 
 | Canal | Parámetros | Descripción |

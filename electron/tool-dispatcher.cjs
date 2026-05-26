@@ -113,6 +113,7 @@ const TOOL_HANDLER_MAP = {
   skill_read: 'skillRead',
   file_write: 'fileWrite',
   file_list: 'fileList',
+  file_tree: 'fileTree',
   file_search: 'fileSearch',
   shell_exec: 'shellExec',
 
@@ -125,6 +126,14 @@ const TOOL_HANDLER_MAP = {
   artifact_delete: 'artifactDelete',
   artifact_link_resource: 'artifactLinkResource',
   artifact_design: 'artifactDesign',
+
+  feeder_create: 'feederCreate',
+  feeder_list: 'feederList',
+  feeder_run: 'feederRun',
+  feeder_update_script: 'feederUpdateScript',
+  feeder_delete: 'feederDelete',
+  feeder_history: 'feederHistory',
+  feeder_secret_request: 'feederSecretRequest',
 
   // UI interaction tools (dispatch to renderer via IPC broadcast)
   ui_point_to: 'uiPointTo',
@@ -620,13 +629,13 @@ async function executeToolInMain(toolName, args, toolContext) {
         if (!docId) {
           result = {
             error:
-              'id is required. Valid values: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links',
+              'id is required. Valid values: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links, feeders',
           };
         } else {
           const body = getSectionBody(docId);
           if (!body) {
             result = {
-              error: `Unknown doc id: "${docId}". Valid: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links`,
+              error: `Unknown doc id: "${docId}". Valid: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links, feeders`,
             };
           } else {
             result = { id: docId, content: body };
@@ -781,6 +790,13 @@ function getToolDefsBySubagent() {
       'artifact_delete',
       'artifact_link_resource',
       'artifact_design',
+      'feeder_create',
+      'feeder_list',
+      'feeder_run',
+      'feeder_update_script',
+      'feeder_delete',
+      'feeder_history',
+      'feeder_secret_request',
       'flashcard_create',
       'notebook_get',
       'notebook_add_cell',
@@ -807,6 +823,9 @@ function getToolDefsBySubagent() {
       'resource_list',
       'resource_get',
       'artifact_merge_data',
+      'feeder_create',
+      'feeder_run',
+      'feeder_list',
       'resource_get_section',
       'get_document_structure',
       'get_current_project',
@@ -824,7 +843,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'web_search',
-        description: 'Search the web for current information using the built-in Playwright browser search. Returns titles, URLs, and snippets from live search results.',
+        description: 'Search the web for current information. Returns titles, URLs, and snippets from a configurable backend (SearXNG/DDG by default; Tavily/Brave if configured).',
         parameters: {
           type: 'object',
           properties: {
@@ -1385,6 +1404,114 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'feeder_create',
+        description:
+          'Create a sandbox script that feeds JSON data into a persisted artifact. Call dome_load_doc("feeders") first. ' +
+          'Feeder requires user approval before feeder_run. Use feeder_secret_request for credentials.',
+        parameters: {
+          type: 'object',
+          properties: {
+            artifact_resource_id: { type: 'string' },
+            name: { type: 'string' },
+            interpreter: { type: 'string', enum: ['python3', 'node', 'bash', 'sh', 'curl'] },
+            script: { type: 'string', description: 'Script source or JSON array of curl args' },
+            description: { type: 'string' },
+            slot: { type: 'string' },
+            env_secret_refs: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  env_name: { type: 'string' },
+                  secret_name: { type: 'string' },
+                },
+                required: ['env_name', 'secret_name'],
+              },
+            },
+            env_static: { type: 'object', additionalProperties: { type: 'string' } },
+            output_mode: { type: 'string', enum: ['stdout_json', 'output_file'] },
+            update_policy: { type: 'string', enum: ['replace', 'merge_shallow', 'merge_deep', 'append_array'] },
+            timeout_ms: { type: 'number' },
+          },
+          required: ['artifact_resource_id', 'name', 'interpreter', 'script'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'feeder_list',
+        description: 'List feeders for a persisted artifact.',
+        parameters: {
+          type: 'object',
+          properties: { artifact_resource_id: { type: 'string' } },
+          required: ['artifact_resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'feeder_run',
+        description: 'Run an approved feeder and merge JSON output into the artifact.',
+        parameters: {
+          type: 'object',
+          properties: { feeder_id: { type: 'string' } },
+          required: ['feeder_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'feeder_update_script',
+        description: 'Update feeder script (resets approval).',
+        parameters: {
+          type: 'object',
+          properties: { feeder_id: { type: 'string' }, script: { type: 'string' } },
+          required: ['feeder_id', 'script'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'feeder_delete',
+        description: 'Delete a feeder.',
+        parameters: {
+          type: 'object',
+          properties: { feeder_id: { type: 'string' } },
+          required: ['feeder_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'feeder_history',
+        description: 'Recent feeder run history.',
+        parameters: {
+          type: 'object',
+          properties: { feeder_id: { type: 'string' }, limit: { type: 'number' } },
+          required: ['feeder_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'feeder_secret_request',
+        description: 'Prompt user to store a named secret in the encrypted vault.',
+        parameters: {
+          type: 'object',
+          properties: { name: { type: 'string' }, feeder_id: { type: 'string' } },
+          required: ['name'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'flashcard_create',
         description: 'Create a flashcard deck from Q&A pairs. Each card must have only question (string) and answer (string). Optionally difficulty: "easy"|"medium"|"hard". Do not add tags or other fields.',
         parameters: {
@@ -1827,7 +1954,7 @@ function getAllToolDefinitions() {
           properties: {
             id: {
               type: 'string',
-              enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
+              enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links', 'feeders'],
               description: 'Section identifier',
             },
           },
@@ -2049,7 +2176,7 @@ function getAllToolDefinitions() {
       function: {
         name: 'file_list',
         description:
-          'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory.',
+          'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory. Capped at 500 entries — use file_search for deep or filtered scans. Prefer this over MCP directory_tree.',
         parameters: {
           type: 'object',
           properties: {
@@ -2062,9 +2189,31 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'file_tree',
+        description:
+          'Bounded recursive directory tree (safe alternative to MCP directory_tree). Default max_depth=2 and max_entries=200; skips node_modules, .git, dist, etc. Use for project structure — never scan home or drive roots. Prefer over MCP directory_tree.',
+        parameters: {
+          type: 'object',
+          properties: {
+            file_path: { type: 'string', description: 'Absolute path to the root directory.' },
+            path: { type: 'string', description: 'Alias for file_path.' },
+            max_depth: { type: 'number', description: 'Max directory depth (default 2, max 10).' },
+            max_entries: { type: 'number', description: 'Max files/folders to include (default 200, max 2000).' },
+            exclude: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Directory name patterns to skip (default includes node_modules, .git, dist, AppData).',
+            },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'file_search',
         description:
-          'Recursively search a directory for files matching a name pattern or containing a text string. Returns up to 200 matches.',
+          'Recursively search a directory for files matching a name pattern or containing a text string. Returns up to 200 matches. Prefer over MCP directory_tree for large folders (especially on Windows).',
         parameters: {
           type: 'object',
           properties: {

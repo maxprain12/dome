@@ -1,68 +1,10 @@
 'use strict';
 
-/* eslint-disable no-console */
-
 const crypto = require('crypto');
 
 const { serializeArtifactRecord, parseJsonState } = require('./artifact-serialize.cjs');
 const { afterArtifactMutation } = require('./artifact-index-sync.cjs');
-
-function extractJsonFromOutput(outputText, mode) {
-  const text = String(outputText || '').trim();
-  if (!text) return null;
-  if (mode === 'full_output') {
-    try {
-      return JSON.parse(text);
-    } catch {
-      return null;
-    }
-  }
-  const re = /```(?:json)?\s*([\s\S]*?)```/i;
-  const m = text.match(re);
-  if (!m) return null;
-  try {
-    return JSON.parse(m[1].trim());
-  } catch {
-    return null;
-  }
-}
-
-function applyUpdatePolicy(current, incoming, policy) {
-  if (incoming == null) return current;
-  if (policy === 'replace') return incoming;
-  if (policy === 'append_array') {
-    const cur = Array.isArray(current) ? current : [];
-    const inc = Array.isArray(incoming) ? incoming : [incoming];
-    return cur.concat(inc);
-  }
-  const curObj = current && typeof current === 'object' && !Array.isArray(current) ? current : {};
-  const incObj = incoming && typeof incoming === 'object' && !Array.isArray(incoming) ? incoming : {};
-  if (policy === 'merge_shallow') {
-    return { ...curObj, ...incObj };
-  }
-  // merge_deep — single-level recursive merge on object children
-  if (policy === 'merge_deep') {
-    /** @type {Record<string, unknown>} */
-    const out = { ...curObj };
-    for (const [k, v] of Object.entries(incObj)) {
-      const a = out[k];
-      if (
-        v &&
-        typeof v === 'object' &&
-        !Array.isArray(v) &&
-        a &&
-        typeof a === 'object' &&
-        !Array.isArray(a)
-      ) {
-        out[k] = { .../** @type {Record<string, unknown>} */ (a), .../** @type {Record<string, unknown>} */ (v) };
-      } else {
-        out[k] = v;
-      }
-    }
-    return out;
-  }
-  return incObj;
-}
+const { extractJsonFromOutput, applyUpdatePolicy } = require('./services/artifact-data-merge.cjs');
 
 /**
  * Consume automation bindings and persist model JSON into artifact runtime slots.

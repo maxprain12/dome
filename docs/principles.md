@@ -13,7 +13,7 @@ Cada regla tiene un id **P-NNN** que linters, CI y el auditor pueden citar en me
 | P-007  | Preferir utilidades compartidas a helpers duplicados |
 | P-008  | Planes de trabajo no triviales en `docs/plans/active/` (versionado) |
 | P-009  | Política de merge con alto caudal (flaky, fix-forward, PRs pequeños) |
-| P-010  | Embeddings: prefijos y modelo solo en el servicio documentado (Nomic) |
+| P-010  | Embeddings: proveedor LangChain solo en `embeddings.service.cjs` |
 
 ## P-001 — Renderer nunca importa módulos Node/DB
 
@@ -56,6 +56,6 @@ Cambios complejos: plan en `docs/plans/active/<slug>.md` con frontmatter, antes 
 - PRs pequeños y revisables (orientativo **&lt;200 LOC**) para `auto-merge` y revisión de agente.
 - Etiquetar o documentar casos `@flaky` con un máximo de reintentos (p. ej. 3) acordado con CI.
 
-## P-010 — Nomic / embeddings
+## P-010 — Embeddings (LangChain)
 
-No duplicar lógica de prefijos de tarea ni carga de modelo fuera de `electron/services/embeddings.service.cjs` (prefijos `search_document:` / `search_query:`).
+No duplicar lógica de embedding ni lectura de `embeddings_*` settings fuera de `electron/services/embeddings.service.cjs`. Para modelos Ollama cuyo id contiene `nomic`, el servicio añade los prefijos `search_document:` / `search_query:` al texto.

@@ -119,10 +119,6 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
   });
 
-  /**
-   * List directory contents (for notebook workspace, etc.)
-   * allowExternal: true - workspace folder is user-selected, can be anywhere
-   */
   ipcMain.handle('file:listDirectory', (event, dirPath) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
@@ -146,6 +142,36 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
       return { success: true, data: items };
     } catch (error) {
       console.error('[File] Error listing directory:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Bounded recursive directory tree (safe alternative to MCP directory_tree).
+   */
+  ipcMain.handle('file:tree', (event, payload) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      const { buildFileTree } = require('../file-tree.cjs');
+      const dirPath = payload?.dirPath ?? payload?.file_path ?? payload?.path;
+      if (!dirPath || typeof dirPath !== 'string') {
+        return { success: false, error: 'dirPath is required' };
+      }
+      const safePath = sanitizePath(dirPath, true);
+      const result = buildFileTree(safePath, {
+        maxDepth: payload?.max_depth ?? payload?.maxDepth,
+        maxEntries: payload?.max_entries ?? payload?.maxEntries,
+        exclude: Array.isArray(payload?.exclude) ? payload.exclude : undefined,
+      });
+      if (result.status === 'error') {
+        return { success: false, error: result.error || 'Tree build failed' };
+      }
+      return { success: true, data: result };
+    } catch (error) {
+      console.error('[File] Error building tree:', error);
       return { success: false, error: error.message };
     }
   });

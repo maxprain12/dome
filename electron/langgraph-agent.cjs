@@ -6,11 +6,9 @@
  * Converts Dome's OpenAI-format tool definitions to LangChain tools,
  * creates a model from provider config, and streams results.
  *
- * Context engineering: optional LangChain summarizationMiddleware (disable with
- * DOME_LANGGRAPH_SUMMARIZATION=0), trim-by-token middleware, tool-result caps
- * (electron/tool-result-cap.cjs), typed runtimeContext (agent-runtime-context.cjs),
- * optional workspace AGENTS.md injected via project-memory.cjs, and truncated
- * file-based skills via deepagents createSkillsMiddleware.
+ * Context engineering: LangChain middleware stack via electron/agent-middleware.cjs
+ * (summarization, retry, limits, PII, todo list, tool selector, filesystem, trim).
+ * Disable pieces with DOME_LANGGRAPH_* env vars — see docs/architecture/middleware.md.
  *
  * Human-in-the-Loop (HITL): call_writer_agent and call_data_agent require
  * human approval. Uses a durable SqliteSaver checkpointer so pending
@@ -37,7 +35,7 @@ const { measurePrompt } = require('./prompt-budget.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const projectMemory = require('./project-memory.cjs');
 const { buildSkillsMiddleware } = require('./skills/index.cjs');
-const { buildGuardrailsMiddleware } = require('./guardrails.cjs');
+const { buildAgentMiddlewareStack } = require('./agent-middleware.cjs');
 const { DOME_LOAD_DOC_DESCRIPTION } = require('./prompt-sections.cjs');
 const { capToolResultString } = require('./tool-result-cap.cjs');
 const { temperatureOptions } = require('./model-params.cjs');
@@ -108,12 +106,13 @@ function getSharedCheckpointer() {
 }
 
 /**
- * Recursion limit for `createAgent`. Default is 25; raised to 100 for
- * Excel/sheet-style flows that loop over many rows. If you ever see
- * `GraphRecursionError` outside of a runaway loop, bump this — but first
- * confirm the agent isn't oscillating.
+ * Recursion limit for `createAgent`. Default is 25; raised to 250 for
+ * Excel/sheet-style flows and multi-step agentic workflows (feeders,
+ * artifact + Redfish loops, deep research) that legitimately need many
+ * model+tool turns. If you ever see `GraphRecursionError` outside of a
+ * runaway loop, bump this — but first confirm the agent isn't oscillating.
  */
-const RECURSION_LIMIT = 100;
+const RECURSION_LIMIT = 250;
 
 /** Default stream modes for every agent run (LangGraph `streamMode` array). */
 const STREAM_MODES_BASE = ['messages', 'updates', 'custom'];
@@ -170,59 +169,6 @@ const TOP_LEVEL_NODES = new Set([
   'model_request',
   'model',
 ]);
-
-/**
- * Per-turn cap on calls to a single creation tool. Prevents runaway loops
- * (e.g. MiniMax-M2.7 generating 16 "Dashboard X" notes for one user ask)
- * even when the system prompt already says "one creation per request".
- * Tools listed here return a synthetic error after exceeding the cap; the
- * model sees the error and (per artifact/tools prompt guidance) replies
- * to the user instead of looping further.
- *
- * Tools NOT in this map are uncapped — read tools (resource_search,
- * resource_get, web_search…) and structural ops can legitimately fire
- * many times in a complex workflow.
- */
-const CREATION_TOOL_CAPS = {
-  resource_create: 5,
-  resource_update: 8,
-  resource_delete: 5,
-  ppt_create: 3,
-  flashcard_create: 3,
-  generate_quiz: 2,
-  generate_mindmap: 2,
-  generate_guide: 2,
-  generate_faq: 2,
-  generate_timeline: 2,
-  generate_table: 2,
-  generate_audio_overview: 2,
-  generate_video_overview: 2,
-  notebook_add_cell: 30,
-  pdf_annotation_create: 30,
-  link_resources: 20,
-};
-
-function makeToolCallCounter() {
-  const counts = new Map();
-  return {
-    /** Returns null if allowed, or an error string if the cap was hit. */
-    check(name) {
-      const cap = CREATION_TOOL_CAPS[name];
-      if (typeof cap !== 'number') return null;
-      const used = counts.get(name) || 0;
-      if (used >= cap) {
-        return (
-          `Tool "${name}" has been called ${used} times in this turn — ` +
-          `that's the per-turn cap (${cap}). STOP calling this tool. ` +
-          `Reply to the user now with a summary of what you've already produced. ` +
-          `If they wanted multiple variants they will ask explicitly.`
-        );
-      }
-      counts.set(name, used + 1);
-      return null;
-    },
-  };
-}
 
 /**
  * Stateful parser for `<think>...</think>` blocks streamed across chunks
@@ -472,6 +418,8 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
             if (typeof resultContent !== 'string') {
               try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
             }
+            const toolName = typeof msg.name === 'string' ? msg.name : 'tool';
+            resultContent = capToolResultString(toolName, resultContent);
             if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultContent });
           }
         }
@@ -507,10 +455,11 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
 async function finalizeFromState(agent, config) {
   let finalText = '';
   let finalMessages = [];
+  let lastAI = null;
   try {
     const state = await agent.getState(config);
     finalMessages = state?.values?.messages || state?.messages || [];
-    const lastAI = [...finalMessages].reverse().find(
+    lastAI = [...finalMessages].reverse().find(
       (m) => m && typeof m._getType === 'function' && m._getType() === 'ai',
     );
     if (lastAI) {
@@ -527,7 +476,94 @@ async function finalizeFromState(agent, config) {
   } catch {
     /* getState may fail if no checkpoint; return empty */
   }
-  return { finalText, finalMessages };
+  return { finalText, finalMessages, lastAI };
+}
+
+/**
+ * Build a user-visible fallback message when the model returns an empty AIMessage.
+ *
+ * Common causes: provider-side content policy refusals (Anthropic / MiniMax-via-Anthropic
+ * return empty content blocks instead of raising), max_tokens hit before any text, or a
+ * tool_calls-only message that the agent loop didn't follow up on.
+ *
+ * @param {*} lastAI - the last AIMessage from state
+ * @returns {string} fallback markdown to surface in the chat
+ */
+function buildEmptyResponseFallback(lastAI) {
+  const meta = lastAI?.response_metadata || lastAI?.lc_kwargs?.response_metadata || {};
+  const stop =
+    meta.stop_reason ||
+    meta.stopReason ||
+    meta.finish_reason ||
+    meta.finishReason ||
+    null;
+  const hasToolCalls = Array.isArray(lastAI?.tool_calls) && lastAI.tool_calls.length > 0;
+
+  if (hasToolCalls) {
+    return 'El modelo intentó usar herramientas pero no devolvió texto. Reintenta o reformula la petición.';
+  }
+  if (stop === 'refusal' || stop === 'content_filter' || stop === 'safety') {
+    return (
+      'El proveedor del modelo rechazó la petición por su política de uso. ' +
+      'Reformula evitando credenciales reales, exploits o accesos a infraestructura sin permiso.'
+    );
+  }
+  if (stop === 'max_tokens' || stop === 'length') {
+    return 'El modelo cortó la respuesta por alcanzar el límite de tokens antes de producir texto. Reintenta o reduce el contexto.';
+  }
+  return (
+    'El modelo devolvió una respuesta vacía. ' +
+    'Esto suele ocurrir cuando el proveedor rechaza el prompt sin avisar, ' +
+    'o cuando una herramienta se invocó sin texto adjunto. Reintenta con otra redacción.'
+  );
+}
+
+/**
+ * Detect the AIMessage shape that `modelRetryMiddleware({ onFailure: 'continue' })`
+ * produces when all retries fail. The middleware returns the AIMessage directly
+ * (without streaming chunks), so `mode=messages` emits nothing and the chat shows
+ * an empty bubble. We surface a friendly version of the error here.
+ *
+ * Pattern: content starts with "Model call failed" and `name === 'model'`.
+ *
+ * @param {*} lastAI
+ * @returns {string | null}
+ */
+function detectMiddlewareErrorMessage(lastAI) {
+  if (!lastAI) return null;
+  const content = typeof lastAI.content === 'string' ? lastAI.content : '';
+  if (!content) return null;
+  const looksLikeFailure =
+    content.startsWith('Model call failed') ||
+    content.includes('MiddlewareError') ||
+    (lastAI.name === 'model' && content.includes('failed after'));
+  if (!looksLikeFailure) return null;
+  const m = content.match(/MiddlewareError:\s*(.+?)(?:\s*Available tools:|$)/s);
+  const inner = (m && m[1] ? m[1] : content).trim();
+  const lower = inner.toLowerCase();
+
+  if (
+    lower.includes('fetch failed') ||
+    lower.includes('econnreset') ||
+    lower.includes('econnrefused') ||
+    lower.includes('enotfound') ||
+    lower.includes('socket hang up') ||
+    lower.includes('network error') ||
+    lower.includes('timeout')
+  ) {
+    return (
+      'No se pudo contactar al proveedor de LLM (fallo de red transitorio):\n\n' +
+      '> ' + inner.split('\n').join('\n> ') + '\n\n' +
+      'Revisa tu conexión y vuelve a enviar el mensaje. Si persiste, comprueba la consola del proceso main ' +
+      'y el estado del proveedor (OpenAI / Anthropic / Ollama / Dome Provider).'
+    );
+  }
+
+  return (
+    'Se produjo un fallo interno en el middleware del agente:\n\n' +
+    '> ' + inner.split('\n').join('\n> ') + '\n\n' +
+    'Reintenta la petición. Si vuelve a ocurrir, revisa la consola del proceso main.'
+  );
 }
 
 function normalizeToolName(name) {
@@ -778,170 +814,6 @@ async function toLangChainMessages(messages) {
   return result;
 }
 
-/**
- * Per-provider token budgets used by the trimming middleware. Generous on
- * the cloud providers (we still leave headroom for tool definitions +
- * system prompt), tight on Ollama because most local models cap at 8K.
- *
- * If you bump these, remember the *real* limit for the model in question
- * — exceeding it produces silent context truncation on the server side
- * (OpenAI) or hard 4xx errors (Anthropic).
- */
-const PROVIDER_TOKEN_BUDGETS = {
-  ollama: 8192,
-  openai: 96000,
-  anthropic: 160000,
-  google: 800000,
-  minimax: 160000,
-  dome: 64000,
-  openrouter: 128000,
-};
-
-const DEFAULT_TOKEN_BUDGET = 64000;
-
-/**
- * Build a middleware that trims `request.messages` to fit the provider's
- * token budget on every model call. Runs inside the agent loop, so it
- * also catches growth from intermediate tool turns — not just the
- * initial input. Falls back to the untrimmed messages on counter errors
- * (some non-OpenAI models lack a token counter).
- */
-async function createTrimmingMiddleware(provider, llm) {
-  const { createMiddleware } = await import('langchain');
-  const { trimMessages } = await import('@langchain/core/messages');
-  const maxTokens = PROVIDER_TOKEN_BUDGETS[provider] ?? DEFAULT_TOKEN_BUDGET;
-
-  // Character-based token approximation for models not in the tiktoken registry.
-  // Avoids "Unknown model" warnings from @langchain/core's tiktoken path.
-  const charTokenCounter = (msgs) =>
-    msgs.reduce((sum, m) => {
-      const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-      return sum + Math.ceil(text.length / 4);
-    }, 0);
-
-  // OpenAI-family providers have real tiktoken support; others fall back to char count.
-  const tokenCounter = ['openai', 'azure', 'google', 'ollama'].includes(provider) ? llm : charTokenCounter;
-
-  return createMiddleware({
-    name: 'DomeTrimMessages',
-    async wrapModelCall(request, handler) {
-      let messages = Array.isArray(request.messages) ? [...request.messages] : [];
-      if (messages.length === 0) return handler(request);
-
-      const { SystemMessage } = await import('@langchain/core/messages');
-
-      const isSystemMsg = (m) => {
-        try {
-          if (m instanceof SystemMessage) return true;
-          const t = typeof m._getType === 'function' ? m._getType()
-                  : typeof m.getType === 'function' ? m.getType()
-                  : m._message_type || m.type || m.role || '';
-          return t === 'system';
-        } catch { return false; }
-      };
-
-      // Helper to extract text from a message content (string or content blocks).
-      const getTextContent = (content) => {
-        if (typeof content === 'string') return content;
-        if (Array.isArray(content)) {
-          return content.map((c) => {
-            if (typeof c === 'string') return c;
-            if (c && typeof c === 'object' && 'text' in c) return c.text || '';
-            return '';
-          }).join('\n');
-        }
-        return JSON.stringify(content);
-      };
-
-      if (process.env.DOME_TRIM_DEBUG === '1') {
-        console.log('[DomeTrim] types:', messages.map((m, i) => `${i}:${isSystemMsg(m) ? 'SYS' : (typeof m._getType === 'function' ? m._getType() : m.role || '?')}`).join(' '));
-      }
-
-      // Lift any system messages out of request.messages and merge them into
-      // request.systemMessage/systemPrompt. This is necessary because
-      // AgentNode.baseHandler ALWAYS prepends request.systemMessage to
-      // request.messages right before the model call — having system messages
-      // in both places would produce duplicate system entries, which Anthropic
-      // (and MiniMax's Anthropic-compatible endpoint) reject with:
-      // "System messages are only permitted as the first passed message."
-      const sysIdxs = messages.reduce((acc, m, i) => {
-        if (isSystemMsg(m)) acc.push(i);
-        return acc;
-      }, []);
-
-      let updatedRequest = request;
-      if (sysIdxs.length > 0) {
-        const sysTexts = sysIdxs.map((i) => getTextContent(messages[i].content));
-        const fromSystemMessage = request.systemMessage?.content;
-        const fromPromptString =
-          typeof request.systemPrompt === 'string' ? request.systemPrompt : '';
-        const existingContent = getTextContent(fromSystemMessage ?? fromPromptString ?? '');
-        // Dome system prompt first so it sets context, then any middleware additions (VFS, etc.)
-        const allSysContent = [...sysTexts, existingContent].filter(Boolean).join('\n\n---\n\n');
-
-        messages = messages.filter((_, i) => !sysIdxs.includes(i));
-
-        console.log(`[AI LangGraph] lifted ${sysIdxs.length} system message(s) → merged systemPrompt (${provider})`);
-
-        // LangChain AgentNode rejects wrapModelCall requests where BOTH systemPrompt and
-        // systemMessage appear "changed" vs baseline: `undefined !== baseline.text` counts
-        // as a systemPrompt change, so setting only `systemMessage` triggers the error.
-        // Update systemPrompt (string) only; leave systemMessage reference unchanged — the
-        // node normalizes to a single SystemMessage on the next validation step.
-        updatedRequest = {
-          ...request,
-          messages,
-          systemPrompt: allSysContent,
-        };
-      }
-
-      if (messages.length === 0) return handler(updatedRequest);
-
-      try {
-        const trimmed = await trimMessages(messages, {
-          maxTokens,
-          tokenCounter,
-          strategy: 'last',
-          includeSystem: false,
-          startOn: 'human',
-          endOn: ['human', 'tool'],
-        });
-        if (trimmed.length < messages.length) {
-          console.log(`[AI LangGraph] trimmed ${messages.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`);
-        }
-        return handler({ ...updatedRequest, messages: trimmed });
-      } catch (e) {
-        console.warn(`[AI LangGraph] ${provider} trim failed, using full history:`, e?.message);
-        return handler(updatedRequest);
-      }
-    },
-  });
-}
-
-/**
- * Optional LangChain summarization middleware (context engineering).
- * Disable with DOME_LANGGRAPH_SUMMARIZATION=0 if it causes issues with a provider.
- * @param {string} provider
- * @param {import('@langchain/core').BaseChatModel} llm
- * @returns {Promise<import('langchain').AgentMiddleware | null>}
- */
-async function createSummarizationMiddlewareMaybe(provider, llm) {
-  const off = String(process.env.DOME_LANGGRAPH_SUMMARIZATION ?? '').toLowerCase().trim();
-  if (off === '0' || off === 'false' || off === 'off' || off === 'no') return null;
-  try {
-    const { summarizationMiddleware } = await import('langchain');
-    const maxTokens = PROVIDER_TOKEN_BUDGETS[provider] ?? DEFAULT_TOKEN_BUDGET;
-    return summarizationMiddleware({
-      model: llm,
-      trigger: { tokens: Math.floor(maxTokens * 0.7), messages: 8 },
-      keep: { messages: 10 },
-    });
-  } catch (e) {
-    console.warn('[AI LangGraph] summarizationMiddleware not loaded:', e?.message || e);
-    return null;
-  }
-}
-
 const CALENDAR_HITL_TOOLS = {
   calendar_create_event: true,
   calendar_update_event: true,
@@ -999,6 +871,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     store,
   } = opts;
 
+  const agentStore = store ?? getDomeStore();
   const runtimeContext = parseRuntimeContext(runtimeContextRaw);
 
   const toolContext =
@@ -1013,7 +886,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
   const rtEmittedCallIds = new Set();
   const rtEmittedResultIds = new Set();
   let rtCallCounter = 0;
-  const callCounter = makeToolCallCounter();
 
   let tools;
   if (useDirectTools) {
@@ -1034,12 +906,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
           },
         });
       }
-      const capError = callCounter.check(name);
-      if (capError) {
-        if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: capError });
-        rtEmittedResultIds.add(id);
-        return { error: capError };
-      }
       const result = await executeToolInMain(name, args, toolContext);
       const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
       const resultStr = capToolResultString(name, resultStr0);
@@ -1059,6 +925,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       onChunk,
       subagentIds,
       toolContext,
+      { provider, store: agentStore },
     );
     const asyncSubagentTools = await createAsyncSubagentTools({
       threadId,
@@ -1178,8 +1045,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       },
     ];
     const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(mainAgentDefs, async (name, args) => {
-      const capError = callCounter.check(name);
-      if (capError) return { error: capError };
       const result = await executeToolInMain(name, args, toolContext);
       const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
       return capToolResultString(name, resultStr0);
@@ -1216,8 +1081,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       },
     ];
     const domeLoadDocTools = await createLangChainToolsFromOpenAIDefinitions(domeLoadDocDef, async (name, args) => {
-      const capError = callCounter.check(name);
-      if (capError) return { error: capError };
       const result = await executeToolInMain(name, args, toolContext);
       const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
       return capToolResultString(name, resultStr0);
@@ -1256,8 +1119,6 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     }
     if (rtDefs.length > 0) {
       const rtTools = await createLangChainToolsFromOpenAIDefinitions(rtDefs, async (name, args) => {
-        const capError = callCounter.check(name);
-        if (capError) return { error: capError };
         const result = await executeToolInMain(name, args, toolContext);
         const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
         return capToolResultString(name, resultStr0);
@@ -1271,33 +1132,25 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     interruptOn,
     descriptionPrefix: 'Acción pendiente de aprobación',
   });
-  const trimMiddleware = await createTrimmingMiddleware(provider, llm);
-  const summarizationMw = await createSummarizationMiddlewareMaybe(provider, llm);
 
   const skillsMw = await buildSkillsMiddleware();
-  const guardrailsMw = buildGuardrailsMiddleware();
-
-  // DomeTrimMessages must be the innermost wrapModelCall wrapper so it sees ALL
-  // injected messages before ChatAnthropic validates.
-  // Order (outermost→innermost): guardrails → summarization → HITL → skills → trim → model
-  const middleware = (() => {
-    const base = [
-      ...(guardrailsMw ? [guardrailsMw] : []),
-      ...(summarizationMw ? [summarizationMw] : []),
-    ];
-    const skillsStack = skillsMw ? [skillsMw] : [];
-    if (skipHitl) {
-      return [...base, ...skillsStack, trimMiddleware];
-    }
-    return [...base, hitlMiddleware, ...skillsStack, trimMiddleware];
-  })();
+  const middleware = await buildAgentMiddlewareStack({
+    profile: 'full',
+    provider,
+    llm,
+    tools,
+    skipHitl,
+    hitlMiddleware,
+    skillsMiddleware: skillsMw,
+    store: agentStore,
+  });
 
   const agent = createAgent({
     model: llm,
     tools,
     middleware,
     checkpointer: getSharedCheckpointer(),
-    store: store ?? getDomeStore(),
+    store: agentStore,
   });
 
   return { agent, rtEmittedCallIds, rtEmittedResultIds };
@@ -1401,7 +1254,28 @@ async function invokeLangGraphAgent(opts) {
         return { __interrupt__: true, threadId: config.configurable.thread_id };
       }
 
-      const { finalText, finalMessages } = await finalizeFromState(agent, config);
+      const { finalText, finalMessages, lastAI } = await finalizeFromState(agent, config);
+
+      let effectiveText = finalText;
+      const middlewareErr = detectMiddlewareErrorMessage(lastAI);
+      if (middlewareErr) {
+        console.warn('[AI LangGraph] middleware error in final AIMessage:', finalText.slice(0, 300));
+        if (onChunk) onChunk({ type: 'text', text: middlewareErr });
+        effectiveText = middlewareErr;
+      } else if (!effectiveText || !effectiveText.trim()) {
+        const fallback = buildEmptyResponseFallback(lastAI);
+        console.warn('[AI LangGraph] empty model response — emitting fallback', {
+          provider,
+          model,
+          stop_reason:
+            lastAI?.response_metadata?.stop_reason ||
+            lastAI?.response_metadata?.finish_reason ||
+            null,
+          has_tool_calls: Array.isArray(lastAI?.tool_calls) && lastAI.tool_calls.length > 0,
+        });
+        if (onChunk) onChunk({ type: 'text', text: fallback });
+        effectiveText = fallback;
+      }
 
       const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
       if (aggregatedUsage && onChunk) {
@@ -1409,7 +1283,7 @@ async function invokeLangGraphAgent(opts) {
       }
       if (onChunk) onChunk({ type: 'done' });
 
-      return finalText;
+      return effectiveText;
     } catch (err) {
       const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
       if (onChunk) {
@@ -1522,7 +1396,26 @@ async function resumeLangGraphAgent(opts) {
         return { __interrupt__: true, threadId };
       }
 
-      const { finalText, finalMessages } = await finalizeFromState(agent, config);
+      const { finalText, finalMessages, lastAI } = await finalizeFromState(agent, config);
+
+      let effectiveText = finalText;
+      const middlewareErr = detectMiddlewareErrorMessage(lastAI);
+      if (middlewareErr) {
+        console.warn('[AI LangGraph] middleware error in final AIMessage (resume):', finalText.slice(0, 300));
+        if (onChunk) onChunk({ type: 'text', text: middlewareErr });
+        effectiveText = middlewareErr;
+      } else if (!effectiveText || !effectiveText.trim()) {
+        const fallback = buildEmptyResponseFallback(lastAI);
+        console.warn('[AI LangGraph] empty model response on resume — emitting fallback', {
+          provider,
+          stop_reason:
+            lastAI?.response_metadata?.stop_reason ||
+            lastAI?.response_metadata?.finish_reason ||
+            null,
+        });
+        if (onChunk) onChunk({ type: 'text', text: fallback });
+        effectiveText = fallback;
+      }
 
       const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
       if (aggregatedUsage && onChunk) {
@@ -1530,7 +1423,7 @@ async function resumeLangGraphAgent(opts) {
       }
       if (onChunk) onChunk({ type: 'done' });
 
-      return finalText;
+      return effectiveText;
     } catch (err) {
       const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
       if (onChunk) {

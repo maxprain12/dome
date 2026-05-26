@@ -1,19 +1,12 @@
 /* eslint-disable no-console */
 'use strict';
 
-const path = require('path');
-const { app } = require('electron');
 const database = require('../database.cjs');
-const {
-  configureTransformersEnv,
-  MODEL_VERSION,
-} = require('../services/embeddings.service.cjs');
+const embeddingsService = require('../services/embeddings.service.cjs');
 const semanticIndexScheduler = require('../semantic-index-scheduler.cjs');
 const lancedbSemantic = require('../services/lancedb-semantic.cjs');
 
 function register({ ipcMain, windowManager, validateSender }) {
-  const modelsDir = path.join(app.getPath('userData'), 'transformers-cache');
-  configureTransformersEnv({ modelsDir });
   semanticIndexScheduler.init(database);
 
   ipcMain.handle('db:semantic:getGraph', (event, resourceId, threshold = 0.45) => {
@@ -252,10 +245,13 @@ function register({ ipcMain, windowManager, validateSender }) {
       const indexedResourceCount = await lancedbSemantic.countIndexedResources();
       const pendingCount = Math.max(0, indexableTotal - indexedResourceCount);
       const allIndexed = indexableTotal === 0 || indexedResourceCount >= indexableTotal;
+      const configured = embeddingsService.isConfigured();
       return {
         success: true,
         data: {
-          modelVersion: MODEL_VERSION,
+          modelVersion: embeddingsService.getActiveModelVersion() || null,
+          dimensions: embeddingsService.getActiveDimensions(),
+          configured,
           indexableTotal,
           indexedResourceCount,
           pendingCount,

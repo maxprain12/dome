@@ -19,6 +19,7 @@ Use this companion to `artifacts.txt` whenever you mutate **Kind B — library**
 2. **Create** via `artifact_create` with `{ title, artifactType, state: { html, data? }, linkedResourceId?, projectId?, folderId? }` (optional legacy `template` column is separate from `state.html` in the DB layer).
 3. **Read** via `artifact_get` / list via Many’s hub or `artifact_list`.
 4. **Mutate** — inside the iframe call `__dome_updateState` for user-driven edits; from the agent use `artifact_merge_data` (shallow patch to `state.data` only), `artifact_update_state` (replace/merge `html` and/or `data`), or bind Excel with `artifact_link_resource` for read-only grids in `linkedData`.
+5. **External / live data** — when the iframe cannot reach local APIs (Redfish, LAN services, shell): load `dome_load_doc('feeders')`, create an approved **feeder** script (`feeder_create` → user approves → `feeder_run`). Schedule with `target_type: "feeder"` automations for periodic refresh. **Never** ask the user to paste JSON manually.
 
 ---
 

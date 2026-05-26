@@ -12,9 +12,24 @@ const fs = require('fs');
 const CHUNKS_TABLE = 'semantic_chunks';
 const LEX_TABLE = 'resource_lex';
 const INDEXED_TABLE = 'indexed_resources';
-const MODEL_VERSION = 'nomic-embed-text-v1.5';
-const EMBED_DIM = 768;
 const MAX_LEX_CHARS = 500_000;
+const DEFAULT_EMBED_DIM = 768;
+
+function embeddingsSvc() {
+  return require('./embeddings.service.cjs');
+}
+
+/** Active embedding model key (provider:model) from settings. */
+function activeModelVersion() {
+  const v = embeddingsSvc().getActiveModelVersion();
+  return v || '__unconfigured__';
+}
+
+/** Vector dimension for schema ops; probes cache or default until first embed. */
+function activeEmbedDim() {
+  const d = embeddingsSvc().getActiveDimensions();
+  return d && d > 0 ? d : DEFAULT_EMBED_DIM;
+}
 /** Max rows per LanceDB add() call to avoid large Arrow batch allocations for big PDFs. */
 const LANCE_WRITE_BATCH = 250;
 
@@ -73,14 +88,15 @@ async function init(userDataPath) {
     _conn = await lancedb.connect(root);
     const names = await _conn.tableNames();
 
-    const dummyVec = new Float32Array(EMBED_DIM);
+    const dim = activeEmbedDim();
+    const dummyVec = new Float32Array(dim);
     const dummyChunk = {
       id: '__dome_init__',
       resource_id: '__init__',
       chunk_index: -1,
       text: '',
       vector: Array.from(dummyVec),
-      model_version: MODEL_VERSION,
+      model_version: activeModelVersion(),
       char_start: -1,
       char_end: -1,
       page_number: -1,
@@ -111,7 +127,7 @@ async function init(userDataPath) {
       await _lex.delete("resource_id = '__dome_init__'");
     }
 
-    const dummyIx = { resource_id: '__dome_init__', model_version: MODEL_VERSION };
+    const dummyIx = { resource_id: '__dome_init__', model_version: activeModelVersion() };
     if (names.includes(INDEXED_TABLE)) {
       _indexed = await _conn.openTable(INDEXED_TABLE);
     } else {
@@ -126,7 +142,7 @@ async function init(userDataPath) {
     if (ic === 0 && cc > 0) {
       const rows = await _chunks
         .query()
-        .filter(`model_version == '${esc(MODEL_VERSION)}'`)
+        .filter(`model_version == '${esc(activeModelVersion())}'`)
         .select(['resource_id'])
         .toArray();
       const seen = new Set();
@@ -135,7 +151,7 @@ async function init(userDataPath) {
         const id = String(r.resource_id);
         if (!id || seen.has(id)) continue;
         seen.add(id);
-        batch.push({ resource_id: id, model_version: MODEL_VERSION });
+        batch.push({ resource_id: id, model_version: activeModelVersion() });
       }
       if (batch.length) {
         await _indexed.add(batch);
@@ -160,7 +176,7 @@ function assertReady() {
 async function deleteChunksForResource(resourceId) {
   assertReady();
   const e = esc(resourceId);
-  await _chunks.delete(`resource_id == '${e}' AND model_version == '${esc(MODEL_VERSION)}'`);
+  await _chunks.delete(`resource_id == '${e}' AND model_version == '${esc(activeModelVersion())}'`);
   await unmarkIndexed(resourceId);
 }
 
@@ -181,7 +197,7 @@ async function deleteChunksForResource(resourceId) {
 async function replaceResourceChunks(resourceId, rows) {
   assertReady();
   const e = esc(resourceId);
-  await _chunks.delete(`resource_id == '${e}' AND model_version == '${esc(MODEL_VERSION)}'`);
+  await _chunks.delete(`resource_id == '${e}' AND model_version == '${esc(activeModelVersion())}'`);
   if (!rows.length) {
     await unmarkIndexed(resourceId);
     return;
@@ -192,7 +208,7 @@ async function replaceResourceChunks(resourceId, rows) {
     chunk_index: r.chunk_index,
     text: String(r.text ?? ''),
     vector: Array.from(r.vector instanceof Float32Array ? r.vector : Float32Array.from(r.vector)),
-    model_version: MODEL_VERSION,
+    model_version: activeModelVersion(),
     char_start: r.char_start ?? -1,
     char_end: r.char_end ?? -1,
     page_number: r.page_number ?? -1,
@@ -214,7 +230,7 @@ async function markIndexed(resourceId) {
   assertReady();
   const e = esc(resourceId);
   await _indexed.delete(`resource_id == '${e}'`);
-  await _indexed.add([{ resource_id: resourceId, model_version: MODEL_VERSION }]);
+  await _indexed.add([{ resource_id: resourceId, model_version: activeModelVersion() }]);
 }
 
 /**
@@ -234,7 +250,7 @@ async function listIndexedResourceIdsExcluding(excludeId) {
   const ex = esc(excludeId);
   const rows = await _indexed
     .query()
-    .filter(`resource_id != '${ex}' AND model_version == '${esc(MODEL_VERSION)}'`)
+    .filter(`resource_id != '${ex}' AND model_version == '${esc(activeModelVersion())}'`)
     .select(['resource_id'])
     .toArray();
   return rows.map((r) => String(r.resource_id));
@@ -250,7 +266,7 @@ async function searchSemanticVector(qVec, limit, filterTypes) {
   const lim = Math.max(1, Math.min(100, limit || 20));
   const pool = lim * 8;
   const q = Array.from(qVec);
-  const parts = [`model_version == '${esc(MODEL_VERSION)}'`];
+  const parts = [`model_version == '${esc(activeModelVersion())}'`];
   if (filterTypes && filterTypes.size > 0) {
     const types = [...filterTypes].map((t) => `'${esc(t)}'`);
     parts.push(`res_type IN (${types.join(',')})`);
@@ -305,7 +321,7 @@ async function getChunkById(chunkId) {
 
 async function countChunksForModel() {
   assertReady();
-  return _chunks.countRows(`model_version == '${esc(MODEL_VERSION)}'`);
+  return _chunks.countRows(`model_version == '${esc(activeModelVersion())}'`);
 }
 
 /**
@@ -313,7 +329,7 @@ async function countChunksForModel() {
  */
 async function countIndexedResources() {
   assertReady();
-  return _indexed.countRows(`model_version == '${esc(MODEL_VERSION)}'`);
+  return _indexed.countRows(`model_version == '${esc(activeModelVersion())}'`);
 }
 
 /**
@@ -321,7 +337,7 @@ async function countIndexedResources() {
  */
 async function countChunksForResource(resourceId) {
   assertReady();
-  return _chunks.countRows(`resource_id == '${esc(resourceId)}' AND model_version == '${esc(MODEL_VERSION)}'`);
+  return _chunks.countRows(`resource_id == '${esc(resourceId)}' AND model_version == '${esc(activeModelVersion())}'`);
 }
 
 /**
@@ -349,7 +365,7 @@ async function sampleVectorsForCentroid(resourceId, k) {
   const inList = uniq.join(', ');
   const rows = await _chunks
     .query()
-    .filter(`resource_id == '${e}' AND model_version == '${esc(MODEL_VERSION)}' AND chunk_index IN (${inList})`)
+    .filter(`resource_id == '${e}' AND model_version == '${esc(activeModelVersion())}' AND chunk_index IN (${inList})`)
     .select(['vector'])
     .toArray();
   /** @type {Float32Array[]} */
@@ -443,15 +459,68 @@ async function searchLexResources(query, limit, filters = {}) {
  * Copia chunks existentes desde SQLite (solo migración one-shot si Lance está vacío).
  * @param {import('better-sqlite3').Database} sqlite
  */
+/** Legacy SQLite rows from local Nomic index (pre–LangChain embeddings). */
+const LEGACY_NOMIC_MODEL_VERSION = 'nomic-embed-text-v1.5';
+
+/**
+ * Drop all vector chunks and indexed-resource markers (keeps resource_lex FTS).
+ */
+async function wipeAllVectors() {
+  if (!_conn) throw new Error('LanceDB no inicializado (init(userData) primero)');
+  const names = await _conn.tableNames();
+  if (names.includes(CHUNKS_TABLE)) {
+    await _conn.dropTable(CHUNKS_TABLE);
+    _chunks = null;
+  }
+  if (names.includes(INDEXED_TABLE)) {
+    await _conn.dropTable(INDEXED_TABLE);
+    _indexed = null;
+  }
+  const dim = activeEmbedDim();
+  const mv = activeModelVersion();
+  const dummyVec = new Float32Array(dim);
+  _chunks = await _conn.createTable(
+    CHUNKS_TABLE,
+    [
+      {
+        id: '__dome_init__',
+        resource_id: '__init__',
+        chunk_index: -1,
+        text: '',
+        vector: Array.from(dummyVec),
+        model_version: mv,
+        char_start: -1,
+        char_end: -1,
+        page_number: -1,
+        res_title: '',
+        res_type: 'note',
+        project_id: '',
+      },
+    ],
+    { mode: 'create' },
+  );
+  await _chunks.delete("id = '__dome_init__'");
+  _indexed = await _conn.createTable(
+    INDEXED_TABLE,
+    [{ resource_id: '__dome_init__', model_version: mv }],
+    { mode: 'create' },
+  );
+  await _indexed.delete("resource_id = '__dome_init__'");
+  console.log('[LanceDB] vectores borrados; tablas recreadas (dim=', dim, ')');
+}
+
 async function migrateChunksFromSqliteIfNeeded(sqlite) {
   assertReady();
-  const cnt = await countChunksForModel();
+  const cnt = await _chunks.countRows();
   if (cnt > 0) return { migrated: 0 };
-  const total = sqlite.prepare('SELECT COUNT(*) AS c FROM resource_chunks WHERE model_version = ?').get(MODEL_VERSION);
+  const total = sqlite
+    .prepare('SELECT COUNT(*) AS c FROM resource_chunks WHERE model_version = ?')
+    .get(LEGACY_NOMIC_MODEL_VERSION);
   const n = Number(total?.c ?? 0) || 0;
   if (n === 0) return { migrated: 0 };
+  if (!embeddingsSvc().isConfigured()) return { migrated: 0 };
 
-  console.log('[LanceDB] migrando', n, 'chunks desde SQLite…');
+  console.log('[LanceDB] migrando', n, 'chunks legacy Nomic desde SQLite…');
   const rows = sqlite
     .prepare(
       `SELECT c.id, c.resource_id, c.chunk_index, c.text, c.embedding, c.model_version,
@@ -460,7 +529,7 @@ async function migrateChunksFromSqliteIfNeeded(sqlite) {
        INNER JOIN resources r ON r.id = c.resource_id
        WHERE c.model_version = ?`,
     )
-    .all(MODEL_VERSION);
+    .all(LEGACY_NOMIC_MODEL_VERSION);
   const { blobToFloats } = require('./embeddings.service.cjs');
   /** @type {Map<string, any[]>} */
   const byRes = new Map();
@@ -493,7 +562,7 @@ async function migrateChunksFromSqliteIfNeeded(sqlite) {
     migrated += list.length;
   }
   try {
-    sqlite.prepare('DELETE FROM resource_chunks WHERE model_version = ?').run(MODEL_VERSION);
+    sqlite.prepare('DELETE FROM resource_chunks WHERE model_version = ?').run(LEGACY_NOMIC_MODEL_VERSION);
   } catch (e) {
     console.warn('[LanceDB] no se pudo vaciar resource_chunks tras migración:', e?.message || e);
   }
@@ -530,8 +599,15 @@ async function bootstrapLexFromSqliteIfNeeded(sqlite) {
 }
 
 module.exports = {
-  MODEL_VERSION,
-  EMBED_DIM,
+  get MODEL_VERSION() {
+    return activeModelVersion();
+  },
+  get EMBED_DIM() {
+    return activeEmbedDim();
+  },
+  activeEmbedDim,
+  activeModelVersion,
+  wipeAllVectors,
   CHUNKS_TABLE,
   LEX_TABLE,
   init,

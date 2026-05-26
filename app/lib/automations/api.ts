@@ -6,7 +6,7 @@ import {
   notifyHubRunsChanged,
 } from '@/lib/hub/hubEvents';
 
-export type AutomationTargetType = 'many' | 'agent' | 'workflow';
+export type AutomationTargetType = 'many' | 'agent' | 'workflow' | 'feeder';
 export type AutomationTriggerType = 'manual' | 'schedule' | 'contextual';
 export type AutomationOutputMode = 'chat_only' | 'studio_output' | 'mixed';
 export type PersistentRunStatus =
@@ -198,6 +198,15 @@ export async function deleteAutomation(automationId: string): Promise<void> {
 
 export async function runAutomationNow(automationId: string): Promise<PersistentRun> {
   return invoke<PersistentRun>('automations:runNow', automationId);
+}
+
+/**
+ * Run an automation without assuming the return shape — feeder automations resolve to
+ * a feeder run result (not a PersistentRun), so callers that may target a feeder must
+ * not access PersistentRun fields blindly.
+ */
+export async function runAutomationNowRaw(automationId: string): Promise<unknown> {
+  return invoke<unknown>('automations:runNow', automationId);
 }
 
 export async function listRuns(filters?: {

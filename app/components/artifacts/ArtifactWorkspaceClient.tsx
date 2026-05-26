@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layers, Download, Save, RefreshCw } from 'lucide-react';
+import { Layers, Download, Save, RefreshCw, Database, LayoutDashboard } from 'lucide-react';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import HubListState from '@/components/ui/HubListState';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
@@ -8,6 +8,7 @@ import type { ArtifactRecord } from '@/types';
 import { useDomeThemeSnapshot, buildDomeThemeStyleContent } from '@/lib/chat/useDomeThemeSnapshot';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
 import { notifications } from '@mantine/notifications';
+import FeedersPanel from '@/components/feeders/FeedersPanel';
 
 interface Props {
   resourceId: string;
@@ -189,6 +190,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   const lastLocalDomePushRef = useRef<{ json: string; at: number } | null>(null);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [workspaceTab, setWorkspaceTab] = useState<'dashboard' | 'feeders'>('dashboard');
 
   const htmlChunk = useMemo(() => {
     if (!artifact?.state || typeof artifact.state !== 'object') return '';
@@ -497,7 +499,41 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           </>
         }
       />
+      <div
+        className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
+        style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+      >
+        <button
+          type="button"
+          onClick={() => setWorkspaceTab('dashboard')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
+          style={{
+            color: workspaceTab === 'dashboard' ? 'var(--accent)' : 'var(--secondary-text)',
+            background: workspaceTab === 'dashboard' ? 'var(--bg)' : 'transparent',
+            border: workspaceTab === 'dashboard' ? '1px solid var(--border)' : '1px solid transparent',
+          }}
+        >
+          <LayoutDashboard className="size-3.5" />
+          {t('feeders.tab_dashboard')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setWorkspaceTab('feeders')}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
+          style={{
+            color: workspaceTab === 'feeders' ? 'var(--accent)' : 'var(--secondary-text)',
+            background: workspaceTab === 'feeders' ? 'var(--bg)' : 'transparent',
+            border: workspaceTab === 'feeders' ? '1px solid var(--border)' : '1px solid transparent',
+          }}
+        >
+          <Database className="size-3.5" />
+          {t('feeders.tab_feeders')}
+        </button>
+      </div>
       <div className="flex-1 min-h-0 overflow-hidden">
+        {workspaceTab === 'feeders' ? (
+          <FeedersPanel artifactResourceId={resourceId} />
+        ) : (
         <iframe
           ref={iframeRef}
           key={resourceId}
@@ -511,6 +547,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           }}
           title={artifact.title}
         />
+        )}
       </div>
     </div>
   );

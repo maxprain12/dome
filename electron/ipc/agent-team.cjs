@@ -27,6 +27,7 @@
 const { setMaxListeners } = require('events');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
 const { createModelFromConfig, createLangChainToolsFromOpenAIDefinitions } = require('../langgraph-agent.cjs');
+const { buildAgentMiddlewareStack } = require('../agent-middleware.cjs');
 const { getAllToolDefinitions, executeToolInMain } = require('../tool-dispatcher.cjs');
 const { getDomeCheckpointer } = require('../checkpointer.cjs');
 const { buildSkillsMiddleware } = require('../skills/index.cjs');
@@ -206,10 +207,17 @@ async function buildTeamGraph({
   for (const agent of memberAgents) {
     const memberLcTools = await buildMemberDirectTools(agent, teamToolIds, teamMcpServerIds);
     const skillsMw = await buildSkillsMiddleware();
+    const middleware = await buildAgentMiddlewareStack({
+      profile: 'worker',
+      provider: settings.provider,
+      llm,
+      tools: memberLcTools,
+      skillsMiddleware: skillsMw,
+    });
     const memberAgent = createAgent({
       model: llm,
       tools: memberLcTools,
-      middleware: skillsMw ? [skillsMw] : [],
+      middleware,
       // No checkpointer: the parent graph provides persistence
     });
     memberNodeMap[agent.id] = memberAgent.graph;

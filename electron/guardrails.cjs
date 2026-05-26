@@ -11,8 +11,7 @@
  * Enabled via env variable DOME_GUARDRAILS=1 (off by default).
  * A stricter mode can be configured with DOME_GUARDRAILS_STRICT=1.
  *
- * The middleware follows the deepagents wrapModelCall shape:
- *   (next) => (messages, options) => Promise<AIMessage>
+ * The middleware uses LangChain `wrapModelCall` shape on a plain AgentMiddleware object.
  */
 
 /** Simple heuristics for obviously harmful patterns. Not a security boundary. */
@@ -67,17 +66,21 @@ function buildGuardrailsMiddleware() {
 
   console.log('[Guardrails] Middleware enabled (DOME_GUARDRAILS=1)');
 
-  return (next) => async (messages, options) => {
-    const userText = lastUserText(messages);
-    const reason = detectHarmfulContent(userText);
+  return {
+    name: 'DomeGuardrails',
+    wrapModelCall: async (request, handler) => {
+      const messages = Array.isArray(request.messages) ? request.messages : [];
+      const userText = lastUserText(messages);
+      const reason = detectHarmfulContent(userText);
 
-    if (reason) {
-      console.warn('[Guardrails] Request blocked:', userText.slice(0, 120));
-      const { AIMessage } = require('@langchain/core/messages');
-      return new AIMessage(reason);
-    }
+      if (reason) {
+        console.warn('[Guardrails] Request blocked:', userText.slice(0, 120));
+        const { AIMessage } = require('@langchain/core/messages');
+        return new AIMessage(reason);
+      }
 
-    return next(messages, options);
+      return handler(request);
+    },
   };
 }
 

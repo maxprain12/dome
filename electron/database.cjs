@@ -3044,6 +3044,117 @@ function runMigrations(db) {
       console.error('[DB] Migration 35 failed:', error);
     }
   }
+
+  // Migration 36: artifact feeders + extend automation target_type for feeder
+  if (version < 36) {
+    console.log('[DB] Running migration 36 - artifact feeders');
+    try {
+      const now = Date.now();
+      db.exec('PRAGMA foreign_keys = ON');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS feeders (
+          id TEXT PRIMARY KEY,
+          artifact_resource_id TEXT NOT NULL,
+          slot TEXT NOT NULL DEFAULT 'default',
+          name TEXT NOT NULL,
+          description TEXT,
+          interpreter TEXT NOT NULL CHECK(interpreter IN ('python3', 'node', 'bash', 'sh', 'curl')),
+          script TEXT NOT NULL,
+          script_hash TEXT NOT NULL,
+          env_secret_refs TEXT NOT NULL DEFAULT '[]',
+          env_static TEXT NOT NULL DEFAULT '{}',
+          output_mode TEXT NOT NULL DEFAULT 'stdout_json' CHECK(output_mode IN ('stdout_json', 'output_file')),
+          update_policy TEXT NOT NULL DEFAULT 'replace' CHECK(update_policy IN ('replace', 'merge_shallow', 'merge_deep', 'append_array')),
+          timeout_ms INTEGER NOT NULL DEFAULT 60000,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          approved INTEGER NOT NULL DEFAULT 0,
+          approved_script_hash TEXT,
+          last_run_at INTEGER,
+          last_status TEXT,
+          last_error TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (artifact_resource_id) REFERENCES resources(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_feeders_artifact ON feeders(artifact_resource_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_feeders_enabled ON feeders(enabled, approved)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS feeder_secrets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          encrypted_value BLOB NOT NULL,
+          last_used_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_feeder_secrets_name ON feeder_secrets(name)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS feeder_runs (
+          id TEXT PRIMARY KEY,
+          feeder_id TEXT NOT NULL,
+          started_at INTEGER NOT NULL,
+          finished_at INTEGER,
+          status TEXT NOT NULL CHECK(status IN ('running', 'completed', 'failed')),
+          exit_code INTEGER,
+          stdout_excerpt TEXT,
+          stderr_excerpt TEXT,
+          data_bytes INTEGER NOT NULL DEFAULT 0,
+          triggered_by TEXT NOT NULL CHECK(triggered_by IN ('agent', 'user', 'automation')),
+          automation_id TEXT,
+          FOREIGN KEY (feeder_id) REFERENCES feeders(id) ON DELETE CASCADE,
+          FOREIGN KEY (automation_id) REFERENCES automation_definitions(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_feeder_runs_feeder ON feeder_runs(feeder_id, started_at DESC)');
+
+      // Extend automation_definitions.target_type CHECK to include 'feeder'
+      const autoCols = db.prepare('PRAGMA table_info(automation_definitions)').all();
+      const autoColNames = autoCols.map((c) => c.name);
+      const autoSelect = autoColNames.join(', ');
+      db.exec('DROP TABLE IF EXISTS automation_definitions_new');
+      db.exec(`
+        CREATE TABLE automation_definitions_new (
+          id TEXT PRIMARY KEY,
+          project_id TEXT,
+          title TEXT NOT NULL,
+          description TEXT,
+          target_type TEXT NOT NULL CHECK(target_type IN ('many', 'agent', 'workflow', 'feeder')),
+          target_id TEXT NOT NULL,
+          trigger_type TEXT NOT NULL CHECK(trigger_type IN ('manual', 'schedule', 'contextual')),
+          schedule_json TEXT,
+          input_template_json TEXT,
+          output_mode TEXT NOT NULL DEFAULT 'chat_only',
+          enabled INTEGER NOT NULL DEFAULT 0,
+          legacy_source TEXT,
+          last_run_at INTEGER,
+          last_run_status TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec(`INSERT INTO automation_definitions_new (${autoSelect}) SELECT ${autoSelect} FROM automation_definitions`);
+      db.exec('DROP TABLE automation_definitions');
+      db.exec('ALTER TABLE automation_definitions_new RENAME TO automation_definitions');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_target ON automation_definitions(target_type, target_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_trigger ON automation_definitions(trigger_type, enabled)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_automation_definitions_project ON automation_definitions(project_id)');
+
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '36', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '36', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 36 complete - artifact feeders');
+    } catch (error) {
+      console.error('[DB] Migration 36 failed:', error);
+    }
+  }
 }
 
 /**
@@ -4037,6 +4148,62 @@ function getQueries() {
       DELETE FROM automation_artifact_bindings WHERE automation_id = ?
     `),
     getAutomationArtifactBindingById: db.prepare('SELECT * FROM automation_artifact_bindings WHERE id = ?'),
+
+    // Artifact feeders (sandbox scripts → runtime data)
+    createFeeder: db.prepare(`
+      INSERT INTO feeders (
+        id, artifact_resource_id, slot, name, description, interpreter, script, script_hash,
+        env_secret_refs, env_static, output_mode, update_policy, timeout_ms, enabled, approved,
+        approved_script_hash, last_run_at, last_status, last_error, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getFeederById: db.prepare('SELECT * FROM feeders WHERE id = ?'),
+    listFeedersByArtifact: db.prepare(`
+      SELECT * FROM feeders WHERE artifact_resource_id = ? ORDER BY updated_at DESC
+    `),
+    listAllFeeders: db.prepare(`
+      SELECT * FROM feeders ORDER BY updated_at DESC
+    `),
+    countRunningFeederRunsByAutomation: db.prepare(`
+      SELECT COUNT(*) AS c FROM feeder_runs WHERE automation_id = ? AND status = 'running'
+    `),
+    updateFeederScript: db.prepare(`
+      UPDATE feeders
+      SET script = ?, script_hash = ?, approved = ?, approved_script_hash = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    approveFeeder: db.prepare(`
+      UPDATE feeders SET approved = ?, approved_script_hash = ?, updated_at = ? WHERE id = ?
+    `),
+    updateFeederLastRun: db.prepare(`
+      UPDATE feeders SET last_run_at = ?, last_status = ?, last_error = ?, updated_at = ? WHERE id = ?
+    `),
+    deleteFeeder: db.prepare('DELETE FROM feeders WHERE id = ?'),
+    createFeederSecret: db.prepare(`
+      INSERT INTO feeder_secrets (id, name, encrypted_value, last_used_at, created_at, updated_at)
+      VALUES (?, ?, ?, NULL, ?, ?)
+    `),
+    updateFeederSecret: db.prepare(`
+      UPDATE feeder_secrets SET encrypted_value = ?, updated_at = ? WHERE id = ?
+    `),
+    getFeederSecretByName: db.prepare('SELECT * FROM feeder_secrets WHERE name = ?'),
+    listFeederSecrets: db.prepare('SELECT id, name, last_used_at, created_at, updated_at FROM feeder_secrets ORDER BY name ASC'),
+    touchFeederSecretUsed: db.prepare('UPDATE feeder_secrets SET last_used_at = ? WHERE id = ?'),
+    deleteFeederSecret: db.prepare('DELETE FROM feeder_secrets WHERE id = ?'),
+    createFeederRun: db.prepare(`
+      INSERT INTO feeder_runs (
+        id, feeder_id, started_at, finished_at, status, exit_code, stdout_excerpt, stderr_excerpt,
+        data_bytes, triggered_by, automation_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateFeederRun: db.prepare(`
+      UPDATE feeder_runs
+      SET finished_at = ?, status = ?, exit_code = ?, stdout_excerpt = ?, stderr_excerpt = ?, data_bytes = ?
+      WHERE id = ?
+    `),
+    listFeederRuns: db.prepare(`
+      SELECT * FROM feeder_runs WHERE feeder_id = ? ORDER BY started_at DESC LIMIT ?
+    `),
   };
 
   return _queries;

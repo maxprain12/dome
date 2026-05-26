@@ -208,7 +208,7 @@ sequenceDiagram
 
 ### Cloud AI in main process
 
-- Chat and stream for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer. Semantic **embeddings** for search use the local Nomic pipeline (`electron/services/embeddings.service.cjs`, `db:semantic:*`), not cloud embedding APIs.
+- Chat and stream for OpenAI/Anthropic/Google run in the main process via IPC to avoid CORS and keep API keys out of the renderer. Semantic **embeddings** for search use LangChain providers configured in Settings → AI → Embeddings (`electron/services/embeddings.service.cjs`, `embeddings:*`, `db:semantic:*`).
 - API keys are read from SQLite in main; Anthropic uses direct API key, same as OpenAI and Google.
 - **Handlers**: `ai:chat`, `ai:stream` (and LangGraph) in `electron/ipc/ai.cjs`; implementation in `electron/ai-cloud-service.cjs`.
 
@@ -224,6 +224,18 @@ sequenceDiagram
 - **Adapters**: `toOpenAIToolDefinitions(tools)`, `toAnthropicToolDefinitions(tools)` for API payloads.
 - **Execution**: `executeToolCall(tools, toolCall, signal)` in renderer; tools that need DB/vector/files call `window.electron.invoke('ai:tools:resourceSearch', ...)` etc., implemented in `electron/ai-tools-handler.cjs` (resourceSearch, resourceGet, resourceList, resourceSemanticSearch, projectList, projectGet, interactionList, getRecentResources, getCurrentProject).
 - **Tool sets**: `createDefaultTools(config)` (web + optional memory); `createAllMartinTools(config)` (web, memory, resources, context); `createResourceOnlyTools()`.
+
+### Web search & fetch (HTTP providers)
+
+Settings → AI → Tools tab (`AIWebSearchTab.tsx`). Keys: `web_search_provider`, `web_fetch_provider`, `web_search_tavily_key`, `web_search_brave_key`.
+
+| Tool | Default (zero-config) | Optional (API key) | Main process |
+|------|----------------------|--------------------|--------------|
+| `web_search` | SearXNG public instances → DuckDuckGo HTML | Tavily Search, Brave Search API | `electron/services/web/search-dispatcher.cjs` |
+| `web_fetch` | Jina Reader → HTTP + Readability | Tavily Extract | `electron/services/web/fetch-dispatcher.cjs` |
+
+- **`include_screenshot`** on `web_fetch` is deprecated (returns `null` + warning); HTTP providers cannot render JS-heavy pages like a headless browser.
+- Configure keys in Settings for higher-quality agent research; without keys, search/fetch work out of the box.
 
 ### Chat with tools
 
@@ -257,7 +269,7 @@ sequenceDiagram
 
 ### Semantic index (search)
 
-- Chunk embeddings and hybrid search are handled by the main-process semantic index (Nomic), not by `ai:cloud` embedding endpoints. See [indexing.md](./indexing.md).
+- Chunk embeddings and hybrid search are handled by the main-process semantic index (configurable provider), not by `ai:cloud` chat endpoints. See [indexing.md](./indexing.md).
 
 ### UI (MartinFloatingButton)
 
@@ -306,8 +318,8 @@ sequenceDiagram
 | `app/lib/ai/models.ts` | ModelDefinition, ProviderDefinition, PROVIDERS, model lists, getDefaultModelId, findModelById, providerSupportsTools |
 | `app/lib/ai/tools/index.ts` | createToolRegistry, toOpenAI/AnthropicToolDefinitions, executeToolCall, createDefaultTools, createAllMartinTools, createResourceOnlyTools |
 | `app/lib/ai/tools/types.ts` | AgentTool, ToolCall, AgentToolResult, ToolExecuteFunction, OpenAIToolDefinition, AnthropicToolDefinition |
-| `app/lib/ai/tools/web-search.ts` | createWebSearchTool |
-| `app/lib/ai/tools/web-fetch.ts` | createWebFetchTool |
+| `app/lib/ai/tools/web-search.ts` | createWebSearchTool — HTTP providers (SearXNG/DDG default; Tavily/Brave optional) |
+| `app/lib/ai/tools/web-fetch.ts` | createWebFetchTool — Jina Reader / Readability / Tavily Extract (`include_screenshot` is deprecated) |
 | `app/lib/ai/tools/memory.ts` | createMemorySearchTool, createMemoryGetTool, createMemoryTools, IPC-backed variants |
 | `app/lib/ai/tools/resources.ts` | createResourceSearchTool, createResourceGetTool, createResourceListTool, createResourceSemanticSearchTool, createResourceTools |
 | `app/lib/ai/tools/context.ts` | createProjectListTool, createProjectGetTool, createInteractionListTool, createGetRecentResourcesTool, createGetCurrentProjectTool, createContextTools |

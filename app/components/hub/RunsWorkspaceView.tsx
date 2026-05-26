@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { statusColor as runStatusColor } from '@/lib/automations/run-status';
-import { formatRunDate, formatDuration, RunProgressBar, JsonPrettyPrinter } from '@/components/automations/RunLogView';
+import { formatRunDate, formatDuration, RunProgressBar } from '@/components/automations/RunLogView';
+import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import {
   listRuns,
   getRun,
@@ -756,7 +757,7 @@ function StepDetailPanel({
               className="mt-1 rounded-lg border p-2.5 text-[11px] font-mono overflow-x-auto max-h-48 overflow-y-auto"
               style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
             >
-              <JsonPrettyPrinter value={toolArgs} />
+              <JsonPrettyPrinterRoot value={toolArgs} />
             </div>
           </DomeCollapsibleRow>
         ) : null}
@@ -783,7 +784,7 @@ function StepDetailPanel({
                 className="rounded-lg border p-3 text-[11px] font-mono overflow-auto max-h-72"
                 style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-bg)' }}
               >
-                <JsonPrettyPrinter value={parsedContent} />
+                <JsonPrettyPrinterRoot value={parsedContent} />
               </div>
             ) : (
               <div
