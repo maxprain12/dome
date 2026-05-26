@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-05-24T09:10:57.400Z
+> Última generación: 2026-05-26T07:24:25.145Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -14,8 +14,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `ai:openrouter:listModels` | `electron/ipc/ai.cjs:575` |
 | `ai:provider:listModels` | `electron/ipc/ai.cjs:594` |
 | `ai:stream` | `electron/ipc/ai.cjs:102` |
-| `ai:team:abort` | `electron/ipc/agent-team.cjs:474` |
-| `ai:team:stream` | `electron/ipc/agent-team.cjs:347` |
+| `ai:team:abort` | `electron/ipc/agent-team.cjs:482` |
+| `ai:team:stream` | `electron/ipc/agent-team.cjs:355` |
 | `ai:testConnection` | `electron/ipc/ai.cjs:495` |
 | `ai:testWebSearch` | `electron/ipc/ai.cjs:614` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai-tools.cjs:853` |
@@ -208,27 +208,27 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `db:resources:update` | `electron/ipc/database.cjs:404` |
 | `db:resources:uploadFile` | `electron/ipc/database.cjs:613` |
 | `db:search:unified` | `electron/ipc/database.cjs:1472` |
-| `db:semantic:confirm` | `electron/ipc/semantic.cjs:99` |
-| `db:semantic:createManual` | `electron/ipc/semantic.cjs:138` |
-| `db:semantic:delete` | `electron/ipc/semantic.cjs:112` |
-| `db:semantic:getGraph` | `electron/ipc/semantic.cjs:19` |
-| `db:semantic:getIndexingStatus` | `electron/ipc/semantic.cjs:245` |
-| `db:semantic:indexResource` | `electron/ipc/semantic.cjs:198` |
-| `db:semantic:reindexAll` | `electron/ipc/semantic.cjs:226` |
-| `db:semantic:reject` | `electron/ipc/semantic.cjs:126` |
-| `db:semantic:resourceHasChunks` | `electron/ipc/semantic.cjs:212` |
-| `db:semantic:search` | `electron/ipc/semantic.cjs:272` |
+| `db:semantic:confirm` | `electron/ipc/semantic.cjs:92` |
+| `db:semantic:createManual` | `electron/ipc/semantic.cjs:131` |
+| `db:semantic:delete` | `electron/ipc/semantic.cjs:105` |
+| `db:semantic:getGraph` | `electron/ipc/semantic.cjs:12` |
+| `db:semantic:getIndexingStatus` | `electron/ipc/semantic.cjs:238` |
+| `db:semantic:indexResource` | `electron/ipc/semantic.cjs:191` |
+| `db:semantic:reindexAll` | `electron/ipc/semantic.cjs:219` |
+| `db:semantic:reject` | `electron/ipc/semantic.cjs:119` |
+| `db:semantic:resourceHasChunks` | `electron/ipc/semantic.cjs:205` |
+| `db:semantic:search` | `electron/ipc/semantic.cjs:268` |
 | `db:settings:get` | `electron/ipc/database.cjs:636` |
 | `db:settings:saveAI` | `electron/ipc/database.cjs:661` |
 | `db:settings:set` | `electron/ipc/database.cjs:648` |
 | `db:skills:list` | `electron/ipc/database.cjs:1305` |
 | `db:skills:replaceAll` | `electron/ipc/database.cjs:1316` |
-| `db:studio:create` | `electron/ipc/studio.cjs:10` |
-| `db:studio:delete` | `electron/ipc/studio.cjs:136` |
-| `db:studio:getAll` | `electron/ipc/studio.cjs:46` |
-| `db:studio:getById` | `electron/ipc/studio.cjs:86` |
-| `db:studio:getByProject` | `electron/ipc/studio.cjs:66` |
-| `db:studio:update` | `electron/ipc/studio.cjs:102` |
+| `db:studio:create` | `electron/ipc/studio.cjs:33` |
+| `db:studio:delete` | `electron/ipc/studio.cjs:187` |
+| `db:studio:getAll` | `electron/ipc/studio.cjs:78` |
+| `db:studio:getById` | `electron/ipc/studio.cjs:118` |
+| `db:studio:getByProject` | `electron/ipc/studio.cjs:98` |
+| `db:studio:update` | `electron/ipc/studio.cjs:134` |
 | `db:tags:addToResource` | `electron/ipc/tags.cjs:78` |
 | `db:tags:create` | `electron/ipc/tags.cjs:50` |
 | `db:tags:getAll` | `electron/ipc/tags.cjs:20` |
@@ -256,17 +256,36 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `domeauth:getSession` | `electron/ipc/dome-auth.cjs:19` |
 | `domeauth:openDashboard` | `electron/ipc/dome-auth.cjs:32` |
 | `domeauth:startOAuthFlow` | `electron/ipc/dome-auth.cjs:5` |
-| `file:cleanTemp` | `electron/ipc/files.cjs:273` |
-| `file:copyFile` | `electron/ipc/files.cjs:156` |
+| `embeddings:apply` | `electron/ipc/embeddings.cjs:134` |
+| `embeddings:getStatus` | `electron/ipc/embeddings.cjs:37` |
+| `embeddings:listModels` | `electron/ipc/embeddings.cjs:105` |
+| `embeddings:test` | `electron/ipc/embeddings.cjs:69` |
+| `feeder-secrets:delete` | `electron/ipc/feeders.cjs:240` |
+| `feeder-secrets:list` | `electron/ipc/feeders.cjs:206` |
+| `feeder-secrets:set` | `electron/ipc/feeders.cjs:220` |
+| `feeder-secrets:vault-status` | `electron/ipc/feeders.cjs:259` |
+| `feeders:approve` | `electron/ipc/feeders.cjs:130` |
+| `feeders:create` | `electron/ipc/feeders.cjs:45` |
+| `feeders:delete` | `electron/ipc/feeders.cjs:149` |
+| `feeders:get` | `electron/ipc/feeders.cjs:65` |
+| `feeders:history` | `electron/ipc/feeders.cjs:189` |
+| `feeders:list` | `electron/ipc/feeders.cjs:82` |
+| `feeders:listAll` | `electron/ipc/feeders.cjs:98` |
+| `feeders:request-secret` | `electron/ipc/feeders.cjs:266` |
+| `feeders:run` | `electron/ipc/feeders.cjs:170` |
+| `feeders:update-script` | `electron/ipc/feeders.cjs:110` |
+| `file:cleanTemp` | `electron/ipc/files.cjs:299` |
+| `file:copyFile` | `electron/ipc/files.cjs:182` |
 | `file:deleteFile` | `electron/ipc/files.cjs:104` |
-| `file:extractPDFText` | `electron/ipc/files.cjs:306` |
+| `file:extractPDFText` | `electron/ipc/files.cjs:332` |
 | `file:generateHash` | `electron/ipc/files.cjs:18` |
-| `file:getInfo` | `electron/ipc/files.cjs:213` |
-| `file:imageToBase64` | `electron/ipc/files.cjs:243` |
-| `file:listDirectory` | `electron/ipc/files.cjs:126` |
-| `file:readAttachment` | `electron/ipc/files.cjs:178` |
+| `file:getInfo` | `electron/ipc/files.cjs:239` |
+| `file:imageToBase64` | `electron/ipc/files.cjs:269` |
+| `file:listDirectory` | `electron/ipc/files.cjs:122` |
+| `file:readAttachment` | `electron/ipc/files.cjs:204` |
 | `file:readFile` | `electron/ipc/files.cjs:45` |
 | `file:readFileAsText` | `electron/ipc/files.cjs:67` |
+| `file:tree` | `electron/ipc/files.cjs:152` |
 | `file:writeFile` | `electron/ipc/files.cjs:86` |
 | `get-app-version` | `electron/ipc/system.cjs:26` |
 | `get-home-path` | `electron/ipc/system.cjs:16` |

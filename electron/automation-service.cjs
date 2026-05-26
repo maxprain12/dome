@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 
 const runEngine = require('./run-engine.cjs');
+const database = require('./database.cjs');
 
 const TICK_INTERVAL_MS = 60 * 1000;
 
@@ -26,7 +27,8 @@ function isDue(automation, timestamp) {
   const date = new Date(timestamp);
   const hour = Number(schedule.hour ?? 0);
   const cadence = schedule.cadence || schedule.mode || 'daily';
-  if (date.getHours() < hour) {
+  // `hour` is a daily/weekly "earliest hour" gate; cron-lite is minute-based and ignores it.
+  if (cadence !== 'cron-lite' && date.getHours() < hour) {
     return false;
   }
   if (cadence === 'weekly') {
@@ -43,9 +45,23 @@ function isDue(automation, timestamp) {
   return !automation.lastRunAt || startOfDay(automation.lastRunAt) < startOfDay(timestamp);
 }
 
-function isAutomationBusy(automationId) {
+function isAutomationBusy(automation) {
+  const automationId = typeof automation === 'string' ? automation : automation?.id;
+  if (!automationId) return false;
   const runs = runEngine.listRuns({ automationId, limit: 5 });
-  return runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status));
+  if (runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))) {
+    return true;
+  }
+  // Feeders write to feeder_runs (not automation_runs); check that table when target is a feeder.
+  if (typeof automation === 'object' && automation?.targetType === 'feeder') {
+    try {
+      const row = database.getQueries().countRunningFeederRunsByAutomation.get(automationId);
+      if (row && Number(row.c) > 0) return true;
+    } catch (error) {
+      console.error('[Automation] Feeder busy check failed:', error?.message || error);
+    }
+  }
+  return false;
 }
 
 async function tick() {
@@ -55,7 +71,7 @@ async function tick() {
     if (!isDue(automation, timestamp)) {
       continue;
     }
-    if (isAutomationBusy(automation.id)) {
+    if (isAutomationBusy(automation)) {
       continue;
     }
     try {

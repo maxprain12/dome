@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  Bot, Workflow, Zap, Plus, Play, Trash2, Pencil,
+  Bot, Workflow, Cable, Zap, Plus, Play, Trash2, Pencil,
   Clock, Loader2, X,
   Download, Upload,
   Layers,
@@ -11,6 +11,7 @@ import {
   listAutomations,
   deleteAutomation,
   runAutomationNow,
+  runAutomationNowRaw,
   saveAutomation,
   onRunUpdated,
   AUTOMATIONS_CHANGED_EVENT,
@@ -18,6 +19,7 @@ import {
   type AutomationOutputMode,
   type AutomationArtifactBinding,
 } from '@/lib/automations/api';
+import { listAllFeeders, type FeederRecord } from '@/lib/feeders/api';
 import type { ManyAgent } from '@/types';
 import type { CanvasWorkflow } from '@/types/canvas';
 import { showToast } from '@/lib/store/useToastStore';
@@ -57,7 +59,7 @@ import DomeToggle from '@/components/ui/DomeToggle';
 import { useAppStore } from '@/lib/store/useAppStore';
 
 export interface AutomationFilter {
-  targetType: 'all' | 'agent' | 'workflow';
+  targetType: 'all' | 'agent' | 'workflow' | 'feeder';
   targetId?: string;
   targetLabel?: string;
 }
@@ -74,7 +76,7 @@ type DraftState = {
   id?: string;
   title: string;
   description: string;
-  targetType: 'agent' | 'workflow';
+  targetType: 'agent' | 'workflow' | 'feeder';
   targetId: string;
   triggerType: 'manual' | 'schedule' | 'contextual';
   enabled: boolean;
@@ -128,6 +130,7 @@ interface AutomationEditDrawerProps {
   draft: DraftState;
   agents: ManyAgent[];
   workflows: CanvasWorkflow[];
+  feeders: FeederRecord[];
   hubArtifacts: Array<{ resourceId: string; title: string }>;
   isNew: boolean;
   saving: boolean;
@@ -139,9 +142,12 @@ interface AutomationEditDrawerProps {
 }
 
 function AutomationEditDrawer({
-  draft, agents, workflows, hubArtifacts, isNew, saving, onDraftChange, onSave, onCancel, embedded,
+  draft, agents, workflows, feeders, hubArtifacts, isNew, saving, onDraftChange, onSave, onCancel, embedded,
 }: AutomationEditDrawerProps) {
   const { t } = useTranslation();
+  const isFeederTarget = draft.targetType === 'feeder';
+  // Feeders ignore LLM prompt/output/artifact bindings — they have their own merge logic.
+  const showPromptAndOutput = !isFeederTarget;
   const formFields = (
     <div className={embedded ? 'flex flex-col gap-4' : 'p-5 flex flex-col gap-4'}>
 
@@ -155,21 +161,56 @@ function AutomationEditDrawer({
               options={[
                 { value: 'agent', label: t('automation.agent'), icon: <Bot className="size-3.5" aria-hidden /> },
                 { value: 'workflow', label: t('automation.workflow'), icon: <Workflow className="size-3.5" aria-hidden /> },
+                { value: 'feeder', label: t('automation.feeder'), icon: <Cable className="size-3.5" aria-hidden /> },
               ]}
               value={draft.targetType}
-              onChange={(v) => onDraftChange({ targetType: v as 'agent' | 'workflow', targetId: '' })}
+              onChange={(v) => onDraftChange({ targetType: v as DraftState['targetType'], targetId: '' })}
             />
-            <DomeSelect
-              value={draft.targetId}
-              onChange={(e) => onDraftChange({ targetId: e.target.value })}
-              className="w-full"
-              selectClassName="text-sm"
-            >
-              <option value="">{t('automation.select_agent_or_workflow', { type: draft.targetType === 'agent' ? t('automation.agent') : t('automation.workflow') })}</option>
-              {draft.targetType === 'agent'
-                ? agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)
-                : workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </DomeSelect>
+            {isFeederTarget ? (
+              <>
+                <DomeSelect
+                  value={draft.targetId}
+                  onChange={(e) => onDraftChange({ targetId: e.target.value })}
+                  className="w-full"
+                  selectClassName="text-sm"
+                >
+                  <option value="">{t('automation.select_feeder')}</option>
+                  {feeders.length === 0 ? (
+                    <option value="" disabled>{t('automation.feeder_empty_options')}</option>
+                  ) : (
+                    feeders.map((f) => {
+                      const artifactLabel =
+                        hubArtifacts.find((a) => a.resourceId === f.artifactResourceId)?.title ?? f.artifactResourceId;
+                      const tag = !f.approved
+                        ? ` · ${t('automation.feeder_not_approved')}`
+                        : !f.enabled
+                          ? ` · ${t('automation.feeder_disabled')}`
+                          : '';
+                      return (
+                        <option key={f.id} value={f.id} disabled={!f.approved || !f.enabled}>
+                          {f.name} — {artifactLabel}{tag}
+                        </option>
+                      );
+                    })
+                  )}
+                </DomeSelect>
+                <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+                  {t('automation.feeder_target_hint')}
+                </p>
+              </>
+            ) : (
+              <DomeSelect
+                value={draft.targetId}
+                onChange={(e) => onDraftChange({ targetId: e.target.value })}
+                className="w-full"
+                selectClassName="text-sm"
+              >
+                <option value="">{t('automation.select_agent_or_workflow', { type: draft.targetType === 'agent' ? t('automation.agent') : t('automation.workflow') })}</option>
+                {draft.targetType === 'agent'
+                  ? agents.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)
+                  : workflows.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </DomeSelect>
+            )}
           </div>
         ) : null}
 
@@ -289,17 +330,20 @@ function AutomationEditDrawer({
           </div>
         )}
 
-        {/* Prompt */}
-        <DomeTextarea
-          label={t('automation.base_prompt')}
-          rows={4}
-          value={draft.prompt}
-          onChange={(e) => onDraftChange({ prompt: e.target.value })}
-          placeholder={t('automation.base_prompt_placeholder')}
-          className="w-full"
-          textareaClassName="text-sm resize-none"
-        />
+        {/* Prompt — agents/workflows only */}
+        {showPromptAndOutput && (
+          <DomeTextarea
+            label={t('automation.base_prompt')}
+            rows={4}
+            value={draft.prompt}
+            onChange={(e) => onDraftChange({ prompt: e.target.value })}
+            placeholder={t('automation.base_prompt_placeholder')}
+            className="w-full"
+            textareaClassName="text-sm resize-none"
+          />
+        )}
 
+        {showPromptAndOutput && (
         <div
           className="flex flex-col gap-3 rounded-xl p-3"
           style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
@@ -470,18 +514,21 @@ function AutomationEditDrawer({
             inputClassName="text-sm"
           />
         </div>
+        )}
 
-        <DomeSelect
-          label={t('automation.output')}
-          value={draft.outputMode}
-          onChange={(e) => onDraftChange({ outputMode: e.target.value as AutomationOutputMode })}
-          className="w-full"
-          selectClassName="text-sm"
-        >
-          <option value="chat_only">{t('automation.output_chat_only')}</option>
-          <option value="studio_output">{t('automation.studio')}</option>
-          <option value="mixed">{t('automation.mixed')}</option>
-        </DomeSelect>
+        {showPromptAndOutput && (
+          <DomeSelect
+            label={t('automation.output')}
+            value={draft.outputMode}
+            onChange={(e) => onDraftChange({ outputMode: e.target.value as AutomationOutputMode })}
+            className="w-full"
+            selectClassName="text-sm"
+          >
+            <option value="chat_only">{t('automation.output_chat_only')}</option>
+            <option value="studio_output">{t('automation.studio')}</option>
+            <option value="mixed">{t('automation.mixed')}</option>
+          </DomeSelect>
+        )}
 
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
@@ -596,6 +643,7 @@ function AutomationsTab({
   const [runningId, setRunningId] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
   const [hubArtifacts, setHubArtifacts] = useState<Array<{ resourceId: string; title: string }>>([]);
+  const [feeders, setFeeders] = useState<FeederRecord[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -623,6 +671,30 @@ function AutomationsTab({
       cancelled = true;
     };
   }, [formMode, projectId]);
+
+  // Load feeders when the drawer opens or when the user enables the feeder filter,
+  // so the segmented selector and list resolvers always have fresh data.
+  useEffect(() => {
+    let cancelled = false;
+    const needsFeeders = formMode !== 'hidden' || filter.targetType === 'feeder' || filter.targetType === 'all';
+    if (!needsFeeders) return undefined;
+    void (async () => {
+      try {
+        const res = await listAllFeeders();
+        if (cancelled) return;
+        if (res?.success && Array.isArray(res.data)) {
+          setFeeders(res.data);
+        } else {
+          setFeeders([]);
+        }
+      } catch {
+        if (!cancelled) setFeeders([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [formMode, filter.targetType]);
 
   // Update filter when initialFilter changes (from clicking "Automatizaciones" on an agent/workflow)
   useEffect(() => {
@@ -711,7 +783,7 @@ function AutomationsTab({
       id: a.id,
       title: a.title,
       description: a.description ?? '',
-      targetType: a.targetType as 'agent' | 'workflow',
+      targetType: a.targetType as DraftState['targetType'],
       targetId: a.targetId,
       triggerType: a.triggerType,
       enabled: a.enabled,
@@ -738,7 +810,7 @@ function AutomationsTab({
 
   const handleNew = () => {
     const defaultTarget = filter.targetType !== 'all'
-      ? { targetType: filter.targetType as 'agent' | 'workflow', targetId: filter.targetId ?? '' }
+      ? { targetType: filter.targetType as DraftState['targetType'], targetId: filter.targetId ?? '' }
       : { targetType: 'agent' as const, targetId: '' };
     setDraft({ ...EMPTY_DRAFT, ...defaultTarget });
     setFormMode('new');
@@ -748,6 +820,7 @@ function AutomationsTab({
     if (!draft.title.trim() || !draft.targetId) return;
     setSaving(true);
     try {
+      const isFeederTarget = draft.targetType === 'feeder';
       await saveAutomation({
         id: draft.id,
         projectId,
@@ -761,7 +834,9 @@ function AutomationsTab({
           draft.triggerType === 'schedule'
             ? {
                 cadence: draft.cadence,
-                hour: draft.hour,
+                // Feeders run on minute-based cron-lite; force hour=0 to avoid the
+                // "earliest hour" gate accidentally suppressing minute ticks.
+                hour: draft.cadence === 'cron-lite' ? 0 : draft.hour,
                 weekday: draft.cadence === 'weekly' ? draft.weekday : null,
                 intervalMinutes: draft.cadence === 'cron-lite' ? draft.intervalMinutes : undefined,
               }
@@ -773,26 +848,33 @@ function AutomationsTab({
                     .filter(Boolean),
                 }
               : null,
-        inputTemplate: {
-          prompt: draft.prompt.trim(),
-          ...(draft.boundArtifactResourceId.trim()
-            ? {
-                boundArtifactResourceId: draft.boundArtifactResourceId.trim(),
-                artifactOutputSlot: (draft.artifactOutputSlot || 'default').trim(),
-              }
-            : {}),
-        },
-        artifactBindings: draft.artifactBindings
-          .filter((b) => b.artifactResourceId.trim())
-          .map((b) => ({
-            id: b.id,
-            artifactResourceId: b.artifactResourceId.trim(),
-            slot: (b.slot || 'default').trim(),
-            updatePolicy: b.updatePolicy,
-            extractMode: b.extractMode,
-            enabled: b.enabled,
-          })),
-        outputMode: draft.outputMode,
+        // Feeders don't use prompts, artifact bindings, or LLM output mode — their script
+        // owns the data merge directly. Send minimal payload so the backend doesn't carry
+        // dead fields and so re-edits stay clean.
+        inputTemplate: isFeederTarget
+          ? {}
+          : {
+              prompt: draft.prompt.trim(),
+              ...(draft.boundArtifactResourceId.trim()
+                ? {
+                    boundArtifactResourceId: draft.boundArtifactResourceId.trim(),
+                    artifactOutputSlot: (draft.artifactOutputSlot || 'default').trim(),
+                  }
+                : {}),
+            },
+        artifactBindings: isFeederTarget
+          ? []
+          : draft.artifactBindings
+              .filter((b) => b.artifactResourceId.trim())
+              .map((b) => ({
+                id: b.id,
+                artifactResourceId: b.artifactResourceId.trim(),
+                slot: (b.slot || 'default').trim(),
+                updatePolicy: b.updatePolicy,
+                extractMode: b.extractMode,
+                enabled: b.enabled,
+              })),
+        outputMode: isFeederTarget ? 'chat_only' : draft.outputMode,
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
       setFormMode('hidden');
@@ -806,26 +888,40 @@ function AutomationsTab({
 
   const handleRun = async (id: string) => {
     setRunningId(id);
+    const automation = automations.find((a) => a.id === id);
+    const isFeederTarget = automation?.targetType === 'feeder';
     try {
-      const run = await runAutomationNow(id);
-      setAutomations((prev) =>
-        prev.map((a) =>
-          a.id === id
-            ? {
-                ...a,
-                lastRunAt: run.startedAt ?? run.updatedAt ?? Date.now(),
-                lastRunStatus: run.status,
-              }
-            : a,
-        ),
-      );
-      showToast('success', t('toast.automation_started_view_run'));
-      try {
-        sessionStorage.setItem(PENDING_RUN_ID_KEY, run.id);
-      } catch {
-        /* ignore */
+      // Feeders execute through feeder-runner (not the LangGraph/workflow PersistentRun
+      // pipeline), so the return shape and the "open run detail" UX differ.
+      if (isFeederTarget) {
+        await runAutomationNowRaw(id);
+        setAutomations((prev) =>
+          prev.map((a) =>
+            a.id === id ? { ...a, lastRunAt: Date.now(), lastRunStatus: 'completed' } : a,
+          ),
+        );
+        showToast('success', t('toast.automation_started'));
+      } else {
+        const run = await runAutomationNow(id);
+        setAutomations((prev) =>
+          prev.map((a) =>
+            a.id === id
+              ? {
+                  ...a,
+                  lastRunAt: run.startedAt ?? run.updatedAt ?? Date.now(),
+                  lastRunStatus: run.status,
+                }
+              : a,
+          ),
+        );
+        showToast('success', t('toast.automation_started_view_run'));
+        try {
+          sessionStorage.setItem(PENDING_RUN_ID_KEY, run.id);
+        } catch {
+          /* ignore */
+        }
+        useTabStore.getState().openRunsTab();
       }
-      useTabStore.getState().openRunsTab();
     } catch {
       showToast('error', t('toast.automation_run_error'));
     } finally {
@@ -891,8 +987,18 @@ function AutomationsTab({
   // Target name resolvers
   const agentName = useCallback((id: string) => agents.find((a) => a.id === id)?.name ?? id, [agents]);
   const workflowName = useCallback((id: string) => workflows.find((w) => w.id === id)?.name ?? id, [workflows]);
-  const targetName = (a: AutomationDefinition) =>
-    a.targetType === 'agent' ? agentName(a.targetId) : workflowName(a.targetId);
+  const feederName = useCallback((id: string) => feeders.find((f) => f.id === id)?.name ?? id, [feeders]);
+  const targetName = (a: AutomationDefinition) => {
+    if (a.targetType === 'agent') return agentName(a.targetId);
+    if (a.targetType === 'workflow') return workflowName(a.targetId);
+    if (a.targetType === 'feeder') return feederName(a.targetId);
+    return a.targetId;
+  };
+  const targetIconKind = (a: AutomationDefinition): 'agent' | 'workflow' | 'feeder' => {
+    if (a.targetType === 'agent') return 'agent';
+    if (a.targetType === 'feeder') return 'feeder';
+    return 'workflow';
+  };
 
   // Full-screen create / edit — replaces the list entirely
   if (formMode === 'new' || formMode === 'edit') {
@@ -937,6 +1043,7 @@ function AutomationsTab({
             draft={draft}
             agents={agents}
             workflows={workflows}
+            feeders={feeders}
             hubArtifacts={hubArtifacts}
             isNew={isNew}
             saving={saving}
@@ -1009,6 +1116,7 @@ function AutomationsTab({
                   { value: 'all' as const, label: t('automation.filter_target_all'), selectedColor: 'var(--dome-accent)' },
                   { value: 'agent' as const, label: t('automation.filter_target_agent'), selectedColor: 'var(--dome-accent)' },
                   { value: 'workflow' as const, label: t('automation.filter_target_workflow'), selectedColor: 'var(--dome-accent)' },
+                  { value: 'feeder' as const, label: t('automation.filter_target_feeder'), selectedColor: 'var(--dome-accent)' },
                 ]}
                 value={filter.targetType}
                 onChange={(targetKind) => setFilter((f) => ({ ...f, targetType: targetKind, targetId: undefined }))}
@@ -1088,7 +1196,7 @@ function AutomationsTab({
                       variant={hubCardVariant}
                       onClick={() => handleEdit(a)}
                       icon={
-                        <HubEntityIcon kind={a.targetType === 'agent' ? 'agent' : 'workflow'} size="md" />
+                        <HubEntityIcon kind={targetIconKind(a)} size="md" />
                       }
                       title={
                         <div className="flex w-full min-w-0 items-start gap-2 flex-wrap">

@@ -1,4 +1,5 @@
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
+import { truncateToolResultForRenderer } from '@/lib/chat/truncateToolResult';
 
 function stableArgsKey(args: Record<string, unknown>): string {
   try {
@@ -72,11 +73,12 @@ export function applyToolResultChunk(
 ): ToolCallData[] {
   if (!calls.length) return calls;
   const tid = String(toolCallId);
+  const safeResult = truncateToolResultForRenderer(result);
   let matched = false;
   const mapped = calls.map((call) => {
     if (call.id === tid) {
       matched = true;
-      return { ...call, status: 'success' as const, result };
+      return { ...call, status: 'success' as const, result: safeResult };
     }
     return call;
   });
@@ -88,7 +90,7 @@ export function applyToolResultChunk(
   if (pendingIdx.length === 1) {
     const i = pendingIdx[0]!;
     const next = mapped.slice();
-    next[i] = { ...next[i]!, id: tid, status: 'success' as const, result };
+    next[i] = { ...next[i]!, id: tid, status: 'success' as const, result: safeResult };
     return coalesceDuplicateToolCalls(next);
   }
   if (pendingIdx.length >= 2) {
@@ -97,7 +99,7 @@ export function applyToolResultChunk(
     if (allSame) {
       const next = mapped.slice();
       pendingIdx.forEach((i, j) => {
-        next[i] = { ...next[i]!, id: j === 0 ? tid : `${tid}_${j}`, status: 'success' as const, result };
+        next[i] = { ...next[i]!, id: j === 0 ? tid : `${tid}_${j}`, status: 'success' as const, result: safeResult };
       });
       return coalesceDuplicateToolCalls(next);
     }

@@ -45,9 +45,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        env:
-          # Artefactos desde CDN de Playwright (no necesarios para empaquetar la app)
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       - name: Build Vite, natives, embed env, pack (macOS)
         run: |
@@ -106,8 +103,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
       - name: Build Vite, natives, embed env, pack (Windows)
         run: |

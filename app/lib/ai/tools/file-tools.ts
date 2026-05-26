@@ -63,7 +63,7 @@ export function createFileListTool(): AnyAgentTool {
     label: 'List Directory',
     name: 'file_list',
     description:
-      'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory. Parameter name is "file_path" (not "path").',
+      'List the contents of a directory (one level, not recursive). Returns file/folder names, paths, and whether each entry is a directory. Capped at 500 entries. Parameter name is "file_path" (not "path"). Prefer this or file_tree over MCP directory_tree (especially on Windows).',
     parameters: Type.Object({
       file_path: Type.Optional(Type.String({ description: 'Absolute path to the directory to list.' })),
       path: Type.Optional(Type.String({ description: 'Alias for file_path.' })),
@@ -91,7 +91,7 @@ export function createFileSearchTool(): AnyAgentTool {
     description:
       'Recursively search a directory for files matching a name pattern or containing a text string. ' +
       'Set type to "name" to match filenames (supports * and ? wildcards), or "content" to grep inside files. ' +
-      'Returns up to 200 matches.',
+      'Returns up to 200 matches. Prefer over MCP directory_tree for large folders.',
     parameters: Type.Object({
       directory: Type.String({ description: 'Root directory to search from.' }),
       pattern: Type.String({ description: 'Pattern to match — filename glob (e.g. "*.ts") or text regex for content search.' }),
@@ -110,6 +110,47 @@ export function createFileSearchTool(): AnyAgentTool {
         const result = await window.electron.shell.fileSearch(directory, pattern, type);
         if (!result?.success) return jsonResult({ status: 'error', error: result?.error ?? 'Search failed' });
         return jsonResult({ status: 'success', directory, pattern, type, count: result.matches?.length ?? 0, matches: result.matches });
+      } catch (err) {
+        return jsonResult({ status: 'error', error: err instanceof Error ? err.message : String(err) });
+      }
+    },
+  };
+}
+
+export function createFileTreeTool(): AnyAgentTool {
+  return {
+    label: 'Directory Tree (bounded)',
+    name: 'file_tree',
+    description:
+      'Bounded recursive directory tree — safe alternative to MCP directory_tree. ' +
+      'Default max_depth=2, max_entries=200; skips node_modules, .git, dist, AppData, etc. ' +
+      'Use for project structure. Never scan home, drive roots (C:\\), or entire repos with node_modules. ' +
+      'Prefer this over MCP directory_tree.',
+    parameters: Type.Object({
+      file_path: Type.Optional(Type.String({ description: 'Absolute path to the root directory.' })),
+      path: Type.Optional(Type.String({ description: 'Alias for file_path.' })),
+      max_depth: Type.Optional(Type.Number({ description: 'Max depth (default 2, max 10).' })),
+      max_entries: Type.Optional(Type.Number({ description: 'Max entries (default 200, max 2000).' })),
+      exclude: Type.Optional(
+        Type.Array(Type.String(), {
+          description: 'Directory name patterns to skip.',
+        }),
+      ),
+    }),
+    execute: async (_id, args) => {
+      const params = args as Record<string, unknown>;
+      const filePath = (readStringParam(params, 'file_path', { required: false }) ||
+        readStringParam(params, 'path', { required: false })) as string;
+      if (!filePath) return jsonResult({ status: 'error', error: 'file_path is required' });
+      try {
+        const result = await window.electron.file.treeDirectory({
+          file_path: filePath,
+          max_depth: typeof params.max_depth === 'number' ? params.max_depth : undefined,
+          max_entries: typeof params.max_entries === 'number' ? params.max_entries : undefined,
+          exclude: Array.isArray(params.exclude) ? params.exclude.map(String) : undefined,
+        });
+        if (!result?.success) return jsonResult({ status: 'error', error: result?.error ?? 'Tree failed' });
+        return jsonResult(result.data ?? { status: 'error', error: 'Empty tree result' });
       } catch (err) {
         return jsonResult({ status: 'error', error: err instanceof Error ? err.message : String(err) });
       }
@@ -162,6 +203,7 @@ export function createFileTools(): AnyAgentTool[] {
     createSkillReadTool(),
     createFileWriteTool(),
     createFileListTool(),
+    createFileTreeTool(),
     createFileSearchTool(),
   ];
 }

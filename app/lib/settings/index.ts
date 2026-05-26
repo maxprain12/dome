@@ -195,6 +195,14 @@ export async function getAIConfig(): Promise<AISettings> {
   const ollamaTopPResult = await db.getSetting('ollama_top_p');
   const ollamaNumPredictResult = await db.getSetting('ollama_num_predict');
   const ollamaShowThinkingResult = await db.getSetting('ollama_show_thinking');
+  const embeddingsProviderResult = await db.getSetting('embeddings_provider');
+  const embeddingsApiKeyResult = await db.getSetting('embeddings_api_key');
+  const embeddingsModelResult = await db.getSetting('embeddings_model');
+  const embeddingsBaseUrlResult = await db.getSetting('embeddings_base_url');
+  const webSearchProviderResult = await db.getSetting('web_search_provider');
+  const webSearchTavilyKeyResult = await db.getSetting('web_search_tavily_key');
+  const webSearchBraveKeyResult = await db.getSetting('web_search_brave_key');
+  const webFetchProviderResult = await db.getSetting('web_fetch_provider');
 
   // Handle legacy 'local' provider by converting to 'ollama'
   let provider = providerResult.data as AISettings['provider'] | 'local';
@@ -216,6 +224,14 @@ export async function getAIConfig(): Promise<AISettings> {
     ollama_top_p: ollamaTopPResult.data ? parseFloat(ollamaTopPResult.data) : undefined,
     ollama_num_predict: ollamaNumPredictResult.data ? parseInt(ollamaNumPredictResult.data, 10) : undefined,
     ollama_show_thinking: ollamaShowThinkingResult.data !== 'false',
+    embeddings_provider: (embeddingsProviderResult.data as AISettings['embeddings_provider']) || undefined,
+    embeddings_api_key: embeddingsApiKeyResult.data || undefined,
+    embeddings_model: embeddingsModelResult.data || undefined,
+    embeddings_base_url: embeddingsBaseUrlResult.data || undefined,
+    web_search_provider: (webSearchProviderResult.data as AISettings['web_search_provider']) || undefined,
+    web_search_tavily_key: webSearchTavilyKeyResult.data || undefined,
+    web_search_brave_key: webSearchBraveKeyResult.data || undefined,
+    web_fetch_provider: (webFetchProviderResult.data as AISettings['web_fetch_provider']) || undefined,
   };
 }
 
@@ -270,6 +286,31 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
 
   if (config.ollama_show_thinking !== undefined) {
     await db.setSetting('ollama_show_thinking', config.ollama_show_thinking ? 'true' : 'false');
+  }
+
+  if (config.embeddings_provider !== undefined) {
+    await db.setSetting('embeddings_provider', config.embeddings_provider);
+  }
+  if (config.embeddings_api_key !== undefined) {
+    await db.setSetting('embeddings_api_key', config.embeddings_api_key);
+  }
+  if (config.embeddings_model !== undefined) {
+    await db.setSetting('embeddings_model', config.embeddings_model);
+  }
+  if (config.embeddings_base_url !== undefined) {
+    await db.setSetting('embeddings_base_url', config.embeddings_base_url);
+  }
+  if (config.web_search_provider !== undefined) {
+    await db.setSetting('web_search_provider', config.web_search_provider);
+  }
+  if (config.web_search_tavily_key !== undefined) {
+    await db.setSetting('web_search_tavily_key', config.web_search_tavily_key);
+  }
+  if (config.web_search_brave_key !== undefined) {
+    await db.setSetting('web_search_brave_key', config.web_search_brave_key);
+  }
+  if (config.web_fetch_provider !== undefined) {
+    await db.setSetting('web_fetch_provider', config.web_fetch_provider);
   }
 }
 

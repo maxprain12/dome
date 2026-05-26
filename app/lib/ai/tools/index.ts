@@ -143,6 +143,18 @@ export {
   createArtifactTools,
 } from './artifact-tools';
 
+// Tools - Feeders
+export {
+  createFeederCreateTool,
+  createFeederListTool,
+  createFeederRunTool,
+  createFeederUpdateScriptTool,
+  createFeederDeleteTool,
+  createFeederHistoryTool,
+  createFeederSecretRequestTool,
+  createFeederTools,
+} from './feeder-tools';
+
 // Tools - Flashcards
 export {
   createFlashcardCreateTool,
@@ -340,6 +352,7 @@ import { createFileTools } from './file-tools';
 import { createShellTools } from './shell-tools';
 import { createUiTools } from './ui-tools';
 import { createArtifactTools } from './artifact-tools';
+import { createFeederTools } from './feeder-tools';
 import { createRememberFactTool } from './memory';
 
 /**
@@ -451,6 +464,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Artifact tools (create, get, update, list, delete persisted artifacts)
   tools.push(...createArtifactTools());
 
+  // Artifact feeders (sandbox scripts → runtime data)
+  tools.push(...createFeederTools());
+
   return tools;
 }
 
@@ -541,6 +557,7 @@ export function createManyToolsForContext(
 
   // Artifact tools
   tools.push(...createArtifactTools());
+  tools.push(...createFeederTools());
 
   return tools;
 }

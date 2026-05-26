@@ -1,8 +1,31 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
+const { validateAndNormalizeStudioContent } = require('../services/studio-validators.cjs');
 
 function generateId() {
   return crypto.randomUUID();
+}
+
+/**
+ * Validate studio content before create/update.
+ * @param {string} type
+ * @param {unknown} content
+ * @returns {{ ok: boolean, content: string|null, errors: string[] }}
+ */
+function validateStudioContentForPersist(type, content) {
+  if (content == null || content === '') {
+    const result = validateAndNormalizeStudioContent(type, content);
+    if (!result.ok) {
+      return { ok: false, content: null, errors: result.errors };
+    }
+    return { ok: true, content: result.content, errors: [] };
+  }
+
+  const result = validateAndNormalizeStudioContent(type, content);
+  if (!result.ok) {
+    return { ok: false, content: null, errors: result.errors };
+  }
+  return { ok: true, content: result.content, errors: result.errors };
 }
 
 function register({ ipcMain, windowManager, database, validateSender }) {
@@ -14,6 +37,15 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const id = data.id || generateId();
       const now = Date.now();
 
+      const contentValidation = validateStudioContentForPersist(data.type, data.content);
+      if (!contentValidation.ok) {
+        return {
+          success: false,
+          error: 'studio.validation_failed',
+          errors: contentValidation.errors,
+        };
+      }
+
       const stmt = db.prepare(`
         INSERT INTO studio_outputs (id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -24,7 +56,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         data.project_id,
         data.type,
         data.title,
-        data.content || null,
+        contentValidation.content,
         data.source_ids ? (typeof data.source_ids === 'string' ? data.source_ids : JSON.stringify(data.source_ids)) : null,
         data.file_path || null,
         data.metadata ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata)) : null,
@@ -103,18 +135,37 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
+
+      const existing = db.prepare('SELECT type FROM studio_outputs WHERE id = ?').get(id);
+      if (!existing) {
+        return { success: false, error: 'Studio output not found' };
+      }
+
+      const normalizedUpdates = { ...updates };
+      if (Object.prototype.hasOwnProperty.call(updates, 'content')) {
+        const contentValidation = validateStudioContentForPersist(existing.type, updates.content);
+        if (!contentValidation.ok) {
+          return {
+            success: false,
+            error: 'studio.validation_failed',
+            errors: contentValidation.errors,
+          };
+        }
+        normalizedUpdates.content = contentValidation.content;
+      }
+
       const fields = [];
       const values = [];
 
-      for (const key of Object.keys(updates)) {
+      for (const key of Object.keys(normalizedUpdates)) {
         if (!ALLOWED_UPDATE_FIELDS.includes(key)) {
           continue;
         }
         fields.push(`${key} = ?`);
         if (key === 'source_ids' || key === 'metadata') {
-          values.push(typeof updates[key] === 'string' ? updates[key] : JSON.stringify(updates[key]));
+          values.push(typeof normalizedUpdates[key] === 'string' ? normalizedUpdates[key] : JSON.stringify(normalizedUpdates[key]));
         } else {
-          values.push(updates[key]);
+          values.push(normalizedUpdates[key]);
         }
       }
 

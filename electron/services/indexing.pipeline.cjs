@@ -5,10 +5,12 @@ const fs = require('fs');
 const {
   embedDocuments,
   embedQuery,
-  MODEL_VERSION,
   resetPipeline,
+  isConfigured,
+  getActiveContextTokensSafe,
+  EMBEDDINGS_NOT_CONFIGURED,
 } = require('./embeddings.service.cjs');
-const { chunkText, assignPageNumbersFromMarkers } = require('./chunking.cjs');
+const { chunkTextForEmbeddings, assignPageNumbersFromMarkers } = require('./chunking.cjs');
 const { getIndexableText, syncArtifactFtsContent } = require('./resource-text.cjs');
 const fileStorage = require('../file-storage.cjs');
 const cloudLlm = require('./cloud-llm.service.cjs');
@@ -207,6 +209,10 @@ function createIndexer(opts) {
       return { ok: true, skipped: true };
     }
 
+    if (!isConfigured()) {
+      return { ok: true, skipped: true, reason: 'embeddings_not_configured' };
+    }
+
     let { text, source } = getIndexableText(resource, queries);
 
     if (resource.type === 'pdf' && resource.internal_path) {
@@ -265,7 +271,8 @@ function createIndexer(opts) {
 
     let chunks;
     try {
-      chunks = chunkText(text);
+      const ctxTokens = await getActiveContextTokensSafe(() => queries);
+      chunks = await chunkTextForEmbeddings(text, { contextTokens: ctxTokens });
       if (resource.type === 'pdf' && String(text).includes('<!-- page:')) {
         assignPageNumbersFromMarkers(text, chunks);
       }
@@ -433,7 +440,15 @@ function createIndexer(opts) {
   async function searchSemantic(query, options = {}) {
     const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
     const filterTypes = options.filter?.type?.length ? new Set(options.filter.type) : null;
-    const qVec = await embedQuery(query);
+    if (!isConfigured()) return [];
+    let qVec;
+    try {
+      qVec = await embedQuery(query);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes(EMBEDDINGS_NOT_CONFIGURED)) return [];
+      throw e;
+    }
     let norm = 0;
     for (let i = 0; i < qVec.length; i++) norm += qVec[i] * qVec[i];
     norm = Math.sqrt(norm);

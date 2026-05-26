@@ -1,7 +1,7 @@
 /**
  * Web Search Tool
  *
- * Search the live web using the built-in Playwright browser search.
+ * Search the live web using configurable HTTP search providers.
  */
 
 import { Type } from '@sinclair/typebox';
@@ -124,7 +124,7 @@ export function createWebSearchTool(config?: WebSearchConfig): AnyAgentTool {
   return {
     label: 'Web Search',
     name: 'web_search',
-    description: 'Search the live web using the built-in Playwright browser search. Returns titles, URLs, and snippets from current search results.',
+    description: 'Search the live web using configurable HTTP providers. Returns titles, URLs, and snippets (SearXNG/DDG by default; Tavily/Brave if configured in Settings).',
     parameters: WebSearchSchema,
     execute: async (_toolCallId, args) => {
       try {

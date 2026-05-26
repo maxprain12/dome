@@ -33,6 +33,7 @@ import DomeCallout from '@/components/ui/DomeCallout';
 import DomeListState from '@/components/ui/DomeListState';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeCheckbox from '@/components/ui/DomeCheckbox';
+import { isDirectoryTreeTool } from '@/lib/mcp/tool-policy';
 
 const FORMAT_EXAMPLE = '{ "mcpServers": { "nombre": { "command", "args", "env" } } }';
 
@@ -437,13 +438,22 @@ export default function MCPSettingsPanel() {
                           </div>
                         </div>
                         <div className="space-y-1 max-h-52 overflow-y-auto pr-1">
+                          {server.tools.some((tool) => isDirectoryTreeTool(tool.name)) ? (
+                            <DomeCallout tone="warning" className="mb-2 text-[12px]">
+                              {t('settings.mcp.directory_tree_warning')}
+                            </DomeCallout>
+                          ) : null}
                           {server.tools.map((tool) => (
                             <DomeCheckbox
                               key={tool.id}
                               reverse
                               className="p-2 rounded-lg cursor-pointer"
                               label={tool.name}
-                              description={tool.description || undefined}
+                              description={
+                                isDirectoryTreeTool(tool.name)
+                                  ? t('settings.mcp.directory_tree_tool_desc')
+                                  : tool.description || undefined
+                              }
                               checked={tool.enabled !== false}
                               onChange={(e) =>
                                 replaceServer(index, toggleGlobalMcpTool(server, tool.id || tool.name, e.target.checked))

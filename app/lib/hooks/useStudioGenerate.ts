@@ -20,6 +20,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
+import i18n from '@/lib/i18n';
 import type { StudioOutputType, StudioOutput } from '@/types';
 
 const STUDIO_TYPE_TITLES: Record<string, string> = {
@@ -222,6 +223,11 @@ Return ONLY the JSON, no other text.`;
       return `Generate a quiz from the project sources.${sources} ${base}
 Use the generate_quiz tool first to get source content, then return a JSON object with type "quiz" containing:
 - questions: array of { id: string, type: "multiple_choice"|"true_false", question: string, options?: string[], correct: number, explanation: string }
+CRITICAL rules for "correct":
+- MUST be an integer (number), never a string, letter, or boolean
+- 0-based index into options (0 = first option, 1 = second, etc.) — never 1-based
+- For true_false: 0 = True, 1 = False (never use true/false booleans or "True"/"False" strings)
+Example multiple_choice: options ["A","B","C","D"], correct: 0 means "A" is correct
 Return ONLY the JSON, no other text.`;
     case 'guide':
       return `Generate a study guide from the project sources.${sources} ${base}
@@ -266,7 +272,7 @@ function buildGeneratePromptNoTools(
 
   const jsonSpecs: Record<string, string> = {
     mindmap: 'type "mindmap": nodes: [{ id, label, description? }], edges: [{ id, source, target, label? }]',
-    quiz: 'type "quiz": questions: [{ id, type: "multiple_choice"|"true_false", question, options?, correct, explanation }]',
+    quiz: 'type "quiz": questions: [{ id, type: "multiple_choice"|"true_false", question, options?, correct (integer 0-based, never string/boolean/1-based; true_false: 0=True, 1=False), explanation }]',
     guide: 'type "guide": sections: [{ title, content }] (content in markdown)',
     faq: 'type "faq": pairs: [{ question, answer }]',
     timeline: 'type "timeline": events: [{ date, title, description }]',
@@ -415,7 +421,16 @@ export function useStudioGenerate(options?: {
         });
 
         if (!createResult.success || !createResult.data) {
-          showToast('error', createResult.error || 'Failed to save output.');
+          const validationFailed = createResult.error === 'studio.validation_failed';
+          showToast(
+            'error',
+            validationFailed
+              ? i18n.t('studio.validation_failed')
+              : (createResult.error || 'Failed to save output.'),
+          );
+          if (validationFailed && process.env.NODE_ENV === 'development' && 'errors' in createResult) {
+            console.warn('[useStudioGenerate] validation errors:', (createResult as { errors?: string[] }).errors);
+          }
           return false;
         }
 

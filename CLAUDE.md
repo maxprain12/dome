@@ -108,9 +108,9 @@ IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`,
 - Full-text search via FTS5
 - Accessed via `db:*` IPC channels from renderer
 
-**Semantic index** (`electron/services/embeddings.service.cjs`, `resource_chunks`):
+**Semantic index** (`electron/services/embeddings.service.cjs`, LanceDB `dome-lance`):
 
-- Nomic embeddings stored in SQLite; hybrid search combines FTS + graph + vectors
+- Configurable LangChain embeddings (Settings → AI → Embeddings); hybrid search combines FTS + graph + vectors
 
 ### Custom Protocols
 

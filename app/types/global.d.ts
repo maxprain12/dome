@@ -121,14 +121,26 @@ interface SemanticSearchHit {
   score: number;
 }
 
-/** Estado de indexación de embeddings locales (chunks Nomic) */
+/** Estado de indexación de embeddings (LanceDB + proveedor configurado) */
 interface SemanticIndexingStatus {
-  modelVersion: string;
+  modelVersion: string | null;
+  dimensions?: number | null;
+  configured?: boolean;
   indexableTotal: number;
   indexedResourceCount: number;
   pendingCount: number;
   chunksTotal: number;
   allIndexed: boolean;
+}
+
+interface EmbeddingsStatusPayload {
+  configured: boolean;
+  provider: string | null;
+  model: string | null;
+  modelVersion: string | null;
+  dimensions: number | null;
+  chunksTotal: number;
+  indexedResourceCount: number;
 }
 
 // Knowledge Graph Types
@@ -204,6 +216,14 @@ declare global {
       // File API (workspace, notebook import/export)
       file: {
         listDirectory: (dirPath: string) => Promise<{ success: boolean; data?: Array<{ name: string; isDirectory: boolean; path: string }>; error?: string }>;
+        treeDirectory: (payload: {
+          dirPath?: string;
+          file_path?: string;
+          path?: string;
+          max_depth?: number;
+          max_entries?: number;
+          exclude?: string[];
+        }) => Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }>;
         readFileAsText: (filePath: string) => Promise<{ success: boolean; data?: string; error?: string }>;
         readAttachment: (filePath: string) => Promise<{
           success: boolean;
@@ -1790,6 +1810,40 @@ declare global {
         updateState: (threadId: string, values: Record<string, unknown>, asNode?: string | null) => Promise<{ success?: boolean; config?: unknown; error?: string }>;
       };
 
+      embeddings: {
+        getStatus: () => Promise<DBResponse<EmbeddingsStatusPayload>>;
+        test: (override?: {
+          provider?: string;
+          model?: string;
+          api_key?: string;
+          base_url?: string;
+        }) => Promise<
+          DBResponse<{
+            ok: boolean;
+            dimensions?: number;
+            modelVersion?: string;
+            latencyMs?: number;
+          }>
+        >;
+        listModels: (params?: {
+          provider?: string;
+          api_key?: string;
+          base_url?: string;
+        }) => Promise<
+          DBResponse<{
+            models: Array<{
+              id: string;
+              name: string;
+              dimensions?: number;
+              contextTokens?: number;
+              recommended?: boolean;
+            }>;
+            source: 'remote' | 'static';
+          }>
+        >;
+        apply: () => Promise<DBResponse<unknown>>;
+      };
+
       domeMcp: {
         start: (port?: number) => Promise<{ success: boolean; port?: number; alreadyRunning?: boolean; error?: string }>;
         stop: () => Promise<{ success: boolean; error?: string }>;
@@ -1867,8 +1921,85 @@ declare global {
           error?: string;
         }>;
       };
+
+      feeders: {
+        create: (input: {
+          artifactResourceId: string;
+          name: string;
+          interpreter: 'python3' | 'node' | 'bash' | 'sh' | 'curl';
+          script: string;
+          description?: string;
+          slot?: string;
+          envSecretRefs?: Array<{ envName: string; secretName: string }>;
+          envStatic?: Record<string, string>;
+          outputMode?: 'stdout_json' | 'output_file';
+          updatePolicy?: 'replace' | 'merge_shallow' | 'merge_deep' | 'append_array';
+          timeoutMs?: number;
+        }) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
+        get: (feederId: string) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
+        list: (artifactResourceId: string) => Promise<{ success: boolean; data?: FeederRecord[]; error?: string }>;
+        listAll: () => Promise<{ success: boolean; data?: FeederRecord[]; error?: string }>;
+        updateScript: (feederId: string, script: string) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
+        approve: (feederId: string) => Promise<{ success: boolean; data?: FeederRecord; error?: string }>;
+        delete: (feederId: string) => Promise<{ success: boolean; error?: string }>;
+        run: (feederId: string, triggeredBy?: 'agent' | 'user' | 'automation') => Promise<{ success: boolean; data?: unknown; error?: string }>;
+        history: (feederId: string, limit?: number) => Promise<{ success: boolean; data?: FeederRunRecord[]; error?: string }>;
+        requestSecret: (name: string, feederId?: string) => Promise<{ success: boolean; message?: string; error?: string }>;
+        secrets: {
+          list: () => Promise<{ success: boolean; data?: FeederSecretMeta[]; error?: string }>;
+          set: (name: string, value: string) => Promise<{ success: boolean; data?: { id: string; name: string }; error?: string }>;
+          delete: (secretId: string) => Promise<{ success: boolean; error?: string }>;
+          vaultStatus: () => Promise<{ success: boolean; data?: { available: boolean }; error?: string }>;
+        };
+      };
     };
   }
+}
+
+interface FeederRecord {
+  id: string;
+  artifactResourceId: string;
+  slot: string;
+  name: string;
+  description: string;
+  interpreter: 'python3' | 'node' | 'bash' | 'sh' | 'curl';
+  script: string;
+  scriptHash: string;
+  envSecretRefs: Array<{ envName: string; secretName: string }>;
+  envStatic: Record<string, string>;
+  outputMode: 'stdout_json' | 'output_file';
+  updatePolicy: 'replace' | 'merge_shallow' | 'merge_deep' | 'append_array';
+  timeoutMs: number;
+  enabled: boolean;
+  approved: boolean;
+  approvedScriptHash: string | null;
+  lastRunAt: number | null;
+  lastStatus: string | null;
+  lastError: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface FeederRunRecord {
+  id: string;
+  feederId: string;
+  startedAt: number;
+  finishedAt: number | null;
+  status: 'running' | 'completed' | 'failed';
+  exitCode: number | null;
+  stdoutExcerpt: string;
+  stderrExcerpt: string;
+  dataBytes: number;
+  triggeredBy: 'agent' | 'user' | 'automation';
+  automationId: string | null;
+}
+
+interface FeederSecretMeta {
+  id: string;
+  name: string;
+  lastUsedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
 }
 
 interface ArtifactRecord {

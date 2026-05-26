@@ -199,6 +199,18 @@ export const OPENAI_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
     recommended: true,
     cost: { input: 0.02 },
   },
+  {
+    id: 'text-embedding-3-large',
+    name: 'Embedding 3 Large',
+    dimensions: 3072,
+    cost: { input: 0.13 },
+  },
+  {
+    id: 'text-embedding-ada-002',
+    name: 'Ada 002',
+    dimensions: 1536,
+    cost: { input: 0.1 },
+  },
 ];
 
 // =============================================================================
@@ -312,12 +324,43 @@ export const GOOGLE_MODELS: ModelDefinition[] = [
 
 export const GOOGLE_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
   {
-    id: 'gemini-embedding-001',
-    name: 'Gemini Embedding 001',
+    id: 'text-embedding-004',
+    name: 'Text Embedding 004',
+    dimensions: 768,
     recommended: true,
     cost: { input: 0.00001 },
   },
+  {
+    id: 'gemini-embedding-001',
+    name: 'Gemini Embedding 001',
+    dimensions: 3072,
+    cost: { input: 0.00001 },
+  },
 ];
+
+export const OLLAMA_EMBEDDING_MODELS: EmbeddingModelDefinition[] = [
+  {
+    id: 'nomic-embed-text',
+    name: 'Nomic Embed Text',
+    dimensions: 768,
+    recommended: true,
+  },
+  {
+    id: 'mxbai-embed-large',
+    name: 'mxbai-embed-large',
+    dimensions: 1024,
+  },
+  {
+    id: 'all-minilm',
+    name: 'all-minilm',
+    dimensions: 384,
+  },
+];
+
+/** Providers exposed in Settings → AI → Embeddings (cloud APIs with embedding endpoints). */
+export type EmbeddingsProviderType = 'openai' | 'google' | 'ollama';
+
+export const EMBEDDINGS_PROVIDER_IDS: EmbeddingsProviderType[] = ['openai', 'google', 'ollama'];
 
 export const DOME_MODELS: ModelDefinition[] = [
   {
@@ -360,8 +403,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Claude 4.6 y Claude 4.5',
     icon: 'anthropic',
     models: ANTHROPIC_MODELS,
-    embeddingModels: ANTHROPIC_EMBEDDING_MODELS,
-    supportsEmbeddings: true,
+    supportsEmbeddings: false,
     supportsStreaming: true,
     supportsTools: true,
     apiKeyPlaceholder: 'sk-ant-...',
@@ -401,6 +443,7 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     description: 'Local y privado',
     icon: 'ollama',
     models: [], // Loaded dynamically
+    embeddingModels: OLLAMA_EMBEDDING_MODELS,
     supportsEmbeddings: true,
     supportsStreaming: true,
     supportsTools: true,

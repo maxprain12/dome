@@ -820,20 +820,33 @@ app
       console.warn('[Main] guide bootstrap:', e?.message || e);
     }
 
-    // Start the embeddings utilityProcess worker now that app is ready.
-    try {
-      require('./services/embeddings.service.cjs').initWorker();
-    } catch (e) {
-      console.warn('[Main] embeddings worker init:', e?.message || e);
-    }
-
     const lancedbSemantic = require('./services/lancedb-semantic.cjs');
+    const embeddingsService = require('./services/embeddings.service.cjs');
     try {
       await lancedbSemantic.init(app.getPath('userData'));
       await lancedbSemantic.migrateChunksFromSqliteIfNeeded(database.getDB());
       await lancedbSemantic.bootstrapLexFromSqliteIfNeeded(database.getDB());
     } catch (lanceErr) {
       console.error('[Main] LanceDB:', lanceErr?.message || lanceErr);
+    }
+
+    try {
+      const q = database.getQueries();
+      const guard = q.getSetting.get('embeddings_refactor_v1');
+      if (guard?.value !== '1') {
+        const fs = require('fs');
+        const path = require('path');
+        const cacheDir = path.join(app.getPath('userData'), 'transformers-cache');
+        try {
+          fs.rmSync(cacheDir, { recursive: true, force: true });
+          console.log('[Main] transformers-cache eliminado (refactor embeddings)');
+        } catch {
+          /* ignore */
+        }
+        q.setSetting.run('embeddings_refactor_v1', '1', Date.now());
+      }
+    } catch (e) {
+      console.warn('[Main] embeddings refactor guard:', e?.message || e);
     }
 
     excelToolsHandler.setWindowManager(windowManager);
@@ -893,10 +906,11 @@ app
     // Crear ventana principal en cuanto la base de datos está lista (LanceDB ya se inicializó arriba).
     const mainWindow = await createWindow();
 
-    // One-time background semantic chunk reindex (Nomic, migration 25+); non-blocking
+    // One-time background semantic chunk reindex; non-blocking (requires embeddings config)
     setTimeout(() => {
       try {
         const q = database.getQueries();
+        if (!embeddingsService.isConfigured(q)) return;
         const done = q.getSetting.get('semantic_initial_reindex_done_v2');
         if (done?.value === '1') return;
         const semanticScheduler = require('./semantic-index-scheduler.cjs');
@@ -1077,11 +1091,7 @@ app.on('before-quit', async () => {
   try {
     require('./ipc/cloud-sync.cjs').disposeCloudSync();
   } catch (e) { /* non-fatal */ }
-  try {
-    require('./services/embeddings.service.cjs').disposeWorker();
-  } catch (e) { /* non-fatal */ }
   semanticIndexScheduler.stopAutoIndexing?.();
-  // Embeddings now run in utilityProcess (disposeWorker called above)
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
   try {

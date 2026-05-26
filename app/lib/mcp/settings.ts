@@ -1,5 +1,6 @@
 import { db } from '@/lib/db/client';
 import type { MCPServerConfig, MCPToolConfig } from '@/types';
+import { isMcpToolDisabledByDefault, normalizeMcpPolicyId } from '@/lib/mcp/tool-policy';
 
 export function normalizeMcpServerId(name: string): string {
   return String(name || '')
@@ -199,23 +200,48 @@ export function updateServerTools(
     .map((tool) => normalizeTool(tool))
     .filter((tool): tool is MCPToolConfig => tool !== null);
   const currentEnabled = new Set(getEnabledMcpToolIds(server));
+  const isFirstDiscovery = currentEnabled.size === 0;
+
+  const defaultEnabledTools = normalizedTools.filter((tool) => {
+    const id = normalizeMcpPolicyId(tool.id || tool.name);
+    if (isFirstDiscovery && isMcpToolDisabledByDefault(id, server)) {
+      return false;
+    }
+    return true;
+  });
+
   const nextEnabled = normalizedTools.length > 0
     ? normalizedTools
-        .filter((tool) => currentEnabled.size === 0 || currentEnabled.has(normalizeMcpToolId(tool.id || tool.name)))
+        .filter((tool) => {
+          const id = normalizeMcpPolicyId(tool.id || tool.name);
+          if (isFirstDiscovery) {
+            return !isMcpToolDisabledByDefault(id, server);
+          }
+          return currentEnabled.has(normalizeMcpToolId(tool.id || tool.name));
+        })
         .map((tool) => normalizeMcpToolId(tool.id || tool.name))
     : [];
 
   return {
     ...server,
-    tools: normalizedTools.map((tool) => ({
-      ...tool,
-      enabled: nextEnabled.length === 0 ? tool.enabled !== false : nextEnabled.includes(normalizeMcpToolId(tool.id || tool.name)),
-    })),
+    tools: normalizedTools.map((tool) => {
+      const id = normalizeMcpToolId(tool.id || tool.name);
+      const disabledByDefault = isMcpToolDisabledByDefault(id, server);
+      let enabled: boolean;
+      if (isFirstDiscovery) {
+        enabled = !disabledByDefault;
+      } else if (nextEnabled.length === 0) {
+        enabled = tool.enabled !== false && !disabledByDefault;
+      } else {
+        enabled = nextEnabled.includes(id);
+      }
+      return { ...tool, enabled };
+    }),
     enabledToolIds:
       normalizedTools.length > 0
         ? (nextEnabled.length > 0
             ? Array.from(new Set(nextEnabled))
-            : normalizedTools.map((tool) => normalizeMcpToolId(tool.id || tool.name)))
+            : defaultEnabledTools.map((tool) => normalizeMcpToolId(tool.id || tool.name)))
         : [],
     lastDiscoveryAt: Date.now(),
     lastDiscoveryError: error ?? null,

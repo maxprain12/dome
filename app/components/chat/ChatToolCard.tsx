@@ -35,6 +35,8 @@ import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
 import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
 import { extractCalendarEventFromToolResult, unwrapToolResultPayload } from '@/lib/chat/calendarToolArtifact';
+import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
+import { isFilesystemTreeTool, parseTreeToolSummary } from '@/lib/chat/treeToolSummary';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
 
 /**
@@ -317,67 +319,6 @@ function parseArtifactResult(result: unknown): AnyArtifact | null {
   return artifact;
 }
 
-/**
- * Simple JSON pretty-printer that renders key-value pairs with alternating row backgrounds.
- * No external libraries needed.
- */
-function JsonPrettyPrinter({ value, depth = 0 }: { value: unknown; depth?: number }) {
-  if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
-  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
-  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
-  if (typeof value === 'string') {
-    return <span style={{ color: 'var(--secondary-text)' }}>"{value}"</span>;
-  }
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
-    let serial = 0;
-    return (
-      <span>
-        {'[\u200B'}
-        <span style={{ paddingLeft: 16 * (depth + 1) }}>
-          {value.map((item, position) => {
-            serial += 1;
-            const rowKey = `${stableStringHash(JSON.stringify(item))}:${serial}`;
-            return (
-            <div key={rowKey} style={{ paddingLeft: 16, background: serial % 2 === 1 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)' }}>
-              <JsonPrettyPrinter value={item} depth={depth + 1} />
-              {position < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
-            </div>
-          );
-          })}
-        </span>
-        {']'}
-      </span>
-    );
-  }
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>{'{}'}</span>;
-    return (
-      <div>
-        {entries.map(([k, v], i) => (
-          <div
-            key={k}
-            style={{
-              display: 'flex',
-              gap: 6,
-              padding: '2px 6px',
-              borderRadius: 3,
-              background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
-            }}
-          >
-            <span style={{ color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
-            <span style={{ wordBreak: 'break-word', minWidth: 0 }}>
-              <JsonPrettyPrinter value={v} depth={depth + 1} />
-            </span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-  return <span>{String(value)}</span>;
-}
-
 interface ResourceItem {
   id: string;
   title: string;
@@ -451,6 +392,55 @@ function smartToolSummary(name: string, args: Record<string, unknown>): string {
   return formatArgsSummary(args);
 }
 
+function renderTreeToolSummary(summary: ReturnType<typeof parseTreeToolSummary>, t: (key: string, opts?: { defaultValue?: string }) => string) {
+  if (!summary) return null;
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+        fontSize: 12,
+        color: 'var(--secondary-text)',
+        padding: '8px 10px',
+        background: 'var(--bg-tertiary)',
+        borderRadius: 4,
+      }}
+    >
+      {summary.path ? (
+        <div>
+          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_path', { defaultValue: 'Ruta' })}: </span>
+          <span style={{ wordBreak: 'break-all' }}>{summary.path}</span>
+        </div>
+      ) : null}
+      {summary.shown != null ? (
+        <div>
+          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_entries', { defaultValue: 'Entradas' })}: </span>
+          {summary.shown}
+          {summary.truncated ? ` (${t('chat.tree_tool_truncated', { defaultValue: 'truncado' })})` : ''}
+        </div>
+      ) : null}
+      {summary.max_depth != null ? (
+        <div>
+          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_depth', { defaultValue: 'Profundidad' })}: </span>
+          {summary.max_depth}
+        </div>
+      ) : null}
+      {summary.node_count != null ? (
+        <div>
+          <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_nodes', { defaultValue: 'Nodos' })}: </span>
+          {summary.node_count}
+        </div>
+      ) : null}
+      <p style={{ margin: 0, opacity: 0.85 }}>
+        {t('chat.tree_tool_hint', {
+          defaultValue: 'Usa file_list o file_tree acotado en lugar de directory_tree en carpetas grandes.',
+        })}
+      </p>
+    </div>
+  );
+}
+
 export default function ChatToolCard({ toolCall, className = '', surfaceVariant = 'default' }: ChatToolCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -467,6 +457,10 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const imageItems = useMemo(() => parseImageResult(toolCall.result), [toolCall.result]);
   const contentImages = useMemo(() => parseContentImages(toolCall.result), [toolCall.result]);
   const resourceItems = useMemo(() => parseResourceItems(toolCall.name, toolCall.result), [toolCall.name, toolCall.result]);
+  const treeToolSummary = useMemo(() => {
+    if (!isFilesystemTreeTool(toolCall.name)) return null;
+    return parseTreeToolSummary(toolCall.result);
+  }, [toolCall.name, toolCall.result]);
   const pinnedIds = useMemo(() => new Set(pinnedResources.map((r) => r.id)), [pinnedResources]);
 
   const formatResult = (result: unknown): string => {
@@ -554,6 +548,9 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     }
 
     if (!showRawJson) {
+      if (treeToolSummary) {
+        return renderTreeToolSummary(treeToolSummary, t);
+      }
       const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
       if (highlight) {
         return <div style={{ marginTop: 4 }}>{highlight}</div>;
@@ -752,7 +749,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
             padding: '8px 10px',
           }}
         >
-          <JsonPrettyPrinter value={parsedResult} />
+          <JsonPrettyPrinterRoot value={parsedResult} />
         </div>
       );
     }

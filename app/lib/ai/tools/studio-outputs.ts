@@ -163,6 +163,7 @@ export function createGenerateMindmapTool(): AnyAgentTool {
             'Source content gathered for mind map generation. ' +
             'Now create the mind map by returning a JSON structure with `type: "mindmap"` containing ' +
             '`nodes` (array of {id, label, description?}) and `edges` (array of {id, source, target, label?}). ' +
+            'Every edge source/target MUST reference an existing node id. Use unique string ids for all nodes and edges. ' +
             'Use full labels (do not truncate). Add description for key concepts when helpful. ' +
             'The central topic should be the root node, with related concepts branching outward.',
           topic: topic || 'General overview',
@@ -291,7 +292,10 @@ export function createGenerateQuizTool(): AnyAgentTool {
             'Return the quiz as a JSON structure with `type: "quiz"` containing a `questions` array. ' +
             'Each question should have: id (unique string), type ("multiple_choice" or "true_false"), ' +
             'question (the question text), options (array of 4 strings for multiple choice), ' +
-            'correct (index of correct answer, 0-based), and explanation (why the answer is correct).',
+            'correct (integer index of correct answer, 0-based — MUST be a number, never string/letter/boolean; ' +
+            'for true_false: 0 = True, 1 = False), and explanation (why the answer is correct). ' +
+            'WRONG: correct: "A", correct: "0", correct: true, correct: 1 for first multiple-choice option (use 0). ' +
+            'RIGHT: correct: 0 for first option or True; correct: 1 for second option or False.',
           num_questions: numQuestions,
           difficulty,
           source_count: sourceContent.length,

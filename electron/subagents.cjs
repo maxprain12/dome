@@ -19,7 +19,7 @@ const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data'];
 
 /** Recursion limit for an individual subagent run. Mirrors the main agent's
  *  budget — Excel/PPT subagents legitimately loop over many rows/slides. */
-const SUBAGENT_RECURSION_LIMIT = 100;
+const SUBAGENT_RECURSION_LIMIT = 250;
 
 const SUBAGENT_DESCRIPTIONS = {
   research:
@@ -68,13 +68,16 @@ function formatSubagentInvokeResult(result) {
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<{ run: (query: string, runtimeOpts?: { signal?: AbortSignal }) => Promise<string> }>}
  */
-async function buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk) {
+async function buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk, runtimeOpts = {}) {
   const { createAgent } = await import('langchain');
+  const { buildAgentMiddlewareStack } = require('./agent-middleware.cjs');
 
   const toolDefs = getToolDefsBySubagent()[agentName];
   if (!toolDefs || toolDefs.length === 0) {
     throw new Error(`No tool definitions for subagent: ${agentName}`);
   }
+
+  const { provider = 'openai', store = null } = runtimeOpts;
 
   let rtCounter = 0;
   const wrappedExecuteFn = onChunk
@@ -102,7 +105,20 @@ async function buildSubagentRunner(agentName, llm, executeFn, createLangChainToo
 
   const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn);
   const systemPrompt = getSubagentSystemPrompt(agentName);
-  const agent = createAgent({ model: llm, tools: subagentTools });
+  const middleware = await buildAgentMiddlewareStack({
+    profile: 'worker',
+    provider,
+    llm,
+    tools: subagentTools,
+    enableFilesystem: agentName === 'data',
+    store,
+  });
+  const agent = createAgent({
+    model: llm,
+    tools: subagentTools,
+    middleware,
+    ...(store ? { store } : {}),
+  });
 
   return {
     async run(query, runtimeOpts = {}) {
@@ -134,12 +150,12 @@ async function buildSubagentRunner(agentName, llm, executeFn, createLangChainToo
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<import('@langchain/core/tools').StructuredTool>}
  */
-async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTools, onChunk) {
+async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTools, onChunk, runtimeOpts = {}) {
   const { tool } = await import('@langchain/core/tools');
   const zodMod = await import('zod');
   const z = zodMod.z ?? zodMod.default ?? zodMod;
 
-  const runner = await buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk);
+  const runner = await buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk, runtimeOpts);
   const name = `call_${agentName}_agent`;
   const description = SUBAGENT_DESCRIPTIONS[agentName] || `Delegate to the ${agentName} subagent.`;
 
@@ -164,15 +180,23 @@ async function createSubagentAsTool(agentName, llm, executeFn, createLangChainTo
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
  * @returns {Promise<Array>} LangChain tools the main agent can call
  */
-async function createSubagentTools(llm, createLangChainTools, onChunk, agentNames, toolContext) {
+async function createSubagentTools(llm, createLangChainTools, onChunk, agentNames, toolContext, extra = {}) {
   const executeFn = (name, args) => executeToolInMain(name, args, toolContext);
+  const { provider, store } = extra;
   const agents = Array.isArray(agentNames)
     ? agentNames.filter((name) => typeof name === 'string' && name.trim().length > 0)
     : ['research', 'library', 'writer', 'data'];
   const tools = [];
   for (const name of agents) {
     try {
-      const t = await createSubagentAsTool(name, llm, executeFn, createLangChainTools, onChunk);
+      const t = await createSubagentAsTool(
+        name,
+        llm,
+        executeFn,
+        createLangChainTools,
+        onChunk,
+        { provider, store },
+      );
       tools.push(t);
     } catch (err) {
       console.warn(`[Subagents] Failed to create ${name} subagent:`, err?.message);

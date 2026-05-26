@@ -15,6 +15,7 @@ const DOME_LOAD_DOC_DESCRIPTION =
   'Valid ids: entity_rules (before agent_create/workflow_create/automation_create), ' +
   'artifacts (before emitting any artifact block), ' +
   'artifact_persisted (before updating/deleting a persisted artifact), ' +
+  'feeders (before feeder_create / feeder_run — sandbox scripts that feed artifact data), ' +
   'artifact_design (before artifact_design / complex tabbed dossier layouts), ' +
   'resource_links (if unsure about dome:// link format), ' +
   'ppt_tool (before calling ppt_create — full PptxGenJS script guide + visual QA loop), ' +
@@ -53,6 +54,9 @@ function getSectionBody(docId) {
       break;
     case 'artifact_persisted':
       body = readMartin('artifact-persisted.txt');
+      break;
+    case 'feeders':
+      body = readMartin('feeders.txt');
       break;
     case 'artifact_design':
       body = readMartin('artifact-design.txt');

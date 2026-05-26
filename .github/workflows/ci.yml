@@ -28,7 +28,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
-      # Skip postinstall (electron-rebuild, playwright, etc.) — not needed for tsc
+      # Skip postinstall (electron-rebuild, etc.) — not needed for tsc
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --ignore-scripts
 

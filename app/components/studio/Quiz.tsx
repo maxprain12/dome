@@ -1,8 +1,9 @@
 
-import { useState, useCallback } from 'react';
-import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X } from 'lucide-react';
+import { useState, useCallback, useMemo } from 'react';
+import { CheckCircle2, XCircle, ArrowRight, RotateCcw, X, AlertCircle } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { useTranslation } from 'react-i18next';
+import { normalizeQuizData } from '@/lib/studio/normalizeQuizContent';
 import type { QuizData } from '@/types';
 
 interface QuizProps {
@@ -11,8 +12,9 @@ interface QuizProps {
   onClose?: () => void;
 }
 
-export default function Quiz({ data, title, onClose }: QuizProps) {
+export default function Quiz({ data: rawData, title, onClose }: QuizProps) {
   const { t } = useTranslation();
+  const data = useMemo(() => normalizeQuizData(rawData) ?? { questions: [] }, [rawData]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | string | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -54,6 +56,33 @@ export default function Quiz({ data, title, onClose }: QuizProps) {
     setResults(new Map());
     setIsFinished(false);
   }, []);
+
+  if (data.questions.length === 0) {
+    return (
+      <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+        <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--border)' }}>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+            {title || t('quiz.title')}
+          </h3>
+          {onClose && (
+            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('quiz.close')} title={t('quiz.close')}><X size={16} /></button>
+          )}
+        </div>
+        <div className="flex-1 flex flex-col items-center justify-center p-8">
+          <AlertCircle className="size-12 mb-4" style={{ color: 'var(--tertiary-text)' }} />
+          <p className="text-lg font-medium" style={{ color: 'var(--primary-text)' }}>
+            {t('studio.quiz_data_corrupted')}
+          </p>
+          <p className="text-sm mt-2 text-center max-w-sm" style={{ color: 'var(--secondary-text)' }}>
+            {t('studio.content_parse_error')}
+          </p>
+          {onClose && (
+            <button onClick={onClose} className="btn btn-secondary mt-6">{t('quiz.close')}</button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (!currentQuestion && !isFinished) return null;
   if (!currentQuestion) return null;
