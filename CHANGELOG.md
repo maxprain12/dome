@@ -4,6 +4,39 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.2.0](https://github.com/maxprain12/dome/releases/tag/v2.2.0) - 2026-05-26
+
+### Added
+
+- **Feeders (artifact data pipelines)**: scripts sandbox (Python/Node/Bash/curl) que alimentan artefactos persistidos (Kind B) con datos externos; vault de secretos cifrado (`safeStorage`), aprobación HITL, historial de ejecuciones, automatizaciones con `target=feeder` y herramientas del agente (`feeder_*`). UI en `FeedersPanel`, `SecretsManager`, `FeederApprovalModal`. Docs: `docs/features/feeders.md`, `prompts/martin/feeders.txt`.
+- **Middleware LangGraph centralizado** (`electron/agent-middleware.cjs`): retry, límites de recursión, HITL, skills, filesystem y trim en una cadena compartida por Many, agent-team, workflows y run engine. Docs: `docs/architecture/middleware.md`.
+- **Embeddings configurables**: Settings → IA → Embeddings (OpenAI, Google Gemini, Ollama vía LangChain); IPC `embeddings:*`; reindexado tras cambio de modelo; descubrimiento dinámico de modelos.
+- **Búsqueda web y fetch configurables**: proveedores Brave, Tavily, SearXNG, DuckDuckGo HTML, Jina Reader y Readability; Settings → IA → Web Search; dispatcher en `electron/services/web/`.
+- **Política MCP por herramienta** (`mcp-tool-policy.cjs`, `app/lib/mcp/tool-policy.ts`): allow/deny por servidor MCP en ajustes.
+- **Chat tools UI**: resumen en árbol (`treeToolSummary`), truncado de resultados, pretty-print JSON (`jsonPrettyPrinter`).
+- **Validadores Studio** (`studio-validators.cjs`) y normalización de quiz (`normalizeQuizContent.ts`).
+- **Tests de scripts**: `test:feeders`, `test:filesystem-tools`, `test:web-search`, `test:studio`.
+- **Docs**: `docs/plans/middleware-audit.md`; guías de automatización ampliadas.
+
+### Changed
+
+- **LangGraph agent / run engine**: refactor para usar middleware compartido; mejor merge de artefactos (`artifact-data-merge.cjs`).
+- **Indexación semántica**: LanceDB + LangChain embeddings (retira worker ONNX local y `@huggingface/transformers`); chunking ampliado.
+- **Web scraping**: retira Playwright del bundle; fetch con cheerio + proveedores HTTP ligeros.
+- **AI Settings**: pestañas modulares Embeddings y Web Search; IndexingSettings simplificado.
+- **Hub Automations / Runs**: filtros y tarjetas editoriales actualizados; iconografía unificada.
+- **i18n**: cadenas en en/es/fr/pt para feeders, embeddings, web search, MCP policy y chat tools.
+- **Inventario IPC**: sincronizado (435 canales); dominios `feeders:*`, `feeder-secrets:*`, `embeddings:*`.
+
+### Removed
+
+- `electron/playwright-scraper.cjs`, `electron/workers/embeddings-worker.cjs`, dependencias Playwright y ONNX del empaquetado.
+
+### Fixed
+
+- **IPC P-002**: validación Zod en handlers `feeders.cjs` y `embeddings.cjs`.
+- **Quiz Studio**: normalización de contenido generado por LLM antes de renderizar.
+
 ## [2.1.9](https://github.com/maxprain12/dome/releases/tag/v2.1.9) - 2026-05-25
 
 ### Added

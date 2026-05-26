@@ -1,6 +1,6 @@
 # Dome – índice de documentación
 
-Documentación del proyecto Dome (v2.1.7). Además de este índice:
+Documentación del proyecto Dome (v2.2.0). Además de este índice:
 
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
@@ -38,11 +38,12 @@ Documentación del proyecto Dome (v2.1.7). Además de este índice:
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
 | **KB LLM** | [kb-llm-wiki-model.md](features/kb-llm-wiki-model.md) | Recurso `dome_kb`, roles |
-| **Indexación** | [indexing.md](features/indexing.md) | Nomic, chunks, `db:semantic:*` |
+| **Indexación** | [indexing.md](features/indexing.md) | LangChain embeddings, LanceDB, `embeddings:*`, `db:semantic:*` |
 | **KB UX** | [kb-ux-unification.md](features/kb-ux-unification.md) | Learn, Studio, Runs |
 | **Agent Canvas** | [agent-canvas.md](features/agent-canvas.md) | Workflows D3 |
 | **Agent Teams** | [agent-teams.md](features/agent-teams.md) | Equipos multi-agente |
 | **Studio** | [studio.md](features/studio.md) | Mindmaps, quizzes, flashcards |
+| **Feeders** | [feeders.md](features/feeders.md) | Scripts sandbox, vault de secretos, artefactos |
 
 ### Productividad
 
@@ -50,7 +51,7 @@ Documentación del proyecto Dome (v2.1.7). Además de este índice:
 | ------- | ------- | ---------- |
 | **Calendar** | [calendar.md](features/calendar.md) | Calendario, Google sync |
 | **Flashcards** | [flashcards.md](features/flashcards.md) | SM-2, sesiones |
-| **Automatizaciones** | [automations.md](features/automations.md) | Run Engine |
+| **Automatizaciones** | [automations.md](features/automations.md) | Run Engine, feeders |
 | **Runs** | [runs.md](features/runs.md) | Estados, logs |
 
 ### Extensiones e integración
