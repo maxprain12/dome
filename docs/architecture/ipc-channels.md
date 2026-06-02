@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-02T06:00:28.253Z
+> Última generación: 2026-06-02T06:06:29.710Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 
@@ -306,8 +306,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `kbllm:setProjectOverride` | `electron/ipc/kb-llm.cjs:56` |
 | `kbllm:syncAll` | `electron/ipc/kb-llm.cjs:89` |
 | `kbllm:syncProject` | `electron/ipc/kb-llm.cjs:75` |
-| `learn:getKpis` | `electron/ipc/learn.cjs:5` |
-| `learn:getStreak` | `electron/ipc/learn.cjs:17` |
+| `learn:getKpis` | `electron/ipc/learn.cjs:6` |
+| `learn:getStreak` | `electron/ipc/learn.cjs:18` |
 | `marketplace:browse-skill-repo` | `electron/ipc/marketplace.cjs:807` |
 | `marketplace:fetch-agents` | `electron/ipc/marketplace.cjs:491` |
 | `marketplace:fetch-all` | `electron/ipc/marketplace.cjs:455` |
@@ -329,7 +329,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `mcp:testServer` | `electron/ipc/mcp.cjs:41` |
 | `migration:getStatus` | `electron/ipc/migration.cjs:83` |
 | `migration:migrateResources` | `electron/ipc/migration.cjs:5` |
-| `minimax:files:upload` | `electron/ipc/minimax-files.cjs:68` |
+| `minimax:files:upload` | `electron/ipc/minimax-files.cjs:74` |
 | `notebook:checkPython` | `electron/ipc/notebook.cjs:70` |
 | `notebook:checkVenv` | `electron/ipc/notebook.cjs:126` |
 | `notebook:createVenv` | `electron/ipc/notebook.cjs:90` |
@@ -362,9 +362,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/*.cjs`.
 | `plugin:read-asset` | `electron/ipc/plugins.cjs:89` |
 | `plugin:setEnabled` | `electron/ipc/plugins.cjs:77` |
 | `plugin:uninstall` | `electron/ipc/plugins.cjs:65` |
-| `quiz:createRun` | `electron/ipc/quiz.cjs:9` |
-| `quiz:getRun` | `electron/ipc/quiz.cjs:62` |
-| `quiz:listRuns` | `electron/ipc/quiz.cjs:48` |
+| `quiz:createRun` | `electron/ipc/quiz.cjs:24` |
+| `quiz:getRun` | `electron/ipc/quiz.cjs:86` |
+| `quiz:listRuns` | `electron/ipc/quiz.cjs:68` |
 | `resource:delete` | `electron/ipc/resources.cjs:710` |
 | `resource:export` | `electron/ipc/resources.cjs:660` |
 | `resource:extractPptImages` | `electron/ipc/resources.cjs:438` |
