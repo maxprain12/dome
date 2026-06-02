@@ -1,0 +1,37 @@
+{
+  "id": "artifact_get.basic",
+  "category": "artifact",
+  "tool": "artifact_get",
+  "mode": "direct",
+  "prompt": "Si creaste Bench Counter, léelo con artifact_get; si no, artifact_list primero.",
+  "expected_tools": [
+    "artifact_get"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar artifact_get (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

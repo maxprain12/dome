@@ -11,6 +11,10 @@ import { ChatComposerPlusMenuContent } from '@/components/chat/ChatComposerPlusM
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { newAttachmentId } from '@/lib/chat/attachmentTypes';
 import { processAttachmentFile } from '@/lib/chat/processAttachmentFile';
+import {
+  composerFileAccept,
+  useComposerMultimodalCapabilities,
+} from '@/lib/chat/useComposerMultimodalCapabilities';
 import { AIComposerFrame } from '@/components/chat/AIComposer';
 import ManyComposerRichInput from './ManyComposerRichInput';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
@@ -82,6 +86,8 @@ export default memo(function ManyChatInput({
   compact = false,
 }: ManyChatInputProps) {
   const { t } = useTranslation();
+  const multimodalCaps = useComposerMultimodalCapabilities();
+  const fileAccept = useMemo(() => composerFileAccept(multimodalCaps), [multimodalCaps]);
   const enhanced = variant === 'full';
   const pinnedResources = useManyStore((s) => s.pinnedResources);
   const addPinnedResource = useManyStore((s) => s.addPinnedResource);
@@ -206,7 +212,17 @@ export default memo(function ManyChatInput({
       let working = [...attachments];
       for (const file of Array.from(fileList)) {
         const isImage = file.type.startsWith('image/');
-        const pendingId = isImage ? null : newAttachmentId();
+        const isVideo =
+          file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv)$/i.test(file.name);
+        if (isImage && !multimodalCaps.supportsImage) {
+          console.warn(t('chat.attachment_image_unsupported'));
+          continue;
+        }
+        if (isVideo && !multimodalCaps.supportsVideo) {
+          console.warn(t('chat.attachment_video_unsupported'));
+          continue;
+        }
+        const pendingId = isImage || isVideo ? null : newAttachmentId();
         if (pendingId) {
           working = [
             ...working,
@@ -229,7 +245,7 @@ export default memo(function ManyChatInput({
       }
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
-    [attachments, onAttachmentsChange],
+    [attachments, multimodalCaps.supportsImage, multimodalCaps.supportsVideo, onAttachmentsChange, setInput, t],
   );
 
   const insertAtSymbol = useCallback(() => {
@@ -444,7 +460,7 @@ export default memo(function ManyChatInput({
             type="file"
             className="hidden"
             multiple
-            accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.ppt,.pptx"
+            accept={fileAccept}
             onChange={(e) => { void handlePickFiles(e.target.files); }}
           />
         ) : null}
@@ -454,7 +470,7 @@ export default memo(function ManyChatInput({
           onKeyDown={handleKeyDown}
           inputRef={inputRef}
           onPaste={(e) => {
-            if (!onAttachmentsChange) return;
+            if (!onAttachmentsChange || !multimodalCaps.supportsImage) return;
             const items = e.clipboardData?.items;
             if (!items) return;
             for (const it of items) {

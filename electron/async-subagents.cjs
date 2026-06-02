@@ -70,6 +70,8 @@ function isAllowedAgent(name, enabledAgents) {
  * @param {Function|null} [opts.onChunk]
  * @param {unknown} [opts.toolContext]
  * @param {string[]} [opts.subagentIds]
+ * @param {string} [opts.provider]
+ * @param {import('@langchain/langgraph').BaseStore | null} [opts.store]
  * @returns {Promise<Array>}
  */
 async function createAsyncSubagentTools(opts) {
@@ -79,7 +81,7 @@ async function createAsyncSubagentTools(opts) {
   const { executeToolInMain } = require('./tool-dispatcher.cjs');
 
   const threadId = opts.threadId && String(opts.threadId).length > 0 ? String(opts.threadId) : '_default';
-  const { llm, createLangChainTools, onChunk, toolContext } = opts;
+  const { llm, createLangChainTools, onChunk, toolContext, provider, store } = opts;
   const enabledAgents = Array.isArray(opts.subagentIds)
     ? opts.subagentIds.filter((n) => typeof n === 'string' && n.trim().length > 0)
     : SUBAGENT_NAMES;
@@ -91,7 +93,11 @@ async function createAsyncSubagentTools(opts) {
   for (const agentName of enabledAgents) {
     if (!SUBAGENT_NAMES.includes(agentName)) continue;
     try {
-      const runner = await buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk);
+      const runner = await buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk, {
+        provider: provider || 'openai',
+        store: store ?? null,
+        toolContext,
+      });
       runners.set(agentName, runner);
     } catch (err) {
       console.warn(`[AsyncSubagents] Failed to build runner for ${agentName}:`, err?.message);

@@ -1,0 +1,43 @@
+{
+  "id": "generate_guide.basic",
+  "category": "studio",
+  "tool": "generate_guide",
+  "mode": "direct",
+  "prompt": "1) Invoca generate_guide con project_id bench-project y source_ids [\"bench-note-thermo\"]. 2) En la respuesta FINAL escribe JSON type guide con al menos 2 sections (title+content), sin pegar el raw del tool.",
+  "expected_tools": [
+    "generate_guide"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-note-thermo"
+  ],
+  "output_shape": {
+    "min_length": 60,
+    "contains_any": [
+      "\"sections\"",
+      "section",
+      "\"content\""
+    ]
+  },
+  "judge_criteria": "PASS si invocó generate_guide y la respuesta incluye contenido de guía (sections o equivalente).",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

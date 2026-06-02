@@ -1,0 +1,39 @@
+{
+  "id": "resource_get_pinned.basic",
+  "category": "resources",
+  "tool": "resource_get_pinned",
+  "mode": "direct",
+  "prompt": "Usa el recurso pineado bench-note-1 y resume su contenido.",
+  "expected_tools": [
+    "resource_get_pinned"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-note-1"
+  ],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar resource_get_pinned (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

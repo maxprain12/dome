@@ -1,0 +1,21 @@
+{
+  "id": "calendar_delete_event.basic",
+  "category": "calendar",
+  "tool": "calendar_delete_event",
+  "mode": "direct",
+  "prompt": "Explica calendar_delete_event sin borrar eventos reales del usuario.",
+  "expected_tools": [],
+  "forbidden_tools": [
+    "calendar_delete_event"
+  ],
+  "explain_only": true,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 30
+  },
+  "judge_criteria": "Debe explicar calendar_delete_event con claridad; no es obligatorio invocar la tool si el prompt pide solo explicación.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

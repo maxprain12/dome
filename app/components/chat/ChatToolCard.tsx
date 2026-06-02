@@ -24,9 +24,17 @@ import {
   Zap,
   Network,
   GraduationCap,
+  FileCode2,
+  FilePlus2,
+  FilePenLine,
+  Terminal,
+  FolderTree,
+  FolderSearch,
+  Users,
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
+import ChatTodoList, { parseTodos } from './ChatTodoList';
 import { tryParseArtifact, ZOD_VALIDATED_ARTIFACT_TYPES } from '@/lib/chat/artifactSchemas';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-utils';
@@ -50,6 +58,8 @@ export interface ToolCallData {
   status: 'pending' | 'running' | 'success' | 'error';
   result?: unknown;
   error?: string;
+  /** Name of the subagent that produced this call (deepagents `task` delegation). */
+  agentName?: string;
 }
 
 export type ChatToolSurfaceVariant = 'default' | 'many';
@@ -79,7 +89,8 @@ function getCategory(name: string): ToolCategory {
   if (n.includes('marketplace')) return 'mcp';
   if (n.includes('flashcard')) return 'file';
   if (n.includes('pdf') || n.includes('file') || n.includes('resource') || n.includes('image') || n.includes('notebook')) return 'file';
-  if (n.includes('agent') || n.includes('call_') || n.includes('delegate')) return 'agent';
+  if (n === 'glob' || n === 'ls' || n.includes('shell') || n.includes('codegen')) return 'file';
+  if (n === 'task' || n.includes('subagent') || n.includes('agent') || n.includes('call_') || n.includes('delegate')) return 'agent';
   if (n.includes('postgres') || n.includes('sql') || n.includes('query') || n.includes('database') || n.includes('db')) return 'db';
   if (n.startsWith('mcp') || n.includes('mcp_')) return 'mcp';
   return 'default';
@@ -130,6 +141,19 @@ const TOOL_ICONS: Record<string, typeof Globe> = {
   calendar_delete: Calendar,
   calendar_delete_event: Calendar,
   flashcard_create: Layers,
+  // Filesystem / codegen (deepagents harness + Dome aliases)
+  write_file: FilePlus2,
+  file_write: FilePlus2,
+  edit_file: FilePenLine,
+  read_file: FileCode2,
+  file_read: FileCode2,
+  glob: FolderSearch,
+  ls: FolderTree,
+  file_list: FolderTree,
+  file_tree: FolderTree,
+  shell_exec: Terminal,
+  // Subagent delegation (deepagents `task`)
+  task: Users,
 };
 
 function renderToolSuccessHighlight(
@@ -365,15 +389,25 @@ function formatArgsSummary(args: Record<string, unknown>): string {
 /** Human-readable one-liner summary for the many panel card style */
 function smartToolSummary(name: string, args: Record<string, unknown>): string {
   const n = name.toLowerCase();
-  if (n === 'file_write' || n.includes('resource_create') || n.includes('notebook')) {
+  if (n === 'file_write' || n === 'write_file' || n === 'edit_file' || n.includes('resource_create') || n.includes('notebook')) {
     const fp = String(args.file_path ?? args.path ?? '');
-    if (fp) return `~/${fp.split('/').slice(-2).join('/')}`;
+    if (fp) return fp.split('/').slice(-2).join('/');
     const title = String(args.title ?? '');
     return title.length > 64 ? title.slice(0, 61) + '…' : title;
   }
-  if (n === 'file_read') {
+  if (n === 'file_read' || n === 'read_file') {
     const fp = String(args.file_path ?? args.path ?? '');
     return fp ? fp.split('/').slice(-1)[0]! : 'file';
+  }
+  if (n === 'glob') return String(args.pattern ?? args.glob ?? '').slice(0, 64);
+  if (n === 'ls' || n === 'file_list' || n === 'file_tree') {
+    return String(args.path ?? args.dir ?? '').slice(0, 64);
+  }
+  if (n === 'task') {
+    const sub = String(args.subagent_type ?? args.subagentType ?? args.name ?? '');
+    const desc = String(args.description ?? args.task ?? '');
+    if (sub && desc) return `${sub}: ${desc}`.slice(0, 72);
+    return (sub || desc).slice(0, 72);
   }
   if (n === 'shell_exec' || n.includes('shell')) {
     const cmd = String(args.command ?? '').trim();
@@ -390,6 +424,105 @@ function smartToolSummary(name: string, args: Record<string, unknown>): string {
     return String(args.title ?? args.summary ?? '').slice(0, 64);
   }
   return formatArgsSummary(args);
+}
+
+const EXT_LANG: Record<string, string> = {
+  html: 'HTML', htm: 'HTML', css: 'CSS', scss: 'SCSS',
+  js: 'JS', jsx: 'JSX', mjs: 'JS', cjs: 'JS',
+  ts: 'TS', tsx: 'TSX', py: 'Python', rb: 'Ruby', go: 'Go',
+  rs: 'Rust', java: 'Java', json: 'JSON', md: 'Markdown',
+  sh: 'Shell', bash: 'Shell', yml: 'YAML', yaml: 'YAML', sql: 'SQL', toml: 'TOML',
+};
+
+const CODEGEN_MAX_LINES = 48;
+const CODEGEN_MAX_CHARS = 2400;
+
+/** Extract a code preview from a filesystem/codegen tool's arguments, or null. */
+function getCodegenPreview(
+  name: string,
+  args: Record<string, unknown>,
+): { path: string; code: string; lang: string; truncated: boolean } | null {
+  const n = (name || '').toLowerCase();
+  if (n !== 'write_file' && n !== 'file_write' && n !== 'edit_file') return null;
+  const path = String(args.file_path ?? args.path ?? '');
+  let code = '';
+  if (typeof args.content === 'string') code = args.content;
+  else if (typeof args.new_string === 'string') code = args.new_string;
+  else if (typeof args.text === 'string') code = args.text;
+  if (!code.trim()) return null;
+
+  const ext = path.includes('.') ? path.split('.').pop()!.toLowerCase() : '';
+  const lang = EXT_LANG[ext] ?? '';
+
+  const lines = code.split('\n');
+  let truncated = false;
+  let preview = code;
+  if (lines.length > CODEGEN_MAX_LINES) {
+    preview = lines.slice(0, CODEGEN_MAX_LINES).join('\n');
+    truncated = true;
+  }
+  if (preview.length > CODEGEN_MAX_CHARS) {
+    preview = preview.slice(0, CODEGEN_MAX_CHARS);
+    truncated = true;
+  }
+  return { path, code: preview, lang, truncated };
+}
+
+function CodegenPreview({
+  preview,
+  t,
+}: {
+  preview: { path: string; code: string; lang: string; truncated: boolean };
+  t: (key: string, opts?: Record<string, unknown> & { defaultValue?: string }) => string;
+}) {
+  const fileName = preview.path ? preview.path.split('/').slice(-1)[0] : '';
+  return (
+    <div
+      className="rounded-md border overflow-hidden"
+      style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
+    >
+      <div
+        className="flex items-center gap-2 px-2.5 py-1.5 border-b"
+        style={{ borderColor: 'var(--border)' }}
+      >
+        <FileCode2 className="size-3.5 shrink-0" style={{ color: 'var(--success)' }} aria-hidden />
+        <span
+          className="text-[11.5px] font-mono truncate flex-1"
+          style={{ color: 'var(--secondary-text)' }}
+          title={preview.path}
+        >
+          {fileName || preview.path}
+        </span>
+        {preview.lang ? (
+          <DomeBadge label={preview.lang} variant="soft" size="xs" color="var(--tertiary-text)" className="shrink-0" />
+        ) : null}
+      </div>
+      <pre
+        style={{
+          fontSize: 11.5,
+          lineHeight: 1.5,
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+          whiteSpace: 'pre',
+          overflowX: 'auto',
+          overflowY: 'auto',
+          maxHeight: 280,
+          color: 'var(--primary-text)',
+          padding: '8px 10px',
+          margin: 0,
+        }}
+      >
+        {preview.code}
+      </pre>
+      {preview.truncated ? (
+        <div
+          className="px-2.5 py-1 text-[11px] border-t"
+          style={{ borderColor: 'var(--border)', color: 'var(--tertiary-text)' }}
+        >
+          {t('chat.codegen_truncated', { defaultValue: '… vista previa truncada' })}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function renderTreeToolSummary(summary: ReturnType<typeof parseTreeToolSummary>, t: (key: string, opts?: { defaultValue?: string }) => string) {
@@ -452,6 +585,18 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const category = getCategory(toolCall.name);
   const accentColor = CATEGORY_COLORS[category];
 
+  // Subagent delegation: explicit relay (agentName) or the deepagents `task` target.
+  const subagentName =
+    toolCall.agentName ||
+    (toolCall.name === 'task'
+      ? String(
+          (toolCall.arguments?.subagent_type as string) ??
+            (toolCall.arguments?.subagentType as string) ??
+            (toolCall.arguments?.name as string) ??
+            '',
+        )
+      : '');
+
   const documentItems = useMemo(() => parseDocumentResult(toolCall.result), [toolCall.result]);
   const artifactItems = useMemo(() => parseArtifactResult(toolCall.result), [toolCall.result]);
   const imageItems = useMemo(() => parseImageResult(toolCall.result), [toolCall.result]);
@@ -477,6 +622,12 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     }
     return null;
   }, [toolCall.result]);
+
+  // write_todos → dedicated checklist UI instead of a generic JSON tool card
+  if (toolCall.name === 'write_todos') {
+    const todos = parseTodos(toolCall.arguments);
+    if (todos.length > 0) return <ChatTodoList todos={todos} />;
+  }
 
   const resultText = formatResult(toolCall.result);
   const isPending = toolCall.status === 'pending' || toolCall.status === 'running';
@@ -550,6 +701,10 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     if (!showRawJson) {
       if (treeToolSummary) {
         return renderTreeToolSummary(treeToolSummary, t);
+      }
+      const codegen = getCodegenPreview(toolCall.name, toolCall.arguments);
+      if (codegen) {
+        return <CodegenPreview preview={codegen} t={t} />;
       }
       const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
       if (highlight) {
@@ -798,7 +953,18 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
 
           {/* Label + summary */}
           <div className="many-tool-card-v2-copy">
-            <span className="many-tool-card-v2-title">{label}</span>
+            <span className="many-tool-card-v2-title">
+              {label}
+              {subagentName ? (
+                <DomeBadge
+                  label={subagentName}
+                  variant="soft"
+                  size="xs"
+                  color="var(--accent)"
+                  className="ml-1.5 align-middle"
+                />
+              ) : null}
+            </span>
             {cardSummary ? <span className="many-tool-card-v2-summary">{cardSummary}</span> : null}
           </div>
 
@@ -902,6 +1068,15 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
                 style={{ color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)' }}
               >
                 {label}
+                {subagentName ? (
+                  <DomeBadge
+                    label={subagentName}
+                    variant="soft"
+                    size="xs"
+                    color="var(--accent)"
+                    className="ml-1.5 align-middle"
+                  />
+                ) : null}
               </span>
               {argsSummary ? (
                 <span className="text-[var(--tertiary-text)] leading-snug mt-px truncate text-[12px]">

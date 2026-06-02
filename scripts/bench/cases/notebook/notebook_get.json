@@ -1,0 +1,34 @@
+{
+  "id": "notebook_get.basic",
+  "category": "notebook",
+  "tool": "notebook_get",
+  "mode": "direct",
+  "prompt": "Explica la tool notebook_get: qué hace, parámetro resource_id requerido, y un ejemplo con el notebook bench-notebook del proyecto bench-project. Respuesta concisa pero completa (al menos 3 frases).",
+  "expected_tools": [],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": true,
+  "allow_preamble": true,
+  "fixtures": ["bench-notebook"],
+  "output_shape": {
+    "min_length": 30
+  },
+  "judge_criteria": "Debe explicar notebook_get con claridad (parámetro resource_id, salida de celdas). No es obligatorio invocar la tool. Una explicación concisa correcta de 3+ frases es suficiente.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

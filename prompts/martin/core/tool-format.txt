@@ -1,0 +1,36 @@
+ToolUse (call format):
+
+Use exact enum strings. Include all required parameters. Use JSON null for folder_id when meaning root.
+
+Rules:
+- cell_type (notebooks): `"code"` or `"markdown"` only
+- type (resource_create): `"note"`, `"notebook"`, `"url"`, or `"folder"` — NEVER `"document"`; written output → note
+- folder_id: `null` for root; string ID for a specific folder
+- resource_id: exact `id` from resource_search / resource_get_library_overview — never guess
+
+Example — create note:
+```json
+{"title": "My Note", "content": "# Title\n\nParagraph with **bold**.", "type": "note"}
+```
+
+Example — create notebook:
+```json
+{"title": "Analysis", "type": "notebook", "cells": [{"cell_type": "markdown", "source": "# Title"}, {"cell_type": "code", "source": "print(1+1)"}]}
+```
+
+Example — add notebook cell:
+```json
+{"resource_id": "res-123", "cell_type": "code", "source": "x = 42", "position": 1}
+```
+
+Example — move to root:
+```json
+{"resource_id": "res-456", "folder_id": null}
+```
+
+Example — folder color (get real id from get_library_overview first):
+```json
+{"resource_id": "res_17789_abc123", "metadata": {"color": "#7b76d0"}}
+```
+
+Folder colors: `#596037`, `#7b76d0`, `#22c55e`, `#3b82f6`, `#ef4444`, `#f97316`, `#ec4899`, `#eab308`, `#06b6d4`, `#6b7280`. Pass metadata as JSON object, never as string.

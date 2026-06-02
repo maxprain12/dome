@@ -1,5 +1,6 @@
 # Archivos con ipcMain.handle aún sin esquemas Zod (migrar progresivamente).
 # Un nombre por línea (ej. resources.cjs). Los que NO aparezcan aquí deben usar zod.
+agent-team.cjs
 ai-tools.cjs
 ai.cjs
 artifacts.cjs

@@ -87,8 +87,9 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${model}`);
 
       const response = await llmService.chat({ provider, model, apiKey, messages });
+      const content = typeof response === 'object' && response?.text != null ? response.text : response;
 
-      return { success: true, content: response };
+      return { success: true, content, usage: response?.usage ?? null };
     } catch (error) {
       console.error('[AI Cloud] Chat error:', error);
       return { success: false, error: error.message };
@@ -241,12 +242,14 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       };
 
       const fullResponse = await llmService.stream({ provider, model, apiKey, messages, onChunk });
+      const content =
+        typeof fullResponse === 'object' && fullResponse?.text != null ? fullResponse.text : fullResponse;
 
       if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
+        event.sender.send('ai:stream:chunk', { streamId, type: 'done', usage: fullResponse?.usage ?? null });
       }
 
-      return { success: true, content: fullResponse };
+      return { success: true, content, usage: fullResponse?.usage ?? null };
     } catch (error) {
       console.error('[AI Cloud] Stream error:', error);
       if (event.sender && !event.sender.isDestroyed()) {
@@ -560,8 +563,9 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       // Make a minimal test call
       const testMessages = [{ role: 'user', content: 'Reply with OK' }];
       const response = await llmService.chat({ provider, model, apiKey, messages: testMessages });
+      const text = typeof response === 'object' && response?.text != null ? response.text : response;
 
-      if (response) {
+      if (text) {
         return { success: true, provider, model: model || 'default' };
       } else {
         return { success: false, error: 'Connection succeeded but got empty response.' };

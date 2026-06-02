@@ -1,0 +1,43 @@
+{
+  "id": "generate_timeline.basic",
+  "category": "studio",
+  "tool": "generate_timeline",
+  "mode": "direct",
+  "prompt": "1) Invoca generate_timeline con project_id bench-project y source_ids [\"bench-note-thermo\"]. 2) En tu respuesta FINAL (no copies el JSON del tool), escribe {\"type\":\"timeline\",\"events\":[{\"date\":\"1800s\",\"title\":\"...\",\"description\":\"...\"}]} con al menos 3 eventos sobre termodinámica.",
+  "expected_tools": [
+    "generate_timeline"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-note-thermo"
+  ],
+  "output_shape": {
+    "min_length": 60,
+    "contains_any": [
+      "\"events\"",
+      "\"date\"",
+      "\"title\""
+    ]
+  },
+  "judge_criteria": "PASS si invocó generate_timeline y la respuesta incluye ≥3 eventos (timeline JSON o events[] con date/title). No exige texto narrativo antes del JSON.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

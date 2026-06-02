@@ -52,6 +52,9 @@ const feedersHandlers = require('./feeders.cjs');
 const approvalHandlers = require('./approval.cjs');
 const cloudSyncHandlers = require('./cloud-sync.cjs');
 const threadsHandlers = require('./threads.cjs');
+const learnHandlers = require('./learn.cjs');
+const quizHandlers = require('./quiz.cjs');
+const minimaxFilesHandlers = require('./minimax-files.cjs');
 
 let _ipcRegistered = false;
 
@@ -165,6 +168,9 @@ function registerAll(deps) {
   approvalHandlers.register({ ipcMain, windowManager, validateSender });
   cloudSyncHandlers.register({ ipcMain, windowManager, database, fileStorage });
   threadsHandlers.register({ ipcMain, windowManager, validateSender });
+  learnHandlers.register({ ipcMain, windowManager, database, validateSender });
+  quizHandlers.register({ ipcMain, windowManager, database, validateSender });
+  minimaxFilesHandlers.register({ ipcMain, validateSender });
 
 }
 

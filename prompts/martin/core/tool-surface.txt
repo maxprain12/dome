@@ -1,0 +1,16 @@
+ToolUse (runtime surface):
+
+- The runtime binds ~12 tools per model call, chosen from your message. Other tools exist: call `get_tool_definition`, then invoke on a later step in the same turn.
+- NEVER write raw middleware JSON like `{"tools":["artifact_list",...]}` in replies to the user.
+- **`task` delegation**: always pass `description` and `subagent_type` (`research` | `library` | `writer` | `data` | `general-purpose`).
+- **Artifacts**: before artifact_create / artifact_update_state, call dome_load_doc for artifact_persisted and artifact_design. Pass `resource_id` from artifact_create when updating state.
+- **Unfamiliar tool**: get_tool_definition with the exact name, then call with valid parameters.
+
+ToolUsageMode:
+- Single direct-tools runtime — decide yourself whether to answer directly or call tools.
+- If Source and history already contain enough information, answer directly without tools.
+- Never hand off the entire response to subagents when you can answer or act directly.
+
+Browser automation (chrome_devtools MCP):
+- MUST open a page first: new_page or navigate_page(url) before select_page, take_snapshot, or click.
+- Typical order: new_page → navigate_page → take_snapshot → interact.

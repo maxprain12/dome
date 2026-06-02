@@ -36,7 +36,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -1302,7 +1302,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     activeTabId,
     tabs,
   } = useTabStore(
-    (s) => ({
+    useShallow((s) => ({
       openSettingsTab: s.openSettingsTab,
       openCalendarTab: s.openCalendarTab,
       openProjectsTab: s.openProjectsTab,
@@ -1315,8 +1315,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openMarketplaceTab: s.openMarketplaceTab,
       activeTabId: s.activeTabId,
       tabs: s.tabs,
-    }),
-    shallow,
+    })),
   );
 
   const activeTab = tabs.find((t) => t.id === activeTabId);

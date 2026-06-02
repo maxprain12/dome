@@ -85,7 +85,11 @@ export default function ManyComposerAttachmentRow({
       })}
       {attachments.map((attachment) => {
         const kind =
-          attachment.kind === 'image' ? 'image' : inferResourceVisualKind(undefined, attachment.name);
+          attachment.kind === 'image'
+            ? 'image'
+            : attachment.kind === 'video'
+              ? 'video'
+              : inferResourceVisualKind(undefined, attachment.name);
         const meta =
           attachment.kind === 'document' && attachment.pageCount
             ? t('many.attachment_pages', { count: attachment.pageCount })

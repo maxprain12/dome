@@ -1,0 +1,22 @@
+{
+  "id": "parallel_reads.resource_get",
+  "category": "meta",
+  "tool": "resource_get",
+  "mode": "direct",
+  "prompt": "En bench-project, lee en paralelo el contenido de bench-note-thermo y bench-note-calc usando resource_get con los IDs exactos del fixture. Resume en dos bullets.",
+  "expected_tools": [
+    "resource_get"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "web_search"
+  ],
+  "fixtures": ["bench-note-thermo", "bench-note-calc"],
+  "output_shape": {
+    "min_length": 40
+  },
+  "judge_criteria": "Debe llamar resource_get (idealmente más de una vez o en paralelo) y resumir ambas notas.",
+  "timeout_ms": 90000,
+  "skip_hitl": true,
+  "optional": true
+}

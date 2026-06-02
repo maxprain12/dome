@@ -1,0 +1,37 @@
+{
+  "id": "automation_create.basic",
+  "category": "entity",
+  "tool": "automation_create",
+  "mode": "direct",
+  "prompt": "Crea una automatización diaria 09:00 que ejecute un agente de prueba (bench).",
+  "expected_tools": [
+    "automation_create"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar automation_create (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

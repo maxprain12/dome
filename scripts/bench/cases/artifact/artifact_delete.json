@@ -1,0 +1,21 @@
+{
+  "id": "artifact_delete.basic",
+  "category": "artifact",
+  "tool": "artifact_delete",
+  "mode": "direct",
+  "prompt": "Explica artifact_delete sin borrar artifacts del usuario.",
+  "expected_tools": [],
+  "forbidden_tools": [
+    "artifact_delete"
+  ],
+  "explain_only": true,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 30
+  },
+  "judge_criteria": "Debe explicar artifact_delete con claridad; no es obligatorio invocar la tool si el prompt pide solo explicación.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

@@ -13,7 +13,7 @@
  */
 
 const database = require('./database.cjs');
-const { DOME_LOAD_DOC_DESCRIPTION } = require('./prompt-sections.cjs');
+const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('./prompt-sections.cjs');
 
 // Lazy-load ai-tools-handler to break the circular dependency:
 // ai-tools-handler → pdf-transcription → cloud-llm.service → llm-service
@@ -83,6 +83,10 @@ const TOOL_HANDLER_MAP = {
   generate_knowledge_graph: 'generateKnowledgeGraph',
   generate_mindmap: 'gatherStudioMindmapContext',
   generate_quiz: 'gatherStudioQuizContext',
+  generate_guide: 'gatherStudioGuideContext',
+  generate_faq: 'gatherStudioFaqContext',
+  generate_timeline: 'gatherStudioTimelineContext',
+  generate_table: 'gatherStudioTableContext',
 
   // Calendar tools
   calendar_list_events: 'calendarListEvents',
@@ -150,6 +154,13 @@ const TOOL_NAME_ALIASES = {
   write_file: 'file_write',
   list_directory: 'file_list',
   list_dir: 'file_list',
+  dome_ui_type: 'ui_type',
+  dome_ui_click: 'ui_click',
+  dome_ui_point_to: 'ui_point_to',
+  dome_ui_scroll: 'ui_scroll',
+  dome_ui_navigate: 'ui_navigate',
+  dome_ui_get_elements: 'ui_get_elements',
+  dome_ui_hide_cursor: 'ui_hide_cursor',
 };
 
 function normalizeToolName(name) {
@@ -635,7 +646,7 @@ async function executeToolInMain(toolName, args, toolContext) {
           const body = getSectionBody(docId);
           if (!body) {
             result = {
-              error: `Unknown doc id: "${docId}". Valid: entity_rules, artifacts, artifact_persisted, artifact_design, resource_links, feeders`,
+              error: `Unknown doc id: "${docId}". Valid: ${DOME_LOAD_DOC_IDS.join(', ')}`,
             };
           } else {
             result = { id: docId, content: body };
@@ -1204,6 +1215,70 @@ function getAllToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'resource_get_library_overview',
+        description: 'Alias for get_library_overview — library structure for a project.',
+        parameters: {
+          type: 'object',
+          properties: { project_id: { type: 'string', description: 'Project ID' } },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'resource_get_active',
+        description: 'Get the resource currently open in the viewer (active tab).',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'resource_get_pinned',
+        description: 'Get content of a user-pinned context resource by ID.',
+        parameters: {
+          type: 'object',
+          properties: {
+            id: { type: 'string', description: 'Pinned resource ID from context' },
+          },
+          required: ['id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'interaction_list',
+        description: 'List interactions (notes, annotations, chat) for a resource.',
+        parameters: {
+          type: 'object',
+          properties: {
+            resource_id: { type: 'string', description: 'Resource ID' },
+            type: { type: 'string', description: 'Filter: note, annotation, chat' },
+            limit: { type: 'number', description: 'Max results (default 50)' },
+          },
+          required: ['resource_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'remember_fact',
+        description: 'Save a user fact to long-term memory (key/value).',
+        parameters: {
+          type: 'object',
+          properties: {
+            key: { type: 'string', description: 'Memory label, e.g. preferred_language' },
+            value: { type: 'string', description: 'Fact to remember' },
+          },
+          required: ['key', 'value'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'resource_create',
         description: 'Create a new persisted resource (note, folder, url, notebook). DO NOT use for visual/interactive outputs like dashboards, diagrams, calculators, timelines, tabs, playgrounds — those are RICH ARTIFACTS rendered inline in the chat (emit an `artifact:TYPE` fenced block instead). Call AT MOST ONCE per user request — never loop creating multiple notes for the same ask. For folders: omit metadata.color to get an auto-assigned color.',
         parameters: {
@@ -1328,7 +1403,9 @@ function getAllToolDefinitions() {
           properties: {
             resource_id: { type: 'string', description: 'Artifact resource ID' },
             html: { type: 'string', description: 'New self-contained HTML if replacing UI' },
-            data: { type: 'object', description: 'New structured data merged into state' },
+            data: {
+              description: 'New structured data merged into state (object or JSON string)',
+            },
           },
           required: ['resource_id'],
         },
@@ -1954,7 +2031,7 @@ function getAllToolDefinitions() {
           properties: {
             id: {
               type: 'string',
-              enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links', 'feeders'],
+              enum: DOME_LOAD_DOC_IDS,
               description: 'Section identifier',
             },
           },
@@ -2288,6 +2365,7 @@ function getAllToolDefinitions() {
           properties: {
             project_id: { type: 'string', description: 'Scope listing when source_ids omitted' },
             source_ids: { type: 'array', items: { type: 'string' }, description: 'Resource IDs to summarize' },
+            resource_id: { type: 'string', description: 'Single source resource ID' },
             topic: { type: 'string', description: 'Optional focus topic label' },
           },
         },
@@ -2304,10 +2382,167 @@ function getAllToolDefinitions() {
           properties: {
             project_id: { type: 'string' },
             source_ids: { type: 'array', items: { type: 'string' } },
+            resource_id: { type: 'string', description: 'Single source resource ID (shorthand for one-item source_ids)' },
             num_questions: { type: 'number', description: '1-20, default 5' },
             difficulty: { type: 'string', description: 'easy | medium | hard' },
           },
         },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_guide',
+        description:
+          'Gather source content so you can output a structured study guide (type guide) in the reply. Call only when the user asks for a guide or guía de estudio.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string' },
+            source_ids: { type: 'array', items: { type: 'string' } },
+            resource_id: { type: 'string', description: 'Single source resource ID' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_faq',
+        description:
+          'Gather source content so you can output FAQ Q&A pairs (type faq) in the reply. Call only when the user asks for FAQ or preguntas frecuentes.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string' },
+            source_ids: { type: 'array', items: { type: 'string' } },
+            resource_id: { type: 'string', description: 'Single source resource ID' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_timeline',
+        description:
+          'Gather source content so you can output a chronological timeline (type timeline) in the reply. Call only when the user asks for timeline or cronología.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string' },
+            source_ids: { type: 'array', items: { type: 'string' } },
+            resource_id: { type: 'string', description: 'Single source resource ID' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'generate_table',
+        description:
+          'Gather source content so you can output a data table (type table) in the reply. Call only when the user asks for table, tabla, or comparison matrix.',
+        parameters: {
+          type: 'object',
+          properties: {
+            project_id: { type: 'string' },
+            source_ids: { type: 'array', items: { type: 'string' } },
+            resource_id: { type: 'string', description: 'Single source resource ID' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_point_to',
+        description:
+          'Move the Many cursor to a Dome UI element (data-ui-target name or CSS selector). Use for guided tours — one highlight per turn.',
+        parameters: {
+          type: 'object',
+          properties: {
+            target: { type: 'string', description: 'e.g. tab-agents, tab-settings' },
+            tooltip: { type: 'string', description: 'Short tooltip next to the cursor' },
+          },
+          required: ['target'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_click',
+        description: 'Point to a UI element and click it after a brief delay.',
+        parameters: {
+          type: 'object',
+          properties: {
+            target: { type: 'string', description: 'data-ui-target name or CSS selector' },
+          },
+          required: ['target'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_type',
+        description: 'Focus an input/textarea and type text into it.',
+        parameters: {
+          type: 'object',
+          properties: {
+            target: { type: 'string', description: 'Input element target' },
+            text: { type: 'string', description: 'Text to type' },
+          },
+          required: ['target', 'text'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_scroll',
+        description: 'Scroll the page or a scrollable element.',
+        parameters: {
+          type: 'object',
+          properties: {
+            direction: { type: 'string', description: 'up | down | left | right' },
+            amount: { type: 'number', description: 'Pixels (default 300)' },
+            target: { type: 'string', description: 'Optional scrollable element target' },
+          },
+          required: ['direction'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_navigate',
+        description:
+          'Open or switch to a named Dome tab: home, settings, calendar, agents, learn, flashcards, marketplace, tags, workflows, automations, runs.',
+        parameters: {
+          type: 'object',
+          properties: {
+            destination: { type: 'string', description: 'Tab destination name' },
+          },
+          required: ['destination'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_get_elements',
+        description: 'List elements with data-ui-target in the current DOM.',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'ui_hide_cursor',
+        description: 'Hide the Many assistant UI cursor overlay.',
+        parameters: { type: 'object', properties: {} },
       },
     },
   ];

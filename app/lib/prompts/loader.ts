@@ -3,7 +3,8 @@
  * Loads prompt templates from bundled assets (imported at build time).
  */
 
-import martinBase from '../../../prompts/martin/base.txt?raw';
+import roleMany from '../../../prompts/martin/core/role-many.txt?raw';
+import martinBaseLegacy from '../../../prompts/martin/base.txt?raw';
 import martinTools from '../../../prompts/martin/tools.txt?raw';
 import martinResourceContext from '../../../prompts/martin/resource-context.txt?raw';
 import martinNotebookContext from '../../../prompts/martin/notebook-context.txt?raw';
@@ -12,7 +13,8 @@ import martinPptContext from '../../../prompts/martin/ppt-context.txt?raw';
 import martinDocumentContext from '../../../prompts/martin/document-context.txt?raw';
 import martinArtifacts from '../../../prompts/martin/artifacts.txt?raw';
 import martinArtifactPersisted from '../../../prompts/martin/artifact-persisted.txt?raw';
-import martinFloatingBase from '../../../prompts/martin/floating-base.txt?raw';
+import martinFloatingBase from '../../../prompts/martin/core/role-many.txt?raw';
+import { buildEditorPromptFromTemplate } from '@/lib/prompt-assembler/bridge';
 import editorSystem from '../../../prompts/editor/system.txt?raw';
 import editorReview from '../../../prompts/editor/actions/review.txt?raw';
 import editorExpand from '../../../prompts/editor/actions/expand.txt?raw';
@@ -27,7 +29,8 @@ import studioWithTools from '../../../prompts/studio/with-tools.txt?raw';
 import studioWithoutTools from '../../../prompts/studio/without-tools.txt?raw';
 
 const manyPromptSet = {
-  base: martinBase,
+  /** @deprecated Use core/role-many.txt via buildManyRolePrompt() */
+  base: martinBaseLegacy,
   tools: martinTools,
   resourceContext: martinResourceContext,
   notebookContext: martinNotebookContext,
@@ -107,7 +110,7 @@ export function buildMartinBasePrompt(options: {
  * Build Many floating persona (stable prefix — no UI context, date, or resource).
  */
 export function buildManyFloatingPrompt(): string {
-  return prompts.many.floatingBase;
+  return roleMany;
 }
 
 /**
@@ -145,8 +148,12 @@ export function buildMartinResourceContext(options: {
 /**
  * Build editor system prompt.
  */
-export function buildEditorSystemPrompt(contextSnippet: string): string {
-  return replaceAll(prompts.editor.system, { contextSnippet });
+export function buildEditorSystemPrompt(contextSnippet: string, actionInstruction?: string): string {
+  return buildEditorPromptFromTemplate({
+    systemTemplate: prompts.editor.system,
+    contextSnippet,
+    actionInstruction: actionInstruction ?? 'Apply the action described in the user message.',
+  });
 }
 
 /**

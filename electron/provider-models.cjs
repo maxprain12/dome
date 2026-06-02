@@ -18,7 +18,7 @@ const CURATED_IDS = {
   openai: new Set(['gpt-5.2', 'gpt-5', 'gpt-5-mini', 'gpt-5-nano', 'gpt-oss-120b']),
   anthropic: new Set(['claude-opus-4-6', 'claude-sonnet-4-5', 'claude-haiku-4-5']),
   google: new Set(['gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']),
-  minimax: new Set(['MiniMax-M2.7', 'MiniMax-M2.5', 'MiniMax-M2.7-highspeed', 'MiniMax-M2.5-highspeed']),
+  minimax: new Set(['MiniMax-M3', 'MiniMax-M2.7', 'MiniMax-M2.5', 'MiniMax-M2.7-highspeed', 'MiniMax-M2.5-highspeed']),
 };
 
 /**
@@ -27,7 +27,7 @@ const CURATED_IDS = {
  * @property {string} name
  * @property {number} contextWindow
  * @property {boolean} reasoning
- * @property {Array<'text'|'image'>} input
+ * @property {Array<'text'|'image'|'video'>} input
  * @property {number} maxTokens
  * @property {boolean} [recommended]
  * @property {string} [description]
@@ -113,10 +113,21 @@ function isOpenAiChatModel(id) {
  */
 function isMiniMaxChatModel(id) {
   const lower = id.toLowerCase();
-  if (lower.includes('hailuo') || lower.includes('video') || lower.includes('music') || lower.includes('image') || lower.includes('speech') || lower.includes('tts')) {
+  if (lower.includes('hailuo') || lower.includes('music') || lower.includes('speech') || lower.includes('tts')) {
     return false;
   }
+  if (lower.includes('video') && !/^minimax-m3$/i.test(id)) return false;
+  if (lower.includes('image') && !/^minimax-m3$/i.test(id)) return false;
   return lower.startsWith('minimax-') || lower.startsWith('m2-') || lower === 'abab';
+}
+
+/**
+ * @param {string} id
+ * @returns {Array<'text'|'image'|'video'>}
+ */
+function minimaxInputForModel(id) {
+  if (/^minimax-m3$/i.test(id)) return ['text', 'image', 'video'];
+  return ['text'];
 }
 
 /**
@@ -241,7 +252,13 @@ async function fetchMiniMaxModels(apiKey) {
     if (!row || typeof row !== 'object') continue;
     const id = typeof row.id === 'string' ? row.id : '';
     if (!id || !isMiniMaxChatModel(id)) continue;
-    models.push(makeModel(id, id, { curated: curated.has(id), api: 'openai-completions' }));
+    models.push(makeModel(id, id, {
+      curated: curated.has(id),
+      api: 'openai-completions',
+      input: minimaxInputForModel(id),
+      contextWindow: /^minimax-m3$/i.test(id) ? 1000000 : 204800,
+      recommended: /^minimax-m3$/i.test(id) || curated.has(id),
+    }));
   }
   models.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
   return { success: true, models };

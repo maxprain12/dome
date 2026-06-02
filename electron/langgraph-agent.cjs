@@ -2,7 +2,7 @@
 /**
  * LangGraph Agent - Main Process
  *
- * Runs the chat with tools using LangGraph/createAgent.
+ * Runs the chat with tools using deepagents/createDeepAgent.
  * Converts Dome's OpenAI-format tool definitions to LangChain tools,
  * creates a model from provider config, and streams results.
  *
@@ -24,8 +24,15 @@
 
 const toolDispatcher = require('./tool-dispatcher.cjs');
 const { executeToolInMain } = toolDispatcher;
-const { createSubagentTools } = require('./subagents.cjs');
 const { createAsyncSubagentTools } = require('./async-subagents.cjs');
+const { buildDeepAgentSubagentSpecs } = require('./subagent-specs.cjs');
+const { createModelFromConfig } = require('./model-factory.cjs');
+const { registerDomeHarnessProfiles } = require('./harness-profiles.cjs');
+const {
+  createDomeHarnessBackendFactory,
+  DEFAULT_HARNESS_PERMISSIONS,
+} = require('./harness-backend.cjs');
+const { userSkillsDir } = require('./skills/index.cjs');
 const { getMCPTools } = require('./mcp-client.cjs');
 const database = require('./database.cjs');
 const { getDomeCheckpointer } = require('./checkpointer.cjs');
@@ -35,10 +42,16 @@ const { measurePrompt } = require('./prompt-budget.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const projectMemory = require('./project-memory.cjs');
 const { buildSkillsMiddleware } = require('./skills/index.cjs');
-const { buildAgentMiddlewareStack } = require('./agent-middleware.cjs');
-const { DOME_LOAD_DOC_DESCRIPTION } = require('./prompt-sections.cjs');
+const { buildAgentMiddlewareStack, buildMiddlewareLimitReachedMessage } = require('./agent-middleware.cjs');
+const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('./prompt-sections.cjs');
 const { capToolResultString } = require('./tool-result-cap.cjs');
-const { temperatureOptions } = require('./model-params.cjs');
+const { summarizeToolResultForUi, formatToolResultForModel } = require('./tool-result-format.cjs');
+const {
+  normalizeToolInput,
+  getMissingRequiredFields,
+  formatToolValidationError,
+} = require('./tool-input-normalize.cjs');
+const { capLangChainTools, sanitizeLeakedToolManifestText } = require('./tool-cap.cjs');
 
 function pickTokenNumber(obj, keys) {
   if (!obj || typeof obj !== 'object') return null;
@@ -106,13 +119,14 @@ function getSharedCheckpointer() {
 }
 
 /**
- * Recursion limit for `createAgent`. Default is 25; raised to 250 for
+ * Recursion limit for `createDeepAgent`. LangGraph default is 25; raised to 1500 for
  * Excel/sheet-style flows and multi-step agentic workflows (feeders,
  * artifact + Redfish loops, deep research) that legitimately need many
- * model+tool turns. If you ever see `GraphRecursionError` outside of a
- * runaway loop, bump this — but first confirm the agent isn't oscillating.
+ * model+tool turns. Override with DOME_RECURSION_LIMIT env var. If you ever see
+ * `GraphRecursionError` outside of a runaway loop, bump this — but first confirm
+ * the agent isn't oscillating.
  */
-const RECURSION_LIMIT = 250;
+const RECURSION_LIMIT = Number(process.env.DOME_RECURSION_LIMIT) || 1500;
 
 /** Default stream modes for every agent run (LangGraph `streamMode` array). */
 const STREAM_MODES_BASE = ['messages', 'updates', 'custom'];
@@ -180,7 +194,9 @@ function createThinkingStreamParser(onChunk) {
   let mode = 'text'; // 'text' | 'inThink'
 
   function emit(type, text) {
-    if (text && onChunk) onChunk({ type, text });
+    const safe =
+      type === 'text' && typeof text === 'string' ? sanitizeLeakedToolManifestText(text) : text;
+    if (safe && onChunk) onChunk({ type, text: safe });
   }
 
   return {
@@ -297,6 +313,27 @@ async function extractInterrupt(capturedInterrupt, agent, config) {
 }
 
 /**
+ * A model/tool call-limit middleware emits a state update on EVERY step in
+ * normal operation (incrementing its call counters and resetting run counts in
+ * `afterAgent`), without any `messages`. It only injects its user-facing limit
+ * notice — an artificial AIMessage/ToolMessage — when a limit is actually
+ * exceeded. Detecting the node name alone is therefore a false positive that
+ * overwrites a successful reply with the "limit reached" message. Require the
+ * limit notice content in the node delta instead.
+ *
+ * @param {*} delta - the state update emitted by a single graph node
+ * @returns {boolean}
+ */
+function deltaSignalsCallLimit(delta) {
+  const messages = delta?.messages;
+  if (!Array.isArray(messages) || messages.length === 0) return false;
+  return messages.some((m) => {
+    const content = typeof m?.content === 'string' ? m.content : '';
+    return /call limit (?:exceeded|reached)/i.test(content);
+  });
+}
+
+/**
  * Stream a LangGraph agent run, emitting `text` / `thinking` / `tool_call`
  * / `tool_result` chunks in real time. Dedupes against tool IDs already
  * surfaced by the OpenAI-format tool wrapper (`useDirectTools` mode).
@@ -310,6 +347,8 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
   const parser = createThinkingStreamParser(onChunk);
   const artifactDetector = createArtifactBlockDetector(onChunk);
   let capturedInterrupt = null;
+  let hitModelCallLimit = false;
+  let hitToolCallLimit = false;
 
   const trace = process.env.DOME_LANGGRAPH_TRACE === '1';
   const traceStart = trace ? Date.now() : 0;
@@ -356,6 +395,12 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
       const msgChunk = Array.isArray(chunk) ? chunk[0] : chunk;
       const metadata = Array.isArray(chunk) ? chunk[1] : null;
       if (!msgChunk || typeof msgChunk._getType !== 'function') continue;
+      if (msgChunk._getType() === 'ai') {
+        const partialUsage = extractUsageFromAiMessage(msgChunk);
+        if (partialUsage && onChunk) {
+          onChunk({ type: 'usage', usage: partialUsage, partial: true });
+        }
+      }
       if (msgChunk._getType() !== 'ai') continue;
       // Only stream the top-level agent's output. Accept both the legacy
       // `agent` node and the langchain 1.x `model_request` node — without
@@ -389,11 +434,16 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
       for (const nodeName of Object.keys(chunk)) {
         if (nodeName === '__interrupt__') continue;
         const delta = chunk[nodeName];
+        if (deltaSignalsCallLimit(delta)) {
+          if (nodeName.includes('ModelCallLimitMiddleware')) hitModelCallLimit = true;
+          if (nodeName.includes('ToolCallLimitMiddleware')) hitToolCallLimit = true;
+        }
         const messages = delta?.messages;
         if (!Array.isArray(messages)) continue;
         for (const msg of messages) {
           if (!msg || typeof msg._getType !== 'function') continue;
           const t = msg._getType();
+          const subAgentName = agentNameFromNamespace(streamNamespace);
           if (t === 'ai' && Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
             for (const tc of msg.tool_calls) {
               const id = tc.id || `call_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -407,6 +457,7 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
                     name: tc.name,
                     arguments: typeof tc.args === 'string' ? tc.args : JSON.stringify(tc.args || {}),
                   },
+                  ...(subAgentName ? { agentName: subAgentName } : {}),
                 });
               }
             }
@@ -414,13 +465,32 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
             const id = msg.tool_call_id;
             if (seenToolResultIds.has(id) || rtEmittedResultIds?.has(id)) continue;
             seenToolResultIds.add(id);
-            let resultContent = msg.content;
-            if (typeof resultContent !== 'string') {
-              try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
-            }
             const toolName = typeof msg.name === 'string' ? msg.name : 'tool';
-            resultContent = capToolResultString(toolName, resultContent);
-            if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultContent });
+            let resultContent = msg.content;
+            if (Array.isArray(resultContent)) {
+              const imageCount = resultContent.filter(
+                (b) => b && (b.type === 'image_url' || b.type === 'image'),
+              ).length;
+              resultContent = JSON.stringify({
+                delivery: 'vision_blocks',
+                block_count: resultContent.length,
+                image_count: imageCount,
+                note: 'Images attached for model vision QA.',
+              });
+            } else if (typeof resultContent !== 'string') {
+              try { resultContent = JSON.stringify(resultContent); } catch { resultContent = String(resultContent); }
+              resultContent = capToolResultString(toolName, resultContent);
+            } else {
+              resultContent = capToolResultString(toolName, resultContent);
+            }
+            if (onChunk) {
+              onChunk({
+                type: 'tool_result',
+                toolCallId: id,
+                result: resultContent,
+                ...(subAgentName ? { agentName: subAgentName } : {}),
+              });
+            }
           }
         }
       }
@@ -443,7 +513,7 @@ async function streamAgentRun(agent, input, config, onChunk, rtEmittedCallIds, r
 
   parser.finish();
   artifactDetector.finish();
-  return { capturedInterrupt };
+  return { capturedInterrupt, hitModelCallLimit, hitToolCallLimit };
 }
 
 /**
@@ -477,6 +547,80 @@ async function finalizeFromState(agent, config) {
     /* getState may fail if no checkpoint; return empty */
   }
   return { finalText, finalMessages, lastAI };
+}
+
+/**
+ * Emit aggregated usage from checkpointed messages (e.g. before HITL return).
+ */
+async function emitUsageFromCheckpoint(agent, config, onChunk, partial = true) {
+  try {
+    const state = await agent.getState(config);
+    const msgs = state?.values?.messages || state?.messages || [];
+    const usage = aggregateUsageFromMessages(msgs);
+    if (usage && onChunk) onChunk({ type: 'usage', usage, partial });
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Shared post-stream finalization for invoke and resume.
+ */
+async function completeAgentRunAfterStream({
+  agent,
+  config,
+  onChunk,
+  capturedInterrupt,
+  provider,
+  model,
+  hitModelCallLimit = false,
+  hitToolCallLimit = false,
+}) {
+  const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
+  if (interrupt) {
+    await emitUsageFromCheckpoint(agent, config, onChunk, true);
+    if (onChunk) {
+      onChunk({
+        type: 'interrupt',
+        threadId: config.configurable.thread_id,
+        actionRequests: interrupt.actionRequests,
+        reviewConfigs: interrupt.reviewConfigs,
+      });
+    }
+    return { __interrupt__: true, threadId: config.configurable.thread_id };
+  }
+
+  const { finalText, finalMessages, lastAI } = await finalizeFromState(agent, config);
+
+  let effectiveText = finalText;
+  const limitMessage = buildMiddlewareLimitReachedMessage({ hitModelCallLimit, hitToolCallLimit });
+  const middlewareErr = limitMessage || detectMiddlewareErrorMessage(lastAI);
+  if (middlewareErr) {
+    console.warn('[AI LangGraph] middleware error in final AIMessage:', finalText.slice(0, 300));
+    if (onChunk) onChunk({ type: 'text', text: middlewareErr });
+    effectiveText = middlewareErr;
+  } else if (!effectiveText || !effectiveText.trim()) {
+    const fallback = buildEmptyResponseFallback(lastAI);
+    console.warn('[AI LangGraph] empty model response — emitting fallback', {
+      provider,
+      model,
+      stop_reason:
+        lastAI?.response_metadata?.stop_reason ||
+        lastAI?.response_metadata?.finish_reason ||
+        null,
+      has_tool_calls: Array.isArray(lastAI?.tool_calls) && lastAI.tool_calls.length > 0,
+    });
+    if (onChunk) onChunk({ type: 'text', text: fallback });
+    effectiveText = fallback;
+  }
+
+  const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
+  if (aggregatedUsage && onChunk) {
+    onChunk({ type: 'usage', usage: aggregatedUsage, partial: false });
+  }
+  if (onChunk) onChunk({ type: 'done' });
+
+  return effectiveText;
 }
 
 /**
@@ -543,6 +687,18 @@ function detectMiddlewareErrorMessage(lastAI) {
   const lower = inner.toLowerCase();
 
   if (
+    lower.includes('output_parsing_failure') ||
+    lower.includes('failed to parse') ||
+    (lower.includes('syntaxerror') && lower.includes('json'))
+  ) {
+    return (
+      'El selector automático de herramientas no pudo interpretar la respuesta del modelo (JSON duplicado o inválido).\n\n' +
+      '> ' + inner.split('\n').join('\n> ') + '\n\n' +
+      'Reintenta el mensaje. Si persiste, desactiva el selector con `DOME_LANGGRAPH_TOOL_SELECTOR=0` en `.env` y reinicia Dome.'
+    );
+  }
+
+  if (
     lower.includes('fetch failed') ||
     lower.includes('econnreset') ||
     lower.includes('econnrefused') ||
@@ -576,10 +732,66 @@ function normalizeToolName(name) {
 }
 
 /**
+ * Wrap executeToolInMain with vision-aware formatting and UI-safe summaries.
+ * @param {{ toolContext?: object, provider?: string, model?: string, onChunk?: Function, rtEmittedCallIds?: Set<string>, rtEmittedResultIds?: Set<string>, threadId?: string }} ctx
+ */
+function createToolExecuteFn(ctx) {
+  const {
+    toolContext = null,
+    provider = 'openai',
+    model = '',
+    onChunk,
+    rtEmittedCallIds,
+    rtEmittedResultIds,
+    threadId,
+  } = ctx;
+  let rtCallCounter = 0;
+
+  return async (name, args, invocationConfig) => {
+    const fromAgent = invocationConfig?.toolCall?.id;
+    const id =
+      fromAgent != null && String(fromAgent).length > 0
+        ? String(fromAgent)
+        : `rt_${threadId || 'x'}_${++rtCallCounter}`;
+
+    if (rtEmittedCallIds) rtEmittedCallIds.add(id);
+    if (onChunk) {
+      onChunk({
+        type: 'tool_call',
+        toolCall: {
+          id,
+          name,
+          arguments: typeof args === 'string' ? args : JSON.stringify(args || {}),
+        },
+      });
+    }
+
+    const raw = await executeToolInMain(name, args, toolContext);
+    const formatted = formatToolResultForModel(name, raw, { provider, modelId: model });
+    const uiText = summarizeToolResultForUi(name, raw);
+    if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: uiText });
+    if (rtEmittedResultIds) rtEmittedResultIds.add(id);
+    return formatted;
+  };
+}
+
+/** Simple execute fn without streaming telemetry (subagent defs, dome_load_doc injectors). */
+function createPlainToolExecuteFn(toolContext, provider, model) {
+  return async (name, args) => {
+    const raw = await executeToolInMain(name, args, toolContext);
+    return formatToolResultForModel(name, raw, { provider, modelId: model });
+  };
+}
+
+/**
  * Create LangChain tools from OpenAI-format definitions.
  * Uses dynamic import for ESM @langchain/core (tool, tool schema).
+ *
+ * Zod schema is intentionally lenient (all fields optional + passthrough) so invalid
+ * model kwargs return a ToolMessage error instead of aborting the LangGraph run.
+ * Required fields are validated in-process and surfaced back to the model for retry.
  */
-async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
+async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn, toolContext = null) {
   const { tool } = await import('@langchain/core/tools');
   const zodMod = await import('zod');
   const z = zodMod.z ?? zodMod.default ?? zodMod;
@@ -593,7 +805,6 @@ async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
     const zodShape = {};
 
     if (params.type === 'object' && params.properties) {
-      const required = new Set(params.required || []);
       for (const [key, prop] of Object.entries(params.properties)) {
         if (!prop || typeof prop !== 'object') continue;
         let field;
@@ -608,14 +819,24 @@ async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
           else field = z.string();
         } else field = z.unknown();
         if (prop.description) field = field.describe(prop.description);
-        zodShape[key] = required.has(key) ? field : field.optional();
+        zodShape[key] = field.optional();
       }
     }
 
-    const schema = Object.keys(zodShape).length > 0 ? z.object(zodShape) : z.object({});
+    const schema =
+      Object.keys(zodShape).length > 0 ? z.object(zodShape).passthrough() : z.object({}).passthrough();
     const lcTool = tool(
       async (input, config) => {
-        const result = await executeFn(normName, input || {}, config);
+        const normalized = normalizeToolInput(normName, input || {}, toolContext);
+        const missing = getMissingRequiredFields(params, normalized);
+        if (missing.length > 0) {
+          return JSON.stringify({
+            success: false,
+            error: formatToolValidationError(normName, missing),
+          });
+        }
+        const result = await executeFn(normName, normalized, config);
+        if (Array.isArray(result)) return result;
         return typeof result === 'string' ? result : JSON.stringify(result);
       },
       { name: normName, description: description || '', schema },
@@ -625,191 +846,47 @@ async function createLangChainToolsFromOpenAIDefinitions(defs, executeFn) {
   return tools;
 }
 
-/**
- * Strip JSON Schema meta-fields that LangChain's Zod→JSON-Schema converter adds
- * ($schema, additionalProperties) but that MiniMax's OpenAI-compatible endpoint
- * rejects with 400 "invalid chat setting" (error 2013).
- * Works recursively so nested object schemas are cleaned too.
- */
-function stripZodJsonSchemaMeta(obj) {
-  if (Array.isArray(obj)) return obj.map(stripZodJsonSchemaMeta);
-  if (obj !== null && typeof obj === 'object') {
-    const cleaned = {};
-    for (const [k, v] of Object.entries(obj)) {
-      if (k === '$schema' || k === 'additionalProperties') continue;
-      cleaned[k] = stripZodJsonSchemaMeta(v);
-    }
-    return cleaned;
-  }
-  return obj;
-}
+const SUBAGENT_NAMESPACE_NAMES = new Set(['research', 'library', 'writer', 'data']);
 
-/**
- * Custom fetch for Dome's OpenAI-compatible endpoint.
- * Strips stream_options and parallel_tool_calls which the dome provider rejects (HTTP 400).
- */
-async function domeFetch(url, init) {
-  if (init?.body) {
-    try {
-      const body = JSON.parse(init.body);
-      delete body.stream_options;
-      delete body.parallel_tool_calls;
-      // Strip $schema / additionalProperties from tool param schemas (some APIs reject them)
-      if (Array.isArray(body.tools)) {
-        body.tools = body.tools.map((t) => {
-          if (!t?.function?.parameters) return t;
-          return {
-            ...t,
-            function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
-          };
-        });
-      }
-      // Dome's schema requires content to be a string. LangChain sometimes serializes
-      // SystemMessage content as [{type:'text',text:'...'}] — flatten those to a plain string.
-      if (Array.isArray(body.messages)) {
-        body.messages = body.messages.map((msg) => {
-          if (!Array.isArray(msg.content)) return msg;
-          const text = msg.content
-            .map((block) => (typeof block === 'string' ? block : block?.text ?? ''))
-            .join('');
-          return { ...msg, content: text };
-        });
-      }
-      init = { ...init, body: JSON.stringify(body) };
-    } catch (_) { /* leave body as-is if parsing fails */ }
-  }
-  return fetch(url, init);
-}
-
-/**
- * Custom fetch for MiniMax's OpenAI-compatible endpoint.
- * Strips $schema + additionalProperties from every tool parameter schema
- * before the request reaches MiniMax's API.
- */
-async function miniMaxFetch(url, init) {
-  if (init?.body) {
-    try {
-      const body = JSON.parse(init.body);
-      // Strip $schema + additionalProperties from tool parameter schemas
-      if (Array.isArray(body.tools)) {
-        body.tools = body.tools.map((t) => {
-          if (!t?.function?.parameters) return t;
-          return {
-            ...t,
-            function: { ...t.function, parameters: stripZodJsonSchemaMeta(t.function.parameters) },
-          };
-        });
-      }
-      // MiniMax does not support stream_options or parallel_tool_calls
-      delete body.stream_options;
-      delete body.parallel_tool_calls;
-      init = { ...init, body: JSON.stringify(body) };
-    } catch (_) { /* leave body as-is if parsing fails */ }
-  }
-  return fetch(url, init);
-}
-
-/**
- * Create chat model from provider config.
- * For Ollama: uses recommended defaults (temperature 0.7, topP 0.9, numPredict 4000).
- * think: false by default — avoids 500 errors with glm-5:cloud and other models.
- * Set ollama_show_thinking=true in settings to enable reasoning/think mode.
- */
-async function createModelFromConfig(provider, model, apiKey, baseUrl) {
-  if (provider === 'ollama') {
-    const { ChatOllama } = await import('@langchain/ollama');
-    const queries = database?.getQueries?.();
-    const temp = queries?.getSetting?.get?.('ollama_temperature')?.value;
-    const topP = queries?.getSetting?.get?.('ollama_top_p')?.value;
-    const numPredict = queries?.getSetting?.get?.('ollama_num_predict')?.value;
-    const showThinking = queries?.getSetting?.get?.('ollama_show_thinking')?.value;
-    const useThink = showThinking === 'true' || showThinking === '1';
-    return new ChatOllama({
-      model: model || 'llama3.2',
-      baseUrl: baseUrl || 'http://127.0.0.1:11434',
-      temperature: temp ? parseFloat(temp) : 0.7,
-      topP: topP ? parseFloat(topP) : 0.9,
-      numPredict: numPredict ? parseInt(numPredict, 10) : 4000,
-      think: useThink,
-      ...(apiKey ? { headers: { 'Authorization': `Bearer ${apiKey}` } } : {}),
-    });
-  }
-  if (provider === 'openai') {
-    const { ChatOpenAI } = await import('@langchain/openai');
-    return new ChatOpenAI({
-      model: model || 'gpt-4o',
-      apiKey: apiKey || process.env.OPENAI_API_KEY,
-      ...temperatureOptions(model),
-    });
-  }
-  if (provider === 'anthropic') {
-    const { ChatAnthropic } = await import('@langchain/anthropic');
-    return new ChatAnthropic({
-      model: model || 'claude-sonnet-4-20250514',
-      apiKey: apiKey || process.env.ANTHROPIC_API_KEY,
-      ...temperatureOptions(model),
-    });
-  }
-  if (provider === 'google') {
-    const { ChatGoogleGenerativeAI } = await import('@langchain/google-genai');
-    return new ChatGoogleGenerativeAI({
-      model: model || 'gemini-3-flash-preview',
-      apiKey: apiKey || process.env.GOOGLE_API_KEY,
-      ...temperatureOptions(model),
-    });
-  }
-  if (provider === 'minimax') {
-    // MiniMax M2.x uses the Anthropic-compatible endpoint, not OpenAI.
-    // Docs: https://platform.minimax.io/docs/token-plan/quickstart
-    const { ChatAnthropic } = await import('@langchain/anthropic');
-    const { MINIMAX_BASE_URL } = require('./minimax-config.cjs');
-    return new ChatAnthropic({
-      model: model || 'MiniMax-M2.7',
-      anthropicApiKey: apiKey,
-      anthropicApiUrl: `${MINIMAX_BASE_URL}/anthropic`,
-      ...temperatureOptions(model),
-      maxTokens: 8192,
-    });
-  }
-  if (provider === 'dome') {
-    const { ChatOpenAI } = await import('@langchain/openai');
-    return new ChatOpenAI({
-      model: model || 'dome/auto',
-      apiKey: apiKey,
-      // streamUsage: false prevents ChatOpenAI from sending stream_options: {include_usage: true}
-      // which dome's API rejects with HTTP 400.
-      streamUsage: false,
-      configuration: { baseURL: baseUrl, fetch: domeFetch },
-      ...temperatureOptions(model),
-    });
-  }
-  if (provider === 'openrouter') {
-    const { ChatOpenRouter } = await import('@langchain/openrouter');
-    const { OPENROUTER_SITE_URL, OPENROUTER_SITE_NAME } = require('./openrouter-config.cjs');
-    return new ChatOpenRouter({
-      model: model || 'anthropic/claude-sonnet-4.5',
-      apiKey: apiKey || process.env.OPENROUTER_API_KEY,
-      siteUrl: OPENROUTER_SITE_URL,
-      siteName: OPENROUTER_SITE_NAME,
-      ...temperatureOptions(model),
-    });
-  }
-  throw new Error(`Unsupported provider: ${provider}`);
+/** Resolve subagent display name from LangGraph stream namespace. */
+function agentNameFromNamespace(namespace) {
+  if (!Array.isArray(namespace) || namespace.length === 0) return null;
+  const seg = String(namespace[0] || '');
+  const m = seg.match(/^tools:([^:]+)/) || seg.match(/^(.+?):/);
+  if (m && m[1] && SUBAGENT_NAMESPACE_NAMES.has(m[1])) return m[1];
+  return null;
 }
 
 /**
  * Convert Dome messages to LangChain format.
  * Uses dynamic import for ESM.
+ * @param {Array<{ role: string, content?: string | unknown[], attachments?: { images?: unknown[], videos?: unknown[] } }>} messages
+ * @param {{ provider?: string, modelId?: string }} [opts]
  */
-async function toLangChainMessages(messages) {
+async function toLangChainMessages(messages, opts = {}) {
+  const { normalizeUserMessage } = require('./message-multimodal.cjs');
   const { HumanMessage, AIMessage, SystemMessage } = await import('@langchain/core/messages');
+  const provider = opts.provider || 'openai';
+  const modelId = opts.modelId || '';
   const result = [];
   for (const m of messages) {
-    const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-    if (m.role === 'system') result.push(new SystemMessage(content));
-    else if (m.role === 'user') result.push(new HumanMessage(content));
-    else if (m.role === 'assistant') result.push(new AIMessage(content));
-    else result.push(new HumanMessage(content));
+    if (m.role === 'system') {
+      const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      result.push(new SystemMessage(content));
+    } else if (m.role === 'user') {
+      const content = normalizeUserMessage(m.content, {
+        provider,
+        modelId,
+        attachments: m.attachments,
+      });
+      result.push(new HumanMessage({ content }));
+    } else if (m.role === 'assistant') {
+      const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      result.push(new AIMessage(content));
+    } else {
+      const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
+      result.push(new HumanMessage(content));
+    }
   }
   return result;
 }
@@ -823,11 +900,10 @@ const CALENDAR_HITL_TOOLS = {
   calendar_delete: true,
 };
 
-function buildHitlInterruptOn(skipHitl, useDirectTools) {
+function buildHitlInterruptOn(skipHitl) {
   if (skipHitl) {
     return {
-      call_writer_agent: false,
-      call_data_agent: false,
+      task: false,
       calendar_create_event: false,
       calendar_update_event: false,
       calendar_delete_event: false,
@@ -836,16 +912,8 @@ function buildHitlInterruptOn(skipHitl, useDirectTools) {
       calendar_delete: false,
     };
   }
-  if (useDirectTools) {
-    return {
-      call_writer_agent: false,
-      call_data_agent: false,
-      ...CALENDAR_HITL_TOOLS,
-    };
-  }
   return {
-    call_writer_agent: true,
-    call_data_agent: true,
+    task: false,
     ...CALENDAR_HITL_TOOLS,
   };
 }
@@ -855,7 +923,8 @@ function buildHitlInterruptOn(skipHitl, useDirectTools) {
  * @param {import('@langchain/core').BaseChatModel} llm
  */
 async function createConfiguredLangGraphAgent(llm, opts) {
-  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
+  registerDomeHarnessProfiles();
+  const { createDeepAgent } = await import('deepagents');
   const {
     useDirectTools,
     toolDefinitions,
@@ -869,6 +938,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
     customTools,
     runtimeContext: runtimeContextRaw,
     store,
+    systemPrompt: systemPromptArg = '',
   } = opts;
 
   const agentStore = store ?? getDomeStore();
@@ -885,48 +955,24 @@ async function createConfiguredLangGraphAgent(llm, opts) {
 
   const rtEmittedCallIds = new Set();
   const rtEmittedResultIds = new Set();
-  let rtCallCounter = 0;
 
   let tools;
   if (useDirectTools) {
-    const executeFn = async (name, args, invocationConfig) => {
-      const fromAgent = invocationConfig?.toolCall?.id;
-      const id =
-        fromAgent != null && String(fromAgent).length > 0
-          ? String(fromAgent)
-          : `rt_${threadId || 'x'}_${++rtCallCounter}`;
-      rtEmittedCallIds.add(id);
-      if (onChunk) {
-        onChunk({
-          type: 'tool_call',
-          toolCall: {
-            id,
-            name,
-            arguments: typeof args === 'string' ? args : JSON.stringify(args || {}),
-          },
-        });
-      }
-      const result = await executeToolInMain(name, args, toolContext);
-      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
-      const resultStr = capToolResultString(name, resultStr0);
-      if (onChunk) onChunk({ type: 'tool_result', toolCallId: id, result: resultStr });
-      rtEmittedResultIds.add(id);
-      return resultStr;
-    };
+    const executeFn = createToolExecuteFn({
+      toolContext,
+      provider,
+      model: opts.model,
+      onChunk,
+      rtEmittedCallIds,
+      rtEmittedResultIds,
+      threadId,
+    });
     const directTools = toolDefinitions?.length
-      ? await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn)
+      ? await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn, toolContext)
       : [];
     const mcpTools = await getMCPTools(database, mcpServerIds);
     tools = [...directTools, ...mcpTools];
   } else {
-    const subagentTools = await createSubagentTools(
-      llm,
-      createLangChainToolsFromOpenAIDefinitions,
-      onChunk,
-      subagentIds,
-      toolContext,
-      { provider, store: agentStore },
-    );
     const asyncSubagentTools = await createAsyncSubagentTools({
       threadId,
       llm,
@@ -934,6 +980,8 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       onChunk,
       toolContext,
       subagentIds,
+      provider,
+      store: agentStore,
     });
     const mcpTools = Array.isArray(mcpServerIds)
       ? (mcpServerIds.length > 0 ? await getMCPTools(database, mcpServerIds) : [])
@@ -950,7 +998,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
             properties: {
               id: {
                 type: 'string',
-                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
+                enum: DOME_LOAD_DOC_IDS,
                 description: 'Section identifier',
               },
             },
@@ -1044,12 +1092,27 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         },
       },
     ];
-    const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(mainAgentDefs, async (name, args) => {
-      const result = await executeToolInMain(name, args, toolContext);
-      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
-      return capToolResultString(name, resultStr0);
+    const mainAgentTools = await createLangChainToolsFromOpenAIDefinitions(
+      mainAgentDefs,
+      createPlainToolExecuteFn(toolContext, provider, opts.model),
+      toolContext,
+    );
+    tools = [...asyncSubagentTools, ...mcpTools, ...mainAgentTools];
+  }
+
+  // Build deepagents subagent specs (exposed to the model via the native `task` tool).
+  // Normally only in the non-direct-tools harness, but also when a direct-tools caller
+  // (e.g. Many) explicitly requests subagents via a non-empty subagentIds list.
+  let deepSubagents = [];
+  const wantsSubagents = Array.isArray(subagentIds) && subagentIds.length > 0;
+  if (!useDirectTools || wantsSubagents) {
+    deepSubagents = await buildDeepAgentSubagentSpecs({
+      llm,
+      createLangChainTools: createLangChainToolsFromOpenAIDefinitions,
+      toolContext,
+      agentNames: subagentIds,
+      runtime: { provider, store: agentStore },
     });
-    tools = [...subagentTools, ...asyncSubagentTools, ...mcpTools, ...mainAgentTools];
   }
 
   if (Array.isArray(customTools) && customTools.length > 0) {
@@ -1071,7 +1134,7 @@ async function createConfiguredLangGraphAgent(llm, opts) {
             properties: {
               id: {
                 type: 'string',
-                enum: ['entity_rules', 'artifacts', 'artifact_persisted', 'artifact_design', 'resource_links'],
+                enum: DOME_LOAD_DOC_IDS,
                 description: 'Section identifier',
               },
             },
@@ -1080,16 +1143,19 @@ async function createConfiguredLangGraphAgent(llm, opts) {
         },
       },
     ];
-    const domeLoadDocTools = await createLangChainToolsFromOpenAIDefinitions(domeLoadDocDef, async (name, args) => {
-      const result = await executeToolInMain(name, args, toolContext);
-      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
-      return capToolResultString(name, resultStr0);
-    });
+    const domeLoadDocTools = await createLangChainToolsFromOpenAIDefinitions(
+      domeLoadDocDef,
+      createPlainToolExecuteFn(toolContext, provider, opts.model),
+      toolContext,
+    );
     tools = [...domeLoadDocTools, ...tools];
   }
 
-  // Inject runtime-context tools when the session has an active or pinned resource.
-  if (runtimeContext?.activeResourceId || runtimeContext?.pinnedResourceIds?.length > 0) {
+  // Inject runtime-context tools when the session has an active or pinned resource (not in bench harness).
+  if (
+    process.env.DOME_BENCH !== '1' &&
+    (runtimeContext?.activeResourceId || runtimeContext?.pinnedResourceIds?.length > 0)
+  ) {
     const rtDefs = [];
     if (runtimeContext.activeResourceId) {
       rtDefs.push({
@@ -1118,39 +1184,46 @@ async function createConfiguredLangGraphAgent(llm, opts) {
       });
     }
     if (rtDefs.length > 0) {
-      const rtTools = await createLangChainToolsFromOpenAIDefinitions(rtDefs, async (name, args) => {
-        const result = await executeToolInMain(name, args, toolContext);
-        const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
-        return capToolResultString(name, resultStr0);
-      });
+      const rtTools = await createLangChainToolsFromOpenAIDefinitions(
+        rtDefs,
+        createPlainToolExecuteFn(toolContext, provider, opts.model),
+        toolContext,
+      );
       tools = [...tools, ...rtTools];
     }
   }
 
-  const interruptOn = buildHitlInterruptOn(skipHitl, useDirectTools);
-  const hitlMiddleware = humanInTheLoopMiddleware({
-    interruptOn,
-    descriptionPrefix: 'Acción pendiente de aprobación',
-  });
+  tools = capLangChainTools(tools, { provider, model: opts.model });
 
-  const skillsMw = await buildSkillsMiddleware();
+  const interruptOn = buildHitlInterruptOn(skipHitl);
+
+  const isBench = process.env.DOME_BENCH === '1';
   const middleware = await buildAgentMiddlewareStack({
-    profile: 'full',
+    profile: isBench ? 'bench' : 'full',
     provider,
     llm,
     tools,
     skipHitl,
-    hitlMiddleware,
-    skillsMiddleware: skillsMw,
+    hitlMiddleware: null,
+    skillsMiddleware: null,
     store: agentStore,
+    harnessStack: 'deep',
   });
 
-  const agent = createAgent({
+  const backendFactory = createDomeHarnessBackendFactory(agentStore);
+
+  const agent = await createDeepAgent({
     model: llm,
     tools,
+    systemPrompt: typeof systemPromptArg === 'string' ? systemPromptArg : '',
     middleware,
+    subagents: deepSubagents,
+    interruptOn,
     checkpointer: getSharedCheckpointer(),
     store: agentStore,
+    backend: backendFactory,
+    permissions: DEFAULT_HARNESS_PERMISSIONS,
+    ...(!isBench ? { skills: [userSkillsDir()] } : {}),
   });
 
   return { agent, rtEmittedCallIds, rtEmittedResultIds };
@@ -1176,7 +1249,6 @@ async function invokeLangGraphAgent(opts) {
   } = opts;
 
   const effectiveThreadId = threadIdArg || `dome_${Date.now()}`;
-  let hitInterrupt = false;
 
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
 
@@ -1194,6 +1266,11 @@ async function invokeLangGraphAgent(opts) {
     console.warn('[AI LangGraph] project memory (AGENTS.md) skipped:', e?.message || e);
   }
 
+  const sysMsg = domeMessages.find((m) => m.role === 'system');
+  const systemPrompt =
+    typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
+  const nonSystemMessages = domeMessages.filter((m) => m.role !== 'system');
+
   const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
     useDirectTools,
     toolDefinitions: opts.toolDefinitions,
@@ -1204,13 +1281,13 @@ async function invokeLangGraphAgent(opts) {
     threadId: effectiveThreadId,
     automationProjectId,
     provider,
+    model,
     customTools: opts.customTools,
     runtimeContext: opts.runtimeContext,
+    systemPrompt,
   });
 
-  // Trimming is handled inside the graph by `DomeTrimMessages` middleware so
-    // that intermediate tool turns also stay within the provider budget.
-    const lcMessages = await toLangChainMessages(domeMessages);
+  const lcMessages = await toLangChainMessages(nonSystemMessages, { provider, model });
 
     // Emit token budget breakdown for telemetry (first message of the run only).
     if (onChunk) {
@@ -1231,7 +1308,7 @@ async function invokeLangGraphAgent(opts) {
     });
 
     try {
-      const { capturedInterrupt } = await streamAgentRun(
+      const { capturedInterrupt, hitModelCallLimit, hitToolCallLimit } = await streamAgentRun(
         agent,
         { messages: lcMessages },
         config,
@@ -1240,54 +1317,21 @@ async function invokeLangGraphAgent(opts) {
         rtEmittedResultIds,
       );
 
-      const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
-      if (interrupt) {
-        hitInterrupt = true;
-        if (onChunk) {
-          onChunk({
-            type: 'interrupt',
-            threadId: config.configurable.thread_id,
-            actionRequests: interrupt.actionRequests,
-            reviewConfigs: interrupt.reviewConfigs,
-          });
-        }
-        return { __interrupt__: true, threadId: config.configurable.thread_id };
-      }
-
-      const { finalText, finalMessages, lastAI } = await finalizeFromState(agent, config);
-
-      let effectiveText = finalText;
-      const middlewareErr = detectMiddlewareErrorMessage(lastAI);
-      if (middlewareErr) {
-        console.warn('[AI LangGraph] middleware error in final AIMessage:', finalText.slice(0, 300));
-        if (onChunk) onChunk({ type: 'text', text: middlewareErr });
-        effectiveText = middlewareErr;
-      } else if (!effectiveText || !effectiveText.trim()) {
-        const fallback = buildEmptyResponseFallback(lastAI);
-        console.warn('[AI LangGraph] empty model response — emitting fallback', {
-          provider,
-          model,
-          stop_reason:
-            lastAI?.response_metadata?.stop_reason ||
-            lastAI?.response_metadata?.finish_reason ||
-            null,
-          has_tool_calls: Array.isArray(lastAI?.tool_calls) && lastAI.tool_calls.length > 0,
-        });
-        if (onChunk) onChunk({ type: 'text', text: fallback });
-        effectiveText = fallback;
-      }
-
-      const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
-      if (aggregatedUsage && onChunk) {
-        onChunk({ type: 'usage', usage: aggregatedUsage });
-      }
-      if (onChunk) onChunk({ type: 'done' });
-
-      return effectiveText;
+      return await completeAgentRunAfterStream({
+        agent,
+        config,
+        onChunk,
+        capturedInterrupt,
+        provider,
+        model,
+        hitModelCallLimit,
+        hitToolCallLimit,
+      });
     } catch (err) {
       const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
       if (onChunk) {
         if (isAbort) {
+          await emitUsageFromCheckpoint(agent, config, onChunk, true);
           onChunk({ type: 'done' });
         } else {
           onChunk({ type: 'error', error: err?.message || String(err) });
@@ -1350,7 +1394,6 @@ async function resumeLangGraphAgent(opts) {
   const mcpServerIds = mcpServerIdsArg;
   const subagentIds = Array.isArray(subagentIdsArg) ? subagentIdsArg : undefined;
   const skipHitl = skipHitlArg === true;
-  let hitInterrupt = false;
 
   const { agent, rtEmittedCallIds, rtEmittedResultIds } = await createConfiguredLangGraphAgent(llm, {
     useDirectTools,
@@ -1362,6 +1405,7 @@ async function resumeLangGraphAgent(opts) {
     threadId,
     automationProjectId: automationProjectIdArg,
     provider,
+    model,
     customTools: customToolsArg,
     runtimeContext: rest.runtimeContext,
   });
@@ -1373,7 +1417,7 @@ async function resumeLangGraphAgent(opts) {
     });
 
     try {
-      const { capturedInterrupt } = await streamAgentRun(
+      const { capturedInterrupt, hitModelCallLimit, hitToolCallLimit } = await streamAgentRun(
         agent,
         new Command({ resume: { decisions } }),
         config,
@@ -1382,53 +1426,25 @@ async function resumeLangGraphAgent(opts) {
         rtEmittedResultIds,
       );
 
-      const interrupt = await extractInterrupt(capturedInterrupt, agent, config);
-      if (interrupt) {
-        hitInterrupt = true;
-        if (onChunk) {
-          onChunk({
-            type: 'interrupt',
-            threadId,
-            actionRequests: interrupt.actionRequests,
-            reviewConfigs: interrupt.reviewConfigs,
-          });
-        }
-        return { __interrupt__: true, threadId };
-      }
-
-      const { finalText, finalMessages, lastAI } = await finalizeFromState(agent, config);
-
-      let effectiveText = finalText;
-      const middlewareErr = detectMiddlewareErrorMessage(lastAI);
-      if (middlewareErr) {
-        console.warn('[AI LangGraph] middleware error in final AIMessage (resume):', finalText.slice(0, 300));
-        if (onChunk) onChunk({ type: 'text', text: middlewareErr });
-        effectiveText = middlewareErr;
-      } else if (!effectiveText || !effectiveText.trim()) {
-        const fallback = buildEmptyResponseFallback(lastAI);
-        console.warn('[AI LangGraph] empty model response on resume — emitting fallback', {
-          provider,
-          stop_reason:
-            lastAI?.response_metadata?.stop_reason ||
-            lastAI?.response_metadata?.finish_reason ||
-            null,
-        });
-        if (onChunk) onChunk({ type: 'text', text: fallback });
-        effectiveText = fallback;
-      }
-
-      const aggregatedUsage = aggregateUsageFromMessages(finalMessages);
-      if (aggregatedUsage && onChunk) {
-        onChunk({ type: 'usage', usage: aggregatedUsage });
-      }
-      if (onChunk) onChunk({ type: 'done' });
-
-      return effectiveText;
+      return await completeAgentRunAfterStream({
+        agent,
+        config,
+        onChunk,
+        capturedInterrupt,
+        provider,
+        model,
+        hitModelCallLimit,
+        hitToolCallLimit,
+      });
     } catch (err) {
       const isAbort = err?.name === 'AbortError' || (typeof err?.message === 'string' && err.message.toLowerCase().includes('abort'));
       if (onChunk) {
-        if (isAbort) onChunk({ type: 'done' });
-        else onChunk({ type: 'error', error: err?.message || String(err) });
+        if (isAbort) {
+          await emitUsageFromCheckpoint(agent, config, onChunk, true);
+          onChunk({ type: 'done' });
+        } else {
+          onChunk({ type: 'error', error: err?.message || String(err) });
+        }
       }
       throw err;
     }
@@ -1438,6 +1454,8 @@ module.exports = {
   invokeLangGraphAgent,
   resumeLangGraphAgent,
   runLangGraphAgentSync,
+  streamAgentRun,
+  peelLangGraphStreamTuple,
   createLangChainToolsFromOpenAIDefinitions,
   aggregateUsageFromMessages,
   createModelFromConfig,

@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
 import { useManyStore } from '@/lib/store/useManyStore';
@@ -83,8 +83,7 @@ export default function AppShell() {
 
   const openChatTab = useTabStore((s) => s.openChatTab);
   const { activeTabId, tabs } = useTabStore(
-    (s) => ({ activeTabId: s.activeTabId, tabs: s.tabs }),
-    shallow,
+    useShallow((s) => ({ activeTabId: s.activeTabId, tabs: s.tabs })),
   );
   const leftSidebarCollapsed = useResizeStore((s) => s.leftSidebarCollapsed);
   const toggleLeftSidebar = useResizeStore((s) => s.toggleLeftSidebar);

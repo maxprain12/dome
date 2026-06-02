@@ -45,6 +45,29 @@ function sanitizeArgs(args) {
 }
 
 /**
+ * Drop orphan Node/MCP flags (e.g. `--localstorage-file` without a path) that spawn warnings.
+ * @param {string[]} args
+ * @returns {string[]}
+ */
+function sanitizeMcpStdioArgs(args) {
+  const cleaned = sanitizeArgs(args);
+  const out = [];
+  for (let i = 0; i < cleaned.length; i += 1) {
+    const a = cleaned[i];
+    if (a === '--localstorage-file' || a === '--local-storage-file') {
+      const next = cleaned[i + 1];
+      if (next && !next.startsWith('-')) {
+        out.push(a, next);
+        i += 1;
+      }
+      continue;
+    }
+    out.push(a);
+  }
+  return out;
+}
+
+/**
  * Normalize headers to Record<string, string>.
  * @param {unknown} h
  * @returns {Record<string, string>|undefined}
@@ -228,7 +251,7 @@ function buildMcpServersObject(servers) {
       const entry = {
         transport: 'stdio',
         command: s.command,
-        args: sanitizeArgs(s.args),
+        args: sanitizeMcpStdioArgs(s.args),
         env: { ...process.env, ...(s.env || {}) },
       };
       out[key] = entry;

@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
 const { validateAndNormalizeStudioContent } = require('../services/studio-validators.cjs');
+const { cancelRun } = require('../services/studio-progress.cjs');
 
 function generateId() {
   return crypto.randomUUID();
@@ -197,6 +198,17 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       return { success: true };
     } catch (error) {
       console.error('[DB] Error deleting studio output:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('studio:cancel', (event, runId) => {
+    try {
+      validateSender(event, windowManager);
+      if (runId) cancelRun(runId);
+      return { success: true };
+    } catch (error) {
+      console.error('[Studio] cancel error:', error);
       return { success: false, error: error.message };
     }
   });

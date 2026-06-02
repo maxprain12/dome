@@ -549,6 +549,124 @@ async function gatherStudioQuizContext(args = {}, resourceGetFn, resourceListFn)
   };
 }
 
+async function gatherStudioSourceContent(args = {}, resourceGetFn, resourceListFn, maxLen = 8000) {
+  const projectId = typeof args.project_id === 'string' ? args.project_id.trim() : '';
+  let sourceIds = Array.isArray(args.source_ids) ? args.source_ids.filter((x) => typeof x === 'string') : [];
+  const resourceId = typeof args.resource_id === 'string' ? args.resource_id.trim() : '';
+  if (resourceId && !sourceIds.includes(resourceId)) {
+    sourceIds = [resourceId, ...sourceIds];
+  }
+  const sourceContent = [];
+
+  if (sourceIds.length > 0 && resourceGetFn) {
+    for (const sourceId of sourceIds) {
+      try {
+        const result = await resourceGetFn(sourceId, { includeContent: true, maxContentLength: maxLen });
+        if (result?.success && result.resource) {
+          sourceContent.push({
+            id: result.resource.id,
+            title: result.resource.title,
+            content: String(
+              result.resource.content || result.resource.transcription || result.resource.summary || '',
+            ).slice(0, maxLen),
+          });
+        }
+      } catch { /* skip */ }
+    }
+  } else if (projectId && resourceListFn && resourceGetFn) {
+    const listResult = await resourceListFn({ project_id: projectId, limit: 5, sort: 'updated_at' });
+    if (listResult?.success && Array.isArray(listResult.resources)) {
+      for (const r of listResult.resources) {
+        try {
+          const result = await resourceGetFn(r.id, { includeContent: true, maxContentLength: maxLen });
+          if (result?.success && result.resource) {
+            sourceContent.push({
+              id: result.resource.id,
+              title: result.resource.title,
+              content: String(
+                result.resource.content || result.resource.transcription || result.resource.summary || '',
+              ).slice(0, maxLen),
+            });
+          }
+        } catch { /* skip */ }
+      }
+    }
+  }
+
+  return sourceContent;
+}
+
+async function gatherStudioGuideContext(args = {}, resourceGetFn, resourceListFn) {
+  const sourceContent = await gatherStudioSourceContent(args, resourceGetFn, resourceListFn);
+  if (sourceContent.length === 0) {
+    return { status: 'error', error: 'No source content found. Specify source_ids or project_id with resources.' };
+  }
+  return {
+    status: 'success',
+    message: 'Source content gathered for guide generation.',
+    source_count: sourceContent.length,
+    sources: sourceContent,
+    output_format: {
+      type: 'guide',
+      schema: { sections: '[{ title: string, content: string }]' },
+    },
+  };
+}
+
+async function gatherStudioFaqContext(args = {}, resourceGetFn, resourceListFn) {
+  const sourceContent = await gatherStudioSourceContent(args, resourceGetFn, resourceListFn);
+  if (sourceContent.length === 0) {
+    return { status: 'error', error: 'No source content found. Specify source_ids or project_id with resources.' };
+  }
+  return {
+    status: 'success',
+    message: 'Source content gathered for FAQ generation.',
+    source_count: sourceContent.length,
+    sources: sourceContent,
+    output_format: {
+      type: 'faq',
+      schema: { pairs: '[{ question: string, answer: string, source_id?: string }]' },
+    },
+  };
+}
+
+async function gatherStudioTimelineContext(args = {}, resourceGetFn, resourceListFn) {
+  const sourceContent = await gatherStudioSourceContent(args, resourceGetFn, resourceListFn);
+  if (sourceContent.length === 0) {
+    return { status: 'error', error: 'No source content found. Specify source_ids or project_id with resources.' };
+  }
+  return {
+    status: 'success',
+    message: 'Source content gathered for timeline generation.',
+    source_count: sourceContent.length,
+    sources: sourceContent,
+    output_format: {
+      type: 'timeline',
+      schema: { events: '[{ date: string, title: string, description: string, source_id?: string }]' },
+    },
+  };
+}
+
+async function gatherStudioTableContext(args = {}, resourceGetFn, resourceListFn) {
+  const sourceContent = await gatherStudioSourceContent(args, resourceGetFn, resourceListFn);
+  if (sourceContent.length === 0) {
+    return { status: 'error', error: 'No source content found. Specify source_ids or project_id with resources.' };
+  }
+  return {
+    status: 'success',
+    message: 'Source content gathered for table generation.',
+    source_count: sourceContent.length,
+    sources: sourceContent,
+    output_format: {
+      type: 'table',
+      schema: {
+        columns: '[{ key: string, label: string }]',
+        rows: '[Record<string, string | number>]',
+      },
+    },
+  };
+}
+
 module.exports = {
   marketplaceSearch,
   marketplaceInstall,
@@ -558,4 +676,8 @@ module.exports = {
   imageThumbnailForTool,
   gatherStudioMindmapContext,
   gatherStudioQuizContext,
+  gatherStudioGuideContext,
+  gatherStudioFaqContext,
+  gatherStudioTimelineContext,
+  gatherStudioTableContext,
 };

@@ -13,7 +13,7 @@ const FAQ = lazy(() => import('@/components/studio/FAQ'));
 const Timeline = lazy(() => import('@/components/studio/Timeline'));
 const DataTable = lazy(() => import('@/components/studio/DataTable'));
 const AudioOverview = lazy(() => import('@/components/studio/AudioOverview'));
-const FlashcardStudyView = lazy(() => import('@/components/flashcards/FlashcardStudyView'));
+const FlashPlayerSession = lazy(() => import('@/components/learn/flash/FlashPlayerSession'));
 
 function StudioOutputFallback() {
   const { t } = useTranslation();
@@ -49,10 +49,9 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
     // Flashcards: use deck_id, render FlashcardStudyView (content is in deck)
     if (output.type === 'flashcards' && output.deck_id) {
       return (
-        <FlashcardStudyView
+        <FlashPlayerSession
           deckId={output.deck_id}
           onClose={onClose}
-          overlayContext={overlayContext}
         />
       );
     }

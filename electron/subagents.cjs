@@ -18,8 +18,29 @@ const { capToolResultString } = require('./tool-result-cap.cjs');
 const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data'];
 
 /** Recursion limit for an individual subagent run. Mirrors the main agent's
- *  budget — Excel/PPT subagents legitimately loop over many rows/slides. */
-const SUBAGENT_RECURSION_LIMIT = 250;
+ *  budget — Excel/PPT subagents legitimately loop over many rows/slides.
+ *  Override with DOME_RECURSION_LIMIT env var. */
+const SUBAGENT_RECURSION_LIMIT = Number(process.env.DOME_RECURSION_LIMIT) || 1500;
+
+const SUBAGENT_HITL = {
+  writer: {
+    resource_create: true,
+    resource_update: true,
+    resource_delete: true,
+    notebook_add_cell: true,
+    notebook_update_cell: true,
+    notebook_delete_cell: true,
+    flashcard_create: true,
+  },
+  data: {
+    excel_create: true,
+    excel_set_cell: true,
+    excel_set_range: true,
+    excel_add_row: true,
+    excel_add_sheet: true,
+    ppt_create: true,
+  },
+};
 
 const SUBAGENT_DESCRIPTIONS = {
   research:
@@ -66,18 +87,25 @@ function formatSubagentInvokeResult(result) {
  * @param {Function} executeFn - (toolName, args) => result
  * @param {Function} createLangChainTools - (defs, executeFn) => Promise<LangChain tools[]>
  * @param {Function|null} onChunk - optional chunk emitter for real-time tool events
+ * @param {{ provider?: string, store?: import('@langchain/langgraph').BaseStore | null, toolContext?: unknown }} [runtimeOpts]
  * @returns {Promise<{ run: (query: string, runtimeOpts?: { signal?: AbortSignal }) => Promise<string> }>}
  */
 async function buildSubagentRunner(agentName, llm, executeFn, createLangChainTools, onChunk, runtimeOpts = {}) {
-  const { createAgent } = await import('langchain');
+  const { createDeepAgent } = await import('deepagents');
+  const { registerDomeHarnessProfiles } = require('./harness-profiles.cjs');
   const { buildAgentMiddlewareStack } = require('./agent-middleware.cjs');
+  const {
+    createDomeHarnessBackendFactory,
+    DEFAULT_HARNESS_PERMISSIONS,
+  } = require('./harness-backend.cjs');
+  registerDomeHarnessProfiles();
 
   const toolDefs = getToolDefsBySubagent()[agentName];
   if (!toolDefs || toolDefs.length === 0) {
     throw new Error(`No tool definitions for subagent: ${agentName}`);
   }
 
-  const { provider = 'openai', store = null } = runtimeOpts;
+  const { provider = 'openai', store = null, toolContext = null } = runtimeOpts;
 
   let rtCounter = 0;
   const wrappedExecuteFn = onChunk
@@ -103,21 +131,27 @@ async function buildSubagentRunner(agentName, llm, executeFn, createLangChainToo
       }
     : executeFn;
 
-  const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn);
+  const subagentTools = await createLangChainTools(toolDefs, wrappedExecuteFn, toolContext);
   const systemPrompt = getSubagentSystemPrompt(agentName);
   const middleware = await buildAgentMiddlewareStack({
     profile: 'worker',
     provider,
     llm,
     tools: subagentTools,
-    enableFilesystem: agentName === 'data',
     store,
+    harnessStack: 'deep',
   });
-  const agent = createAgent({
+  const hitlMap = SUBAGENT_HITL[agentName];
+  const agent = await createDeepAgent({
     model: llm,
     tools: subagentTools,
+    systemPrompt,
     middleware,
+    subagents: [],
+    ...(hitlMap ? { interruptOn: hitlMap } : {}),
     ...(store ? { store } : {}),
+    backend: createDomeHarnessBackendFactory(store),
+    permissions: DEFAULT_HARNESS_PERMISSIONS,
   });
 
   return {
@@ -207,6 +241,8 @@ async function createSubagentTools(llm, createLangChainTools, onChunk, agentName
 
 module.exports = {
   SUBAGENT_NAMES,
+  SUBAGENT_DESCRIPTIONS,
+  SUBAGENT_HITL,
   buildSubagentRunner,
   createSubagentAsTool,
   createSubagentTools,

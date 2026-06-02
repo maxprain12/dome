@@ -1,11 +1,15 @@
 'use client';
 
-import { memo, useCallback, useState, useRef, useEffect, type Dispatch, type SetStateAction } from 'react';
+import { memo, useCallback, useMemo, useState, useRef, useEffect, type Dispatch, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, ArrowUp, StopCircle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { processAttachmentFile } from '@/lib/chat/processAttachmentFile';
+import {
+  composerFileAccept,
+  useComposerMultimodalCapabilities,
+} from '@/lib/chat/useComposerMultimodalCapabilities';
 import { ChatComposerPlusMenuContent, type ChatComposerSkillsHandlers } from '@/components/chat/ChatComposerPlusMenu';
 import { AgentChatPlusAgentSlot } from '@/components/agents/AgentChatPlusAgentSlot';
 import {
@@ -70,6 +74,8 @@ export default memo(function AgentChatInput({
   onSetActiveStickySkill,
 }: AgentChatInputProps) {
   const { t } = useTranslation();
+  const multimodalCaps = useComposerMultimodalCapabilities();
+  const fileAccept = useMemo(() => composerFileAccept(multimodalCaps), [multimodalCaps]);
   const enhanced = variant === 'full';
   const [skillLabels, setSkillLabels] = useState<Record<string, string>>({});
 
@@ -134,13 +140,24 @@ export default memo(function AgentChatInput({
       if (!fileList?.length || !onAttachmentsChange) return;
       const next: ChatAttachment[] = [...attachments];
       for (const file of Array.from(fileList)) {
+        const isImage = file.type.startsWith('image/');
+        const isVideo =
+          file.type.startsWith('video/') || /\.(mp4|mov|avi|mkv)$/i.test(file.name);
+        if (isImage && !multimodalCaps.supportsImage) {
+          console.warn(t('chat.attachment_image_unsupported'));
+          continue;
+        }
+        if (isVideo && !multimodalCaps.supportsVideo) {
+          console.warn(t('chat.attachment_video_unsupported'));
+          continue;
+        }
         const a = await processAttachmentFile(file);
         if (a) next.push(a);
       }
       onAttachmentsChange(next);
       if (fileInputRef.current) fileInputRef.current.value = '';
     },
-    [attachments, onAttachmentsChange],
+    [attachments, multimodalCaps.supportsImage, multimodalCaps.supportsVideo, onAttachmentsChange, t],
   );
 
   const hasMcp = mcpServerIds.length > 0;
@@ -292,7 +309,7 @@ export default memo(function AgentChatInput({
             type="file"
             className="hidden"
             multiple
-            accept="image/*,.pdf,.doc,.docx,.xlsx,.xls,.csv,.txt,.md,.json,.ppt,.pptx"
+            accept={fileAccept}
             onChange={(e) => { void handlePickFiles(e.target.files); }}
           />
         ) : null}
@@ -303,7 +320,7 @@ export default memo(function AgentChatInput({
           onKeyDown={handleKeyDown}
           onInput={handleInput}
           onPaste={(e) => {
-            if (!onAttachmentsChange) return;
+            if (!onAttachmentsChange || !multimodalCaps.supportsImage) return;
             const items = e.clipboardData?.items;
             if (!items) return;
             for (const it of items) {

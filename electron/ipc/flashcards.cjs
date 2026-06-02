@@ -5,6 +5,30 @@ function generateId() {
   return crypto.randomUUID();
 }
 
+function resolveProjectId(queries, rawProjectId) {
+  let projectId = typeof rawProjectId === 'string' ? rawProjectId.trim() : '';
+  if (!projectId) projectId = 'default';
+
+  const projectExists = queries.getProjectById.get(projectId);
+  if (!projectExists) {
+    projectId = 'default';
+    const defaultExists = queries.getProjectById.get('default');
+    if (!defaultExists) {
+      throw new Error('No valid project found. Create a project first.');
+    }
+  }
+  return projectId;
+}
+
+function resolveResourceId(queries, rawResourceId) {
+  let resourceId = rawResourceId || null;
+  if (resourceId) {
+    const resourceExists = queries.getResourceById.get(resourceId);
+    if (!resourceExists) resourceId = null;
+  }
+  return resourceId;
+}
+
 function register({ ipcMain, windowManager, database, validateSender }) {
   // Create flashcard deck
   ipcMain.handle('db:flashcards:createDeck', (event, deck) => {
@@ -13,10 +37,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const queries = database.getQueries();
       const now = Date.now();
       const id = deck.id || generateId();
+      const projectId = resolveProjectId(queries, deck.project_id);
+      const resourceId = resolveResourceId(queries, deck.resource_id);
       queries.createFlashcardDeck.run(
         id,
-        deck.resource_id || null,
-        deck.project_id,
+        resourceId,
+        projectId,
         deck.title,
         deck.description || null,
         deck.card_count || 0,
@@ -333,6 +359,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         session.started_at || Date.now(),
         session.completed_at || null
       );
+      windowManager.broadcast('flashcard:sessionEnded', {
+        type: 'flashcard',
+        deckId: session.deck_id,
+        sessionId: id,
+      });
       return { success: true, data: { id, ...session } };
     } catch (error) {
       console.error('[DB] Error creating flashcard session:', error);

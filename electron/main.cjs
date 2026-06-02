@@ -587,6 +587,13 @@ function serveFile(filePath) {
 app
   .whenReady()
   .then(async () => {
+    try {
+      const { registerDomeHarnessProfiles } = require('./harness-profiles.cjs');
+      registerDomeHarnessProfiles();
+    } catch (e) {
+      console.warn('[Main] registerDomeHarnessProfiles failed:', e?.message || e);
+    }
+
     // Remove stale staging files left by previous crashes or interruptions.
     documentStaging.cleanupStaleStagings();
 

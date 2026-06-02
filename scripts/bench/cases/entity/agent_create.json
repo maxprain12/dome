@@ -1,0 +1,37 @@
+{
+  "id": "agent_create.basic",
+  "category": "entity",
+  "tool": "agent_create",
+  "mode": "direct",
+  "prompt": "Crea un agente llamado \"Bench Research Bot\" con tools web_search y resource_search.",
+  "expected_tools": [
+    "agent_create"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar agent_create (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

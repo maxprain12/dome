@@ -1,0 +1,35 @@
+{
+  "id": "feeder_history.basic",
+  "category": "feeder",
+  "tool": "feeder_history",
+  "mode": "direct",
+  "prompt": "Historial de un feeder si existe.",
+  "expected_tools": [],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": true,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 30
+  },
+  "judge_criteria": "Debe explicar feeder_history con claridad; no es obligatorio invocar la tool si el prompt pide solo explicación.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

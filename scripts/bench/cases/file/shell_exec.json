@@ -1,0 +1,29 @@
+{
+  "id": "shell_exec.basic",
+  "category": "file",
+  "tool": "shell_exec",
+  "mode": "direct",
+  "prompt": "Explica qué hace shell_exec y por qué NO la ejecutarías en este bench (solo documentación, sin invocar shell_exec).",
+  "expected_tools": [],
+  "forbidden_tools": [
+    "glob",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": true,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 30
+  },
+  "judge_criteria": "Debe explicar shell_exec con claridad; no es obligatorio invocar la tool si el prompt pide solo explicación.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

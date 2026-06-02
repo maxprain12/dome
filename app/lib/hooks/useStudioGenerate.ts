@@ -21,6 +21,8 @@ import { showToast } from '@/lib/store/useToastStore';
 import { capturePostHog } from '@/lib/analytics/posthog';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 import i18n from '@/lib/i18n';
+import { StudioGenerateError, studioGenerateErrorI18nKey } from '@/lib/learn/studioGenerateErrors';
+import type { GenerateConfig, GenerateProgressPhase } from '@/lib/learn/types';
 import type { StudioOutputType, StudioOutput } from '@/types';
 
 const STUDIO_TYPE_TITLES: Record<string, string> = {
@@ -197,11 +199,23 @@ function extractStudioJson(text: string): Record<string, unknown> | null {
 }
 
 /** Build user prompt for each studio type (with tools) */
+function configBlock(config?: GenerateConfig): string {
+  if (!config) return '';
+  const parts: string[] = [];
+  if (config.title?.trim()) parts.push(`Title: "${config.title.trim()}"`);
+  if (config.count) parts.push(`Target item count: ${config.count}`);
+  if (config.difficulty) parts.push(`Difficulty: ${config.difficulty}`);
+  if (config.language && config.language !== 'auto') parts.push(`Language: ${config.language}`);
+  if (config.instructions?.trim()) parts.push(`Extra instructions: ${config.instructions.trim()}`);
+  return parts.length ? `\nGeneration preferences:\n- ${parts.join('\n- ')}` : '';
+}
+
 function buildGeneratePrompt(
   type: StudioOutputType,
   projectId: string,
   sourceIds?: string[],
   resourceId?: string | null,
+  config?: GenerateConfig,
 ): string {
   const base = projectId ? `Project ID: ${projectId}` : '';
   const sources = sourceIds && sourceIds.length > 0
@@ -210,6 +224,8 @@ function buildGeneratePrompt(
   const resourceHint = resourceId
     ? ` When calling flashcard_create, pass resource_id: "${resourceId}" and source_ids: ${JSON.stringify(sourceIds ?? [resourceId])} to associate the output with this resource.`
     : '';
+  const prefs = configBlock(config);
+  const countHint = config?.count ? ` Create approximately ${config.count} items.` : '';
 
   switch (type) {
     case 'mindmap':
@@ -251,12 +267,12 @@ Use resource_list and resource_get to fetch content, then return a JSON object w
 - rows: array of record objects with column keys
 Return ONLY the JSON, no other text.`;
     case 'flashcards':
-      return `Create a flashcard deck from the project sources.${sources} ${base}
+      return `Create a flashcard deck from the project sources.${sources} ${base}${prefs}
 1. Use resource_list and resource_get to fetch content from the project.
 2. Call flashcard_create with: title (descriptive, based on content), project_id, resource_id and source_ids for context, and cards as an array of objects. Each card must have exactly: { question: string, answer: string, difficulty?: "easy"|"medium"|"hard" }. Do NOT add tags or other fields to cards.
-3. Create 5-10 question-answer pairs from the content.${resourceHint}`;
+3.${countHint || ' Create 5-10 question-answer pairs from the content.'}${resourceHint}`;
     default:
-      return `Generate ${STUDIO_TYPE_TITLES[type] || type} from the project sources.${sources} ${base}
+      return `Generate ${STUDIO_TYPE_TITLES[type] || type} from the project sources.${sources} ${base}${prefs}${countHint}
 Return a JSON object with type "${type}". Return ONLY the JSON, no other text.`;
   }
 }
@@ -266,9 +282,12 @@ function buildGeneratePromptNoTools(
   type: StudioOutputType,
   projectId: string,
   context: string,
+  config?: GenerateConfig,
 ): string {
   const base = projectId ? `Project ID: ${projectId}` : '';
   const ctxBlock = context ? `\n\nSOURCE CONTENT:\n${context}\n` : '';
+  const prefs = configBlock(config);
+  const countHint = config?.count ? `\nCreate approximately ${config.count} items.` : '';
 
   const jsonSpecs: Record<string, string> = {
     mindmap: 'type "mindmap": nodes: [{ id, label, description? }], edges: [{ id, source, target, label? }]',
@@ -280,7 +299,7 @@ function buildGeneratePromptNoTools(
   };
   const spec = jsonSpecs[type] || `type "${type}"`;
 
-  return `Generate ${STUDIO_TYPE_TITLES[type] || type} from the source content below.${base}${ctxBlock}
+  return `Generate ${STUDIO_TYPE_TITLES[type] || type} from the source content below.${base}${prefs}${countHint}${ctxBlock}
 
 Return a valid JSON object with ${spec}. Return ONLY the JSON object, no markdown, no explanation.`;
 }
@@ -289,6 +308,7 @@ export function useStudioGenerate(options?: {
   projectId?: string | null;
   resourceId?: string | null;
   selectedSourceIds?: string[];
+  onProgress?: (phase: GenerateProgressPhase, message: string) => void;
 }) {
   const addStudioOutput = useAppStore((s) => s.addStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
@@ -300,10 +320,14 @@ export function useStudioGenerate(options?: {
       type: StudioOutputType,
       sourceIdsOverride?: string[],
       resourceIdForCreate?: string | null,
+      config?: GenerateConfig,
     ): Promise<boolean> => {
       setIsGenerating(true);
       setGeneratingType(type);
+      const progress = options?.onProgress;
       try {
+        progress?.('reading', 'Reading sources…');
+
         const projectId = options?.projectId ?? useAppStore.getState().currentProject?.id ?? undefined;
         const sourceIds =
           sourceIdsOverride ??
@@ -322,22 +346,22 @@ export function useStudioGenerate(options?: {
           return false;
         }
 
-        const config = await getAIConfig();
-        if (!config) {
-          showToast('error', 'AI not configured. Go to Settings > AI to configure.');
-          return false;
+        const aiConfig = await getAIConfig();
+        if (!aiConfig) {
+          throw new StudioGenerateError('MODEL_UNAVAILABLE', 'AI not configured. Go to Settings > AI to configure.');
         }
 
-        const needsApiKey = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(config.provider);
-        if (needsApiKey && !config.apiKey) {
-          showToast('error', 'API key not configured. Go to Settings > AI.');
-          return false;
+        const needsApiKey = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(aiConfig.provider);
+        if (needsApiKey && !aiConfig.apiKey) {
+          throw new StudioGenerateError('MODEL_UNAVAILABLE', 'API key not configured. Go to Settings > AI.');
         }
 
-        const title = `${STUDIO_TYPE_TITLES[type] || type} - ${new Date().toLocaleDateString()}`;
-        const hasTools = providerSupportsTools(config.provider as AIProviderType);
+        const title =
+          config?.title?.trim() ||
+          `${STUDIO_TYPE_TITLES[type] || type} - ${new Date().toLocaleDateString()}`;
+        const hasTools = providerSupportsTools(aiConfig.provider as AIProviderType);
         const isFlashcards = type === 'flashcards';
-        const modelId = config.provider === 'ollama' ? (config.ollamaModel || config.model || '') : (config.model || '');
+        const modelId = aiConfig.provider === 'ollama' ? (aiConfig.ollamaModel || aiConfig.model || '') : (aiConfig.model || '');
         const stableTools = isStableToolsModel(modelId);
 
         // Flashcards always need tools (flashcard_create). Other types: use no-tools fallback when model has unstable tools
@@ -351,15 +375,23 @@ export function useStudioGenerate(options?: {
         let messages: Array<{ role: string; content: string }>;
 
         if (useTools) {
-          userPrompt = buildGeneratePrompt(type, projectId, sourceIds, effectiveResourceId);
+          progress?.('extracting', 'Extracting concepts…');
+          userPrompt = buildGeneratePrompt(type, projectId, sourceIds, effectiveResourceId, config);
           systemPrompt = getStudioPrompt(true);
           messages = [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ];
         } else {
+          progress?.('extracting', 'Extracting concepts…');
           const context = await fetchContextForStudio(projectId, sourceIds);
-          userPrompt = buildGeneratePromptNoTools(type, projectId, context);
+          if (!context || context.includes('No content could be extracted') || context.includes('No resources found')) {
+            throw new StudioGenerateError('EMPTY_SOURCES', 'Selected sources have no extractable content.');
+          }
+          if (Math.round(context.length / 4) > 128_000) {
+            throw new StudioGenerateError('BUDGET_EXCEEDED', 'Selected sources exceed the model context budget.');
+          }
+          userPrompt = buildGeneratePromptNoTools(type, projectId, context, config);
           systemPrompt = getStudioPrompt(false);
           messages = [
             { role: 'system', content: systemPrompt },
@@ -370,6 +402,8 @@ export function useStudioGenerate(options?: {
         const tools = useTools ? createAllMartinTools() : undefined;
         let response = '';
 
+        progress?.('writing', 'Writing draft…');
+
         if (useTools && tools && tools.length > 0) {
           const result = await chatWithTools(messages, tools, { maxIterations: 5, skipHitl: true });
           response = result.response;
@@ -378,13 +412,16 @@ export function useStudioGenerate(options?: {
             if (chunk.type === 'text' && chunk.text) {
               response += chunk.text;
             } else if (chunk.type === 'error') {
-              throw new Error(chunk.error);
+              throw new StudioGenerateError('MODEL_UNAVAILABLE', chunk.error || 'Model unavailable');
             }
           }
         }
 
+        progress?.('explaining', 'Adding explanations…');
+
         // Flashcards: tool creates deck + studio_output; broadcast adds to list
         if (isFlashcards) {
+          progress?.('saving', 'Saving…');
           capturePostHog(ANALYTICS_EVENTS.STUDIO_GENERATED, { type: 'flashcards' });
           showToast('success', 'Mazo creado. Abierto en Studio.');
           return true;
@@ -395,7 +432,7 @@ export function useStudioGenerate(options?: {
           let hint: string;
           if (!response?.trim()) {
             hint = 'La IA no devolvió ningún texto. Prueba con otro modelo o menos fuentes.';
-          } else if (hasTools && !stableTools && config.provider === 'ollama') {
+          } else if (hasTools && !stableTools && aiConfig.provider === 'ollama') {
             hint = 'La IA no devolvió JSON válido. Con Ollama, prueba modelos como llama3.1, llama3.2 o qwen2.5 que soportan tools correctamente.';
           } else {
             hint = 'La IA no devolvió JSON válido. Prueba de nuevo o con un modelo que soporte tools (p. ej. llama3.1, qwen3).';
@@ -410,6 +447,8 @@ export function useStudioGenerate(options?: {
         // Ensure type field
         const content = { ...parsed, type: parsed.type || type };
         const contentStr = JSON.stringify(content);
+
+        progress?.('saving', 'Saving…');
 
         const createResult = await window.electron.db.studio.create({
           project_id: projectId,
@@ -450,16 +489,20 @@ export function useStudioGenerate(options?: {
         showToast('success', `${STUDIO_TYPE_TITLES[type] || type} generated.`);
         return true;
       } catch (err) {
+        if (err instanceof StudioGenerateError) {
+          showToast('error', i18n.t(studioGenerateErrorI18nKey(err.code), err.message));
+          throw err;
+        }
         const msg = err instanceof Error ? err.message : 'Generation failed';
         showToast('error', msg);
         console.error('[useStudioGenerate]', err);
-        return false;
+        throw new StudioGenerateError('GENERATION_FAILED', msg);
       } finally {
         setIsGenerating(false);
         setGeneratingType(null);
       }
     },
-    [options?.projectId, options?.selectedSourceIds, addStudioOutput, setActiveStudioOutput],
+    [options?.projectId, options?.selectedSourceIds, options?.onProgress, options?.resourceId, addStudioOutput, setActiveStudioOutput],
   );
 
   return { generate, isGenerating, generatingType };

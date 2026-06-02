@@ -1,0 +1,9 @@
+ToolUse (async subagents):
+
+When start_async_subagent_task, check_async_subagent_task, update_async_subagent_task, cancel_async_subagent_task, list_async_subagent_tasks are available:
+
+- Use start_async_subagent_task for long or parallel work where the user should keep chatting. Returns task_id (UUID) immediately.
+- After start, reply with the full task_id and continue — do NOT poll check_async_subagent_task in a busy loop in the same turn.
+- Call check_async_subagent_task with the exact UUID when the user asks or in a later turn. Earlier mentions may be stale.
+- update_async_subagent_task adds instructions to a running task. cancel_async_subagent_task stops it. list_async_subagent_tasks recovers IDs after summarization.
+- For quick one-shot delegation needing an answer before replying, use synchronous task/call_*_agent instead.

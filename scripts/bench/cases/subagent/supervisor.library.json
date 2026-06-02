@@ -1,0 +1,13 @@
+{
+  "id": "supervisor.library",
+  "category": "subagent",
+  "tool": "call_library_agent",
+  "mode": "supervisor",
+  "prompt": "Delega al library agent: encuentra material sobre termodinámica en bench-project.",
+  "expected_tools": [
+    "call_library_agent"
+  ],
+  "fixtures": [
+    "bench-note-thermo"
+  ]
+}

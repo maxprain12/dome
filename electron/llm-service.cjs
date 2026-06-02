@@ -5,7 +5,38 @@
  */
 'use strict';
 
-const { createModelFromConfig } = require('./langgraph-agent.cjs');
+const { createModelFromConfig } = require('./model-factory.cjs');
+const { buildImageContent: buildMultimodalImageContent } = require('./message-multimodal.cjs');
+
+function pickTokenNumber(obj, keys) {
+  if (!obj || typeof obj !== 'object') return null;
+  for (let i = 0; i < keys.length; i += 1) {
+    const v = obj[keys[i]];
+    if (v != null && Number.isFinite(Number(v))) return Math.max(0, Math.floor(Number(v)));
+  }
+  return null;
+}
+
+function extractUsageFromMessage(msg) {
+  if (!msg || typeof msg !== 'object') return null;
+  const um = msg.usage_metadata || msg.lc_kwargs?.usage_metadata;
+  const rm = msg.response_metadata;
+  const tokenUsage = rm?.tokenUsage || rm?.token_usage;
+  const input =
+    pickTokenNumber(um, ['input_tokens', 'prompt_tokens', 'inputTokens']) ??
+    pickTokenNumber(tokenUsage, ['promptTokens', 'prompt_tokens', 'input_tokens']);
+  const output =
+    pickTokenNumber(um, ['output_tokens', 'completion_tokens', 'outputTokens']) ??
+    pickTokenNumber(tokenUsage, ['completionTokens', 'completion_tokens', 'output_tokens']);
+  let total =
+    pickTokenNumber(um, ['total_tokens', 'totalTokens']) ??
+    pickTokenNumber(tokenUsage, ['totalTokens', 'total_tokens']);
+  if (total == null && input != null && output != null) total = input + output;
+  if (input == null && output == null && total == null) return null;
+  const i = input ?? 0;
+  const o = output ?? 0;
+  return { inputTokens: i, outputTokens: o, totalTokens: total ?? i + o };
+}
 
 /**
  * Build LangChain message objects from plain {role, content} pairs.
@@ -31,14 +62,10 @@ async function toMessages(rawMessages) {
  * Build a multimodal user message content array (images + text).
  * @param {string} userText
  * @param {string[]} imageDataUrls
+ * @param {{ provider?: string, modelId?: string }} [opts]
  */
-function buildImageContent(userText, imageDataUrls) {
-  const content = [];
-  for (const url of imageDataUrls || []) {
-    if (url) content.push({ type: 'image_url', image_url: { url } });
-  }
-  content.push({ type: 'text', text: userText || '' });
-  return content;
+function buildImageContent(userText, imageDataUrls, opts = {}) {
+  return buildMultimodalImageContent(userText, imageDataUrls, opts);
 }
 
 /**
@@ -51,15 +78,14 @@ function buildImageContent(userText, imageDataUrls) {
  *   messages: Array<{ role: string, content: string | unknown[] }>,
  *   options?: { maxTokens?: number, responseFormat?: string, maxOutputTokens?: number, responseMimeType?: string }
  * }} opts
- * @returns {Promise<string>}
+ * @returns {Promise<{ text: string, usage: { inputTokens: number, outputTokens: number, totalTokens: number } | null }>}
  */
 async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }) {
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
-  // Apply options via withConfig if supported
   const configuredLlm = applyOptions(llm, options);
   const langMessages = await toMessages(messages);
   const response = await configuredLlm.invoke(langMessages);
-  return extractText(response);
+  return { text: extractText(response), usage: extractUsageFromMessage(response) };
 }
 
 /**
@@ -73,22 +99,25 @@ async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }
  *   options?: { maxTokens?: number },
  *   onChunk: (chunk: { type: 'text', text: string }) => void
  * }} opts
- * @returns {Promise<string>} full accumulated text
+ * @returns {Promise<{ text: string, usage: { inputTokens: number, outputTokens: number, totalTokens: number } | null }>}
  */
 async function stream({ provider, model, apiKey, baseUrl, messages, options = {}, onChunk }) {
   const llm = await createModelFromConfig(provider, model, apiKey, baseUrl);
   const configuredLlm = applyOptions(llm, options);
   const langMessages = await toMessages(messages);
   let full = '';
+  let usage = null;
   const streamResponse = await configuredLlm.stream(langMessages);
   for await (const chunk of streamResponse) {
+    const u = extractUsageFromMessage(chunk);
+    if (u) usage = u;
     const text = extractText(chunk);
     if (text) {
       full += text;
       onChunk({ type: 'text', text });
     }
   }
-  return full;
+  return { text: full, usage };
 }
 
 /**

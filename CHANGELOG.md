@@ -4,6 +4,24 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.3.0](https://github.com/maxprain12/dome/releases/tag/v2.3.0) - 2026-06-02
+
+### Added
+
+- **Learn redesign**: library with KPI/streak strips, 3-step generate wizard, deck overview tabs, enriched quiz (timer, shortcuts, Ask Many, ring results, `quiz_runs` history), FlashPlayer SRS UI, MindMapView/GuideReader/FaqReader/TimelineView/TableView, `.lr-*` CSS mapped to existing tokens.
+- **Studio tools**: `generate_guide`, `generate_faq`, `generate_timeline`, `generate_table` with gather handlers + real `studio:progress` streaming via `broadcast`.
+- **IPC**: `learn:getKpis`, `learn:getStreak`, `quiz:createRun/listRuns/getRun`, `studio:cancel`; KPI hooks use `window.electron.on`.
+- **Multimodal agent chat**: structured attachments on user messages (`electron/message-multimodal.cjs`), composer capability guards, MiniMax M3 video support. Docs: `docs/features/multimodal-support.md`.
+- **Agent harness**: deepagents middleware stack, prompt-assembler (`shared/prompt-assembler/`), core prompt sections (`prompts/martin/core/`), tool cap/selector/normalize. Docs: `docs/architecture/harness-deepagents.md`.
+- **Docs**: `docs/features/learn-redesign.md`, `docs/features/studio-tools.md`, `docs/features/learn-tool-schemas.md`.
+- **Tests**: `pnpm run test:studio:tools`, `test:learn:kpis`, `test:generate:wizard`.
+- **Agent benchmark harness**: Electron headless (`electron/bench/`), ~108 casos JSON (`scripts/bench/cases/`), validación execution + structural + LLM-as-judge, trazas en `docs/bench/runs/`. Comandos: `bench:generate-cases`, `bench:seed`, `bench:run`, `bench:compare`. Docs: `docs/bench/README.md`.
+
+### Fixed
+
+- **Learn P0**: `createDeck` FK — real `project_id` in DeckModal + IPC fallback; `sendToAll` → `broadcast` for quiz runs and studio progress; KPI/streak hooks subscribe to Electron push events; SRS sessions emit `flashcard:sessionEnded`.
+- **Legacy cleanup**: removed duplicate flashcard components/store; `StudioOutputViewer` uses `FlashPlayerSession`.
+
 ## [2.2.0](https://github.com/maxprain12/dome/releases/tag/v2.2.0) - 2026-05-26
 
 ### Added

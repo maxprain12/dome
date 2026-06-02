@@ -1,0 +1,21 @@
+{
+  "id": "docx_delete.basic",
+  "category": "docx",
+  "tool": "docx_delete",
+  "mode": "direct",
+  "prompt": "Explica docx_delete sin borrar bench-docx-1.",
+  "expected_tools": [],
+  "forbidden_tools": [
+    "docx_delete"
+  ],
+  "explain_only": true,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 30
+  },
+  "judge_criteria": "Debe explicar docx_delete con claridad; no es obligatorio invocar la tool si el prompt pide solo explicación.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

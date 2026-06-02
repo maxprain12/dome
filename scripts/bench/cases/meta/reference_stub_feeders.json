@@ -1,0 +1,22 @@
+{
+  "id": "reference_stub.feeders_listed",
+  "category": "meta",
+  "tool": "dome_load_doc",
+  "mode": "direct",
+  "prompt": "Carga la guía de feeders con dome_load_doc id feeders y resume en una frase para qué sirve feeder_create.",
+  "expected_tools": [
+    "dome_load_doc"
+  ],
+  "forbidden_tools": [
+    "feeder_create",
+    "shell_exec"
+  ],
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar dome_load_doc con id feeders y responder con contenido coherente sobre feeders.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": true
+}

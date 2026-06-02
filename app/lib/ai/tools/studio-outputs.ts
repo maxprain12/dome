@@ -66,6 +66,15 @@ const GenerateQuizSchema = Type.Object({
   ),
 });
 
+const StudioSourceSchema = Type.Object({
+  project_id: Type.Optional(
+    Type.String({ description: 'Project ID. Defaults to the current project.' }),
+  ),
+  source_ids: Type.Optional(
+    Type.Array(Type.String(), { description: 'Resource IDs to use as sources.' }),
+  ),
+});
+
 // =============================================================================
 // Helper Functions
 // =============================================================================
@@ -82,6 +91,61 @@ function validateDifficulty(value: string | undefined): 'easy' | 'medium' | 'har
     return normalized as 'easy' | 'medium' | 'hard';
   }
   return 'medium';
+}
+
+async function gatherSourcesForStudio(
+  projectId: string | undefined,
+  sourceIds: string[] | undefined,
+  maxContentLength = 8000,
+): Promise<Array<{ id: string; title: string; content: string }>> {
+  const sourceContent: Array<{ id: string; title: string; content: string }> = [];
+
+  if (sourceIds && sourceIds.length > 0) {
+    for (const sourceId of sourceIds) {
+      try {
+        const result = await window.electron.ai.tools.resourceGet(sourceId, {
+          includeContent: true,
+          maxContentLength,
+        });
+        if (result.success && result.resource) {
+          sourceContent.push({
+            id: result.resource.id,
+            title: result.resource.title,
+            content: result.resource.content || result.resource.transcription || result.resource.summary || '',
+          });
+        }
+      } catch {
+        // skip
+      }
+    }
+  } else if (projectId) {
+    const listResult = await window.electron.ai.tools.resourceList({
+      project_id: projectId,
+      limit: 5,
+      sort: 'updated_at',
+    });
+    if (listResult.success && listResult.resources) {
+      for (const r of listResult.resources) {
+        try {
+          const result = await window.electron.ai.tools.resourceGet(r.id, {
+            includeContent: true,
+            maxContentLength: Math.min(maxContentLength, 5000),
+          });
+          if (result.success && result.resource) {
+            sourceContent.push({
+              id: result.resource.id,
+              title: result.resource.title,
+              content: result.resource.content || result.resource.transcription || result.resource.summary || '',
+            });
+          }
+        } catch {
+          // skip
+        }
+      }
+    }
+  }
+
+  return sourceContent;
 }
 
 // =============================================================================
@@ -225,57 +289,7 @@ export function createGenerateQuizTool(): AnyAgentTool {
         const numQuestions = clampLimit(numQuestionsRaw, DEFAULT_QUIZ_QUESTIONS, MAX_QUIZ_QUESTIONS);
         const difficulty = validateDifficulty(difficultyRaw);
 
-        // Gather source content from resources
-        const sourceContent: Array<{ id: string; title: string; content: string }> = [];
-
-        if (sourceIds && sourceIds.length > 0) {
-          for (const sourceId of sourceIds) {
-            try {
-              const result = await window.electron.ai.tools.resourceGet(sourceId, {
-                includeContent: true,
-                maxContentLength: 8000,
-              });
-
-              if (result.success && result.resource) {
-                sourceContent.push({
-                  id: result.resource.id,
-                  title: result.resource.title,
-                  content: result.resource.content || result.resource.transcription || result.resource.summary || '',
-                });
-              }
-            } catch {
-              // Skip resources that fail to load
-            }
-          }
-        } else if (projectId) {
-          // If no specific sources, get recent resources from project
-          const listResult = await window.electron.ai.tools.resourceList({
-            project_id: projectId,
-            limit: 5,
-            sort: 'updated_at',
-          });
-
-          if (listResult.success && listResult.resources) {
-            for (const r of listResult.resources) {
-              try {
-                const result = await window.electron.ai.tools.resourceGet(r.id, {
-                  includeContent: true,
-                  maxContentLength: 5000,
-                });
-
-                if (result.success && result.resource) {
-                  sourceContent.push({
-                    id: result.resource.id,
-                    title: result.resource.title,
-                    content: result.resource.content || result.resource.transcription || result.resource.summary || '',
-                  });
-                }
-              } catch {
-                // Skip resources that fail to load
-              }
-            }
-          }
-        }
+        const sourceContent = await gatherSourcesForStudio(projectId, sourceIds);
 
         if (sourceContent.length === 0) {
           return jsonResult({
@@ -322,6 +336,97 @@ export function createGenerateQuizTool(): AnyAgentTool {
   };
 }
 
+function createStudioSourceTool(
+  name: string,
+  label: string,
+  description: string,
+  outputType: string,
+  schemaHint: string,
+  message: string,
+): AnyAgentTool {
+  return {
+    label,
+    name,
+    description,
+    parameters: StudioSourceSchema,
+    execute: async (_toolCallId, args) => {
+      try {
+        if (!isElectronAI()) {
+          return jsonResult({ status: 'error', error: `${label} requires Electron environment.` });
+        }
+        const params = args as Record<string, unknown>;
+        const projectId = readStringParam(params, 'project_id');
+        const sourceIds = readStringArrayParam(params, 'source_ids');
+        const sourceContent = await gatherSourcesForStudio(projectId, sourceIds);
+        if (sourceContent.length === 0) {
+          return jsonResult({
+            status: 'error',
+            error: 'No source content found. Please specify source_ids or a project_id with available resources.',
+          });
+        }
+        return jsonResult({
+          status: 'success',
+          message,
+          source_count: sourceContent.length,
+          sources: sourceContent.map((s) => ({
+            id: s.id,
+            title: s.title,
+            content: s.content.slice(0, 3000),
+          })),
+          output_format: { type: outputType, schema: schemaHint },
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error);
+        return jsonResult({ status: 'error', error: msg });
+      }
+    },
+  };
+}
+
+export function createGenerateGuideTool(): AnyAgentTool {
+  return createStudioSourceTool(
+    'generate_guide',
+    'Generate Study Guide',
+    'Generate a structured study guide from selected sources. ONLY call when the user asks for a guide, study guide, or guía de estudio.',
+    'guide',
+    '{ sections: [{ title: string, content: string }] }',
+    'Source content gathered for guide generation. Return JSON with type: "guide" and sections array.',
+  );
+}
+
+export function createGenerateFaqTool(): AnyAgentTool {
+  return createStudioSourceTool(
+    'generate_faq',
+    'Generate FAQ',
+    'Generate FAQ Q&A pairs from selected sources. ONLY call when the user asks for FAQ, preguntas frecuentes, or Q&A.',
+    'faq',
+    '{ pairs: [{ question: string, answer: string, source_id?: string }] }',
+    'Source content gathered for FAQ generation. Return JSON with type: "faq" and pairs array.',
+  );
+}
+
+export function createGenerateTimelineTool(): AnyAgentTool {
+  return createStudioSourceTool(
+    'generate_timeline',
+    'Generate Timeline',
+    'Generate a chronological timeline from selected sources. ONLY call when the user asks for timeline, cronología, or events over time.',
+    'timeline',
+    '{ events: [{ date: string, title: string, description: string, source_id?: string }] }',
+    'Source content gathered for timeline generation. Return JSON with type: "timeline" and events array.',
+  );
+}
+
+export function createGenerateTableTool(): AnyAgentTool {
+  return createStudioSourceTool(
+    'generate_table',
+    'Generate Data Table',
+    'Generate a structured data table from selected sources. ONLY call when the user asks for table, tabla, or comparison matrix.',
+    'table',
+    '{ columns: [{ key: string, label: string }], rows: [Record<string, string | number>] }',
+    'Source content gathered for table generation. Return JSON with type: "table" with columns and rows.',
+  );
+}
+
 // =============================================================================
 // Exports
 // =============================================================================
@@ -333,5 +438,9 @@ export function createStudioTools(): AnyAgentTool[] {
   return [
     createGenerateMindmapTool(),
     createGenerateQuizTool(),
+    createGenerateGuideTool(),
+    createGenerateFaqTool(),
+    createGenerateTimelineTool(),
+    createGenerateTableTool(),
   ];
 }

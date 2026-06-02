@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import TokenBudgetBadge, { type BudgetBreakdown } from './TokenBudgetBadge';
+import TokenBudgetBadge, { type BudgetBreakdown, type LiveTokenUsage } from './TokenBudgetBadge';
 import { useTranslation } from 'react-i18next';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail, AlertCircle } from 'lucide-react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
@@ -30,7 +30,8 @@ import {
 } from '@/lib/ai/shared-capabilities';
 import { createRememberFactTool } from '@/lib/ai/tools/memory';
 import { buildManyFloatingPrompt, getPartOfDay } from '@/lib/prompts/loader';
-import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
+import { buildDomeSystemPrompt, formatVolatileSourceContext } from '@/lib/chat/buildDomeSystemPrompt';
+import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ManyMinimalStatusRow from './ManyMinimalStatusRow';
@@ -60,7 +61,8 @@ import ManyHitlInlineSection from '@/components/many/ManyHitlInlineSection';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
 import { cn } from '@/lib/utils';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
-import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
+import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentTypes';
+import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 
 interface ManyPanelProps {
@@ -95,7 +97,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     petPromptOverride,
     pinnedResources,
   } = useManyStore(
-    (s) => ({
+    useShallow((s) => ({
       status: s.status,
       setFullscreen: s.setFullscreen,
       setStatus: s.setStatus,
@@ -112,8 +114,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       currentResourceTitle: s.currentResourceTitle,
       petPromptOverride: s.petPromptOverride,
       pinnedResources: s.pinnedResources,
-    }),
-    shallow,
+    })),
   );
   const pendingPdfRegion = useManyStore((s) => s.pendingPdfRegion);
   const clearPendingPdfRegion = useManyStore((s) => s.clearPendingPdfRegion);
@@ -146,6 +147,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [providerInfo, setProviderInfo] = useState<string>('');
   const [providerId, setProviderId] = useState<string>('');
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
+  const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
   const [budgetCapApprox, setBudgetCapApprox] = useState(200_000);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingMessageRef = useRef<ChatMessageData | null>(null);
@@ -610,6 +612,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     onRunStatus: handleManyRunStatus,
     onRunTerminal: handleManyRunTerminal,
     onBudget: setLastBudget,
+    onUsage: (usage) => setLiveUsage(usage),
     t,
   });
 
@@ -742,10 +745,17 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   );
 
   const handleSend = useCallback(async (messageOverride?: string, sendOptions?: ManySendOptions) => {
-    const attPrefix = buildAttachmentPrefix(chatAttachments, t('chat.attachment_extraction_empty'));
     const textPart = (messageOverride ?? input).trim();
-    const userMessage = [attPrefix, textPart].filter((s) => s.length > 0).join('\n\n').trim();
-    if (!userMessage || isSubmittingRef.current) return;
+    if ((!textPart && chatAttachments.length === 0) || isSubmittingRef.current) return;
+
+    const preparedAttachments = await prepareVideoAttachmentsForRun(chatAttachments);
+    const userRunMessage = buildUserRunMessage(
+      textPart,
+      preparedAttachments,
+      t('chat.attachment_extraction_empty'),
+    );
+    const userMessage = userRunMessage.content;
+    if (!userMessage) return;
 
     if (pdfRegionStreamingMessage?.isStreaming) return;
 
@@ -772,6 +782,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setError(null);
     setStreamingMessage(null);
     setLastBudget(null);
+    setLiveUsage(null);
     setAbortController(null);
 
     addMessage({ role: 'user', content: userMessage });
@@ -818,41 +829,42 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       });
       const partOfDay = getPartOfDay(now);
 
-      const volatileParts: string[] = [];
-      volatileParts.push(
-        `## Current Context\n- Location: ${uiLoc.location}\n- The user is ${uiLoc.description}\n- Date: ${dateStr}\n- Time of day: ${partOfDay}` +
-          (currentResourceTitle ? `\n- Active resource: "${currentResourceTitle}"` : ''),
-      );
-      volatileParts.push(
-        buildSharedUiContextBlock({
-          pathname: pathname || '/',
-          homeSidebarSection,
-          shellTabType: activeShellTabType,
-          currentFolderId,
-          currentResourceId: effectiveResourceId,
-          currentResourceTitle: currentResourceTitle || null,
-        }),
-      );
-      if (userMemory) {
-        volatileParts.push(`## What I know about you\n${userMemory}`);
-      }
+      const dateLine = [
+        `- Location: ${uiLoc.location}`,
+        `- The user is ${uiLoc.description}`,
+        `- Date: ${dateStr}`,
+        `- Time of day: ${partOfDay}`,
+        currentResourceTitle ? `- Active resource title: "${currentResourceTitle}"` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
 
-      if (pinnedResources.length > 0) {
-        const pinnedSummary = pinnedResources
-          .map((r) => `- ${r.title} (id: ${r.id}, type: ${r.type})`)
-          .join('\n');
-        volatileParts.push(
-          `## Pinned Context Resources\nAvailable via resource_get_pinned(id). Do NOT call resource_search or resource_get for these IDs.\n${pinnedSummary}`,
-        );
-      }
+      const uiContextBlock = buildSharedUiContextBlock({
+        pathname: pathname || '/',
+        homeSidebarSection,
+        shellTabType: activeShellTabType,
+        currentFolderId,
+        currentResourceId: effectiveResourceId,
+        currentResourceTitle: currentResourceTitle || null,
+      });
 
-      if (effectiveResourceId && currentResourceTitle) {
-        volatileParts.push(
-          `## Active Resource\n"${currentResourceTitle}" (id: ${effectiveResourceId}). Call resource_get_active() to read its content when needed.`,
-        );
-      }
-
-      const volatileContext = volatileParts.join('\n\n');
+      const volatileContext = formatVolatileSourceContext({
+        dateLine,
+        uiContext: uiContextBlock,
+        userMemory: userMemory || undefined,
+        pinnedResources:
+          pinnedResources.length > 0
+            ? pinnedResources.map((r) => ({
+                id: r.id,
+                title: r.title,
+                type: r.type,
+              }))
+            : undefined,
+        activeResource:
+          effectiveResourceId && currentResourceTitle
+            ? { id: effectiveResourceId, title: currentResourceTitle }
+            : null,
+      });
 
       const sharedContext = {
         pathname: pathname || '/',
@@ -886,17 +898,28 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         (typeof localStorage !== 'undefined' ? localStorage.getItem('dome:language') : null) ||
         'es';
 
-      const unifiedSystemPrompt = buildDomeSystemPrompt({
+      let unifiedSystemPrompt = buildDomeSystemPrompt({
         staticPersona,
         volatileContext,
         extraSections: [toolHint],
         voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : null,
       });
 
+      const manySkillState = useManyStore.getState();
+      const stickySkillId = currentSessionId
+        ? manySkillState.activeSkillIdBySession[currentSessionId] ?? null
+        : null;
+      unifiedSystemPrompt = await appendRunSkillsToPrompt(unifiedSystemPrompt, {
+        messageText: textPart,
+        pendingOneShotSkillId: manySkillState.pendingOneShotSkillId,
+        activeStickySkillId: stickySkillId,
+      });
+      manySkillState.setPendingOneShotSkill(null);
+
       const runMessages = [
         { role: 'system', content: unifiedSystemPrompt },
         ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userMessage },
+        userRunMessage as ChatRunMessage,
       ];
 
       setStreamingMessage({
@@ -1448,7 +1471,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       {/* Token budget — sidebar / compact badge; fullscreen + messages uses composer meta bar */}
       {displayBudget && !showHitlInline && !showComposerMetaBar ? (
         <div className="flex justify-end px-3 py-0.5">
-          <TokenBudgetBadge breakdown={displayBudget} budgetCapApprox={budgetCapApprox} />
+          <TokenBudgetBadge breakdown={displayBudget} liveUsage={liveUsage} budgetCapApprox={budgetCapApprox} />
         </div>
       ) : null}
 
@@ -1465,7 +1488,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             {showComposerMetaBar ? (
               <div className="many-composer-meta px-4 pt-3 pb-1">
                 <div className="many-composer-meta-row">
-                  <TokenBudgetBadge breakdown={displayBudget!} variant="pill" budgetCapApprox={budgetCapApprox} />
+                  <TokenBudgetBadge
+                    breakdown={displayBudget!}
+                    liveUsage={liveUsage}
+                    variant="pill"
+                    budgetCapApprox={budgetCapApprox}
+                  />
                 </div>
               </div>
             ) : null}

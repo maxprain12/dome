@@ -322,6 +322,7 @@ const ALLOWED_CHANNELS = {
     'ai:testConnection',
     'ai:openrouter:listModels',
     'ai:provider:listModels',
+    'minimax:files:upload',
     'ai:testWebSearch',
     'ai:webSearch',
     // Agent Team orchestration
@@ -435,6 +436,12 @@ const ALLOWED_CHANNELS = {
     'db:studio:getById',
     'db:studio:update',
     'db:studio:delete',
+    'learn:getKpis',
+    'learn:getStreak',
+    'quiz:createRun',
+    'quiz:listRuns',
+    'quiz:getRun',
+    'studio:cancel',
     'indexing:full-sync',
     'pdf:render-page',
     // Notebook (Python via IPC)
@@ -586,12 +593,14 @@ const ALLOWED_CHANNELS = {
     'updater:status',
     // Studio events
     'studio:outputCreated',
+    'studio:progress',
     // Deep link: open studio output from dome://studio/ID
     'dome:open-studio-output',
     // Flashcard events
     'flashcard:deckCreated',
     'flashcard:deckUpdated',
     'flashcard:deckDeleted',
+    'flashcard:sessionEnded',
     // PPT background generation events
     'ppt:created',
     'ppt:creation-failed',
@@ -1088,6 +1097,23 @@ const electronHandler = {
       getById: (id) => ipcRenderer.invoke('db:studio:getById', id),
       update: (id, updates) => ipcRenderer.invoke('db:studio:update', id, updates),
       delete: (id) => ipcRenderer.invoke('db:studio:delete', id),
+      cancelGeneration: (runId) => ipcRenderer.invoke('studio:cancel', runId),
+      onProgress: (callback) => {
+        const subscription = (_event, data) => callback(data);
+        ipcRenderer.on('studio:progress', subscription);
+        return () => ipcRenderer.removeListener('studio:progress', subscription);
+      },
+    },
+
+    learn: {
+      getKpis: () => ipcRenderer.invoke('learn:getKpis'),
+      getStreak: () => ipcRenderer.invoke('learn:getStreak'),
+    },
+
+    quiz: {
+      createRun: (data) => ipcRenderer.invoke('quiz:createRun', data),
+      listRuns: (studioOutputId) => ipcRenderer.invoke('quiz:listRuns', studioOutputId),
+      getRun: (runId) => ipcRenderer.invoke('quiz:getRun', runId),
     },
 
     // Settings
@@ -1788,6 +1814,13 @@ const electronHandler = {
     refreshLinked: (resourceId) => ipcRenderer.invoke('artifact:refresh-linked', resourceId),
     setLinkedResource: (resourceId, linkedResourceId) =>
       ipcRenderer.invoke('artifact:set-linked-resource', { resourceId, linkedResourceId }),
+  },
+
+  // ============================================
+  // MINIMAX FILES API
+  // ============================================
+  minimax: {
+    uploadFile: (args) => ipcRenderer.invoke('minimax:files:upload', args),
   },
 
   // ============================================

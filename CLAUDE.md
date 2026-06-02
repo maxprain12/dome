@@ -138,6 +138,7 @@ dome/
 │   ├── artifact-index-sync.cjs # Re-index after artifact mutation
 │   ├── prompt-budget.cjs       # Token budget estimation (char/4 approx)
 │   ├── prompt-sections.cjs     # On-demand prompt reference sections (dome_load_doc)
+│   ├── core-prompt-loader.cjs  # Loads prompts/martin/core/*.txt (main process)
 │   ├── plugin-loader.cjs       # Plugin system
 │   ├── marketplace-config.cjs  # Plugin marketplace
 │   ├── pdf-extractor.cjs       # PDF text/page extraction
@@ -181,7 +182,8 @@ dome/
 │   │
 │   └── types/                  # TypeScript type definitions (global.d.ts has window.electron types)
 │
-├── prompts/                     # System prompt templates (martin/tools.txt, etc.)
+├── shared/prompt-assembler/     # Unified system-prompt assembler (MiniMax M-series sections)
+├── prompts/                     # System prompt templates (martin/core/*.txt, dome_load_doc bodies)
 ├── electron/skills/bundled/     # Shipped SKILL.md packs (Claude-style Agent Skills)
 ├── public/
 │   ├── agents/                  # Agent definition JSON bundles (one dir per agent)
@@ -205,7 +207,7 @@ windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/
 
 **All AI paths go through LangGraph/LangChain** — no custom HTTP clients to LLM providers exist. This includes Many, agent chat, agent-team, workflows, automations, editor-ai, vision, OCR, and auto-metadata.
 
-- **Agent runs**: `electron/langgraph-agent.cjs` — `invokeLangGraphAgent()` with `createAgent()` + middleware chain (summarization, HITL, `createSkillsMiddleware`, filesystem, trim).
+- **Agent runs**: `electron/langgraph-agent.cjs` — `invokeLangGraphAgent()` with `createDeepAgent()` + middleware chain (summarization, HITL, `createSkillsMiddleware`, filesystem, trim).
 - **Plain LLM calls** (vision, OCR, editor-ai): `electron/llm-service.cjs` — `chat()/stream()` backed by `createModelFromConfig()` (ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI / ChatOllama).
 - **Workflows**: `electron/run-engine.cjs` — `executeWorkflowRun()` builds a `StateGraph` dynamically from workflow nodes/edges; each agent node calls `invokeLangGraphAgent`.
 - **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/ai-tools-handler.cjs`.

@@ -26,7 +26,7 @@ interface ProviderModelsListResult {
     name: string;
     contextWindow: number;
     reasoning: boolean;
-    input: Array<'text' | 'image'>;
+    input: Array<'text' | 'image' | 'video'>;
     maxTokens: number;
     recommended?: boolean;
     description?: string;
@@ -644,6 +644,27 @@ declare global {
           getById: (id: string) => Promise<DBResponse<any>>;
           update: (id: string, updates: any) => Promise<DBResponse<void>>;
           delete: (id: string) => Promise<DBResponse<void>>;
+          cancelGeneration: (runId: string) => Promise<DBResponse<void>>;
+          onProgress: (
+            callback: (data: {
+              runId?: string;
+              phase?: string;
+              message?: string;
+              current?: number;
+              total?: number;
+              draftItem?: string;
+              error?: string;
+            }) => void,
+          ) => () => void;
+        };
+        learn: {
+          getKpis: () => Promise<DBResponse<any>>;
+          getStreak: () => Promise<DBResponse<any>>;
+        };
+        quiz: {
+          createRun: (data: any) => Promise<DBResponse<any>>;
+          listRuns: (studioOutputId: string) => Promise<DBResponse<any[]>>;
+          getRun: (runId: string) => Promise<DBResponse<any>>;
         };
         settings: {
           get: (key: string) => Promise<DBResponse<string>>;
@@ -1920,6 +1941,13 @@ declare global {
           hints?: string;
           error?: string;
         }>;
+      };
+
+      minimax: {
+        uploadFile: (args: {
+          filePath: string;
+          purpose?: string;
+        }) => Promise<{ success: boolean; fileId?: string; error?: string }>;
       };
 
       feeders: {

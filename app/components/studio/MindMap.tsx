@@ -9,6 +9,10 @@ interface MindMapProps {
   title?: string;
   onClose?: () => void;
   onExport?: () => void;
+  /** Learn view: sync selection to external sidebar */
+  onSelectedNodeChange?: (nodeId: string | null) => void;
+  /** Hide built-in detail panel (Learn uses lr-mind-side) */
+  externalSelection?: boolean;
 }
 
 const MIN_NODE_WIDTH = 140;
@@ -92,7 +96,7 @@ function layoutNodes(data: MindMapData) {
   return positions;
 }
 
-export default function MindMap({ data, title, onClose, onExport }: MindMapProps) {
+export default function MindMap({ data, title, onClose, onExport, onSelectedNodeChange, externalSelection = false }: MindMapProps) {
   const { t } = useTranslation();
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 50, y: 50 });
@@ -143,8 +147,12 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
 
   const handleNodeClick = useCallback((e: React.MouseEvent, nodeId: string) => {
     e.stopPropagation();
-    setSelectedNodeId((id) => (id === nodeId ? null : nodeId));
-  }, []);
+    setSelectedNodeId((id) => {
+      const next = id === nodeId ? null : nodeId;
+      onSelectedNodeChange?.(next);
+      return next;
+    });
+  }, [onSelectedNodeChange]);
 
   // TODO(tech-debt): depthColors are used for mind map node depth gradient.
   // Using accent family for neutral gradient - semantic colors (warning/error) 
@@ -313,7 +321,7 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
         </div>
 
         {/* Detail panel */}
-        {selectedNode && (
+        {selectedNode && !externalSelection ? (
           <div
             className="w-72 shrink-0 flex flex-col border-l overflow-hidden"
             style={{
@@ -361,7 +369,7 @@ export default function MindMap({ data, title, onClose, onExport }: MindMapProps
               )}
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );

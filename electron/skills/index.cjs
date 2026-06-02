@@ -6,7 +6,8 @@
 const path = require('path');
 const os = require('os');
 
-const USER_SKILLS_DIR = path.join(os.homedir(), '.dome', 'skills');
+const USER_SKILLS_DIR =
+  process.env.DOME_SKILLS_DIR || path.join(os.homedir(), '.dome', 'skills');
 
 function userSkillsDir() {
   return USER_SKILLS_DIR;
@@ -20,7 +21,7 @@ function userSkillsDir() {
 async function listAllSkills() {
   try {
     const { listSkills } = await import('deepagents');
-    return listSkills({ userSkillsDir: USER_SKILLS_DIR, projectSkillsDir: null });
+    return listSkills({ userSkillsDir: userSkillsDir(), projectSkillsDir: null });
   } catch (err) {
     console.warn('[Skills] listAllSkills failed:', err?.message);
     return [];
@@ -36,7 +37,7 @@ async function buildSkillsMiddleware() {
   const { createSkillsMiddleware, FilesystemBackend } = await import('deepagents');
   return createSkillsMiddleware({
     backend: new FilesystemBackend({ rootDir: os.homedir() }),
-    sources: [USER_SKILLS_DIR],
+    sources: [userSkillsDir()],
   });
 }
 

@@ -243,7 +243,7 @@ export async function startLangGraphRun(params: {
   workflowId?: string | null;
   contextId?: string | null;
   sessionTitle?: string | null;
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: string; attachments?: { images?: Array<{ dataUrl: string; mime?: string; name?: string }>; videos?: Array<{ dataUrl?: string; fileId?: string; mime?: string; name?: string; sizeBytes?: number }> } }>;
   toolDefinitions?: unknown[];
   toolIds?: string[];
   mcpServerIds?: string[];
@@ -299,9 +299,14 @@ export function onRunChunk(callback: (payload: {
   toolCall?: { id: string; name: string; arguments: string };
   toolCallId?: string;
   result?: string;
+  /** Subagent that produced this tool_call / tool_result (deepagents `task`). */
+  agentName?: string;
   actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
   reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
   threadId?: string;
+  /** Provider-reported token usage (live partial or final). */
+  usage?: PersistentRunUsage;
+  partial?: boolean;
   breakdown?: {
     systemApprox: number;
     toolsApprox: number;

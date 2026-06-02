@@ -1,0 +1,36 @@
+{
+  "id": "notebook_update_cell.basic",
+  "category": "notebook",
+  "tool": "notebook_update_cell",
+  "mode": "direct",
+  "prompt": "Actualiza la celda 0 de un notebook bench si existe.",
+  "expected_tools": [
+    "notebook_update_cell"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar notebook_update_cell (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}
