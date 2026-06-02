@@ -46,6 +46,9 @@ build/
 dist-electron/
 release/
 
+# Agent benchmark runs (local traces)
+docs/bench/runs/
+
 # Testing
 .nyc_output
 *.lcov

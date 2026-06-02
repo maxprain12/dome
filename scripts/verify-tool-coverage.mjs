@@ -234,7 +234,26 @@ function main() {
     process.exit(1);
   }
 
-  console.log('[verify-tool-coverage] OK —', names.length, 'defined tools have handlers.');
+  const defNorm = new Set(names.map((n) => normalizeToolName(n)));
+  const handlersWithoutDef = [];
+  for (const hk of handlerKeys) {
+    const norm = normalizeToolName(hk);
+    if (!defNorm.has(norm) && !defNorm.has(hk)) handlersWithoutDef.push(hk);
+  }
+
+  if (handlersWithoutDef.length > 0) {
+    console.error('[verify-tool-coverage] TOOL_HANDLER_MAP entries missing from getAllToolDefinitions:');
+    handlersWithoutDef.sort().forEach((m) => console.error('  -', m));
+    process.exit(1);
+  }
+
+  console.log(
+    '[verify-tool-coverage] OK —',
+    names.length,
+    'defined tools;',
+    handlerKeys.size,
+    'handlers; catalog in sync.',
+  );
 }
 
 main();

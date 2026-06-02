@@ -1,0 +1,37 @@
+{
+  "id": "ui_get_elements.basic",
+  "category": "ui",
+  "tool": "ui_get_elements",
+  "mode": "direct",
+  "prompt": "Lista elementos UI visibles con ui_get_elements.",
+  "expected_tools": [
+    "ui_get_elements"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 5
+  },
+  "judge_criteria": "Debe invocar ui_get_elements (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": true
+}

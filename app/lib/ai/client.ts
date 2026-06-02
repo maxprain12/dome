@@ -336,7 +336,7 @@ export async function chatWithGemini(
 export async function chatWithMiniMax(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'MiniMax-M2.5',
+  model: string = 'MiniMax-M3',
   _tools?: ToolDefinition[],
 ): Promise<string> {
   if (!isElectron()) {
@@ -353,7 +353,7 @@ export async function chatWithMiniMax(
 export async function* streamMiniMax(
   messages: Array<{ role: string; content: string }>,
   _apiKey: string,
-  model: string = 'MiniMax-M2.5',
+  model: string = 'MiniMax-M3',
   tools?: ToolDefinition[],
   _signal?: AbortSignal,
 ): AsyncIterable<ChatStreamChunk> {
@@ -492,7 +492,7 @@ export type ProviderModelRow = {
   name: string;
   contextWindow: number;
   reasoning: boolean;
-  input: Array<'text' | 'image'>;
+  input: Array<'text' | 'image' | 'video'>;
   maxTokens: number;
   recommended?: boolean;
   description?: string;

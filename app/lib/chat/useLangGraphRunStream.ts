@@ -21,6 +21,7 @@ import {
   resumeRun,
   type PersistentRun,
   type PersistentRunStep,
+  type PersistentRunUsage,
 } from '@/lib/automations/api';
 import { streamingLabelForToolName } from './streamingLabels';
 import { coalesceDuplicateToolCalls, applyToolResultChunk } from './coalesceToolCalls';
@@ -52,6 +53,10 @@ export interface LangGraphRunStreamOptions {
    */
   onBudget?: (breakdown: BudgetBreakdown) => void;
   /**
+   * Provider-reported token usage (partial chunks may arrive during the run).
+   */
+  onUsage?: (usage: PersistentRunUsage, partial: boolean) => void;
+  /**
    * i18next translator; used for streaming labels.
    */
   t: TFunction;
@@ -77,6 +82,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
     onRunStatus,
     onRunTerminal,
     onBudget,
+    onUsage,
     t,
   } = options;
 
@@ -96,6 +102,11 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
 
       if (payload.type === 'budget' && payload.breakdown && onBudget) {
         onBudget(payload.breakdown);
+        return;
+      }
+
+      if (payload.type === 'usage' && payload.usage && onUsage) {
+        onUsage(payload.usage, !!payload.partial);
         return;
       }
 
@@ -139,6 +150,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
             name: tc.name,
             arguments: parsedArgs,
             status: 'running' as ToolCallData['status'],
+            ...(payload.agentName ? { agentName: payload.agentName } : {}),
           };
           const idx = existing.findIndex((c) => c.id === tc.id);
           const nextToolCalls: ToolCallData[] =
@@ -220,7 +232,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
       unsubChunk();
       unsubStep();
     };
-  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, t]);
+  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, onUsage, t]);
 }
 
 function upsertRunStep(steps: PersistentRunStep[], step: PersistentRunStep): PersistentRunStep[] {

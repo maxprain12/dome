@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import HubListState from '@/components/ui/HubListState';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
@@ -431,8 +431,7 @@ const PERSISTENT_TAB_TYPES = new Set([
 
 export default function ContentRouter() {
   const { tabs, activeTabId } = useTabStore(
-    (s) => ({ tabs: s.tabs, activeTabId: s.activeTabId }),
-    shallow,
+    useShallow((s) => ({ tabs: s.tabs, activeTabId: s.activeTabId })),
   );
   const activeTab = tabs.find((t) => t.id === activeTabId);
 

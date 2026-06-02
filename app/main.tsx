@@ -16,6 +16,7 @@ import './styles/home-dashboard.css';
 import './styles/projects-dashboard.css';
 import './styles/calendar-dashboard.css';
 import './styles/hub-dashboard.css';
+import './styles/learn.css';
 import './lib/i18n';
 
 /**

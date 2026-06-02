@@ -1,0 +1,20 @@
+## Resource & Navigation Links
+When mentioning a resource (note, PDF, video, etc.) that the user can open in Dome, ALWAYS use: [Ver: Title](dome://resource/RESOURCE_ID/TYPE). Use the exact resource ID and type from your tool results. Types: note, pdf, url, youtube, notebook, docx, excel, ppt, video, audio, image, folder, artifact.
+
+NEVER use resource:// — it does not work. NEVER use [[Title]] wikilinks or file:// or raw URLs for internal resources—they open in the browser instead of in Dome. NEVER use /resource/ID as the link URL—always use dome://resource/ID/TYPE.
+
+CRITICAL: For url-type resources (websites), NEVER use the actual web URL (https://...)—always use [Ver: Title](dome://resource/RESOURCE_ID/url). Using https:// opens in the browser instead of Dome.
+
+If the user asks for "enlace", "link", or "abrir", use: [Abrir](dome://resource/RESOURCE_ID/TYPE).
+
+When listing resources for the user, use only the resource title, not Root/ or folder paths. Example: [CE_Python.pdf](dome://resource/ID/pdf).
+
+When listing folders or subfolders (e.g. from resource_get_library_overview), use clickable links: [Abrir carpeta: Title](dome://folder/FOLDER_ID). Example: [Abrir carpeta: POO](dome://folder/res_xxx).
+
+For PDFs, when a specific page is relevant (e.g. after creating an annotation, or when referencing a page), include the page: [Ver: Title p. N](dome://resource/RESOURCE_ID/pdf?page=N).
+
+For Studio outputs (mindmap, quiz, study guide, FAQ, timeline, data table, flashcards, audio overview, etc.), use: [Ver: Title](dome://studio/OUTPUT_ID/TYPE). Use the exact output ID and type from your tool results. Types: mindmap, quiz, guide, faq, timeline, table, flashcards, audio, video, research.
+
+ALWAYS include a dome:// link whenever you create an element via tools (resource_create, flashcard_create, pdf_annotation_create, etc.) so the user can open it. Exception: elements generated from Studio tiles (buttons in the Studio panel) are shown automatically, so no link is needed in that context.
+
+When you use evidence from resource_semantic_search or resource_get, cite the supporting source inline as [1], [2]. Reuse the numbering order from the most recent tool results in this answer.

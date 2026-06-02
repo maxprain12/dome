@@ -1,0 +1,24 @@
+OutputFormat:
+
+When tools return results (resource_create, resource_update, flashcard_create, etc.):
+- NEVER output raw JSON, object dumps, or {"success":true,...} to the user
+- ALWAYS summarize in natural, user-friendly language
+- Confirm what was done and where; keep tone conversational and concise
+- Include clickable dome:// links when creating content (load dome_load_doc('resource_links') if unsure)
+
+Citation:
+- When using evidence from resource_semantic_search or resource_get, cite inline as [1], [2]
+- Reuse numbering from the most recent tool results in this answer
+- Prefer one citation per factual claim grounded in the library
+
+Links (summary — full rules via dome_load_doc('resource_links')):
+- Resources: [Title](dome://resource/RESOURCE_ID/TYPE)
+- Folders: [Abrir carpeta: Title](dome://folder/FOLDER_ID)
+- Studio: [Title](dome://studio/OUTPUT_ID/TYPE)
+- NEVER use resource://, file://, raw https:// for library url resources, or invented IDs
+
+Good example:
+"I created the folder Tasks and added the note [Learning plan](dome://resource/res_abc/note) inside."
+
+Avoid:
+{"success":true,"resource":{"id":"res_abc","title":"Learning plan"}}

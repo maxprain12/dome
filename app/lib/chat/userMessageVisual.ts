@@ -7,14 +7,14 @@ const IMAGE_RE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
 
 /**
  * Split markdown-style ![alt](url) image references from plain text.
- * Used when the composer embeds attachments as markdown image lines.
  */
 export function parseUserMessageVisualSegments(content: string): UserMessageVisualSegment[] {
   const segments: UserMessageVisualSegment[] = [];
   let lastIndex = 0;
   let m: RegExpExecArray | null;
   const trimmed = typeof content === 'string' ? content : '';
-  while ((m = IMAGE_RE.exec(trimmed)) !== null) {
+  const re = new RegExp(IMAGE_RE.source, IMAGE_RE.flags);
+  while ((m = re.exec(trimmed)) !== null) {
     const [full, alt, src] = m;
     const start = m.index;
     if (start > lastIndex) {

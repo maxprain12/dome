@@ -37,7 +37,7 @@ import {
   Layers,
   Mic,
 } from 'lucide-react';
-import { shallow } from 'zustand/shallow';
+import { useShallow } from 'zustand/react/shallow';
 import {
   useTabStore,
   type DomeTab,
@@ -187,15 +187,14 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     closeAllUnpinnedTabs,
     closeAllTabsToHome,
   } = useTabStore(
-    (s) => ({
+    useShallow((s) => ({
       tabs: s.tabs,
       activeTabId: s.activeTabId,
       activateTab: s.activateTab,
       closeTab: s.closeTab,
       closeAllUnpinnedTabs: s.closeAllUnpinnedTabs,
       closeAllTabsToHome: s.closeAllTabsToHome,
-    }),
-    shallow,
+    })),
   );
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -458,7 +457,7 @@ function TabContextMenuBridge({
     tabs,
     activeTabId,
   } = useTabStore(
-    (s) => ({
+    useShallow((s) => ({
       closeTab: s.closeTab,
       closeOtherTabs: s.closeOtherTabs,
       closeTabsToTheRight: s.closeTabsToTheRight,
@@ -467,8 +466,7 @@ function TabContextMenuBridge({
       openResourceInSplit: s.openResourceInSplit,
       tabs: s.tabs,
       activeTabId: s.activeTabId,
-    }),
-    shallow,
+    })),
   );
 
   const { tab, view, x, y } = state;

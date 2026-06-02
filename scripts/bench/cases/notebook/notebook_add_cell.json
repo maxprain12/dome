@@ -1,0 +1,36 @@
+{
+  "id": "notebook_add_cell.basic",
+  "category": "notebook",
+  "tool": "notebook_add_cell",
+  "mode": "direct",
+  "prompt": "En el notebook bench-notebook, añade una celda markdown con texto \"test\" (notebook_add_cell: resource_id bench-notebook, cell_type markdown, source test).",
+  "expected_tools": [
+    "notebook_add_cell"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": ["bench-notebook"],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar notebook_add_cell (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

@@ -9,6 +9,22 @@ const { getOpenAIKey } = require('./openai-key.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('./system-prompt.cjs');
 const { readPrompt } = require('./prompts-loader.cjs');
+const { SUBAGENT_NAMES } = require('./subagents.cjs');
+
+/**
+ * Subagents exposed to Many via the deepagents `task` tool.
+ * Defaults to all canonical subagents; override with a comma-separated
+ * DOME_MANY_SUBAGENTS list, or set it to an empty string to disable delegation.
+ */
+function manySubagentIds() {
+  const raw = process.env.DOME_MANY_SUBAGENTS;
+  if (raw == null) return SUBAGENT_NAMES;
+  const names = raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => SUBAGENT_NAMES.includes(s));
+  return names;
+}
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -961,6 +977,7 @@ function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
       metadata: {
         mode: persistOpts.ownerType,
         runId: persistOpts.runId,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
       },
       mode: persistOpts.ownerType === 'agent' ? 'agent' : 'many',
       contextId: persistOpts.contextId ?? null,
@@ -1012,18 +1029,28 @@ function createRunChunkEmitter(runId, context) {
         name: data.toolCall.name,
         arguments: args,
         status: 'running',
+        ...(data.agentName ? { agentName: data.agentName } : {}),
       });
       const step = appendRunStep({
         runId,
         stepType: 'tool_call',
         title: data.toolCall.name,
         status: 'running',
-        metadata: { toolCallId: data.toolCall.id, arguments: args },
+        metadata: {
+          toolCallId: data.toolCall.id,
+          arguments: args,
+          ...(data.agentName ? { agentName: data.agentName } : {}),
+        },
       });
       if (!step) return;
       context.toolStepIds.set(data.toolCall.id, step.id);
       context.toolSteps.set(data.toolCall.id, step);
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'tool_call', toolCall: data.toolCall });
+      emit(RUN_CHUNK_CHANNEL, {
+        runId,
+        type: 'tool_call',
+        toolCall: data.toolCall,
+        ...(data.agentName ? { agentName: data.agentName } : {}),
+      });
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
@@ -1044,7 +1071,13 @@ function createRunChunkEmitter(runId, context) {
         );
         if (nextStep) context.toolSteps.set(data.toolCallId, nextStep);
       }
-      emit(RUN_CHUNK_CHANNEL, { runId, type: 'tool_result', toolCallId: data.toolCallId, result: data.result });
+      emit(RUN_CHUNK_CHANNEL, {
+        runId,
+        type: 'tool_result',
+        toolCallId: data.toolCallId,
+        result: data.result,
+        ...(data.agentName ? { agentName: data.agentName } : {}),
+      });
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
@@ -1054,6 +1087,12 @@ function createRunChunkEmitter(runId, context) {
     }
     if (data.type === 'usage' && data.usage) {
       context.llmUsage = mergeLlmUsage(context.llmUsage, data.usage);
+      emit(RUN_CHUNK_CHANNEL, {
+        runId,
+        type: 'usage',
+        usage: data.usage,
+        partial: data.partial === true,
+      });
       return;
     }
     if (
@@ -1071,8 +1110,8 @@ function createRunChunkEmitter(runId, context) {
             actionRequests: data.actionRequests,
             reviewConfigs,
           },
-          // Persist so resumeRun can reconstruct agent config after app restart
           resumeOpts: context.langGraphResumeOpts ?? null,
+          ...(context.llmUsage ? { usage: context.llmUsage } : {}),
         },
         lastHeartbeatAt: heartbeat,
       });
@@ -1098,7 +1137,7 @@ async function executeLangGraphRun(runId, params) {
       provider: context.provider,
       model: context.model,
       mcpServerIds: params.mcpServerIds ?? [],
-      subagentIds: params.ownerType === 'many' ? [] : (params.subagentIds ?? []),
+      subagentIds: params.ownerType === 'many' ? manySubagentIds() : (params.subagentIds ?? []),
       title: params.title ?? '',
       contextId: params.contextId ?? null,
       sessionTitle: params.sessionTitle ?? null,
@@ -1125,7 +1164,7 @@ async function executeLangGraphRun(runId, params) {
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
     mcpServerIds: params.mcpServerIds,
-    subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
+    subagentIds: params.ownerType === 'many' ? manySubagentIds() : params.subagentIds,
     skipHitl: !!params.skipHitl,
     automationProjectId,
     runtimeContext,
@@ -1141,7 +1180,7 @@ async function executeLangGraphRun(runId, params) {
       toolDefinitions: params.toolDefinitions ?? [],
       useDirectTools: useDirectToolsRun,
       mcpServerIds: params.mcpServerIds,
-      subagentIds: params.ownerType === 'many' ? [] : params.subagentIds,
+      subagentIds: params.ownerType === 'many' ? manySubagentIds() : params.subagentIds,
       threadId: context.threadId,
       skipHitl: !!params.skipHitl,
       signal: context.controller.signal,
@@ -1224,6 +1263,7 @@ async function executeLangGraphRun(runId, params) {
         provider: context.provider,
         model: context.model,
         toolCalls: context.toolCalls,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
       },
     });
     if (
@@ -1426,10 +1466,15 @@ async function resumeRun(runId, decisions) {
       },
     });
   } catch (error) {
+    const failMeta = run.metadata ?? {};
     return patchRun(runId, {
       status: 'failed',
       error: error?.message || String(error),
       finishedAt: now(),
+      metadata: {
+        ...failMeta,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+      },
     });
   } finally {
     const latest = getRun(runId);
@@ -1446,11 +1491,16 @@ function abortRun(runId) {
   }
   const current = getRun(runId);
   if (current && !RUN_TERMINAL_STATUSES.has(current.status)) {
+    const ctx = activeRunContexts.get(runId);
     patchRun(runId, {
       status: 'cancelled',
       finishedAt: now(),
       error: null,
       summary: current.summary || 'Run cancelado',
+      metadata: {
+        ...(current.metadata ?? {}),
+        ...(ctx?.llmUsage ? { usage: ctx.llmUsage } : {}),
+      },
     });
     finalizeRunningRunSteps(runId, 'cancelled', context);
   }
@@ -1634,9 +1684,11 @@ async function executeWorkflowRun(runId, params, workflow) {
             status: 'running',
             metadata: { nodeId: node.id, agentId: data.agentId ?? null, systemAgentRole: data.systemAgentRole ?? null },
           });
-          const systemContent = data.agentId
-            ? buildDomeSystemPrompt({ staticPersona: agentDef.systemPrompt || '' })
-            : `Respond in the same language the user uses.\n\n${agentDef.systemPrompt || ''}`;
+          const systemContent = buildDomeSystemPrompt({
+            staticPersona: agentDef.systemPrompt || '',
+            includeDate: false,
+            coreToolsMode: data.agentId ? 'full' : 'minimal',
+          });
           let nodeError = null;
           try {
             await langgraphAgent.invokeLangGraphAgent({

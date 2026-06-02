@@ -1,104 +1,226 @@
 import { create } from 'zustand';
-import type { FlashcardDeck, Flashcard, FlashcardDeckStats, StudioOutput } from '@/types';
+import type { FlashcardDeck, Flashcard, FlashcardDeckStats, StudioOutput, StudioOutputType } from '@/types';
+import type {
+  GenerateConfig,
+  GenerateProgress,
+  LearnKpis,
+  LearnStreak,
+  LearnView,
+  LearnStudyMode,
+  WizardState,
+} from '@/lib/learn/types';
+import { loadSavedGenerateConfig, persistGenerateConfig } from '@/lib/learn/generateConfigStorage';
 
 export type LearnSection = 'all' | 'decks' | 'mindmaps' | 'quizzes' | 'guides' | 'faqs' | 'timelines' | 'tables';
 
 interface LearnState {
-  // Navigation
   activeSection: LearnSection;
   setActiveSection: (section: LearnSection) => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
 
-  // Data
+  view: LearnView;
+  activeDeckId: string | null;
+  activeDeckKind: 'flashcard_deck' | StudioOutputType | null;
+  openDeck: (id: string, kind: 'flashcard_deck' | StudioOutputType) => void;
+  closeDeck: () => void;
+
+  studyMode: LearnStudyMode;
+  setStudyMode: (mode: LearnStudyMode) => void;
+
   decks: FlashcardDeck[];
   studioOutputs: StudioOutput[];
   deckStats: Record<string, FlashcardDeckStats>;
 
-  // UI State
+  kpis: LearnKpis | null;
+  streak: LearnStreak | null;
+  loadKpis: () => Promise<void>;
+  loadStreak: () => Promise<void>;
+
+  wizard: WizardState;
+  setWizardOpen: (open: boolean) => void;
+  setWizardStep: (step: 0 | 1 | 2) => void;
+  setWizardType: (type: StudioOutputType | null) => void;
+  setWizardSourceIds: (ids: string[]) => void;
+  setWizardConfig: (config: Partial<GenerateConfig>) => void;
+  setWizardShowProgress: (show: boolean) => void;
+  resetWizard: () => void;
+
+  progress: GenerateProgress | null;
+  setProgress: (p: GenerateProgress | null) => void;
+  activeRunId: string | null;
+  setActiveRunId: (id: string | null) => void;
+
   isStudying: boolean;
   currentDeckId: string | null;
   currentCardIndex: number;
   isCardFlipped: boolean;
   studyStartTime: number | null;
-
-  // Session tracking
   sessionCorrect: number;
   sessionIncorrect: number;
   sessionStreak: number;
   maxStreak: number;
 
-  // Modals
   isGenerateModalOpen: boolean;
-  isDeckModalOpen: boolean;
   isDeckEditorOpen: boolean;
   editingDeckId: string | null;
 
   setGenerateModalOpen: (open: boolean) => void;
-  setDeckModalOpen: (open: boolean) => void;
+  openGenerateWizard: (prefill?: {
+    type?: StudioOutputType | null;
+    sourceIds?: string[];
+    step?: 0 | 1 | 2;
+  }) => void;
   setDeckEditorOpen: (open: boolean, deckId?: string | null) => void;
 
-  // Actions
   loadDecks: () => Promise<void>;
   loadStudioOutputs: (projectId?: string) => Promise<void>;
   loadDeckStats: (deckId: string) => Promise<void>;
   deleteDeck: (deckId: string) => Promise<boolean>;
   deleteStudioOutput: (outputId: string) => Promise<boolean>;
 
-  // Study actions
   startStudy: (deckId: string) => Promise<void>;
   flipCard: () => void;
   reviewCard: (quality: number) => Promise<void>;
+  skipCard: () => void;
   endStudy: () => Promise<void>;
 
-  // Due cards
   dueCards: Flashcard[];
   loadDueCards: (deckId: string) => Promise<void>;
 
-  // Reset
   reset: () => void;
 }
 
+const initialWizard: WizardState = {
+  open: false,
+  step: 0,
+  showProgress: false,
+  type: null,
+  sourceIds: [],
+  config: loadSavedGenerateConfig(),
+};
+
 export const useLearnStore = create<LearnState>((set, get) => ({
-  // Navigation
   activeSection: 'all',
   setActiveSection: (section) => set({ activeSection: section }),
+  searchQuery: '',
+  setSearchQuery: (q) => set({ searchQuery: q }),
 
-  // Data
+  view: 'library',
+  activeDeckId: null,
+  activeDeckKind: null,
+  openDeck: (id, kind) => set({ view: 'deck', activeDeckId: id, activeDeckKind: kind }),
+  closeDeck: () => set({ view: 'library', activeDeckId: null, activeDeckKind: null }),
+
+  studyMode: null,
+  setStudyMode: (mode) => set({ studyMode: mode }),
+
   decks: [],
   studioOutputs: [],
   deckStats: {},
 
-  // UI State
+  kpis: null,
+  streak: null,
+  loadKpis: async () => {
+    try {
+      const result = await window.electron.db.learn.getKpis();
+      if (result.success && result.data) set({ kpis: result.data as LearnKpis });
+    } catch (error) {
+      console.error('[LearnStore] loadKpis:', error);
+    }
+  },
+  loadStreak: async () => {
+    try {
+      const result = await window.electron.db.learn.getStreak();
+      if (result.success && result.data) set({ streak: result.data as LearnStreak });
+    } catch (error) {
+      console.error('[LearnStore] loadStreak:', error);
+    }
+  },
+
+  wizard: { ...initialWizard },
+  setWizardOpen: (open) =>
+    set((s) => ({
+      wizard: { ...s.wizard, open },
+      isGenerateModalOpen: open,
+    })),
+  setWizardStep: (step) => set((s) => ({ wizard: { ...s.wizard, step } })),
+  setWizardType: (type) => set((s) => ({ wizard: { ...s.wizard, type } })),
+  setWizardSourceIds: (ids) => set((s) => ({ wizard: { ...s.wizard, sourceIds: ids } })),
+  setWizardConfig: (config) =>
+    set((s) => {
+      const next = { ...s.wizard.config, ...config };
+      persistGenerateConfig(next);
+      return { wizard: { ...s.wizard, config: next } };
+    }),
+  setWizardShowProgress: (show) => set((s) => ({ wizard: { ...s.wizard, showProgress: show } })),
+  resetWizard: () =>
+    set({
+      wizard: { ...initialWizard, config: loadSavedGenerateConfig() },
+      progress: null,
+      activeRunId: null,
+    }),
+
+  progress: null,
+  setProgress: (p) => set({ progress: p }),
+  activeRunId: null,
+  setActiveRunId: (id) => set({ activeRunId: id }),
+
   isStudying: false,
   currentDeckId: null,
   currentCardIndex: 0,
   isCardFlipped: false,
   studyStartTime: null,
-
-  // Session tracking
   sessionCorrect: 0,
   sessionIncorrect: 0,
   sessionStreak: 0,
   maxStreak: 0,
 
-  // Modals
   isGenerateModalOpen: false,
-  isDeckModalOpen: false,
   isDeckEditorOpen: false,
   editingDeckId: null,
 
-  setGenerateModalOpen: (open) => set({ isGenerateModalOpen: open }),
-  setDeckModalOpen: (open) => set({ isDeckModalOpen: open }),
+  setGenerateModalOpen: (open) => {
+    if (open) {
+      set((s) => ({
+        isGenerateModalOpen: true,
+        wizard: {
+          ...s.wizard,
+          open: true,
+          config: s.wizard.config.title ? s.wizard.config : loadSavedGenerateConfig(),
+        },
+      }));
+    } else {
+      set({
+        isGenerateModalOpen: false,
+        wizard: { ...initialWizard, config: loadSavedGenerateConfig() },
+        progress: null,
+      });
+    }
+  },
+  openGenerateWizard: (prefill) => {
+    set((s) => ({
+      isGenerateModalOpen: true,
+      wizard: {
+        ...s.wizard,
+        open: true,
+        step: prefill?.step ?? 0,
+        type: prefill?.type !== undefined ? prefill.type : s.wizard.type,
+        sourceIds: prefill?.sourceIds ?? s.wizard.sourceIds,
+        config: loadSavedGenerateConfig(),
+        showProgress: false,
+      },
+      progress: null,
+    }));
+  },
   setDeckEditorOpen: (open, deckId = null) => set({ isDeckEditorOpen: open, editingDeckId: deckId }),
 
-  // Due cards
   dueCards: [],
 
   loadDecks: async () => {
     try {
       const result = await window.electron.db.flashcards.getAllDecks(100);
-      if (result.success && result.data) {
-        set({ decks: result.data });
-      }
+      if (result.success && result.data) set({ decks: result.data });
     } catch (error) {
       console.error('[LearnStore] Error loading decks:', error);
     }
@@ -109,9 +231,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
       const result = projectId
         ? await window.electron.db.studio.getByProject(projectId)
         : await window.electron.db.studio.getAll();
-      if (result.success && result.data) {
-        set({ studioOutputs: result.data });
-      }
+      if (result.success && result.data) set({ studioOutputs: result.data });
     } catch (error) {
       console.error('[LearnStore] Error loading studio outputs:', error);
     }
@@ -121,9 +241,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     try {
       const result = await window.electron.db.flashcards.getStats(deckId);
       if (result.success && result.data) {
-        set((state) => ({
-          deckStats: { ...state.deckStats, [deckId]: result.data },
-        }));
+        set((state) => ({ deckStats: { ...state.deckStats, [deckId]: result.data } }));
       }
     } catch (error) {
       console.error('[LearnStore] Error loading deck stats:', error);
@@ -134,9 +252,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     try {
       const result = await window.electron.db.flashcards.deleteDeck(deckId);
       if (result.success) {
-        set((state) => ({
-          decks: state.decks.filter((d) => d.id !== deckId),
-        }));
+        set((state) => ({ decks: state.decks.filter((d) => d.id !== deckId) }));
         return true;
       }
       return false;
@@ -150,9 +266,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     try {
       const result = await window.electron.db.studio.delete(outputId);
       if (result.success) {
-        set((state) => ({
-          studioOutputs: state.studioOutputs.filter((o) => o.id !== outputId),
-        }));
+        set((state) => ({ studioOutputs: state.studioOutputs.filter((o) => o.id !== outputId) }));
         return true;
       }
       return false;
@@ -165,9 +279,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
   loadDueCards: async (deckId: string) => {
     try {
       const result = await window.electron.db.flashcards.getDueCards(deckId, 50);
-      if (result.success && result.data) {
-        set({ dueCards: result.data });
-      }
+      if (result.success && result.data) set({ dueCards: result.data });
     } catch (error) {
       console.error('[LearnStore] Error loading due cards:', error);
     }
@@ -176,9 +288,10 @@ export const useLearnStore = create<LearnState>((set, get) => ({
   startStudy: async (deckId: string) => {
     const { loadDueCards } = get();
     await loadDueCards(deckId);
-
     set({
       isStudying: true,
+      view: 'studying',
+      studyMode: 'flashcards',
       currentDeckId: deckId,
       currentCardIndex: 0,
       isCardFlipped: false,
@@ -190,21 +303,16 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     });
   },
 
-  flipCard: () => {
-    set((state) => ({ isCardFlipped: !state.isCardFlipped }));
-  },
+  flipCard: () => set((state) => ({ isCardFlipped: !state.isCardFlipped })),
 
   reviewCard: async (quality: number) => {
     const { dueCards, currentCardIndex, sessionStreak, maxStreak } = get();
     const card = dueCards[currentCardIndex];
     if (!card) return;
-
     try {
       await window.electron.db.flashcards.reviewCard(card.id, quality);
-
       const isCorrect = quality >= 3;
       const newStreak = isCorrect ? sessionStreak + 1 : 0;
-
       set((state) => ({
         sessionCorrect: state.sessionCorrect + (isCorrect ? 1 : 0),
         sessionIncorrect: state.sessionIncorrect + (isCorrect ? 0 : 1),
@@ -218,12 +326,17 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     }
   },
 
+  skipCard: () => {
+    set((state) => ({
+      currentCardIndex: state.currentCardIndex + 1,
+      isCardFlipped: false,
+    }));
+  },
+
   endStudy: async () => {
     const { currentDeckId, sessionCorrect, sessionIncorrect, studyStartTime } = get();
     if (!currentDeckId) return;
-
     const duration = studyStartTime ? Date.now() - studyStartTime : 0;
-
     try {
       await window.electron.db.flashcards.createSession({
         deck_id: currentDeckId,
@@ -237,22 +350,35 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     } catch (error) {
       console.error('[LearnStore] Error saving session:', error);
     }
-
     set({
       isStudying: false,
+      view: 'library',
+      studyMode: null,
       currentDeckId: null,
       currentCardIndex: 0,
       isCardFlipped: false,
       studyStartTime: null,
     });
+    void get().loadKpis();
+    void get().loadStreak();
   },
 
   reset: () => {
     set({
       activeSection: 'all',
+      searchQuery: '',
+      view: 'library',
+      activeDeckId: null,
+      activeDeckKind: null,
+      studyMode: null,
       decks: [],
       studioOutputs: [],
       deckStats: {},
+      kpis: null,
+      streak: null,
+      wizard: { ...initialWizard, config: loadSavedGenerateConfig() },
+      progress: null,
+      activeRunId: null,
       isStudying: false,
       currentDeckId: null,
       currentCardIndex: 0,
@@ -263,7 +389,6 @@ export const useLearnStore = create<LearnState>((set, get) => ({
       sessionStreak: 0,
       maxStreak: 0,
       isGenerateModalOpen: false,
-      isDeckModalOpen: false,
       isDeckEditorOpen: false,
       editingDeckId: null,
       dueCards: [],

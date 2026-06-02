@@ -73,9 +73,19 @@ function migrateLegacySkills(db) {
 /**
  * @param {import('better-sqlite3').Database} db
  */
+function repairSkillDirectoriesOnce(db) {
+  try {
+    const { repairSkillDirectoryNames } = require('./skills/install.cjs');
+    repairSkillDirectoryNames();
+  } catch (err) {
+    console.warn('[Skills] Directory repair failed (non-fatal):', err?.message);
+  }
+}
+
 function seedBundledSkills(db) {
   try {
     migrateLegacySkills(db);
+    repairSkillDirectoriesOnce(db);
 
     const flagRow = db.prepare('SELECT value FROM settings WHERE key = ?').get(SEEDED_FLAG);
     if (flagRow?.value === '1') return;

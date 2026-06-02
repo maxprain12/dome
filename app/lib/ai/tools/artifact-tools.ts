@@ -204,13 +204,16 @@ export function createArtifactUpdateStateTool(): AnyAgentTool {
         Type.String({ description: 'New self-contained HTML. Omit to keep existing HTML.' }),
       ),
       data: Type.Optional(
-        Type.Object(
-          {},
-          {
-            additionalProperties: true,
-            description: 'New structured data. Omit to keep existing data.',
-          },
-        ),
+        Type.Union([
+          Type.Object(
+            {},
+            {
+              additionalProperties: true,
+              description: 'New structured data object.',
+            },
+          ),
+          Type.String({ description: 'JSON string of structured data (will be parsed).' }),
+        ]),
       ),
     }),
     execute: async (_id, args) => {
@@ -226,7 +229,17 @@ export function createArtifactUpdateStateTool(): AnyAgentTool {
       const existingState = (current.data.state ?? {}) as Record<string, unknown>;
       const newState: Record<string, unknown> = { ...existingState };
       if (params.html !== undefined) newState.html = params.html as string;
-      if (params.data !== undefined) newState.data = params.data;
+      if (params.data !== undefined) {
+        let nextData: unknown = params.data;
+        if (typeof nextData === 'string') {
+          try {
+            nextData = JSON.parse(nextData);
+          } catch {
+            return jsonResult({ success: false, error: 'data must be valid JSON' });
+          }
+        }
+        newState.data = nextData;
+      }
 
       const result = await window.electron.invoke('artifact:update', { resourceId, state: newState });
       return jsonResult(result);

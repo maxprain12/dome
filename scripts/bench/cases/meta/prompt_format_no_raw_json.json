@@ -1,0 +1,24 @@
+{
+  "id": "prompt_format.no_raw_json",
+  "category": "meta",
+  "tool": "resource_create",
+  "mode": "direct",
+  "prompt": "Crea una nota titulada Bench Format Test con contenido breve en el proyecto bench-project. Responde al usuario en lenguaje natural con enlace dome:// — nunca JSON crudo del tool.",
+  "expected_tools": [
+    "resource_create"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_tree"
+  ],
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 30,
+    "must_not_contain": ["\"success\":true", "{\"resource\""]
+  },
+  "judge_criteria": "Respuesta conversacional con link dome://; sin volcar JSON del tool al usuario.",
+  "timeout_ms": 90000,
+  "skip_hitl": true,
+  "optional": true
+}

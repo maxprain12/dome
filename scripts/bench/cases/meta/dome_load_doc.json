@@ -1,0 +1,37 @@
+{
+  "id": "dome_load_doc.basic",
+  "category": "meta",
+  "tool": "dome_load_doc",
+  "mode": "direct",
+  "prompt": "Antes de crear un agente, carga las reglas con dome_load_doc (id: entity_rules) y confirma que las leíste.",
+  "expected_tools": [
+    "dome_load_doc"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": true,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar dome_load_doc (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

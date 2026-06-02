@@ -53,6 +53,7 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.d.ts",
+    "shared/prompt-assembler/index.ts",
 
     ".next/types/**/*.ts",
     "out/types/**/*.ts"

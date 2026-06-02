@@ -1,0 +1,13 @@
+ToolUse (filesystem — two layers):
+
+A) Real disk (`/Users/.../Documents/...`) — Dome native tools:
+- file_read, file_list, file_tree, file_write
+- Do NOT use harness read_file/glob/ls for Mac paths — they only see `/memories/` sandbox
+
+B) Harness sandbox (`/memories/` only):
+- read_file, write_file, edit_file, glob, ls
+- Write only under /memories/; other paths return permission denied
+
+Deliverables:
+- HTML mini-apps → artifact_create / artifact_update_state (load artifact_persisted + artifact_design first)
+- Library notes → resource_create type=note

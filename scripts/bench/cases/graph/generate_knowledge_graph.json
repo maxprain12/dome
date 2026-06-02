@@ -1,0 +1,36 @@
+{
+  "id": "generate_knowledge_graph.basic",
+  "category": "graph",
+  "tool": "generate_knowledge_graph",
+  "mode": "direct",
+  "prompt": "Genera un grafo de conocimiento para bench-project (fuentes: notas bench).",
+  "expected_tools": [
+    "generate_knowledge_graph"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar generate_knowledge_graph (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 120000,
+  "skip_hitl": true,
+  "optional": false
+}

@@ -92,9 +92,9 @@ function emitAnalytics(windowManager, props) {
  * @param {'openai' | 'dome' | 'minimax' | 'ollama'} _style
  * @returns {Array<{ role: string, content: string | unknown[] }>}
  */
-function buildOpenAStyleMessages(system, userText, imageDataUrls) {
+function buildOpenAStyleMessages(system, userText, imageDataUrls, provider, modelId) {
   const imgs = (imageDataUrls || []).filter(Boolean);
-  const userContent = llmService.buildImageContent(userText, imgs);
+  const userContent = llmService.buildImageContent(userText, imgs, { provider, modelId });
   const messages = [];
   if (system && String(system).trim()) {
     messages.push({ role: 'system', content: String(system) });
@@ -108,8 +108,8 @@ function buildOpenAStyleMessages(system, userText, imageDataUrls) {
  * @param {string} userText
  * @param {string[]} imageDataUrls
  */
-function buildAnthropicStyleMessages(system, userText, imageDataUrls) {
-  return buildOpenAStyleMessages(system, userText, imageDataUrls);
+function buildAnthropicStyleMessages(system, userText, imageDataUrls, provider, modelId) {
+  return buildOpenAStyleMessages(system, userText, imageDataUrls, provider, modelId);
 }
 
 /**
@@ -148,8 +148,10 @@ async function generateText(opts) {
   };
   const anthOpts = { maxTokens: openOpts.maxTokens };
 
+  const resolvedModel = cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model;
+
   const messages = hasImages
-    ? buildOpenAStyleMessages(system, user, imageDataUrls)
+    ? buildOpenAStyleMessages(system, user, imageDataUrls, cfg.provider, resolvedModel)
     : (() => {
         const m = [];
         if (system && String(system).trim()) m.push({ role: 'system', content: String(system) });
@@ -172,6 +174,8 @@ async function generateText(opts) {
             `${system || ''}\nResponde solo con un objeto JSON válido, sin markdown.`,
             user,
             imageDataUrls,
+            'anthropic',
+            cfg.model,
           )
         : (() => {
             const m = [];
@@ -190,7 +194,7 @@ async function generateText(opts) {
       if (cfg.provider !== 'ollama' && !cfg.apiKey) throw new Error('Falta la clave API en Ajustes');
       out = await llmService.chat({
         provider: cfg.provider,
-        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M2.5') : cfg.model,
+        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
         apiKey: cfg.apiKey,
         baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
         messages,
@@ -204,7 +208,8 @@ async function generateText(opts) {
     emitAnalytics(windowManager, { task, provider: cfg.provider, ms: Date.now() - t0, ok: !err, error: err?.message });
   }
 
-  return String(out || '');
+  const text = typeof out === 'object' && out && 'text' in out ? out.text : String(out || '');
+  return String(text || '');
 }
 
 /**
@@ -270,6 +275,18 @@ async function domeStreamChatCompletions(p, onChunk) {
       if (raw === '[DONE]') continue;
       try {
         const parsed = JSON.parse(raw);
+        if (parsed?.usage) {
+          const u = parsed.usage;
+          onChunk({
+            type: 'usage',
+            usage: {
+              inputTokens: u.prompt_tokens ?? 0,
+              outputTokens: u.completion_tokens ?? 0,
+              totalTokens: u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0),
+            },
+            partial: true,
+          });
+        }
         const t = parsed?.choices?.[0]?.delta?.content;
         if (t) {
           full += t;
@@ -299,8 +316,10 @@ async function streamGenerate(opts) {
     throw new Error('Configura un proveedor de IA en Ajustes.');
   }
   const streamOpts = { maxTokens: maxTokens || 1024 };
+  const resolvedModel = cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model;
+
   const messages = hasImages
-    ? buildOpenAStyleMessages(system, user, imageDataUrls)
+    ? buildOpenAStyleMessages(system, user, imageDataUrls, cfg.provider, resolvedModel)
     : (() => {
         const m = [];
         if (system && String(system).trim()) m.push({ role: 'system', content: String(system) });
@@ -320,15 +339,22 @@ async function streamGenerate(opts) {
     } else {
       if (cfg.provider !== 'ollama' && !cfg.apiKey) throw new Error('Falta la clave API');
       const googleOpts = { maxOutputTokens: streamOpts.maxTokens };
-      full = await llmService.stream({
+      const streamResult = await llmService.stream({
         provider: cfg.provider,
-        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M2.5') : cfg.model,
+        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
         apiKey: cfg.apiKey,
         baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
         messages,
         options: cfg.provider === 'google' ? googleOpts : streamOpts,
-        onChunk: wrap,
+        onChunk: (data) => {
+          if (data?.type === 'usage' && data.usage) {
+            onChunk(data);
+            return;
+          }
+          wrap(data);
+        },
       });
+      full = streamResult?.text ?? String(streamResult || '');
     }
   } catch (e) {
     err = e instanceof Error ? e : new Error(String(e));

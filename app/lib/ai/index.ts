@@ -89,6 +89,7 @@ export {
   formatContextWindow,
   findModelById,
   modelSupportsVision,
+  modelSupportsVideo,
   modelSupportsTools,
   getModelApiType,
 } from './models';

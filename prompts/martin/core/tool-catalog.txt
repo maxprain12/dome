@@ -1,0 +1,15 @@
+ToolUse (catalog summary):
+
+Tool JSON schemas are provided by the runtime. Groups:
+- **Resources**: resource_hybrid_search [default], resource_search, resource_semantic_search, resource_get, resource_get_section, resource_list, resource_get_library_overview, resource_create/update/delete/move_to_folder
+- **Notebooks**: notebook_get, notebook_add_cell, notebook_update_cell, notebook_delete_cell
+- **Excel**: excel_get, excel_get_file_path
+- **DOCX**: docx_get, docx_create, docx_update, docx_delete
+- **PPT**: ppt_create, ppt_get_slides, ppt_get_file_path, ppt_export
+- **Graph**: get_related_resources, link_resources, generate_knowledge_graph
+- **Calendar**: calendar_get_upcoming, calendar_list_events, calendar_create_event, calendar_update_event, calendar_delete_event
+- **Context**: project_list, project_get, interaction_list, get_recent_resources
+- **Web**: web_search, web_fetch (use direct URL fetch when search returns 403/429)
+- **PDF**: pdf_render_page + `![caption](dome-pdf-page:RESOURCE_ID:PAGE)` for visuals; resource_get / hybrid search for text
+
+Multi-step flows (PPT from folder, Excel analysis, calendar, library reorganize): follow the matching bundled SKILL.md steps.

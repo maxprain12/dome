@@ -473,19 +473,64 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
   minimax: {
     id: 'minimax',
     name: 'MiniMax',
-    description: 'MiniMax M2.5 Coding Plan',
+    description: 'MiniMax M-series via Anthropic-compatible API',
     icon: 'minimax',
     models: [
+      {
+        id: 'MiniMax-M3',
+        name: 'MiniMax M3',
+        reasoning: true,
+        input: ['text', 'image', 'video'],
+        contextWindow: 1000000,
+        maxTokens: 16384,
+        recommended: true,
+        description: 'Agentic reasoning, tools, image & video understanding',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'MiniMax-M2.7',
+        name: 'MiniMax M2.7',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 204800,
+        maxTokens: 8192,
+        description: 'M2.7 — text and tools only',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsStreaming: true },
+      },
+      {
+        id: 'MiniMax-M2.7-highspeed',
+        name: 'MiniMax M2.7 Highspeed',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 204800,
+        maxTokens: 8192,
+        description: 'M2.7 highspeed variant',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsStreaming: true },
+      },
       {
         id: 'MiniMax-M2.5',
         name: 'MiniMax M2.5',
         reasoning: true,
         input: ['text'],
-        contextWindow: 1000000,
+        contextWindow: 204800,
         maxTokens: 16384,
-        recommended: true,
-        description: 'MiniMax M2.5 — OpenAI-compatible API',
-        api: 'openai-completions',
+        description: 'M2.5 — text and tools only',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsStreaming: true },
+      },
+      {
+        id: 'MiniMax-M2.5-highspeed',
+        name: 'MiniMax M2.5 Highspeed',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 204800,
+        maxTokens: 16384,
+        description: 'M2.5 highspeed variant',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsStreaming: true },
       },
     ],
     supportsEmbeddings: false,
@@ -609,7 +654,7 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'ollama': return 'llama3.2';
     case 'copilot': return 'gpt-4o';
     case 'deepseek': return 'deepseek-chat';
-    case 'minimax': return 'MiniMax-M2.5';
+    case 'minimax': return 'MiniMax-M3';
     case 'openrouter': return 'anthropic/claude-sonnet-4.5';
     case 'moonshot': return 'moonshot-v1-8k';
     case 'qwen': return 'qwen-max';
@@ -662,6 +707,13 @@ export function findModelById(modelId: string): { provider: AIProviderType; mode
  */
 export function modelSupportsVision(model: ModelDefinition): boolean {
   return model.input.includes('image') || model.compat?.supportsVision === true;
+}
+
+/**
+ * Check if a model supports native video input
+ */
+export function modelSupportsVideo(model: ModelDefinition): boolean {
+  return model.input.includes('video');
 }
 
 /**

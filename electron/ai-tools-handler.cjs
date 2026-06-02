@@ -33,6 +33,7 @@ const { rrfMerge } = require('./hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('./artifact-serialize.cjs');
 const { afterArtifactMutation } = require('./artifact-index-sync.cjs');
 const pdfTranscriptionSvc = require('./services/pdf-transcription.cjs');
+const { progress: studioProgress, createRunId } = require('./services/studio-progress.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -2118,9 +2119,6 @@ async function flashcardCreate(data) {
       now2
     );
 
-    // Update deck with studio_output_id backlink
-    db.prepare('UPDATE flashcard_decks SET studio_output_id = ? WHERE id = ?').run(studioOutputId, deckId);
-
     const studioOutput = db.prepare('SELECT * FROM studio_outputs WHERE id = ?').get(studioOutputId);
 
     const out = {
@@ -3187,12 +3185,66 @@ async function imageThumbnailTool(args) {
   return { status: 'error', error: r.error || 'Thumbnail failed' };
 }
 
+async function wrapStudioGather(phase, fn) {
+  const runId = createRunId();
+  if (windowManagerRef) {
+    studioProgress(windowManagerRef, runId, 'read', 'Reading sources…');
+  }
+  const result = await fn();
+  if (windowManagerRef) {
+    if (result?.status === 'success') {
+      studioProgress(windowManagerRef, runId, 'extract', 'Extracted key concepts', {
+        current: 1,
+        total: 5,
+      });
+      studioProgress(windowManagerRef, runId, 'ready', `${phase} context ready`, {
+        current: 2,
+        total: 5,
+        source_count: result.source_count,
+      });
+    } else if (result?.status === 'error') {
+      studioProgress(windowManagerRef, runId, 'error', result.error || 'Generation failed', {
+        error: result.error,
+      });
+    }
+  }
+  return { ...result, run_id: runId };
+}
+
 async function gatherStudioMindmapContext(args) {
-  return aiToolsExtra.gatherStudioMindmapContext(args, resourceGet, resourceList);
+  return wrapStudioGather('mindmap', () =>
+    aiToolsExtra.gatherStudioMindmapContext(args, resourceGet, resourceList),
+  );
 }
 
 async function gatherStudioQuizContext(args) {
-  return aiToolsExtra.gatherStudioQuizContext(args, resourceGet, resourceList);
+  return wrapStudioGather('quiz', () =>
+    aiToolsExtra.gatherStudioQuizContext(args, resourceGet, resourceList),
+  );
+}
+
+async function gatherStudioGuideContext(args) {
+  return wrapStudioGather('guide', () =>
+    aiToolsExtra.gatherStudioGuideContext(args, resourceGet, resourceList),
+  );
+}
+
+async function gatherStudioFaqContext(args) {
+  return wrapStudioGather('faq', () =>
+    aiToolsExtra.gatherStudioFaqContext(args, resourceGet, resourceList),
+  );
+}
+
+async function gatherStudioTimelineContext(args) {
+  return wrapStudioGather('timeline', () =>
+    aiToolsExtra.gatherStudioTimelineContext(args, resourceGet, resourceList),
+  );
+}
+
+async function gatherStudioTableContext(args) {
+  return wrapStudioGather('table', () =>
+    aiToolsExtra.gatherStudioTableContext(args, resourceGet, resourceList),
+  );
 }
 
 // =============================================================================
@@ -3583,6 +3635,16 @@ async function artifactUpdateState(args) {
   try {
     const resourceId = args?.resource_id ?? args?.resourceId;
     if (!resourceId) return { success: false, error: 'resource_id is required' };
+
+    let nextData = args?.data;
+    if (typeof nextData === 'string') {
+      try {
+        nextData = JSON.parse(nextData);
+      } catch {
+        return { success: false, error: 'data must be a JSON object (string parse failed)' };
+      }
+    }
+
     const queries = database.getQueries();
     const db = database.getDB();
     const existing = queries.getArtifactByResourceId.get(resourceId);
@@ -3591,7 +3653,7 @@ async function artifactUpdateState(args) {
     const prevState = parseJsonState(existing.state);
     const mergedState = { ...prevState };
     if (args.html !== undefined) mergedState.html = args.html;
-    if (args.data !== undefined) mergedState.data = args.data;
+    if (nextData !== undefined) mergedState.data = nextData;
 
     const now = Date.now();
     const stateStr = JSON.stringify(mergedState);
@@ -4047,6 +4109,10 @@ module.exports = {
   imageThumbnailTool,
   gatherStudioMindmapContext,
   gatherStudioQuizContext,
+  gatherStudioGuideContext,
+  gatherStudioFaqContext,
+  gatherStudioTimelineContext,
+  gatherStudioTableContext,
 
   // MCP file import
   importFileToLibrary,

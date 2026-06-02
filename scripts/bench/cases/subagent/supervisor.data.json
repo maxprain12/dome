@@ -1,0 +1,14 @@
+{
+  "id": "supervisor.data",
+  "category": "subagent",
+  "tool": "call_data_agent",
+  "mode": "supervisor",
+  "prompt": "Delega al data agent: resume datos de bench-xlsx-1.",
+  "expected_tools": [
+    "call_data_agent"
+  ],
+  "fixtures": [
+    "bench-xlsx-1"
+  ],
+  "skip_hitl": false
+}

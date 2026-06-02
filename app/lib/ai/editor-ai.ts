@@ -64,7 +64,7 @@ export async function executeEditorAIAction(
       : getEditorActionPrompt(action);
 
   const contextSnippet = documentContext.substring(0, 3000);
-  const systemContent = buildEditorSystemPrompt(contextSnippet);
+  const systemContent = buildEditorSystemPrompt(contextSnippet, actionPrompt);
 
   const messages = [
     { role: 'system', content: systemContent },
@@ -112,7 +112,7 @@ export async function executeEditorAIActionStreaming(
       : getEditorActionPrompt(action);
 
   const contextSnippet = documentContext.substring(0, 3000);
-  const systemContent = buildEditorSystemPrompt(contextSnippet);
+  const systemContent = buildEditorSystemPrompt(contextSnippet, actionPrompt);
 
   const messages = [
     { role: 'system', content: systemContent },

@@ -1,44 +1,43 @@
 /* eslint-disable no-console */
 
 /**
- * Agent Team IPC Handler — LangGraph supervisor with subgraph nodes.
+ * Agent Team IPC — deepagents harness (supervisor + subagents via `task`).
  *
- * Architecture (2.3 refactor):
- *   - Each member agent is a `createAgent` compiled graph → added as a
- *     subgraph node in a parent `StateGraph`.
- *   - The supervisor is also a `createAgent` graph whose delegation tools
- *     return `Command({ goto: memberId })`, causing the parent graph to
- *     route to the appropriate member subgraph.
- *   - After each member runs, an edge returns to the supervisor.
- *   - The team has ONE stable thread_id for the whole interaction.
- *   - The parent graph is compiled with `getDomeCheckpointer()` so the
- *     full team state is persisted across turns.
- *
- * The renderer expects this chunk shape on `ai:stream:chunk`:
- *   { streamId, chunk: '<text>' }                    — supervisor synthesis text
- *   { streamId, type: 'text', text, agentName: 'X' } — member text (status only)
+ * Renderer chunk shape on `ai:stream:chunk`:
+ *   { streamId, chunk: '<text>' }                    — supervisor synthesis
+ *   { streamId, type: 'text', text, agentName }     — member text
  *   { streamId, type: 'tool_call'|'tool_result', ... [, agentName] }
- *   { streamId, agentName: 'X' }                     — switch UI to delegation/X
- *   { streamId, agentName: null }                    — switch UI to synthesis
- *   { streamId, done: true }                         — end of stream
+ *   { streamId, agentName: 'X' }                     — delegation UI
+ *   { streamId, agentName: null }                    — back to supervisor
+ *   { streamId, done: true }
  *   { streamId, error: '<msg>' }
  */
 
 const { setMaxListeners } = require('events');
 const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
-const { createModelFromConfig, createLangChainToolsFromOpenAIDefinitions } = require('../langgraph-agent.cjs');
+const {
+  createModelFromConfig,
+  createLangChainToolsFromOpenAIDefinitions,
+  streamAgentRun,
+} = require('../langgraph-agent.cjs');
 const { buildAgentMiddlewareStack } = require('../agent-middleware.cjs');
-const { getAllToolDefinitions, executeToolInMain } = require('../tool-dispatcher.cjs');
+const { getAllToolDefinitions, getToolDefinitionsByIds, executeToolInMain } = require('../tool-dispatcher.cjs');
 const { getDomeCheckpointer } = require('../checkpointer.cjs');
 const { buildSkillsMiddleware } = require('../skills/index.cjs');
-const domeOauth = require('../dome-oauth.cjs');
+const { getAISettings } = require('../ai-settings.cjs');
+const { registerDomeHarnessProfiles } = require('../harness-profiles.cjs');
+const { createDomeHarnessBackendFactory, DEFAULT_HARNESS_PERMISSIONS } = require('../harness-backend.cjs');
+const { getDomeStore } = require('../agent-store.cjs');
+const { getMCPTools } = require('../mcp-client.cjs');
 const { buildDomeSystemPrompt } = require('../system-prompt.cjs');
 const { readPrompt } = require('../prompts-loader.cjs');
+const { withLangfuseCallbacks } = require('../observability.cjs');
+const { capToolResultString } = require('../tool-result-cap.cjs');
 
 const agentTeamAbortControllers = new Map();
 
 const TEAM_SUPERVISOR_PROMPT_FALLBACK =
-  'You are the supervisor of an Agent Team in Dome. Delegate tasks to your members and synthesize their work into a single coherent answer for the user.';
+  'You are the supervisor of an Agent Team in Dome. Delegate focused subtasks to members via the `task` tool and synthesize their work into one coherent answer.';
 
 function getTeamSupervisorTemplate() {
   const txt = readPrompt('martin/team-supervisor.txt');
@@ -47,35 +46,13 @@ function getTeamSupervisorTemplate() {
     : TEAM_SUPERVISOR_PROMPT_FALLBACK;
 }
 
-async function getAISettings(database) {
-  const queries = database.getQueries();
-  const provider = queries.getSetting.get('ai_provider')?.value || 'ollama';
-
-  if (provider === 'ollama') {
-    return {
-      provider,
-      apiKey: queries.getSetting.get('ollama_api_key')?.value || undefined,
-      model: queries.getSetting.get('ollama_model')?.value || 'llama3.2',
-      baseUrl: queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434',
-    };
-  }
-
-  if (provider === 'dome') {
-    const session = await domeOauth.getOrRefreshSession(database);
-    return {
-      provider: 'dome',
-      apiKey: session?.accessToken,
-      model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
-      baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
-    };
-  }
-
-  return {
-    provider,
-    apiKey: queries.getSetting.get('ai_api_key')?.value,
-    model: queries.getSetting.get('ai_model')?.value,
-    baseUrl: undefined,
-  };
+function sanitizeSubagentName(name) {
+  const raw = String(name || 'agent')
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+  return raw || 'agent';
 }
 
 function loadAgents(database, projectId = 'default') {
@@ -117,238 +94,260 @@ function buildDelegationContext(payload = {}) {
   return `${lines.join('\n')}\n- Use this context when deciding which Dome resources or folders to inspect.\n`;
 }
 
-function toolNameForAgent(agent) {
-  const raw = String(agent.id || agent.name || 'agent')
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_|_$/g, '');
-  return `delegate_to_${raw || 'agent'}`;
+function uniqueToolIds(...lists) {
+  const out = new Set();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const id of list) {
+      const s = String(id || '').trim();
+      if (s) out.add(s);
+    }
+  }
+  return [...out];
 }
 
 /**
- * Build LangChain tools for a member agent (direct execution via tool-dispatcher).
+ * LangChain tools for a team member (respects agent.toolIds + teamToolIds).
  */
-async function buildMemberDirectTools(agent, _teamToolIds, _teamMcpServerIds, _agentName) {
-  const toolDefinitions = getAllToolDefinitions();
+async function buildMemberDirectTools(database, agent, teamToolIds, teamMcpServerIds) {
+  const ids = uniqueToolIds(agent.toolIds, teamToolIds);
+  const toolDefinitions = ids.length > 0 ? getToolDefinitionsByIds(ids) : getAllToolDefinitions();
   const executeFn = async (name, args) => {
     try {
-      return await executeToolInMain(name, args, null);
+      const result = await executeToolInMain(name, args, null);
+      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+      return capToolResultString(name, resultStr0);
     } catch (e) {
       return { error: e?.message ?? String(e) };
     }
   };
   const lcTools = await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn);
-  return lcTools;
+  const mcpIds = uniqueToolIds(agent.mcpServerIds, teamMcpServerIds);
+  const mcpTools = mcpIds.length > 0 ? await getMCPTools(database, mcpIds) : [];
+  return [...lcTools, ...mcpTools];
 }
 
 /**
- * Build a Command-based delegation tool for the supervisor.
- * When the supervisor calls this tool, the parent StateGraph routes
- * to the corresponding member subgraph node instead of running the
- * tool inline.
+ * Build createDeepAgent team graph (supervisor + member subagents).
  */
-async function buildCommandDelegationTool(agent, send) {
-  const { tool } = await import('@langchain/core/tools');
-  const { Command } = await import('@langchain/langgraph');
-  const zodMod = await import('zod');
-  const z = zodMod.z ?? zodMod.default ?? zodMod;
-
-  const toolName = toolNameForAgent(agent);
-  const description = (agent.description && agent.description.trim())
-    ? `Delegate a focused subtask to "${agent.name}". ${agent.description.trim()}`
-    : `Delegate a focused subtask to "${agent.name}".`;
-
-  return tool(
-    async ({ task }) => {
-      send({ agentName: agent.name });
-      return new Command({
-        goto: agent.id,
-        update: {
-          messages: [{ role: 'user', content: `[Delegated task from supervisor] ${task}` }],
-        },
-      });
-    },
-    {
-      name: toolName,
-      description,
-      schema: z.object({
-        task: z.string().describe('Concrete subtask for this agent. Include only the context they need to act.'),
-      }),
-    },
-  );
-}
-
-/**
- * Build the full LangGraph team StateGraph.
- *
- * Parent graph:
- *   START → supervisor ← → memberA, memberB, … ← END (via supervisor)
- *
- * Each member is a `createAgent.graph` subgraph node.
- * The supervisor uses Command-based delegation tools to route to members.
- */
-async function buildTeamGraph({
+async function buildTeamDeepAgent({
+  database,
   memberAgents,
   supervisorSystemPrompt,
   settings,
   teamToolIds,
   teamMcpServerIds,
-  send,
-  signal,
 }) {
-  const { StateGraph, MessagesAnnotation, END, START } = await import('@langchain/langgraph');
-  const { createAgent, humanInTheLoopMiddleware } = await import('langchain');
+  registerDomeHarnessProfiles();
+  const { createDeepAgent } = await import('deepagents');
+  const llm = await createModelFromConfig(
+    settings.provider,
+    settings.model,
+    settings.apiKey,
+    settings.baseUrl,
+  );
+  const agentStore = getDomeStore();
 
-  const llm = await createModelFromConfig(settings.provider, settings.model, settings.apiKey, settings.baseUrl);
+  const subagents = [];
+  const nameBySubagentKey = {};
 
-  // ── Build member subgraph nodes ─────────────────────────────────────────
-  const memberNodeMap = {}; // { agentId: CompiledStateGraph }
   for (const agent of memberAgents) {
-    const memberLcTools = await buildMemberDirectTools(agent, teamToolIds, teamMcpServerIds);
+    const subName = sanitizeSubagentName(agent.name || agent.id);
+    nameBySubagentKey[subName] = agent.name || agent.id;
+    const memberTools = await buildMemberDirectTools(database, agent, teamToolIds, teamMcpServerIds);
+    const persona =
+      (agent.systemInstructions && String(agent.systemInstructions).trim()) ||
+      (agent.description && String(agent.description).trim()) ||
+      `You are ${agent.name}, a specialized member of a Dome Agent Team.`;
+    const memberSystemPrompt = buildDomeSystemPrompt({ staticPersona: persona });
     const skillsMw = await buildSkillsMiddleware();
     const middleware = await buildAgentMiddlewareStack({
       profile: 'worker',
       provider: settings.provider,
       llm,
-      tools: memberLcTools,
+      tools: memberTools,
       skillsMiddleware: skillsMw,
+      store: agentStore,
+      harnessStack: 'deep',
     });
-    const memberAgent = createAgent({
+    subagents.push({
+      name: subName,
+      description:
+        (agent.description && agent.description.trim()) ||
+        `Team member "${agent.name}" for delegated subtasks.`,
+      systemPrompt: memberSystemPrompt,
       model: llm,
-      tools: memberLcTools,
+      tools: memberTools,
       middleware,
-      // No checkpointer: the parent graph provides persistence
     });
-    memberNodeMap[agent.id] = memberAgent.graph;
   }
 
-  // ── Build supervisor Command delegation tools ───────────────────────────
-  const delegationTools = [];
-  for (const agent of memberAgents) {
-    delegationTools.push(await buildCommandDelegationTool(agent, send));
+  const teamIds = uniqueToolIds(teamToolIds);
+  let supervisorTools = [];
+  if (teamIds.length > 0) {
+    const teamDefs = getToolDefinitionsByIds(teamIds);
+    const executeFn = async (name, args) => {
+      try {
+        const result = await executeToolInMain(name, args, null);
+        const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
+        return capToolResultString(name, resultStr0);
+      } catch (e) {
+        return { error: e?.message ?? String(e) };
+      }
+    };
+    supervisorTools = await createLangChainToolsFromOpenAIDefinitions(teamDefs, executeFn);
+    const mcpTools =
+      Array.isArray(teamMcpServerIds) && teamMcpServerIds.length > 0
+        ? await getMCPTools(database, teamMcpServerIds)
+        : [];
+    supervisorTools = [...supervisorTools, ...mcpTools];
   }
 
-  const supervisorAgent = createAgent({
+  const supervisorMiddleware = await buildAgentMiddlewareStack({
+    profile: 'full',
+    provider: settings.provider,
+    llm,
+    tools: supervisorTools,
+    store: agentStore,
+    harnessStack: 'deep',
+  });
+
+  const agent = await createDeepAgent({
     model: llm,
-    tools: delegationTools,
-    middleware: [],
-    // No checkpointer: parent graph provides persistence
-  });
-
-  // ── Inject supervisor system prompt as pre-messages ─────────────────────
-  // We wrap the supervisor graph so the system prompt is prepended.
-  const supervisorGraph = supervisorAgent.graph;
-
-  // ── Assemble parent StateGraph ──────────────────────────────────────────
-  const memberIds = memberAgents.map((a) => a.id);
-
-  const teamGraph = new StateGraph(MessagesAnnotation)
-    .addNode('supervisor', supervisorGraph, { subgraphs: true })
-    .addEdge(START, 'supervisor');
-
-  for (const [agentId, graph] of Object.entries(memberNodeMap)) {
-    teamGraph.addNode(agentId, graph, { subgraphs: true });
-    teamGraph.addEdge(agentId, 'supervisor');
-  }
-
-  const compiled = teamGraph.compile({
+    tools: supervisorTools,
+    systemPrompt: supervisorSystemPrompt,
+    middleware: supervisorMiddleware,
+    subagents,
+    interruptOn: { task: false },
     checkpointer: getDomeCheckpointer(),
+    store: agentStore,
+    backend: createDomeHarnessBackendFactory(agentStore),
+    permissions: DEFAULT_HARNESS_PERMISSIONS,
   });
 
-  return { compiled, memberIds };
+  return { agent, nameBySubagentKey };
+}
+
+function parseTaskSubagentName(toolArgs) {
+  if (!toolArgs) return null;
+  let parsed = toolArgs;
+  if (typeof toolArgs === 'string') {
+    try {
+      parsed = JSON.parse(toolArgs);
+    } catch {
+      return null;
+    }
+  }
+  if (parsed && typeof parsed === 'object') {
+    const candidate =
+      parsed.subagent_name ?? parsed.subagent ?? parsed.name ?? parsed.agent ?? parsed.agent_name;
+    if (candidate) return String(candidate);
+  }
+  return null;
 }
 
 /**
- * Stream the team graph and forward events to the renderer.
- * Handles supervisor text, member text, tool calls/results, and done.
+ * Stream team deep agent and map harness chunks to renderer protocol.
  */
-async function streamTeamGraph({
-  compiled,
+async function streamTeamDeepAgent({
+  agent,
+  nameBySubagentKey,
   messages,
-  supervisorSystemPrompt,
   threadId,
   signal,
   send,
-  memberAgents,
 }) {
-  const { HumanMessage, SystemMessage } = await import('@langchain/core/messages');
+  const { HumanMessage, AIMessage } = await import('@langchain/core/messages');
 
-  const lcMessages = [
-    new SystemMessage(supervisorSystemPrompt),
-    ...messages
-      .filter((m) => m.role !== 'system')
-      .map((m) => {
-        if (m.role === 'assistant') {
-          const { AIMessage } = require('@langchain/core/messages');
-          return new AIMessage(String(m.content || ''));
-        }
-        return new HumanMessage(String(m.content || ''));
-      }),
-  ];
+  const lcMessages = messages
+    .filter((m) => m.role !== 'system')
+    .map((m) => {
+      if (m.role === 'assistant') {
+        return new AIMessage(String(m.content || ''));
+      }
+      return new HumanMessage(String(m.content || ''));
+    });
 
-  const config = {
+  const config = withLangfuseCallbacks({
     configurable: { thread_id: threadId },
-    recursionLimit: 50,
+    recursionLimit: Number(process.env.DOME_AGENT_TEAM_RECURSION_LIMIT) || 250,
     signal,
-    streamMode: ['messages', 'updates'],
+  });
+
+  let activeMember = null;
+
+  const onChunk = (chunk) => {
+    if (!chunk || typeof chunk !== 'object') return;
+
+    if (chunk.type === 'tool_call' && chunk.toolCall?.name === 'task') {
+      const subKey = parseTaskSubagentName(chunk.toolCall.arguments);
+      const displayName = (subKey && nameBySubagentKey[subKey]) || subKey || 'member';
+      activeMember = displayName;
+      send({ agentName: displayName });
+      return;
+    }
+
+    if (chunk.type === 'text' && chunk.text) {
+      if (chunk.agentName || activeMember) {
+        send({
+          type: 'text',
+          text: chunk.text,
+          agentName: chunk.agentName || activeMember,
+        });
+      } else {
+        send({ chunk: chunk.text });
+      }
+      return;
+    }
+
+    if (chunk.type === 'tool_call' && chunk.toolCall) {
+      const name = chunk.toolCall.name;
+      if (name === 'task') return;
+      let args = chunk.toolCall.arguments;
+      if (typeof args === 'string') {
+        try {
+          args = JSON.parse(args);
+        } catch {
+          args = {};
+        }
+      }
+      send({
+        type: 'tool_call',
+        toolName: name,
+        args,
+        agentName: chunk.agentName || activeMember || undefined,
+      });
+      return;
+    }
+
+    if (chunk.type === 'tool_result' && chunk.toolCallId) {
+      send({
+        type: 'tool_result',
+        toolCallId: chunk.toolCallId,
+        result: chunk.result,
+        agentName: chunk.agentName || activeMember || undefined,
+      });
+      return;
+    }
+
+    if (chunk.type === 'usage' && chunk.usage) {
+      send({ type: 'usage', usage: chunk.usage, partial: !!chunk.partial });
+    }
   };
 
-  const agentNameById = Object.fromEntries(memberAgents.map((a) => [a.id, a.name]));
-  let currentAgentNode = 'supervisor';
+  const rtEmittedCallIds = new Set();
+  const rtEmittedResultIds = new Set();
 
-  const stream = await compiled.stream({ messages: lcMessages }, config);
+  await streamAgentRun(
+    agent,
+    { messages: lcMessages },
+    config,
+    onChunk,
+    rtEmittedCallIds,
+    rtEmittedResultIds,
+  );
 
-  for await (const event of stream) {
-    if (signal?.aborted) break;
-
-    // `event` in stream mode is { nodeId: update } or messages chunk
-    for (const [nodeId, nodeOutput] of Object.entries(event)) {
-      const isSupervising = nodeId === 'supervisor' || nodeId === '__start__';
-      const isMember = memberAgents.some((a) => a.id === nodeId);
-
-      if (isMember && nodeId !== currentAgentNode) {
-        currentAgentNode = nodeId;
-        // agentName already sent by Command delegation tool
-      } else if (isSupervising && currentAgentNode !== 'supervisor') {
-        currentAgentNode = 'supervisor';
-        send({ agentName: null });
-      }
-
-      // Forward messages from node output
-      if (nodeOutput?.messages) {
-        for (const msg of nodeOutput.messages) {
-          if (!msg) continue;
-          const content = typeof msg.content === 'string'
-            ? msg.content
-            : Array.isArray(msg.content)
-              ? msg.content.map((c) => (typeof c === 'string' ? c : c?.text ?? '')).join('')
-              : '';
-
-          if (msg._getType?.() === 'ai' || msg.type === 'ai' || msg.role === 'assistant') {
-            if (content && isSupervising) {
-              send({ chunk: content });
-            } else if (content && isMember) {
-              send({ type: 'text', text: content, agentName: agentNameById[nodeId] ?? nodeId });
-            }
-          }
-        }
-      }
-
-      // Forward tool calls / results
-      if (nodeOutput?.tool_calls) {
-        for (const tc of nodeOutput.tool_calls) {
-          if (tc?.name?.startsWith('delegate_to_')) continue; // routing tool, not shown
-          send({
-            type: 'tool_call',
-            toolName: tc.name,
-            args: tc.args,
-            agentName: isMember ? (agentNameById[nodeId] ?? nodeId) : undefined,
-          });
-        }
-      }
-    }
-  }
+  send({ agentName: null });
 }
 
 function register({ ipcMain, windowManager, database }) {
@@ -425,9 +424,11 @@ function register({ ipcMain, windowManager, database }) {
         homeSidebarSection,
       });
 
-      // Build supervisor system prompt
       const agentList = memberAgents
-        .map((a) => `- **${a.name}** (call \`${toolNameForAgent(a)}\`): ${a.description || 'Specialized agent'}`)
+        .map(
+          (a) =>
+            `- **${a.name}** (subagent \`${sanitizeSubagentName(a.name || a.id)}\`): ${a.description || 'Specialized agent'}`,
+        )
         .join('\n');
       const template = getTeamSupervisorTemplate();
       const supervisorBase = template
@@ -440,28 +441,24 @@ function register({ ipcMain, windowManager, database }) {
 
       send({ agentName: null });
 
-      // Build the LangGraph team StateGraph with member subgraphs
-      const { compiled } = await buildTeamGraph({
+      const { agent, nameBySubagentKey } = await buildTeamDeepAgent({
+        database,
         memberAgents,
         supervisorSystemPrompt,
         settings,
         teamToolIds: Array.isArray(teamToolIds) ? teamToolIds : [],
         teamMcpServerIds: Array.isArray(teamMcpServerIds) ? teamMcpServerIds : [],
-        send,
-        signal: controller.signal,
       });
 
-      // Stable team thread_id (no Date.now()) for checkpoint persistence
       const teamThreadId = `team_${teamId}`;
 
-      await streamTeamGraph({
-        compiled,
+      await streamTeamDeepAgent({
+        agent,
+        nameBySubagentKey,
         messages,
-        supervisorSystemPrompt,
         threadId: teamThreadId,
         signal: controller.signal,
         send,
-        memberAgents,
       });
 
       send({ done: true });

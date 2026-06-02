@@ -18,13 +18,16 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       const skills = await listAllSkills();
-      const data = skills.map((s) => ({
-        id: s.name,
-        name: s.name,
-        slug: s.name,
-        description: s.description || '',
-        path: s.path,
-      }));
+      const data = skills.map((s) => {
+        const folderId = path.basename(path.dirname(s.path));
+        return {
+          id: folderId,
+          name: s.name,
+          slug: s.name,
+          description: s.description || '',
+          path: s.path,
+        };
+      });
       return { success: true, data };
     } catch (err) {
       console.error('[Skills] list:', err);

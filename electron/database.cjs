@@ -3155,6 +3155,41 @@ function runMigrations(db) {
       console.error('[DB] Migration 36 failed:', error);
     }
   }
+
+  // Migration 37: quiz run history for Learn deck overview
+  if (version < 37) {
+    console.log('[DB] Running migration 37 - quiz_runs');
+    try {
+      const now = Date.now();
+      db.exec('PRAGMA foreign_keys = ON');
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS quiz_runs (
+          id TEXT PRIMARY KEY,
+          studio_output_id TEXT NOT NULL,
+          deck_id TEXT,
+          total INTEGER NOT NULL,
+          correct INTEGER NOT NULL,
+          duration_ms INTEGER NOT NULL,
+          per_question TEXT NOT NULL,
+          started_at INTEGER NOT NULL,
+          completed_at INTEGER NOT NULL,
+          FOREIGN KEY (studio_output_id) REFERENCES studio_outputs(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_quiz_runs_output ON quiz_runs(studio_output_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_quiz_runs_completed ON quiz_runs(completed_at DESC)');
+
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '37', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '37', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 37 complete - quiz_runs');
+    } catch (error) {
+      console.error('[DB] Migration 37 failed:', error);
+    }
+  }
 }
 
 /**

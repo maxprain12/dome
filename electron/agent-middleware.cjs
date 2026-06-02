@@ -9,25 +9,30 @@
  */
 
 const { buildGuardrailsMiddleware } = require('./guardrails.cjs');
+const { createDeterministicToolSelectorMiddleware } = require('./tool-selector.cjs');
 
 /** Per-turn caps for creation / mutation tools (replaces CREATION_TOOL_CAPS in langgraph-agent). */
 const CREATION_TOOL_CAPS = {
-  resource_create: 5,
-  resource_update: 8,
-  resource_delete: 5,
-  ppt_create: 3,
-  flashcard_create: 3,
-  generate_quiz: 2,
-  generate_mindmap: 2,
-  generate_guide: 2,
-  generate_faq: 2,
-  generate_timeline: 2,
-  generate_table: 2,
-  generate_audio_overview: 2,
-  generate_video_overview: 2,
-  notebook_add_cell: 30,
-  pdf_annotation_create: 30,
-  link_resources: 20,
+  resource_create: 20,
+  resource_update: 30,
+  resource_delete: 20,
+  artifact_create: 15,
+  artifact_update_state: 50,
+  artifact_merge_data: 40,
+  artifact_delete: 15,
+  ppt_create: 8,
+  flashcard_create: 8,
+  generate_quiz: 5,
+  generate_mindmap: 5,
+  generate_guide: 5,
+  generate_faq: 5,
+  generate_timeline: 5,
+  generate_table: 5,
+  generate_audio_overview: 5,
+  generate_video_overview: 5,
+  notebook_add_cell: 50,
+  pdf_annotation_create: 50,
+  link_resources: 40,
 };
 
 /** Network tools that benefit from retry with backoff. */
@@ -77,6 +82,43 @@ function envDisabled(key) {
   return v === '0' || v === 'false' || v === 'off' || v === 'no';
 }
 
+/** Graph step budget; kept in sync with `RECURSION_LIMIT` in langgraph-agent.cjs. */
+function getRecursionBudget() {
+  const n = Number(process.env.DOME_RECURSION_LIMIT);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 1500;
+}
+
+/**
+ * Resolve a middleware run/thread cap from env override or a fraction of the
+ * recursion budget (separate defaults for full vs worker profiles).
+ * @param {string} envKey
+ * @param {number} fullFraction
+ * @param {number} workerFraction
+ * @param {'full' | 'worker' | 'bench'} profile
+ */
+function resolveMiddlewareLimit(envKey, fullFraction, workerFraction, profile) {
+  const explicit = Number(process.env[envKey]);
+  if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
+  const budget = getRecursionBudget();
+  const fraction = profile === 'worker' ? workerFraction : fullFraction;
+  return Math.max(1, Math.floor(budget * fraction));
+}
+
+/** User-visible message when model/tool call limit middleware ends the run. */
+function buildMiddlewareLimitReachedMessage({ hitModelCallLimit, hitToolCallLimit } = {}) {
+  const parts = [];
+  if (hitModelCallLimit) parts.push('límite de llamadas al modelo');
+  if (hitToolCallLimit) parts.push('límite de invocaciones de herramientas');
+  if (parts.length === 0) return null;
+  const budget = getRecursionBudget();
+  return (
+    `El agente alcanzó el ${parts.join(' y el ')} de esta ejecución (presupuesto alineado con recursionLimit=${budget}).\n\n` +
+    'Para flujos aún más largos, sube `DOME_RECURSION_LIMIT` y los overrides opcionales ' +
+    '`DOME_MODEL_CALL_RUN_LIMIT` / `DOME_TOOL_CALL_RUN_LIMIT`, o desactiva los límites con ' +
+    '`DOME_LANGGRAPH_MODEL_CALL_LIMIT=0` y/o `DOME_LANGGRAPH_TOOL_CALL_LIMIT=0`.'
+  );
+}
+
 function shouldRetryModelError(error) {
   if (!error || typeof error !== 'object') return false;
   const statusCode =
@@ -114,8 +156,130 @@ function shouldRetryModelError(error) {
     msg.includes('econnreset') ||
     msg.includes('econnrefused') ||
     msg.includes('enotfound') ||
-    msg.includes('etimedout')
+    msg.includes('etimedout') ||
+    msg.includes('empty response') ||
+    msg.includes('received empty response')
   );
+}
+
+/** @param {unknown} m */
+function getMessageType(m) {
+  if (!m || typeof m !== 'object') return '';
+  if (typeof m._getType === 'function') return m._getType();
+  if (typeof m.getType === 'function') return m.getType();
+  return m._message_type || m.type || m.role || '';
+}
+
+/** @param {unknown} m */
+function isHumanMsg(m) {
+  const t = getMessageType(m);
+  return t === 'human' || t === 'user';
+}
+
+/** Estimate chars for trim budget — vision/base64 payloads count as small placeholders unless preserved. */
+function estimateContentChars(content) {
+  if (typeof content === 'string') {
+    if (content.includes('image_base64') && content.length > 4000) {
+      try {
+        const parsed = JSON.parse(content);
+        if (parsed?.slides) return 1800;
+      } catch {
+        /* keep literal length */
+      }
+    }
+    return content.length;
+  }
+  if (!Array.isArray(content)) return JSON.stringify(content ?? '').length;
+  return content.reduce((sum, block) => {
+    if (!block || typeof block !== 'object') return sum + 50;
+    if (block.type === 'image_url') {
+      const url = block.image_url?.url || '';
+      if (String(url).startsWith('data:')) return sum + 220;
+    }
+    if (block.type === 'image' && block.source?.type === 'base64') return sum + 220;
+    if (block.type === 'video') return sum + 320;
+    if (block.type === 'text') return sum + String(block.text || '').length;
+    return sum + 100;
+  }, 0);
+}
+
+/** @param {unknown[]} msgs */
+function budgetCharTokenCounter(msgs) {
+  return msgs.reduce((sum, m) => sum + Math.ceil(estimateContentChars(m?.content) / 4), 0);
+}
+
+/** Strip heavy vision/base64 from older tool results before trim (keep latest QA images). */
+function findLatestVisionMessageIndex(messages) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const content = messages[i]?.content;
+    if (Array.isArray(content) && content.some((b) => b && (b.type === 'image_url' || b.type === 'image'))) {
+      return i;
+    }
+    if (typeof content === 'string' && content.includes('image_base64') && content.length > 4000) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+/** @param {unknown} m @param {boolean} preserveVision */
+function lightenMessageForTrim(m, preserveVision) {
+  if (preserveVision || !m || typeof m !== 'object') return m;
+  let content = m.content;
+  if (typeof content === 'string' && content.includes('image_base64') && content.length > 4000) {
+    try {
+      const parsed = JSON.parse(content);
+      if (parsed?.slides) {
+        content = JSON.stringify({
+          success: parsed.success,
+          resource_id: parsed.resource_id,
+          slide_count: parsed.slides.length,
+          note: '[slide images omitted from history — visual QA already consumed]',
+          delivery: 'vision_blocks',
+        });
+      }
+    } catch {
+      /* keep */
+    }
+  } else if (Array.isArray(content)) {
+    const hasVision = content.some(
+      (b) => b && (b.type === 'image_url' || b.type === 'image' || b.type === 'video'),
+    );
+    if (hasVision) {
+      const textParts = content
+        .filter((b) => b && b.type === 'text' && b.text)
+        .map((b) => b.text)
+        .join('\n');
+      content = [
+        {
+          type: 'text',
+          text:
+            (textParts ? `${textParts}\n` : '') +
+            '[visual tool result omitted from history — re-call ppt_get_slide_images if needed]',
+        },
+      ];
+    }
+  }
+  if (content !== m.content) {
+    m.content = content;
+  }
+  return m;
+}
+
+/** Never send an empty message list to the provider (MiniMax error 2013). */
+function ensureNonEmptyTrimmed(original, trimmed) {
+  if (Array.isArray(trimmed) && trimmed.length > 0) return trimmed;
+  if (!Array.isArray(original) || original.length === 0) return trimmed || [];
+
+  let lastHumanIdx = -1;
+  for (let i = original.length - 1; i >= 0; i -= 1) {
+    if (isHumanMsg(original[i])) {
+      lastHumanIdx = i;
+      break;
+    }
+  }
+  if (lastHumanIdx >= 0) return original.slice(lastHumanIdx);
+  return original.slice(-Math.min(4, original.length));
 }
 
 /**
@@ -128,13 +292,7 @@ async function createTrimmingMiddleware(provider, llm) {
   const { trimMessages } = await import('@langchain/core/messages');
   const maxTokens = PROVIDER_TOKEN_BUDGETS[provider] ?? DEFAULT_TOKEN_BUDGET;
 
-  const charTokenCounter = (msgs) =>
-    msgs.reduce((sum, m) => {
-      const text = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
-      return sum + Math.ceil(text.length / 4);
-    }, 0);
-
-  const tokenCounter = ['openai', 'azure', 'google', 'ollama'].includes(provider) ? llm : charTokenCounter;
+  const tokenCounter = budgetCharTokenCounter;
 
   return createMiddleware({
     name: 'DomeTrimMessages',
@@ -192,18 +350,27 @@ async function createTrimmingMiddleware(provider, llm) {
 
       if (messages.length === 0) return handler(updatedRequest);
 
+      const sysBudget = Math.ceil(
+        String(updatedRequest.systemPrompt || updatedRequest.systemMessage?.content || '').length / 4,
+      );
+      const messageBudget = Math.max(12_000, maxTokens - sysBudget - 4096);
+
+      const visionIdx = findLatestVisionMessageIndex(messages);
+      const lightened = messages.map((m, i) => lightenMessageForTrim(m, i === visionIdx));
+
       try {
-        const trimmed = await trimMessages(messages, {
-          maxTokens,
+        let trimmed = await trimMessages(lightened, {
+          maxTokens: messageBudget,
           tokenCounter,
           strategy: 'last',
           includeSystem: false,
           startOn: 'human',
           endOn: ['human', 'tool'],
         });
+        trimmed = ensureNonEmptyTrimmed(lightened, trimmed);
         if (trimmed.length < messages.length) {
           console.log(
-            `[AI LangGraph] trimmed ${messages.length - trimmed.length} messages → ${trimmed.length} (budget ${maxTokens}, ${provider})`,
+            `[AI LangGraph] trimmed ${messages.length - trimmed.length} messages → ${trimmed.length} (budget ${messageBudget}, ${provider})`,
           );
         }
         return handler({ ...updatedRequest, messages: trimmed });
@@ -238,14 +405,65 @@ async function createSummarizationMiddlewareMaybe(provider, llm) {
 async function createModelCallLimitMiddlewareMaybe(profile) {
   if (envDisabled('DOME_LANGGRAPH_MODEL_CALL_LIMIT')) return null;
   const { modelCallLimitMiddleware } = await import('langchain');
-  // Bumped from 30/100 → 80/300 (and worker 20/100 → 60/200). Persisted-artifact
-  // + feeder flows easily hit 40+ model calls in a single run (create artifact,
-  // create feeder, request secret, run, refresh, update_state, ...). Hitting the
-  // limit triggers a final synthetic call in after_agent that, if the network
-  // hiccups, surfaces as MiddlewareError: fetch failed and aborts the run.
-  const runLimit = profile === 'worker' ? 60 : 80;
-  const threadLimit = profile === 'worker' ? 200 : 300;
-  return modelCallLimitMiddleware({ runLimit, threadLimit, exitBehavior: 'end' });
+  // Scales with DOME_RECURSION_LIMIT (default 1500). Artifact/studio flows with many
+  // resource_* + artifact_update_state iterations need headroom below recursionLimit.
+  const runLimit = resolveMiddlewareLimit('DOME_MODEL_CALL_RUN_LIMIT', 0.55, 0.4, profile);
+  const threadLimit = resolveMiddlewareLimit('DOME_MODEL_CALL_THREAD_LIMIT', 0.9, 0.7, profile);
+  return modelCallLimitMiddleware({ runLimit, threadLimit, exitBehavior: 'continue' });
+}
+
+/**
+ * Count tool-call invocations for `toolName` already present in agent messages.
+ * Includes the current call if it appears in the latest AIMessage tool_calls.
+ * @param {unknown[]} messages
+ * @param {string} toolName
+ */
+function countToolCallsInMessages(messages, toolName) {
+  if (!Array.isArray(messages) || !toolName) return 0;
+  let count = 0;
+  for (const message of messages) {
+    const toolCalls = message?.tool_calls ?? message?.lc_kwargs?.tool_calls;
+    if (!Array.isArray(toolCalls)) continue;
+    for (const call of toolCalls) {
+      if (call?.name === toolName) count += 1;
+    }
+  }
+  return count;
+}
+
+/**
+ * Single middleware replacing N per-tool `toolCallLimitMiddleware` graph nodes.
+ * Enforces CREATION_TOOL_CAPS via wrapToolCall (blocks with ToolMessage error,
+ * does not abort the run — equivalent to exitBehavior: 'continue').
+ */
+async function createDomeToolCallCapsMiddleware() {
+  const { createMiddleware } = await import('langchain');
+  const { ToolMessage } = await import('@langchain/core/messages');
+
+  return createMiddleware({
+    name: 'DomeToolCallCaps',
+    wrapToolCall: async (request, handler) => {
+      const toolName = request?.toolCall?.name;
+      const runLimit = toolName ? CREATION_TOOL_CAPS[toolName] : undefined;
+      if (!toolName || typeof runLimit !== 'number' || runLimit <= 0) {
+        return handler(request);
+      }
+
+      const priorCount = countToolCallsInMessages(request?.state?.messages, toolName);
+      if (priorCount <= runLimit) {
+        return handler(request);
+      }
+
+      const toolCallId = request?.toolCall?.id || `blocked-${toolName}`;
+      return new ToolMessage({
+        content:
+          `Error: tool "${toolName}" reached its run limit (${runLimit} invocations). ` +
+          'The agent will continue without executing this call.',
+        tool_call_id: toolCallId,
+        status: 'error',
+      });
+    },
+  });
 }
 
 async function createToolCallLimitMiddlewareStack(profile) {
@@ -253,21 +471,118 @@ async function createToolCallLimitMiddlewareStack(profile) {
   const { toolCallLimitMiddleware } = await import('langchain');
   const stack = [
     toolCallLimitMiddleware({
-      threadLimit: profile === 'worker' ? 100 : 200,
-      runLimit: profile === 'worker' ? 50 : 100,
+      threadLimit: resolveMiddlewareLimit('DOME_TOOL_CALL_THREAD_LIMIT', 0.95, 0.75, profile),
+      runLimit: resolveMiddlewareLimit('DOME_TOOL_CALL_RUN_LIMIT', 0.75, 0.5, profile),
       exitBehavior: 'continue',
     }),
+    await createDomeToolCallCapsMiddleware(),
   ];
-  for (const [toolName, runLimit] of Object.entries(CREATION_TOOL_CAPS)) {
-    stack.push(
-      toolCallLimitMiddleware({
-        toolName,
-        runLimit,
-        exitBehavior: 'continue',
-      }),
+  return stack;
+}
+
+/** Flatten a ToolMessage content (string | array of parts) into plain text. */
+function toolMessageText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((c) => (typeof c === 'string' ? c : c && typeof c === 'object' && 'text' in c ? c.text || '' : ''))
+      .join('\n');
+  }
+  return content == null ? '' : String(content);
+}
+
+/**
+ * Map a tool-error message to an actionable hint, or null if none applies.
+ * Detection is by error text (not tool name) so it covers write_file/edit_file/
+ * file_write and every browser tool that surfaces "No page found".
+ * @param {string} text
+ */
+function hintForToolError(text) {
+  if (!text) return null;
+  if (/permission denied for (write|edit|create|delete)/i.test(text)) {
+    return (
+      'Hint: the harness filesystem only allows writes under `/memories/`. ' +
+      'To deliver HTML, an interactive mini-app, a dashboard, or any visual artifact to the user, ' +
+      'call `artifact_create` (persisted library mini-app) instead of `write_file`. ' +
+      'For notes/documents/reports use `resource_create` (type "note"). ' +
+      'Use `write_file` only for the agent\'s own scratch/memory files under `/memories/`.'
     );
   }
-  return stack;
+  if (/no page found/i.test(text)) {
+    return (
+      'Hint: there is no open browser page. Call `new_page` (or `navigate_page` with a URL) first, ' +
+      'then `select_page` / `take_snapshot` / interact with the page.'
+    );
+  }
+  return null;
+}
+
+/** True when a ToolMessage-like value already contains the hint (avoid double-append). */
+function alreadyHinted(text) {
+  return typeof text === 'string' && text.includes('\nHint: ');
+}
+
+/**
+ * Middleware that enriches failing tool results with actionable recovery hints
+ * so the model self-corrects on the next step instead of dead-ending:
+ *  - write_file permission denied → suggest /memories/ or artifact_create
+ *  - browser "No page found" → suggest new_page before select_page
+ *
+ * Post-processes the tool result (ToolMessage or Command) and also catches
+ * thrown tool errors. Pure augmentation: never changes successful results.
+ */
+async function createDomeToolErrorHintsMiddleware() {
+  const { createMiddleware } = await import('langchain');
+  const { ToolMessage } = await import('@langchain/core/messages');
+
+  const enrichToolMessage = (msg) => {
+    const text = toolMessageText(msg?.content);
+    if (alreadyHinted(text)) return msg;
+    const hint = hintForToolError(text);
+    if (!hint) return msg;
+    return new ToolMessage({
+      content: `${text}\n\n${hint}`,
+      tool_call_id: msg?.tool_call_id,
+      name: msg?.name,
+      status: msg?.status ?? 'error',
+    });
+  };
+
+  return createMiddleware({
+    name: 'DomeToolErrorHints',
+    wrapToolCall: async (request, handler) => {
+      let result;
+      try {
+        result = await handler(request);
+      } catch (err) {
+        const text = String(err?.message ?? err ?? '');
+        const hint = hintForToolError(text);
+        if (!hint) throw err;
+        return new ToolMessage({
+          content: `Error: ${text}\n\n${hint}`,
+          tool_call_id: request?.toolCall?.id || `error-${request?.toolCall?.name || 'tool'}`,
+          name: request?.toolCall?.name,
+          status: 'error',
+        });
+      }
+
+      // ToolMessage result
+      if (result && typeof result === 'object' && 'content' in result && !('update' in result) && !('goto' in result)) {
+        return enrichToolMessage(result);
+      }
+
+      // Command result: enrich any ToolMessages carried in its update.messages
+      if (result && typeof result === 'object' && result.update && Array.isArray(result.update.messages)) {
+        const messages = result.update.messages.map((m) =>
+          m && typeof m === 'object' && 'content' in m && 'tool_call_id' in m ? enrichToolMessage(m) : m,
+        );
+        result.update = { ...result.update, messages };
+        return result;
+      }
+
+      return result;
+    },
+  });
 }
 
 async function createPiiMiddlewareStack() {
@@ -453,11 +768,44 @@ const TOOL_SELECTOR_UNSUPPORTED_PROVIDERS = new Set(['minimax', 'ollama', 'dome'
 /** Per-process flag so the structured-output fallback warning is logged only once per provider. */
 const TOOL_SELECTOR_FALLBACK_WARNED = new Set();
 
-async function createLlmToolSelectorMiddlewareMaybe(tools, llm, provider) {
-  if (envDisabled('DOME_LANGGRAPH_TOOL_SELECTOR')) return null;
-  if (TOOL_SELECTOR_UNSUPPORTED_PROVIDERS.has(provider)) return null;
+/** When the runtime already binds ~128 tools, the selector's extra structured call often fails (duplicate JSON). */
+const TOOL_SELECTOR_SKIP_ABOVE_COUNT = 100;
+
+/**
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isToolSelectorRecoverableError(err) {
+  const msg = typeof err?.message === 'string' ? err.message : String(err ?? '');
+  if (!msg) return false;
+  return (
+    msg.includes('Expected object response with tools array') ||
+    msg.includes('OUTPUT_PARSING_FAILURE') ||
+    msg.includes('Failed to parse') ||
+    (msg.includes('SyntaxError') && msg.includes('after JSON')) ||
+    (msg.includes('Unexpected non-whitespace character') && msg.includes('JSON'))
+  );
+}
+
+function warnToolSelectorFallback(provider, reason) {
+  const key = `${provider}:${reason}`;
+  if (TOOL_SELECTOR_FALLBACK_WARNED.has(key)) return;
+  TOOL_SELECTOR_FALLBACK_WARNED.add(key);
+  console.warn(`[LLMToolSelector] provider=${provider} ${reason}; using full tool list.`);
+}
+
+/**
+ * LangChain LLM tool selector (extra model call). Opt-in via DOME_LANGGRAPH_TOOL_SELECTOR_LLM=1.
+ */
+async function createLlmToolSelectorMiddlewareInner(tools, llm, provider) {
   const toolCount = Array.isArray(tools) ? tools.length : 0;
-  if (toolCount <= 15 && !envTruthy('DOME_LANGGRAPH_TOOL_SELECTOR')) return null;
+  if (toolCount > TOOL_SELECTOR_SKIP_ABOVE_COUNT) {
+    warnToolSelectorFallback(
+      provider,
+      `LLM selector disabled (${toolCount} tools > ${TOOL_SELECTOR_SKIP_ABOVE_COUNT}); use deterministic selector`,
+    );
+    return null;
+  }
 
   // Pre-check: the selector calls `llm.withStructuredOutput(...).invoke(...)` and
   // throws "Expected object response with tools array, got undefined" if the
@@ -500,15 +848,8 @@ async function createLlmToolSelectorMiddlewareMaybe(tools, llm, provider) {
       try {
         return await innerWrap(request, handler);
       } catch (err) {
-        const msg = typeof err?.message === 'string' ? err.message : '';
-        if (msg.includes('Expected object response with tools array')) {
-          if (!TOOL_SELECTOR_FALLBACK_WARNED.has(provider)) {
-            console.warn(
-              `[LLMToolSelector] provider=${provider} returned undefined from withStructuredOutput; ` +
-                'falling back to full tool list (suppressing further warnings).',
-            );
-            TOOL_SELECTOR_FALLBACK_WARNED.add(provider);
-          }
+        if (isToolSelectorRecoverableError(err)) {
+          warnToolSelectorFallback(provider, 'recoverable parse/structured-output failure');
           return handler(request);
         }
         throw err;
@@ -517,6 +858,32 @@ async function createLlmToolSelectorMiddlewareMaybe(tools, llm, provider) {
   }
 
   return inner;
+}
+
+/**
+ * Default tool narrowing: deterministic heuristics (no extra LLM call).
+ * Set DOME_LANGGRAPH_TOOL_SELECTOR_LLM=1 to use LangChain's llmToolSelectorMiddleware instead.
+ */
+async function createToolSelectorMiddlewareMaybe(tools, llm, provider) {
+  if (envDisabled('DOME_LANGGRAPH_TOOL_SELECTOR')) return null;
+  if (TOOL_SELECTOR_UNSUPPORTED_PROVIDERS.has(provider)) return null;
+  const toolCount = Array.isArray(tools) ? tools.length : 0;
+  if (toolCount <= 15 && !envTruthy('DOME_LANGGRAPH_TOOL_SELECTOR')) return null;
+
+  const presentNames = new Set(
+    (Array.isArray(tools) ? tools : []).map(toolName).filter(Boolean),
+  );
+  const alwaysInclude = TOOL_SELECTOR_ALWAYS_INCLUDE.filter((n) => presentNames.has(n));
+
+  if (envTruthy('DOME_LANGGRAPH_TOOL_SELECTOR_LLM')) {
+    const llmMw = await createLlmToolSelectorMiddlewareInner(tools, llm, provider);
+    if (llmMw) return llmMw;
+  }
+
+  return createDeterministicToolSelectorMiddleware(tools, {
+    maxTools: 12,
+    alwaysInclude,
+  });
 }
 
 async function createToolEmulatorMiddlewareMaybe() {
@@ -547,7 +914,7 @@ async function createFilesystemMiddlewareMaybe(store) {
  * Build the middleware array for a Dome agent graph.
  *
  * @param {Object} opts
- * @param {'full' | 'worker'} [opts.profile='full'] — full = Many/main; worker = subagents / team members
+ * @param {'full' | 'worker' | 'bench'} [opts.profile='full'] — full = Many/main; worker = subagents; bench = harness (no FS/deepagents bleed)
  * @param {string} opts.provider
  * @param {import('@langchain/core/language_models/chat_models').BaseChatModel} opts.llm
  * @param {unknown[]} [opts.tools=[]]
@@ -556,6 +923,7 @@ async function createFilesystemMiddlewareMaybe(store) {
  * @param {import('langchain').AgentMiddleware | null} [opts.skillsMiddleware=null]
  * @param {import('@langchain/langgraph').BaseStore | null} [opts.store=null]
  * @param {boolean} [opts.enableFilesystem=false]
+ * @param {'legacy' | 'deep'} [opts.harnessStack='legacy'] — when 'deep', omit middleware provided by createDeepAgent
  * @returns {Promise<import('langchain').AgentMiddleware[]>}
  */
 async function buildAgentMiddlewareStack(opts) {
@@ -569,10 +937,23 @@ async function buildAgentMiddlewareStack(opts) {
     skillsMiddleware = null,
     store = null,
     enableFilesystem = false,
+    harnessStack = 'legacy',
   } = opts;
+
+  const isDeepHarness = harnessStack === 'deep';
 
   const middleware = [];
   const toolCount = Array.isArray(tools) ? tools.length : 0;
+
+  /** Benchmark harness: minimal stack — no filesystem, tool selector, or deepagents extras. */
+  if (profile === 'bench') {
+    const modelRetry = await createModelRetryMiddlewareMaybe();
+    if (modelRetry) middleware.push(modelRetry);
+    const toolRetry = await createToolRetryMiddlewareMaybe();
+    if (toolRetry) middleware.push(toolRetry);
+    middleware.push(await createTrimmingMiddleware(provider, llm));
+    return middleware;
+  }
 
   const modelCallLimit = await createModelCallLimitMiddlewareMaybe(profile);
   if (modelCallLimit) middleware.push(modelCallLimit);
@@ -584,8 +965,10 @@ async function buildAgentMiddlewareStack(opts) {
     middleware.push(...(await createPiiMiddlewareStack()));
   }
 
-  const summarization = await createSummarizationMiddlewareMaybe(provider, llm);
-  if (summarization) middleware.push(summarization);
+  if (!isDeepHarness) {
+    const summarization = await createSummarizationMiddlewareMaybe(provider, llm);
+    if (summarization) middleware.push(summarization);
+  }
 
   if (profile === 'full') {
     const contextEditing = await createContextEditingMiddlewareMaybe(provider);
@@ -594,11 +977,15 @@ async function buildAgentMiddlewareStack(opts) {
 
   middleware.push(...(await createToolCallLimitMiddlewareStack(profile)));
 
-  if (profile === 'full' && !skipHitl && hitlMiddleware) {
+  if (!envDisabled('DOME_LANGGRAPH_TOOL_ERROR_HINTS')) {
+    middleware.push(await createDomeToolErrorHintsMiddleware());
+  }
+
+  if (profile === 'full' && !skipHitl && hitlMiddleware && !isDeepHarness) {
     middleware.push(hitlMiddleware);
   }
 
-  if (profile === 'full') {
+  if (profile === 'full' && !isDeepHarness) {
     const todoList = await createTodoListMiddlewareMaybe();
     if (todoList) middleware.push(todoList);
   }
@@ -615,16 +1002,16 @@ async function buildAgentMiddlewareStack(opts) {
   if (toolRetry) middleware.push(toolRetry);
 
   if (profile === 'full') {
-    const toolSelector = await createLlmToolSelectorMiddlewareMaybe(tools, llm, provider);
+    const toolSelector = await createToolSelectorMiddlewareMaybe(tools, llm, provider);
     if (toolSelector) middleware.push(toolSelector);
 
     const toolEmulator = await createToolEmulatorMiddlewareMaybe();
     if (toolEmulator) middleware.push(toolEmulator);
   }
 
-  if (skillsMiddleware) middleware.push(skillsMiddleware);
+  if (skillsMiddleware && !isDeepHarness) middleware.push(skillsMiddleware);
 
-  if (enableFilesystem || profile === 'full') {
+  if (!isDeepHarness && (enableFilesystem || profile === 'full')) {
     const fsMw = await createFilesystemMiddlewareMaybe(store);
     if (fsMw) middleware.push(fsMw);
   }
@@ -641,6 +1028,8 @@ module.exports = {
   NETWORK_TOOL_NAMES,
   TOOL_SELECTOR_ALWAYS_INCLUDE,
   buildAgentMiddlewareStack,
+  buildMiddlewareLimitReachedMessage,
+  getRecursionBudget,
   createTrimmingMiddleware,
   createSummarizationMiddlewareMaybe,
 };

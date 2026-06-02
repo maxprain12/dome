@@ -1,0 +1,39 @@
+{
+  "id": "excel_set_range.basic",
+  "category": "excel",
+  "tool": "excel_set_range",
+  "mode": "direct",
+  "prompt": "Rellena A4:C4 en bench-xlsx-1 con valores de prueba 1,2,3.",
+  "expected_tools": [
+    "excel_set_range"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-xlsx-1"
+  ],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar excel_set_range (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

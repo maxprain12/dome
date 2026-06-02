@@ -1,0 +1,38 @@
+{
+  "id": "generate_quiz.basic",
+  "category": "studio",
+  "tool": "generate_quiz",
+  "mode": "direct",
+  "prompt": "Llama generate_quiz con project_id bench-project, source_ids [\"bench-note-thermo\"], num_questions 3, difficulty medium.",
+  "expected_tools": [
+    "generate_quiz"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-note-thermo"
+  ],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "PASS si invocó generate_quiz y la respuesta incluye preguntas de quiz (JSON type quiz o questions[]).",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

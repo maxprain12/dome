@@ -1,0 +1,39 @@
+{
+  "id": "resource_update.basic",
+  "category": "resources",
+  "tool": "resource_update",
+  "mode": "direct",
+  "prompt": "Actualiza el título de bench-note-1 a \"Bench Note Alpha (updated)\".",
+  "expected_tools": [
+    "resource_update"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-note-1"
+  ],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar resource_update (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

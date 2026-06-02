@@ -1,0 +1,32 @@
+{
+  "id": "file_list.basic",
+  "category": "file",
+  "tool": "file_list",
+  "mode": "direct",
+  "prompt": "Lista archivos en /Users/maxprain/.dome-bench/bench-sandbox (sandbox bench, no el repo Dome).",
+  "expected_tools": [
+    "file_list"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar file_list (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

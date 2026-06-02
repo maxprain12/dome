@@ -1,0 +1,43 @@
+{
+  "id": "generate_faq.basic",
+  "category": "studio",
+  "tool": "generate_faq",
+  "mode": "direct",
+  "prompt": "1) Invoca generate_faq con project_id bench-project y source_ids [\"bench-note-thermo\"]. 2) En la respuesta FINAL escribe JSON type faq con al menos 3 pairs (question+answer).",
+  "expected_tools": [
+    "generate_faq"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": [
+    "bench-note-thermo"
+  ],
+  "output_shape": {
+    "min_length": 60,
+    "contains_any": [
+      "\"question\"",
+      "\"answer\"",
+      "\"pairs\""
+    ]
+  },
+  "judge_criteria": "PASS si invocó generate_faq y la respuesta incluye ≥3 preguntas/respuestas (pairs[] o array {question,answer}).",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

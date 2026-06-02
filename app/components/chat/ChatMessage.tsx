@@ -257,7 +257,12 @@ export default function ChatMessage({
       arr.push(tc);
       grouped.set(tc.name, arr);
     }
-    return Array.from(grouped.entries()).map(([name, calls]) => ({ name, calls }));
+    return Array.from(grouped.entries()).map(([name, calls]) =>
+      // write_todos is a running plan: only the latest snapshot reflects current state
+      name === 'write_todos' && calls.length > 1
+        ? { name, calls: [calls[calls.length - 1]] }
+        : { name, calls },
+    );
   }, [displayToolCalls]);
 
   const derivedCalendarArtifact = useMemo((): AnyArtifact | null => {

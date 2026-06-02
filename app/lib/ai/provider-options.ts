@@ -83,7 +83,7 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
   {
     value: 'minimax',
     label: PROVIDERS.minimax.name,
-    description: 'MiniMax M2.5 via Anthropic-compatible API. Requires sk-cp-... key.',
+    description: 'MiniMax M-series via Anthropic-compatible API. M3 supports image & video. Requires sk-cp-... key.',
     logoSrc: PROVIDER_LOGO_PATHS.minimax,
   },
   {

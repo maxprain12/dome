@@ -1,0 +1,37 @@
+{
+  "id": "image_thumbnail.basic",
+  "category": "image",
+  "tool": "image_thumbnail",
+  "mode": "direct",
+  "prompt": "Genera un thumbnail de la imagen bench (image_thumbnail). Usa la ruta absoluta indicada al final del mensaje del usuario.",
+  "expected_tools": [
+    "image_thumbnail"
+  ],
+  "forbidden_tools": [
+    "shell_exec",
+    "glob",
+    "file_read",
+    "file_write",
+    "file_list",
+    "file_tree",
+    "file_search",
+    "project_list",
+    "get_library_overview",
+    "resource_get_library_overview",
+    "get_current_project",
+    "resource_hybrid_search",
+    "resource_semantic_search",
+    "resource_search",
+    "resource_create"
+  ],
+  "explain_only": false,
+  "allow_preamble": false,
+  "fixtures": ["bench-image-1"],
+  "output_shape": {
+    "min_length": 20
+  },
+  "judge_criteria": "Debe invocar image_thumbnail (tool_call nativo) y dar respuesta útil.",
+  "timeout_ms": 60000,
+  "skip_hitl": true,
+  "optional": false
+}

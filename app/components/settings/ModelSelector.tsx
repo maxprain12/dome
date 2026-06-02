@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
-import { ChevronDown, Search, CheckCircle2, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
+import { Film, ChevronDown, Search, CheckCircle2, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
 import type { ModelDefinition } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
 import DomeBadge from '@/components/ui/DomeBadge';
@@ -112,6 +112,14 @@ export default function ModelSelector({
         <span key="vision" className="inline-flex items-center gap-0.5">
           <ImageIcon size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
           <DomeBadge label="Vision" variant="soft" color="var(--accent)" size="xs" />
+        </span>,
+      );
+    }
+    if (model.input?.includes('video')) {
+      nodes.push(
+        <span key="video" className="inline-flex items-center gap-0.5">
+          <Film size={10} className="shrink-0 text-[var(--accent)]" aria-hidden />
+          <DomeBadge label="Video" variant="soft" color="var(--accent)" size="xs" />
         </span>,
       );
     }

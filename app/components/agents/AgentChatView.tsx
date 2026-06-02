@@ -38,9 +38,11 @@ import {
   type PersistentRun,
 } from '@/lib/automations/api';
 import { CHAT_THINKING_ROTATION_KEYS } from '@/lib/chat/streamingLabels';
-import { buildAttachmentPrefix } from '@/lib/chat/attachmentTypes';
+import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentTypes';
+import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
+import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 
@@ -325,19 +327,25 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const useToolsStream = supportsTools && hasLangGraph;
 
   const handleSend = useCallback(async () => {
-    const attPrefix = buildAttachmentPrefix(chatAttachments, t('chat.attachment_extraction_empty'));
     const textPart = input.trim();
-    const userMessage = [attPrefix, textPart].filter((s) => s.length > 0).join('\n\n').trim();
-    if (!userMessage || isLoading || isSubmittingRef.current || !agent) return;
+    if ((!textPart && chatAttachments.length === 0) || isLoading || isSubmittingRef.current || !agent) return;
 
     isSubmittingRef.current = true;
     thinkingLabelIdxRef.current = 0;
     setInput('');
+    const preparedAttachments = await prepareVideoAttachmentsForRun(chatAttachments);
     setChatAttachments([]);
     setIsLoading(true);
     setStatus('thinking');
     setError(null);
     setStreamingMessage(null);
+
+    const userRunMessage = buildUserRunMessage(
+      textPart,
+      preparedAttachments,
+      t('chat.attachment_extraction_empty'),
+    );
+    const userMessage = userRunMessage.content;
 
     const controller = new AbortController();
     setAbortController(controller);
@@ -360,6 +368,13 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
       let systemPrompt = await buildSystemPrompt();
 
+      const oneShotSkillId = pendingOneShotSkillId;
+      const stickySkillId = activeStickySkillId;
+      systemPrompt = await appendRunSkillsToPrompt(systemPrompt, {
+        messageText: textPart,
+        pendingOneShotSkillId: oneShotSkillId,
+        activeStickySkillId: stickySkillId,
+      });
       setPendingOneShotSkillId(null);
 
       if (pinnedResources.length > 0 && typeof window.electron?.ai?.tools?.resourceGet === 'function') {
@@ -392,7 +407,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       const apiMessages = [
         { role: 'system', content: systemPrompt },
         ...messages.slice(-10).map((m) => ({ role: m.role, content: m.content })),
-        { role: 'user', content: userMessage },
+        userRunMessage as ChatRunMessage,
       ];
 
       if (useToolsStream) {
@@ -527,6 +542,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     chatAttachments,
     pinnedResources,
     hasLangGraph,
+    pendingOneShotSkillId,
+    activeStickySkillId,
   ]);
 
   const handleAbort = useCallback(() => {

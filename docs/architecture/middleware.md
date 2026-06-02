@@ -56,6 +56,7 @@ Perfil `worker` omite: PII, contextEditing, HITL, todoList, modelFallback, llmTo
 | `summarizationMiddleware` | langchain | full, worker | Integrado | Comprime historial al acercarse al budget |
 | `contextEditingMiddleware` | langchain | full | Integrado | `ClearToolUsesEdit` — limpia tool outputs viejos |
 | `toolCallLimitMiddleware` | langchain | full, worker | Integrado | Global + per-tool (`CREATION_TOOL_CAPS`) |
+| `DomeToolErrorHints` | Dome | full, worker | Integrado | `wrapToolCall` que añade pistas accionables a errores de tools: `write_file` denegado → `/memories/` + `artifact_create`; navegador `No page found` → `new_page` antes de `select_page`. Toggle `DOME_LANGGRAPH_TOOL_ERROR_HINTS` |
 | `humanInTheLoopMiddleware` | langchain | full | Integrado | Writer/data subagents + calendar mutations |
 | `todoListMiddleware` | Dome (port de langchain) | full | Integrado | Tool `write_todos` para tareas multi-paso. Versión Dome tolerante a `description`→`content` y campos extra (`id`) — ver nota abajo |
 | `modelFallbackMiddleware` | langchain | full | Integrado | Cadena por provider (sin fallback en Ollama) |
@@ -80,12 +81,20 @@ Perfil `worker` omite: PII, contextEditing, HITL, todoList, modelFallback, llmTo
 | `DOME_LANGGRAPH_SUMMARIZATION` | on | `0` desactiva summarization |
 | `DOME_LANGGRAPH_MODEL_CALL_LIMIT` | on | `0` desactiva límite de llamadas al modelo |
 | `DOME_LANGGRAPH_TOOL_CALL_LIMIT` | on | `0` desactiva límites de tools |
+| `DOME_LANGGRAPH_TOOL_ERROR_HINTS` | on | `0` desactiva las pistas de recuperación en errores de tools (write_file → /memories/ + artifact_create; navegador "No page found" → new_page) |
+| `DOME_RECURSION_LIMIT` | 1500 | Presupuesto base del grafo; alinea caps de middleware |
+| `DOME_MODEL_CALL_RUN_LIMIT` | 55% del budget | Override explícito de llamadas al modelo por run |
+| `DOME_MODEL_CALL_THREAD_LIMIT` | 90% del budget | Override explícito de llamadas al modelo por thread |
+| `DOME_TOOL_CALL_RUN_LIMIT` | 75% del budget | Override explícito de tool calls por run |
+| `DOME_TOOL_CALL_THREAD_LIMIT` | 95% del budget | Override explícito de tool calls por thread |
 | `DOME_LANGGRAPH_CONTEXT_EDITING` | on | `0` desactiva ClearToolUsesEdit |
 | `DOME_LANGGRAPH_TODO_LIST` | on | `0` desactiva write_todos |
 | `DOME_LANGGRAPH_MODEL_FALLBACK` | on | `0` desactiva fallback entre providers |
 | `DOME_LANGGRAPH_MODEL_RETRY` | on | `0` desactiva reintentos del modelo |
 | `DOME_LANGGRAPH_TOOL_RETRY` | on | `0` desactiva reintentos de tools de red |
 | `DOME_LANGGRAPH_TOOL_SELECTOR` | auto | `1` fuerza selector; `0` desactiva |
+| `DOME_LANGGRAPH_TOOL_SELECTOR_LLM` | off | `1` usa selector LangChain con llamada extra al LLM (frágil con muchas tools); por defecto **selector determinista** sin llamada extra |
+| `DOME_TOOL_SELECTOR_DEBUG` | off | `1` log de tools elegidas por turno |
 | `DOME_LANGGRAPH_FILESYSTEM` | on | `0` desactiva VFS deepagents |
 | `DOME_EMULATE_TOOLS` | off | `1` emula tools con LLM (dev/test) |
 | `DOME_TRIM_DEBUG` | off | `1` log de tipos de mensaje en trim |
@@ -105,7 +114,7 @@ Automations y runs pueden pasar `skipHitl: true`.
 
 ## Límites per-tool (creation caps)
 
-Definidos en `CREATION_TOOL_CAPS` dentro de `agent-middleware.cjs`. Sustituyen el contador casero que vivía en `langgraph-agent.cjs`. Ejemplos: `resource_create: 5`, `ppt_create: 3`, `notebook_add_cell: 30`.
+Definidos en `CREATION_TOOL_CAPS` dentro de `agent-middleware.cjs`. Sustituyen el contador casero que vivía en `langgraph-agent.cjs`. Ejemplos: `resource_update: 30`, `artifact_update_state: 50`, `notebook_add_cell: 50`.
 
 ---
 

@@ -577,6 +577,32 @@ async function installSkillFromUrl(url) {
 /**
  * @param {string} skillId
  */
+/**
+ * Rename skill folders so frontmatter `name` matches directory (Agent Skills spec).
+ * Idempotent — skips when target name already exists.
+ */
+function repairSkillDirectoryNames() {
+  const root = userSkillsDir();
+  if (!fs.existsSync(root)) return;
+
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const skillMd = path.join(root, entry.name, 'SKILL.md');
+    if (!fs.existsSync(skillMd)) continue;
+    try {
+      const meta = parseSkillMdFrontmatter(fs.readFileSync(skillMd, 'utf8'));
+      const want = slugifySkillId(meta.name || '');
+      if (!want || want === entry.name) continue;
+      const target = path.join(root, want);
+      if (fs.existsSync(target)) continue;
+      fs.renameSync(path.join(root, entry.name), target);
+      console.log(`[Skills] Renamed ${entry.name} → ${want} (Agent Skills spec)`);
+    } catch (err) {
+      console.warn(`[Skills] Could not repair directory for ${entry.name}:`, err?.message);
+    }
+  }
+}
+
 function removeSkill(skillId) {
   const safeId = slugifySkillId(skillId);
   if (!safeId) throw new Error('Invalid skill id');
@@ -588,19 +614,51 @@ function removeSkill(skillId) {
 }
 
 /**
+ * Resolve installed skill folder id from frontmatter name or folder name.
+ * Handles skills where name !== directory (e.g. advo-identity in advo-identity-skill/).
+ * @param {string} skillRef
+ * @returns {string}
+ */
+function resolveSkillDirectoryId(skillRef) {
+  const safe = slugifySkillId(skillRef);
+  if (!safe) throw new Error('Invalid skill id');
+
+  const root = userSkillsDir();
+  const direct = path.join(root, safe);
+  if (fs.existsSync(path.join(direct, 'SKILL.md'))) return safe;
+
+  if (!fs.existsSync(root)) {
+    throw new Error(`Skill not found: ${skillRef}`);
+  }
+
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const dir = entry.name;
+    if (slugifySkillId(dir) === safe) return dir;
+    const skillMd = path.join(root, dir, 'SKILL.md');
+    if (!fs.existsSync(skillMd)) continue;
+    try {
+      const meta = parseSkillMdFrontmatter(fs.readFileSync(skillMd, 'utf8'));
+      const metaName = slugifySkillId(meta.name || '');
+      if (metaName && metaName === safe) return dir;
+    } catch {
+      /* skip unreadable */
+    }
+  }
+
+  throw new Error(`Skill not found: ${skillRef}`);
+}
+
+/**
  * Read a text file from an installed skill directory (~/.dome/skills/<id>/).
  * @param {string} skillId
  * @param {string} relativePath - e.g. "editing.md" or "references/layout.md"
  * @returns {string}
  */
 function readSkillFile(skillId, relativePath) {
-  const safeId = slugifySkillId(skillId);
-  if (!safeId) throw new Error('Invalid skill id');
+  const safeId = resolveSkillDirectoryId(skillId);
 
   const skillRoot = path.resolve(userSkillsDir(), safeId);
-  if (!fs.existsSync(skillRoot)) {
-    throw new Error(`Skill not found: ${safeId}`);
-  }
 
   const rel = String(relativePath || '').replace(/\\/g, '/').replace(/^\/+/, '');
   if (!rel || rel.includes('..')) {
@@ -630,5 +688,7 @@ module.exports = {
   installSkillFromUrl,
   removeSkill,
   readSkillFile,
+  repairSkillDirectoryNames,
+  resolveSkillDirectoryId,
   slugifySkillId,
 };

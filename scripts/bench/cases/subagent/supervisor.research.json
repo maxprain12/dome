@@ -1,0 +1,11 @@
+{
+  "id": "supervisor.research",
+  "category": "subagent",
+  "tool": "call_research_agent",
+  "mode": "supervisor",
+  "prompt": "Delega al agente de investigación: resume tendencias de LLM en 2026.",
+  "expected_tools": [
+    "call_research_agent"
+  ],
+  "judge_criteria": "Debe delegar investigación y devolver síntesis con fuentes o hallazgos."
+}

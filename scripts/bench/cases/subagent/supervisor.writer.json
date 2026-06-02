@@ -1,0 +1,14 @@
+{
+  "id": "supervisor.writer",
+  "category": "subagent",
+  "tool": "call_writer_agent",
+  "mode": "supervisor",
+  "prompt": "Delega al writer agent: escribe un resumen corto de bench-note-thermo.",
+  "expected_tools": [
+    "call_writer_agent"
+  ],
+  "fixtures": [
+    "bench-note-thermo"
+  ],
+  "skip_hitl": false
+}
