@@ -3,8 +3,14 @@
 
 const fs = require('fs');
 const path = require('path');
+const { z } = require('zod');
 const { MINIMAX_BASE_URL } = require('../minimax-config.cjs');
 const database = require('../database.cjs');
+
+const MiniMaxUploadSchema = z.object({
+  filePath: z.string().min(1),
+  purpose: z.string().optional(),
+});
 
 /**
  * @param {string} apiKey
@@ -68,8 +74,11 @@ function register({ ipcMain, validateSender }) {
   ipcMain.handle('minimax:files:upload', async (event, args) => {
     if (!validateSender(event)) return { success: false, error: 'Unauthorized' };
     try {
-      const filePath = typeof args?.filePath === 'string' ? args.filePath : '';
-      const purpose = typeof args?.purpose === 'string' ? args.purpose : 'video_understanding';
+      const parsed = MiniMaxUploadSchema.safeParse(args);
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.message };
+      }
+      const { filePath, purpose = 'video_understanding' } = parsed.data;
       const queries = database.getQueries?.();
       const provider = String(queries?.getSetting?.get?.('ai_provider')?.value || '').toLowerCase();
       if (provider !== 'minimax') {

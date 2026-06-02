@@ -1,5 +1,20 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
+const { z } = require('zod');
+
+const QuizCreateRunSchema = z.object({
+  id: z.string().optional(),
+  studio_output_id: z.string().min(1),
+  deck_id: z.string().nullable().optional(),
+  total: z.number().int().nonnegative(),
+  correct: z.number().int().nonnegative(),
+  duration_ms: z.number().int().nonnegative(),
+  per_question: z.union([z.string(), z.array(z.unknown())]).optional(),
+  started_at: z.number().int().optional(),
+  completed_at: z.number().int().optional(),
+});
+
+const IdSchema = z.string().min(1);
 
 function generateId() {
   return crypto.randomUUID();
@@ -9,13 +24,18 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   ipcMain.handle('quiz:createRun', (event, data) => {
     try {
       validateSender(event, windowManager);
+      const parsed = QuizCreateRunSchema.safeParse(data);
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.message };
+      }
+      const payload = parsed.data;
       const db = database.getDB();
-      const id = data.id || generateId();
+      const id = payload.id || generateId();
       const now = Date.now();
       const perQuestion =
-        typeof data.per_question === 'string'
-          ? data.per_question
-          : JSON.stringify(data.per_question ?? []);
+        typeof payload.per_question === 'string'
+          ? payload.per_question
+          : JSON.stringify(payload.per_question ?? []);
 
       db.prepare(
         `
@@ -26,14 +46,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       `,
       ).run(
         id,
-        data.studio_output_id,
-        data.deck_id ?? null,
-        data.total,
-        data.correct,
-        data.duration_ms,
+        payload.studio_output_id,
+        payload.deck_id ?? null,
+        payload.total,
+        payload.correct,
+        payload.duration_ms,
         perQuestion,
-        data.started_at ?? now,
-        data.completed_at ?? now,
+        payload.started_at ?? now,
+        payload.completed_at ?? now,
       );
 
       const created = db.prepare('SELECT * FROM quiz_runs WHERE id = ?').get(id);
@@ -48,10 +68,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   ipcMain.handle('quiz:listRuns', (event, studioOutputId) => {
     try {
       validateSender(event, windowManager);
+      const parsed = IdSchema.safeParse(studioOutputId);
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.message };
+      }
       const db = database.getDB();
       const rows = db
         .prepare('SELECT * FROM quiz_runs WHERE studio_output_id = ? ORDER BY completed_at DESC LIMIT 50')
-        .all(studioOutputId);
+        .all(parsed.data);
       return { success: true, data: rows };
     } catch (error) {
       console.error('[Quiz] listRuns error:', error);
@@ -62,8 +86,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   ipcMain.handle('quiz:getRun', (event, runId) => {
     try {
       validateSender(event, windowManager);
+      const parsed = IdSchema.safeParse(runId);
+      if (!parsed.success) {
+        return { success: false, error: parsed.error.message };
+      }
       const db = database.getDB();
-      const row = db.prepare('SELECT * FROM quiz_runs WHERE id = ?').get(runId);
+      const row = db.prepare('SELECT * FROM quiz_runs WHERE id = ?').get(parsed.data);
       if (!row) return { success: false, error: 'Run not found' };
       return { success: true, data: row };
     } catch (error) {

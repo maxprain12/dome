@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+const { z } = require('zod');
 const { getLearnKpis, getLearnStreak } = require('../services/learn-kpis.cjs');
 
 function register({ ipcMain, windowManager, database, validateSender }) {
