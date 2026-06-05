@@ -71,3 +71,7 @@ File: `app/types/global.d.ts` — add the new channel to the ElectronAPI interfa
 - [ ] Channel name added to `electron/preload.cjs` ALLOWED_CHANNELS
 - [ ] Input validation in handler (type check + sanitize)
 - [ ] Error handling returns `{ success: false, error: string }` not throws
+
+## Related
+
+- [shared-module-from-electron.md](./shared-module-from-electron.md) — same 4-step pattern for `require` calls from `electron/` into `shared/`. If your IPC handler imports helpers from `shared/`, follow that SOP too or the packaged build will crash with `Cannot find module '../shared/...'`.
