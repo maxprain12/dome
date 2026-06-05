@@ -1,0 +1,11 @@
+{
+  "dock_section_mic": "Micro seul",
+  "dock_section_screen": "Fenêtre ou écran",
+  "expand_panel": "Agrandir le hub",
+  "hide_panel": "Masquer le panneau de transcription",
+  "minimize_panel": "Réduire le hub",
+  "minimized_setup_hint": "Agrandissez le hub pour choisir micro, fenêtre ou capture mixte.",
+  "mode": "{",
+  "window_close": "Fermer la fenêtre",
+  "window_minimize": "Réduire la fenêtre"
+}

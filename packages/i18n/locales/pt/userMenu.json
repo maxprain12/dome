@@ -1,0 +1,11 @@
+{
+  "confirm_sign_out": "Tem certeza de que deseja sair?\\n\\nIsso redefinirá seu perfil e o assistente de configuração será exibido novamente.",
+  "default_name": "Usuário",
+  "menu_aria": "Menu do usuário: {{name}}",
+  "no_email": "Sem e-mail",
+  "open_settings": "Abrir configurações",
+  "settings": "Configurações",
+  "sign_out": "Sair",
+  "sign_out_error": "Não foi possível sair. Tente novamente.",
+  "signingOut": "Saindo..."
+}

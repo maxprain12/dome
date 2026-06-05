@@ -1,0 +1,20 @@
+{
+  "addBtn": "Add",
+  "changeColor": "Change color",
+  "confirmDelete": "Delete this file?",
+  "confirmDeleteFolder": "Delete this folder and all its contents?",
+  "delete": "Delete",
+  "emptyFolder": "This folder is empty",
+  "emptyFolderHint": "Drop here or use the toolbar to add",
+  "filesHeading": "Files",
+  "folderNamePlaceholder": "Folder name",
+  "foldersHeading": "Folders",
+  "itemCount_one": "{{count}} item",
+  "itemCount_other": "{{count}} items",
+  "newFolderBtn": "New folder",
+  "newNote": "New note",
+  "rename": "Rename",
+  "subfolderCount_one": "· {{count}} folder",
+  "subfolderCount_other": "· {{count}} folders",
+  "untitled": "Untitled"
+}

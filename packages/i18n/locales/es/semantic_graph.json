@@ -1,0 +1,23 @@
+{
+  "auto_detected": "Detectado automáticamente",
+  "confirm_relation": "Confirmar relación",
+  "edge_panel_aria": "Acciones de relación",
+  "empty": "Ninguna conexión coincide con los filtros.",
+  "filter_all": "Todas",
+  "filter_auto": "Auto",
+  "filter_confirmed": "Confirmadas",
+  "filter_strong": "Fuertes",
+  "indexing": "Indexando…",
+  "legend_collapse": "Ocultar leyenda",
+  "legend_expand": "Mostrar leyenda",
+  "legend_heading": "Colores por tipo",
+  "min_similarity": "Similitud mín.",
+  "no_focus": "Abre este grafo desde un recurso para ver conexiones.",
+  "reindex_all": "Reindexar todo",
+  "reindex_progress": "{{done}} / {{total}} recursos",
+  "reject_relation": "No relacionadas",
+  "resource_types": "Tipos",
+  "similar": "similares",
+  "tab_title": "Grafo semántico",
+  "tab_title_focus": "Ideas relacionadas"
+}

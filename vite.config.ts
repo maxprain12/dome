@@ -18,6 +18,9 @@ export default defineConfig({
       { find: '@excalidraw/excalidraw', replacement: path.resolve(__dirname, './app/lib/stubs/excalidraw-stub.tsx') },
       // Stub bun:sqlite for renderer process
       { find: 'bun:sqlite', replacement: path.resolve(__dirname, './app/lib/db/__stubs__/bun-sqlite.ts') },
+      // @dome/* workspace packages (resolved at the Vite level; TS uses
+      // matching paths in tsconfig.json).
+      { find: /^@dome\/i18n$/, replacement: path.resolve(__dirname, './packages/i18n/src/index.ts') },
 // Root alias last (most general)
       { find: '@', replacement: path.resolve(__dirname, './app') },
     ],

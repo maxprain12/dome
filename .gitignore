@@ -49,6 +49,10 @@ release/
 # Agent benchmark runs (local traces)
 docs/bench/runs/
 
+# Local reference repos (pi) and long-running task spec
+/pi/
+/longrunning-task/
+
 # Testing
 .nyc_output
 *.lcov

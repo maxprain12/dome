@@ -1,0 +1,14 @@
+{
+  "finalizing": "Saving transcript…",
+  "setup_hint": "",
+  "setup_title": "Meeting capture",
+  "show_live_transcript": "Show live transcript",
+  "start_button": "Start meeting",
+  "start_failed": "Could not start meeting",
+  "starting": "Starting…",
+  "stop_button": "Stop and save note",
+  "streaming_placeholder": "Transcribed chunks will appear here…",
+  "summary_ready": "Summary updated",
+  "track_mic": "Mic",
+  "track_system": "Meeting audio"
+}

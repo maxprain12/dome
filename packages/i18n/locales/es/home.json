@@ -1,0 +1,14 @@
+{
+  "aria_all_documents": "Todos los documentos",
+  "aria_close": "Cerrar",
+  "aria_column_headers": "Encabezados de columnas de la lista",
+  "aria_current_path": "Ruta actual",
+  "aria_folder_options": "Opciones de carpeta",
+  "aria_folders": "Carpetas",
+  "aria_resources": "Recursos",
+  "aria_select_color_swatch": "Seleccionar color {{color}}",
+  "aria_select_folder_color": "Elegir color de carpeta",
+  "aria_sort_modified": "Ordenar por fecha de modificación",
+  "aria_sort_name": "Ordenar por nombre",
+  "delete_resource": "Eliminar recurso"
+}

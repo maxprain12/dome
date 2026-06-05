@@ -1,0 +1,11 @@
+{
+  "bulk_delete_confirm": "",
+  "delete": "Supprimer",
+  "deselect": "Désélectionner",
+  "items_selected_one": "{{count}} élément sélectionné",
+  "items_selected_other": "{{count}} éléments sélectionnés",
+  "move": "Déplacer",
+  "move_to_folder": "Vers un dossier…",
+  "move_to_project": "Vers un projet…",
+  "move_to_root": "Racine du projet (sans dossier)"
+}

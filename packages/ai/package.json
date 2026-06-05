@@ -1,0 +1,20 @@
+{
+  "name": "@dome/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Multi-provider LLM layer (OpenAI, Anthropic, Google, Ollama, OpenRouter, Copilot).",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "echo \"@dome/ai: no tests yet\" && exit 0"
+  }
+}

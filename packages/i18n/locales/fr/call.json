@@ -1,0 +1,14 @@
+{
+  "finalizing": "Enregistrement…",
+  "setup_hint": "",
+  "setup_title": "Capture de réunion",
+  "show_live_transcript": "Afficher la transcription en direct",
+  "start_button": "Démarrer la réunion",
+  "start_failed": "Impossible de démarrer la réunion",
+  "starting": "Démarrage…",
+  "stop_button": "Arrêter et enregistrer la note",
+  "streaming_placeholder": "Les segments transcrits apparaîtront ici…",
+  "summary_ready": "Résumé mis à jour",
+  "track_mic": "Micro",
+  "track_system": "Audio de la réunion"
+}

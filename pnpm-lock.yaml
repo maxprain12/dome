@@ -448,6 +448,16 @@ importers:
         specifier: ^8.0.5
         version: 8.0.5
 
+  packages/agent-core: {}
+
+  packages/ai: {}
+
+  packages/i18n: {}
+
+  packages/prompts: {}
+
+  packages/tools: {}
+
 packages:
 
   7zip-bin@5.2.0:

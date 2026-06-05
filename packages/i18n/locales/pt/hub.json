@@ -1,0 +1,11 @@
+{
+  "dock_section_mic": "Só microfone",
+  "dock_section_screen": "Janela ou ecrã",
+  "expand_panel": "Expandir hub",
+  "hide_panel": "Ocultar painel de transcrição",
+  "minimize_panel": "Minimizar hub",
+  "minimized_setup_hint": "Expanda o hub para escolher microfone, janela ou captura mista.",
+  "mode": "{",
+  "window_close": "Fechar janela",
+  "window_minimize": "Minimizar janela"
+}

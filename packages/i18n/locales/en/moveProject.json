@@ -1,0 +1,9 @@
+{
+  "confirm": "Move here",
+  "description": "",
+  "itemsCount_one": "{{count}} item to move",
+  "itemsCount_other": "{{count}} items to move",
+  "menu": "Move to project…",
+  "noTargets": "No other project is available as a destination.",
+  "title": "Move to project"
+}

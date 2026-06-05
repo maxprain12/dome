@@ -1,0 +1,14 @@
+{
+  "aria_all_documents": "Todos os documentos",
+  "aria_close": "Fechar",
+  "aria_column_headers": "Cabeçalhos das colunas da lista",
+  "aria_current_path": "Caminho atual",
+  "aria_folder_options": "Opções da pasta",
+  "aria_folders": "Pastas",
+  "aria_resources": "Recursos",
+  "aria_select_color_swatch": "Selecionar cor {{color}}",
+  "aria_select_folder_color": "Selecionar cor da pasta",
+  "aria_sort_modified": "Ordenar por data de modificação",
+  "aria_sort_name": "Ordenar por nome",
+  "delete_resource": "Excluir recurso"
+}

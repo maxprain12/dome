@@ -1,0 +1,8 @@
+{
+  "fork": "Bifurcar",
+  "fork_from_here": "Bifurcar ejecución desde este checkpoint",
+  "latest": "último",
+  "no_history": "No se encontró historial de checkpoints para este hilo.",
+  "timeline": "Línea de tiempo del hilo",
+  "view_state": "Ver estado del checkpoint"
+}

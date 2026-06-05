@@ -1,0 +1,9 @@
+{
+  "confirm": "Mover aquí",
+  "description": "",
+  "itemsCount_one": "{{count}} elemento a mover",
+  "itemsCount_other": "{{count}} elementos a mover",
+  "menu": "Mover a proyecto…",
+  "noTargets": "No hay otro proyecto disponible como destino.",
+  "title": "Mover a proyecto"
+}

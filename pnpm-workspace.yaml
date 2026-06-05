@@ -1,6 +1,7 @@
 # pnpm 11: settings live here (see https://pnpm.io/settings).
 packages:
   - '.'
+  - 'packages/*'
 
 # Fresh publishes (<24h) would otherwise fail resolution in CI/dev.
 minimumReleaseAge: 0

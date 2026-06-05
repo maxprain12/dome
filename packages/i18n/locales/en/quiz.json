@@ -1,0 +1,18 @@
+{
+  "check_answer": "Check Answer",
+  "close": "Close",
+  "correct_count": "{{correct}} of {{total}} correct",
+  "explanation": "Explanation",
+  "false_option": "False",
+  "good_effort": "Good effort!",
+  "great_job": "Great job!",
+  "keep_studying": "Keep studying!",
+  "next": "Next",
+  "results": "Results",
+  "score": "{{score}}%",
+  "see_results": "See Results",
+  "shuffle": "Shuffle",
+  "title": "Quiz",
+  "true_option": "True",
+  "try_again": "Try again"
+}

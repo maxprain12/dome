@@ -1,0 +1,20 @@
+{
+  "agents_subtitle": "Configure and run custom AI agents in your workspace.",
+  "automations_list_one": "{{count}} automation",
+  "automations_list_other": "{{count}} automations",
+  "automations_scope_banner": "",
+  "automations_subtitle": "Schedule tasks and react to workspace events.",
+  "export_btn": "Export",
+  "import_btn": "Import",
+  "runs_subtitle": "Track live executions and review past runs.",
+  "stat_agents": "Agents",
+  "stat_automations": "Automations",
+  "stat_project": "Project",
+  "stat_runs": "Runs",
+  "stat_workflows": "Workflows",
+  "tab_agents": "Agents",
+  "tab_automations": "Automations",
+  "tab_runs": "Runs",
+  "tab_workflows": "Workflows",
+  "workflows_subtitle": "Design multi-step pipelines with the visual canvas."
+}

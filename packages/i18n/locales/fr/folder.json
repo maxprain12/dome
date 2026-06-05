@@ -1,0 +1,20 @@
+{
+  "addBtn": "Ajouter",
+  "changeColor": "Changer la couleur",
+  "confirmDelete": "Supprimer ce fichier ?",
+  "confirmDeleteFolder": "Supprimer ce dossier et tout son contenu ?",
+  "delete": "Supprimer",
+  "emptyFolder": "Ce dossier est vide",
+  "emptyFolderHint": "Déposez ici ou utilisez la barre d'outils pour ajouter",
+  "filesHeading": "Fichiers",
+  "folderNamePlaceholder": "Nom du dossier",
+  "foldersHeading": "Dossiers",
+  "itemCount_one": "{{count}} élément",
+  "itemCount_other": "{{count}} éléments",
+  "newFolderBtn": "Nouveau dossier",
+  "newNote": "Nouvelle note",
+  "rename": "Renommer",
+  "subfolderCount_one": "· {{count}} dossier",
+  "subfolderCount_other": "· {{count}} dossiers",
+  "untitled": "Sans titre"
+}

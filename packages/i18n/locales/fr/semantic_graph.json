@@ -1,0 +1,23 @@
+{
+  "auto_detected": "Détection auto",
+  "confirm_relation": "Confirmer la relation",
+  "edge_panel_aria": "Actions sur la relation",
+  "empty": "Aucune connexion ne correspond aux filtres.",
+  "filter_all": "Tous",
+  "filter_auto": "Auto",
+  "filter_confirmed": "Confirmés",
+  "filter_strong": "Forts",
+  "indexing": "Indexation…",
+  "legend_collapse": "Masquer la légende",
+  "legend_expand": "Afficher la légende",
+  "legend_heading": "Couleurs par type",
+  "min_similarity": "Similarité min.",
+  "no_focus": "Ouvrez ce graphe depuis une ressource pour voir les connexions.",
+  "reindex_all": "Réindexer tout",
+  "reindex_progress": "{{done}} / {{total}} ressources",
+  "reject_relation": "Pas liées",
+  "resource_types": "Types",
+  "similar": "similaires",
+  "tab_title": "Graphe sémantique",
+  "tab_title_focus": "Idées liées"
+}

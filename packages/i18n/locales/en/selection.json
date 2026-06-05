@@ -1,0 +1,11 @@
+{
+  "bulk_delete_confirm": "Delete {{count}} selected items (including all contents of selected folders)?",
+  "delete": "Delete",
+  "deselect": "Deselect",
+  "items_selected_one": "{{count}} item selected",
+  "items_selected_other": "{{count}} items selected",
+  "move": "Move",
+  "move_to_folder": "Move to folder…",
+  "move_to_project": "Move to project…",
+  "move_to_root": "Project root (no folder)"
+}

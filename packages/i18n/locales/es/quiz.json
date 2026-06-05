@@ -1,0 +1,17 @@
+{
+  "check_answer": "Verificar respuesta",
+  "close": "Cerrar",
+  "correct_count": "{{correct}} de {{total}} correctas",
+  "explanation": "Explicación",
+  "false_option": "Falso",
+  "good_effort": "¡Buen intento!",
+  "great_job": "¡Buen trabajo!",
+  "keep_studying": "¡Sigue estudiando!",
+  "next": "Siguiente",
+  "results": "Resultados",
+  "score": "{{score}}%",
+  "see_results": "Ver resultados",
+  "title": "Quiz",
+  "true_option": "Verdadero",
+  "try_again": "Reintentar"
+}

@@ -1,0 +1,12 @@
+{
+  "error_export": "Export impossible",
+  "error_import": "Échec de l’import",
+  "export_done": "Export téléchargé",
+  "import_automation": "Importer une automatisation",
+  "import_done_automation": "",
+  "import_done_workflow": "",
+  "import_workflow": "Importer un workflow",
+  "invalid_bundle": "Fichier d’export invalide ou non pris en charge",
+  "title_export_automation": "Exporter l’automatisation (cible, compétences, MCP)",
+  "title_export_workflow": "Exporter le workflow (agents, compétences, MCP)"
+}

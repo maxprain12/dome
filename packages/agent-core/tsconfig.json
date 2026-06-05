@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "tsBuildInfoFile": "./dist/.tsbuildinfo",
+    "allowImportingTsExtensions": false
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../ai" },
+    { "path": "../prompts" },
+    { "path": "../tools" }
+  ]
+}

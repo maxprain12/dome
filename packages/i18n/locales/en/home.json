@@ -1,0 +1,14 @@
+{
+  "aria_all_documents": "All documents",
+  "aria_close": "Close",
+  "aria_column_headers": "Column headers for resource list",
+  "aria_current_path": "Current path",
+  "aria_folder_options": "Folder options",
+  "aria_folders": "Folders",
+  "aria_resources": "Resources",
+  "aria_select_color_swatch": "Select color {{color}}",
+  "aria_select_folder_color": "Select folder color",
+  "aria_sort_modified": "Sort by modified date",
+  "aria_sort_name": "Sort by name",
+  "delete_resource": "Delete resource"
+}

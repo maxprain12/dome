@@ -1,0 +1,23 @@
+{
+  "auto_detected": "Auto-detected",
+  "confirm_relation": "Confirm relation",
+  "edge_panel_aria": "Relation actions",
+  "empty": "No connections match the current filters.",
+  "filter_all": "All",
+  "filter_auto": "Auto",
+  "filter_confirmed": "Confirmed",
+  "filter_strong": "Strong",
+  "indexing": "Indexing…",
+  "legend_collapse": "Hide legend",
+  "legend_expand": "Show legend",
+  "legend_heading": "Type colors",
+  "min_similarity": "Min similarity",
+  "no_focus": "Open this graph from a resource to see connections.",
+  "reindex_all": "Reindex all",
+  "reindex_progress": "{{done}} / {{total}} resources",
+  "reject_relation": "Not related",
+  "resource_types": "Types",
+  "similar": "similar",
+  "tab_title": "Semantic graph",
+  "tab_title_focus": "Related ideas"
+}
