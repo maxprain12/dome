@@ -1877,6 +1877,35 @@ declare global {
         }>;
         delete: (threadId: string) => Promise<{ deleted?: number; error?: string }>;
         updateState: (threadId: string, values: Record<string, unknown>, asNode?: string | null) => Promise<{ success?: boolean; config?: unknown; error?: string }>;
+        compact: (
+          threadId: string,
+          opts?: { provider?: string; model?: string; customInstructions?: string },
+        ) => Promise<{
+          success?: boolean;
+          threadId?: string;
+          summary?: string;
+          firstKeptEntryId?: string;
+          tokensBefore?: number;
+          error?: string;
+        }>;
+        navigateTree: (
+          threadId: string,
+          targetId: string,
+          opts?: {
+            provider?: string;
+            model?: string;
+            summarize?: boolean;
+            customInstructions?: string;
+            replaceInstructions?: boolean;
+            label?: string;
+          },
+        ) => Promise<{
+          success?: boolean;
+          threadId?: string;
+          leafId?: string;
+          cancelled?: boolean;
+          error?: string;
+        }>;
       };
 
       embeddings: {

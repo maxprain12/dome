@@ -26,7 +26,7 @@ compaction), JSONL session persistence, and skills in the system prompt.
 | Skills | `loadSkills` + `formatSkillsForSystemPrompt` in harness `systemPrompt` callback |
 | MCP | `getMCPTools` → `AgentTool[]`, merged with `@dome/tools` registry |
 | Tools | `createToolRegistry` + main-process `executeToolInMain` |
-| HITL | `HITL_TOOL_NAMES` + `approval.requestApproval` (Many + runs) |
+| HITL | `HITL_TOOL_NAMES` + interrupt (`hitlInterrupt`) → `waiting_approval` + `resumeDomeAgent` / `resumeRun` |
 
 ## Skills
 
@@ -38,7 +38,8 @@ compaction), JSONL session persistence, and skills in the system prompt.
 
 `electron/ipc/agents/threads.cjs` reads/writes JSONL sessions (replaces LangGraph
 checkpointer). Channels: `threads:list`, `threads:get-state`, `threads:get-history`,
-`threads:delete`, `threads:update-state` (fork + inject messages).
+`threads:delete`, `threads:update-state` (fork + inject messages),
+`threads:compact`, `threads:navigate-tree`.
 
 ## Removed legacy stack
 
@@ -50,9 +51,13 @@ Still present (not the agent runtime):
 - `@langchain/langgraph` — workflow node orchestrator (`StateGraph` in `run-engine.cjs`).
 - `@langchain/mcp-adapters` — MCP tool client (converted to native `AgentTool[]` in bridge).
 
-## Pending native work
+## Native capabilities (gaps closed)
 
-1. **HITL resume** — sync approval works; `ai:langgraph:resume` / `resumeRun` after process restart still fail (no interrupt checkpoint replay).
-2. **Sub-agent delegation** — `manySubagentIds()` returns `[]`.
-3. **Agent Team** — single supervisor (no per-member harness delegation).
-4. **Session compaction UI** — harness `compact()` / branch summary not exposed over IPC yet.
+1. **HITL resume** — `hitlInterrupt` pauses the run; `pendingToolCall` + JSONL session +
+   `resumeDomeAgent` / `resumeRun` / `ai:langgraph:resume` continue after approval
+   (including after process restart when `threadId` + run metadata persist).
+2. **Many subagents** — `task` tool via `electron/agents/subagents-native.cjs`;
+   enabled subagents from `DOME_MANY_SUBAGENTS` (default: all four).
+3. **Agent Team** — `delegate_to_agent` nested harness turns; chunks tagged with `agentName`.
+4. **Session maintenance IPC** — `threads:compact`, `threads:navigate-tree` call harness
+   `compact()` / `navigateTree()`.

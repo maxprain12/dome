@@ -14,14 +14,9 @@ const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const { readPrompt } = require('../prompts/prompts-loader.cjs');
 
-/**
- * Subagent delegation was removed with the legacy agent stack. The Dome-native
- * runtime does not yet expose subagents, so
- * this returns an empty list. Kept as a function for call sites and for a
- * future native subagent implementation.
- */
 function manySubagentIds() {
-  return [];
+  const { manySubagentIds: ids } = require('./subagents-native.cjs');
+  return ids();
 }
 
 function getApprovalSenderId() {
@@ -1107,6 +1102,7 @@ function createRunChunkEmitter(runId, context) {
           pendingApproval: {
             actionRequests: data.actionRequests,
             reviewConfigs,
+            pendingToolCall: data.pendingToolCall ?? null,
           },
           resumeOpts: context.langGraphResumeOpts ?? null,
           ...(context.llmUsage ? { usage: context.llmUsage } : {}),
@@ -1159,6 +1155,7 @@ async function executeLangGraphRun(runId, params) {
     pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
   });
   context.langGraphResumeOpts = {
+    messages: params.messages ?? [],
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
     mcpServerIds: params.mcpServerIds,
@@ -1187,18 +1184,8 @@ async function executeLangGraphRun(runId, params) {
       threadId: context.threadId,
       sessionId: params.sessionId ?? null,
       skipHitl: !!params.skipHitl,
+      hitlInterrupt: !params.skipHitl,
       requiresApproval: params.skipHitl ? null : agentRuntime.HITL_TOOL_NAMES,
-      requestApproval: params.skipHitl
-        ? null
-        : async (toolCall) => {
-            const senderId = getApprovalSenderId();
-            if (!senderId) return false;
-            return approval.requestApproval({
-              kind: 'tool_call',
-              payload: { name: toolCall.name, arguments: toolCall.arguments },
-              senderId,
-            });
-          },
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
       automationProjectId,
@@ -1435,15 +1422,70 @@ async function resumeRun(runId, decisions) {
     },
   });
   try {
-    // HITL resume was backed by the LangGraph checkpointer (interrupt/Command
-    // replay), which was removed with the LangGraph runtime. The Dome-native
-    // runtime does not yet support resuming an interrupted run, so a manual
-    // resume now fails explicitly instead of silently doing nothing.
-    void decisions;
-    throw new Error(
-      'Manual HITL resume is not supported by the Dome-native runtime yet ' +
-      '(it required the removed LangGraph checkpointer). Re-run the request instead.',
-    );
+    const pendingApproval = metadata.pendingApproval ?? {};
+    const resumeOpts = metadata.resumeOpts ?? {};
+    const runSurface = run.ownerType === 'agent' ? 'agent-chat' : 'many';
+
+    const result = await agentRuntime.resumeDomeAgent(runSurface, {
+      threadId: run.threadId,
+      decisions,
+      pendingApproval,
+      pendingToolCall: pendingApproval.pendingToolCall ?? null,
+      provider: providerConfig.provider,
+      model: providerConfig.model,
+      apiKey: providerConfig.apiKey,
+      baseUrl: providerConfig.baseUrl,
+      messages: resumeOpts.messages ?? [{ role: 'user', content: 'Continue after approval.' }],
+      toolDefinitions: resumeOpts.toolDefinitions ?? [],
+      mcpServerIds: resumeOpts.mcpServerIds,
+      runtimeContext: resumeOpts.runtimeContext,
+      signal: controller.signal,
+      onChunk: createRunChunkEmitter(runId, context),
+    });
+
+    if (result && typeof result === 'object' && result.__interrupt__) {
+      return getRun(runId);
+    }
+
+    if (run.sessionId) {
+      tryPersistRunAssistantMessage(
+        run.sessionId,
+        {
+          ownerType: run.ownerType,
+          runId,
+          contextId: metadata.contextId ?? null,
+          sessionTitle: metadata.sessionTitle ?? null,
+          toolIds: metadata.toolIds ?? [],
+          mcpServerIds: metadata.mcpServerIds ?? [],
+        },
+        context,
+      );
+    }
+    appendRunStep({
+      runId,
+      stepType: 'completion',
+      title: 'Run completado',
+      status: 'done',
+      content: context.fullResponse.slice(0, 8000),
+      ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
+    });
+    finalizeRunningRunSteps(runId, 'completed', context);
+    return patchRun(runId, {
+      status: 'completed',
+      outputText: context.fullResponse,
+      summary: context.fullResponse.slice(0, 280) || 'Run completado',
+      finishedAt: now(),
+      error: null,
+      threadId: context.threadId,
+      metadata: {
+        kind: metadata.kind ?? 'langgraph',
+        provider: context.provider,
+        model: context.model,
+        toolCalls: context.toolCalls,
+        pendingApproval: null,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+      },
+    });
   } catch (error) {
     const failMeta = run.metadata ?? {};
     return patchRun(runId, {

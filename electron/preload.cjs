@@ -528,6 +528,8 @@ const ALLOWED_CHANNELS = {
     'threads:get-history',
     'threads:delete',
     'threads:update-state',
+    'threads:compact',
+    'threads:navigate-tree',
     // Dome MCP server management
     'dome-mcp:start',
     'dome-mcp:stop',
@@ -1787,6 +1789,12 @@ const electronHandler = {
     /** Inject values into a thread's state (time-travel fork). */
     updateState: (threadId, values, asNode) =>
       ipcRenderer.invoke('threads:update-state', { threadId, values, asNode }),
+    /** Compact conversation history in a JSONL session. */
+    compact: (threadId, opts) =>
+      ipcRenderer.invoke('threads:compact', { threadId, ...(opts ?? {}) }),
+    /** Navigate session tree to a branch entry (optional LLM branch summary). */
+    navigateTree: (threadId, targetId, opts) =>
+      ipcRenderer.invoke('threads:navigate-tree', { threadId, targetId, ...(opts ?? {}) }),
   },
 
   // ============================================

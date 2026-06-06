@@ -5,7 +5,7 @@ import {
 	streamSimple,
 	type UserMessage,
 } from "@dome/ai";
-import { runAgentLoop } from "../agent-loop.js";
+import { runAgentLoop, runAgentLoopContinue } from "../agent-loop.js";
 import type {
 	AgentContext,
 	AgentEvent,
@@ -556,6 +556,72 @@ export class AgentHarness<
 		return [failureMessage];
 	}
 
+	private async executeContinueTurn(
+		turnState: AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>,
+	): Promise<AssistantMessage> {
+		const ctx = await this.session.buildContext();
+		const last = ctx.messages[ctx.messages.length - 1];
+		if (!last) {
+			throw new AgentHarnessError("invalid_state", "Cannot continue: session has no messages");
+		}
+		if (last.role === "assistant") {
+			throw new AgentHarnessError(
+				"invalid_state",
+				"Cannot continue from assistant message; append tool results first",
+			);
+		}
+
+		let activeTurnState = turnState;
+		const abortController = new AbortController();
+		const getTurnState = () => activeTurnState;
+		const setTurnState = (nextTurnState: AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>) => {
+			activeTurnState = nextTurnState;
+		};
+		this.runAbortController = abortController;
+		const runResultPromise = (async () => {
+			try {
+				return await runAgentLoopContinue(
+					this.createContext(turnState),
+					this.createLoopConfig(getTurnState, setTurnState),
+					(event) => this.handleAgentEvent(event, abortController.signal),
+					abortController.signal,
+					this.createStreamFn(getTurnState),
+				);
+			} catch (error) {
+				try {
+					return await this.emitRunFailure(
+						activeTurnState.model,
+						error,
+						abortController.signal.aborted,
+						abortController.signal,
+					);
+				} catch (failureError) {
+					const cause = new AggregateError(
+						[toError(error), toError(failureError)],
+						"Agent continue failed and failure reporting failed",
+					);
+					throw new AgentHarnessError("unknown", cause.message, cause);
+				}
+			}
+		})();
+		try {
+			const newMessages = await runResultPromise;
+			for (let i = newMessages.length - 1; i >= 0; i--) {
+				const message = newMessages[i]!;
+				if (message.role === "assistant") {
+					return message;
+				}
+			}
+			throw new AgentHarnessError("invalid_state", "AgentHarness continue completed without an assistant message");
+		} finally {
+			try {
+				await this.flushPendingSessionWrites();
+			} finally {
+				this.runAbortController = undefined;
+			}
+		}
+	}
+
 	private async executeTurn(
 		turnState: AgentHarnessTurnState<TSkill, TPromptTemplate, TTool>,
 		text: string,
@@ -640,6 +706,25 @@ export class AgentHarness<
 		try {
 			const turnState = await this.createTurnState();
 			return await this.executeTurn(turnState, text, options);
+		} catch (error) {
+			this.phase = "idle";
+			throw normalizeHarnessError(error, "unknown");
+		} finally {
+			finishRunPromise();
+		}
+	}
+
+	/**
+	 * Continue the agent loop from the current session context.
+	 * The last persisted message must be a user or toolResult message.
+	 */
+	async continueTurn(): Promise<AssistantMessage> {
+		if (this.phase !== "idle") throw new AgentHarnessError("busy", "AgentHarness is busy");
+		this.phase = "turn";
+		const finishRunPromise = this.startRunPromise();
+		try {
+			const turnState = await this.createTurnState();
+			return await this.executeContinueTurn(turnState);
 		} catch (error) {
 			this.phase = "idle";
 			throw normalizeHarnessError(error, "unknown");

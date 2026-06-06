@@ -4,7 +4,6 @@ const { setMaxListeners } = require('events');
 // Single agent runtime: the "many" surface runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('../../agents/agent-runtime.cjs');
-const approval = require('../agents/approval.cjs');
 const llmService = require('../../ai/llm-service.cjs');
 const domeOauth = require('../../auth/dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../../ai/dome-provider-url.cjs');
@@ -14,6 +13,9 @@ const { assertChatProvider, resolveProviderConfig } = require('../../ai/resolve-
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
+
+/** Pending HITL interrupt state keyed by streamId (in-process resume). */
+const langGraphPendingInterrupts = new Map();
 
 /**
  * Double-texting guard: maps sessionId → active streamId.
@@ -271,22 +273,30 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           threadId,
           sessionId,
           skipHitl,
+          hitlInterrupt: !skipHitl,
           requiresApproval: skipHitl ? null : agentRuntime.HITL_TOOL_NAMES,
-          requestApproval: skipHitl
-            ? null
-            : async (toolCall) =>
-                approval.requestApproval({
-                  kind: 'tool_call',
-                  payload: {
-                    name: toolCall.name,
-                    arguments: toolCall.arguments,
-                  },
-                  senderId: event.sender.id,
-                }),
         });
         if (result && typeof result === 'object' && result.__interrupt__) {
+          langGraphPendingInterrupts.set(streamId, {
+            threadId: result.threadId,
+            pendingApproval: {
+              actionRequests: result.actionRequests,
+              reviewConfigs: result.reviewConfigs,
+              pendingToolCall: result.pendingToolCall ?? null,
+            },
+            provider,
+            model: chatModel,
+            apiKey,
+            baseUrl,
+            messages,
+            tools,
+            mcpServerIds,
+            subagentIds,
+            sessionId,
+          });
           return { success: true, interrupted: true, threadId: result.threadId };
         }
+        langGraphPendingInterrupts.delete(streamId);
         return { success: true };
       } finally {
         langGraphAbortControllers.delete(streamId);
@@ -332,22 +342,79 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     }
   });
 
-  // HITL resume was backed by the LangGraph checkpointer (interrupt/Command
-  // replay), removed with the LangGraph runtime. The Dome-native runtime does
-  // not support resuming an interrupted stream yet; the channel stays
-  // registered so the renderer keeps working, but it now fails explicitly.
   ipcMain.handle('ai:langgraph:resume', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-    const message =
-      'HITL resume is not supported by the Dome-native runtime yet ' +
-      '(it required the removed LangGraph checkpointer). Re-send your message instead.';
-    const streamId = params && typeof params === 'object' ? params.streamId : undefined;
-    if (streamId && event.sender && !event.sender.isDestroyed()) {
-      event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: message });
+    if (!params || typeof params !== 'object') {
+      return { success: false, error: 'Invalid params' };
     }
-    return { success: false, error: message };
+    const { streamId, threadId: rawThreadId, decisions, provider: rawProvider, model: rawModel } = params;
+    if (!streamId) {
+      return { success: false, error: 'streamId is required' };
+    }
+    const pending = langGraphPendingInterrupts.get(streamId);
+    const threadId = rawThreadId || pending?.threadId;
+    if (!threadId) {
+      return { success: false, error: 'No threadId for resume' };
+    }
+
+    const onChunk = (data) => {
+      if (event.sender && !event.sender.isDestroyed()) {
+        event.sender.send('ai:stream:chunk', { streamId, ...data });
+      }
+    };
+
+    const controller = new AbortController();
+    setMaxListeners(64, controller.signal);
+    langGraphAbortControllers.set(streamId, controller);
+
+    try {
+      const providerConfig = await resolveProviderConfig(
+        database,
+        rawProvider || pending?.provider,
+        rawModel || pending?.model,
+      );
+      const result = await agentRuntime.resumeDomeAgent('many', {
+        threadId,
+        decisions: Array.isArray(decisions) ? decisions : [],
+        pendingApproval: pending?.pendingApproval ?? {},
+        pendingToolCall: pending?.pendingApproval?.pendingToolCall ?? null,
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+        apiKey: providerConfig.apiKey,
+        baseUrl: providerConfig.baseUrl,
+        messages: pending?.messages,
+        toolDefinitions: pending?.tools,
+        mcpServerIds: pending?.mcpServerIds,
+        signal: controller.signal,
+        onChunk,
+      });
+
+      if (result && typeof result === 'object' && result.__interrupt__) {
+        langGraphPendingInterrupts.set(streamId, {
+          ...(pending || {}),
+          threadId: result.threadId,
+          pendingApproval: {
+            actionRequests: result.actionRequests,
+            reviewConfigs: result.reviewConfigs,
+            pendingToolCall: result.pendingToolCall ?? null,
+          },
+        });
+        return { success: true, interrupted: true, threadId: result.threadId };
+      }
+
+      langGraphPendingInterrupts.delete(streamId);
+      onChunk({ type: 'done' });
+      return { success: true };
+    } catch (error) {
+      console.error('[AI LangGraph] Resume error:', error);
+      const userMessage = error?.message || 'Resume failed';
+      onChunk({ type: 'error', error: userMessage });
+      return { success: false, error: userMessage };
+    } finally {
+      langGraphAbortControllers.delete(streamId);
+    }
   });
 
   /**

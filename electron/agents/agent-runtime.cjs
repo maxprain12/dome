@@ -18,6 +18,16 @@
 
 const DEFAULT_RECURSION_LIMIT = 25;
 
+/** Thrown when a tool requires HITL approval and the run should pause for resume. */
+class HitlInterruptError extends Error {
+  constructor(toolCall, reviewConfigs) {
+    super('HITL interrupt');
+    this.name = 'HitlInterruptError';
+    this.toolCall = toolCall;
+    this.reviewConfigs = reviewConfigs || [];
+  }
+}
+
 /** Tools that require in-app approval before execution (HITL). */
 const HITL_TOOL_NAMES = new Set([
   'resource_delete',
@@ -218,9 +228,10 @@ function buildBeforeToolCall(opts, caps) {
   const limits = { ...CREATION_TOOL_CAPS, ...(opts.caps || {}) };
   const requiresApproval = opts.skipHitl ? null : opts.requiresApproval;
   const requestApproval = opts.skipHitl ? null : opts.requestApproval;
+  const hitlInterrupt = !opts.skipHitl && opts.hitlInterrupt === true;
 
   const needsApproval = (name) => {
-    if (!requiresApproval || typeof requestApproval !== 'function') return false;
+    if (!requiresApproval) return false;
     if (typeof requiresApproval === 'function') return requiresApproval({ name });
     if (requiresApproval instanceof Set) return requiresApproval.has(name);
     if (Array.isArray(requiresApproval)) return requiresApproval.includes(name);
@@ -247,9 +258,25 @@ function buildBeforeToolCall(opts, caps) {
 
     // HITL approval.
     if (needsApproval(name)) {
-      const approved = await requestApproval(ctx.toolCall);
-      if (!approved) {
-        return { block: true, reason: 'Tool call declined by the user.' };
+      if (hitlInterrupt) {
+        let args = ctx.toolCall?.arguments;
+        if (typeof args === 'string') {
+          try { args = JSON.parse(args); } catch { args = {}; }
+        }
+        throw new HitlInterruptError(
+          {
+            id: ctx.toolCall?.id,
+            name,
+            arguments: args || {},
+          },
+          [{ actionName: name, allowedDecisions: ['approve', 'reject'] }],
+        );
+      }
+      if (typeof requestApproval === 'function') {
+        const approved = await requestApproval(ctx.toolCall);
+        if (!approved) {
+          return { block: true, reason: 'Tool call declined by the user.' };
+        }
       }
     }
 
@@ -360,12 +387,36 @@ function buildHarnessContextHook(core, piModel, apiKey) {
   };
 }
 
-/**
- * Dome-native path. Drives `AgentHarness` (PI session + skills + compaction) and
- * relays agent events to `onChunk` via `mapAgentEventToChunk`.
- */
-async function runDomeAgent(surface, opts) {
-  console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
+function parseToolArgs(raw) {
+  if (raw == null) return {};
+  if (typeof raw === 'object') return raw;
+  if (typeof raw === 'string') {
+    try { return JSON.parse(raw); } catch { return {}; }
+  }
+  return {};
+}
+
+function buildInterruptPayload(toolCall, reviewConfigs, threadId) {
+  const args = parseToolArgs(toolCall?.arguments);
+  const actionRequests = [{
+    name: toolCall.name,
+    args,
+    description: `Approve tool call: ${toolCall.name}`,
+  }];
+  return {
+    __interrupt__: true,
+    threadId,
+    actionRequests,
+    reviewConfigs: reviewConfigs || [{ actionName: toolCall.name, allowedDecisions: ['approve', 'reject'] }],
+    pendingToolCall: {
+      id: toolCall.id || `hitl_${Date.now()}`,
+      name: toolCall.name,
+      arguments: args,
+    },
+  };
+}
+
+async function setupHarness(surface, opts) {
   const core = await import('@dome/agent-core');
   const ai = await import('@dome/ai');
   const { NodeExecutionEnv } = await import('@dome/agent-core/node');
@@ -403,18 +454,6 @@ async function runDomeAgent(surface, opts) {
     piModel = { ...piModel, baseUrl };
   }
   const piMessages = ai.legacyMessagesToContext(baseSystemPrompt, nonSystem).messages;
-  const userPrompt = lastUserText(piMessages);
-
-  if (process.env.DOME_GUARDRAILS === '1') {
-    const reason = detectHarmfulContent(userPrompt);
-    if (reason) {
-      if (typeof onChunk === 'function') {
-        onChunk({ type: 'text', text: reason });
-        onChunk({ type: 'done' });
-      }
-      return reason;
-    }
-  }
 
   const { session, threadId } = await bridge.resolveSession(effectiveThreadId);
   await bridge.seedSessionIfEmpty(session, piMessages);
@@ -422,8 +461,39 @@ async function runDomeAgent(surface, opts) {
   const executeToolInMain = (name, args) =>
     dispatcher.executeToolInMain(name, args, opts.runtimeContext);
   const tools = await bridge.buildAllTools(database, opts, executeToolInMain);
-  const resources = await bridge.loadSkillsResources();
 
+  if (surface === 'many') {
+    const { manySubagentIds, buildTaskTool } = require('./subagents-native.cjs');
+    if (manySubagentIds().length > 0) {
+      tools.push(buildTaskTool({
+        provider,
+        model,
+        apiKey,
+        baseUrl,
+        runtimeContext: opts.runtimeContext,
+        onChunk: opts.onChunk,
+        signal: opts.signal,
+        threadId,
+      }));
+    }
+  }
+
+  if (surface === 'agent-team' && Array.isArray(opts.teamMemberAgents) && opts.teamMemberAgents.length > 0) {
+    const { buildDelegateToAgentTool } = require('./subagents-native.cjs');
+    tools.push(buildDelegateToAgentTool({
+      provider,
+      model,
+      apiKey,
+      baseUrl,
+      runtimeContext: opts.runtimeContext,
+      onChunk: opts.onChunk,
+      signal: opts.signal,
+      threadId,
+      mcpServerIds: opts.mcpServerIds,
+    }, opts.teamMemberAgents));
+  }
+
+  const resources = await bridge.loadSkillsResources();
   const env = new NodeExecutionEnv({ cwd: process.cwd() });
   const harness = new core.AgentHarness({
     env,
@@ -476,28 +546,238 @@ async function runDomeAgent(surface, opts) {
     signal.addEventListener('abort', abortListener, { once: true });
   }
 
+  return {
+    core,
+    harness,
+    session,
+    threadId,
+    piModel,
+    cleanup: () => {
+      if (abortListener && signal) signal.removeEventListener('abort', abortListener);
+      unsubTool();
+      unsubCtx();
+      unsubEvents();
+    },
+    executeToolInMain,
+  };
+}
+
+/**
+ * Resume a HITL-interrupted run: apply user decisions, append tool results, continue loop.
+ */
+async function resumeDomeAgent(surface, opts) {
+  const {
+    threadId,
+    decisions,
+    pendingApproval,
+    onChunk,
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    messages,
+    signal,
+  } = opts;
+
+  const actionRequests = pendingApproval?.actionRequests || [];
+  const pendingToolCall = opts.pendingToolCall || (actionRequests[0]
+    ? {
+        id: `hitl_${Date.now()}`,
+        name: actionRequests[0].name,
+        arguments: actionRequests[0].args || {},
+      }
+    : null);
+
+  if (!pendingToolCall?.name) {
+    throw new Error('No pending tool call to resume');
+  }
+
+  const setup = await setupHarness(surface, {
+    ...opts,
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    messages: messages || [{ role: 'user', content: 'Continue after approval.' }],
+    threadId,
+    hitlInterrupt: false,
+    skipHitl: true,
+  });
+
+  const { harness, session, piModel, cleanup, executeToolInMain } = setup;
+  const toolCallId = pendingToolCall.id || `hitl_${Date.now()}`;
+  const toolName = pendingToolCall.name;
+  const toolArgs = parseToolArgs(pendingToolCall.arguments);
+
+  const decision = Array.isArray(decisions) ? decisions[0] : null;
+  const approved = decision?.type === 'approve' || decision?.type === 'edit';
+
   try {
-    const assistant = await harness.prompt(userPrompt);
+    await session.appendMessage({
+      role: 'assistant',
+      content: [{
+        type: 'toolCall',
+        id: toolCallId,
+        name: toolName,
+        arguments: decision?.type === 'edit' && decision.editedAction
+          ? decision.editedAction.args
+          : toolArgs,
+      }],
+      api: piModel.api,
+      provider: piModel.provider,
+      model: piModel.id,
+      usage: {
+        input: 0,
+        output: 0,
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+      },
+      stopReason: 'toolUse',
+      timestamp: Date.now(),
+    });
+
+    const effectiveArgs = decision?.type === 'edit' && decision.editedAction
+      ? decision.editedAction.args
+      : toolArgs;
+
+    let resultText;
+    let isError = false;
+    if (approved) {
+      try {
+        const raw = await executeToolInMain(toolName, effectiveArgs);
+        resultText = typeof raw === 'string' ? raw : JSON.stringify(raw ?? '');
+      } catch (err) {
+        isError = true;
+        resultText = err instanceof Error ? err.message : String(err);
+      }
+    } else {
+      isError = true;
+      resultText = decision?.message || 'Tool call declined by the user.';
+    }
+
+    await session.appendMessage({
+      role: 'toolResult',
+      toolCallId,
+      toolName,
+      content: [{ type: 'text', text: resultText }],
+      isError,
+      timestamp: Date.now(),
+    });
+
+    if (typeof onChunk === 'function') {
+      onChunk({
+        type: 'tool_result',
+        toolCallId,
+        result: resultText,
+      });
+    }
+
+    const assistant = await harness.continueTurn();
     const finalText = assistantText(assistant);
     if (assistant?.stopReason === 'error') {
       const errText = finalText || assistant.errorMessage || 'Agent error';
-      if (typeof onChunk === 'function') {
-        onChunk({ type: 'error', error: errText });
-      }
+      if (typeof onChunk === 'function') onChunk({ type: 'error', error: errText });
       throw new Error(errText);
     }
+    if (typeof onChunk === 'function') onChunk({ type: 'done' });
     return finalText;
   } catch (err) {
-    console.error('[AgentRuntime] run failed:', err?.message || err);
+    if (err instanceof HitlInterruptError) {
+      const payload = buildInterruptPayload(err.toolCall, err.reviewConfigs, setup.threadId);
+      if (typeof onChunk === 'function') {
+        onChunk({
+          type: 'interrupt',
+          actionRequests: payload.actionRequests,
+          reviewConfigs: payload.reviewConfigs,
+          threadId: payload.threadId,
+          pendingToolCall: payload.pendingToolCall,
+        });
+      }
+      return payload;
+    }
+    console.error('[AgentRuntime] resume failed:', err?.message || err);
     if (typeof onChunk === 'function' && err?.message) {
       onChunk({ type: 'error', error: err.message });
     }
     throw err;
   } finally {
-    if (abortListener && signal) signal.removeEventListener('abort', abortListener);
-    unsubTool();
-    unsubCtx();
-    unsubEvents();
+    cleanup();
+  }
+}
+
+/**
+ * Dome-native path. Drives `AgentHarness` (PI session + skills + compaction) and
+ * relays agent events to `onChunk` via `mapAgentEventToChunk`.
+ */
+/** Open an idle harness on an existing JSONL session (compact / branch summary IPC). */
+async function openHarnessForThread(opts) {
+  return setupHarness('threads', {
+    ...opts,
+    skipHitl: true,
+    hitlInterrupt: false,
+    messages: opts.messages ?? [{ role: 'system', content: '' }],
+    onChunk: undefined,
+    signal: undefined,
+  });
+}
+
+async function runDomeAgent(surface, opts) {
+  console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
+  const userPrompt = lastUserText(
+    (await import('@dome/ai')).legacyMessagesToContext(
+      '',
+      (Array.isArray(opts.messages) ? opts.messages : []).filter((m) => m && m.role !== 'system'),
+    ).messages,
+  );
+
+  if (process.env.DOME_GUARDRAILS === '1') {
+    const reason = detectHarmfulContent(userPrompt);
+    if (reason) {
+      if (typeof opts.onChunk === 'function') {
+        opts.onChunk({ type: 'text', text: reason });
+        opts.onChunk({ type: 'done' });
+      }
+      return reason;
+    }
+  }
+
+  const setup = await setupHarness(surface, opts);
+  const { harness, threadId, cleanup } = setup;
+
+  try {
+    const assistant = await harness.prompt(userPrompt);
+    const finalText = assistantText(assistant);
+    if (assistant?.stopReason === 'error') {
+      const errText = finalText || assistant.errorMessage || 'Agent error';
+      if (typeof opts.onChunk === 'function') {
+        opts.onChunk({ type: 'error', error: errText });
+      }
+      throw new Error(errText);
+    }
+    return finalText;
+  } catch (err) {
+    if (err instanceof HitlInterruptError) {
+      const payload = buildInterruptPayload(err.toolCall, err.reviewConfigs, threadId);
+      if (typeof opts.onChunk === 'function') {
+        opts.onChunk({
+          type: 'interrupt',
+          actionRequests: payload.actionRequests,
+          reviewConfigs: payload.reviewConfigs,
+          threadId: payload.threadId,
+          pendingToolCall: payload.pendingToolCall,
+        });
+      }
+      return payload;
+    }
+    console.error('[AgentRuntime] run failed:', err?.message || err);
+    if (typeof opts.onChunk === 'function' && err?.message) {
+      opts.onChunk({ type: 'error', error: err.message });
+    }
+    throw err;
+  } finally {
+    cleanup();
   }
 }
 
@@ -507,6 +787,9 @@ module.exports = {
   runAgent,
   runManyAgent,
   runDomeAgent,
+  resumeDomeAgent,
+  openHarnessForThread,
+  HitlInterruptError,
   HITL_TOOL_NAMES,
   // exported for tests
   detectHarmfulContent,

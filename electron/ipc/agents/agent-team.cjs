@@ -3,12 +3,9 @@
 /**
  * Agent Team IPC.
  *
- * NOTE: the multi-agent supervisor + sub-agents graph (task delegation) was
- * removed with the legacy agent stack. Until `@dome/agent-core` ships a
- * team/graph path,
- * this surface runs as a SINGLE supervisor agent over the union of the team's
- * tools (member agents are described in the prompt but not delegated to). See
- * docs/architecture/agent-runtime.md for the migration plan.
+ * Supervisor delegates to team members via the native `delegate_to_agent` tool
+ * (nested AgentHarness turns). Member chunks are tagged with `agentName` for the
+ * renderer. See docs/architecture/agent-runtime.md.
  *
  * Renderer chunk shape on `ai:stream:chunk`:
  *   { streamId, chunk: '<text>' }                    — supervisor synthesis
@@ -102,7 +99,9 @@ function mapTeamChunk(chunk, send) {
   if (!chunk || typeof chunk !== 'object') return;
   switch (chunk.type) {
     case 'text':
-      if (chunk.text) send({ chunk: chunk.text });
+      if (chunk.text) {
+        send(chunk.agentName ? { chunk: chunk.text, agentName: chunk.agentName } : { chunk: chunk.text });
+      }
       return;
     case 'thinking':
       return;
@@ -112,7 +111,12 @@ function mapTeamChunk(chunk, send) {
       if (typeof args === 'string') {
         try { args = JSON.parse(args); } catch { args = {}; }
       }
-      send({ type: 'tool_call', toolName: chunk.toolCall.name, args });
+      send({
+        type: 'tool_call',
+        toolName: chunk.toolCall.name,
+        args,
+        ...(chunk.agentName ? { agentName: chunk.agentName } : {}),
+      });
       return;
     }
     case 'tool_result':
@@ -215,8 +219,6 @@ function register({ ipcMain, windowManager, database }) {
         volatileContext: contextBlock || undefined,
       });
 
-      // Single-supervisor tool surface: union of the team tools and every
-      // member's tools (no `task` delegation in the Dome-native runtime yet).
       const toolIds = uniqueToolIds(
         Array.isArray(teamToolIds) ? teamToolIds : [],
         ...memberAgents.map((a) => a.toolIds),
@@ -239,6 +241,7 @@ function register({ ipcMain, windowManager, database }) {
         toolDefinitions,
         useDirectTools: toolDefinitions.length > 0,
         mcpServerIds: Array.isArray(teamMcpServerIds) ? teamMcpServerIds : undefined,
+        teamMemberAgents: memberAgents,
         skipHitl: true,
         signal: controller.signal,
         threadId: `team_${teamId}`,

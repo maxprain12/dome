@@ -8,10 +8,15 @@
  *   threads:get-history  — session tree entries for a thread_id
  *   threads:delete       — delete a JSONL session
  *   threads:update-state — fork session at current leaf (time-travel stub)
+ *   threads:compact       — run harness compaction on a thread session
+ *   threads:navigate-tree — branch to a tree entry (optional branch summary)
  */
 
 const { z } = require('zod');
 const bridge = require('../../agents/dome-harness-bridge.cjs');
+const agentRuntime = require('../../agents/agent-runtime.cjs');
+const database = require('../../core/database.cjs');
+const { resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs');
 
 const ThreadsListOptsSchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
@@ -32,12 +37,39 @@ const ThreadsUpdateStatePayloadSchema = z.object({
   asNode: z.union([z.string(), z.null()]).optional(),
 });
 
+const ThreadsCompactPayloadSchema = z.object({
+  threadId: z.string().min(1),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  customInstructions: z.string().optional(),
+});
+
+const ThreadsNavigateTreePayloadSchema = z.object({
+  threadId: z.string().min(1),
+  targetId: z.string().min(1),
+  provider: z.string().optional(),
+  model: z.string().optional(),
+  summarize: z.boolean().optional(),
+  customInstructions: z.string().optional(),
+  replaceInstructions: z.boolean().optional(),
+  label: z.string().optional(),
+});
+
 async function openThreadSession(threadId) {
   const meta = await bridge.findSessionMetadata(threadId);
   if (!meta) return null;
   const repo = await bridge.getSessionRepo();
   const session = await repo.open(meta);
   return { meta, session, repo };
+}
+
+async function resolveThreadProviderConfig(provider, model) {
+  const queries = database.getQueries();
+  const providerResult = queries.getSetting.get('ai_provider');
+  const modelResult = queries.getSetting.get('ai_model');
+  const effectiveProvider = provider || providerResult?.value || 'openai';
+  const effectiveModel = model || modelResult?.value;
+  return resolveProviderConfig(database, effectiveProvider, effectiveModel);
 }
 
 function register({ ipcMain, windowManager, validateSender }) {
@@ -193,6 +225,77 @@ function register({ ipcMain, windowManager, validateSender }) {
     } catch (err) {
       console.error('[threads:update-state]', err?.message);
       return { error: err?.message ?? 'Unknown error' };
+    }
+  });
+
+  ipcMain.handle('threads:compact', async (event, raw) => {
+    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', success: false };
+    const parsed = ThreadsCompactPayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { error: 'Invalid payload', success: false };
+    }
+    const { threadId, provider, model, customInstructions } = parsed.data;
+    let cleanup = () => {};
+    try {
+      const providerConfig = await resolveThreadProviderConfig(provider, model);
+      const setup = await agentRuntime.openHarnessForThread({
+        threadId,
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+        apiKey: providerConfig.apiKey,
+        baseUrl: providerConfig.baseUrl,
+      });
+      cleanup = setup.cleanup;
+      const result = await setup.harness.compact(customInstructions);
+      return { success: true, threadId, ...result };
+    } catch (err) {
+      console.error('[threads:compact]', err?.message);
+      return { error: err?.message ?? 'Unknown error', success: false };
+    } finally {
+      cleanup();
+    }
+  });
+
+  ipcMain.handle('threads:navigate-tree', async (event, raw) => {
+    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', success: false };
+    const parsed = ThreadsNavigateTreePayloadSchema.safeParse(raw ?? {});
+    if (!parsed.success) {
+      return { error: 'Invalid payload', success: false };
+    }
+    const {
+      threadId,
+      targetId,
+      provider,
+      model,
+      summarize,
+      customInstructions,
+      replaceInstructions,
+      label,
+    } = parsed.data;
+    let cleanup = () => {};
+    try {
+      const providerConfig = await resolveThreadProviderConfig(provider, model);
+      const setup = await agentRuntime.openHarnessForThread({
+        threadId,
+        provider: providerConfig.provider,
+        model: providerConfig.model,
+        apiKey: providerConfig.apiKey,
+        baseUrl: providerConfig.baseUrl,
+      });
+      cleanup = setup.cleanup;
+      const result = await setup.harness.navigateTree(targetId, {
+        summarize: summarize ?? false,
+        customInstructions,
+        replaceInstructions,
+        label,
+      });
+      const leafId = await setup.session.getStorage().getLeafId();
+      return { success: true, threadId, leafId, ...result };
+    } catch (err) {
+      console.error('[threads:navigate-tree]', err?.message);
+      return { error: err?.message ?? 'Unknown error', success: false };
+    } finally {
+      cleanup();
     }
   });
 }
