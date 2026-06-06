@@ -90,4 +90,6 @@ async function createModelFromConfig(provider, model, apiKey, baseUrl) {
 module.exports = {
   stripZodJsonSchemaMeta,
   createModelFromConfig,
+  DEFAULT_MODELS,
+  DEFAULT_BASE_URLS,
 };

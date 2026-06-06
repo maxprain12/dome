@@ -909,34 +909,8 @@ function resolveStaticNodeOutput(node) {
 }
 
 async function getProviderConfig(providerArg, modelArg) {
-  const queries = getQueries();
-  if (!queries) {
-    throw new Error('Database not initialized. Please restart the app.');
-  }
-  const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'ollama';
-  let apiKey;
-  let baseUrl;
-  let model;
-  if (provider === 'ollama') {
-    baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
-    apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
-    model = modelArg || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
-  } else if (provider === 'dome') {
-    const domeOauth = require('../auth/dome-oauth.cjs');
-    const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
-    const session = await domeOauth.getOrRefreshSession(_database);
-    if (!session?.connected || !session?.accessToken) {
-      throw new Error('Dome provider is not connected. Open Settings > AI > Dome and connect your account.');
-    }
-    apiKey = session.accessToken;
-    baseUrl = `${getDomeProviderBaseUrl()}/api/v1`;
-    model = modelArg || queries.getSetting.get('ai_model')?.value || 'dome/auto';
-  } else {
-    apiKey = queries.getSetting.get('ai_api_key')?.value;
-    if (!apiKey) throw new Error(`API key not configured for ${provider}`);
-    model = modelArg || queries.getSetting.get('ai_model')?.value;
-  }
-  return { provider, apiKey, baseUrl, model };
+  const { resolveProviderConfig } = require('../ai/resolve-provider-config.cjs');
+  return resolveProviderConfig(_database, providerArg, modelArg);
 }
 
 function persistAssistantMessage(sessionId, payload) {
@@ -1086,6 +1060,19 @@ function createRunChunkEmitter(runId, context) {
     }
     if (data.type === 'budget' && data.breakdown) {
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'budget', breakdown: data.breakdown });
+      return;
+    }
+    if (data.type === 'error' && data.error) {
+      emit(RUN_CHUNK_CHANNEL, { runId, type: 'error', error: data.error });
+      patchRun(runId, {
+        status: 'failed',
+        error: data.error,
+        lastHeartbeatAt: heartbeat,
+      });
+      return;
+    }
+    if (data.type === 'done') {
+      emit(RUN_CHUNK_CHANNEL, { runId, type: 'done' });
       return;
     }
     if (data.type === 'usage' && data.usage) {

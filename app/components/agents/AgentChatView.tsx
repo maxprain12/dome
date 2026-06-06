@@ -9,6 +9,7 @@ import { useAgentChatStore } from '@/lib/store/useAgentChatStore';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 import {
   getAIConfig,
+  checkChatProviderReady,
   createCustomAgentTools,
   toOpenAIToolDefinitions,
   providerSupportsTools,
@@ -375,6 +376,15 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         addMessage({
           role: 'assistant',
           content: t('chat.no_ai_config'),
+        });
+        return;
+      }
+
+      const providerReady = await checkChatProviderReady(config);
+      if (!providerReady.ready) {
+        addMessage({
+          role: 'assistant',
+          content: t(providerReady.messageKey),
         });
         return;
       }

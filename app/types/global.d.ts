@@ -915,7 +915,17 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'minimax' | 'openrouter',
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'google'
+            | 'dome'
+            | 'minimax'
+            | 'openrouter'
+            | 'copilot'
+            | 'deepseek'
+            | 'moonshot'
+            | 'qwen',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -953,7 +963,18 @@ declare global {
           cached?: boolean;
         }>;
         stream: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama' | 'minimax' | 'openrouter',
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'google'
+            | 'dome'
+            | 'ollama'
+            | 'minimax'
+            | 'openrouter'
+            | 'copilot'
+            | 'deepseek'
+            | 'moonshot'
+            | 'qwen',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -971,7 +992,18 @@ declare global {
           error?: string;
         }>;
         streamLangGraph: (
-          provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax' | 'openrouter',
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'google'
+            | 'ollama'
+            | 'minimax'
+            | 'openrouter'
+            | 'copilot'
+            | 'dome'
+            | 'deepseek'
+            | 'moonshot'
+            | 'qwen',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,

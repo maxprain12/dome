@@ -153,6 +153,134 @@ function generateStreamId(): string {
   return `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+const API_KEY_CHAT_PROVIDERS: AIProviderType[] = [
+  'openai',
+  'anthropic',
+  'google',
+  'minimax',
+  'openrouter',
+  'deepseek',
+  'moonshot',
+  'qwen',
+];
+
+const OAUTH_CHAT_PROVIDERS: AIProviderType[] = ['dome', 'copilot'];
+
+/** Providers routed through ai:chat / ai:stream IPC (not ollama). */
+type IpcCloudChatProvider = Exclude<AIProviderType, 'ollama'>;
+
+export type ChatProviderReadyResult =
+  | { ready: true }
+  | { ready: false; messageKey: string };
+
+/** Pre-flight check before starting a chat/agent run. */
+export async function checkChatProviderReady(config: AIConfig): Promise<ChatProviderReadyResult> {
+  const provider = config.provider === 'local' ? 'ollama' : config.provider;
+
+  if (OAUTH_CHAT_PROVIDERS.includes(provider as AIProviderType)) {
+    if (provider === 'dome') {
+      const session = await window.electron?.domeAuth?.getSession?.();
+      if (!session?.success || !session?.connected) {
+        return { ready: false, messageKey: 'chat.no_ai_config' };
+      }
+      return { ready: true };
+    }
+    if (provider === 'copilot') {
+      const status = await window.electron?.copilotAuth?.status?.();
+      if (!status?.connected) {
+        return { ready: false, messageKey: 'chat.no_ai_config' };
+      }
+      return { ready: true };
+    }
+  }
+
+  if (API_KEY_CHAT_PROVIDERS.includes(provider as AIProviderType) && !config.apiKey) {
+    return { ready: false, messageKey: 'chat.no_api_key' };
+  }
+
+  return { ready: true };
+}
+
+async function chatViaMainProcess(
+  provider: IpcCloudChatProvider,
+  messages: Array<{ role: string; content: string }>,
+  model: string,
+): Promise<string> {
+  if (!isElectron()) {
+    throw new Error('AI chat requires Electron environment');
+  }
+  const result = await window.electron.ai.chat(provider, messages, model);
+  if (!result.success || !result.content) {
+    throw new Error(result.error || `${provider} chat failed`);
+  }
+  return result.content;
+}
+
+async function* streamViaMainProcess(
+  provider: IpcCloudChatProvider,
+  messages: Array<{ role: string; content: string }>,
+  model: string,
+  tools?: ToolDefinition[],
+  _signal?: AbortSignal,
+): AsyncIterable<ChatStreamChunk> {
+  if (!isElectron()) {
+    throw new Error('AI streaming requires Electron environment');
+  }
+
+  const streamId = generateStreamId();
+  const chunks: ChatStreamChunk[] = [];
+  let done = false;
+  let error: Error | null = null;
+  let resolveWait: (() => void) | null = null;
+
+  const unsubscribe = window.electron.ai.onStreamChunk((data: {
+    streamId: string;
+    type?: string;
+    text?: string;
+    error?: string;
+    toolCall?: { id: string; name: string; arguments: string };
+  }) => {
+    if (data.streamId !== streamId) return;
+
+    if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+    } else if (data.type === 'error') {
+      error = new Error(data.error || 'Stream error');
+      done = true;
+    }
+
+    if (resolveWait) resolveWait();
+  });
+
+  void window.electron.ai.stream(provider, messages, model, streamId, tools);
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        yield chunks.shift()!;
+      } else if (!done) {
+        await new Promise<void>((resolve) => { resolveWait = resolve; });
+        resolveWait = null;
+      }
+    }
+    if (error) throw error;
+  } finally {
+    unsubscribe();
+  }
+}
+
 // OpenAI
 export async function chatWithOpenAI(
   messages: Array<{ role: string; content: string }>,
@@ -782,6 +910,23 @@ export async function chat(
     case 'dome':
       return chatWithDome(messages, config.model || getDefaultModelId('dome'));
 
+    case 'copilot':
+      return chatViaMainProcess(
+        'copilot',
+        messages,
+        config.model || getDefaultModelId('copilot'),
+      );
+
+    case 'deepseek':
+    case 'moonshot':
+    case 'qwen':
+      if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
+      return chatViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+      );
+
     case 'ollama':
       throw new Error('Ollama chat must be handled from the main process via IPC');
 
@@ -875,6 +1020,29 @@ export async function* chatStream(
         config.ollamaModel || config.model || 'llama3.2',
         signal,
         undefined,
+      );
+      break;
+
+    case 'copilot':
+      yield* streamViaMainProcess(
+        'copilot',
+        messages,
+        config.model || getDefaultModelId('copilot'),
+        undefined,
+        signal,
+      );
+      break;
+
+    case 'deepseek':
+    case 'moonshot':
+    case 'qwen':
+      if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
+      yield* streamViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+        undefined,
+        signal,
       );
       break;
 
@@ -994,7 +1162,7 @@ export async function* chatWithToolsStream(
   });
 
   const invokePromise = window.electron.ai.streamLangGraph(
-    provider as 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax' | 'openrouter',
+    provider as AIProviderType,
     messages,
     model,
     streamId,

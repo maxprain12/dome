@@ -9,7 +9,19 @@ const llmService = require('../ai/llm-service.cjs');
 const { MINIMAX_BASE_URL } = require('../ai/minimax-config.cjs');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 
-const VISION_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'minimax', 'dome', 'ollama', 'openrouter']);
+const VISION_PROVIDERS = new Set([
+  'openai',
+  'anthropic',
+  'google',
+  'minimax',
+  'dome',
+  'ollama',
+  'openrouter',
+  'copilot',
+  'deepseek',
+  'moonshot',
+  'qwen',
+]);
 
 /**
  * @param {() => any} getQueries
@@ -37,14 +49,42 @@ function resolveConfig(getQueries) {
     };
   }
 
+  if (provider === 'copilot') {
+    return {
+      provider: 'copilot',
+      apiKey: q.getSetting.get('copilot_github_token')?.value || '',
+      model: q.getSetting.get('ai_model')?.value || 'gpt-4.1',
+      openaiBase: 'https://api.individual.githubcopilot.com',
+    };
+  }
+
+  const { DEFAULT_BASE_URLS } = require('../ai/model-factory.cjs');
+  const { MINIMAX_ANTHROPIC_BASE_URL } = require('../ai/minimax-config.cjs');
   const rawBase = q.getSetting.get('ai_base_url')?.value;
-  const openaiBase = rawBase && String(rawBase).trim() ? String(rawBase).trim().replace(/\/$/, '') : 'https://api.openai.com';
+  const customBase = rawBase && String(rawBase).trim() ? String(rawBase).trim().replace(/\/$/, '') : undefined;
+
+  const supported = [
+    'openai',
+    'anthropic',
+    'google',
+    'minimax',
+    'openrouter',
+    'deepseek',
+    'moonshot',
+    'qwen',
+  ];
+  const resolvedProvider = supported.includes(provider) ? provider : 'openai';
+
+  let openaiBase = customBase || 'https://api.openai.com';
+  if (resolvedProvider === 'minimax') openaiBase = MINIMAX_ANTHROPIC_BASE_URL;
+  else if (resolvedProvider === 'openrouter') openaiBase = 'https://openrouter.ai/api/v1';
+  else if (DEFAULT_BASE_URLS[resolvedProvider]) openaiBase = DEFAULT_BASE_URLS[resolvedProvider];
 
   return {
-    provider: ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(provider) ? provider : 'openai',
+    provider: resolvedProvider,
     apiKey: q.getSetting.get('ai_api_key')?.value,
     model: q.getSetting.get('ai_model')?.value,
-    openaiBase: provider === 'minimax' ? MINIMAX_BASE_URL : openaiBase,
+    openaiBase,
   };
 }
 
@@ -60,10 +100,27 @@ function isCloudLlmAvailable(getQueries) {
       const row = getQueries().getDomeProviderSessionWithRefresh?.get?.();
       return Boolean(row?.access_token);
     }
+    if (cfg.provider === 'copilot') {
+      return Boolean(getQueries().getSetting.get('copilot_github_token')?.value);
+    }
     return Boolean(cfg.apiKey && String(cfg.apiKey).trim());
   } catch {
     return false;
   }
+}
+
+async function resolveLlmAuth(cfg) {
+  if (cfg.provider === 'copilot') {
+    const database = require('../core/database.cjs');
+    const copilotOAuth = require('../auth/github-copilot-oauth.cjs');
+    const { token, baseUrl } = await copilotOAuth.getCopilotToken(database);
+    if (!token) throw new Error('GitHub Copilot no conectado. Ve a Ajustes > IA.');
+    return { apiKey: token, baseUrl };
+  }
+  return {
+    apiKey: cfg.apiKey,
+    baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+  };
 }
 
 /**
@@ -187,14 +244,15 @@ async function generateText(opts) {
         options: anthOpts,
       });
     } else {
-      if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && !cfg.apiKey) {
+      if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && cfg.provider !== 'copilot' && !cfg.apiKey) {
         throw new Error('Falta la clave API en Ajustes');
       }
+      const auth = await resolveLlmAuth(cfg);
       const chatResult = await llmService.chat({
         provider: cfg.provider,
         model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
-        apiKey: cfg.apiKey,
-        baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+        apiKey: auth.apiKey,
+        baseUrl: auth.baseUrl,
         messages,
         options: {
           ...(cfg.provider === 'google' ? googleOpts : openOpts),
@@ -264,14 +322,15 @@ async function streamGenerate(opts) {
   let full = '';
   let usage = null;
   try {
-    if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && !cfg.apiKey) {
+    if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && cfg.provider !== 'copilot' && !cfg.apiKey) {
       throw new Error('Falta la clave API');
     }
+    const auth = await resolveLlmAuth(cfg);
     const streamResult = await llmService.stream({
       provider: cfg.provider,
       model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
-      apiKey: cfg.apiKey,
-      baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+      apiKey: auth.apiKey,
+      baseUrl: auth.baseUrl,
       messages,
       options: cfg.provider === 'google' ? googleOpts : streamOpts,
       onChunk: (data) => {

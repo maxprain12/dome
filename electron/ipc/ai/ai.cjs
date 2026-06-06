@@ -10,6 +10,7 @@ const domeOauth = require('../../auth/dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../../ai/dome-provider-url.cjs');
 const { fetchOpenRouterModels } = require('../../ai/openrouter-models.cjs');
 const { fetchProviderModels } = require('../../ai/provider-models.cjs');
+const { assertChatProvider, resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs');
 
 /** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
 const langGraphAbortControllers = new Map();
@@ -22,18 +23,6 @@ const langGraphAbortControllers = new Map();
 const sessionActiveStream = new Map();
 
 function register({ ipcMain, windowManager, database, ollamaService }) {
-  /** OAuth bearer + OpenAI-compat base URL for Dome cloud provider. */
-  async function resolveDomeLlmAuth() {
-    const session = await domeOauth.getOrRefreshSession(database);
-    if (!session?.connected || !session?.accessToken) {
-      throw new Error('Dome session not found. Please sign in to Dome in Settings.');
-    }
-    return {
-      apiKey: session.accessToken,
-      baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
-    };
-  }
-
   /**
    * Chat with cloud AI provider (OpenAI, Anthropic, Google)
    * This runs in main process to avoid CORS issues
@@ -53,9 +42,9 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     ({ provider, messages, model } = params);
 
     try {
-      // Validate inputs
-      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'minimax', 'openrouter'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, minimax, or openrouter');
+      assertChatProvider(provider);
+      if (provider === 'ollama') {
+        throw new Error('Ollama chat must use the ollama IPC channel');
       }
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
@@ -64,28 +53,19 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         throw new Error('Too many messages. Maximum 100');
       }
 
-      const queries = database.getQueries();
-      let apiKey;
-      let baseUrl;
+      const providerConfig = await resolveProviderConfig(database, provider, model);
+      const chatModel = providerConfig.model;
+      const { apiKey, baseUrl } = providerConfig;
 
-      if (provider === 'dome') {
-        const domeAuth = await resolveDomeLlmAuth();
-        apiKey = domeAuth.apiKey;
-        baseUrl = domeAuth.baseUrl;
-        if (!model) model = 'dome/auto';
-      } else {
-        apiKey = queries.getSetting.get('ai_api_key')?.value;
-        if (!apiKey) {
-          throw new Error(`API key not configured for ${provider}`);
-        }
-        if (!model) {
-          model = queries.getSetting.get('ai_model')?.value;
-        }
-      }
+      console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${chatModel}`);
 
-      console.log(`[AI Cloud] Chat - Provider: ${provider}, Model: ${model}`);
-
-      const response = await llmService.chat({ provider, model, apiKey, baseUrl, messages });
+      const response = await llmService.chat({
+        provider,
+        model: chatModel,
+        apiKey,
+        baseUrl,
+        messages,
+      });
       const content = typeof response === 'object' && response?.text != null ? response.text : response;
 
       return { success: true, content, usage: response?.usage ?? null };
@@ -112,9 +92,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const { provider, messages, streamId } = params;
       let { model } = params;
 
-      if (!provider || !['openai', 'anthropic', 'google', 'dome', 'ollama', 'minimax', 'openrouter'].includes(provider)) {
-        throw new Error('Invalid provider. Must be openai, anthropic, google, dome, ollama, minimax, or openrouter');
-      }
+      assertChatProvider(provider);
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
       }
@@ -166,22 +144,11 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         }
       }
 
-      const queries = database.getQueries();
-      let apiKey;
-      let baseUrl;
+      const providerConfig = await resolveProviderConfig(database, provider, model);
+      const streamModel = providerConfig.model;
+      const { apiKey, baseUrl } = providerConfig;
 
-      if (provider === 'dome') {
-        const domeAuth = await resolveDomeLlmAuth();
-        apiKey = domeAuth.apiKey;
-        baseUrl = domeAuth.baseUrl;
-        if (!model) model = 'dome/auto';
-      } else {
-        apiKey = queries.getSetting.get('ai_api_key')?.value;
-        if (!apiKey) throw new Error(`API key not configured for ${provider}`);
-        if (!model) model = queries.getSetting.get('ai_model')?.value;
-      }
-
-      console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${model}, StreamId: ${streamId}`);
+      console.log(`[AI Cloud] Stream - Provider: ${provider}, Model: ${streamModel}, StreamId: ${streamId}`);
 
       const onChunk = (data) => {
         if (event.sender && !event.sender.isDestroyed()) {
@@ -193,7 +160,14 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         }
       };
 
-      const fullResponse = await llmService.stream({ provider, model, apiKey, baseUrl, messages, onChunk });
+      const fullResponse = await llmService.stream({
+        provider,
+        model: streamModel,
+        apiKey,
+        baseUrl,
+        messages,
+        onChunk,
+      });
       const content =
         typeof fullResponse === 'object' && fullResponse?.text != null ? fullResponse.text : fullResponse;
 
@@ -248,9 +222,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     } = params);
 
     try {
-      if (!provider || !['openai', 'anthropic', 'google', 'ollama', 'minimax', 'openrouter'].includes(provider)) {
-        throw new Error('Invalid provider for LangGraph. Must be openai, anthropic, google, ollama, minimax, or openrouter');
-      }
+      assertChatProvider(provider);
       if (!Array.isArray(messages) || messages.length === 0) {
         throw new Error('Messages must be a non-empty array');
       }
@@ -258,30 +230,9 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         throw new Error('streamId is required for streaming');
       }
 
-      const queries = database.getQueries();
-      let apiKey;
-      let baseUrl;
-
-      let chatModel;
-      if (provider === 'ollama') {
-        baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
-        chatModel = model || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
-        apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
-      } else if (provider === 'dome') {
-        // Dome uses OAuth — not a static API key. Get the current access token.
-        const session = await domeOauth.getOrRefreshSession(database);
-        if (!session?.connected || !session?.accessToken) {
-          throw new Error('Dome session not found. Please sign in to Dome in Settings.');
-        }
-        apiKey = session.accessToken;
-        // ChatOpenAI appends /chat/completions to baseURL, so point to /api/v1.
-        baseUrl = `${getDomeProviderBaseUrl()}/api/v1`;
-        chatModel = model || 'dome/auto';
-      } else {
-        apiKey = queries.getSetting.get('ai_api_key')?.value;
-        if (!apiKey) throw new Error(`API key not configured for ${provider}`);
-        chatModel = model || queries.getSetting.get('ai_model')?.value;
-      }
+      const providerConfig = await resolveProviderConfig(database, provider, model);
+      const chatModel = providerConfig.model;
+      const { apiKey, baseUrl } = providerConfig;
 
       const controller = new AbortController();
       setMaxListeners(64, controller.signal);
@@ -461,6 +412,31 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         }
       }
 
+      if (provider === 'copilot') {
+        try {
+          const copilotOAuth = require('../../auth/github-copilot-oauth.cjs');
+          const { token, baseUrl } = await copilotOAuth.getCopilotToken(database);
+          if (!token) {
+            return { success: false, error: 'GitHub Copilot is not connected. Go to Settings > AI.' };
+          }
+          const testMessages = [{ role: 'user', content: 'Reply with OK' }];
+          const response = await llmService.chat({
+            provider: 'copilot',
+            model: model || 'gpt-4.1',
+            apiKey: token,
+            baseUrl,
+            messages: testMessages,
+          });
+          const text = typeof response === 'object' && response?.text != null ? response.text : response;
+          if (text) {
+            return { success: true, provider: 'copilot', model: model || 'gpt-4.1' };
+          }
+          return { success: false, error: 'Connection succeeded but got empty response.' };
+        } catch (err) {
+          return { success: false, error: err.message || 'Error testing GitHub Copilot connection.' };
+        }
+      }
+
       const apiKeyResult = queries.getSetting.get('ai_api_key');
       const apiKey = apiKeyResult?.value;
 
@@ -468,9 +444,15 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         return { success: false, error: `API key not configured for ${provider}. Go to Settings > AI.` };
       }
 
-      // Make a minimal test call
+      const providerConfig = await resolveProviderConfig(database, provider, model);
       const testMessages = [{ role: 'user', content: 'Reply with OK' }];
-      const response = await llmService.chat({ provider, model, apiKey, messages: testMessages });
+      const response = await llmService.chat({
+        provider,
+        model: providerConfig.model,
+        apiKey: providerConfig.apiKey,
+        baseUrl: providerConfig.baseUrl,
+        messages: testMessages,
+      });
       const text = typeof response === 'object' && response?.text != null ? response.text : response;
 
       if (text) {

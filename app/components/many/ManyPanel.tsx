@@ -15,6 +15,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import {
   getAIConfig,
+  checkChatProviderReady,
   createManyToolsForContext,
   findModelById,
   providerSupportsTools,
@@ -803,13 +804,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         return;
       }
 
-      const needsApiKey = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(config.provider);
-      const hasApiKey = !!config.apiKey;
-      if (needsApiKey && !hasApiKey && !['synthetic', 'venice'].includes(config.provider)) {
-        setError(t('chat.api_key_error_inline'));
+      const providerReady = await checkChatProviderReady(config);
+      if (!providerReady.ready) {
+        const isApiKey = providerReady.messageKey === 'chat.no_api_key';
+        if (isApiKey) setError(t('chat.api_key_error_inline'));
         addMessage({
           role: 'assistant',
-          content: t('chat.no_api_key'),
+          content: t(providerReady.messageKey),
         });
         return;
       }

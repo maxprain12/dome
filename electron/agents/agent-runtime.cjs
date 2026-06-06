@@ -84,11 +84,17 @@ function resolveRuntime() {
 
 /** Join the text blocks of an assistant message's content array. */
 function assistantText(message) {
-  if (!message || !Array.isArray(message.content)) return '';
-  return message.content
+  if (!message || !Array.isArray(message.content)) {
+    if (message?.stopReason === 'error' && message?.errorMessage) return message.errorMessage;
+    return '';
+  }
+  const text = message.content
     .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
     .map((b) => b.text)
     .join('');
+  if (text) return text;
+  if (message.stopReason === 'error' && message.errorMessage) return message.errorMessage;
+  return '';
 }
 
 /** Extract renderable text from a pi `AgentToolResult`. */
@@ -392,7 +398,10 @@ async function runDomeAgent(surface, opts) {
         : '';
   const nonSystem = (Array.isArray(messages) ? messages : []).filter((m) => m && m.role !== 'system');
 
-  const piModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  let piModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  if (baseUrl && piModel && piModel.baseUrl !== baseUrl) {
+    piModel = { ...piModel, baseUrl };
+  }
   const piMessages = ai.legacyMessagesToContext(baseSystemPrompt, nonSystem).messages;
   const userPrompt = lastUserText(piMessages);
 
@@ -423,7 +432,14 @@ async function runDomeAgent(surface, opts) {
     resources,
     model: piModel,
     thinkingLevel: thinkingLevel && thinkingLevel !== 'off' ? thinkingLevel : 'off',
-    getApiKeyAndHeaders: async () => ({ apiKey: apiKey || '' }),
+    getApiKeyAndHeaders: async () => {
+      if (!apiKey) return undefined;
+      if (provider === 'copilot' || piModel.provider === 'github-copilot') {
+        const { COPILOT_HEADERS } = require('../auth/github-copilot-oauth.cjs');
+        return { apiKey, headers: { ...COPILOT_HEADERS, ...(piModel.headers || {}) } };
+      }
+      return { apiKey, headers: piModel.headers };
+    },
     shouldStopAfterTurn: buildTurnLimiter(recursionLimit()),
     systemPrompt: async (ctx) => {
       const skillsBlock = core.formatSkillsForSystemPrompt(ctx.resources.skills ?? []);
@@ -462,7 +478,21 @@ async function runDomeAgent(surface, opts) {
 
   try {
     const assistant = await harness.prompt(userPrompt);
-    return assistantText(assistant);
+    const finalText = assistantText(assistant);
+    if (assistant?.stopReason === 'error') {
+      const errText = finalText || assistant.errorMessage || 'Agent error';
+      if (typeof onChunk === 'function') {
+        onChunk({ type: 'error', error: errText });
+      }
+      throw new Error(errText);
+    }
+    return finalText;
+  } catch (err) {
+    console.error('[AgentRuntime] run failed:', err?.message || err);
+    if (typeof onChunk === 'function' && err?.message) {
+      onChunk({ type: 'error', error: err.message });
+    }
+    throw err;
   } finally {
     if (abortListener && signal) signal.removeEventListener('abort', abortListener);
     unsubTool();

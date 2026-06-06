@@ -228,6 +228,7 @@ export {
   saveChatModelForProvider,
   
   // Chat functions
+  checkChatProviderReady,
   chat,
   chatStream,
   chatWithTools,
@@ -249,4 +250,4 @@ export {
   chunkText,
 } from './client';
 
-export type { AIConfig, AIProvider, CustomModelsByProvider } from './client';
+export type { AIConfig, AIProvider, ChatProviderReadyResult, CustomModelsByProvider } from './client';

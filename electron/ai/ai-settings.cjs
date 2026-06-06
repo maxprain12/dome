@@ -2,6 +2,23 @@
 
 const { getDomeProviderBaseUrl } = require('./dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
+const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
+const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
+
+const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
+
+function readCustomBaseUrl(queries) {
+  const raw = queries.getSetting.get('ai_base_url')?.value;
+  return raw && String(raw).trim() ? String(raw).trim().replace(/\/$/, '') : undefined;
+}
+
+function resolveApiKeyProviderBaseUrl(queries, provider) {
+  const custom = readCustomBaseUrl(queries);
+  if (custom) return custom;
+  if (provider === 'openrouter') return OPENROUTER_DEFAULT;
+  if (provider === 'minimax') return MINIMAX_ANTHROPIC_BASE_URL;
+  return DEFAULT_BASE_URLS[provider];
+}
 
 /**
  * Unified AI settings for ipc/ai, agent-team, run-engine, etc.
@@ -46,8 +63,8 @@ async function getAISettings(database) {
   return {
     provider,
     apiKey: queries.getSetting.get('ai_api_key')?.value,
-    model: queries.getSetting.get('ai_model')?.value,
-    baseUrl: undefined,
+    model: queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
+    baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
   };
 }
 

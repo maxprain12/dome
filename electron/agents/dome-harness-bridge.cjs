@@ -93,7 +93,6 @@ async function loadSkillsResources() {
  */
 async function buildMcpAgentTools(database, mcpServerIds) {
   if (!Array.isArray(mcpServerIds) || mcpServerIds.length === 0) return [];
-  const { Type } = await import('typebox');
   const { capToolResultString, getCapForTool } = require('../tools/tool-result-cap.cjs');
   const { getMCPTools } = require('../mcp/mcp-client.cjs');
   const lcTools = await getMCPTools(database, mcpServerIds);
@@ -106,7 +105,8 @@ async function buildMcpAgentTools(database, mcpServerIds) {
       name,
       label: name,
       description: typeof lcTool.description === 'string' ? lcTool.description : '',
-      parameters: Type.Unsafe(schema),
+      // Plain JSON Schema — @dome/ai validateToolArguments accepts this without TypeBox.
+      parameters: schema,
       async execute(_toolCallId, params, signal) {
         const out = await lcTool.invoke(params, { signal });
         const text = typeof out === 'string' ? out : JSON.stringify(out ?? '');

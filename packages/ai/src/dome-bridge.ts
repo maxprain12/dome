@@ -22,7 +22,10 @@ export type DomeLegacyProvider =
   | 'openrouter'
   | 'copilot'
   | 'dome'
-  | 'minimax';
+  | 'minimax'
+  | 'deepseek'
+  | 'moonshot'
+  | 'qwen';
 
 export interface ResolveDomeModelOptions {
   provider: DomeLegacyProvider | string;
@@ -34,6 +37,9 @@ const OLLAMA_DEFAULT = 'http://127.0.0.1:11434/v1';
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 const MINIMAX_OPENAI = 'https://api.minimax.io/v1';
 const MINIMAX_ANTHROPIC = 'https://api.minimax.io/anthropic';
+const DEEPSEEK_DEFAULT = 'https://api.deepseek.com/v1';
+const MOONSHOT_DEFAULT = 'https://api.moonshot.cn/v1';
+const QWEN_DEFAULT = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
 
 function openAiCompletionsModel(
   id: string,
@@ -145,7 +151,9 @@ export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
     }
     case 'copilot': {
       const fromCatalog = getModel('github-copilot', modelId as never);
-      if (fromCatalog) return fromCatalog;
+      if (fromCatalog) {
+        return baseUrl ? { ...fromCatalog, baseUrl } : fromCatalog;
+      }
       return {
         id: modelId,
         name: modelId,
@@ -167,6 +175,12 @@ export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
         supportsStore: false,
         maxTokensField: 'max_tokens',
       });
+    case 'deepseek':
+      return openAiCompletionsModel(modelId, 'deepseek', baseUrl || DEEPSEEK_DEFAULT);
+    case 'moonshot':
+      return openAiCompletionsModel(modelId, 'moonshot', baseUrl || MOONSHOT_DEFAULT);
+    case 'qwen':
+      return openAiCompletionsModel(modelId, 'qwen', baseUrl || QWEN_DEFAULT);
     default: {
       const fromCatalog = getModel(provider as KnownProvider, modelId as never);
       if (fromCatalog) return fromCatalog;
