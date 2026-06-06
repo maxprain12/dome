@@ -587,13 +587,6 @@ function serveFile(filePath) {
 app
   .whenReady()
   .then(async () => {
-    try {
-      const { registerDomeHarnessProfiles } = require('./agents/harness-profiles.cjs');
-      registerDomeHarnessProfiles();
-    } catch (e) {
-      console.warn('[Main] registerDomeHarnessProfiles failed:', e?.message || e);
-    }
-
     // Remove stale staging files left by previous crashes or interruptions.
     documentStaging.cleanupStaleStagings();
 
@@ -1101,11 +1094,6 @@ app.on('before-quit', async () => {
   semanticIndexScheduler.stopAutoIndexing?.();
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
-  try {
-    require('./agents/checkpointer.cjs').closeDomeCheckpointer();
-  } catch (e) {
-    console.warn('[Main] checkpointer close failed:', e?.message);
-  }
   try {
     await require('./core/observability.cjs').shutdownLangfuse();
   } catch (e) {

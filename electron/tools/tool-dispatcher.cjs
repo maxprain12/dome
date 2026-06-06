@@ -7,9 +7,11 @@
  *   - TOOL_HANDLER_MAP / normalizeToolName: map of tool name → aiToolsHandler method
  *   - executeToolInMain(name, args, ctx): single entry point to run a tool call
  *   - getAllToolDefinitions / getToolDefinitionsByIds / getToolDefsBySubagent:
- *     OpenAI-format definitions used by LangGraph runs (renderer, workflows, automations).
+ *     OpenAI-format definitions consumed by the agent runtime (renderer chat,
+ *     workflows, automations) and built into `@dome/tools` registries.
  *
- * There is no chat loop here. LangGraph is the only chat engine (see langgraph-agent.cjs).
+ * There is no chat loop here. The agent loop lives in `@dome/agent-core`,
+ * driven by electron/agents/agent-runtime.cjs.
  */
 
 const database = require('../core/database.cjs');
@@ -17,7 +19,7 @@ const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('../prompts/pro
 
 // Lazy-load ai-tools-handler to break the circular dependency:
 // ai-tools-handler → pdf-transcription → cloud-llm.service → llm-service
-//   → langgraph-agent → tool-dispatcher → ai-tools-handler (circular, returns {})
+//   → tool-dispatcher → ai-tools-handler (circular, returns {})
 // By deferring the require to call time, the module is fully initialized.
 let _aiToolsHandler = null;
 function getAiToolsHandler() {

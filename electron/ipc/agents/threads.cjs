@@ -1,9 +1,12 @@
 /* eslint-disable no-console */
 /**
- * IPC handlers for LangGraph thread lifecycle management.
+ * IPC handlers for agent thread lifecycle management.
  *
- * Exposes the SqliteSaver checkpointer's thread/checkpoint data to the renderer
- * so the UI can implement time-travel, HITL inspection, and thread pruning.
+ * NOTE: thread/checkpoint time-travel was backed by the LangGraph SqliteSaver
+ * checkpointer, which was removed together with the LangGraph runtime. The
+ * channels remain registered so the renderer keeps working, but they now
+ * degrade to empty/disabled responses until the Dome-native runtime ships its
+ * own session-checkpoint store. See docs/architecture/agent-runtime.md.
  *
  * Channels:
  *   threads:list         — list thread IDs and their latest metadata
@@ -14,7 +17,11 @@
  */
 
 const { z } = require('zod');
-const { getDomeCheckpointer } = require('../../agents/checkpointer.cjs');
+
+/** Checkpointer removed with the LangGraph runtime; handlers degrade via catch. */
+function getDomeCheckpointer() {
+  throw new Error('Thread checkpointing was removed with the LangGraph runtime');
+}
 
 const ThreadsListOptsSchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),

@@ -2,14 +2,13 @@ import { describe, it, expect } from 'vitest';
 import * as AgentCore from '../src/index.js';
 
 describe('@dome/agent-core barrel', () => {
-  it('exports createAgent', () => {
-    expect(typeof AgentCore.createAgent).toBe('function');
+  it('exports the Agent class', () => {
+    expect(typeof AgentCore.Agent).toBe('function');
   });
 
-  it('createAgent returns an agent handle', () => {
-    const agent = AgentCore.createAgent({});
-    expect(typeof agent.prompt).toBe('function');
-    expect(typeof agent.continue).toBe('function');
+  it('exports the low-level loop functions', () => {
+    expect(typeof AgentCore.runAgentLoop).toBe('function');
+    expect(typeof AgentCore.agentLoop).toBe('function');
   });
 
   it('package.json metadata is correct', async () => {

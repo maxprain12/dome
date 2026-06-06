@@ -14,8 +14,6 @@
   },
   "include": ["src"],
   "references": [
-    { "path": "../ai" },
-    { "path": "../prompts" },
-    { "path": "../tools" }
+    { "path": "../ai" }
   ]
 }

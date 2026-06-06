@@ -2,22 +2,30 @@
  * @dome/tools — the tool registry.
  *
  * `createToolRegistry` turns the OpenAI-style `ToolDefinition[]` produced by
- * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` into `AgentTool[]`
- * the Dome-native runtime (`@dome/agent-core` `runAgentLoop`) consumes. Each
- * tool's `execute` bridges to the main-process dispatcher via the injected
- * `executeToolInMain` (Phase 3 keeps execution in the dispatcher; per-family
- * native execution moves here incrementally).
+ * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` into `AgentTool[]` the
+ * agent loop consumes. Each tool's `execute` bridges to the main-process
+ * dispatcher via the injected `executeToolInMain`.
  *
- * This is the canonical home for the bridge that previously lived inline in
- * `electron/agent-runtime.cjs#buildAgentToolsFromDefinitions` — the selector
- * now imports it from here so there is one source of truth.
+ * The OpenAI-style JSON-schema `parameters` are wrapped with `Type.Unsafe` so
+ * the loop's argument validator (`validateToolArguments`) and the provider
+ * connectors both receive a schema in the shape they expect.
  */
 
-import type { AgentTool, ToolDefinition, ToolOps } from './types.js';
+import { Type } from 'typebox';
+import type { AgentTool, AgentToolResult, ToolDefinition, ToolOps } from './types.js';
 
 /** Read the tool name from either the nested (`function.name`) or flat shape. */
 export function toolDefName(def: ToolDefinition): string {
   return (def && (def.function?.name || def.name)) || '';
+}
+
+function stringifyToolOutput(raw: unknown): string {
+  if (typeof raw === 'string') return raw;
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    return String(raw);
+  }
 }
 
 /** Build one `AgentTool` from a definition + ops. Exported for per-family use. */
@@ -29,24 +37,18 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
   return {
     name,
     description,
-    schema: { type: 'function', function: { name, description, parameters } },
-    async execute(args) {
+    label: name,
+    parameters: Type.Unsafe(parameters),
+    async execute(_toolCallId, params): Promise<AgentToolResult> {
       try {
-        const raw = await ops.executeToolInMain(name, args);
-        let text: string;
-        if (typeof raw === 'string') {
-          text = raw;
-        } else {
-          try {
-            text = JSON.stringify(raw);
-          } catch {
-            text = String(raw);
-          }
-        }
-        return { text, details: raw };
+        const raw = await ops.executeToolInMain(name, params);
+        return { content: [{ type: 'text', text: stringifyToolOutput(raw) }], details: raw };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return { text: `Tool "${name}" failed: ${message}`, error: message };
+        return {
+          content: [{ type: 'text', text: `Tool "${name}" failed: ${message}` }],
+          details: { error: message },
+        };
       }
     },
   };
@@ -54,7 +56,7 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
 
 /**
  * Build the full registry from definitions + ops. Definitions without a name
- * are dropped. The result is consumed as `AgentState.tools`.
+ * are dropped. The result is consumed as the agent context `tools`.
  */
 export function createToolRegistry(
   definitions: ToolDefinition[] | undefined,

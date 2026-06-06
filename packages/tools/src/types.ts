@@ -6,26 +6,29 @@
  * `@dome/agent-core` (which would create a cycle: the target graph is
  * `agent-core → tools → ai`). The shape is **structurally identical** to
  * `@dome/agent-core`'s `AgentTool`, so a registry built here plugs straight
- * into `runAgentLoop` (the loop is duck-typed: it only reads `name` and calls
- * `execute`). If/when agent-core is refactored to import the tool type, this
- * is the definition it should re-export.
+ * into the agent loop, which validates arguments against `parameters` and calls
+ * `execute(toolCallId, params, signal, onUpdate)`.
  */
 
-import type { ToolSchema } from '@dome/ai';
+import type { ImageContent, TextContent, Tool } from '@dome/ai';
+import type { Static, TSchema } from 'typebox';
 
 export type { ToolSchema } from '@dome/ai';
 
-/** The shape every tool returns (mirrors `@dome/agent-core` `AgentToolResult`). */
+/** Final or partial result produced by a tool (structural mirror of agent-core). */
 export interface AgentToolResult<Details = unknown> {
-  /** Summary text the model sees on the next turn. */
-  text: string;
-  /** Raw output for the UI / artifact sink (optional). */
-  details?: Details;
-  /** If `true`, the loop ends after this tool. */
+  /** Text or image content returned to the model. */
+  content: (TextContent | ImageContent)[];
+  /** Arbitrary structured details for logs / artifact sink / UI rendering. */
+  details: Details;
+  /** If `true`, the loop may end after this tool batch. */
   terminate?: boolean;
-  /** If present, the result is an error (model sees it as a tool error). */
-  error?: string;
 }
+
+/** Callback used by tools to stream partial execution updates. */
+export type AgentToolUpdateCallback<Details = unknown> = (
+  partialResult: AgentToolResult<Details>,
+) => void;
 
 /** Context passed to a tool at execution time (subset agent-core provides). */
 export interface ToolContext {
@@ -35,18 +38,33 @@ export interface ToolContext {
   executeToolInMain?: (name: string, args: unknown) => Promise<unknown>;
 }
 
-/** A tool the model can invoke. Structurally compatible with agent-core. */
-export interface AgentTool<Args = unknown, Details = unknown> {
-  name: string;
-  description: string;
-  schema: ToolSchema;
-  execute(args: Args, ctx: ToolContext): Promise<AgentToolResult<Details>>;
+/**
+ * A tool the model can invoke. Structurally compatible with the agent loop's
+ * `AgentTool`: it extends the base `Tool` (name/description/parameters) and adds
+ * a UI label plus an `execute` that receives the tool-call id, validated params,
+ * an abort signal and an optional streaming-update callback.
+ */
+export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = unknown>
+  extends Tool<TParameters> {
+  /** Human-readable label for UI display. */
+  label: string;
+  /** Optional compatibility shim for raw tool-call arguments before validation. */
+  prepareArguments?: (args: unknown) => Static<TParameters>;
+  /** Execute the tool call. */
+  execute: (
+    toolCallId: string,
+    params: Static<TParameters>,
+    signal?: AbortSignal,
+    onUpdate?: AgentToolUpdateCallback<TDetails>,
+  ) => Promise<AgentToolResult<TDetails>>;
+  /** Per-tool execution mode override (`sequential` | `parallel`). */
+  executionMode?: 'sequential' | 'parallel';
 }
 
 /**
  * An OpenAI-style function tool definition — the shape produced today by
- * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` and consumed by the
- * legacy LangGraph path. The registry turns these into `AgentTool`s.
+ * `electron/tool-dispatcher.cjs#getAllToolDefinitions()`. The registry turns
+ * these into `AgentTool`s.
  */
 export interface ToolDefinition {
   type?: 'function';

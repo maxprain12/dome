@@ -1,43 +1,34 @@
 /* eslint-disable no-console */
 
 /**
- * Agent Team IPC — deepagents harness (supervisor + subagents via `task`).
+ * Agent Team IPC.
+ *
+ * NOTE: the multi-agent supervisor + sub-agents graph (task delegation) was
+ * removed with the legacy agent stack. Until `@dome/agent-core` ships a
+ * team/graph path,
+ * this surface runs as a SINGLE supervisor agent over the union of the team's
+ * tools (member agents are described in the prompt but not delegated to). See
+ * docs/architecture/agent-runtime.md for the migration plan.
  *
  * Renderer chunk shape on `ai:stream:chunk`:
  *   { streamId, chunk: '<text>' }                    — supervisor synthesis
- *   { streamId, type: 'text', text, agentName }     — member text
- *   { streamId, type: 'tool_call'|'tool_result', ... [, agentName] }
- *   { streamId, agentName: 'X' }                     — delegation UI
+ *   { streamId, type: 'tool_call'|'tool_result', ... }
  *   { streamId, agentName: null }                    — back to supervisor
  *   { streamId, done: true }
  *   { streamId, error: '<msg>' }
  */
 
 const { setMaxListeners } = require('events');
-const { getDomeProviderBaseUrl } = require('../../ai/dome-provider-url.cjs');
-const {
-  createModelFromConfig,
-  createLangChainToolsFromOpenAIDefinitions,
-  streamAgentRun,
-} = require('../../agents/langgraph-agent.cjs');
-const { buildAgentMiddlewareStack } = require('../../agents/agent-middleware.cjs');
-const { getAllToolDefinitions, getToolDefinitionsByIds, executeToolInMain } = require('../../tools/tool-dispatcher.cjs');
-const { getDomeCheckpointer } = require('../../agents/checkpointer.cjs');
-const { buildSkillsMiddleware } = require('../../skills/index.cjs');
+const agentRuntime = require('../../agents/agent-runtime.cjs');
+const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../../tools/tool-dispatcher.cjs');
 const { getAISettings } = require('../../ai/ai-settings.cjs');
-const { registerDomeHarnessProfiles } = require('../../agents/harness-profiles.cjs');
-const { createDomeHarnessBackendFactory, DEFAULT_HARNESS_PERMISSIONS } = require('../../agents/harness-backend.cjs');
-const { getDomeStore } = require('../../agents/agent-store.cjs');
-const { getMCPTools } = require('../../mcp/mcp-client.cjs');
 const { buildDomeSystemPrompt } = require('../../prompts/system-prompt.cjs');
 const { readPrompt } = require('../../prompts/prompts-loader.cjs');
-const { withLangfuseCallbacks } = require('../../core/observability.cjs');
-const { capToolResultString } = require('../../tools/tool-result-cap.cjs');
 
 const agentTeamAbortControllers = new Map();
 
 const TEAM_SUPERVISOR_PROMPT_FALLBACK =
-  'You are the supervisor of an Agent Team in Dome. Delegate focused subtasks to members via the `task` tool and synthesize their work into one coherent answer.';
+  'You are the supervisor of an Agent Team in Dome. Use your tools to research and synthesize one coherent answer. The team members listed below describe the expertise available to you.';
 
 function getTeamSupervisorTemplate() {
   const txt = readPrompt('martin/team-supervisor.txt');
@@ -106,248 +97,33 @@ function uniqueToolIds(...lists) {
   return [...out];
 }
 
-/**
- * LangChain tools for a team member (respects agent.toolIds + teamToolIds).
- */
-async function buildMemberDirectTools(database, agent, teamToolIds, teamMcpServerIds) {
-  const ids = uniqueToolIds(agent.toolIds, teamToolIds);
-  const toolDefinitions = ids.length > 0 ? getToolDefinitionsByIds(ids) : getAllToolDefinitions();
-  const executeFn = async (name, args) => {
-    try {
-      const result = await executeToolInMain(name, args, null);
-      const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
-      return capToolResultString(name, resultStr0);
-    } catch (e) {
-      return { error: e?.message ?? String(e) };
-    }
-  };
-  const lcTools = await createLangChainToolsFromOpenAIDefinitions(toolDefinitions, executeFn);
-  const mcpIds = uniqueToolIds(agent.mcpServerIds, teamMcpServerIds);
-  const mcpTools = mcpIds.length > 0 ? await getMCPTools(database, mcpIds) : [];
-  return [...lcTools, ...mcpTools];
-}
-
-/**
- * Build createDeepAgent team graph (supervisor + member subagents).
- */
-async function buildTeamDeepAgent({
-  database,
-  memberAgents,
-  supervisorSystemPrompt,
-  settings,
-  teamToolIds,
-  teamMcpServerIds,
-}) {
-  registerDomeHarnessProfiles();
-  const { createDeepAgent } = await import('deepagents');
-  const llm = await createModelFromConfig(
-    settings.provider,
-    settings.model,
-    settings.apiKey,
-    settings.baseUrl,
-  );
-  const agentStore = getDomeStore();
-
-  const subagents = [];
-  const nameBySubagentKey = {};
-
-  for (const agent of memberAgents) {
-    const subName = sanitizeSubagentName(agent.name || agent.id);
-    nameBySubagentKey[subName] = agent.name || agent.id;
-    const memberTools = await buildMemberDirectTools(database, agent, teamToolIds, teamMcpServerIds);
-    const persona =
-      (agent.systemInstructions && String(agent.systemInstructions).trim()) ||
-      (agent.description && String(agent.description).trim()) ||
-      `You are ${agent.name}, a specialized member of a Dome Agent Team.`;
-    const memberSystemPrompt = buildDomeSystemPrompt({ staticPersona: persona });
-    const skillsMw = await buildSkillsMiddleware();
-    const middleware = await buildAgentMiddlewareStack({
-      profile: 'worker',
-      provider: settings.provider,
-      llm,
-      tools: memberTools,
-      skillsMiddleware: skillsMw,
-      store: agentStore,
-      harnessStack: 'deep',
-    });
-    subagents.push({
-      name: subName,
-      description:
-        (agent.description && agent.description.trim()) ||
-        `Team member "${agent.name}" for delegated subtasks.`,
-      systemPrompt: memberSystemPrompt,
-      model: llm,
-      tools: memberTools,
-      middleware,
-    });
-  }
-
-  const teamIds = uniqueToolIds(teamToolIds);
-  let supervisorTools = [];
-  if (teamIds.length > 0) {
-    const teamDefs = getToolDefinitionsByIds(teamIds);
-    const executeFn = async (name, args) => {
-      try {
-        const result = await executeToolInMain(name, args, null);
-        const resultStr0 = typeof result === 'string' ? result : JSON.stringify(result);
-        return capToolResultString(name, resultStr0);
-      } catch (e) {
-        return { error: e?.message ?? String(e) };
-      }
-    };
-    supervisorTools = await createLangChainToolsFromOpenAIDefinitions(teamDefs, executeFn);
-    const mcpTools =
-      Array.isArray(teamMcpServerIds) && teamMcpServerIds.length > 0
-        ? await getMCPTools(database, teamMcpServerIds)
-        : [];
-    supervisorTools = [...supervisorTools, ...mcpTools];
-  }
-
-  const supervisorMiddleware = await buildAgentMiddlewareStack({
-    profile: 'full',
-    provider: settings.provider,
-    llm,
-    tools: supervisorTools,
-    store: agentStore,
-    harnessStack: 'deep',
-  });
-
-  const agent = await createDeepAgent({
-    model: llm,
-    tools: supervisorTools,
-    systemPrompt: supervisorSystemPrompt,
-    middleware: supervisorMiddleware,
-    subagents,
-    interruptOn: { task: false },
-    checkpointer: getDomeCheckpointer(),
-    store: agentStore,
-    backend: createDomeHarnessBackendFactory(agentStore),
-    permissions: DEFAULT_HARNESS_PERMISSIONS,
-  });
-
-  return { agent, nameBySubagentKey };
-}
-
-function parseTaskSubagentName(toolArgs) {
-  if (!toolArgs) return null;
-  let parsed = toolArgs;
-  if (typeof toolArgs === 'string') {
-    try {
-      parsed = JSON.parse(toolArgs);
-    } catch {
-      return null;
-    }
-  }
-  if (parsed && typeof parsed === 'object') {
-    const candidate =
-      parsed.subagent_name ?? parsed.subagent ?? parsed.name ?? parsed.agent ?? parsed.agent_name;
-    if (candidate) return String(candidate);
-  }
-  return null;
-}
-
-/**
- * Stream team deep agent and map harness chunks to renderer protocol.
- */
-async function streamTeamDeepAgent({
-  agent,
-  nameBySubagentKey,
-  messages,
-  threadId,
-  signal,
-  send,
-}) {
-  const { HumanMessage, AIMessage } = await import('@langchain/core/messages');
-
-  const lcMessages = messages
-    .filter((m) => m.role !== 'system')
-    .map((m) => {
-      if (m.role === 'assistant') {
-        return new AIMessage(String(m.content || ''));
-      }
-      return new HumanMessage(String(m.content || ''));
-    });
-
-  const config = withLangfuseCallbacks({
-    configurable: { thread_id: threadId },
-    recursionLimit: Number(process.env.DOME_AGENT_TEAM_RECURSION_LIMIT) || 250,
-    signal,
-  });
-
-  let activeMember = null;
-
-  const onChunk = (chunk) => {
-    if (!chunk || typeof chunk !== 'object') return;
-
-    if (chunk.type === 'tool_call' && chunk.toolCall?.name === 'task') {
-      const subKey = parseTaskSubagentName(chunk.toolCall.arguments);
-      const displayName = (subKey && nameBySubagentKey[subKey]) || subKey || 'member';
-      activeMember = displayName;
-      send({ agentName: displayName });
+/** Map a Dome-native runtime chunk to the Agent Team renderer protocol. */
+function mapTeamChunk(chunk, send) {
+  if (!chunk || typeof chunk !== 'object') return;
+  switch (chunk.type) {
+    case 'text':
+      if (chunk.text) send({ chunk: chunk.text });
       return;
-    }
-
-    if (chunk.type === 'text' && chunk.text) {
-      if (chunk.agentName || activeMember) {
-        send({
-          type: 'text',
-          text: chunk.text,
-          agentName: chunk.agentName || activeMember,
-        });
-      } else {
-        send({ chunk: chunk.text });
-      }
+    case 'thinking':
       return;
-    }
-
-    if (chunk.type === 'tool_call' && chunk.toolCall) {
-      const name = chunk.toolCall.name;
-      if (name === 'task') return;
+    case 'tool_call': {
+      if (!chunk.toolCall) return;
       let args = chunk.toolCall.arguments;
       if (typeof args === 'string') {
-        try {
-          args = JSON.parse(args);
-        } catch {
-          args = {};
-        }
+        try { args = JSON.parse(args); } catch { args = {}; }
       }
-      send({
-        type: 'tool_call',
-        toolName: name,
-        args,
-        agentName: chunk.agentName || activeMember || undefined,
-      });
+      send({ type: 'tool_call', toolName: chunk.toolCall.name, args });
       return;
     }
-
-    if (chunk.type === 'tool_result' && chunk.toolCallId) {
-      send({
-        type: 'tool_result',
-        toolCallId: chunk.toolCallId,
-        result: chunk.result,
-        agentName: chunk.agentName || activeMember || undefined,
-      });
+    case 'tool_result':
+      send({ type: 'tool_result', toolCallId: chunk.toolCallId, result: chunk.result });
       return;
-    }
-
-    if (chunk.type === 'usage' && chunk.usage) {
-      send({ type: 'usage', usage: chunk.usage, partial: !!chunk.partial });
-    }
-  };
-
-  const rtEmittedCallIds = new Set();
-  const rtEmittedResultIds = new Set();
-
-  await streamAgentRun(
-    agent,
-    { messages: lcMessages },
-    config,
-    onChunk,
-    rtEmittedCallIds,
-    rtEmittedResultIds,
-  );
-
-  send({ agentName: null });
+    case 'usage':
+      if (chunk.usage) send({ type: 'usage', usage: chunk.usage, partial: !!chunk.partial });
+      return;
+    default:
+      // 'done' / 'error' handled by the caller.
+  }
 }
 
 function register({ ipcMain, windowManager, database }) {
@@ -439,26 +215,34 @@ function register({ ipcMain, windowManager, database }) {
         volatileContext: contextBlock || undefined,
       });
 
+      // Single-supervisor tool surface: union of the team tools and every
+      // member's tools (no `task` delegation in the Dome-native runtime yet).
+      const toolIds = uniqueToolIds(
+        Array.isArray(teamToolIds) ? teamToolIds : [],
+        ...memberAgents.map((a) => a.toolIds),
+      );
+      const toolDefinitions = toolIds.length > 0 ? getToolDefinitionsByIds(toolIds) : getAllToolDefinitions();
+
       send({ agentName: null });
 
-      const { agent, nameBySubagentKey } = await buildTeamDeepAgent({
-        database,
-        memberAgents,
-        supervisorSystemPrompt,
-        settings,
-        teamToolIds: Array.isArray(teamToolIds) ? teamToolIds : [],
-        teamMcpServerIds: Array.isArray(teamMcpServerIds) ? teamMcpServerIds : [],
-      });
+      const teamMessages = [
+        { role: 'system', content: supervisorSystemPrompt },
+        ...messages.filter((m) => m && m.role !== 'system'),
+      ];
 
-      const teamThreadId = `team_${teamId}`;
-
-      await streamTeamDeepAgent({
-        agent,
-        nameBySubagentKey,
-        messages,
-        threadId: teamThreadId,
+      await agentRuntime.runAgent('agent-team', {
+        provider: settings.provider,
+        model: settings.model,
+        apiKey: settings.apiKey,
+        baseUrl: settings.baseUrl,
+        messages: teamMessages,
+        toolDefinitions,
+        useDirectTools: toolDefinitions.length > 0,
+        mcpServerIds: Array.isArray(teamMcpServerIds) ? teamMcpServerIds : undefined,
+        skipHitl: true,
         signal: controller.signal,
-        send,
+        threadId: `team_${teamId}`,
+        onChunk: (chunk) => mapTeamChunk(chunk, send),
       });
 
       send({ done: true });

@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const langgraphAgent = require('../agents/langgraph-agent.cjs');
+const agentRuntime = require('../agents/agent-runtime.cjs');
 const database = require('../core/database.cjs');
 const { normalizeToolName, executeToolInMain } = require('../tools/tool-dispatcher.cjs');
 const { parseTextToolInvokes } = require('./parse-text-tool-invokes.cjs');
@@ -247,8 +247,9 @@ async function runSingleCase(caseDef, opts) {
 
   let finalText = '';
   let error = null;
-  let hitInterrupt = false;
-  let interruptThreadId = threadId;
+  // HITL interrupts were a LangGraph feature; the Dome-native runtime does not
+  // interrupt mid-run. Kept for the result shape consumed downstream.
+  const hitInterrupt = false;
 
   const fixtureIds = caseDef.fixtures || [];
 
@@ -277,23 +278,11 @@ async function runSingleCase(caseDef, opts) {
       automationProjectId: BENCH_PROJECT_ID,
     };
 
-    let result = await langgraphAgent.invokeLangGraphAgent(invokeOpts);
-
-    if (result?.__interrupt__) {
-      hitInterrupt = true;
-      interruptThreadId = result.threadId || threadId;
-      if (caseDef.skip_hitl === false) {
-        const decisions = (result.actionRequests || []).map(() => ({ type: 'approve' }));
-        result = await langgraphAgent.resumeLangGraphAgent({
-          ...invokeOpts,
-          messages: [],
-          threadId: interruptThreadId,
-          decisions: decisions.length ? decisions : [{ type: 'approve' }],
-        });
-        if (typeof result === 'string') finalText = result;
-        else if (result?.__interrupt__) hitInterrupt = true;
-      }
-    } else if (typeof result === 'string') {
+    // HITL interrupt/resume was a LangGraph checkpointer feature; the
+    // Dome-native runtime runs straight through (bench cases run with
+    // skip_hitl). The final text is accumulated via the onChunk handler above.
+    const result = await agentRuntime.runAgent('bench', invokeOpts);
+    if (typeof result === 'string') {
       finalText = result || finalText;
     }
   } catch (err) {

@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * IPC: native skills backed by deepagents listSkills.
+ * IPC: native skills backed by `@dome/agent-core` loadSkills.
  * Channels: skills:list, skills:openFolder, skills:installBundled,
  *           skills:add, skills:browseRepo, skills:remove, skills:readFile.
  */

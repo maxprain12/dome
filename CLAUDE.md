@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
 - **Semantic search**: Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB (`dome-lance`); hybrid search combines FTS + graph + vectors; PDF/image text via your configured cloud LLM (vision) where applicable
-- **AI**: LangChain + LangGraph for agent workflows; multi-provider (OpenAI, Anthropic, Google, Ollama)
+- **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). `@langchain/langgraph` remains only as the workflow node orchestrator.
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
 - **i18n**: react-i18next, translations in `app/lib/i18n.ts` (en/es/fr/pt)
@@ -59,7 +59,7 @@ pnpm run postinstall      # Install Electron native dependencies (runs automatic
 - Manages SQLite database via `better-sqlite3`
 - Handles file system operations
 - Creates and manages windows
-- Executes AI agent workflows (LangGraph)
+- Executes AI agent runs (`@dome/agent-core`) and workflow orchestration
 - Exposes safe APIs via IPC handlers in `electron/ipc/`
 
 **Renderer Process** (`app/**/*.ts`, `app/**/*.tsx`):
@@ -138,7 +138,7 @@ dome/
 │   ├── paths.cjs               # Centralized path resolution (getAppRoot/getDistDir/…) — keeps domain modules location-independent
 │   ├── core/                   # init, window-manager, database, security, runtime-env, deep-link-handler, observability, update-service, guide-bootstrap, install-devtools-extension
 │   ├── ai/                     # llm-service (unified LLM), model-factory/params, ai-settings, auto-metadata, message-multimodal, minimax/openrouter/provider configs, dome-provider-url, openai-key
-│   ├── agents/                 # langgraph-agent, agent-runtime(+context), agent-middleware, agent-store, run-engine, automation-service, checkpointer, guardrails, subagents, harness-*, kb-llm-*
+│   ├── agents/                 # agent-runtime (single Dome-native runtime → @dome/agent-core) (+context), run-engine, automation-service, kb-llm-*
 │   ├── tools/                  # ai-tools-handler(+extra), tool-dispatcher/selector/cap, docx/excel/ppt tool handlers, file-tree, crop-image, browser-context-service, tool-result-*
 │   ├── prompts/                # core-prompt-loader, prompts-loader, prompt-sections, prompt-budget, system-prompt
 │   ├── documents/              # document-extractor/generator/staging, pdf-extractor, ppt-slide-extractor, ppt-spec-pptxgen, pptx-normalize/validate, docx-converter, notebook-python, thumbnail
@@ -213,13 +213,14 @@ windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/
 
 ### AI Integration
 
-**All AI paths go through LangGraph/LangChain** — no custom HTTP clients to LLM providers exist. This includes Many, agent chat, agent-team, workflows, automations, editor-ai, vision, OCR, and auto-metadata.
+**Agent runs go through the single Dome-native runtime (`@dome/agent-core`)** — see [docs/architecture/agent-runtime.md](docs/architecture/agent-runtime.md). The legacy LangGraph/LangChain/deepagents agent stack was removed. This covers Many, agent chat, agent-team, workflows, and automations. Plain LLM calls (vision, OCR, editor-ai, auto-metadata) still go through `llm-service.cjs`.
 
-- **Agent runs**: `electron/agents/langgraph-agent.cjs` — `invokeLangGraphAgent()` with `createDeepAgent()` + middleware chain (summarization, HITL, `createSkillsMiddleware`, filesystem, trim).
+- **Agent runs**: `electron/agents/agent-runtime.cjs` — `runAgent(surface, opts)` drives `@dome/agent-core`'s `runAgentLoop` (stream → tools → repeat, argument validation, before/after tool hooks for guardrails + caps + HITL gate, compaction). Tools are built by `@dome/tools` `createToolRegistry`.
 - **Plain LLM calls** (vision, OCR, editor-ai): `electron/ai/llm-service.cjs` — `chat()/stream()` backed by `createModelFromConfig()` (ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI / ChatOllama).
-- **Workflows**: `electron/agents/run-engine.cjs` — `executeWorkflowRun()` builds a `StateGraph` dynamically from workflow nodes/edges; each agent node calls `invokeLangGraphAgent`.
-- **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/tools/ai-tools-handler.cjs`.
-- **Skills**: `~/.dome/skills/<id>/SKILL.md` — injected via `deepagents.createSkillsMiddleware` in `electron/agents/langgraph-agent.cjs`, `run-engine.cjs`, and `ipc/agent-team.cjs`. Bundled skills are seeded on first boot by `electron/marketplace/skills-bootstrap.cjs`.
+- **Workflows**: `electron/agents/run-engine.cjs` — `executeWorkflowRun()` still builds a `StateGraph` (`@langchain/langgraph`) to sequence nodes; each agent node calls `runAgent('workflows', …)`.
+- **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/tools/ai-tools-handler.cjs` via `tool-dispatcher.cjs`.
+- **Skills**: `~/.dome/skills/<id>/SKILL.md` — `electron/skills/index.cjs` lists them via `@dome/agent-core` `loadSkills` for the `skills:list` IPC. Skill formatting/injection primitives live in `@dome/agent-core` (`formatSkillsForSystemPrompt`). Bundled skills are seeded on first boot by `electron/marketplace/skills-bootstrap.cjs`.
+- **Known gaps after the LangGraph removal** (HITL resume, sub-agent delegation, multi-agent Agent Team, thread time-travel, MCP-in-loop): see [docs/architecture/agent-runtime.md](docs/architecture/agent-runtime.md).
 
 ```typescript
 // Renderer - AI calls go through IPC
@@ -323,12 +324,12 @@ Plugins loaded via `electron/marketplace/plugin-loader.cjs`. Marketplace config 
 
 ## File-based skills (Claude / Agent Skills)
 
-Skills are **SKILL.md** files managed by `deepagents.createSkillsMiddleware`. Every agent (Many, agent-chat, agent-team, workflow nodes) automatically has access to all skills in the user directory.
+Skills are **SKILL.md** files. Every agent (Many, agent-chat, agent-team, workflow nodes) automatically has access to all skills in the user directory.
 
 - **User dir**: `~/.dome/skills/<id>/SKILL.md` — personal skills (highest priority)
 - **Bundled**: `electron/skills/bundled/<id>/SKILL.md` — copied to user dir on first boot by `electron/marketplace/skills-bootstrap.cjs` (idempotent, guarded by `skills_bundled_seeded_v2` setting)
-- **IPC**: `skills:list` (returns name/description/path), `skills:openFolder` (opens user dir in Finder/Explorer)
-- **Injection**: `deepagents.createSkillsMiddleware` injects skill names+descriptions into the system prompt on every agent invocation. The model requests the full body via a native tool if needed.
+- **IPC**: `skills:list` (returns name/description/path via `electron/skills/index.cjs` → `@dome/agent-core` `loadSkills`), `skills:openFolder` (opens user dir in Finder/Explorer)
+- **Injection**: skill names+descriptions are injected into the system prompt by `@dome/agent-core` on every agent invocation. The model requests the full body via a native tool if needed.
 - **No per-agent selection**: all skills in the user dir are available to every agent. `skillIds` on agent records is vestigial.
 
 ## Additional Documentation

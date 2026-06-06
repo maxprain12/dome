@@ -2,7 +2,7 @@
 
 /**
  * LangChain BaseChatModel adapter over `@dome/ai` (pi SDK).
- * Lets deepagents/langgraph keep using LangChain message types while all
+ * Lets LangChain consumers keep using LangChain message types while all
  * provider HTTP goes through the Dome AI package.
  */
 

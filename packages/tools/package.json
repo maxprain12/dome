@@ -14,5 +14,9 @@
   "scripts": {
     "build": "tsc -b",
     "test": "echo \"@dome/tools: no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@dome/ai": "workspace:*",
+    "typebox": "^1.1.38"
   }
 }

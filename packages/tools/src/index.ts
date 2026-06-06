@@ -12,6 +12,7 @@
 export type {
   AgentTool,
   AgentToolResult,
+  AgentToolUpdateCallback,
   ToolContext,
   ToolDefinition,
   ToolOps,

@@ -1,23 +1,23 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-06T10:45:40.611Z
+> Última generación: 2026-06-06T16:27:51.548Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
-| `ai:chat` | `electron/ipc/ai/ai.cjs:42` |
-| `ai:langgraph:abort` | `electron/ipc/ai/ai.cjs:359` |
-| `ai:langgraph:resume` | `electron/ipc/ai/ai.cjs:373` |
-| `ai:langgraph:stream` | `electron/ipc/ai/ai.cjs:219` |
-| `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:532` |
-| `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:551` |
-| `ai:stream` | `electron/ipc/ai/ai.cjs:103` |
-| `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:479` |
-| `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:354` |
-| `ai:testConnection` | `electron/ipc/ai/ai.cjs:451` |
-| `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:571` |
+| `ai:chat` | `electron/ipc/ai/ai.cjs:40` |
+| `ai:langgraph:abort` | `electron/ipc/ai/ai.cjs:357` |
+| `ai:langgraph:resume` | `electron/ipc/ai/ai.cjs:375` |
+| `ai:langgraph:stream` | `electron/ipc/ai/ai.cjs:217` |
+| `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:474` |
+| `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:493` |
+| `ai:stream` | `electron/ipc/ai/ai.cjs:101` |
+| `ai:team:abort` | `electron/ipc/agents/agent-team.cjs:263` |
+| `ai:team:stream` | `electron/ipc/agents/agent-team.cjs:130` |
+| `ai:testConnection` | `electron/ipc/ai/ai.cjs:393` |
+| `ai:testWebSearch` | `electron/ipc/ai/ai.cjs:513` |
 | `ai:tools:calendarCreateEvent` | `electron/ipc/ai/ai-tools.cjs:853` |
 | `ai:tools:calendarDeleteEvent` | `electron/ipc/ai/ai-tools.cjs:879` |
 | `ai:tools:calendarGetUpcoming` | `electron/ipc/ai/ai-tools.cjs:840` |
@@ -70,7 +70,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:tools:resourceSemanticSearch` | `electron/ipc/ai/ai-tools.cjs:136` |
 | `ai:tools:resourceUpdate` | `electron/ipc/ai/ai-tools.cjs:320` |
 | `ai:tools:screenUnderstand` | `electron/ipc/ai/ai-tools.cjs:777` |
-| `ai:webSearch` | `electron/ipc/ai/ai.cjs:586` |
+| `ai:webSearch` | `electron/ipc/ai/ai.cjs:528` |
 | `approval:respond` | `electron/ipc/agents/approval.cjs:43` |
 | `artifact:buildDesign` | `electron/ipc/agents/artifacts.cjs:110` |
 | `artifact:create` | `electron/ipc/agents/artifacts.cjs:35` |
@@ -128,10 +128,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `cloudSync:setSettings` | `electron/ipc/sync/cloud-sync.cjs:121` |
 | `cloudSync:startRevisionWatcher` | `electron/ipc/sync/cloud-sync.cjs:66` |
 | `cloudSync:stopRevisionWatcher` | `electron/ipc/sync/cloud-sync.cjs:90` |
-| `copilot:auth:disconnect` | `electron/ipc/integrations/copilot.cjs:60` |
-| `copilot:auth:poll` | `electron/ipc/integrations/copilot.cjs:38` |
-| `copilot:auth:start` | `electron/ipc/integrations/copilot.cjs:26` |
-| `copilot:auth:status` | `electron/ipc/integrations/copilot.cjs:51` |
+| `copilot:auth:disconnect` | `electron/ipc/integrations/copilot.cjs:59` |
+| `copilot:auth:poll` | `electron/ipc/integrations/copilot.cjs:33` |
+| `copilot:auth:start` | `electron/ipc/integrations/copilot.cjs:20` |
+| `copilot:auth:status` | `electron/ipc/integrations/copilot.cjs:48` |
 | `db:agentFolders:create` | `electron/ipc/data/database.cjs:925` |
 | `db:agentFolders:delete` | `electron/ipc/data/database.cjs:976` |
 | `db:agentFolders:list` | `electron/ipc/data/database.cjs:913` |
@@ -417,11 +417,11 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `system:get-login-item` | `electron/ipc/core/system.cjs:177` |
 | `system:quit` | `electron/ipc/core/system.cjs:210` |
 | `system:set-login-item` | `electron/ipc/core/system.cjs:188` |
-| `threads:delete` | `electron/ipc/agents/threads.cjs:152` |
-| `threads:get-history` | `electron/ipc/agents/threads.cjs:119` |
-| `threads:get-state` | `electron/ipc/agents/threads.cjs:87` |
-| `threads:list` | `electron/ipc/agents/threads.cjs:44` |
-| `threads:update-state` | `electron/ipc/agents/threads.cjs:181` |
+| `threads:delete` | `electron/ipc/agents/threads.cjs:159` |
+| `threads:get-history` | `electron/ipc/agents/threads.cjs:126` |
+| `threads:get-state` | `electron/ipc/agents/threads.cjs:94` |
+| `threads:list` | `electron/ipc/agents/threads.cjs:51` |
+| `threads:update-state` | `electron/ipc/agents/threads.cjs:188` |
 | `transcription:get-active` | `electron/ipc/media/transcription.cjs:401` |
 | `transcription:get-permissions` | `electron/ipc/media/transcription.cjs:242` |
 | `transcription:get-settings` | `electron/ipc/media/transcription.cjs:143` |

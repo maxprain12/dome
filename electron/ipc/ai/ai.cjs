@@ -1,10 +1,8 @@
 /* eslint-disable no-console */
 
 const { setMaxListeners } = require('events');
-const langgraphAgent = require('../../agents/langgraph-agent.cjs');
-// Phase 2 runtime selector: routes the "many" surface to the legacy LangGraph
-// runtime (default) or the Dome-native @dome/agent-core runtime, based on
-// DOME_AGENT_RUNTIME[_MANY]. Default ('langgraph') is a transparent pass-through.
+// Single agent runtime: the "many" surface runs through the Dome-native
+// `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('../../agents/agent-runtime.cjs');
 const llmService = require('../../ai/llm-service.cjs');
 const domeOauth = require('../../auth/dome-oauth.cjs');
@@ -370,78 +368,22 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     }
   });
 
+  // HITL resume was backed by the LangGraph checkpointer (interrupt/Command
+  // replay), removed with the LangGraph runtime. The Dome-native runtime does
+  // not support resuming an interrupted stream yet; the channel stays
+  // registered so the renderer keeps working, but it now fails explicitly.
   ipcMain.handle('ai:langgraph:resume', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
-
-    let threadId;
-    let streamId;
-    let decisions;
-    let provider;
-    let model;
-
-    if (!params || typeof params !== 'object') {
-      return { success: false, error: 'Invalid params' };
+    const message =
+      'HITL resume is not supported by the Dome-native runtime yet ' +
+      '(it required the removed LangGraph checkpointer). Re-send your message instead.';
+    const streamId = params && typeof params === 'object' ? params.streamId : undefined;
+    if (streamId && event.sender && !event.sender.isDestroyed()) {
+      event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: message });
     }
-    ({ threadId, streamId, decisions, provider: providerArg, model: modelArg } = params);
-
-    try {
-      if (!threadId || !streamId || !Array.isArray(decisions)) {
-        throw new Error('threadId, streamId, and decisions are required');
-      }
-
-      const queries = database.getQueries();
-      const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'ollama';
-      let apiKey;
-      let baseUrl;
-      let chatModel;
-      if (provider === 'ollama') {
-        baseUrl = queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434';
-        chatModel = modelArg || queries.getSetting.get('ollama_model')?.value || 'llama3.2';
-        apiKey = queries.getSetting.get('ollama_api_key')?.value || undefined;
-      } else {
-        apiKey = queries.getSetting.get('ai_api_key')?.value;
-        if (!apiKey) throw new Error(`API key not configured for ${provider}`);
-        chatModel = modelArg || queries.getSetting.get('ai_model')?.value;
-      }
-
-      const controller = new AbortController();
-      setMaxListeners(64, controller.signal);
-      langGraphAbortControllers.set(streamId, controller);
-
-      const onChunk = (data) => {
-        if (event.sender && !event.sender.isDestroyed()) {
-          event.sender.send('ai:stream:chunk', { streamId, ...data });
-        }
-      };
-
-      try {
-        const result = await langgraphAgent.resumeLangGraphAgent({
-          provider,
-          model: chatModel,
-          apiKey,
-          baseUrl,
-          messages: [],
-          onChunk,
-          signal: controller.signal,
-          threadId,
-          decisions,
-        });
-        if (result && typeof result === 'object' && result.__interrupt__) {
-          return { success: true, interrupted: true, threadId: result.threadId };
-        }
-        return { success: true };
-      } finally {
-        langGraphAbortControllers.delete(streamId);
-      }
-    } catch (error) {
-      console.error('[AI LangGraph] Resume error:', error);
-      if (event.sender && !event.sender.isDestroyed()) {
-        event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: error?.message || String(error) });
-      }
-      return { success: false, error: error?.message };
-    }
+    return { success: false, error: message };
   });
 
   /**

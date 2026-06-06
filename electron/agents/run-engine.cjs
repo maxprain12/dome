@@ -2,11 +2,8 @@
 
 const crypto = require('crypto');
 const { setMaxListeners } = require('events');
-const langgraphAgent = require('./langgraph-agent.cjs');
-// Phase 2 runtime selector. Many flows through here (runs:startLangGraph →
-// startLangGraphRun). Routing the single-agent invoke through the selector
-// lets DOME_AGENT_RUNTIME[_MANY] pick the Dome-native runtime; default is a
-// transparent pass-through to invokeLangGraphAgent.
+// Single agent runtime: every agent turn runs through the Dome-native
+// `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('./agent-runtime.cjs');
 const { getToolDefinitionsByIds, getAllToolDefinitions } = require('../tools/tool-dispatcher.cjs');
 const streamingTts = require('../transcription/streaming-tts.cjs');
@@ -14,21 +11,15 @@ const { getOpenAIKey } = require('../ai/openai-key.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const { readPrompt } = require('../prompts/prompts-loader.cjs');
-const { SUBAGENT_NAMES } = require('./subagents.cjs');
 
 /**
- * Subagents exposed to Many via the deepagents `task` tool.
- * Defaults to all canonical subagents; override with a comma-separated
- * DOME_MANY_SUBAGENTS list, or set it to an empty string to disable delegation.
+ * Subagent delegation was removed with the legacy agent stack. The Dome-native
+ * runtime does not yet expose subagents, so
+ * this returns an empty list. Kept as a function for call sites and for a
+ * future native subagent implementation.
  */
 function manySubagentIds() {
-  const raw = process.env.DOME_MANY_SUBAGENTS;
-  if (raw == null) return SUBAGENT_NAMES;
-  const names = raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => SUBAGENT_NAMES.includes(s));
-  return names;
+  return [];
 }
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
@@ -1183,8 +1174,13 @@ async function executeLangGraphRun(runId, params) {
     runtimeContext,
   };
 
+  // Single-agent surface: Many (ownerType 'many') and agent-chat (ownerType
+  // 'agent') share this path. Route each through the selector under its own
+  // surface so DOME_AGENT_RUNTIME[_MANY] / [_AGENT_CHAT] can opt in
+  // independently; default is a transparent pass-through to LangGraph.
+  const runSurface = params.ownerType === 'agent' ? 'agent-chat' : 'many';
   try {
-    const result = await agentRuntime.runManyAgent({
+    const result = await agentRuntime.runAgent(runSurface, {
       provider: context.provider,
       model: context.model,
       apiKey: context.apiKey,
@@ -1432,66 +1428,15 @@ async function resumeRun(runId, decisions) {
     },
   });
   try {
-    const lgOpts = context.langGraphResumeOpts
-      ?? run.metadata?.resumeOpts
-      ?? {
-        toolDefinitions: [],
-        useDirectTools: false,
-        mcpServerIds: undefined,
-        subagentIds: undefined,
-        skipHitl: false,
-        runtimeContext: null,
-      };
-    await langgraphAgent.resumeLangGraphAgent({
-      provider: providerConfig.provider,
-      model: providerConfig.model,
-      apiKey: providerConfig.apiKey,
-      baseUrl: providerConfig.baseUrl,
-      messages: [],
-      threadId: run.threadId,
-      decisions,
-      signal: context.controller.signal,
-      onChunk: createRunChunkEmitter(runId, context),
-      toolDefinitions: lgOpts.toolDefinitions,
-      useDirectTools: lgOpts.useDirectTools,
-      mcpServerIds: lgOpts.mcpServerIds,
-      subagentIds: lgOpts.subagentIds,
-      skipHitl: lgOpts.skipHitl,
-      runtimeContext: lgOpts.runtimeContext,
-      automationProjectId:
-        run.automationId ? (run.projectId ?? 'default') : lgOpts.automationProjectId,
-    });
-    const latest = getRun(runId);
-    if (latest?.status === 'waiting_approval') {
-      return latest;
-    }
-    const runMeta = run.metadata ?? {};
-    tryPersistRunAssistantMessage(
-      run.sessionId,
-      {
-        ownerType: run.ownerType,
-        runId: run.id,
-        contextId: runMeta.contextId ?? null,
-        sessionTitle: runMeta.sessionTitle ?? run.title ?? null,
-        toolIds: Array.isArray(runMeta.toolIds) ? runMeta.toolIds : [],
-        mcpServerIds: lgOpts.mcpServerIds ?? runMeta.mcpServerIds ?? [],
-      },
-      context,
+    // HITL resume was backed by the LangGraph checkpointer (interrupt/Command
+    // replay), which was removed with the LangGraph runtime. The Dome-native
+    // runtime does not yet support resuming an interrupted run, so a manual
+    // resume now fails explicitly instead of silently doing nothing.
+    void decisions;
+    throw new Error(
+      'Manual HITL resume is not supported by the Dome-native runtime yet ' +
+      '(it required the removed LangGraph checkpointer). Re-run the request instead.',
     );
-    return patchRun(runId, {
-      status: 'completed',
-      outputText: context.fullResponse,
-      summary: context.fullResponse.slice(0, 280) || run.title || 'Run completado',
-      error: null,
-      finishedAt: now(),
-      metadata: {
-        provider: providerConfig.provider,
-        model: providerConfig.model,
-        toolCalls: context.toolCalls,
-        pendingApproval: null,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
   } catch (error) {
     const failMeta = run.metadata ?? {};
     return patchRun(runId, {
@@ -1718,7 +1663,9 @@ async function executeWorkflowRun(runId, params, workflow) {
           });
           let nodeError = null;
           try {
-            await langgraphAgent.invokeLangGraphAgent({
+            // Workflow/automation agent node runs through the Dome-native
+            // `@dome/agent-core` runtime.
+            await agentRuntime.runAgent('workflows', {
               provider: workflowProviderConfig.provider,
               model: workflowProviderConfig.model,
               apiKey: workflowProviderConfig.apiKey,
@@ -1821,8 +1768,11 @@ async function executeWorkflowRun(runId, params, workflow) {
       wfGraph.addEdge(edge.source, edge.target);
     }
 
-    const { getDomeCheckpointer } = require('./checkpointer.cjs');
-    const compiled = wfGraph.compile({ checkpointer: getDomeCheckpointer() });
+    // The workflow orchestrator still uses a LangGraph StateGraph to sequence
+    // nodes, but the SqliteSaver checkpointer was removed with the LangGraph
+    // agent runtime. Workflows run without checkpoint persistence (no
+    // mid-graph HITL replay across restarts).
+    const compiled = wfGraph.compile();
     await compiled.invoke({}, { configurable: { thread_id: `wf_${runId}` } });
 
     let createdNote = null;

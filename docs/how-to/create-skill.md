@@ -2,7 +2,7 @@
 
 Skills are specialized prompt modules that augment an agent's behavior on demand. They follow the **progressive disclosure** pattern: the agent loads the skill content only when needed, keeping the context window lean.
 
-Dome uses the [deepagents](https://deepagents.io) skills framework, which implements the same pattern as [llmstxt](https://llmstxt.org) but for specialized prompts rather than documentation pages.
+Dome uses the native skills loader in `@dome/agent-core` (`loadSkills`, `formatSkillsForSystemPrompt`), which follows the same progressive-disclosure pattern as [Agent Skills](https://agentskills.io) / [llmstxt](https://llmstxt.org).
 
 ---
 

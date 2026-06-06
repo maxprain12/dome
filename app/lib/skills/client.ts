@@ -1,5 +1,5 @@
 /**
- * Skills IPC client — backed by deepagents listSkills (native SKILL.md parsing).
+ * Skills IPC client — backed by `@dome/agent-core` loadSkills (native SKILL.md parsing).
  */
 export interface SkillItem {
   id: string;

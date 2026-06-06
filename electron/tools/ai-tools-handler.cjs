@@ -2436,14 +2436,6 @@ async function rememberFact(key, value) {
   personalityLoader.updateLongTermMemory(key, value);
   personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
 
-  // Also persist to LangGraph BaseStore for cross-thread access.
-  try {
-    const { getDomeStore } = require('../agents/agent-store.cjs');
-    await getDomeStore().put(['user', 'facts'], key, { value, updatedAt: Date.now() });
-  } catch (e) {
-    console.warn('[rememberFact] agent-store write failed:', e?.message);
-  }
-
   return { success: true, message: `Remembered: ${key}` };
 }
 
