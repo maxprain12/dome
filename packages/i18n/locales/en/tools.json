@@ -1,4 +1,10 @@
 {
-  "image_describe": "{",
-  "screen_understand": "{"
+  "image_describe": {
+    "name": "Describe image (vision)",
+    "description": "Describe an image with your configured AI for search and chat context."
+  },
+  "screen_understand": {
+    "name": "Understand UI screenshot",
+    "description": "Analyze a UI screenshot and return structured elements (configured AI)."
+  }
 }

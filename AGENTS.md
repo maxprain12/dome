@@ -43,7 +43,7 @@ git checkout -b feat/<short-description>
 
 ### Step 2 — Implement
 
-Obey P-001…P-010. **New IPC** (4 steps or it fails silently): handler `electron/ipc/<domain>.cjs` → register `electron/ipc/index.cjs` → `ALLOWED_CHANNELS` in `electron/preload.cjs` → renderer `window.electron.invoke('domain:action', args)`.
+Obey P-001…P-010. **New IPC** (4 steps or it fails silently): handler `electron/ipc/<group>/<domain>.cjs` (subfolders: core, data, ai, agents, media, learn, sync, integrations) → register in `electron/ipc/index.cjs` with the subfolder path → `ALLOWED_CHANNELS` in `electron/preload.cjs` → renderer `window.electron.invoke('domain:action', args)`.
 
 ### Step 3 — Validate locally
 

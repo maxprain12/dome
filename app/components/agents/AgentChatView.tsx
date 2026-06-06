@@ -45,6 +45,16 @@ import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
+import TokenBudgetBadge, { type LiveTokenUsage } from '@/components/many/TokenBudgetBadge';
+
+const EMPTY_BUDGET_BREAKDOWN = {
+  systemApprox: 0,
+  toolsApprox: 0,
+  historyApprox: 0,
+  totalApprox: 0,
+  toolCount: 0,
+  historyTurns: 0,
+};
 
 type AgentResourcePayload = {
   content?: string | null;
@@ -87,6 +97,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [pendingOneShotSkillId, setPendingOneShotSkillId] = useState<string | null>(null);
   const [activeStickySkillId, setActiveStickySkillId] = useState<string | null>(null);
   const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
+  const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
   const thinkingLabelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -264,6 +275,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     setPendingApproval,
     onRunStatus: handleRunStatus,
     onRunTerminal: handleRunTerminal,
+    onUsage: (usage) => setLiveUsage(usage),
     t,
   });
 
@@ -339,6 +351,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     setStatus('thinking');
     setError(null);
     setStreamingMessage(null);
+    setLiveUsage(null);
 
     const userRunMessage = buildUserRunMessage(
       textPart,
@@ -697,6 +710,13 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         ) : null}
         <div ref={messagesEndRef} />
       </UnifiedChatMessageArea>
+
+      {/* Live provider token usage (real billing, not the char/4 estimate) */}
+      {liveUsage ? (
+        <div className="flex justify-end px-3 py-0.5">
+          <TokenBudgetBadge breakdown={EMPTY_BUDGET_BREAKDOWN} liveUsage={liveUsage} />
+        </div>
+      ) : null}
 
       {/* Fixed Input */}
       <UnifiedChatInput

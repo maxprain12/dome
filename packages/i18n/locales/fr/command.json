@@ -1,17 +1,17 @@
 {
   "add_url": "Ajouter une URL",
   "add_web_resource": "Ajouter une ressource web",
-  "ai": "IA",
+  "youtube": "YouTube",
   "article": "Article",
-  "article_detected": "Article web - le contenu sera extrait",
+  "ai": "IA",
   "clear_search": "Effacer la recherche",
+  "please_enter_url": "Veuillez entrer une URL valide commençant par http:// ou https://",
+  "youtube_detected": "Vidéo YouTube détectée - les informations de la vidéo seront extraites",
+  "article_detected": "Article web - le contenu sera extrait",
   "new_note": "Nouvelle note",
   "new_notebook": "Nouveau carnet",
-  "no_results": "Aucun résultat trouvé pour \"{{query}}\"",
-  "notes_annotations": "Notes et annotations",
-  "please_enter_url": "Veuillez entrer une URL valide commençant par http:// ou https://",
-  "resources": "Ressources",
   "upload_files": "Téléverser des fichiers",
-  "youtube": "YouTube",
-  "youtube_detected": "Vidéo YouTube détectée - les informations de la vidéo seront extraites"
+  "no_results": "Aucun résultat trouvé pour \"{{query}}\"",
+  "resources": "Ressources",
+  "notes_annotations": "Notes et annotations"
 }

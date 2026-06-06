@@ -17,6 +17,10 @@ const PROVIDER_LOGO_PATHS = {
   openrouter: '/brandlogo/openrouter.svg',
   minimax: '/brandlogo/minimax.svg',
   ollama: '/brandlogo/ollama.svg',
+  deepseek: '/brandlogo/deepseek.svg',
+  moonshot: '/brandlogo/moonshot.svg',
+  qwen: '/brandlogo/qwen.svg',
+  copilot: '/brandlogo/github.svg',
 } as const;
 
 export type ProviderWithBrandLogo = keyof typeof PROVIDER_LOGO_PATHS;
@@ -85,6 +89,30 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.minimax.name,
     description: 'MiniMax M-series via Anthropic-compatible API. M3 supports image & video. Requires sk-cp-... key.',
     logoSrc: PROVIDER_LOGO_PATHS.minimax,
+  },
+  {
+    value: 'deepseek',
+    label: PROVIDERS.deepseek.name,
+    description: PROVIDERS.deepseek.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.deepseek,
+  },
+  {
+    value: 'moonshot',
+    label: PROVIDERS.moonshot.name,
+    description: PROVIDERS.moonshot.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.moonshot,
+  },
+  {
+    value: 'qwen',
+    label: PROVIDERS.qwen.name,
+    description: PROVIDERS.qwen.description + '. Requires API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.qwen,
+  },
+  {
+    value: 'copilot',
+    label: PROVIDERS.copilot.name,
+    description: PROVIDERS.copilot.description + '. Connect with GitHub.',
+    logoSrc: PROVIDER_LOGO_PATHS.copilot,
   },
   {
     value: 'ollama',

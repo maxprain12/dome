@@ -67,7 +67,7 @@ Use these three tiers. The marker at the start of a finding (`❌` / `⚠️` / 
 
 Each ❌/⚠️ finding you emit is persisted in a JSON database and watched over time. For the resolver to mark a finding `resolved` once the code is fixed, the finding MUST be verifiable by `grep` on the file in `main`. That means:
 
-1. **Concrete file path.** Always use the exact path shown in the diff or `tree` — e.g. `app/components/Search/SimpleSearch.tsx`. NEVER write `unknown`, `various`, `multiple files`, or a directory without a filename. If you cannot point at a specific file, drop the finding.
+1. **Concrete file path.** Always use the exact path shown in the diff or `tree` — e.g. `app/components/search/SimpleSearch.tsx`. NEVER write `unknown`, `various`, `multiple files`, or a directory without a filename. If you cannot point at a specific file, drop the finding.
 2. **Line number from the diff.** Use a `+`-side line number visible in the current diff. If the issue spans a region, pick the line the fix should start on.
 3. **Include a distinctive code substring.** In the finding body, quote at least 6–10 consecutive characters that actually appear on that line (a function name, variable, or SQL fragment). Avoid generic phrases like `the useEffect` or `this function` — they are not greppable.
 4. **One issue per finding.** If you notice two problems on the same line, emit two findings with different patterns, not a conjunction.

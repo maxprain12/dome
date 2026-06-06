@@ -1,11 +1,11 @@
 {
-  "confirm_sign_out": "Tem certeza de que deseja sair?\\n\\nIsso redefinirá seu perfil e o assistente de configuração será exibido novamente.",
-  "default_name": "Usuário",
+  "open_settings": "Abrir configurações",
+  "sign_out": "Sair",
+  "settings": "Configurações",
+  "signingOut": "Saindo...",
   "menu_aria": "Menu do usuário: {{name}}",
   "no_email": "Sem e-mail",
-  "open_settings": "Abrir configurações",
-  "settings": "Configurações",
-  "sign_out": "Sair",
-  "sign_out_error": "Não foi possível sair. Tente novamente.",
-  "signingOut": "Saindo..."
+  "default_name": "Usuário",
+  "confirm_sign_out": "Tem certeza de que deseja sair?\n\nIsso redefinirá seu perfil e o assistente de configuração será exibido novamente.",
+  "sign_out_error": "Não foi possível sair. Tente novamente."
 }

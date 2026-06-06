@@ -1,6 +1,6 @@
 {
-  "accept": "Accept",
-  "cancel": "Cancel",
   "input": "Input",
-  "typeHere": "Type here…"
+  "typeHere": "Type here…",
+  "cancel": "Cancel",
+  "accept": "Accept"
 }

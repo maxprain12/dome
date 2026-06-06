@@ -2,9 +2,9 @@
 'use strict';
 
 const fs = require('fs');
-const fileStorage = require('../file-storage.cjs');
-const pdfExtractor = require('../pdf-extractor.cjs');
-const database = require('../database.cjs');
+const fileStorage = require('../storage/file-storage.cjs');
+const pdfExtractor = require('../documents/pdf-extractor.cjs');
+const database = require('../core/database.cjs');
 const cloudLlm = require('./cloud-llm.service.cjs');
 const cloudLlmTasks = require('./cloud-llm-tasks.cjs');
 
@@ -126,7 +126,7 @@ async function buildPdfjsMarkedText(fullPath, numPages) {
  * Si no hay proveedor con imagen configurado → bloqueado (metadata.pdf_indexing + content vacío).
  *
  * @param {import('better-sqlite3').Statement['get'] extends infer _ ? any : never} resource
- * @param {ReturnType<import('../database.cjs')['getQueries']>} queries
+ * @param {ReturnType<import('../core/database.cjs')['getQueries']>} queries
  * @param {{ onProgress?: (p: { done: number, total: number, page: number }) => void, windowManager?: { broadcast: Function } }} [opts]
  * @returns {Promise<{ text: string, source: string }>}
  */

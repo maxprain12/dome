@@ -912,6 +912,16 @@ const electronHandler = {
   },
 
   // ============================================
+  // GITHUB COPILOT OAUTH API
+  // ============================================
+  copilotAuth: {
+    start: () => ipcRenderer.invoke('copilot:auth:start'),
+    poll: (payload) => ipcRenderer.invoke('copilot:auth:poll', payload),
+    status: () => ipcRenderer.invoke('copilot:auth:status'),
+    disconnect: () => ipcRenderer.invoke('copilot:auth:disconnect'),
+  },
+
+  // ============================================
   // PLUGINS API
   // ============================================
   plugins: {

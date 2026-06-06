@@ -1,8 +1,8 @@
 {
   "all": "Todos",
-  "folder": "Carpeta",
+  "note": "Nota",
+  "notebook": "Cuaderno",
   "import": "Importar",
   "link": "Enlace",
-  "note": "Nota",
-  "notebook": "Cuaderno"
+  "folder": "Carpeta"
 }

@@ -4,7 +4,7 @@ const path = require('path');
 const crypto = require('crypto');
 const ExcelJS = require('exceljs');
 
-const database = require('../database.cjs');
+const database = require('../core/database.cjs');
 const { app } = require('electron');
 
 const BENCH_PROJECT_ID = 'bench-project';

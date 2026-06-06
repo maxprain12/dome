@@ -206,42 +206,42 @@ if (!gotTheLock) {
   });
 }
 
-const windowManager = require('./window-manager.cjs');
-const database = require('./database.cjs');
-const initModule = require('./init.cjs');
-const fileStorage = require('./file-storage.cjs');
-const thumbnail = require('./thumbnail.cjs');
-const cropImage = require('./crop-image.cjs');
-const webScraper = require('./web-scraper.cjs');
-const youtubeService = require('./youtube-service.cjs');
-const ollamaService = require('./ollama-service.cjs');
-const { getOllamaManager, cleanupOllamaManagerIfLoaded } = require('./ollama-manager-lazy.cjs');
-const aiToolsHandler = require('./ai-tools-handler.cjs');
-const excelToolsHandler = require('./excel-tools-handler.cjs');
-const docxToolsHandler = require('./docx-tools-handler.cjs');
-const pptToolsHandler = require('./ppt-tools-handler.cjs');
-const documentExtractor = require('./document-extractor.cjs');
-const documentGenerator = require('./document-generator.cjs');
-const documentStaging = require('./document-staging.cjs');
-const docxConverter = require('./docx-converter.cjs');
-const authManager = require('./auth-manager.cjs');
-const personalityLoader = require('./personality-loader.cjs');
-const updateService = require('./update-service.cjs');
-const ttsService = require('./tts-service.cjs');
-const notebookPython = require('./notebook-python.cjs');
-const mcpOauth = require('./mcp-oauth.cjs');
-const { handleDomeUrl } = require('./deep-link-handler.cjs');
-const calendarNotificationService = require('./calendar-notification-service.cjs');
-const calendarSyncScheduler = require('./calendar-sync-scheduler.cjs');
-const automationService = require('./automation-service.cjs');
-const runEngine = require('./run-engine.cjs');
-const { validateSender, sanitizePath, validateUrl } = require('./security.cjs');
-const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
+const windowManager = require('./core/window-manager.cjs');
+const database = require('./core/database.cjs');
+const initModule = require('./core/init.cjs');
+const fileStorage = require('./storage/file-storage.cjs');
+const thumbnail = require('./documents/thumbnail.cjs');
+const cropImage = require('./tools/crop-image.cjs');
+const webScraper = require('./feeders/web-scraper.cjs');
+const youtubeService = require('./feeders/youtube-service.cjs');
+const ollamaService = require('./ollama/ollama-service.cjs');
+const { getOllamaManager, cleanupOllamaManagerIfLoaded } = require('./ollama/ollama-manager-lazy.cjs');
+const aiToolsHandler = require('./tools/ai-tools-handler.cjs');
+const excelToolsHandler = require('./tools/excel-tools-handler.cjs');
+const docxToolsHandler = require('./tools/docx-tools-handler.cjs');
+const pptToolsHandler = require('./tools/ppt-tools-handler.cjs');
+const documentExtractor = require('./documents/document-extractor.cjs');
+const documentGenerator = require('./documents/document-generator.cjs');
+const documentStaging = require('./documents/document-staging.cjs');
+const docxConverter = require('./documents/docx-converter.cjs');
+const authManager = require('./auth/auth-manager.cjs');
+const personalityLoader = require('./personality/personality-loader.cjs');
+const updateService = require('./core/update-service.cjs');
+const ttsService = require('./transcription/tts-service.cjs');
+const notebookPython = require('./documents/notebook-python.cjs');
+const mcpOauth = require('./mcp/mcp-oauth.cjs');
+const { handleDomeUrl } = require('./core/deep-link-handler.cjs');
+const calendarNotificationService = require('./calendar/calendar-notification-service.cjs');
+const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
+const automationService = require('./agents/automation-service.cjs');
+const runEngine = require('./agents/run-engine.cjs');
+const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
+const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
-const transcriptionShortcut = require('./transcription-shortcut.cjs');
-const { useViteDevServer } = require('./runtime-env.cjs');
+const transcriptionShortcut = require('./transcription/transcription-shortcut.cjs');
+const { useViteDevServer } = require('./core/runtime-env.cjs');
 
 // Modo desarrollo (Vite): nunca en app empaquetada
 const isDev = useViteDevServer();
@@ -344,7 +344,7 @@ async function installExtensions() {
 
   try {
     const { REACT_DEVELOPER_TOOLS } = require('electron-devtools-installer');
-    const { installExtensionFromChromeStore } = require('./install-devtools-extension.cjs');
+    const { installExtensionFromChromeStore } = require('./core/install-devtools-extension.cjs');
 
     await installExtensionFromChromeStore(REACT_DEVELOPER_TOOLS, {
       loadExtensionOptions: { allowFileAccess: true },
@@ -588,7 +588,7 @@ app
   .whenReady()
   .then(async () => {
     try {
-      const { registerDomeHarnessProfiles } = require('./harness-profiles.cjs');
+      const { registerDomeHarnessProfiles } = require('./agents/harness-profiles.cjs');
       registerDomeHarnessProfiles();
     } catch (e) {
       console.warn('[Main] registerDomeHarnessProfiles failed:', e?.message || e);
@@ -813,7 +813,7 @@ app
 
     // Seed bundled SKILL.md packs to ~/.dome/skills/ on first boot (idempotent)
     try {
-      const { seedBundledSkills } = require('./skills-bootstrap.cjs');
+      const { seedBundledSkills } = require('./marketplace/skills-bootstrap.cjs');
       seedBundledSkills(database.getDB());
     } catch (e) {
       console.warn('[Main] skills bootstrap:', e?.message || e);
@@ -821,7 +821,7 @@ app
 
     // Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
     try {
-      const { seedGuide } = require('./guide-bootstrap.cjs');
+      const { seedGuide } = require('./core/guide-bootstrap.cjs');
       seedGuide(database.getDB());
     } catch (e) {
       console.warn('[Main] guide bootstrap:', e?.message || e);
@@ -899,7 +899,7 @@ app
       const q = database.getQueries();
       const mcpEnabled = q.getSetting?.get('dome_mcp_enabled');
       if (mcpEnabled?.value === '1') {
-        const domeMcpServer = require('./dome-mcp-server.cjs');
+        const domeMcpServer = require('./mcp/dome-mcp-server.cjs');
         const portRow = q.getSetting?.get('dome_mcp_port');
         const port = portRow?.value ? parseInt(portRow.value, 10) : 37214;
         domeMcpServer.start(port).catch((e) =>
@@ -920,7 +920,7 @@ app
         if (!embeddingsService.isConfigured(q)) return;
         const done = q.getSetting.get('semantic_initial_reindex_done_v2');
         if (done?.value === '1') return;
-        const semanticScheduler = require('./semantic-index-scheduler.cjs');
+        const semanticScheduler = require('./storage/semantic-index-scheduler.cjs');
         semanticScheduler.init(database);
         void semanticScheduler
           .getIndexer()
@@ -1096,23 +1096,23 @@ app.on('before-quit', async () => {
   automationService.stop();
   runEngine.stop();
   try {
-    require('./ipc/cloud-sync.cjs').disposeCloudSync();
+    require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();
   } catch (e) { /* non-fatal */ }
   semanticIndexScheduler.stopAutoIndexing?.();
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
   try {
-    require('./checkpointer.cjs').closeDomeCheckpointer();
+    require('./agents/checkpointer.cjs').closeDomeCheckpointer();
   } catch (e) {
     console.warn('[Main] checkpointer close failed:', e?.message);
   }
   try {
-    await require('./observability.cjs').shutdownLangfuse();
+    await require('./core/observability.cjs').shutdownLangfuse();
   } catch (e) {
     console.warn('[Main] langfuse shutdown failed:', e?.message);
   }
   try {
-    const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
+    const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
     const indexer = semanticIndexScheduler.getIndexer?.();
     if (indexer && typeof indexer.waitForIndexerIdle === 'function') {
       await indexer.waitForIndexerIdle();

@@ -72,3 +72,50 @@ export interface AssembleOptions {
 
 /** Re-export of the assembler version constant. */
 export type PromptVersion = typeof PROMPT_VERSION;
+
+/**
+ * Core prompt sections supplied by the caller (loaded from disk in the
+ * main process). The assembler is a pure function over these.
+ */
+export type CorePromptSections = {
+  roleMany?: string;
+  constraintsLanguage?: string;
+  appContext?: string;
+  toolGuardrails?: string;
+  toolSurface?: string;
+  toolFormat?: string;
+  toolCatalog?: string;
+  filesystemRules?: string;
+  asyncSubagents?: string;
+  outputFormat?: string;
+  referenceStub?: string;
+};
+
+export type DomeSystemPromptOptions = {
+  staticPersona: string;
+  volatileContext?: string | null;
+  skillsCatalogMarkdown?: string | null;
+  includeDate?: boolean;
+  extraSections?: Array<string | null | undefined>;
+  voiceLanguage?: string | null;
+  omitCoreTools?: boolean;
+  coreToolsMode?: 'full' | 'minimal';
+};
+
+export type VolatileSourceOptions = {
+  uiContext?: string;
+  userMemory?: string;
+  pinnedResources?: Array<{ id: string; title: string; type: string }>;
+  activeResource?: { id: string; title: string; type?: string } | null;
+  dateLine?: string;
+  taskLine?: string;
+};
+
+export type BenchPromptOptions = {
+  intro: string;
+  benchRules: string;
+  toolsExcerpt?: string;
+  fixtureList?: string;
+  primaryTool?: string;
+  explainOnly?: boolean;
+};

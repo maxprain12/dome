@@ -12,7 +12,7 @@ const require = createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const RUNS_DIR = path.join(__dirname, '../../docs/bench/runs');
 
-const { normalizeToolName } = require('../../electron/tool-dispatcher.cjs');
+const { normalizeToolName } = require('../../electron/tools/tool-dispatcher.cjs');
 const { validateStructural, deriveOutcome, validateExecution } = require('../../electron/bench/validators.cjs');
 const storage = require('../../electron/bench/storage.cjs');
 

@@ -1,11 +1,11 @@
 {
-  "confirm_sign_out": "Are you sure you want to sign out?\\n\\nThis will reset your profile and you will see the setup assistant again.",
-  "default_name": "User",
+  "open_settings": "Open settings",
+  "sign_out": "Sign out",
+  "settings": "Settings",
+  "signingOut": "Signing out...",
   "menu_aria": "User menu: {{name}}",
   "no_email": "No email set",
-  "open_settings": "Open settings",
-  "settings": "Settings",
-  "sign_out": "Sign out",
-  "sign_out_error": "Could not sign out. Please try again.",
-  "signingOut": "Signing out..."
+  "default_name": "User",
+  "confirm_sign_out": "Are you sure you want to sign out?\n\nThis will reset your profile and you will see the setup assistant again.",
+  "sign_out_error": "Could not sign out. Please try again."
 }

@@ -1,12 +1,12 @@
 {
-  "error_export": "Export impossible",
-  "error_import": "Échec de l’import",
-  "export_done": "Export téléchargé",
-  "import_automation": "Importer une automatisation",
-  "import_done_automation": "",
-  "import_done_workflow": "",
   "import_workflow": "Importer un workflow",
-  "invalid_bundle": "Fichier d’export invalide ou non pris en charge",
+  "import_automation": "Importer une automatisation",
+  "title_export_workflow": "Exporter le workflow (agents, compétences, MCP)",
   "title_export_automation": "Exporter l’automatisation (cible, compétences, MCP)",
-  "title_export_workflow": "Exporter le workflow (agents, compétences, MCP)"
+  "export_done": "Export téléchargé",
+  "error_export": "Export impossible",
+  "invalid_bundle": "Fichier d’export invalide ou non pris en charge",
+  "error_import": "Échec de l’import",
+  "import_done_workflow": "{{workflows}} workflow(s), {{agents}} agent(s) importés (compétences et MCP fusionnés si nouveaux).",
+  "import_done_automation": "{{automations}} automatisation(s), {{workflows}} workflow(s), {{agents}} agent(s) importés."
 }

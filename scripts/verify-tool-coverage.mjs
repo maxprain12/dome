@@ -166,7 +166,7 @@ function extractDefinitionToolNames(arrayBody) {
 }
 
 function main() {
-  const toolDispatcherPath = path.join(__dirname, '../electron/tool-dispatcher.cjs');
+  const toolDispatcherPath = path.join(__dirname, '../electron/tools/tool-dispatcher.cjs');
   const src = fs.readFileSync(toolDispatcherPath, 'utf8');
 
   const mapMarker = 'const TOOL_HANDLER_MAP = ';

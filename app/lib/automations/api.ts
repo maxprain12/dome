@@ -292,30 +292,53 @@ export function onRunStep(callback: (payload: { step: PersistentRunStep }) => vo
   return electron.on('runs:step', callback);
 }
 
-export function onRunChunk(callback: (payload: {
-  runId: string;
-  type: string;
-  text?: string;
-  toolCall?: { id: string; name: string; arguments: string };
-  toolCallId?: string;
-  result?: string;
-  /** Subagent that produced this tool_call / tool_result (deepagents `task`). */
-  agentName?: string;
-  actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
-  reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
-  threadId?: string;
-  /** Provider-reported token usage (live partial or final). */
-  usage?: PersistentRunUsage;
-  partial?: boolean;
-  breakdown?: {
-    systemApprox: number;
-    toolsApprox: number;
-    historyApprox: number;
-    totalApprox: number;
-    toolCount: number;
-    historyTurns: number;
-  };
-}) => void): () => void {
+export interface RunChunkBudgetBreakdown {
+  systemApprox: number;
+  toolsApprox: number;
+  historyApprox: number;
+  totalApprox: number;
+  toolCount: number;
+  historyTurns: number;
+}
+
+/** Discriminated union of every `runs:chunk` payload emitted by the run engine. */
+export type RunChunkPayload =
+  | { runId: string; type: 'thinking'; text: string }
+  | { runId: string; type: 'text'; text: string }
+  | {
+      runId: string;
+      type: 'tool_call';
+      toolCall: { id: string; name: string; arguments: string };
+      /** Subagent that produced this tool_call (deepagents `task`). */
+      agentName?: string;
+    }
+  | {
+      runId: string;
+      type: 'tool_result';
+      toolCallId: string;
+      result?: string;
+      /** Subagent that produced this tool_result (deepagents `task`). */
+      agentName?: string;
+    }
+  | { runId: string; type: 'budget'; breakdown: RunChunkBudgetBreakdown }
+  | {
+      runId: string;
+      type: 'usage';
+      /** Provider-reported token usage (live partial or final). */
+      usage: PersistentRunUsage;
+      partial?: boolean;
+    }
+  | {
+      runId: string;
+      type: 'interrupt';
+      actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+      reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
+      threadId?: string;
+    }
+  | { runId: string; type: 'error'; error?: string }
+  | { runId: string; type: 'done' };
+
+export function onRunChunk(callback: (payload: RunChunkPayload) => void): () => void {
   const electron = ensureElectron();
   return electron.on('runs:chunk', callback);
 }

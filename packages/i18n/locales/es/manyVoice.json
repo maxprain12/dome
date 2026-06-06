@@ -1,7 +1,7 @@
 {
+  "transcribe_failed": "No se pudo transcribir",
   "mode_input": "Poner en el campo",
   "mode_send": "Enviar mensaje",
-  "ptt_subtitle": "Mantén pulsado · suelta para enviar",
   "toggle_send_mode": "Cambiar: insertar texto vs enviar como mensaje",
-  "transcribe_failed": "No se pudo transcribir"
+  "ptt_subtitle": "Mantén pulsado · suelta para enviar"
 }

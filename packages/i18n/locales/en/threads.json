@@ -1,8 +1,8 @@
 {
+  "timeline": "Thread timeline",
+  "latest": "latest",
   "fork": "Fork",
   "fork_from_here": "Fork execution from this checkpoint",
-  "latest": "latest",
-  "no_history": "No checkpoint history found for this thread.",
-  "timeline": "Thread timeline",
-  "view_state": "View checkpoint state"
+  "view_state": "View checkpoint state",
+  "no_history": "No checkpoint history found for this thread."
 }

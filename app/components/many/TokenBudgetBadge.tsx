@@ -72,7 +72,8 @@ export default function TokenBudgetBadge({
             </>
           ) : (
             <>
-              ≈ {formatThousands(breakdown.totalApprox)} / {formatThousands(cap)} tokens
+              {t('many.token_estimated_short')} ≈ {formatThousands(breakdown.totalApprox)} /{' '}
+              {formatThousands(cap)} tokens
             </>
           )}
         </span>
@@ -87,7 +88,11 @@ export default function TokenBudgetBadge({
     return (
       <div className="many-token-budget-meta w-full min-w-0" title={tip}>
         <div className="mb-1 flex justify-between gap-2 text-[11px] text-[var(--quaternary-text)]">
-          <span className="font-medium text-[var(--secondary-text)]">{t('many.token_budget_short')}</span>
+          <span className="font-medium text-[var(--secondary-text)]">
+            {hasLive
+              ? t('many.token_budget_short')
+              : `${t('many.token_budget_short')} · ${t('many.token_estimated_short')}`}
+          </span>
           <span className="tabular-nums text-[var(--primary-text)]">
             {hasLive ? (
               <>
@@ -113,7 +118,9 @@ export default function TokenBudgetBadge({
       title={tip}
     >
       <span className="font-medium text-[var(--secondary-text)]">
-        {hasLive ? t('many.token_live_short') : t('many.token_budget_short')}
+        {hasLive
+          ? t('many.token_live_short')
+          : `${t('many.token_budget_short')} · ${t('many.token_estimated_short')}`}
       </span>
       <span style={{ color: 'var(--primary-text)' }}>
         {hasLive ? liveLabel : `≈ ${formatThousands(breakdown.totalApprox)}`}

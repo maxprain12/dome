@@ -1,14 +1,14 @@
 {
-  "finalizing": "Guardando transcripción…",
-  "setup_hint": "",
   "setup_title": "Captura de reunión",
-  "show_live_transcript": "Ver transcripción en vivo",
+  "setup_hint": "Elige la ventana o pantalla de la reunión y pulsa iniciar. Aquí se graban a la vez tu micrófono y el audio de esa fuente (en dictado eliges solo mic o solo sistema, no ambos).",
   "start_button": "Iniciar reunión",
-  "start_failed": "No se pudo iniciar la reunión",
-  "starting": "Iniciando…",
   "stop_button": "Detener y guardar nota",
-  "streaming_placeholder": "Los fragmentos transcritos aparecerán aquí…",
-  "summary_ready": "Resumen actualizado",
+  "starting": "Iniciando…",
+  "finalizing": "Guardando transcripción…",
+  "start_failed": "No se pudo iniciar la reunión",
   "track_mic": "Micrófono",
-  "track_system": "Audio de la reunión"
+  "track_system": "Audio de la reunión",
+  "show_live_transcript": "Ver transcripción en vivo",
+  "streaming_placeholder": "Los fragmentos transcritos aparecerán aquí…",
+  "summary_ready": "Resumen actualizado"
 }

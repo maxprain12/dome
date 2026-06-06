@@ -3,13 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const langgraphAgent = require('../langgraph-agent.cjs');
-const database = require('../database.cjs');
-const { normalizeToolName, executeToolInMain } = require('../tool-dispatcher.cjs');
+const langgraphAgent = require('../agents/langgraph-agent.cjs');
+const database = require('../core/database.cjs');
+const { normalizeToolName, executeToolInMain } = require('../tools/tool-dispatcher.cjs');
 const { parseTextToolInvokes } = require('./parse-text-tool-invokes.cjs');
 const { buildBenchSystemPrompt, BENCH_PROJECT_ID } = require('./bench-prompt.cjs');
 const { getToolDefinitionsForCase } = require('./tool-scope.cjs');
-const { parseRuntimeContext } = require('../agent-runtime-context.cjs');
+const { parseRuntimeContext } = require('../agents/agent-runtime-context.cjs');
 const { getBenchProviderConfig } = require('./provider-config.cjs');
 const { validateExecution, validateStructural, deriveOutcome } = require('./validators.cjs');
 const { runJudge } = require('./judge.cjs');

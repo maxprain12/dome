@@ -1,7 +1,17 @@
 {
-  "all": "Todos",
   "filter_by": "Filtrar por {{label}}",
   "filter_by_active": "Filtrar por {{label}} (ativo)",
   "show_all_types": "Mostrar todos os tipos",
-  "types": "{"
+  "all": "Todos",
+  "types": {
+    "note": "Notas",
+    "notebook": "Cadernos",
+    "pdf": "PDFs",
+    "document": "Documentos",
+    "image": "Imagens",
+    "video": "Vídeos",
+    "audio": "Áudio",
+    "url": "URLs",
+    "folder": "Pastas"
+  }
 }

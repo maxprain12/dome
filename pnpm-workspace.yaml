@@ -28,3 +28,4 @@ allowBuilds:
   protobufjs: true
   sharp: true
   onnxruntime-node: set this to true or false
+  '@google/genai': set this to true or false

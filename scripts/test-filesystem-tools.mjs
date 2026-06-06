@@ -9,8 +9,8 @@ import { test } from 'node:test';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { capToolResultString, getCapForTool } = require('../electron/tool-result-cap.cjs');
-const { buildFileTree, shouldExcludeEntry } = require('../electron/file-tree.cjs');
+const { capToolResultString, getCapForTool } = require('../electron/tools/tool-result-cap.cjs');
+const { buildFileTree, shouldExcludeEntry } = require('../electron/tools/file-tree.cjs');
 
 test('getCapForTool uses aggressive cap for directory_tree', () => {
   assert.equal(getCapForTool('directory_tree'), 12_000);

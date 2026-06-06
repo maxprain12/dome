@@ -12,7 +12,7 @@ const {
 } = require('./embeddings.service.cjs');
 const { chunkTextForEmbeddings, assignPageNumbersFromMarkers } = require('./chunking.cjs');
 const { getIndexableText, syncArtifactFtsContent } = require('./resource-text.cjs');
-const fileStorage = require('../file-storage.cjs');
+const fileStorage = require('../storage/file-storage.cjs');
 const cloudLlm = require('./cloud-llm.service.cjs');
 const cloudLlmTasks = require('./cloud-llm-tasks.cjs');
 const { extractPdfTextWithCloud } = require('./pdf-transcription.cjs');

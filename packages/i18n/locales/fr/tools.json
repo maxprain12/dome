@@ -1,4 +1,10 @@
 {
-  "image_describe": "{",
-  "screen_understand": "{"
+  "image_describe": {
+    "name": "Décrire l’image (vision)",
+    "description": "Décrire une image avec votre IA configurée (recherche et contexte)."
+  },
+  "screen_understand": {
+    "name": "Comprendre une capture d’interface",
+    "description": "Analyser une capture d’UI et renvoyer des éléments structurés (IA configurée)."
+  }
 }

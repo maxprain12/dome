@@ -1,7 +1,7 @@
 {
+  "version_available": "Nueva versión {{version}} disponible",
   "download": "Descargar",
   "downloading": "Descargando actualización... {{percent}}%",
   "ready_to_install": "Actualización lista para instalar",
-  "restart_to_install": "Reiniciar para instalar",
-  "version_available": "Nueva versión {{version}} disponible"
+  "restart_to_install": "Reiniciar para instalar"
 }

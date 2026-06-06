@@ -98,9 +98,18 @@ function buildResources(): Record<SupportedLanguage, { translation: Record<strin
     pt: { translation: {} },
   };
   for (const lang of Object.keys(perLang) as SupportedLanguage[]) {
+    // Nest each namespace under its own key so i18next resolves the
+    // original dot-separated paths (`t('common.loading')`,
+    // `t('agent.active')`, …). The previous version spread the namespace
+    // contents to the top level with `Object.assign`, which destroyed the
+    // namespace parent — breaking every `t('ns.key')` lookup and silently
+    // overwriting same-named leaf keys across namespaces (e.g. `title` in
+    // both `agents` and `calendarPage`). The original `app/lib/i18n.ts`
+    // wired `translation: { common: {...}, agent: {...}, ... }`, which is
+    // exactly the per-namespace nesting reconstructed here.
     const merged: Record<string, unknown> = {};
     for (const ns of Object.keys(perLang[lang])) {
-      Object.assign(merged, perLang[lang][ns]);
+      merged[ns] = perLang[lang][ns];
     }
     out[lang].translation = merged;
   }

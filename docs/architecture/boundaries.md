@@ -7,7 +7,7 @@
 
 ## Main (`electron/`)
 
-- `ipcMain.handle` y `ipcMain.on` en `electron/ipc/<dominio>.cjs`, registrados en `electron/ipc/index.cjs`.
+- `ipcMain.handle` y `ipcMain.on` en `electron/ipc/<grupo>/<dominio>.cjs` (subcarpetas: core, data, ai, agents, media, learn, sync, integrations), registrados en `electron/ipc/index.cjs` con su ruta de subcarpeta.
 - Validar `event.sender` y rutas/inputs; ver auditoría `security` y `.claude/sops/new-ipc-channel.md`.
 
 ## Zod en el límite (P-002)

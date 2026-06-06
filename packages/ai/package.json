@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Multi-provider LLM layer (OpenAI, Anthropic, Google, Ollama, OpenRouter, Copilot).",
+  "description": "Multi-provider LLM layer (pi-style SDK connectors). Node-only.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -16,5 +16,18 @@
   "scripts": {
     "build": "tsc -b",
     "test": "echo \"@dome/ai: no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@aws-sdk/client-bedrock-runtime": "^3.1048.0",
+    "@google/genai": "^1.52.0",
+    "@mistralai/mistralai": "^2.2.1",
+    "@smithy/node-http-handler": "^4.7.3",
+    "@smithy/types": "^4.3.0",
+    "http-proxy-agent": "^7.0.2",
+    "https-proxy-agent": "^7.0.6",
+    "openai": "^6.26.0",
+    "partial-json": "^0.1.7",
+    "typebox": "^1.1.38"
   }
 }

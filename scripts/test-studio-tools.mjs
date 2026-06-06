@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const extra = require('../electron/ai-tools-extra.cjs');
+const extra = require('../electron/tools/ai-tools-extra.cjs');
 const studioProgress = require('../electron/services/studio-progress.cjs');
 
 let passed = 0;

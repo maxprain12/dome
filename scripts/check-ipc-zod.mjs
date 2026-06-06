@@ -26,11 +26,24 @@ function readLegacy() {
   );
 }
 
+function walkCjs(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkCjs(full));
+    } else if (entry.name.endsWith('.cjs') && entry.name !== 'index.cjs') {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 const legacy = readLegacy();
-const files = fs.readdirSync(IPC_DIR).filter((f) => f.endsWith('.cjs') && f !== 'index.cjs');
+const files = walkCjs(IPC_DIR);
 const bad = [];
-for (const f of files) {
-  const full = path.join(IPC_DIR, f);
+for (const full of files) {
+  const f = path.basename(full);
   const t = fs.readFileSync(full, 'utf8');
   if (!hasHandle(t)) continue;
   if (hasZod(t)) continue;

@@ -83,25 +83,35 @@ import fs from 'fs';
 // ✅ In app/ - use IPC client
 const projects = await window.electron.invoke('db:projects:getAll');
 
-// ✅ In electron/database.cjs - use better-sqlite3
+// ✅ In electron/core/database.cjs - use better-sqlite3
 const Database = require('better-sqlite3');
 const db = new Database(dbPath);
 ```
 
 ### IPC Communication Pattern
 
-IPC handlers are organized in `electron/ipc/` (one file per domain). All channels must be whitelisted in `electron/preload.cjs` ALLOWED_CHANNELS.
+IPC handlers are organized in `electron/ipc/<group>/<domain>.cjs` (one file per domain, grouped into domain subfolders). All channels must be whitelisted in `electron/preload.cjs` ALLOWED_CHANNELS.
 
-1. **IPC Handler** (`electron/ipc/<domain>.cjs`): Define the handler
-2. **Register** (`electron/ipc/index.cjs`): Import and register all handlers
+1. **IPC Handler** (`electron/ipc/<group>/<domain>.cjs`): Define the handler
+2. **Register** (`electron/ipc/index.cjs`): Import (with the subfolder path) and register all handlers
 3. **Whitelist** (`electron/preload.cjs`): Add channel to ALLOWED_CHANNELS
 4. **Renderer** (`app/`): Call via `window.electron.invoke('channel', args)`
 
-IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`, `calendar`, `chat`, `cloud-llm`, `cloud-storage`, `database`, `dome-auth`, `embeddings`, `feeders`, `files`, `flashcards`, `graph`, `images`, `indexing-sync`, `interactions`, `marketplace`, `mcp`, `migration`, `notebook`, `ollama`, `pdf-render`, `personality`, `plugins`, `resources`, `runs`, `semantic`, `storage`, `studio`, `sync`, `system`, `tags`, `updater`, `web`, `window`.
+IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
+- `core/`: system, window, init, shell, updater, migration
+- `data/`: database, storage, files, resources, tags, graph, interactions
+- `ai/`: ai, ai-tools, cloud-llm, kb-llm, semantic, embeddings, ollama
+- `agents/`: agent-team, runs, chat, threads, approval, artifacts
+- `media/`: audio, images, pdf-render, transcription, minimax-files, notebook
+- `learn/`: learn, quiz, flashcards, studio
+- `sync/`: sync, indexing-sync, cloud-sync, cloud-storage
+- `integrations/`: calendar, mcp, dome-mcp, dome-auth, auth, marketplace, plugins, skills, personality, web, browser-context, feeders
+
+`index.cjs` stays at the root of `electron/ipc/` and is the single registration entry point. Note: relative requires inside a handler resolve from `electron/ipc/<group>/`, so non-ipc modules are reached with `../../` (e.g. `require('../../ai/ai-settings.cjs')`).
 
 ### Database Architecture
 
-**SQLite** (`electron/database.cjs` via `better-sqlite3`):
+**SQLite** (`electron/core/database.cjs` via `better-sqlite3`):
 
 - Stored at `app.getPath('userData')/dome.db`
 - Key tables: `projects`, `resources`, `sources`, `tags`, `interactions`, `settings`
@@ -121,31 +131,29 @@ IPC domains in `electron/ipc/`: `ai`, `ai-tools`, `agent-team`, `audio`, `auth`,
 
 ```
 dome/
-├── electron/                    # Main Process (Node.js context)
-│   ├── main.cjs                # Entry point, window management, protocol handlers
-│   ├── preload.cjs             # contextBridge, IPC channel whitelist
-│   ├── database.cjs            # SQLite operations (better-sqlite3)
-│   ├── ipc/                    # IPC handlers organized by domain (~35 files)
-│   ├── window-manager.cjs      # Multi-window management
-│   ├── llm-service.cjs         # Unified LLM service (chat/stream via LangChain models)
-│   ├── langgraph-agent.cjs     # LangGraph agent execution
-│   ├── ai-tools-handler.cjs    # AI tool execution (web search, memory, etc.)
-│   ├── ollama-service.cjs      # Local Ollama integration
-│   ├── automation-service.cjs  # Automation/scheduled task execution
-│   ├── run-engine.cjs          # Agent run execution engine
-│   ├── artifact-sink.cjs       # Automation→artifact data binding
-│   ├── artifact-serialize.cjs  # Artifact serialization helpers
-│   ├── artifact-index-sync.cjs # Re-index after artifact mutation
-│   ├── prompt-budget.cjs       # Token budget estimation (char/4 approx)
-│   ├── prompt-sections.cjs     # On-demand prompt reference sections (dome_load_doc)
-│   ├── core-prompt-loader.cjs  # Loads prompts/martin/core/*.txt (main process)
-│   ├── plugin-loader.cjs       # Plugin system
-│   ├── marketplace-config.cjs  # Plugin marketplace
-│   ├── pdf-extractor.cjs       # PDF text/page extraction
-│   ├── github-client.cjs       # GitHub API integration
-│   ├── crop-image.cjs          # Image cropping utilities
-│   ├── services/               # LangChain embeddings, indexing.pipeline, chunking, hybrid search, feeders, web providers
-│   └── ppt-slide-extractor.cjs # PPTX slide extraction (hidden BrowserWindow)
+├── electron/                    # Main Process (Node.js context) — modules grouped by domain
+│   ├── main.cjs                # Entry point, window management, protocol handlers (anchor)
+│   ├── preload.cjs             # contextBridge, IPC channel whitelist (anchor)
+│   ├── dome-mcp-bridge.cjs     # stdio MCP bridge subprocess (anchor; asar-unpacked path)
+│   ├── paths.cjs               # Centralized path resolution (getAppRoot/getDistDir/…) — keeps domain modules location-independent
+│   ├── core/                   # init, window-manager, database, security, runtime-env, deep-link-handler, observability, update-service, guide-bootstrap, install-devtools-extension
+│   ├── ai/                     # llm-service (unified LLM), model-factory/params, ai-settings, auto-metadata, message-multimodal, minimax/openrouter/provider configs, dome-provider-url, openai-key
+│   ├── agents/                 # langgraph-agent, agent-runtime(+context), agent-middleware, agent-store, run-engine, automation-service, checkpointer, guardrails, subagents, harness-*, kb-llm-*
+│   ├── tools/                  # ai-tools-handler(+extra), tool-dispatcher/selector/cap, docx/excel/ppt tool handlers, file-tree, crop-image, browser-context-service, tool-result-*
+│   ├── prompts/                # core-prompt-loader, prompts-loader, prompt-sections, prompt-budget, system-prompt
+│   ├── documents/              # document-extractor/generator/staging, pdf-extractor, ppt-slide-extractor, ppt-spec-pptxgen, pptx-normalize/validate, docx-converter, notebook-python, thumbnail
+│   ├── transcription/          # transcription-service/session/recovery/structured/shortcut/note-helper, tts-service, streaming-tts, audio-playback
+│   ├── calendar/               # calendar-service, calendar-import/notification, calendar-sync-scheduler, google-calendar-service
+│   ├── mcp/                    # dome-mcp-server, mcp-client, mcp-oauth, mcp-tool-policy (bridge stays an anchor in root)
+│   ├── artifacts/              # artifact-sink, artifact-serialize, artifact-index-sync, artifact-link-sync, artifact-design-layout
+│   ├── storage/                # file-storage, cloud-sync-service, hybrid-rrf, semantic-index-scheduler
+│   ├── auth/                   # auth-manager, dome-oauth
+│   ├── ollama/                 # ollama-service, ollama-manager(+lazy)
+│   ├── marketplace/            # marketplace-config, marketplace-bundled-catalog, plugin-loader, skills-bootstrap, github-client
+│   ├── feeders/                # web-scraper, html-content-extractor, youtube-service
+│   ├── personality/            # personality-loader, project-memory
+│   ├── ipc/                    # IPC handlers grouped into domain subfolders (core/ data/ ai/ agents/ media/ learn/ sync/ integrations/) + index.cjs
+│   └── services/               # LangChain embeddings, indexing.pipeline, chunking, hybrid search, feeders, web providers
 │
 ├── app/                         # Renderer Process (Browser context)
 │   ├── main.tsx                # Vite entry point (MantineProvider + BrowserRouter)
@@ -207,11 +215,11 @@ windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/
 
 **All AI paths go through LangGraph/LangChain** — no custom HTTP clients to LLM providers exist. This includes Many, agent chat, agent-team, workflows, automations, editor-ai, vision, OCR, and auto-metadata.
 
-- **Agent runs**: `electron/langgraph-agent.cjs` — `invokeLangGraphAgent()` with `createDeepAgent()` + middleware chain (summarization, HITL, `createSkillsMiddleware`, filesystem, trim).
-- **Plain LLM calls** (vision, OCR, editor-ai): `electron/llm-service.cjs` — `chat()/stream()` backed by `createModelFromConfig()` (ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI / ChatOllama).
-- **Workflows**: `electron/run-engine.cjs` — `executeWorkflowRun()` builds a `StateGraph` dynamically from workflow nodes/edges; each agent node calls `invokeLangGraphAgent`.
-- **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/ai-tools-handler.cjs`.
-- **Skills**: `~/.dome/skills/<id>/SKILL.md` — injected via `deepagents.createSkillsMiddleware` in `electron/langgraph-agent.cjs`, `run-engine.cjs`, and `ipc/agent-team.cjs`. Bundled skills are seeded on first boot by `electron/skills-bootstrap.cjs`.
+- **Agent runs**: `electron/agents/langgraph-agent.cjs` — `invokeLangGraphAgent()` with `createDeepAgent()` + middleware chain (summarization, HITL, `createSkillsMiddleware`, filesystem, trim).
+- **Plain LLM calls** (vision, OCR, editor-ai): `electron/ai/llm-service.cjs` — `chat()/stream()` backed by `createModelFromConfig()` (ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI / ChatOllama).
+- **Workflows**: `electron/agents/run-engine.cjs` — `executeWorkflowRun()` builds a `StateGraph` dynamically from workflow nodes/edges; each agent node calls `invokeLangGraphAgent`.
+- **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/tools/ai-tools-handler.cjs`.
+- **Skills**: `~/.dome/skills/<id>/SKILL.md` — injected via `deepagents.createSkillsMiddleware` in `electron/agents/langgraph-agent.cjs`, `run-engine.cjs`, and `ipc/agent-team.cjs`. Bundled skills are seeded on first boot by `electron/marketplace/skills-bootstrap.cjs`.
 
 ```typescript
 // Renderer - AI calls go through IPC
@@ -221,13 +229,13 @@ const result = await window.electron.invoke('ai:chat', { provider, model, messag
 
 ### PPT Slide Extraction
 
-`electron/ppt-slide-extractor.cjs` creates a hidden 960×540 BrowserWindow that loads `/ppt-capture` → `app/pages/PptCapturePage.tsx`. Main process uses `executeJavaScript()` + `webContents.capturePage()` for screenshots.
+`electron/documents/ppt-slide-extractor.cjs` creates a hidden 960×540 BrowserWindow that loads `/ppt-capture` → `app/pages/PptCapturePage.tsx`. Main process uses `executeJavaScript()` + `webContents.capturePage()` for screenshots.
 
 ### Automations & Run Engine
 
-`electron/automation-service.cjs` manages scheduled/triggered automation rules. `electron/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/automations/RunLogView.tsx` via `runs` IPC domain.
+`electron/agents/automation-service.cjs` manages scheduled/triggered automation rules. `electron/agents/run-engine.cjs` executes individual agent runs (used by both automations and the Runs UI). Run state is persisted to SQLite and surfaced in `app/components/automations/RunLogView.tsx` via `runs` IPC domain.
 
-After a run completes, `electron/artifact-sink.cjs` checks for automation→artifact bindings (`automation_artifact_bindings` table) and applies them: it extracts JSON from the run output and merges it into the target artifact's `state.data`, then broadcasts `artifact:updated` via `windowManager`.
+After a run completes, `electron/artifacts/artifact-sink.cjs` checks for automation→artifact bindings (`automation_artifact_bindings` table) and applies them: it extracts JSON from the run output and merges it into the target artifact's `state.data`, then broadcasts `artifact:updated` via `windowManager`.
 
 ### Artifacts System
 
@@ -235,7 +243,7 @@ Artifacts are interactive mini-apps. Two kinds:
 
 **Kind A — Inline chat artifacts**: emitted as `\`\`\`artifact:TYPE` fenced blocks in a chat reply. Rendered ephemerally inside the message. Types (defined in `app/lib/chat/artifactSchemas.ts`): `calculator`, `diagram`, `dashboard`, `html`, `tabs`, `playground`, `timeline`, `flashcard_deck`, `calendar_event`, `chart`, `pdf_summary`, `action_items`, `list`, `created_entity`. Zod-validated at parse time; `KNOWN_ARTIFACT_TYPES` / `ZOD_VALIDATED_ARTIFACT_TYPES` control which types are promoted vs. rendered as raw code.
 
-**Kind B — Persisted library mini-apps**: created by the agent calling the `artifact_create` tool (IPC `artifact:create`). Stored in SQLite `artifacts` table (schema in `electron/database.cjs`). Key fields: `resource_id`, `artifact_type`, `template` (HTML string), `state` (JSON with `data` sub-key), `linked_resource_id`.
+**Kind B — Persisted library mini-apps**: created by the agent calling the `artifact_create` tool (IPC `artifact:create`). Stored in SQLite `artifacts` table (schema in `electron/core/database.cjs`). Key fields: `resource_id`, `artifact_type`, `template` (HTML string), `state` (JSON with `data` sub-key), `linked_resource_id`.
 
 **Iframe persistence contract** (renderer → SQLite):
 - `window.DOME_DATA` — injected by Dome before each render; always read initial state from here
@@ -245,9 +253,9 @@ Artifacts are interactive mini-apps. Two kinds:
 
 **Key files:**
 - `electron/ipc/artifacts.cjs` — IPC handlers: `artifact:create`, `artifact:get`, `artifact:update`, `artifact:delete`, `artifact:list`, `artifact:export`, `artifact:import`
-- `electron/artifact-sink.cjs` — automation binding logic (`applyArtifactSinksForCompletedRun`)
-- `electron/artifact-index-sync.cjs` — semantic re-index after artifact mutation
-- `electron/artifact-serialize.cjs` — serialization helpers
+- `electron/artifacts/artifact-sink.cjs` — automation binding logic (`applyArtifactSinksForCompletedRun`)
+- `electron/artifacts/artifact-index-sync.cjs` — semantic re-index after artifact mutation
+- `electron/artifacts/artifact-serialize.cjs` — serialization helpers
 - `app/components/artifacts/ArtifactWorkspaceClient.tsx` — library view (opens via tab)
 - `app/components/chat/artifacts/HtmlArtifactFrame.tsx` — iframe renderer (chat + workspace)
 - `app/lib/chat/artifactSchemas.ts` — Zod schemas + `parseArtifactSegments()` for streaming
@@ -290,7 +298,7 @@ Add new translation keys to all four language objects in `app/lib/i18n.ts`.
 
 ### Plugin System
 
-Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron/marketplace-config.cjs`. Renderer settings UI in `app/components/settings/PluginsSettings.tsx` and `MarketplaceSettings.tsx`.
+Plugins loaded via `electron/marketplace/plugin-loader.cjs`. Marketplace config in `electron/marketplace/marketplace-config.cjs`. Renderer settings UI in `app/components/settings/PluginsSettings.tsx` and `MarketplaceSettings.tsx`.
 
 ## Build & Packaging
 
@@ -309,7 +317,7 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 
 1. **SQLite**: Use `better-sqlite3` only in the main process. The renderer must not import SQLite or `node:fs` directly.
 2. **SQLite in renderer**: Use `window.electron.invoke('db:...')` — never import better-sqlite3 in `app/`
-3. **New IPC channel**: Must be added in both `electron/ipc/<domain>.cjs` AND `electron/preload.cjs` ALLOWED_CHANNELS
+3. **New IPC channel**: Must be added in both `electron/ipc/<group>/<domain>.cjs` AND `electron/preload.cjs` ALLOWED_CHANNELS (and imported with its subfolder path in `electron/ipc/index.cjs`)
 4. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
 5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
 
@@ -318,7 +326,7 @@ Plugins loaded via `electron/plugin-loader.cjs`. Marketplace config in `electron
 Skills are **SKILL.md** files managed by `deepagents.createSkillsMiddleware`. Every agent (Many, agent-chat, agent-team, workflow nodes) automatically has access to all skills in the user directory.
 
 - **User dir**: `~/.dome/skills/<id>/SKILL.md` — personal skills (highest priority)
-- **Bundled**: `electron/skills/bundled/<id>/SKILL.md` — copied to user dir on first boot by `electron/skills-bootstrap.cjs` (idempotent, guarded by `skills_bundled_seeded_v2` setting)
+- **Bundled**: `electron/skills/bundled/<id>/SKILL.md` — copied to user dir on first boot by `electron/marketplace/skills-bootstrap.cjs` (idempotent, guarded by `skills_bundled_seeded_v2` setting)
 - **IPC**: `skills:list` (returns name/description/path), `skills:openFolder` (opens user dir in Finder/Explorer)
 - **Injection**: `deepagents.createSkillsMiddleware` injects skill names+descriptions into the system prompt on every agent invocation. The model requests the full body via a native tool if needed.
 - **No per-agent selection**: all skills in the user dir are available to every agent. `skillIds` on agent records is vestigial.

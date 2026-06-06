@@ -1,9 +1,9 @@
 {
-  "calendar_upcoming": "Soon: {{title}}",
+  "loading": "Loading Dome...",
   "initializing": "Initializing your workspace",
   "limited_functionality": "Dome started with limited functionality. Some features may not work.",
-  "loading": "Loading Dome...",
   "ppt_created": "\"{{name}}\" is ready — it now appears in your library",
   "ppt_failed": "Error creating \"{{name}}\": {{error}}",
-  "resource": "Resource"
+  "resource": "Resource",
+  "calendar_upcoming": "Soon: {{title}}"
 }

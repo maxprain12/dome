@@ -1,10 +1,10 @@
 {
+  "home": "Início",
+  "projects": "Projetos",
+  "settings": "Configurações",
+  "calendar": "Calendário",
   "agents": "Agentes",
   "agents_flows": "Agentes e fluxos",
-  "calendar": "Calendário",
-  "home": "Início",
   "learn": "Aprender",
-  "marketplace": "Loja",
-  "projects": "Projetos",
-  "settings": "Configurações"
+  "marketplace": "Loja"
 }

@@ -4,8 +4,8 @@ import {
   providerNeedsOpenAiToolCap,
   sanitizeLeakedToolManifestText,
   parseFirstToolSelectorJson,
-} from '../electron/tool-cap.cjs';
-import { selectToolNamesForTurn } from '../electron/tool-selector.cjs';
+} from '../electron/tools/tool-cap.cjs';
+import { selectToolNamesForTurn } from '../electron/tools/tool-selector.cjs';
 
 const tools = Array.from({ length: 130 }, (_, i) => ({ name: `tool_${i}` }));
 tools[0] = { name: 'task' };

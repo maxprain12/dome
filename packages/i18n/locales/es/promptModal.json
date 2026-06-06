@@ -1,6 +1,6 @@
 {
-  "accept": "Aceptar",
-  "cancel": "Cancelar",
   "input": "Entrada",
-  "typeHere": "Escribe aquí…"
+  "typeHere": "Escribe aquí…",
+  "cancel": "Cancelar",
+  "accept": "Aceptar"
 }

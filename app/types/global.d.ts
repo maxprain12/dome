@@ -420,6 +420,22 @@ declare global {
         }>;
       };
 
+      // GitHub Copilot OAuth API
+      copilotAuth: {
+        start: () => Promise<{
+          success: boolean;
+          deviceCode?: string;
+          userCode?: string;
+          verificationUri?: string;
+          interval?: number;
+          expiresIn?: number;
+          error?: string;
+        }>;
+        poll: (payload: { deviceCode: string; interval?: number; expiresIn?: number }) => Promise<{ success: boolean; error?: string }>;
+        status: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
+        disconnect: () => Promise<{ success: boolean; error?: string }>;
+      };
+
       // Plugins API
       plugins: {
         list: () => Promise<{ success: boolean; data?: any[] }>;

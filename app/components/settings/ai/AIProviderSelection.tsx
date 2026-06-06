@@ -196,5 +196,14 @@ export default function AIProviderSelection({
 }
 
 export function isCloudAIProvider(provider: AIProviderType): boolean {
-  return provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter';
+  return (
+    provider === 'openai' ||
+    provider === 'anthropic' ||
+    provider === 'google' ||
+    provider === 'minimax' ||
+    provider === 'openrouter' ||
+    provider === 'deepseek' ||
+    provider === 'moonshot' ||
+    provider === 'qwen'
+  );
 }

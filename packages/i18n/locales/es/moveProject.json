@@ -1,9 +1,9 @@
 {
-  "confirm": "Mover aquí",
-  "description": "",
+  "title": "Mover a proyecto",
+  "description": "Los elementos aparecerán en la raíz del proyecto de destino (fuera de carpetas). Si mueves una carpeta, se mantiene su estructura interna.",
   "itemsCount_one": "{{count}} elemento a mover",
   "itemsCount_other": "{{count}} elementos a mover",
-  "menu": "Mover a proyecto…",
+  "confirm": "Mover aquí",
   "noTargets": "No hay otro proyecto disponible como destino.",
-  "title": "Mover a proyecto"
+  "menu": "Mover a proyecto…"
 }

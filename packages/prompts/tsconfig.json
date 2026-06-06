@@ -8,7 +8,9 @@
     "declaration": true,
     "declarationMap": true,
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
-    "allowImportingTsExtensions": false
+    "allowImportingTsExtensions": false,
+    "module": "Node16",
+    "moduleResolution": "Node16"
   },
   "include": ["src"]
 }

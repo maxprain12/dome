@@ -11,7 +11,7 @@ const {
   normalizeUserMessage,
   validateMultimodalRequest,
   buildNativeContentBlocks,
-} = require('../electron/message-multimodal.cjs');
+} = require('../electron/ai/message-multimodal.cjs');
 const { extractMarkdownImages } = require('../shared/message-visual/parse-markdown-images.cjs');
 
 const TINY_PNG =

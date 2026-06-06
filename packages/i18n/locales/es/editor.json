@@ -1,11 +1,11 @@
 {
-  "embed_modal_invalid_url": "Introduce una URL válida",
-  "embed_modal_invalid_youtube": "URL de YouTube no reconocida",
-  "embed_modal_submit": "Insertar",
-  "embed_modal_title_iframe": "Insertar iframe",
   "embed_modal_title_youtube": "Insertar YouTube",
-  "embed_modal_url_help_iframe": "URL de la página a incrustar (usa solo fuentes de confianza)",
-  "embed_modal_url_help_youtube": "Pega el enlace del vídeo (youtube.com o youtu.be)",
+  "embed_modal_title_iframe": "Insertar iframe",
   "embed_modal_url_label": "URL",
-  "embed_modal_url_placeholder": "https://…"
+  "embed_modal_url_placeholder": "https://…",
+  "embed_modal_url_help_youtube": "Pega el enlace del vídeo (youtube.com o youtu.be)",
+  "embed_modal_url_help_iframe": "URL de la página a incrustar (usa solo fuentes de confianza)",
+  "embed_modal_submit": "Insertar",
+  "embed_modal_invalid_url": "Introduce una URL válida",
+  "embed_modal_invalid_youtube": "URL de YouTube no reconocida"
 }

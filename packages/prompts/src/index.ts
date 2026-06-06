@@ -1,28 +1,27 @@
 // @dome/prompts public API
 // Prompt sections + the system-prompt assembler.
 //
-// Phase 4: this package is the canonical home for every piece of prompt
-// text and for the logic that assembles a system prompt from sections.
-// The actual file contents (`sections/**`) live next to the package.
-// Runtime access is currently delegated to the legacy CommonJS modules
-// (`shared/prompt-assembler/index.cjs`, `electron/core-prompt-loader.cjs`,
-// `electron/prompt-sections.cjs`, `electron/prompt-budget.cjs`); the body
-// of the assembler will be ported to TypeScript in a follow-up commit so
-// callers can `import { assembleSystemPrompt } from '@dome/prompts'`
-// instead of `require('shared/prompt-assembler')`.
+// Phase 4: this package is the canonical home for the system-prompt
+// assembler. The assembler body now lives here as a real TypeScript
+// implementation (`assembler.ts`) — a pure function over caller-supplied
+// core sections — rather than a thin re-export of the legacy CommonJS
+// build. Output is byte-identical to `shared/prompt-assembler/index.cjs`
+// (verified by `scripts/test-dome-prompts.mjs`).
 
 export type {
   AssembleOptions,
   SkillSummary,
   PromptVersion,
+  CorePromptSections,
+  DomeSystemPromptOptions,
+  VolatileSourceOptions,
+  BenchPromptOptions,
+  DomeLoadDocId,
 } from './types.js';
 
 export { PROMPT_VERSION, DOME_LOAD_DOC_IDS, DOME_LOAD_DOC_DESCRIPTION } from './types.js';
 
-// Re-export the public surface of the legacy assembler so that consumers
-// can import it from `@dome/prompts` (one canonical entry point). The
-// real body still lives in `shared/prompt-assembler/index.cjs`; this is
-// a thin re-export.
+// The system-prompt assembler — package-owned TypeScript implementation.
 export {
   buildCoreToolsBlock,
   buildDomeSystemPrompt,

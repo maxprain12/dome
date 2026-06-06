@@ -33,12 +33,21 @@ function parseFile(filePath) {
   return out;
 }
 
+function walkCjs(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...walkCjs(full));
+    } else if (entry.name.endsWith('.cjs') && entry.name !== 'index.cjs') {
+      out.push(full);
+    }
+  }
+  return out;
+}
+
 function buildMarkdown() {
-  const files = fs
-    .readdirSync(IPC_DIR)
-    .filter((f) => f.endsWith('.cjs') && f !== 'index.cjs')
-    .map((f) => path.join(IPC_DIR, f))
-    .sort();
+  const files = walkCjs(IPC_DIR).sort();
 
   const all = [];
   for (const f of files) {
@@ -58,7 +67,7 @@ function buildMarkdown() {
 > **No edites a mano.** Regenera con \`pnpm run generate:ipc-inventory\`.
 > Última generación: ${gen}
 
-Canales detectados vía \`ipcMain.handle\` / \`ipcMain.on\` en \`electron/ipc/*.cjs\`.
+Canales detectados vía \`ipcMain.handle\` / \`ipcMain.on\` en \`electron/ipc/**/*.cjs\`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |

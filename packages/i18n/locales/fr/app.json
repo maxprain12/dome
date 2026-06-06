@@ -1,9 +1,9 @@
 {
-  "calendar_upcoming": "Bientôt : {{title}}",
+  "loading": "Chargement de Dome...",
   "initializing": "Initialisation de votre espace de travail",
   "limited_functionality": "Dome a démarré avec des fonctionnalités limitées. Certaines fonctions peuvent ne pas fonctionner.",
-  "loading": "Chargement de Dome...",
   "ppt_created": "\"{{name}}\" est prête — elle apparaît maintenant dans votre bibliothèque",
   "ppt_failed": "Erreur lors de la création de \"{{name}}\" : {{error}}",
-  "resource": "Ressource"
+  "resource": "Ressource",
+  "calendar_upcoming": "Bientôt : {{title}}"
 }

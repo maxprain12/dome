@@ -2,7 +2,7 @@
  * Web search/fetch provider settings (SQLite settings table).
  */
 
-const database = require('../../database.cjs');
+const database = require('../../core/database.cjs');
 
 const VALID_SEARCH_PROVIDERS = new Set(['auto', 'tavily', 'brave', 'searxng', 'ddg']);
 const VALID_FETCH_PROVIDERS = new Set(['auto', 'jina', 'readability', 'tavily']);

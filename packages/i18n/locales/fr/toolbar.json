@@ -1,8 +1,8 @@
 {
   "all": "Tout",
-  "folder": "Dossier",
+  "note": "Note",
+  "notebook": "Carnet",
   "import": "Importer",
   "link": "Lien",
-  "note": "Note",
-  "notebook": "Carnet"
+  "folder": "Dossier"
 }

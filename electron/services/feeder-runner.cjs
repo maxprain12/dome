@@ -9,8 +9,8 @@ const fsp = require('fs/promises');
 const path = require('path');
 const { app } = require('electron');
 
-const { parseJsonState, serializeArtifactRecord } = require('../artifact-serialize.cjs');
-const { afterArtifactMutation } = require('../artifact-index-sync.cjs');
+const { parseJsonState, serializeArtifactRecord } = require('../artifacts/artifact-serialize.cjs');
+const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
 const { createFeederVault } = require('./feeder-vault.cjs');
 const {
   applyUpdatePolicy,
@@ -19,7 +19,7 @@ const {
   redactSecrets,
 } = require('./artifact-data-merge.cjs');
 const { serializeFeederRow } = require('./feeder-serialize.cjs');
-const { checkPython } = require('../notebook-python.cjs');
+const { checkPython } = require('../documents/notebook-python.cjs');
 
 const MAX_BUFFER = 10 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -238,7 +238,7 @@ function runProcess(bin, args, opts) {
 
 /**
  * Persist parsed JSON into artifact state + runtime slot.
- * @param {import('../database.cjs')} database
+ * @param {import('../core/database.cjs')} database
  * @param {{ broadcast?: Function }} windowManager
  * @param {{ artifactResourceId: string, slot: string, updatePolicy: string, incoming: unknown, runId?: string|null, automationId?: string|null }} opts
  */
@@ -300,7 +300,7 @@ function assertFeederApproved(feederRow) {
 }
 
 /**
- * @param {import('../database.cjs')} database
+ * @param {import('../core/database.cjs')} database
  * @param {{ broadcast?: Function }} windowManager
  * @param {string} feederId
  * @param {{ triggeredBy?: 'agent'|'user'|'automation', automationId?: string|null }} [opts]
@@ -510,7 +510,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
 }
 
 /**
- * @param {import('../database.cjs')} database
+ * @param {import('../core/database.cjs')} database
  * @param {Record<string, unknown>} input
  */
 function createFeederRecord(database, input) {
@@ -565,7 +565,7 @@ function createFeederRecord(database, input) {
 }
 
 /**
- * @param {import('../database.cjs')} database
+ * @param {import('../core/database.cjs')} database
  * @param {string} feederId
  * @param {string} script
  */
@@ -580,7 +580,7 @@ function updateFeederScript(database, feederId, script) {
 }
 
 /**
- * @param {import('../database.cjs')} database
+ * @param {import('../core/database.cjs')} database
  * @param {string} feederId
  */
 function approveFeeder(database, feederId) {

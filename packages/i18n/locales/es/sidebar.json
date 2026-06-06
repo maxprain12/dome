@@ -1,6 +1,6 @@
 {
-  "manage_projects": "Gestionar proyectos",
-  "more_tools": "Más",
+  "quick_create_project_placeholder": "Nombre del nuevo proyecto…",
   "quick_create_project_button": "Añadir",
-  "quick_create_project_placeholder": "Nombre del nuevo proyecto…"
+  "manage_projects": "Gestionar proyectos",
+  "more_tools": "Más"
 }

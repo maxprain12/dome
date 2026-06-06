@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../tool-dispatcher.cjs');
+const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../tools/tool-dispatcher.cjs');
 
 /** Tools that may run before the primary tool without failing structural checks. */
 const PREAMBLE_TOOLS = new Set(['dome_load_doc', 'get_tool_definition']);

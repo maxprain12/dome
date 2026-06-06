@@ -4,10 +4,10 @@ Follow these steps in order. Missing any step will cause the feature to silently
 
 ## Step 1: Create or update the IPC handler file
 
-File: `electron/ipc/<domain>.cjs`
+File: `electron/ipc/<group>/<domain>.cjs` — place the file in the matching domain subfolder (`core`, `data`, `ai`, `agents`, `media`, `learn`, `sync`, `integrations`). Relative requires to non-ipc modules resolve from `electron/ipc/<group>/`, so use `../../` (e.g. `require('../../core/database.cjs')`).
 
 ```javascript
-// electron/ipc/myfeature.cjs
+// electron/ipc/<group>/myfeature.cjs (e.g. electron/ipc/data/myfeature.cjs)
 'use strict';
 
 const { ipcMain } = require('electron');
@@ -35,7 +35,7 @@ module.exports = { registerMyFeatureHandlers };
 File: `electron/ipc/index.cjs`
 
 ```javascript
-const { registerMyFeatureHandlers } = require('./myfeature.cjs');
+const { registerMyFeatureHandlers } = require('./data/myfeature.cjs'); // include the subfolder
 // ...
 registerMyFeatureHandlers(db);
 ```
@@ -66,7 +66,7 @@ File: `app/types/global.d.ts` — add the new channel to the ElectronAPI interfa
 
 ## Checklist
 
-- [ ] Handler file created/updated in `electron/ipc/`
+- [ ] Handler file created/updated in `electron/ipc/<group>/`
 - [ ] Handler registered in `electron/ipc/index.cjs`
 - [ ] Channel name added to `electron/preload.cjs` ALLOWED_CHANNELS
 - [ ] Input validation in handler (type check + sanitize)

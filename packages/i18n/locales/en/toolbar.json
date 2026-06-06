@@ -1,8 +1,8 @@
 {
   "all": "All",
-  "folder": "Folder",
+  "note": "Note",
+  "notebook": "Notebook",
   "import": "Import",
   "link": "Link",
-  "note": "Note",
-  "notebook": "Notebook"
+  "folder": "Folder"
 }

@@ -279,7 +279,7 @@ Las **menciones** `@` son una extensión aparte registrada desde `NoteEditor` (`
 
 1. **Crear nota** — Desde home/sidebar/workspace (acciones tipo `workspace.new_note`), vistas de carpeta (`FolderTabView`), agente/tooling que llama `resource_create` con tipo `note`, u otros puntos producto equivalentes.
 
-2. **Abrir desde biblioteca** — Clic/busca/`openNoteTab` o `openResourceTab(id, 'note', title)` desde tarjetas, árbol, grafo ([`UnifiedSidebar.tsx`](app/components/workspace/UnifiedSidebar.tsx), [`SimpleSearch.tsx`](app/components/Search/SimpleSearch.tsx), etc.).
+2. **Abrir desde biblioteca** — Clic/busca/`openNoteTab` o `openResourceTab(id, 'note', title)` desde tarjetas, árbol, grafo ([`UnifiedSidebar.tsx`](app/components/workspace/UnifiedSidebar.tsx), [`SimpleSearch.tsx`](app/components/search/SimpleSearch.tsx), etc.).
 
 3. **Editar y guardar** — Contenido dispara `onUpdate` → `isDirty`; usuario guarda vía shortcut o botón; feedback “Saved” ~2 s tras éxito.
 
@@ -407,7 +407,7 @@ La UI de comandos slash hoy muestra strings **literales en español** en `slash-
 | [`app/App.tsx`](app/App.tsx) — prefijo rutas `/focus/note/` |
 | [`app/components/shell/ContentRouter.tsx`](app/components/shell/ContentRouter.tsx) — `case 'note'`, split `referenceMode` |
 | [`app/lib/store/useTabStore.ts`](app/lib/store/useTabStore.ts) |
-| Sidebar/búsqueda/tarjetas: [`UnifiedSidebar.tsx`](app/components/workspace/UnifiedSidebar.tsx), [`SimpleSearch.tsx`](app/components/Search/SimpleSearch.tsx), [`ResourceCard.tsx`](app/components/home/ResourceCard.tsx), [`resourceVisual.tsx`](app/lib/resources/resourceVisual.tsx), [`FileManagerTree.tsx`](app/components/workspace/file-manager/FileManagerTree.tsx), … |
+| Sidebar/búsqueda/tarjetas: [`UnifiedSidebar.tsx`](app/components/workspace/UnifiedSidebar.tsx), [`SimpleSearch.tsx`](app/components/search/SimpleSearch.tsx), [`ResourceCard.tsx`](app/components/home/ResourceCard.tsx), [`resourceVisual.tsx`](app/lib/resources/resourceVisual.tsx), [`FileManagerTree.tsx`](app/components/workspace/file-manager/FileManagerTree.tsx), … |
 
 ---
 

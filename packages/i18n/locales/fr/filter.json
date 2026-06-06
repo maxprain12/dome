@@ -1,11 +1,26 @@
 {
-  "clear_all": "Tout effacer",
+  "sort_by": "Trier par",
+  "sort": {
+    "recently_updated": "Mis à jour récemment",
+    "date_created": "Date de création",
+    "alphabetical": "Alphabétique"
+  },
   "filter": "Filtrer",
   "filter_by_type": "Filtrer par type",
+  "clear_all": "Tout effacer",
+  "new_folder": "Nouveau dossier",
   "grid_view": "Vue en grille",
   "list_view": "Vue en liste",
-  "new_folder": "Nouveau dossier",
-  "sort": "{",
-  "sort_by": "Trier par",
-  "types": "{"
+  "types": {
+    "notes": "Notes",
+    "notebooks": "Carnets",
+    "images": "Images",
+    "videos": "Vidéos",
+    "audio": "Audio",
+    "pdfs": "PDFs",
+    "links": "Liens",
+    "docs": "Docs",
+    "excel": "Excel",
+    "presentations": "Présentations"
+  }
 }
