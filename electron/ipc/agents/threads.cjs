@@ -1,27 +1,17 @@
 /* eslint-disable no-console */
 /**
- * IPC handlers for agent thread lifecycle management.
- *
- * NOTE: thread/checkpoint time-travel was backed by the LangGraph SqliteSaver
- * checkpointer, which was removed together with the LangGraph runtime. The
- * channels remain registered so the renderer keeps working, but they now
- * degrade to empty/disabled responses until the Dome-native runtime ships its
- * own session-checkpoint store. See docs/architecture/agent-runtime.md.
+ * IPC handlers for agent thread lifecycle (backed by JSONL sessions).
  *
  * Channels:
- *   threads:list         — list thread IDs and their latest metadata
- *   threads:get-state    — get current state for a thread_id
- *   threads:get-history  — get full checkpoint history for a thread_id
- *   threads:delete       — delete all checkpoints for a thread_id
- *   threads:update-state — inject state into a thread (time-travel fork)
+ *   threads:list         — list thread IDs and metadata
+ *   threads:get-state    — current messages for a thread_id
+ *   threads:get-history  — session tree entries for a thread_id
+ *   threads:delete       — delete a JSONL session
+ *   threads:update-state — fork session at current leaf (time-travel stub)
  */
 
 const { z } = require('zod');
-
-/** Checkpointer removed with the LangGraph runtime; handlers degrade via catch. */
-function getDomeCheckpointer() {
-  throw new Error('Thread checkpointing was removed with the LangGraph runtime');
-}
+const bridge = require('../../agents/dome-harness-bridge.cjs');
 
 const ThreadsListOptsSchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
@@ -42,44 +32,47 @@ const ThreadsUpdateStatePayloadSchema = z.object({
   asNode: z.union([z.string(), z.null()]).optional(),
 });
 
+async function openThreadSession(threadId) {
+  const meta = await bridge.findSessionMetadata(threadId);
+  if (!meta) return null;
+  const repo = await bridge.getSessionRepo();
+  const session = await repo.open(meta);
+  return { meta, session, repo };
+}
+
 function register({ ipcMain, windowManager, validateSender }) {
-  /**
-   * threads:list
-   * Returns an array of { threadId, createdAt, updatedAt, metadata }
-   * by querying the checkpoints table directly.
-   */
   ipcMain.handle('threads:list', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
+    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', threads: [] };
     const parsedOpts = ThreadsListOptsSchema.safeParse(raw ?? {});
     if (!parsedOpts.success) {
       return { error: 'Invalid payload', threads: [] };
     }
     try {
-      const cp = getDomeCheckpointer();
-      const db = cp.db;
-      if (!db) return { threads: [] };
+      const repo = await bridge.getSessionRepo();
+      const sessions = await repo.list({ cwd: bridge.SESSION_CWD });
       const limit = Math.min(Number(parsedOpts.data.limit ?? 100), 500);
-      const rows = db.prepare(`
-        SELECT thread_id,
-               MIN(checkpoint_id) AS created_checkpoint,
-               MAX(checkpoint_id) AS latest_checkpoint,
-               COUNT(*) AS checkpoint_count,
-               metadata
-        FROM checkpoints
-        GROUP BY thread_id
-        ORDER BY MAX(checkpoint_id) DESC
-        LIMIT ?
-      `).all(limit);
-      const threads = rows.map((row) => {
-        let meta = {};
-        try { meta = JSON.parse(row.metadata ?? '{}'); } catch { /* ok */ }
-        return {
-          threadId: row.thread_id,
-          checkpointCount: row.checkpoint_count,
-          latestCheckpointId: row.latest_checkpoint,
-          metadata: meta,
-        };
-      });
+      const threads = [];
+      for (const meta of sessions.slice(0, limit)) {
+        let entryCount = 0;
+        try {
+          const session = await repo.open(meta);
+          const entries = await session.getStorage().getEntries();
+          entryCount = entries.length;
+        } catch {
+          entryCount = 0;
+        }
+        threads.push({
+          threadId: meta.id,
+          checkpointCount: entryCount,
+          latestCheckpointId: meta.id,
+          metadata: {
+            cwd: meta.cwd,
+            path: meta.path,
+            createdAt: meta.createdAt,
+            parentSessionPath: meta.parentSessionPath ?? null,
+          },
+        });
+      }
       return { threads };
     } catch (err) {
       console.error('[threads:list]', err?.message);
@@ -87,29 +80,33 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  /**
-   * threads:get-state
-   * Returns the current (latest) checkpoint state for a thread_id.
-   */
   ipcMain.handle('threads:get-state', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
+    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', state: null };
     const parsed = ThreadIdPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'threadId required', state: null };
     }
     const { threadId } = parsed.data;
     try {
-      const cp = getDomeCheckpointer();
-      const config = { configurable: { thread_id: threadId } };
-      const state = await cp.getTuple(config);
-      if (!state) return { state: null };
+      const opened = await openThreadSession(threadId);
+      if (!opened) return { state: null };
+      const { meta, session } = opened;
+      const ctx = await session.buildContext();
+      const leafId = await session.getStorage().getLeafId();
       return {
         state: {
           threadId,
-          checkpointId: state.config?.configurable?.checkpoint_id,
-          checkpoint: state.checkpoint,
-          metadata: state.metadata,
-          createdAt: state.checkpoint?.ts,
+          checkpointId: leafId ?? meta.id,
+          checkpoint: {
+            channel_values: {
+              messages: ctx.messages,
+              thinkingLevel: ctx.thinkingLevel,
+              model: ctx.model,
+              activeToolNames: ctx.activeToolNames,
+            },
+          },
+          metadata: meta,
+          createdAt: meta.createdAt,
         },
       };
     } catch (err) {
@@ -118,32 +115,27 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  /**
-   * threads:get-history
-   * Returns the ordered list of checkpoint tuples for a thread.
-   * Useful for time-travel UI.
-   */
   ipcMain.handle('threads:get-history', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
+    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', history: [] };
     const parsed = ThreadsGetHistoryPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'threadId required', history: [] };
     }
     const { threadId, limit: rawLimit } = parsed.data;
     try {
-      const cp = getDomeCheckpointer();
-      const config = { configurable: { thread_id: threadId } };
+      const opened = await openThreadSession(threadId);
+      if (!opened) return { threadId, history: [] };
+      const { session } = opened;
+      const entries = await session.getStorage().getEntries();
       const limit = Math.min(Number(rawLimit ?? 50), 200);
-      const history = [];
-      for await (const tuple of cp.list(config, { limit })) {
-        history.push({
-          checkpointId: tuple.config?.configurable?.checkpoint_id,
-          parentId: tuple.parentConfig?.configurable?.checkpoint_id ?? null,
-          metadata: tuple.metadata,
-          createdAt: tuple.checkpoint?.ts,
-          channel_values: tuple.checkpoint?.channel_values,
-        });
-      }
+      const history = entries.slice(-limit).map((entry, idx) => ({
+        checkpointId: entry.id,
+        parentId: entry.parentId ?? null,
+        metadata: { type: entry.type },
+        createdAt: entry.timestamp,
+        channel_values: entry,
+        index: entries.length - entries.slice(-limit).length + idx,
+      }));
       return { threadId, history };
     } catch (err) {
       console.error('[threads:get-history]', err?.message);
@@ -151,56 +143,53 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  /**
-   * threads:delete
-   * Removes all checkpoints for a given thread_id.
-   * Irreversible — used for pruning old threads or resetting agent state.
-   */
   ipcMain.handle('threads:delete', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
+    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', deleted: 0 };
     const parsed = ThreadIdPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'threadId required', deleted: 0 };
     }
     const { threadId } = parsed.data;
     try {
-      const cp = getDomeCheckpointer();
-      const db = cp.db;
-      if (!db) return { deleted: 0 };
-      const result = db.prepare('DELETE FROM checkpoints WHERE thread_id = ?').run(threadId);
-      // Also remove from writes table if present
-      try {
-        db.prepare('DELETE FROM checkpoint_writes WHERE thread_id = ?').run(threadId);
-      } catch { /* table may not exist in older schema */ }
-      console.log(`[threads:delete] removed ${result.changes} checkpoints for thread ${threadId}`);
-      return { deleted: result.changes };
+      const meta = await bridge.findSessionMetadata(threadId);
+      if (!meta) return { deleted: 0 };
+      const repo = await bridge.getSessionRepo();
+      await repo.delete(meta);
+      console.log(`[threads:delete] removed JSONL session ${threadId}`);
+      return { deleted: 1 };
     } catch (err) {
       console.error('[threads:delete]', err?.message);
       return { error: err?.message ?? 'Unknown error', deleted: 0 };
     }
   });
 
-  /**
-   * threads:update-state
-   * Injects values into a thread's state — enables time-travel forks.
-   * Writes a new checkpoint with the provided values merged into the current state.
-   */
   ipcMain.handle('threads:update-state', async (event, raw) => {
     if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
     const parsed = ThreadsUpdateStatePayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'Invalid payload', success: undefined };
     }
-    const { threadId, values, asNode } = parsed.data;
+    const { threadId, values } = parsed.data;
     try {
-      const cp = getDomeCheckpointer();
-      const config = { configurable: { thread_id: threadId } };
-      const updateConfig = await cp.updateState(
-        config,
-        values,
-        asNode ?? null,
-      );
-      return { success: true, config: updateConfig };
+      const opened = await openThreadSession(threadId);
+      if (!opened) return { error: 'Thread not found' };
+      const { meta, repo } = opened;
+      const forked = await repo.fork(meta, {
+        cwd: bridge.SESSION_CWD,
+        id: `${threadId}_fork_${Date.now()}`,
+      });
+      const forkMeta = await forked.getMetadata();
+      if (values && typeof values === 'object' && Array.isArray(values.messages)) {
+        for (const msg of values.messages) {
+          if (msg && (msg.role === 'user' || msg.role === 'assistant' || msg.role === 'toolResult')) {
+            await forked.appendMessage(msg);
+          }
+        }
+      }
+      return {
+        success: true,
+        config: { configurable: { thread_id: forkMeta.id, parent_thread_id: threadId } },
+      };
     } catch (err) {
       console.error('[threads:update-state]', err?.message);
       return { error: err?.message ?? 'Unknown error' };

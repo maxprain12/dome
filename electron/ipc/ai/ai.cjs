@@ -4,6 +4,7 @@ const { setMaxListeners } = require('events');
 // Single agent runtime: the "many" surface runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('../../agents/agent-runtime.cjs');
+const approval = require('../agents/approval.cjs');
 const llmService = require('../../ai/llm-service.cjs');
 const domeOauth = require('../../auth/dome-oauth.cjs');
 const { getDomeProviderBaseUrl } = require('../../ai/dome-provider-url.cjs');
@@ -317,8 +318,20 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           onChunk,
           signal: controller.signal,
           threadId,
+          sessionId,
           skipHitl,
-          senderWebContentsId: event.sender.id,
+          requiresApproval: skipHitl ? null : agentRuntime.HITL_TOOL_NAMES,
+          requestApproval: skipHitl
+            ? null
+            : async (toolCall) =>
+                approval.requestApproval({
+                  kind: 'tool_call',
+                  payload: {
+                    name: toolCall.name,
+                    arguments: toolCall.arguments,
+                  },
+                  senderId: event.sender.id,
+                }),
         });
         if (result && typeof result === 'object' && result.__interrupt__) {
           return { success: true, interrupted: true, threadId: result.threadId };

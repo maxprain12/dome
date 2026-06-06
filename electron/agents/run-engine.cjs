@@ -1,7 +1,9 @@
 /* eslint-disable no-console */
 
 const crypto = require('crypto');
+const { BrowserWindow } = require('electron');
 const { setMaxListeners } = require('events');
+const approval = require('../ipc/agents/approval.cjs');
 // Single agent runtime: every agent turn runs through the Dome-native
 // `@dome/agent-core` loop (electron/agents/agent-runtime.cjs).
 const agentRuntime = require('./agent-runtime.cjs');
@@ -20,6 +22,11 @@ const { readPrompt } = require('../prompts/prompts-loader.cjs');
  */
 function manySubagentIds() {
   return [];
+}
+
+function getApprovalSenderId() {
+  const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
+  return win?.webContents?.id ?? null;
 }
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
@@ -1191,7 +1198,20 @@ async function executeLangGraphRun(runId, params) {
       mcpServerIds: params.mcpServerIds,
       subagentIds: params.ownerType === 'many' ? manySubagentIds() : params.subagentIds,
       threadId: context.threadId,
+      sessionId: params.sessionId ?? null,
       skipHitl: !!params.skipHitl,
+      requiresApproval: params.skipHitl ? null : agentRuntime.HITL_TOOL_NAMES,
+      requestApproval: params.skipHitl
+        ? null
+        : async (toolCall) => {
+            const senderId = getApprovalSenderId();
+            if (!senderId) return false;
+            return approval.requestApproval({
+              kind: 'tool_call',
+              payload: { name: toolCall.name, arguments: toolCall.arguments },
+              senderId,
+            });
+          },
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
       automationProjectId,

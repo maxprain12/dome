@@ -828,6 +828,8 @@ export interface AgentHarnessOptions<
 	activeToolNames?: string[];
 	steeringMode?: QueueMode;
 	followUpMode?: QueueMode;
+	/** Stop the loop after N completed turns (same contract as `AgentLoopConfig.shouldStopAfterTurn`). */
+	shouldStopAfterTurn?: import("../types.js").AgentLoopConfig["shouldStopAfterTurn"];
 }
 
 export type { AgentHarness } from "./agent-harness.js";

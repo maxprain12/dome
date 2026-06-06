@@ -18,6 +18,16 @@
 
 const DEFAULT_RECURSION_LIMIT = 25;
 
+/** Tools that require in-app approval before execution (HITL). */
+const HITL_TOOL_NAMES = new Set([
+  'resource_delete',
+  'artifact_delete',
+  'feeder_run',
+  'ppt_create',
+  'notebook_run_cell',
+  'shell_exec',
+]);
+
 /** Per-conversation caps for creation/mutation tools (count over history). */
 const CREATION_TOOL_CAPS = Object.freeze({
   resource_create: 20,
@@ -317,22 +327,64 @@ function runManyAgent(opts) {
   return runAgent('many', opts);
 }
 
+/** Build a harness `tool_call` hook from caps + HITL opts (needs live session messages). */
+function buildHarnessToolCallHook(session, opts) {
+  const before = buildBeforeToolCall(opts);
+  return async function harnessToolCall(event) {
+    const sessionCtx = await session.buildContext();
+    const result = await before({
+      toolCall: {
+        id: event.toolCallId,
+        name: event.toolName,
+        arguments: event.input,
+      },
+      context: { messages: sessionCtx.messages },
+    });
+    if (result?.block) return { block: true, reason: result.reason };
+    return undefined;
+  };
+}
+
+/** Build a harness `context` hook that runs summarization-based compaction. */
+function buildHarnessContextHook(core, piModel, apiKey) {
+  const transform = buildCompaction(core, piModel, apiKey);
+  return async function harnessContext(event) {
+    const next = await transform(event.messages);
+    return { messages: next };
+  };
+}
+
 /**
- * Dome-native path (gated by `DOME_AGENT_RUNTIME[_<SURFACE>]`). Drives
- * `@dome/agent-core`'s agent loop and relays events to `onChunk` via
- * `mapAgentEventToChunk`. Returns the final assistant response text.
+ * Dome-native path. Drives `AgentHarness` (PI session + skills + compaction) and
+ * relays agent events to `onChunk` via `mapAgentEventToChunk`.
  */
 async function runDomeAgent(surface, opts) {
-  console.log(`[AgentRuntime] ⚡ Dome-native @dome/agent-core runtime — ${surface}`);
+  console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
   const core = await import('@dome/agent-core');
   const ai = await import('@dome/ai');
-  const toolsPkg = await import('@dome/tools');
+  const { NodeExecutionEnv } = await import('@dome/agent-core/node');
+  const bridge = require('./dome-harness-bridge.cjs');
+  const database = require('../core/database.cjs');
   const dispatcher = require('../tools/tool-dispatcher.cjs');
 
-  const { provider, model, apiKey, baseUrl, messages, onChunk, signal, thinkingLevel } = opts;
+  const {
+    provider,
+    model,
+    apiKey,
+    baseUrl,
+    messages,
+    onChunk,
+    signal,
+    thinkingLevel,
+    threadId: rawThreadId,
+    sessionId,
+  } = opts;
+
+  const effectiveThreadId =
+    rawThreadId || (sessionId ? `session_${sessionId}` : undefined);
 
   const sysMsg = Array.isArray(messages) ? messages.find((m) => m && m.role === 'system') : null;
-  const systemPrompt =
+  const baseSystemPrompt =
     typeof sysMsg?.content === 'string'
       ? sysMsg.content
       : sysMsg
@@ -341,11 +393,11 @@ async function runDomeAgent(surface, opts) {
   const nonSystem = (Array.isArray(messages) ? messages : []).filter((m) => m && m.role !== 'system');
 
   const piModel = ai.resolveDomeModel({ provider, model, baseUrl });
-  const piMessages = ai.legacyMessagesToContext(systemPrompt, nonSystem).messages;
+  const piMessages = ai.legacyMessagesToContext(baseSystemPrompt, nonSystem).messages;
+  const userPrompt = lastUserText(piMessages);
 
-  // Guardrails: block clearly harmful requests before the first model call.
   if (process.env.DOME_GUARDRAILS === '1') {
-    const reason = detectHarmfulContent(lastUserText(piMessages));
+    const reason = detectHarmfulContent(userPrompt);
     if (reason) {
       if (typeof onChunk === 'function') {
         onChunk({ type: 'text', text: reason });
@@ -355,40 +407,68 @@ async function runDomeAgent(surface, opts) {
     }
   }
 
+  const { session, threadId } = await bridge.resolveSession(effectiveThreadId);
+  await bridge.seedSessionIfEmpty(session, piMessages);
+
   const executeToolInMain = (name, args) =>
     dispatcher.executeToolInMain(name, args, opts.runtimeContext);
-  const tools = toolsPkg.createToolRegistry(opts.toolDefinitions, { executeToolInMain });
+  const tools = await bridge.buildAllTools(database, opts, executeToolInMain);
+  const resources = await bridge.loadSkillsResources();
 
-  const context = { systemPrompt, messages: piMessages, tools };
-  const config = {
+  const env = new NodeExecutionEnv({ cwd: process.cwd() });
+  const harness = new core.AgentHarness({
+    env,
+    session,
+    tools,
+    resources,
     model: piModel,
-    apiKey,
-    reasoning: ai.mapThinkingLevel(thinkingLevel),
-    convertToLlm: (msgs) =>
-      msgs.filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'toolResult'),
-    transformContext: buildCompaction(core, piModel, apiKey),
-    beforeToolCall: buildBeforeToolCall(opts),
-    toolExecution: 'parallel',
+    thinkingLevel: thinkingLevel && thinkingLevel !== 'off' ? thinkingLevel : 'off',
+    getApiKeyAndHeaders: async () => ({ apiKey: apiKey || '' }),
     shouldStopAfterTurn: buildTurnLimiter(recursionLimit()),
-  };
+    systemPrompt: async (ctx) => {
+      const skillsBlock = core.formatSkillsForSystemPrompt(ctx.resources.skills ?? []);
+      if (!baseSystemPrompt) return skillsBlock || 'You are a helpful assistant.';
+      if (!skillsBlock) return baseSystemPrompt;
+      return `${baseSystemPrompt}\n\n${skillsBlock}`;
+    },
+  });
 
-  const emit = (event) => {
-    const chunk = mapAgentEventToChunk(event);
-    if (chunk && typeof onChunk === 'function') onChunk(chunk);
-  };
-
-  const newMessages = await core.runAgentLoop([], context, config, emit, signal);
-
-  // Final response text = last assistant message text.
-  let finalText = '';
-  for (let i = newMessages.length - 1; i >= 0; i -= 1) {
-    const m = newMessages[i];
-    if (m && m.role === 'assistant') {
-      finalText = assistantText(m);
-      break;
+  const unsubTool = harness.on('tool_call', buildHarnessToolCallHook(session, opts));
+  const unsubCtx = harness.on('context', buildHarnessContextHook(core, piModel, apiKey));
+  const unsubEvents = harness.subscribe((event) => {
+    if (!event || typeof event.type !== 'string') return;
+    if (event.type === 'agent_end' || event.type === 'message_update' || event.type === 'tool_execution_start' ||
+        event.type === 'tool_execution_end' || event.type === 'message_end') {
+      const chunk = mapAgentEventToChunk(event);
+      if (chunk && typeof onChunk === 'function') onChunk(chunk);
     }
+  });
+
+  let abortListener = null;
+  if (signal) {
+    if (signal.aborted) {
+      unsubTool();
+      unsubCtx();
+      unsubEvents();
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
+    abortListener = () => {
+      void harness.abort();
+    };
+    signal.addEventListener('abort', abortListener, { once: true });
   }
-  return finalText;
+
+  try {
+    const assistant = await harness.prompt(userPrompt);
+    return assistantText(assistant);
+  } finally {
+    if (abortListener && signal) signal.removeEventListener('abort', abortListener);
+    unsubTool();
+    unsubCtx();
+    unsubEvents();
+  }
 }
 
 module.exports = {
@@ -397,6 +477,7 @@ module.exports = {
   runAgent,
   runManyAgent,
   runDomeAgent,
+  HITL_TOOL_NAMES,
   // exported for tests
   detectHarmfulContent,
   countPriorToolCalls,

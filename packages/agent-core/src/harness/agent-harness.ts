@@ -13,6 +13,7 @@ import type {
 	AgentMessage,
 	AgentTool,
 	QueueMode,
+	ShouldStopAfterTurnContext,
 	StreamFn,
 	ThinkingLevel,
 } from "../types.js";
@@ -196,6 +197,9 @@ export class AgentHarness<
 	private followUpQueueMode: QueueMode;
 	private nextTurnQueue: AgentMessage[] = [];
 	private handlers = new Map<string, Set<AgentHarnessHandler>>();
+	private shouldStopAfterTurn?: (
+		context: ShouldStopAfterTurnContext,
+	) => boolean | Promise<boolean>;
 
 	constructor(options: AgentHarnessOptions<TSkill, TPromptTemplate, TTool>) {
 		this.env = options.env;
@@ -220,6 +224,7 @@ export class AgentHarness<
 		this.validateToolNames(this.activeToolNames);
 		this.steeringQueueMode = options.steeringMode ?? "one-at-a-time";
 		this.followUpQueueMode = options.followUpMode ?? "one-at-a-time";
+		this.shouldStopAfterTurn = options.shouldStopAfterTurn;
 	}
 
 	private getHandlers(type: string): Set<AgentHarnessHandler> | undefined {
@@ -466,6 +471,7 @@ export class AgentHarness<
 			},
 			getSteeringMessages: async () => this.drainQueuedMessages(this.steerQueue, this.steeringQueueMode),
 			getFollowUpMessages: async () => this.drainQueuedMessages(this.followUpQueue, this.followUpQueueMode),
+			shouldStopAfterTurn: this.shouldStopAfterTurn,
 		};
 	}
 

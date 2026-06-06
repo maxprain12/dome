@@ -8,48 +8,51 @@ Agent Team, and the bench harness — goes through it.
 
 `electron/agents/agent-runtime.cjs` is the single entry point:
 
-- `runAgent(surface, opts)` → drives `@dome/agent-core`'s `runAgentLoop`.
+- `runAgent(surface, opts)` → `runDomeAgent` → `AgentHarness.prompt()`.
 - `runManyAgent(opts)` → `runAgent('many', opts)`.
 - `resolveRuntime()` → always `'domeagent'` (kept for call sites/tests).
 - `mapAgentEventToChunk(event)` → maps `@dome/agent-core` `AgentEvent`s to the
   legacy renderer chunk shape consumed over `ai:stream:chunk`.
 
-The loop is: stream → tools → repeat, with argument validation, before/after
-tool hooks (guardrails + creation caps + HITL gate), sequential/parallel tool
-execution and summarization-based compaction. Tools come from `@dome/tools`
-(`createToolRegistry`) built from the OpenAI-format definitions in
-`electron/tools/tool-dispatcher.cjs`.
+The harness drives: stream → tools → repeat, with argument validation,
+`tool_call` hooks (creation caps + HITL), `context` hook (summarization
+compaction), JSONL session persistence, and skills in the system prompt.
+
+## Bridge (`dome-harness-bridge.cjs`)
+
+| Concern | Implementation |
+| -------- | --------------- |
+| Sessions | `JsonlSessionRepo` at `{userData}/agent-sessions/`, `threadId` or `session_{sessionId}` |
+| Skills | `loadSkills` + `formatSkillsForSystemPrompt` in harness `systemPrompt` callback |
+| MCP | `getMCPTools` → `AgentTool[]`, merged with `@dome/tools` registry |
+| Tools | `createToolRegistry` + main-process `executeToolInMain` |
+| HITL | `HITL_TOOL_NAMES` + `approval.requestApproval` (Many + runs) |
 
 ## Skills
 
-Skill discovery and formatting live in `@dome/agent-core`:
+- `loadSkills(env, dirs)` — reads `SKILL.md` from `~/.dome/skills/`.
+- `formatSkillsForSystemPrompt(skills)` — `<available_skills>` block (injected each turn).
+- `electron/skills/index.cjs` — `skills:list` IPC wrapper.
 
-- `loadSkills(env, dirs)` — reads `SKILL.md` files from `~/.dome/skills/`.
-- `formatSkillsForSystemPrompt(skills)` — injects `<available_skills>` block.
-- `formatSkillInvocation(skill)` — full skill body for explicit invocation.
+## Threads IPC
 
-`electron/skills/index.cjs` wraps `loadSkills` for the `skills:list` IPC.
-Bundled skills are seeded on first boot by `electron/marketplace/skills-bootstrap.cjs`.
+`electron/ipc/agents/threads.cjs` reads/writes JSONL sessions (replaces LangGraph
+checkpointer). Channels: `threads:list`, `threads:get-state`, `threads:get-history`,
+`threads:delete`, `threads:update-state` (fork + inject messages).
 
 ## Removed legacy stack
 
-The LangGraph/LangChain agent stack was deleted (`langgraph-agent.cjs`,
-`agent-middleware.cjs`, subagents, checkpointer, agent-store, harness-*).
-
+LangGraph agent stack deleted (`langgraph-agent.cjs`, checkpointer, subagents, …).
 Removed npm deps: `langchain`, `@langchain/langgraph-checkpoint-sqlite`, `deepagents`.
 
 Still present (not the agent runtime):
 
 - `@langchain/langgraph` — workflow node orchestrator (`StateGraph` in `run-engine.cjs`).
-- `@langchain/core` — message types in bench judge, MCP client, dome-langchain-model.
-- `@langchain/mcp-adapters` — MCP tool client.
-- `langfuse-langchain` — observability callbacks.
+- `@langchain/mcp-adapters` — MCP tool client (converted to native `AgentTool[]` in bridge).
 
 ## Pending native work
 
-1. **HITL resume** — `ai:langgraph:resume` and `resumeRun` fail explicitly (no checkpoint replay).
+1. **HITL resume** — sync approval works; `ai:langgraph:resume` / `resumeRun` after process restart still fail (no interrupt checkpoint replay).
 2. **Sub-agent delegation** — `manySubagentIds()` returns `[]`.
-3. **Agent Team** — single supervisor over union of team tools (no member delegation yet).
-4. **Thread time-travel** (`threads:*` IPC) — disabled (checkpointer removed).
-5. **MCP in native loop** — `mcpServerIds` not yet wired into `runDomeAgent`.
-6. **Skills injection in loop** — `loadSkills` + `formatSkillsForSystemPrompt` exist but are not yet called from `runDomeAgent`.
+3. **Agent Team** — single supervisor (no per-member harness delegation).
+4. **Session compaction UI** — harness `compact()` / branch summary not exposed over IPC yet.
