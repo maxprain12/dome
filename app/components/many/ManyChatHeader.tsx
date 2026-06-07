@@ -22,7 +22,7 @@ interface ManyChatHeaderProps {
   showClose?: boolean;
   /** Sidebar Many: overlay; fullscreen: columna derecha interna */
   showHistoryToggle?: boolean;
-  /** Context window donut + popup (PI-style) */
+  /** Context window donut + popup */
   contextUsage?: ReactNode;
 }
 

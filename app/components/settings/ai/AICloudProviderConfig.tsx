@@ -139,6 +139,8 @@ export default function AICloudProviderConfig({
               searchable={currentProviderModels.length > 5}
               placeholder={t('settings.ai.model')}
               providerType="cloud"
+              providerId={provider}
+              configuredHint
               disabled={providerModelsLoading}
             />
           )}

@@ -1,7 +1,7 @@
 /**
  * Native filesystem tools for Many.
- * Main-process execution goes through LangGraph → executeToolInMain → aiToolsHandler.
- * The execute() functions are kept for direct (non-LangGraph) renderer use.
+ * Main-process execution goes through the agent runtime → executeToolInMain → aiToolsHandler.
+ * The execute() functions are kept for direct (non-harness) renderer use.
  */
 
 import { Type } from '@sinclair/typebox';

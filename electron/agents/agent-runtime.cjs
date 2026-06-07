@@ -74,8 +74,8 @@ function recursionLimit() {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_RECURSION_LIMIT;
 }
 
-/** Map a pi `Usage` to the legacy renderer usage-chunk shape. */
-function piUsageToLegacyChunk(usage) {
+/** Map provider `Usage` to the legacy renderer usage-chunk shape. */
+function usageToLegacyChunk(usage) {
   if (!usage) return null;
   return {
     inputTokens: usage.input ?? 0,
@@ -213,7 +213,7 @@ function assistantText(message) {
   return '';
 }
 
-/** Extract renderable text from a pi `AgentToolResult`. */
+/** Extract renderable text from an `AgentToolResult`. */
 function toolResultText(result) {
   if (!result) return '';
   if (Array.isArray(result.content)) {
@@ -277,7 +277,7 @@ function mapAgentEventToChunk(event) {
         return { type: 'error', error: msg.errorMessage || 'Agent error' };
       }
       if (msg.usage) {
-        return { type: 'usage', usage: piUsageToLegacyChunk(msg.usage), partial: false };
+        return { type: 'usage', usage: usageToLegacyChunk(msg.usage), partial: false };
       }
       return null;
     }
@@ -405,11 +405,11 @@ function buildBeforeToolCall(opts, caps) {
  * the conversation approaches the model context window. Falls back to the
  * original messages on any error (the loop contract forbids throwing here).
  */
-function buildCompaction(core, piModel, apiKey, onChunk) {
+function buildCompaction(core, resolvedModel, apiKey, onChunk) {
   const settings = core.DEFAULT_COMPACTION_SETTINGS;
   return async function transformContext(messages, signal) {
     try {
-      const window = piModel && piModel.contextWindow ? piModel.contextWindow : 0;
+      const window = resolvedModel && resolvedModel.contextWindow ? resolvedModel.contextWindow : 0;
       if (!window) return messages;
       const estimate = core.estimateContextTokens(messages);
       if (!core.shouldCompact(estimate.tokens, window, settings)) return messages;
@@ -431,7 +431,7 @@ function buildCompaction(core, piModel, apiKey, onChunk) {
       const recent = messages.slice(cut);
       const result = await core.generateSummary(
         toSummarize,
-        piModel,
+        resolvedModel,
         settings.reserveTokens,
         apiKey || '',
         undefined,
@@ -504,8 +504,8 @@ function buildHarnessToolCallHook(session, opts) {
 }
 
 /** Build a harness `context` hook that runs summarization-based compaction. */
-function buildHarnessContextHook(core, piModel, apiKey, onChunk) {
-  const transform = buildCompaction(core, piModel, apiKey, onChunk);
+function buildHarnessContextHook(core, resolvedModel, apiKey, onChunk) {
+  const transform = buildCompaction(core, resolvedModel, apiKey, onChunk);
   return async function harnessContext(event) {
     const next = await transform(event.messages);
     return { messages: next };
@@ -577,17 +577,17 @@ async function setupHarness(surface, opts) {
   const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
   const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model });
 
-  let piModel = ai.resolveDomeModel({ provider, model, baseUrl });
-  if (baseUrl && piModel && piModel.baseUrl !== baseUrl) {
-    piModel = { ...piModel, baseUrl };
+  let resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  if (baseUrl && resolvedModel && resolvedModel.baseUrl !== baseUrl) {
+    resolvedModel = { ...resolvedModel, baseUrl };
   }
-  const piMessages = ai.legacyMessagesToContext(baseSystemPrompt, normalizedNonSystem).messages;
+  const contextMessages = ai.legacyMessagesToContext(baseSystemPrompt, normalizedNonSystem).messages;
 
   const { session, threadId } = await bridge.resolveSession(effectiveThreadId, {
     parentThreadId: opts.parentThreadId,
     parentSessionPath: opts.parentSessionPath,
   });
-  await bridge.seedSessionIfEmpty(session, piMessages);
+  await bridge.seedSessionIfEmpty(session, contextMessages);
 
   const executeToolInMain = (name, args) =>
     dispatcher.executeToolInMain(name, args, opts.runtimeContext);
@@ -627,7 +627,7 @@ async function setupHarness(surface, opts) {
     }, opts.teamMemberAgents));
   }
 
-  const nativeWeb = ai.resolveNativeWebActivation(piModel, tools);
+  const nativeWeb = ai.resolveNativeWebActivation(resolvedModel, tools);
   const activeTools =
     nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools;
 
@@ -638,18 +638,18 @@ async function setupHarness(surface, opts) {
     session,
     tools: activeTools,
     resources,
-    model: piModel,
+    model: resolvedModel,
     thinkingLevel: thinkingLevel && thinkingLevel !== 'off' ? thinkingLevel : 'off',
     streamOptions: {
       nativeWeb: nativeWeb.search || nativeWeb.fetch ? nativeWeb : undefined,
     },
     getApiKeyAndHeaders: async () => {
       if (!apiKey) return undefined;
-      if (provider === 'copilot' || piModel.provider === 'github-copilot') {
+      if (provider === 'copilot' || resolvedModel.provider === 'github-copilot') {
         const { COPILOT_HEADERS } = require('../auth/github-copilot-oauth.cjs');
-        return { apiKey, headers: { ...COPILOT_HEADERS, ...(piModel.headers || {}) } };
+        return { apiKey, headers: { ...COPILOT_HEADERS, ...(resolvedModel.headers || {}) } };
       }
-      return { apiKey, headers: piModel.headers };
+      return { apiKey, headers: resolvedModel.headers };
     },
     shouldStopAfterTurn: buildTurnLimiter(recursionLimit()),
     systemPrompt: async (ctx) => {
@@ -661,7 +661,7 @@ async function setupHarness(surface, opts) {
   });
 
   const unsubTool = harness.on('tool_call', buildHarnessToolCallHook(session, opts));
-  const unsubCtx = harness.on('context', buildHarnessContextHook(core, piModel, apiKey, onChunk));
+  const unsubCtx = harness.on('context', buildHarnessContextHook(core, resolvedModel, apiKey, onChunk));
   const unsubEvents = harness.subscribe((event) => {
     if (!event || typeof event.type !== 'string') return;
     if (event.type === 'session_compact' && event.compactionEntry) {
@@ -702,7 +702,7 @@ async function setupHarness(surface, opts) {
     harness,
     session,
     threadId,
-    piModel,
+    resolvedModel,
     baseSystemPrompt,
     tools,
     resources,
@@ -760,7 +760,7 @@ async function resumeDomeAgent(surface, opts) {
     skipHitl: true,
   });
 
-  const { harness, session, piModel, cleanup, executeToolInMain } = setup;
+  const { harness, session, resolvedModel, cleanup, executeToolInMain } = setup;
   const toolCallId = pendingToolCall.id || `hitl_${Date.now()}`;
   const toolName = pendingToolCall.name;
   const toolArgs = parseToolArgs(pendingToolCall.arguments);
@@ -779,9 +779,9 @@ async function resumeDomeAgent(surface, opts) {
           ? decision.editedAction.args
           : toolArgs,
       }],
-      api: piModel.api,
-      provider: piModel.provider,
-      model: piModel.id,
+      api: resolvedModel.api,
+      provider: resolvedModel.provider,
+      model: resolvedModel.id,
       usage: {
         input: 0,
         output: 0,
@@ -864,7 +864,7 @@ async function resumeDomeAgent(surface, opts) {
 }
 
 /**
- * Dome-native path. Drives `AgentHarness` (PI session + skills + compaction) and
+ * Dome-native path. Drives `AgentHarness` (JSONL session + skills + compaction) and
  * relays agent events to `onChunk` via `mapAgentEventToChunk`.
  */
 /** Open an idle harness on an existing JSONL session (compact / branch summary IPC). */
@@ -891,8 +891,8 @@ async function runDomeAgent(surface, opts) {
     provider: opts.provider,
     modelId: opts.model,
   });
-  const piMessages = ai.legacyMessagesToContext('', normalizedNonSystem).messages;
-  let userPrompt = lastUserText(piMessages);
+  const contextMessages = ai.legacyMessagesToContext('', normalizedNonSystem).messages;
+  let userPrompt = lastUserText(contextMessages);
   const lastRaw = lastRawUserMessage(rawNonSystem);
   const promptImages = await attachmentsToImageContent(lastRaw?.attachments, {
     provider: opts.provider,

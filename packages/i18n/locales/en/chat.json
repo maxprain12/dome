@@ -132,7 +132,7 @@
   "tree_tool_nodes": "Nodes",
   "tree_tool_hint": "Use file_list or bounded file_tree instead of directory_tree on large folders.",
   "tool_group_count": "{{label}} ({{count}})",
-  "langgraph_required": "Many requires the LangGraph runtime to work.",
+  "agent_tools_required": "Many requires the agent runtime to work.",
   "thinking_evaluating_tools": "Thinking and evaluating tools...",
   "many_run_title": "Many run",
   "stream_call_data_agent": "Processing data",

@@ -29,7 +29,9 @@ export default function ManyChatHistoryPanel({
 
   const sessionsForList = useMemo(() => {
     const visible = filterOutDeletedSessions(sessions);
-    if (!currentSessionId || visible.some((s) => s.id === currentSessionId)) {
+    // Only surface the current session as an "orphan" row if it has real
+    // messages. An empty draft (fresh "New chat") must NOT appear in history.
+    if (!currentSessionId || liveMessages.length === 0 || visible.some((s) => s.id === currentSessionId)) {
       return visible;
     }
     const firstUser = liveMessages.find((m) => m.role === 'user')?.content ?? '';

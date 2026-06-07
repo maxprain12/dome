@@ -17,7 +17,7 @@ function isNestedThreadId(threadId) {
   return typeof threadId === 'string' && NESTED_THREAD_ID_RE.test(threadId);
 }
 
-/** Root Many/user sessions only — PI keeps child sessions off the sidebar list. */
+/** Root Many/user sessions only — child sessions stay off the sidebar list. */
 function isRootSessionMeta(meta) {
   if (!meta || typeof meta.id !== 'string') return false;
   if (meta.parentSessionPath) return false;
@@ -125,9 +125,13 @@ async function buildMcpAgentTools(database, mcpServerIds) {
   const lcTools = await getMCPTools(database, mcpServerIds);
   if (!Array.isArray(lcTools) || lcTools.length === 0) return [];
 
+  const { normalizeToolParameters } = await import('@dome/tools');
   return lcTools.map((lcTool) => {
     const name = typeof lcTool.name === 'string' ? lcTool.name : 'mcp_tool';
-    const schema = lcTool.schema ?? lcTool.lc_kwargs?.schema ?? {};
+    const rawSchema = lcTool.schema ?? lcTool.lc_kwargs?.schema ?? {};
+    // Coerce to a valid, non-empty JSON Schema object: strict providers
+    // (MiniMax) reject empty `parameters` with error 2013.
+    const schema = normalizeToolParameters(rawSchema);
     return {
       name,
       label: name,
@@ -165,13 +169,13 @@ async function buildAllTools(database, opts, executeToolInMain) {
 /**
  * Seed an empty session with prior conversation turns (renderer inline history).
  * @param {import('@dome/agent-core').Session} session
- * @param {import('@dome/agent-core').AgentMessage[]} piMessages
+ * @param {import('@dome/agent-core').AgentMessage[]} seedMessages
  */
-async function seedSessionIfEmpty(session, piMessages) {
+async function seedSessionIfEmpty(session, seedMessages) {
   const ctx = await session.buildContext();
-  if (ctx.messages.length > 0 || !Array.isArray(piMessages)) return;
+  if (ctx.messages.length > 0 || !Array.isArray(seedMessages)) return;
 
-  const toSeed = piMessages.filter(
+  const toSeed = seedMessages.filter(
     (m) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'toolResult'),
   );
   if (toSeed.length <= 1) return;

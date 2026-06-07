@@ -75,7 +75,7 @@ function measurePrompt(params) {
 }
 
 /**
- * PI-style segmented breakdown for the context usage popup.
+ * Segmented breakdown for the context usage popup.
  * @param {{
  *   baseSystem?: string,
  *   skillsBlock?: string,

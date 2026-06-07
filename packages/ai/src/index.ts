@@ -1,4 +1,4 @@
-// @dome/ai public API — pi-style multi-provider LLM layer (SDK direct, no LangChain).
+// @dome/ai public API — multi-provider LLM layer (SDK direct, no LangChain).
 // Node-only — the renderer must not import it (R9).
 
 export type { Static, TSchema } from 'typebox';

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Multi-provider LLM layer (pi-style SDK connectors). Node-only.",
+  "description": "Multi-provider LLM layer (SDK connectors). Node-only.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

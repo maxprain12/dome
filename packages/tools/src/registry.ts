@@ -20,6 +20,29 @@ export function toolDefName(def: ToolDefinition): string {
   return (def && (def.function?.name || def.name)) || '';
 }
 
+/**
+ * Coerce a tool's `parameters` into a valid, non-empty JSON Schema object.
+ *
+ * No-argument tools often arrive with `{}` (or no schema at all). Strict
+ * OpenAI-compatible providers — notably MiniMax — reject that with
+ * "invalid params, function parameters is empty (2013)". An object schema with
+ * an (empty) `properties` map is the correct representation and is accepted by
+ * every provider.
+ */
+export function normalizeToolParameters(raw: unknown): Record<string, unknown> {
+  const obj =
+    raw && typeof raw === 'object' && !Array.isArray(raw)
+      ? ({ ...(raw as Record<string, unknown>) })
+      : {};
+  // Always guarantee a valid object schema. Strict providers (MiniMax) reject
+  // empty/typeless `parameters` with "function parameters is empty (2013)".
+  if (typeof obj.type !== 'string') obj.type = 'object';
+  if (obj.type === 'object' && (obj.properties == null || typeof obj.properties !== 'object')) {
+    obj.properties = {};
+  }
+  return obj;
+}
+
 function stringifyToolOutput(raw: unknown): string {
   if (typeof raw === 'string') return raw;
   try {
@@ -34,7 +57,7 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
   const name = toolDefName(def);
   if (!name) return null;
   const description = def.function?.description || def.description || '';
-  const parameters = def.function?.parameters || def.parameters || {};
+  const parameters = normalizeToolParameters(def.function?.parameters || def.parameters);
   return {
     name,
     description,

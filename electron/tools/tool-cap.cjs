@@ -67,7 +67,7 @@ function capLangChainTools(tools, opts = {}) {
   const capped = ranked.slice(0, max).map((x) => x.t);
   const dropped = list.length - capped.length;
   console.warn(
-    `[LangGraph] Capped tools ${list.length} → ${capped.length} (provider=${opts.provider || '?'}, model=${opts.model || '?'}). ` +
+    `[Agent] Capped tools ${list.length} → ${capped.length} (provider=${opts.provider || '?'}, model=${opts.model || '?'}). ` +
       `Dropped ${dropped} tool(s); use get_tool_definition or fewer MCP servers.`,
   );
   return capped;

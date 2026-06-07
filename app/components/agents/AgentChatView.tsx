@@ -35,7 +35,7 @@ import {
   abortRun,
   getActiveRunBySession,
   resumeRun,
-  startLangGraphRun,
+  startAgentRun,
   type PersistentRun,
 } from '@/lib/automations/api';
 import { CHAT_THINKING_ROTATION_KEYS } from '@/lib/chat/streamingLabels';
@@ -44,7 +44,7 @@ import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile'
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
-import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 import ContextUsageIndicator from '@/components/many/ContextUsageIndicator';
 import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
@@ -271,7 +271,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     [refreshSessionFromDb, addMessage, t],
   );
 
-  useLangGraphRunStream({
+  useAgentRunStream({
     activeRunId,
     setStreamingMessage,
     setPendingApproval,
@@ -324,8 +324,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     return () => clearInterval(interval);
   }, [isLoading, t]);
 
-  const hasLangGraph =
-    typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
+  const hasAgentStream =
+    typeof window !== 'undefined' && !!window.electron?.ai?.streamAgent;
   const enabledMcpIds = useMemo(
     () => (agent?.mcpServerIds ?? []).filter((id) => !disabledMcpIds.has(id)),
     [agent?.mcpServerIds, disabledMcpIds]
@@ -338,7 +338,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   );
   const hasMcpForAgent =
     Array.isArray(agent?.mcpServerIds) && agent.mcpServerIds.length > 0;
-  const useToolsStream = supportsTools && hasLangGraph;
+  const useToolsStream = supportsTools && hasAgentStream;
 
   const handleSend = useCallback(async () => {
     const textPart = input.trim();
@@ -478,7 +478,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           }
         }
 
-        const run = await startLangGraphRun({
+        const run = await startAgentRun({
           ownerType: 'agent',
           ownerId: agentId,
           title: `${agent.name}: ${userMessage.slice(0, 60)}`,
@@ -498,9 +498,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setActiveRunId(run.id);
         applyRunSnapshot(run);
       } else {
-        if (!hasLangGraph) {
+        if (!hasAgentStream) {
           throw new Error(
-            'Este agente usa herramientas y requiere LangGraph. Reinicia Dome o revisa la configuración.'
+            'Este agente usa herramientas y requiere el runtime de agente. Reinicia Dome o revisa la configuración.'
           );
         }
         const { chatStream } = await import('@/lib/ai');
@@ -565,7 +565,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
     chatAttachments,
     pinnedResources,
-    hasLangGraph,
+    hasAgentStream,
     pendingOneShotSkillId,
     activeStickySkillId,
   ]);

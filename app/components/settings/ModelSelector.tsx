@@ -1,11 +1,11 @@
-import { useState, useRef, useEffect, useMemo, type ReactNode } from 'react';
-import { Film, ChevronDown, Search, CheckCircle2, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
+import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Film, ChevronDown, Search, Check, Gift, Shield, Brain, ImageIcon } from 'lucide-react';
 import type { ModelDefinition } from '@/lib/ai/models';
 import { cn } from '@/lib/utils';
 import DomeBadge from '@/components/ui/DomeBadge';
 import DomeButton from '@/components/ui/DomeButton';
 import { DomeInput } from '@/components/ui/DomeInput';
-import DomeListRow from '@/components/ui/DomeListRow';
 
 interface ModelSelectorProps {
   models: ModelDefinition[];
@@ -21,6 +21,10 @@ interface ModelSelectorProps {
   emptyMessage?: string;
   disabled?: boolean;
   providerType?: 'cloud' | 'ollama' | 'embedding';
+  /** Provider id shown as a `[provider]` badge on each row + trigger. */
+  providerId?: string;
+  /** Show the hint "only models from configured providers". */
+  configuredHint?: boolean;
 }
 
 export default function ModelSelector({
@@ -28,7 +32,6 @@ export default function ModelSelector({
   selectedModelId,
   onChange,
   showBadges = true,
-  showDescription = true,
   showContextWindow = true,
   isFreeProvider = false,
   isPrivateProvider = false,
@@ -36,10 +39,17 @@ export default function ModelSelector({
   placeholder = 'Selecciona un modelo...',
   emptyMessage = 'No hay modelos disponibles',
   disabled = false,
+  providerId,
+  configuredHint = false,
 }: ModelSelectorProps) {
+  const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selectedModel = useMemo(
     () => models.find((m) => m.id === selectedModelId),
@@ -51,11 +61,33 @@ export default function ModelSelector({
     const q = searchQuery.toLowerCase();
     return models.filter(
       (m) =>
-        m.name.toLowerCase().includes(q) ||
         m.id.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q) ||
+        (providerId ?? '').toLowerCase().includes(q) ||
         m.description?.toLowerCase().includes(q),
     );
-  }, [models, searchQuery]);
+  }, [models, searchQuery, providerId]);
+
+  // When opening (or the list changes), highlight the currently-selected model.
+  useEffect(() => {
+    if (!isOpen) return;
+    const idx = filteredModels.findIndex((m) => m.id === selectedModelId);
+    setHighlightedIndex(idx >= 0 ? idx : 0);
+    const raf = requestAnimationFrame(() => searchInputRef.current?.focus());
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Keep the highlight in range and scrolled into view.
+  useEffect(() => {
+    if (!isOpen) return;
+    setHighlightedIndex((i) => Math.min(i, Math.max(0, filteredModels.length - 1)));
+  }, [filteredModels.length, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    rowRefs.current[highlightedIndex]?.scrollIntoView({ block: 'nearest' });
+  }, [highlightedIndex, isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -76,6 +108,38 @@ export default function ModelSelector({
     if (ctx >= 1_000) return `${(ctx / 1_000).toFixed(0)}K`;
     return String(ctx);
   };
+
+  const commitSelection = useCallback(
+    (model: ModelDefinition | undefined) => {
+      if (!model) return;
+      onChange(model.id);
+      setIsOpen(false);
+      setSearchQuery('');
+    },
+    [onChange],
+  );
+
+  const handleListKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (filteredModels.length === 0) return;
+        setHighlightedIndex((i) => (i >= filteredModels.length - 1 ? 0 : i + 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (filteredModels.length === 0) return;
+        setHighlightedIndex((i) => (i <= 0 ? filteredModels.length - 1 : i - 1));
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        commitSelection(filteredModels[highlightedIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setIsOpen(false);
+        setSearchQuery('');
+      }
+    },
+    [filteredModels, highlightedIndex, commitSelection],
+  );
 
   const renderBadges = (model: ModelDefinition) => {
     if (!showBadges) return null;
@@ -126,6 +190,19 @@ export default function ModelSelector({
     return nodes.length ? <span className="flex flex-wrap items-center gap-1.5">{nodes}</span> : null;
   };
 
+  /** `[provider]` badge on each model row. */
+  const providerBadge = (extraClass = '') =>
+    providerId ? (
+      <span
+        className={cn('font-mono text-[11px] shrink-0 text-[var(--tertiary-text)]', extraClass)}
+      >
+        [{providerId}]
+      </span>
+    ) : null;
+
+  // Model whose details are shown in the footer (the keyboard-highlighted row).
+  const footerModel = isOpen ? filteredModels[highlightedIndex] : undefined;
+
   return (
     <div ref={containerRef} className="relative w-full">
       <DomeButton
@@ -155,22 +232,13 @@ export default function ModelSelector({
       >
         <div className="flex-1 min-w-0 text-left">
           {selectedModel ? (
-            <>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium truncate text-[var(--primary-text)]">{selectedModel.name}</span>
-                {renderBadges(selectedModel)}
-              </div>
-              {showDescription && selectedModel.description && (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs truncate text-[var(--secondary-text)]">{selectedModel.description}</span>
-                  {showContextWindow && selectedModel.contextWindow > 0 && (
-                    <span className="text-xs tabular-nums shrink-0 text-[var(--secondary-text)]">
-                      {formatContextWindow(selectedModel.contextWindow)} ctx
-                    </span>
-                  )}
-                </div>
-              )}
-            </>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-mono text-sm font-medium truncate text-[var(--primary-text)]">
+                {selectedModel.id}
+              </span>
+              {providerBadge()}
+              {renderBadges(selectedModel)}
+            </div>
           ) : (
             <span className="text-sm text-[var(--tertiary-text)]">{placeholder}</span>
           )}
@@ -182,6 +250,11 @@ export default function ModelSelector({
           role="listbox"
           className="absolute left-0 right-0 top-full mt-1 z-[600] rounded-xl border overflow-hidden shadow-lg bg-[var(--bg)] border-[var(--border)]"
         >
+          {configuredHint && (
+            <div className="px-3 pt-2.5 pb-1.5 text-[11px] leading-snug text-[var(--tertiary-text)]">
+              {t('settings.ai.models_configured_only')}
+            </div>
+          )}
           {searchable && (
             <div className="p-2 border-b border-[var(--border)]">
               <div className="relative">
@@ -191,61 +264,84 @@ export default function ModelSelector({
                   aria-hidden
                 />
                 <DomeInput
+                  ref={searchInputRef}
                   className="gap-0"
-                  inputClassName="pl-9"
+                  inputClassName="pl-9 font-mono"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Buscar modelos..."
+                  onKeyDown={handleListKeyDown}
+                  placeholder={t('settings.ai.search_models')}
                 />
               </div>
             </div>
           )}
-          <div className="max-h-60 overflow-y-auto">
+          <div ref={listRef} className="max-h-60 overflow-y-auto py-1" onKeyDown={handleListKeyDown}>
             {filteredModels.length === 0 ? (
               <div className="p-4 text-center text-sm text-[var(--secondary-text)]">
-                {searchQuery ? `No se encontraron modelos con "${searchQuery}"` : emptyMessage}
+                {searchQuery ? t('settings.ai.no_models_found', { query: searchQuery }) : emptyMessage}
               </div>
             ) : (
-              filteredModels.map((model) => {
-                const sel = model.id === selectedModelId;
+              filteredModels.map((model, idx) => {
+                const isCurrent = model.id === selectedModelId;
+                const isHighlighted = idx === highlightedIndex;
                 return (
-                  <DomeListRow
+                  <button
                     key={model.id}
-                    rowButtonProps={{ role: 'option', 'aria-selected': sel }}
-                    icon={
-                      sel ? <CheckCircle2 size={16} className="text-[var(--accent)] shrink-0" aria-hidden /> : undefined
-                    }
-                    title={
-                      <span className="flex items-center flex-wrap gap-x-2 gap-y-1">
-                        <span>{model.name}</span>
-                        {renderBadges(model)}
-                      </span>
-                    }
-                    subtitle={
-                      showDescription && model.description ? (
-                        <span className="truncate">{model.description}</span>
-                      ) : undefined
-                    }
-                    meta={
-                      showContextWindow && model.contextWindow > 0 ? (
-                        <span className="tabular-nums">{formatContextWindow(model.contextWindow)}</span>
-                      ) : undefined
-                    }
-                    onClick={() => {
-                      onChange(model.id);
-                      setIsOpen(false);
-                      setSearchQuery('');
-                    }}
+                    ref={(el) => { rowRefs.current[idx] = el; }}
+                    type="button"
+                    role="option"
+                    aria-selected={isCurrent}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                    onClick={() => commitSelection(model)}
                     className={cn(
-                      'rounded-none border-l-[3px] border-transparent px-3 py-2.5',
-                      sel && 'bg-[var(--bg-tertiary)] border-l-[var(--accent)]',
+                      'flex w-full items-center gap-2 px-3 py-2 text-left transition-colors',
+                      isHighlighted ? 'bg-[var(--bg-tertiary)]' : 'bg-transparent',
                     )}
-                  />
+                  >
+                    <span
+                      className={cn(
+                        'w-3 shrink-0 text-center',
+                        isHighlighted ? 'text-[var(--accent)]' : 'text-transparent',
+                      )}
+                      aria-hidden
+                    >
+                      →
+                    </span>
+                    <span
+                      className={cn(
+                        'font-mono text-sm truncate',
+                        isHighlighted ? 'text-[var(--accent)]' : 'text-[var(--primary-text)]',
+                      )}
+                    >
+                      {model.id}
+                    </span>
+                    {providerBadge()}
+                    {isCurrent && (
+                      <Check size={14} className="ml-auto shrink-0 text-[var(--accent)]" aria-hidden />
+                    )}
+                  </button>
                 );
               })
             )}
           </div>
+
+          {footerModel && (
+            <div className="border-t border-[var(--border)] px-3 py-2 flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-[var(--tertiary-text)]">
+                {t('settings.ai.model_name_label')}:
+              </span>
+              <span className="text-xs font-medium text-[var(--secondary-text)] truncate">
+                {footerModel.name}
+              </span>
+              {showContextWindow && footerModel.contextWindow > 0 && (
+                <span className="text-xs tabular-nums text-[var(--tertiary-text)]">
+                  · {formatContextWindow(footerModel.contextWindow)} ctx
+                </span>
+              )}
+              {renderBadges(footerModel)}
+            </div>
+          )}
         </div>
       )}
     </div>

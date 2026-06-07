@@ -1,7 +1,7 @@
 import type { ManyChatSession, ManyMessage } from '@/lib/store/useManyStore';
 import { db } from '@/lib/db/client';
 
-/** Legacy localStorage blob (pre-PI); read once for migration, not written anymore. */
+/** Legacy localStorage blob (pre-JSONL); read once for migration, not written anymore. */
 export const SESSIONS_STORAGE_KEY = 'dome-many-sessions:v1';
 export const SESSION_META_KEY = 'dome-many-sessions-meta:v1';
 /** UI-only metadata (title, pin) — messages live in JSONL agent-sessions. */
@@ -138,6 +138,33 @@ export function persistManySessionUiMeta(meta: ManySessionUiMetaMap): void {
   }
 }
 
+/** Remove the UI meta entry for a deleted session so it cannot be resurrected on next launch. */
+export function removeManySessionUiMeta(sessionId: string): void {
+  const meta = loadManySessionUiMeta();
+  if (sessionId in meta) {
+    delete meta[sessionId];
+    persistManySessionUiMeta(meta);
+  }
+}
+
+/**
+ * Garbage-collect UI meta: keep only entries for real sessions (the reconciled
+ * JSONL-backed list). Drops stale/empty drafts left over from older builds.
+ * Call ONLY after a successful JSONL reconciliation to avoid wiping live data.
+ */
+export function pruneManySessionUiMeta(keepIds: Iterable<string>): void {
+  const keep = new Set(keepIds);
+  const meta = loadManySessionUiMeta();
+  let changed = false;
+  for (const id of Object.keys(meta)) {
+    if (!keep.has(id)) {
+      delete meta[id];
+      changed = true;
+    }
+  }
+  if (changed) persistManySessionUiMeta(meta);
+}
+
 function upsertSessionUiMeta(sessionId: string, patch: ManySessionUiMeta): void {
   const meta = loadManySessionUiMeta();
   meta[sessionId] = { ...meta[sessionId], ...patch };
@@ -241,16 +268,11 @@ export function loadManySessionsFromStorage(): {
         createdAt: patch.createdAt ?? existing.createdAt,
         updatedAt: patch.updatedAt ?? existing.updatedAt,
       });
-    } else {
-      byId.set(id, {
-        id,
-        title: sanitizeManySessionTitle(patch.title ?? 'New chat'),
-        messages: [],
-        createdAt: patch.createdAt ?? Date.now(),
-        updatedAt: patch.updatedAt ?? patch.createdAt ?? Date.now(),
-        pinned: patch.pinned,
-      });
     }
+    // UI-meta-only entries (no legacy messages) are NOT materialized here.
+    // The JSONL session repo is the source of truth and hydrateFromThreads
+    // restores the real ones. This prevents empty/stale "New chat" drafts from
+    // re-appearing on every launch.
   }
 
   const sessions = [...byId.values()].sort((a, b) => {
@@ -260,7 +282,12 @@ export function loadManySessionsFromStorage(): {
   });
 
   if (sessions.length === 0) {
-    return { sessions: [], currentSessionId: null, messages: [] };
+    // No sessions are materialized synchronously (they live in JSONL and are
+    // restored by hydrateFromThreads). Preserve the last active session id, if
+    // still valid, so ManyPanel can lazy-load its messages and resume it.
+    const last = meta.currentSessionId;
+    const resumeId = last && !getDeletedManySessionIds().has(last) ? last : null;
+    return { sessions: [], currentSessionId: resumeId, messages: [] };
   }
 
   const persistedCurrent = meta.currentSessionId;
@@ -275,7 +302,7 @@ export function loadManySessionsFromStorage(): {
   };
 }
 
-/** Persist session list UI metadata only (PI: messages live in JSONL). */
+/** Persist session list UI metadata only (messages live in JSONL). */
 export function persistManySessions(sessions: ManyChatSession[]): void {
   const uiMeta = loadManySessionUiMeta();
   for (const session of filterOutDeletedSessions(sessions).slice(0, MAX_MANY_SESSIONS)) {

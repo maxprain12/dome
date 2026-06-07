@@ -19,7 +19,7 @@ export type {
   ToolSchema,
 } from './types.js';
 
-export { createToolRegistry, createToolFromDefinition, toolDefName } from './registry.js';
+export { createToolRegistry, createToolFromDefinition, toolDefName, normalizeToolParameters } from './registry.js';
 
 export { TOOL_FAMILIES, TOOL_COUNT, familyOf, toolsInFamily } from './families.js';
 export type { ToolFamily } from './families.js';

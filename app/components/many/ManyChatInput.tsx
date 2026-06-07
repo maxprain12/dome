@@ -61,7 +61,7 @@ export interface ManyChatInputProps {
   showComposerKeyboardHint?: boolean;
   /** Sidebar / narrow panel: icon-only toolbar, capabilities in + menu. */
   compact?: boolean;
-  /** Context donut + popup (PI-style), shown before the send button. */
+  /** Context donut + popup, shown before the send button. */
   composerContextUsage?: React.ReactNode;
 }
 

@@ -45,7 +45,7 @@ export interface ChatMessageData {
   agentLabel?: string;
   /** PDF region (cloud vision) — show handoff actions */
   pdfRegionMeta?: PdfRegionMeta;
-  /** Structured run steps streamed from LangGraph / run engine. */
+  /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];
 }
 

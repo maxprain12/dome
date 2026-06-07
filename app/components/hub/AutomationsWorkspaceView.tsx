@@ -891,7 +891,7 @@ function AutomationsTab({
     const automation = automations.find((a) => a.id === id);
     const isFeederTarget = automation?.targetType === 'feeder';
     try {
-      // Feeders execute through feeder-runner (not the LangGraph/workflow PersistentRun
+      // Feeders execute through feeder-runner (not the the agent runtime/workflow PersistentRun
       // pipeline), so the return shape and the "open run detail" UX differ.
       if (isFeederTarget) {
         await runAutomationNowRaw(id);

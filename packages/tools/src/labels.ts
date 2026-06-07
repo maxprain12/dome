@@ -1,5 +1,5 @@
 /**
- * Human-readable tool labels (PI-style short names for TUI / agent tool registry).
+ * Human-readable tool labels (short names for TUI / agent tool registry).
  * Keep in sync with `app/lib/chat` i18n keys where possible.
  */
 export const TOOL_LABELS: Readonly<Record<string, string>> = {

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable */
 /**
- * Key-count assertion for Phase 5 of the Dome → pi-style restructure.
+ * Key-count assertion for Phase 5 of the Dome agent-runtime restructure.
  *
  * Compares the number of leaf keys in `app/lib/i18n.ts` (4 language objects
  * inline) against the sum of keys across `packages/i18n/locales/<lang>/*.json`.

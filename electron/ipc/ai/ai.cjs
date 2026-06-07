@@ -11,16 +11,16 @@ const { fetchOpenRouterModels } = require('../../ai/openrouter-models.cjs');
 const { fetchProviderModels } = require('../../ai/provider-models.cjs');
 const { assertChatProvider, resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs');
 
-/** Abort controllers by streamId for ai:langgraph:stream (enables renderer to stop stream) */
-const langGraphAbortControllers = new Map();
+/** Abort controllers by streamId for ai:agent:stream (enables renderer to stop stream) */
+const agentAbortControllers = new Map();
 
 /** Pending HITL interrupt state keyed by streamId (in-process resume). */
-const langGraphPendingInterrupts = new Map();
+const agentPendingInterrupts = new Map();
 
 /**
  * Double-texting guard: maps sessionId → active streamId.
  * When a new message arrives for the same session, the previous stream is aborted
- * (interrupt strategy — LangGraph's recommended approach for concurrent user messages).
+ * (interrupt strategy — the agent runtime's recommended approach for concurrent user messages).
  */
 const sessionActiveStream = new Map();
 
@@ -79,7 +79,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
 
   /**
    * Stream chat with a provider for plain completions (no tools).
-   * Tool-calling is handled exclusively via LangGraph (ai:langgraph:stream / runs:startLangGraph).
+   * Tool-calling is handled exclusively via the agent runtime (ai:agent:stream / runs:start).
    */
   ipcMain.handle('ai:stream', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -188,10 +188,10 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
   });
 
   /**
-   * Stream chat using LangGraph agent (alternative to ai:stream for tools)
+   * Stream chat using agent runtime (alternative to ai:stream for tools)
    * Uses same ai:stream:chunk format for compatibility with existing UI.
    */
-  ipcMain.handle('ai:langgraph:stream', async (event, params) => {
+  ipcMain.handle('ai:agent:stream', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -238,15 +238,15 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
 
       const controller = new AbortController();
       setMaxListeners(64, controller.signal);
-      langGraphAbortControllers.set(streamId, controller);
+      agentAbortControllers.set(streamId, controller);
 
       // Double-texting guard: abort previous stream for the same session (interrupt strategy)
       if (sessionId) {
         const prevStreamId = sessionActiveStream.get(sessionId);
         if (prevStreamId && prevStreamId !== streamId) {
-          const prevCtrl = langGraphAbortControllers.get(prevStreamId);
+          const prevCtrl = agentAbortControllers.get(prevStreamId);
           if (prevCtrl) prevCtrl.abort();
-          langGraphAbortControllers.delete(prevStreamId);
+          agentAbortControllers.delete(prevStreamId);
         }
         sessionActiveStream.set(sessionId, streamId);
       }
@@ -277,7 +277,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           requiresApproval: skipHitl ? null : agentRuntime.HITL_TOOL_NAMES,
         });
         if (result && typeof result === 'object' && result.__interrupt__) {
-          langGraphPendingInterrupts.set(streamId, {
+          agentPendingInterrupts.set(streamId, {
             threadId: result.threadId,
             pendingApproval: {
               actionRequests: result.actionRequests,
@@ -296,16 +296,16 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           });
           return { success: true, interrupted: true, threadId: result.threadId };
         }
-        langGraphPendingInterrupts.delete(streamId);
+        agentPendingInterrupts.delete(streamId);
         return { success: true };
       } finally {
-        langGraphAbortControllers.delete(streamId);
+        agentAbortControllers.delete(streamId);
         if (sessionId && sessionActiveStream.get(sessionId) === streamId) {
           sessionActiveStream.delete(sessionId);
         }
       }
     } catch (error) {
-      console.error('[AI LangGraph] Stream error:', error);
+      console.error('[AI Agent] Stream error:', error);
       const isAbort = error?.name === 'AbortError' || error?.message?.includes('abort');
       if (isAbort && event.sender && !event.sender.isDestroyed()) {
         event.sender.send('ai:stream:chunk', { streamId, type: 'done' });
@@ -320,7 +320,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           event.sender.send('ai:stream:chunk', { streamId, type: 'error', error: userMessage });
         }
       }
-      langGraphAbortControllers.delete(streamId);
+      agentAbortControllers.delete(streamId);
       if (sessionId && sessionActiveStream.get(sessionId) === streamId) {
         sessionActiveStream.delete(sessionId);
       }
@@ -328,21 +328,21 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     }
   });
 
-  ipcMain.handle('ai:langgraph:abort', async (event, streamId) => {
+  ipcMain.handle('ai:agent:abort', async (event, streamId) => {
     try {
       if (!windowManager.isAuthorized(event.sender.id)) {
         return { success: false, error: 'Unauthorized' };
       }
-      const controller = langGraphAbortControllers.get(streamId);
+      const controller = agentAbortControllers.get(streamId);
       if (controller) controller.abort();
       return { success: true };
     } catch (error) {
-      console.error('[AI] LangGraph abort error:', error);
+      console.error('[AI] the agent runtime abort error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('ai:langgraph:resume', async (event, params) => {
+  ipcMain.handle('ai:agent:resume', async (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -353,7 +353,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
     if (!streamId) {
       return { success: false, error: 'streamId is required' };
     }
-    const pending = langGraphPendingInterrupts.get(streamId);
+    const pending = agentPendingInterrupts.get(streamId);
     const threadId = rawThreadId || pending?.threadId;
     if (!threadId) {
       return { success: false, error: 'No threadId for resume' };
@@ -367,7 +367,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
 
     const controller = new AbortController();
     setMaxListeners(64, controller.signal);
-    langGraphAbortControllers.set(streamId, controller);
+    agentAbortControllers.set(streamId, controller);
 
     try {
       const providerConfig = await resolveProviderConfig(
@@ -392,7 +392,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       });
 
       if (result && typeof result === 'object' && result.__interrupt__) {
-        langGraphPendingInterrupts.set(streamId, {
+        agentPendingInterrupts.set(streamId, {
           ...(pending || {}),
           threadId: result.threadId,
           pendingApproval: {
@@ -404,16 +404,16 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         return { success: true, interrupted: true, threadId: result.threadId };
       }
 
-      langGraphPendingInterrupts.delete(streamId);
+      agentPendingInterrupts.delete(streamId);
       onChunk({ type: 'done' });
       return { success: true };
     } catch (error) {
-      console.error('[AI LangGraph] Resume error:', error);
+      console.error('[AI Agent] Resume error:', error);
       const userMessage = error?.message || 'Resume failed';
       onChunk({ type: 'error', error: userMessage });
       return { success: false, error: userMessage };
     } finally {
-      langGraphAbortControllers.delete(streamId);
+      agentAbortControllers.delete(streamId);
     }
   });
 

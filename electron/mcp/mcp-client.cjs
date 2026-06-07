@@ -2,7 +2,7 @@
 /**
  * MCP Client - Main Process
  *
- * Connects to configured MCP servers and provides tools for the LangGraph agent.
+ * Connects to configured MCP servers and provides tools for the agent runtime.
  * Config is stored in dedicated SQLite tables.
  *
  * Format: [{ name, type: "stdio"|"http"|"sse", command?, args?, url?, headers? }]

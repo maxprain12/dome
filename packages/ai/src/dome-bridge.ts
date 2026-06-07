@@ -119,7 +119,7 @@ function googleModel(id: string): Model<'google-generative-ai'> {
 }
 
 /**
- * Map Dome Settings provider + model id to a pi `Model` for `stream()` / `complete()`.
+ * Map Dome Settings provider + model id to a provider `Model` for `stream()` / `complete()`.
  */
 export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
   const { provider, model, baseUrl } = opts;

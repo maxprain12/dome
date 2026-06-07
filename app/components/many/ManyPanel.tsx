@@ -59,7 +59,7 @@ import {
   abortRun,
   getActiveRunBySession,
   resumeRun,
-  startLangGraphRun,
+  startAgentRun,
   type PersistentRun,
 } from '@/lib/automations/api';
 import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/manySendController';
@@ -67,7 +67,7 @@ import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
 import UICursorOverlay from './UICursorOverlay';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
 import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
-import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import ManyHitlInlineSection from '@/components/many/ManyHitlInlineSection';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
@@ -263,7 +263,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     loadMemory();
   }, []);
 
-  // PI: hydrate session list from JSONL on startup.
+  // Hydrate session list from JSONL on startup.
   useEffect(() => {
     let cancelled = false;
     void syncManyDeletedIdsFromDb()
@@ -297,7 +297,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     };
   }, [hydrateFromThreads]);
 
-  // PI: load messages from JSONL when switching chats.
+  // Load messages from JSONL when switching chats.
   useEffect(() => {
     if (!currentSessionId || !window.electron?.threads?.getState) return;
 
@@ -565,7 +565,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     [],
   );
 
-  useLangGraphRunStream({
+  useAgentRunStream({
     activeRunId,
     setStreamingMessage,
     setPendingApproval: handleManyPendingApproval,
@@ -673,7 +673,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return buildManyFloatingPrompt();
   }, [petPromptOverride]);
 
-  const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
+  const hasAgentStream = typeof window !== 'undefined' && !!window.electron?.ai?.streamAgent;
 
   const handlePdfRegionSend = useCallback(
     async (userMessage: string, pending: PendingPdfRegion) => {
@@ -809,8 +809,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         return;
       }
 
-      if (!hasLangGraph) {
-        throw new Error(t('chat.langgraph_required'));
+      if (!hasAgentStream) {
+        throw new Error(t('chat.agent_tools_required'));
       }
 
       const staticPersona = buildStaticPersona();
@@ -959,7 +959,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         }
       }
 
-      const run = await startLangGraphRun({
+      const run = await startAgentRun({
         ownerType: 'many',
         ownerId: currentSessionId || `many-${Date.now()}`,
         title: userMessage.slice(0, 80) || t('chat.many_run_title'),
@@ -1029,7 +1029,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     toolsEnabled,
     mcpEnabled,
     supportsTools,
-    hasLangGraph,
+    hasAgentStream,
     activeTools,
     scrollToBottom,
     currentResourceTitle,
@@ -1483,7 +1483,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 <div ref={pendingApprovalRef}>
                   <ManyHitlInlineSection
                     pendingApproval={pendingApproval}
-                    onDismissLangGraph={() => setPendingApproval(null)}
+                    onDismissApproval={() => setPendingApproval(null)}
                   />
                 </div>
               ) : null}

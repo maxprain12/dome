@@ -11,7 +11,7 @@ export interface SkillLike {
 const DEFAULT_MAX_BODY_CHARS = 3800;
 
 export interface AppendSkillsMarkdownOptions {
-  /** Per-skill body cap to avoid blowing the LangGraph context window (default 3800). */
+  /** Per-skill body cap to avoid blowing the agent context window (default 3800). */
   maxBodyChars?: number;
 }
 

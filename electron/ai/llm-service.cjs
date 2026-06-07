@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * Unified LLM service — delegates to `@dome/ai` (pi-style SDK connectors).
+ * Unified LLM service — delegates to `@dome/ai` SDK connectors.
  */
 'use strict';
 
@@ -38,13 +38,13 @@ function buildImageContent(userText, imageDataUrls, opts = {}) {
  */
 async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }) {
   const ai = await loadAi();
-  const piModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
   const sysMsg = (messages || []).find((m) => m.role === 'system');
   const systemPrompt =
     typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
   const context = ai.legacyMessagesToContext(systemPrompt, messages || []);
   const streamOpts = buildStreamOptions(options, apiKey);
-  const result = await ai.completeSimple(piModel, context, streamOpts);
+  const result = await ai.completeSimple(resolvedModel, context, streamOpts);
   return {
     text: ai.extractTextFromAssistantMessage(result),
     usage: ai.domeUsageToLegacy(result.usage),
@@ -56,13 +56,13 @@ async function chat({ provider, model, apiKey, baseUrl, messages, options = {} }
  */
 async function stream({ provider, model, apiKey, baseUrl, messages, options = {}, onChunk }) {
   const ai = await loadAi();
-  const piModel = ai.resolveDomeModel({ provider, model, baseUrl });
+  const resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
   const sysMsg = (messages || []).find((m) => m.role === 'system');
   const systemPrompt =
     typeof sysMsg?.content === 'string' ? sysMsg.content : JSON.stringify(sysMsg?.content ?? '');
   const context = ai.legacyMessagesToContext(systemPrompt, messages || []);
   const streamOpts = buildStreamOptions(options, apiKey);
-  const eventStream = ai.streamSimple(piModel, context, streamOpts);
+  const eventStream = ai.streamSimple(resolvedModel, context, streamOpts);
 
   let full = '';
   for await (const event of eventStream) {

@@ -8,7 +8,7 @@ import { MANY_TOOL_CATALOG } from '@/lib/agents/catalog';
 export const MANY_TOOL_IDS = MANY_TOOL_CATALOG.map((e) => e.id);
 
 /**
- * Additional tools executable in main (LangGraph) that may not appear in MANY_TOOL_CATALOG
+ * Additional tools executable in main (the agent runtime) that may not appear in MANY_TOOL_CATALOG
  * (e.g. aliases, graph variants, studio).
  */
 export const MAIN_PROCESS_EXTRA_TOOL_IDS = [

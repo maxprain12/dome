@@ -522,6 +522,8 @@ export default function AISettingsPanel() {
                   searchable={copilotModels.length > 5}
                   placeholder={t('settings.ai.model')}
                   providerType="cloud"
+                  providerId="copilot"
+                  configuredHint
                 />
               </div>
             ) : null}

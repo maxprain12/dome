@@ -1,5 +1,5 @@
 /**
- * Observability for LangGraph runs — supports Langfuse and LangSmith.
+ * Observability for the agent runtime runs — supports Langfuse and LangSmith.
  *
  * Langfuse activation (self-host or cloud):
  *   LANGFUSE_PUBLIC_KEY=pk-...
@@ -140,7 +140,7 @@ function buildLangfuseMask() {
 
 // ---------------------------------------------------------------------------
 // LangSmith — env-var activation wires up OTEL-compatible tracing via
-// LANGCHAIN_TRACING_V2. No additional callback is needed; LangChain/LangGraph
+// LANGCHAIN_TRACING_V2. No additional callback is needed; LangChain
 // picks up the env vars automatically at first invocation.
 // ---------------------------------------------------------------------------
 function initLangSmith() {
@@ -207,7 +207,7 @@ function getLangfuseHandler() {
 }
 
 /**
- * Merge Langfuse callbacks into a LangGraph `config`. Existing callbacks (if
+ * Merge Langfuse callbacks into a the agent runtime `config`. Existing callbacks (if
  * any) are preserved. LangSmith is activated via env vars automatically.
  */
 function withLangfuseCallbacks(config) {

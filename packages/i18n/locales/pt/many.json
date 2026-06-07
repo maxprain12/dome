@@ -66,7 +66,7 @@
   "context_usage_close": "Fechar",
   "context_usage_full": "{{percent}}% cheio",
   "context_usage_tokens": "~{{used}} / {{cap}} tokens",
-  "context_usage_footnote": "Estimativa por segmentos (car÷4). A % e o total usam a soma dos segmentos, não input parcial do provedor. Como PI após cada turno.",
+  "context_usage_footnote": "Estimativa por segmentos (car÷4). A % e o total usam a soma dos segmentos, não input parcial do provedor. Após cada turno, o runtime pode refinar com usage e mensagens seguintes.",
   "context_segment_systemPrompt": "System prompt",
   "context_segment_toolsRegistry": "Definições de tools",
   "context_segment_rules": "Regras",

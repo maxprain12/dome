@@ -96,7 +96,7 @@ async function dataUrlToImageContent(image) {
 }
 
 /**
- * Convert structured chat attachments to PI ImageContent blocks.
+ * Convert structured chat attachments to ImageContent blocks.
  * @param {{ images?: Array<{ dataUrl: string, mime?: string, name?: string }> } | undefined} attachments
  * @param {{ provider?: string, modelId?: string }} opts
  * @returns {Promise<Array<{ type: 'image', mimeType: string, data: string }>>}

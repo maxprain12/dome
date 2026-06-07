@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * Additional AI tool implementations for LangGraph (main process only).
+ * Additional AI tool implementations for the agent runtime (main process only).
  * Keeps ai-tools-handler.cjs smaller; required from there.
  */
 const fs = require('fs');

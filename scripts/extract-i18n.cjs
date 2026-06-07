@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* eslint-disable */
 /**
- * One-off extraction script for Phase 5 of the Dome → pi-style restructure.
+ * One-off extraction script for Phase 5 of the Dome agent-runtime restructure.
  *
  * Reads the 4 language objects (en/es/fr/pt) inline in
  * `app/lib/i18n.ts` and emits `packages/i18n/locales/<lang>/<namespace>.json`

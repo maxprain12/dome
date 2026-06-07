@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * Native skills discovery via `@dome/agent-core` (PI-style SKILL.md loader).
+ * Native skills discovery via `@dome/agent-core` (SKILL.md loader).
  * Single source of truth for the user skills directory path.
  */
 const path = require('path');

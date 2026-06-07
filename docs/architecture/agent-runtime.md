@@ -4,6 +4,11 @@ Dome runs **one** agent runtime: the Dome-native loop in `@dome/agent-core`.
 Every agent surface — Many chat, agent-chat runs, workflow agent nodes,
 Agent Team, and the bench harness — goes through it.
 
+> **Upstream reference:** session layout, harness orchestration, and multi-provider
+> LLM connectors were informed by the open-source [pi](https://github.com/earendil-works/pi)
+> project (`pi/packages/agent`, `pi/packages/ai`). Dome vendors and extends that design
+> as `@dome/agent-core` and `@dome/ai`; product code does not depend on the upstream repo.
+
 ## Entry point
 
 `electron/agents/agent-runtime.cjs` is the single entry point:
@@ -25,7 +30,7 @@ compaction), JSONL session persistence, and skills in the system prompt.
 | Sessions | `JsonlSessionRepo` at `{userData}/agent-sessions/`, `threadId` or `session_{sessionId}` |
 | Skills | `loadSkills` + `formatSkillsForSystemPrompt` in harness `systemPrompt` callback |
 | MCP | `getMCPTools` → `AgentTool[]`, merged with `@dome/tools` registry |
-| Tools | `createToolRegistry` + main-process `executeToolInMain` |
+| Tools | `createToolRegistry` + main-process `executeToolInMain`; `normalizeToolParameters` for strict providers |
 | HITL | `HITL_TOOL_NAMES` + interrupt (`hitlInterrupt`) → `waiting_approval` + `resumeDomeAgent` / `resumeRun` |
 
 ## Skills
@@ -43,17 +48,20 @@ checkpointer). Channels: `threads:list`, `threads:get-state`, `threads:get-histo
 
 ## Removed legacy stack
 
-LangGraph agent stack deleted (`langgraph-agent.cjs`, checkpointer, subagents, …).
-Removed npm deps: `langchain`, `@langchain/langgraph-checkpoint-sqlite`, `deepagents`.
+LangGraph fully removed — agent stack (`langgraph-agent.cjs`, checkpointer, subagents)
+**and** the workflow `StateGraph` orchestrator. Workflows now run on a native
+topological DAG executor in `run-engine.cjs` (`executeWorkflowRun` → `topologicalLevels`,
+level-parallel with per-node retry; each node runs through the harness).
+Removed npm deps: `langchain`, `@langchain/langgraph`, `@langchain/langgraph-checkpoint-sqlite`, `deepagents`.
 
-Still present (not the agent runtime):
+Still present (not LangGraph / not the agent runtime):
 
-- `@langchain/langgraph` — workflow node orchestrator (`StateGraph` in `run-engine.cjs`).
+- `@langchain/core` — base types for the plain LLM wrappers in `llm-service.cjs`.
 - `@langchain/mcp-adapters` — MCP tool client (converted to native `AgentTool[]` in bridge).
 
 ## Context usage UI (Many)
 
-PI-style **context calculator** in the Many header (sidebar) or above the composer
+**Context calculator** in the Many header (sidebar) or above the composer
 (fullscreen):
 
 | Piece | Implementation |
@@ -68,9 +76,9 @@ Manual: `threads:compact` IPC → `session_compact` event.
 Estimates use chars÷4 (refined with `estimateContextTokens` when usage blocks exist).
 Live fill uses provider `inputTokens`.
 
-## Many session persistence (PI)
+## Many session persistence
 
-Many chat history follows PI’s JSONL model — not a dual localStorage + SQLite list:
+Many chat history uses a **JSONL session model** — not a dual localStorage + SQLite list:
 
 | Concern | Source of truth |
 | ------- | ---------------- |
@@ -79,7 +87,23 @@ Many chat history follows PI’s JSONL model — not a dual localStorage + SQLit
 | UI meta (title, pin, active id) | `localStorage` `dome-many-sessions-ui:v1` + `dome-many-sessions-meta:v1` |
 | Traceability | SQLite `chat_sessions` / `chat_messages` (secondary; not used to hydrate Many UI) |
 
-**Stable `threadId`:** Many uses `currentSessionId` as the JSONL session id for every run in that chat. Nested subagent runs create child JSONL files with `parentSession` pointing at the parent path (PI-style); they never appear in the Many sidebar.
+**Stable `threadId`:** Many uses `currentSessionId` as the JSONL session id for every run in that chat. Nested subagent runs create child JSONL files with `parentSession` pointing at the parent path; they never appear in the Many sidebar.
+
+## Workflows: message propagation
+
+Workflow agent nodes do **not** share multi-turn chat history. Each node receives:
+
+- Its own system prompt (from the configured agent).
+- A single user message: workflow `inputTemplate.prompt` + merged upstream **text** (`mergePayloads`, joined with `---`).
+
+Downstream nodes see only the **final assistant text** of upstream agent nodes (`fullResponse`), not internal tool traces. Parallel nodes at the same DAG level only see outputs from prior levels.
+
+## Provider tool schema (MiniMax / strict APIs)
+
+`@dome/ai` and `@dome/tools` normalize tool `parameters` / `input_schema` to a non-empty
+`{ type: "object", properties: {} }` shape. MiniMax does **not** support Anthropic native
+server web tools (`web_search_20250305`); Many/workflows keep HTTP `web_search` / `web_fetch`
+client tools for that provider.
 
 ## Native capabilities (gaps closed)
 

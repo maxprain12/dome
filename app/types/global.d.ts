@@ -991,7 +991,7 @@ declare global {
           content?: string;
           error?: string;
         }>;
-        streamLangGraph: (
+        streamAgent: (
           provider:
             | 'openai'
             | 'anthropic'
@@ -1020,8 +1020,8 @@ declare global {
           mcpServerIds?: string[],
           subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>
         ) => Promise<{ success: boolean; error?: string }>;
-        abortLangGraph: (streamId: string) => Promise<void>;
-        resumeLangGraph: (opts: {
+        abortAgent: (streamId: string) => Promise<void>;
+        resumeAgent: (opts: {
           threadId: string;
           streamId: string;
           decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>;

@@ -1,5 +1,5 @@
 /**
- * Shared LangGraph run-subscription hook for any chat surface
+ * Shared the agent runtime run-subscription hook for any chat surface
  * (Many, Agent chat, Agent Team...).
  *
  * Centralizes the duplicated chunk / run-update handling that used to live
@@ -34,7 +34,7 @@ export interface RunPendingApproval {
 
 type Updater<T> = T | ((prev: T) => T);
 
-export interface LangGraphRunStreamOptions {
+export interface AgentRunStreamOptions {
   /** Current run to subscribe to. When null the hook is a no-op. */
   activeRunId: string | null;
   /** Updates the streaming assistant bubble. */
@@ -72,10 +72,10 @@ export interface LangGraphRunStreamOptions {
 }
 
 /**
- * Subscribe to a LangGraph run's events and keep `streamingMessage` up to date.
+ * Subscribe to a the agent runtime run's events and keep `streamingMessage` up to date.
  *
  * Usage:
- *   useLangGraphRunStream({
+ *   useAgentRunStream({
  *     activeRunId,
  *     setStreamingMessage,
  *     setPendingApproval,
@@ -83,7 +83,7 @@ export interface LangGraphRunStreamOptions {
  *     t,
  *   });
  */
-export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void {
+export function useAgentRunStream(options: AgentRunStreamOptions): void {
   const {
     activeRunId,
     setStreamingMessage,

@@ -754,7 +754,7 @@ async function executeToolInMain(toolName, args, toolContext) {
 
 /**
  * OpenAI-format tool definitions per subagent.
- * Used by the subagents architecture (langgraph-agent).
+ * Used by the subagents architecture (agent-runtime).
  * @returns {{ research: Array, library: Array, writer: Array, data: Array }}
  */
 function getToolDefsBySubagent() {

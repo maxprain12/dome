@@ -64,8 +64,8 @@ function extractThinking(content: unknown): string | undefined {
   return parts.length > 0 ? parts.join('\n') : undefined;
 }
 
-/** Convert PI harness messages (JSONL context) into Many UI messages. */
-export function piMessagesToManyMessages(raw: unknown[]): ManyMessage[] {
+/** Convert agent harness messages (JSONL context) into Many UI messages. */
+export function harnessMessagesToManyMessages(raw: unknown[]): ManyMessage[] {
   const out: ManyMessage[] = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
@@ -126,15 +126,21 @@ export function isNestedManyThreadId(threadId: string): boolean {
   return NESTED_MANY_THREAD_ID_RE.test(threadId) || threadId.startsWith('many_');
 }
 
-/** List JSONL sessions (PI source of truth) for Many sidebar. */
-export async function listManyThreadSummaries(limit = 50): Promise<ThreadSessionSummary[]> {
-  if (!window.electron?.threads?.list) return [];
+/**
+ * List JSONL sessions (source of truth) for the Many sidebar.
+ * `ok` distinguishes "no sessions" from "listing failed" so callers can avoid
+ * garbage-collecting local UI meta on a transient IPC error.
+ */
+export async function listManyThreadSummariesResult(
+  limit = 50,
+): Promise<{ ok: boolean; summaries: ThreadSessionSummary[] }> {
+  if (!window.electron?.threads?.list) return { ok: false, summaries: [] };
   try {
     const result = await window.electron.threads.list({ limit, rootOnly: true });
-    if (result.error || !Array.isArray(result.threads)) return [];
+    if (result.error || !Array.isArray(result.threads)) return { ok: false, summaries: [] };
     const deleted = getDeletedManySessionIds();
     const uiMeta = loadManySessionUiMeta();
-    return result.threads
+    const summaries = result.threads
       .filter((thread) => !deleted.has(thread.threadId) && !isNestedManyThreadId(thread.threadId))
       .map((thread) => {
         const meta = uiMeta[thread.threadId];
@@ -146,10 +152,17 @@ export async function listManyThreadSummaries(limit = 50): Promise<ThreadSession
           messageCount: thread.checkpointCount ?? 0,
         };
       });
+    return { ok: true, summaries };
   } catch (err) {
     console.warn('[Many] threads:list failed:', err);
-    return [];
+    return { ok: false, summaries: [] };
   }
+}
+
+/** List JSONL sessions (source of truth) for Many sidebar. */
+export async function listManyThreadSummaries(limit = 50): Promise<ThreadSessionSummary[]> {
+  const { summaries } = await listManyThreadSummariesResult(limit);
+  return summaries;
 }
 
 /** Load messages for a thread from JSONL via threads:get-state. */
@@ -163,7 +176,7 @@ export async function fetchManyMessagesFromThread(threadId: string): Promise<Man
     } | undefined;
     const raw = checkpoint?.channel_values?.messages;
     if (!Array.isArray(raw)) return [];
-    return piMessagesToManyMessages(raw);
+    return harnessMessagesToManyMessages(raw);
   } catch (err) {
     console.warn('[Many] threads:get-state failed:', err);
     return [];

@@ -2,7 +2,7 @@
  * Calendar Tools
  *
  * Tools for the AI agent to create, update, delete, and list calendar events.
- * In Many (main-process LangGraph), create/update/delete go through human-in-the-loop approval before applying.
+ * In Many (main-process the agent runtime), create/update/delete go through human-in-the-loop approval before applying.
  */
 
 import { Type } from '@sinclair/typebox';

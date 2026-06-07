@@ -222,6 +222,7 @@ export default function AIOllamaProviderConfig({
             placeholder={t('settings.ai.chat_model')}
             disabled={loadingModels}
             providerType="ollama"
+            providerId="ollama"
           />
         ) : (
           <DomeInput value={ollamaModel} onChange={(e) => onOllamaModelChange(e.target.value)} placeholder="llama3.2" />

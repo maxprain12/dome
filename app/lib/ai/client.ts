@@ -936,7 +936,7 @@ export async function chat(
 }
 
 /**
- * Plain streaming completion without tools. For tool-calling, use chatWithToolsStream (LangGraph).
+ * Plain streaming completion without tools. For tool-calling, use chatWithToolsStream (the agent runtime).
  * The optional `tools` positional arg is kept as `undefined`-only for backward call-site
  * compatibility; it is no longer forwarded to providers.
  */
@@ -1052,7 +1052,7 @@ export async function* chatStream(
 }
 
 // =============================================================================
-// Tool Execution (LangGraph)
+// Tool Execution (the agent runtime)
 // =============================================================================
 
 type StreamChunkData = {
@@ -1069,7 +1069,7 @@ type StreamChunkData = {
 };
 
 /**
- * Stream chat with tools using LangGraph agent.
+ * Stream chat with tools using agent runtime.
  * Yields chunks in real time (text, thinking, tool_call, tool_result, done, error).
  */
 export async function* chatWithToolsStream(
@@ -1083,8 +1083,8 @@ export async function* chatWithToolsStream(
     subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>;
   },
 ): AsyncIterable<import('./types').ChatStreamChunk> {
-  if (!isElectron() || !window.electron?.ai?.streamLangGraph) {
-    throw new Error('Chat with tools requires Electron with LangGraph support');
+  if (!isElectron() || !window.electron?.ai?.streamAgent) {
+    throw new Error('Chat with tools requires Electron with agent runtime support');
   }
 
   const config = await getAIConfig();
@@ -1092,7 +1092,7 @@ export async function* chatWithToolsStream(
 
   const provider = config.provider as string;
   if (provider === 'dome') {
-    // Architecture-first fallback: Dome proxy streaming without LangGraph runtime.
+    // Architecture-first fallback: Dome proxy streaming without agent runtime.
     // Tool orchestration remains in phase 2.
     const toolDefinitions = toOpenAIToolDefinitions(tools);
     yield* streamDome(messages, config.model || getDefaultModelId('dome'), toolDefinitions);
@@ -1110,9 +1110,9 @@ export async function* chatWithToolsStream(
   let done = false;
   let streamError: Error | null = null;
 
-  if (options?.signal && window.electron?.ai?.abortLangGraph) {
+  if (options?.signal && window.electron?.ai?.abortAgent) {
     options.signal.addEventListener('abort', () => {
-      window.electron.ai.abortLangGraph(streamId);
+      window.electron.ai.abortAgent(streamId);
     });
   }
 
@@ -1144,7 +1144,7 @@ export async function* chatWithToolsStream(
         reviewConfigs,
         submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
           if (threadId) {
-            void window.electron?.ai?.resumeLangGraph?.({ threadId, streamId, decisions });
+            void window.electron?.ai?.resumeAgent?.({ threadId, streamId, decisions });
           }
         },
       });
@@ -1161,7 +1161,7 @@ export async function* chatWithToolsStream(
     }
   });
 
-  const invokePromise = window.electron.ai.streamLangGraph(
+  const invokePromise = window.electron.ai.streamAgent(
     provider as AIProviderType,
     messages,
     model,
@@ -1204,7 +1204,7 @@ export async function* chatWithToolsStream(
 }
 
 /**
- * Execute a chat with tools using LangGraph agent (runs in main process).
+ * Execute a chat with tools using agent runtime (runs in main process).
  * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. run engine).
  */
 export async function chatWithTools(

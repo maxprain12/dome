@@ -79,7 +79,7 @@ export {
   type ActionGate,
 } from './common';
 
-// LangChain adapter (for LangGraph integration)
+// LangChain adapter (for agent tool integration)
 export {
   toLangChainTools,
   toLangChainToolsFromOpenAIDefinitions,

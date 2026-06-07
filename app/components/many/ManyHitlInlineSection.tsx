@@ -3,20 +3,20 @@ import { useTranslation } from 'react-i18next';
 import ManyHitlInlineCard from './ManyHitlInlineCard';
 import ManyMinimalStatusRow from './ManyMinimalStatusRow';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
-import type { RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 
 interface ManyHitlInlineSectionProps {
   pendingApproval: RunPendingApproval | null;
-  onDismissLangGraph?: () => void;
+  onDismissApproval?: () => void;
 }
 
 /**
- * Renders HITL inline in the Many message stream (approval queue + LangGraph interrupt).
+ * Renders HITL inline in the Many message stream (approval queue + agent interrupt).
  */
 export default function ManyHitlInlineSection({
   pendingApproval,
-  onDismissLangGraph,
+  onDismissApproval,
 }: ManyHitlInlineSectionProps) {
   const { t } = useTranslation();
   const queue = useApprovalStore((s) => s.queue);
@@ -89,7 +89,7 @@ export default function ManyHitlInlineSection({
       ) : null}
 
       {pendingApproval ? (
-        <HITLReviewPanel pendingApproval={pendingApproval} onDismiss={onDismissLangGraph} inline />
+        <HITLReviewPanel pendingApproval={pendingApproval} onDismiss={onDismissApproval} inline />
       ) : null}
 
       <div className="many-hitl-stream-status">

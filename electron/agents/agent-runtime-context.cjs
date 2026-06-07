@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Typed runtime context for LangGraph tool execution (Many / runs / IPC).
+ * Typed runtime context for the agent runtime tool execution (Many / runs / IPC).
  * Strips unknown keys and normalizes shapes at the trust boundary.
  */
 

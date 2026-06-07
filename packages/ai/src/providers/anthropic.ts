@@ -39,6 +39,7 @@ import {
 	anthropicNativeWebBetaHeaders,
 	buildAnthropicServerWebTools,
 } from "../native-web-tools.js";
+import { normalizeToolSchema } from "../utils/tool-schema.js";
 import { transformMessages } from "./transform-messages.js";
 
 /**
@@ -967,7 +968,7 @@ function buildParams(
 	const nativeWeb = options?.nativeWeb;
 	if (nativeWeb && (nativeWeb.search || nativeWeb.fetch)) {
 		const serverTools = buildAnthropicServerWebTools(nativeWeb);
-		params.tools = [...(params.tools ?? []), ...(serverTools as Anthropic.Messages.Tool[])];
+		params.tools = [...(params.tools ?? []), ...(serverTools as unknown as Anthropic.Messages.Tool[])];
 	}
 
 	// Configure thinking mode: adaptive, budget-based, or explicitly disabled.
@@ -1121,10 +1122,13 @@ function convertMessages(
 						});
 					}
 				} else if (block.type === "toolCall") {
+					const toolName = isOAuthToken ? toClaudeCodeName(block.name) : block.name;
+					// MiniMax rejects tool_use blocks with an empty name (error 2013).
+					if (!toolName) continue;
 					blocks.push({
 						type: "tool_use",
 						id: block.id,
-						name: isOAuthToken ? toClaudeCodeName(block.name) : block.name,
+						name: toolName,
 						input: block.arguments ?? {},
 					});
 				}
@@ -1198,6 +1202,10 @@ function convertMessages(
 }
 
 function shouldUseFineGrainedToolStreamingBeta(model: Model<"anthropic-messages">, context: Context): boolean {
+	const provider = String(model.provider || "").toLowerCase();
+	// MiniMax streams tool names as deltas; content_block_start can carry name:"".
+	// That empty name lands in session history and triggers error 2013 on the next turn.
+	if (provider === "minimax" || provider === "minimax-cn") return false;
 	return !!context.tools?.length && !getAnthropicCompat(model).supportsEagerToolInputStreaming;
 }
 
@@ -1209,19 +1217,16 @@ function convertTools(
 ): Anthropic.Messages.Tool[] {
 	if (!tools) return [];
 
-	return tools.map((tool, index) => {
-		const schema = tool.parameters as { properties?: unknown; required?: string[] };
+	const eligible = tools.filter((tool) => typeof tool.name === "string" && tool.name.length > 0);
+	return eligible.map((tool, index) => {
+		const schema = normalizeToolSchema(tool.parameters);
 
 		return {
 			name: isOAuthToken ? toClaudeCodeName(tool.name) : tool.name,
 			description: tool.description,
 			...(supportsEagerToolInputStreaming ? { eager_input_streaming: true } : {}),
-			input_schema: {
-				type: "object",
-				properties: schema.properties ?? {},
-				required: schema.required ?? [],
-			},
-			...(cacheControl && index === tools.length - 1 ? { cache_control: cacheControl } : {}),
+			input_schema: schema,
+			...(cacheControl && index === eligible.length - 1 ? { cache_control: cacheControl } : {}),
 		};
 	});
 }

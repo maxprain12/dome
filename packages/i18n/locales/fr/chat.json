@@ -134,7 +134,7 @@
   "tree_tool_nodes": "Nœuds",
   "tree_tool_hint": "Utilisez file_list ou file_tree limité plutôt que directory_tree sur de grands dossiers.",
   "tool_group_count": "{{label}} ({{count}})",
-  "langgraph_required": "Many nécessite le runtime LangGraph pour fonctionner.",
+  "agent_tools_required": "Many nécessite le runtime d'agent pour fonctionner.",
   "thinking_evaluating_tools": "Réflexion et évaluation des outils...",
   "many_run_title": "Exécution Many",
   "stream_call_data_agent": "Traitement des données",

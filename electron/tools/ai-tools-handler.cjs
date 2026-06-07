@@ -2142,12 +2142,12 @@ async function flashcardCreate(data) {
 }
 
 // =============================================================================
-// Web Fetch Tool (LangGraph)
+// Web Fetch Tool (the agent runtime)
 // =============================================================================
 
 /**
  * Fetch and extract content from a web page using BrowserWindow (handles JS, cookies).
- * Used by LangGraph when the AI requests to read a URL.
+ * Used by the agent runtime when the AI requests to read a URL.
  * @param {Object} args - Tool arguments
  * @param {string} args.url - URL to fetch (required)
  * @param {number} [args.maxLength=50000] - Max content length
@@ -2219,7 +2219,7 @@ async function webFetch(args) {
 }
 
 // =============================================================================
-// Web Search Tool (LangGraph / Subagents)
+// Web Search Tool (the agent runtime / Subagents)
 // =============================================================================
 
 const WEB_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -2618,7 +2618,7 @@ async function getRelatedResources({ resource_id } = {}) {
 /**
  * Generate a semantic similarity graph around a resource.
  * Mirrors the renderer `db:semantic:getGraph` implementation so that
- * LangGraph tool calls from main can produce the same payload.
+ * the agent runtime tool calls from main can produce the same payload.
  * @param {Object} params
  * @param {string} params.focus_resource_id - Center resource
  * @param {number} [params.min_weight=0.35] - Minimum edge similarity (0-1)
@@ -3134,7 +3134,7 @@ async function gemmaScreenUnderstand(args) {
 }
 
 // =============================================================================
-// LangGraph bridges (bundled marketplace, browser tab, workflow, images, studio)
+// the agent runtime bridges (bundled marketplace, browser tab, workflow, images, studio)
 // =============================================================================
 
 const aiToolsExtra = require('./ai-tools-extra.cjs');
@@ -3240,7 +3240,7 @@ async function gatherStudioTableContext(args) {
 }
 
 // =============================================================================
-// UI Interaction Tools (LangGraph path — dispatches to renderer via IPC)
+// UI Interaction Tools (agent path — dispatches to renderer via IPC)
 // =============================================================================
 
 /**
@@ -3519,7 +3519,7 @@ async function shellExec(args, toolContext = null) {
 }
 
 // =============================================================================
-// Artifact tools (LangGraph / main process — mirrors IPC artifact:* handlers)
+// Artifact tools (the agent runtime / main process — mirrors IPC artifact:* handlers)
 // =============================================================================
 
 function _isPlainObject(value) {
@@ -4054,7 +4054,7 @@ module.exports = {
   // Flashcard tools
   flashcardCreate,
 
-  // Web tools (LangGraph)
+  // Web tools (the agent runtime)
   webFetch,
   webSearch,
   testWebSearchConnection,

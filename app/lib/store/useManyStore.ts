@@ -9,12 +9,14 @@ import {
   MAX_MANY_SESSIONS,
   persistManySessionMeta,
   persistManySessions,
+  pruneManySessionUiMeta,
+  removeManySessionUiMeta,
   sanitizeManySessionTitle,
   setPersistedCurrentManySessionId,
 } from '@/lib/store/manySessionStorage';
 import {
   isNestedManyThreadId,
-  listManyThreadSummaries,
+  listManyThreadSummariesResult,
 } from '@/lib/chat/manyThreadBridge';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
@@ -83,23 +85,18 @@ function trimSessions(sessions: ManyChatSession[], currentId: string | null): Ma
 
 const initialState = loadManySessionsFromStorage();
 
-// Ensure we have at least one session when store hydrates with empty state
+// Ensure we always have a "current" chat to type into when the store hydrates
+// empty. This is an EPHEMERAL in-memory draft: it is NOT added to the session
+// list nor persisted to UI meta. It only becomes a real, listed session once the
+// first message is sent (see addMessage), which is also when its JSONL thread is
+// created. This prevents empty "New chat" entries from polluting the history.
 function ensureInitialSession(
   state: { sessions: ManyChatSession[]; currentSessionId: string | null; messages: ManyMessage[] }
 ): typeof state {
-  if (state.sessions.length > 0) return state;
-  const newSession: ManyChatSession = {
-    id: createSessionId(),
-    title: 'New chat',
-    messages: [],
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-  persistManySessions([newSession]);
-  setPersistedCurrentManySessionId(newSession.id);
+  if (state.currentSessionId) return state;
   return {
-    sessions: [newSession],
-    currentSessionId: newSession.id,
+    sessions: state.sessions,
+    currentSessionId: createSessionId(),
     messages: [],
   };
 }
@@ -132,7 +129,7 @@ interface ManyState {
   updateSessionTitle: (id: string, title: string) => void;
   toggleSessionPin: (id: string) => void;
   hydrateSession: (session: ManyChatSession) => void;
-  /** Load session list from JSONL (PI) and merge with local UI meta. */
+  /** Load session list from JSONL and merge with local UI meta. */
   hydrateFromThreads: () => Promise<void>;
   setCurrentInput: (input: string) => void;
   incrementUnread: () => void;
@@ -299,34 +296,29 @@ export const useManyStore = create<ManyState>((set, get) => ({
   },
 
   startNewChat: () => {
-    const newSession: ManyChatSession = {
-      id: createSessionId(),
-      title: 'New chat',
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    const { sessions } = get();
-    const nextSessions = trimSessions([newSession, ...sessions], newSession.id);
-    persistManySessions(nextSessions);
-    setPersistedCurrentManySessionId(newSession.id);
+    // The new chat is an ephemeral in-memory draft: not listed, not persisted.
+    // It is promoted to a real session on the first message (addMessage), which
+    // also creates its JSONL thread. The existing session list is left intact.
+    const newId = createSessionId();
+    setPersistedCurrentManySessionId(newId);
     set({
-      sessions: nextSessions,
-      currentSessionId: newSession.id,
+      currentSessionId: newId,
       messages: [],
     });
   },
 
   switchSession: (id) => {
-    const { sessions } = get();
+    if (isManySessionDeleted(id)) return;
+    const { sessions, currentSessionId } = get();
+    if (id === currentSessionId) return;
+    setPersistedCurrentManySessionId(id);
     const session = sessions.find((s) => s.id === id);
-    if (session) {
-      setPersistedCurrentManySessionId(id);
-      set({
-        currentSessionId: id,
-        messages: [...session.messages],
-      });
-    }
+    // If the session isn't in the in-memory list yet (JSONL-backed but not
+    // hydrated), still switch: ManyPanel loads its messages from JSONL by id.
+    set({
+      currentSessionId: id,
+      messages: session ? [...session.messages] : [],
+    });
   },
 
   deleteSession: async (id) => {
@@ -339,13 +331,16 @@ export const useManyStore = create<ManyState>((set, get) => ({
         console.warn('[ManyStore] threads:delete failed:', err);
       }
     }
+    removeManySessionUiMeta(id);
     const nextSessions = filterOutDeletedSessions(sessions.filter((s) => s.id !== id));
     persistManySessions(nextSessions);
     let nextId = currentSessionId;
     let nextMessages = get().messages;
     if (currentSessionId === id) {
       const nextCurrent = nextSessions[0];
-      nextId = nextCurrent?.id ?? null;
+      // Fall back to the most recent remaining session, or a fresh in-memory
+      // draft (never null) so there is always somewhere to type.
+      nextId = nextCurrent?.id ?? createSessionId();
       nextMessages = nextCurrent?.messages ?? [];
       setPersistedCurrentManySessionId(nextId);
     }
@@ -363,7 +358,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
   },
 
   hydrateFromThreads: async () => {
-    const summaries = await listManyThreadSummaries(MAX_MANY_SESSIONS);
+    const { ok, summaries } = await listManyThreadSummariesResult(MAX_MANY_SESSIONS);
     const uiMeta = loadManySessionUiMeta();
     const { sessions: localSessions, currentSessionId } = get();
     const localById = new Map(localSessions.map((s) => [s.id, s]));
@@ -400,6 +395,11 @@ export const useManyStore = create<ManyState>((set, get) => ({
     );
 
     persistManySessions(nextSessions);
+    // Only GC localStorage UI meta when the JSONL listing actually succeeded,
+    // so a transient IPC failure can never wipe metadata for real sessions.
+    if (ok) {
+      pruneManySessionUiMeta(nextSessions.map((s) => s.id));
+    }
     set({ sessions: nextSessions });
   },
 

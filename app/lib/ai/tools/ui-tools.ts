@@ -3,16 +3,16 @@
  * These tools run entirely in the renderer process — no IPC needed.
  * They read/write DOM directly and control Dome navigation via the tab store.
  *
- * When called through LangGraph they must still be in the renderer tool registry
- * (schema-only for LangGraph), but their execute() functions are what Many uses
+ * When called through the agent runtime they must still be in the renderer tool registry
+ * (schema-only for the agent runtime), but their execute() functions are what Many uses
  * for direct client-side invocation.
  *
- * NOTE: LangGraph routes tool calls through executeToolInMain, which means these
- * tools need corresponding entries in TOOL_HANDLER_MAP for LangGraph path.
- * For the LangGraph path they are handled by a thin handler that returns
+ * NOTE: the agent runtime routes tool calls through executeToolInMain, which means these
+ * tools need corresponding entries in TOOL_HANDLER_MAP for agent path.
+ * For the agent path they are handled by a thin handler that returns
  * { status: 'ui_action_dispatched' } and the real work is done via a renderer
  * event. For simplicity, we also support a direct renderer execution path when
- * Many uses non-LangGraph calls.
+ * Many uses non-harness calls.
  */
 
 import { Type } from '@sinclair/typebox';

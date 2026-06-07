@@ -19,7 +19,7 @@ function getVoiceForCurrentLanguage(): string {
 }
 
 /**
- * Fallback TTS for non-run-engine paths (e.g. direct AI chat without LangGraph).
+ * Fallback TTS for non-run-engine paths (e.g. direct AI chat without the agent runtime).
  * For run-engine flows, streaming TTS in electron/streaming-tts.cjs handles playback.
  */
 export async function playManyAssistantTts(rawText: string): Promise<void> {

@@ -141,7 +141,7 @@ function parseToolArguments(rawArguments) {
   return rawArguments && typeof rawArguments === 'object' ? rawArguments : {};
 }
 
-/** Merge LLM token usage chunks (e.g. multiple LangGraph invokes / resume). */
+/** Merge LLM token usage chunks (e.g. multiple agent invokes / resume). */
 function mergeLlmUsage(current, delta) {
   if (!delta || typeof delta !== 'object') return current || null;
   const dIn = Math.max(0, Math.floor(Number(delta.inputTokens ?? delta.input_tokens ?? 0) || 0));
@@ -1130,7 +1130,7 @@ function createRunChunkEmitter(runId, context) {
             reviewConfigs,
             pendingToolCall: data.pendingToolCall ?? null,
           },
-          resumeOpts: context.langGraphResumeOpts ?? null,
+          resumeOpts: context.agentResumeOpts ?? null,
           ...(context.llmUsage ? { usage: context.llmUsage } : {}),
         },
         lastHeartbeatAt: heartbeat,
@@ -1146,14 +1146,14 @@ function createRunChunkEmitter(runId, context) {
   };
 }
 
-async function executeLangGraphRun(runId, params) {
+async function executeAgentRun(runId, params) {
   const context = activeRunContexts.get(runId);
   if (!context) return;
   patchRun(runId, {
     status: 'running',
     threadId: context.threadId,
     metadata: {
-      kind: 'langgraph',
+      kind: 'harness',
       provider: context.provider,
       model: context.model,
       mcpServerIds: params.mcpServerIds ?? [],
@@ -1169,7 +1169,7 @@ async function executeLangGraphRun(runId, params) {
     stepType: 'info',
     title: 'Run iniciado',
     status: 'done',
-    content: params.title ?? 'Ejecución LangGraph',
+    content: params.title ?? 'Ejecución de agente',
   });
   const useDirectToolsRun =
     params.ownerType === 'many' ||
@@ -1180,7 +1180,7 @@ async function executeLangGraphRun(runId, params) {
     activeResourceId: params.contextId || null,
     pinnedResourceIds: Array.isArray(params.pinnedResourceIds) ? params.pinnedResourceIds : [],
   });
-  context.langGraphResumeOpts = {
+  context.agentResumeOpts = {
     messages: params.messages ?? [],
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
@@ -1192,9 +1192,8 @@ async function executeLangGraphRun(runId, params) {
   };
 
   // Single-agent surface: Many (ownerType 'many') and agent-chat (ownerType
-  // 'agent') share this path. Route each through the selector under its own
-  // surface so DOME_AGENT_RUNTIME[_MANY] / [_AGENT_CHAT] can opt in
-  // independently; default is a transparent pass-through to LangGraph.
+  // 'agent') share this path. Both run through the Dome-native harness
+  // (`@dome/agent-core`) under their own surface name.
   const runSurface = params.ownerType === 'agent' ? 'agent-chat' : 'many';
   try {
     const result = await agentRuntime.runAgent(runSurface, {
@@ -1257,7 +1256,7 @@ async function executeLangGraphRun(runId, params) {
       error: null,
       threadId: context.threadId,
       metadata: {
-        kind: 'langgraph',
+        kind: 'harness',
         provider: context.provider,
         model: context.model,
         toolCalls: context.toolCalls,
@@ -1291,7 +1290,7 @@ async function executeLangGraphRun(runId, params) {
       finishedAt: now(),
       metadata: {
         ...currentMeta,
-        kind: currentMeta.kind ?? 'langgraph',
+        kind: currentMeta.kind ?? 'harness',
         provider: context.provider,
         model: context.model,
         toolCalls: context.toolCalls,
@@ -1334,7 +1333,7 @@ async function executeLangGraphRun(runId, params) {
   }
 }
 
-async function startLangGraphRun(params) {
+async function startAgentRun(params) {
   const providerConfig = await getProviderConfig(params.provider, params.model);
   // Anchor thread_id to session_id when available so checkpoint history and
   // chat messages are correlated. Automations without a session get a unique run ID.
@@ -1351,7 +1350,7 @@ async function startLangGraphRun(params) {
     workflowId: params.workflowId ?? null,
     threadId,
     metadata: {
-      kind: 'langgraph',
+      kind: 'harness',
       provider: providerConfig.provider,
       model: providerConfig.model,
       contextId: params.contextId ?? null,
@@ -1381,7 +1380,7 @@ async function startLangGraphRun(params) {
     streamingTts.start(run.id, { language: voiceLanguage });
   }
   setImmediate(() => {
-    void executeLangGraphRun(run.id, {
+    void executeAgentRun(run.id, {
       ...params,
       sessionId: run.sessionId,
       title: run.title,
@@ -1505,7 +1504,7 @@ async function resumeRun(runId, decisions) {
       error: null,
       threadId: context.threadId,
       metadata: {
-        kind: metadata.kind ?? 'langgraph',
+        kind: metadata.kind ?? 'harness',
         provider: context.provider,
         model: context.model,
         toolCalls: context.toolCalls,
@@ -1624,13 +1623,13 @@ async function executeWorkflowRun(runId, params, workflow) {
     },
   });
   try {
-    const { StateGraph, START, END, Annotation } = require('@langchain/langgraph');
-    const WorkflowState = Annotation.Root({
-      payloads: Annotation({ reducer: (a, b) => ({ ...a, ...b }), default: () => ({}) }),
-    });
-    const wfGraph = new StateGraph(WorkflowState);
+    // Native DAG executor (replaces the former @langchain/langgraph StateGraph).
+    // Nodes are sequenced by topological level and run through the Dome-native
+    // harness; there is no LangGraph dependency in the agent/workflow path.
     const wfNodes = workflow.nodes || [];
     const wfEdges = workflow.edges || [];
+    const state = { payloads: {} };
+    const nodeRunners = new Map();
 
     // Retry policy: up to 2 retries with exponential back-off for transient errors
     const wfRetryPolicy = {
@@ -1651,7 +1650,7 @@ async function executeWorkflowRun(runId, params, workflow) {
     };
 
     for (const node of wfNodes) {
-      wfGraph.addNode(node.id, async (state) => {
+      nodeRunners.set(node.id, async (state) => {
         const data = node.data ?? {};
         if (data.type === 'text-input' || data.type === 'document' || data.type === 'image') {
           const output = resolveStaticNodeOutput(node);
@@ -1830,26 +1829,39 @@ async function executeWorkflowRun(runId, params, workflow) {
         }
         // Unknown node type — pass through
         return { payloads: { [node.id]: { kind: 'text', text: '' } } };
-      }, { retryPolicy: wfRetryPolicy });
+      });
     }
 
-    // Wire edges: START → entry nodes, workflow edges, terminal nodes → END
-    const hasIncoming = new Set(wfEdges.map((e) => e.target));
-    const hasOutgoing = new Set(wfEdges.map((e) => e.source));
-    for (const node of wfNodes) {
-      if (!hasIncoming.has(node.id)) wfGraph.addEdge(START, node.id);
-      if (!hasOutgoing.has(node.id)) wfGraph.addEdge(node.id, END);
-    }
-    for (const edge of wfEdges) {
-      wfGraph.addEdge(edge.source, edge.target);
-    }
+    // Execute nodes in topological order. Nodes in the same level have no
+    // dependency between them and run in parallel; each retries transient
+    // failures per `wfRetryPolicy`. Upstream outputs accumulate in
+    // `state.payloads`. (No checkpoint persistence: workflows do not replay
+    // mid-graph across restarts.)
+    const runNodeWithRetry = async (runner) => {
+      let attempt = 0;
+      for (;;) {
+        try {
+          return await runner(state);
+        } catch (err) {
+          attempt += 1;
+          if (attempt >= wfRetryPolicy.maxAttempts || !wfRetryPolicy.retryOn(err)) throw err;
+          const base = wfRetryPolicy.initialInterval * wfRetryPolicy.backoffFactor ** (attempt - 1);
+          const delay = base + base * wfRetryPolicy.jitter * Math.random();
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        }
+      }
+    };
 
-    // The workflow orchestrator still uses a LangGraph StateGraph to sequence
-    // nodes, but the SqliteSaver checkpointer was removed with the LangGraph
-    // agent runtime. Workflows run without checkpoint persistence (no
-    // mid-graph HITL replay across restarts).
-    const compiled = wfGraph.compile();
-    await compiled.invoke({}, { configurable: { thread_id: `wf_${runId}` } });
+    const levels = topologicalLevels(wfNodes, wfEdges);
+    for (const level of levels) {
+      if (context.controller?.signal?.aborted || !getRun(runId)) break;
+      const results = await Promise.all(
+        level.map((node) => runNodeWithRetry(nodeRunners.get(node.id))),
+      );
+      for (const result of results) {
+        if (result?.payloads) Object.assign(state.payloads, result.payloads);
+      }
+    }
 
     let createdNote = null;
     const outputMode = params.outputMode || 'chat_only';
@@ -2089,7 +2101,7 @@ async function startAutomationNow(automationId) {
   // inputTemplate to generate a fresh thread per run.
   const persistThread = automation.inputTemplate?.persistThread !== false;
   const automationThreadId = persistThread ? `automation_${automation.id}` : undefined;
-  const run = await startLangGraphRun({
+  const run = await startAgentRun({
     automationId: automation.id,
     projectId: automation.projectId ?? 'default',
     ownerType: targetOwnerType,
@@ -2285,7 +2297,7 @@ module.exports = {
   deleteAutomation,
   startAutomationNow,
   fireContextualAutomations,
-  startLangGraphRun,
+  startAgentRun,
   startWorkflowRun,
   resumeRun,
   abortRun,

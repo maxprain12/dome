@@ -7,7 +7,7 @@ const CALENDAR_EVENT_TOOLS = new Set([
   'calendar_update_event',
 ]);
 
-/** Unwrap LangGraph / jsonResult shapes so we read the payload object. */
+/** Unwrap the agent runtime / jsonResult shapes so we read the payload object. */
 export function unwrapToolResultPayload(result: unknown): Record<string, unknown> | null {
   if (result == null) return null;
   if (typeof result === 'string') {

@@ -33,12 +33,12 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('runs:startLangGraph', async (event, params) => {
+  ipcMain.handle('runs:start', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: await runEngine.startLangGraphRun(params || {}) };
+      return { success: true, data: await runEngine.startAgentRun(params || {}) };
     } catch (error) {
-      console.error('[Runs] startLangGraph error:', error);
+      console.error('[Runs] start error:', error);
       return { success: false, error: error.message };
     }
   });

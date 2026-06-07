@@ -15,7 +15,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Frontend**: Vite 7 + React 18 + React Router 7 (client-side SPA, entry: `app/main.tsx`)
 - **Database**: SQLite via **better-sqlite3** in the main process (standard Node stack — the renderer must use IPC, not direct DB access)
 - **Semantic search**: Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB (`dome-lance`); hybrid search combines FTS + graph + vectors; PDF/image text via your configured cloud LLM (vision) where applicable
-- **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). `@langchain/langgraph` remains only as the workflow node orchestrator.
+- **AI**: Dome-native agent runtime (`@dome/agent-core`) for all agent runs; multi-provider (OpenAI, Anthropic, Google, Ollama). LangGraph has been fully removed — workflows are sequenced by a native topological DAG executor in `run-engine.cjs` (each node runs through the harness).
 - **State**: Zustand stores + Jotai atoms
 - **Styling**: Tailwind CSS + CSS Variables + Mantine UI components
 - **i18n**: react-i18next, translations in `app/lib/i18n.ts` (en/es/fr/pt)
@@ -217,7 +217,7 @@ windowManager.create('resource-viewer', { width: 900, height: 700 }, '/resource/
 
 - **Agent runs**: `electron/agents/agent-runtime.cjs` — `runAgent(surface, opts)` drives `@dome/agent-core`'s `runAgentLoop` (stream → tools → repeat, argument validation, before/after tool hooks for guardrails + caps + HITL gate, compaction). Tools are built by `@dome/tools` `createToolRegistry`.
 - **Plain LLM calls** (vision, OCR, editor-ai): `electron/ai/llm-service.cjs` — `chat()/stream()` backed by `createModelFromConfig()` (ChatOpenAI / ChatAnthropic / ChatGoogleGenerativeAI / ChatOllama).
-- **Workflows**: `electron/agents/run-engine.cjs` — `executeWorkflowRun()` still builds a `StateGraph` (`@langchain/langgraph`) to sequence nodes; each agent node calls `runAgent('workflows', …)`.
+- **Workflows**: `electron/agents/run-engine.cjs` — `executeWorkflowRun()` sequences nodes with a native topological DAG executor (`topologicalLevels`, level-parallel + retry); each agent node calls `runAgent('workflows', …)`. No LangGraph.
 - **Tools**: defined in `app/lib/ai/tools/` (renderer-side definitions); actual execution in `electron/tools/ai-tools-handler.cjs` via `tool-dispatcher.cjs`.
 - **Skills**: `~/.dome/skills/<id>/SKILL.md` — `electron/skills/index.cjs` lists them via `@dome/agent-core` `loadSkills` for the `skills:list` IPC. Skill formatting/injection primitives live in `@dome/agent-core` (`formatSkillsForSystemPrompt`). Bundled skills are seeded on first boot by `electron/marketplace/skills-bootstrap.cjs`.
 - **Known gaps after the LangGraph removal** (HITL resume, sub-agent delegation, multi-agent Agent Team, thread time-travel, MCP-in-loop): see [docs/architecture/agent-runtime.md](docs/architecture/agent-runtime.md).

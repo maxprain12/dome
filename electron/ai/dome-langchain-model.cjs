@@ -156,7 +156,7 @@ async function createDomeLangChainModel(cfg) {
   const { convertToOpenAITool } = await import('@langchain/core/utils/function_calling');
   const ai = await import('@dome/ai');
 
-  const piModel = ai.resolveDomeModel({
+  const resolvedModel = ai.resolveDomeModel({
     provider: cfg.provider,
     model: cfg.model,
     baseUrl: cfg.baseUrl,
@@ -209,7 +209,7 @@ async function createDomeLangChainModel(cfg) {
       const { systemPrompt, legacy } = lcMessagesToLegacy(messages);
       const { out, tools } = this._buildStreamOptions(options);
       const context = ai.legacyMessagesToContext(systemPrompt, legacy, tools);
-      const result = await ai.completeSimple(piModel, context, out);
+      const result = await ai.completeSimple(resolvedModel, context, out);
       const message = piMessageToAIMessage(result, AIMessage, ai);
       if (runManager) {
         await runManager.handleLLMNewToken(message.content);
@@ -224,7 +224,7 @@ async function createDomeLangChainModel(cfg) {
       const { systemPrompt, legacy } = lcMessagesToLegacy(messages);
       const { out, tools } = this._buildStreamOptions(options);
       const context = ai.legacyMessagesToContext(systemPrompt, legacy, tools);
-      const eventStream = ai.streamSimple(piModel, context, out);
+      const eventStream = ai.streamSimple(resolvedModel, context, out);
 
       /** @type {Map<number, { id?: string, name?: string, args: string }>} */
       const toolChunks = new Map();

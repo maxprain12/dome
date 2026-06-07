@@ -22,7 +22,10 @@ export function resolveNativeWebSupport(model: Pick<Model<Api>, "api" | "provide
 
 	if (api === "anthropic-messages") {
 		// Anthropic server tools (not available on all proxies / Bedrock).
-		if (provider === "anthropic" || provider === "minimax") {
+		// MiniMax exposes the Anthropic-compatible API but does NOT implement
+		// web_search_20250305 / web_fetch_20250910 — sending them triggers
+		// error 2013 ("function name or parameters is empty"). Keep HTTP client tools.
+		if (provider === "anthropic") {
 			return { search: true, fetch: true };
 		}
 		return { search: false, fetch: false };

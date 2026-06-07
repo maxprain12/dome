@@ -114,7 +114,7 @@ export interface PersistentRunLink {
   createdAt: number;
 }
 
-/** Token usage persisted on `PersistentRun.metadata.usage` (see run-engine / langgraph-agent). */
+/** Token usage persisted on `PersistentRun.metadata.usage` (see run-engine / agent-runtime). */
 export interface PersistentRunUsage {
   inputTokens: number;
   outputTokens: number;
@@ -233,7 +233,7 @@ export async function getActiveRunBySession(sessionId: string): Promise<Persiste
   return invoke<PersistentRun | null>('runs:getActiveBySession', sessionId);
 }
 
-export async function startLangGraphRun(params: {
+export async function startAgentRun(params: {
   automationId?: string | null;
   projectId?: string;
   ownerType: 'many' | 'agent';
@@ -260,7 +260,7 @@ export async function startLangGraphRun(params: {
   /** USER.md / MEMORY.md block for context budget rules segment. */
   userMemory?: string;
 }): Promise<PersistentRun> {
-  return invoke<PersistentRun>('runs:startLangGraph', params);
+  return invoke<PersistentRun>('runs:start', params);
 }
 
 export async function startWorkflowRun(params: {

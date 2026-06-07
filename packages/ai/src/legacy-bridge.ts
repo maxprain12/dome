@@ -1,5 +1,5 @@
 /**
- * Convert Dome legacy chat messages / tool schemas into pi `Context`.
+ * Convert Dome legacy chat messages / tool schemas into agent `Context`.
  */
 
 import { Type } from 'typebox';
@@ -82,7 +82,7 @@ function toolSchemaToPiTool(schema: ToolSchema): Tool {
   };
 }
 
-/** Map Dome thinking level to pi `SimpleStreamOptions.reasoning`. */
+/** Map Dome thinking level to `SimpleStreamOptions.reasoning`. */
 export function mapThinkingLevel(
   level: string | undefined,
 ): 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | undefined {
@@ -98,7 +98,7 @@ export function legacyMessagesToContext(
   messages: LegacyMessage[],
   tools?: ToolSchema[],
 ): Context {
-  const piMessages: Message[] = [];
+  const contextMessages: Message[] = [];
   const now = Date.now();
 
   for (const m of messages ?? []) {
@@ -121,7 +121,7 @@ export function legacyMessagesToContext(
           }
         }
       }
-      piMessages.push({
+      contextMessages.push({
         role: 'user',
         content,
         timestamp: now,
@@ -130,7 +130,7 @@ export function legacyMessagesToContext(
     }
 
     if (m.role === 'assistant' || ('text' in m && m.role !== 'user' && m.role !== 'tool' && m.role !== 'toolResult')) {
-      piMessages.push(legacyAssistantToMessage(m, now));
+      contextMessages.push(legacyAssistantToMessage(m, now));
       continue;
     }
 
@@ -143,13 +143,13 @@ export function legacyMessagesToContext(
         isError: false,
         timestamp: now,
       };
-      piMessages.push(toolMsg);
+      contextMessages.push(toolMsg);
     }
   }
 
   return {
     systemPrompt: systemPrompt || undefined,
-    messages: piMessages,
+    messages: contextMessages,
     tools: tools?.map(toolSchemaToPiTool),
   };
 }

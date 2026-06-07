@@ -66,7 +66,7 @@
   "context_usage_close": "Close",
   "context_usage_full": "{{percent}}% full",
   "context_usage_tokens": "~{{used}} / {{cap}} tokens",
-  "context_usage_footnote": "Segment estimate (chars÷4). % and total use the segment sum, not partial provider input. After each turn the runtime may refine with usage + trailing messages (PI-style).",
+  "context_usage_footnote": "Segment estimate (chars÷4). % and total use the segment sum, not partial provider input. After each turn the runtime may refine with usage and trailing messages.",
   "context_segment_systemPrompt": "System prompt",
   "context_segment_toolsRegistry": "Tool definitions",
   "context_segment_rules": "Rules",

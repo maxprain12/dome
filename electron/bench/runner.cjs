@@ -247,7 +247,7 @@ async function runSingleCase(caseDef, opts) {
 
   let finalText = '';
   let error = null;
-  // HITL interrupts were a LangGraph feature; the Dome-native runtime does not
+  // HITL interrupts were a the agent runtime feature; the Dome-native runtime does not
   // interrupt mid-run. Kept for the result shape consumed downstream.
   const hitInterrupt = false;
 
@@ -278,7 +278,7 @@ async function runSingleCase(caseDef, opts) {
       automationProjectId: BENCH_PROJECT_ID,
     };
 
-    // HITL interrupt/resume was a LangGraph checkpointer feature; the
+    // HITL interrupt/resume was a the agent runtime checkpointer feature; the
     // Dome-native runtime runs straight through (bench cases run with
     // skip_hitl). The final text is accumulated via the onChunk handler above.
     const result = await agentRuntime.runAgent('bench', invokeOpts);

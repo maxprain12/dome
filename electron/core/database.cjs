@@ -2981,7 +2981,7 @@ function runMigrations(db) {
     }
   }
 
-  // Migration 34: agent_store table for LangGraph BaseStore cross-thread memory
+  // Migration 34: agent_store table for the agent runtime BaseStore cross-thread memory
   if (version < 34) {
     console.log('[DB] Running migration 34 - agent_store table');
     try {

@@ -132,7 +132,7 @@
   "tree_tool_nodes": "Nodos",
   "tree_tool_hint": "Usa file_list o file_tree acotado en lugar de directory_tree en carpetas grandes.",
   "tool_group_count": "{{label}} ({{count}})",
-  "langgraph_required": "Many requiere el runtime LangGraph para funcionar.",
+  "agent_tools_required": "Many requiere el runtime de agente para funcionar.",
   "thinking_evaluating_tools": "Pensando y evaluando herramientas...",
   "many_run_title": "Ejecución Many",
   "stream_call_data_agent": "Procesando datos",

@@ -59,7 +59,7 @@ export function formatContextTokens(n: number): string {
   return `${(n / 1000).toFixed(0)}K`;
 }
 
-/** Build PI-style segments from a budget snapshot (falls back when detailed fields are missing). */
+/** Build context segments from a budget snapshot (falls back when detailed fields are missing). */
 export function buildContextSegments(
   breakdown: BudgetBreakdown,
   t: TFunction,
@@ -124,7 +124,7 @@ export function sumSegmentTokens(breakdown: BudgetBreakdown): number {
 }
 
 /**
- * Context tokens used for % and header — PI-aligned with `estimateContextTokens`:
+ * Context tokens used for % and header — aligned with `estimateContextTokens`:
  * segment estimate is authoritative; provider `inputTokens` alone must not under-report
  * (it omits static system/tools on many providers and can be stale between runs).
  */
