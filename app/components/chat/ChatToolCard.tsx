@@ -41,7 +41,8 @@ import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-util
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
-import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
+import { getSubagentDisplayLabel } from '@/lib/chat/toolCatalog';
+import { getToolDisplayLabel, getToolDisplayLabelForCall } from '@/lib/chat/toolDisplayLabels';
 import { extractCalendarEventFromToolResult, unwrapToolResultPayload } from '@/lib/chat/calendarToolArtifact';
 import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import { isFilesystemTreeTool, parseTreeToolSummary } from '@/lib/chat/treeToolSummary';
@@ -99,6 +100,9 @@ function getCategory(name: string): ToolCategory {
 const TOOL_ICONS: Record<string, typeof Globe> = {
   web_search: Search,
   web_fetch: Globe,
+  deep_research: Search,
+  file_search: FolderSearch,
+  delegate_to_agent: Users,
   resource_create: FileText,
   resource_get: FileText,
   resource_search: Search,
@@ -267,6 +271,7 @@ function renderToolSuccessHighlight(
 
 function getIconForTool(name: string): typeof Globe {
   const norm = (name || '').toLowerCase();
+  if (TOOL_ICONS[norm]) return TOOL_ICONS[norm];
   if (TOOL_ICONS[name]) return TOOL_ICONS[name];
   if (norm.includes('postgres') || norm.includes('sql') || norm.includes('query') || norm.includes('database')) return Database;
   if (norm.includes('mcp_') || norm.startsWith('mcp')) return Plug;
@@ -401,11 +406,11 @@ function smartToolSummary(name: string, args: Record<string, unknown>): string {
   }
   if (n === 'glob') return String(args.pattern ?? args.glob ?? '').slice(0, 64);
   if (n === 'ls' || n === 'file_list' || n === 'file_tree') {
-    return String(args.path ?? args.dir ?? '').slice(0, 64);
+    return String(args.file_path ?? args.path ?? args.dir ?? '').slice(0, 64);
   }
-  if (n === 'task') {
-    const sub = String(args.subagent_type ?? args.subagentType ?? args.name ?? '');
-    const desc = String(args.description ?? args.task ?? '');
+  if (n === 'task' || n === 'delegate_to_agent') {
+    const sub = String(args.subagent_type ?? args.subagentType ?? args.agent ?? args.name ?? '');
+    const desc = String(args.prompt ?? args.task ?? args.description ?? '');
     if (sub && desc) return `${sub}: ${desc}`.slice(0, 72);
     return (sub || desc).slice(0, 72);
   }
@@ -581,21 +586,25 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   const { pinnedResources, addPinnedResource, removePinnedResource } = useManyStore();
 
   const Icon = getIconForTool(toolCall.name);
-  const label = getToolDisplayLabel(toolCall.name, t);
+  const label = getToolDisplayLabelForCall(toolCall, t);
   const category = getCategory(toolCall.name);
   const accentColor = CATEGORY_COLORS[category];
 
   // Subagent delegation: explicit relay (agentName) or the deepagents `task` target.
-  const subagentName =
+  const rawSubagentKey =
     toolCall.agentName ||
-    (toolCall.name === 'task'
+    (toolCall.name === 'task' || toolCall.name === 'delegate_to_agent'
       ? String(
           (toolCall.arguments?.subagent_type as string) ??
             (toolCall.arguments?.subagentType as string) ??
+            (toolCall.arguments?.agent as string) ??
             (toolCall.arguments?.name as string) ??
             '',
         )
       : '');
+  const subagentName = rawSubagentKey ? getSubagentDisplayLabel(rawSubagentKey, t) : '';
+  const showSubagentBadge =
+    !!subagentName && toolCall.name !== 'task' && toolCall.name !== 'delegate_to_agent';
 
   const documentItems = useMemo(() => parseDocumentResult(toolCall.result), [toolCall.result]);
   const artifactItems = useMemo(() => parseArtifactResult(toolCall.result), [toolCall.result]);
@@ -955,7 +964,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
           <div className="many-tool-card-v2-copy">
             <span className="many-tool-card-v2-title">
               {label}
-              {subagentName ? (
+              {showSubagentBadge ? (
                 <DomeBadge
                   label={subagentName}
                   variant="soft"
@@ -1068,7 +1077,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
                 style={{ color: isPending ? 'var(--primary-text)' : 'var(--secondary-text)' }}
               >
                 {label}
-                {subagentName ? (
+                {showSubagentBadge ? (
                   <DomeBadge
                     label={subagentName}
                     variant="soft"
@@ -1119,6 +1128,74 @@ interface ChatToolCardGroupProps {
   surfaceVariant?: ChatToolSurfaceVariant;
 }
 
+interface SubagentToolSectionProps {
+  agentKey: string;
+  agentLabel: string;
+  surfaceVariant?: ChatToolSurfaceVariant;
+  className?: string;
+  children: ReactNode;
+}
+
+/** Collapsible block grouping tools executed by one subagent delegation. */
+export function SubagentToolSection({
+  agentKey,
+  agentLabel,
+  surfaceVariant = 'default',
+  className = '',
+  children,
+}: SubagentToolSectionProps) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(true);
+  const childArray = useMemo(() => (Array.isArray(children) ? children : [children]).filter(Boolean), [children]);
+
+  if (surfaceVariant === 'many') {
+    return (
+      <div className={`many-subagent-section ${className}`.trim()}>
+        <button
+          type="button"
+          className="many-subagent-section-trigger"
+          onClick={() => setExpanded((o) => !o)}
+          aria-expanded={expanded}
+        >
+          <Users size={14} strokeWidth={1.8} className="many-subagent-section-icon" aria-hidden />
+          <span className="many-subagent-section-title">
+            {t('chat.subagent_section_title', { agent: agentLabel, defaultValue: agentLabel })}
+          </span>
+          <DomeBadge label={agentKey} variant="soft" size="xs" color="var(--accent)" />
+          <ChevronRight size={14} className={`many-tool-card-v2-chevron ml-auto ${expanded ? 'expanded' : ''}`} aria-hidden />
+        </button>
+        {expanded ? <div className="many-subagent-section-body space-y-1">{childArray}</div> : null}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={className}
+      style={{
+        borderLeft: '2px solid var(--accent)',
+        borderRadius: '0 var(--radius-lg) var(--radius-lg) 0',
+        background: 'color-mix(in srgb, var(--accent) 5%, transparent)',
+        padding: '4px 0 4px 0',
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((o) => !o)}
+        className="flex w-full items-center gap-2 px-2 py-1.5 text-left rounded-r-md hover:bg-[var(--bg-hover)]"
+        aria-expanded={expanded}
+      >
+        <Users className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
+        <span className="text-[12px] font-semibold text-[var(--secondary-text)]">
+          {t('chat.subagent_section_title', { agent: agentLabel, defaultValue: agentLabel })}
+        </span>
+        <ChevronRight className={`size-3.5 ml-auto transition-transform ${expanded ? 'rotate-90' : ''}`} aria-hidden />
+      </button>
+      {expanded ? <div className="pl-3 pr-1 pb-1 flex flex-col gap-1">{childArray}</div> : null}
+    </div>
+  );
+}
+
 export function ChatToolCardGroup({
   name,
   calls,
@@ -1128,7 +1205,7 @@ export function ChatToolCardGroup({
   const [expanded, setExpanded] = useState(false);
   const { t } = useTranslation();
   const Icon = getIconForTool(name);
-  const label = getToolDisplayLabel(name, t);
+  const label = getToolDisplayLabelForCall({ name, arguments: calls[0]?.arguments ?? {} }, t);
   const category = getCategory(name);
   const accentColor = CATEGORY_COLORS[category];
   const count = calls.length;

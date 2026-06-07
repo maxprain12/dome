@@ -7,6 +7,7 @@ import type {
 	CacheRetention,
 	Context,
 	Model,
+	NativeWebActivation,
 	OpenAIResponsesCompat,
 	SimpleStreamOptions,
 	StreamFunction,
@@ -20,6 +21,7 @@ import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copi
 import { clampOpenAIPromptCacheKey } from "./openai-prompt-cache.js";
 import { convertResponsesMessages, convertResponsesTools, processResponsesStream } from "./openai-responses-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
+import { buildOpenAIResponsesWebSearchTool } from "../native-web-tools.js";
 
 const OPENAI_TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode"]);
 
@@ -72,6 +74,7 @@ export interface OpenAIResponsesOptions extends StreamOptions {
 	reasoningEffort?: "minimal" | "low" | "medium" | "high" | "xhigh";
 	reasoningSummary?: "auto" | "detailed" | "concise" | null;
 	serviceTier?: ResponseCreateParamsStreaming["service_tier"];
+	nativeWeb?: NativeWebActivation;
 }
 
 /**
@@ -175,6 +178,7 @@ export const streamSimpleOpenAIResponses: StreamFunction<"openai-responses", Sim
 	return streamOpenAIResponses(model, context, {
 		...base,
 		reasoningEffort,
+		nativeWeb: options?.nativeWeb,
 	} satisfies OpenAIResponsesOptions);
 };
 
@@ -253,6 +257,10 @@ function buildParams(model: Model<"openai-responses">, context: Context, options
 
 	if (context.tools && context.tools.length > 0) {
 		params.tools = convertResponsesTools(context.tools);
+	}
+
+	if (options?.nativeWeb?.search) {
+		params.tools = [...(params.tools ?? []), buildOpenAIResponsesWebSearchTool()];
 	}
 
 	if (model.reasoning) {

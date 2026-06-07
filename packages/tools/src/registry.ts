@@ -12,6 +12,7 @@
  */
 
 import { Type } from 'typebox';
+import { labelForTool } from './labels.js';
 import type { AgentTool, AgentToolResult, ToolDefinition, ToolOps } from './types.js';
 
 /** Read the tool name from either the nested (`function.name`) or flat shape. */
@@ -37,7 +38,7 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
   return {
     name,
     description,
-    label: name,
+    label: labelForTool(name),
     parameters: Type.Unsafe(parameters),
     async execute(_toolCallId, params): Promise<AgentToolResult> {
       try {

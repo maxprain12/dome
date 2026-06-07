@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { Plus, X, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { ManyChatSession } from '@/lib/store/useManyStore';
+import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
+import { filterOutDeletedSessions, sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
 import ChatHistorySessionList from '@/components/chat/ChatHistorySessionList';
 import { buildChatHistorySections, filterAndSortSessions } from '@/components/chat/chatHistoryUtils';
 
@@ -10,6 +11,7 @@ interface ManyChatHistoryPanelProps {
   currentSessionId: string | null;
   onSelectSession: (id: string) => void;
   onNewChat: () => void;
+  onDeleteSession?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -18,14 +20,32 @@ export default function ManyChatHistoryPanel({
   currentSessionId,
   onSelectSession,
   onNewChat,
+  onDeleteSession,
   onClose,
 }: ManyChatHistoryPanelProps) {
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const liveMessages = useManyStore((s) => s.messages);
+
+  const sessionsForList = useMemo(() => {
+    const visible = filterOutDeletedSessions(sessions);
+    if (!currentSessionId || visible.some((s) => s.id === currentSessionId)) {
+      return visible;
+    }
+    const firstUser = liveMessages.find((m) => m.role === 'user')?.content ?? '';
+    const orphan: ManyChatSession = {
+      id: currentSessionId,
+      title: sanitizeManySessionTitle(firstUser) || t('chat.new_chat'),
+      messages: liveMessages,
+      createdAt: liveMessages[0]?.timestamp ?? Date.now(),
+      updatedAt: liveMessages[liveMessages.length - 1]?.timestamp ?? Date.now(),
+    };
+    return [orphan, ...visible];
+  }, [sessions, currentSessionId, liveMessages, t]);
 
   const sortedSessions = useMemo(
-    () => filterAndSortSessions(sessions, query),
-    [sessions, query],
+    () => filterAndSortSessions(sessionsForList, query),
+    [sessionsForList, query],
   );
 
   const sections = useMemo(
@@ -88,6 +108,7 @@ export default function ManyChatHistoryPanel({
           onSelectSession(session.id);
           onClose();
         }}
+        onDeleteSession={onDeleteSession}
       />
     </div>
   );

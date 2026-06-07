@@ -33,6 +33,21 @@ const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 const RUN_RECOVERY_STALE_MS = 120 * 1000;
 const RUN_RESTART_ERROR = 'Interrupted - the app was restarted while this run was active.';
 
+/** Stream/MCP/AbortController cancellations often surface as "terminated", not "abort". */
+function isRunAbortedError(error, signal) {
+  if (signal?.aborted) return true;
+  if (!error) return false;
+  if (error.name === 'AbortError') return true;
+  const msg = `${error.message || error}`.toLowerCase();
+  return (
+    msg.includes('abort')
+    || msg.includes('terminated')
+    || msg.includes('cancelled')
+    || msg.includes('canceled')
+    || msg.includes('body timeout')
+  );
+}
+
 const SYSTEM_AGENTS = {
   research: {
     name: 'Research Agent',
@@ -1057,6 +1072,17 @@ function createRunChunkEmitter(runId, context) {
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'budget', breakdown: data.breakdown });
       return;
     }
+    if (data.type === 'compaction') {
+      emit(RUN_CHUNK_CHANNEL, {
+        runId,
+        type: 'compaction',
+        tokensBefore: data.tokensBefore ?? 0,
+        tokensAfter: data.tokensAfter ?? null,
+        summaryPreview: data.summaryPreview ?? '',
+        automatic: data.automatic !== false,
+      });
+      return;
+    }
     if (data.type === 'error' && data.error) {
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'error', error: data.error });
       patchRun(runId, {
@@ -1190,6 +1216,7 @@ async function executeLangGraphRun(runId, params) {
       onChunk: createRunChunkEmitter(runId, context),
       automationProjectId,
       runtimeContext,
+      userMemory: params.userMemory ?? null,
     });
     const current = getRun(runId);
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
@@ -1238,7 +1265,7 @@ async function executeLangGraphRun(runId, params) {
       },
     });
   } catch (error) {
-    const aborted = error?.name === 'AbortError' || `${error?.message || ''}`.toLowerCase().includes('abort');
+    const aborted = isRunAbortedError(error, context.controller?.signal);
     // Cancel streaming TTS on error/abort
     if (context.autoSpeak) {
       streamingTts.cancel(runId);
@@ -1877,7 +1904,7 @@ async function executeWorkflowRun(runId, params, workflow) {
       },
     });
   } catch (error) {
-    const aborted = error?.name === 'AbortError' || `${error?.message || ''}`.toLowerCase().includes('abort');
+    const aborted = isRunAbortedError(error, context.controller?.signal);
     if (getRun(runId)) {
       finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
       appendRunStep({

@@ -393,6 +393,7 @@ export class AgentHarness<
 				maxRetries: requestOptions.maxRetries,
 				maxRetryDelayMs: requestOptions.maxRetryDelayMs,
 				metadata: requestOptions.metadata,
+				nativeWeb: requestOptions.nativeWeb ?? turnState.streamOptions.nativeWeb,
 				onPayload: async (payload) => await this.emitBeforeProviderPayload(model, payload),
 				onResponse: async (response) => {
 					const headers = { ...(response.headers as Record<string, string>) };

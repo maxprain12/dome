@@ -51,6 +51,36 @@ Still present (not the agent runtime):
 - `@langchain/langgraph` — workflow node orchestrator (`StateGraph` in `run-engine.cjs`).
 - `@langchain/mcp-adapters` — MCP tool client (converted to native `AgentTool[]` in bridge).
 
+## Context usage UI (Many)
+
+PI-style **context calculator** in the Many header (sidebar) or above the composer
+(fullscreen):
+
+| Piece | Implementation |
+| ----- | -------------- |
+| Trigger | `ContextUsageIndicator` — donut ring + `N%` (click to expand) |
+| Popup | Segmented bar + category rows: system prompt, tool defs, rules, skills, MCP, subagents, summarized conversation, conversation |
+| Backend | `budget` chunk from `buildBudgetBreakdown()` + `measurePromptDetailed` at run start; `usage` chunk for live provider input; `compaction` chunk + `CompactionNotice` when autocompaction runs |
+
+Autocompaction: harness `context` hook (`buildCompaction` in `agent-runtime.cjs`).
+Manual: `threads:compact` IPC → `session_compact` event.
+
+Estimates use chars÷4 (refined with `estimateContextTokens` when usage blocks exist).
+Live fill uses provider `inputTokens`.
+
+## Many session persistence (PI)
+
+Many chat history follows PI’s JSONL model — not a dual localStorage + SQLite list:
+
+| Concern | Source of truth |
+| ------- | ---------------- |
+| Messages | `{userData}/agent-sessions/` JSONL via `threads:get-state` / harness |
+| Session list | `threads:list?rootOnly=true` — **excludes** subagent (`_sub_`), team delegate (`_member_`), fork (`_fork_`), and legacy `many_*` per-run sessions |
+| UI meta (title, pin, active id) | `localStorage` `dome-many-sessions-ui:v1` + `dome-many-sessions-meta:v1` |
+| Traceability | SQLite `chat_sessions` / `chat_messages` (secondary; not used to hydrate Many UI) |
+
+**Stable `threadId`:** Many uses `currentSessionId` as the JSONL session id for every run in that chat. Nested subagent runs create child JSONL files with `parentSession` pointing at the parent path (PI-style); they never appear in the Many sidebar.
+
 ## Native capabilities (gaps closed)
 
 1. **HITL resume** — `hitlInterrupt` pauses the run; `pendingToolCall` + JSONL session +

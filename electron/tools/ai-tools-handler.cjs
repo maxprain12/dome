@@ -3337,6 +3337,25 @@ async function skillRead(args) {
     : typeof args.file === 'string' ? args.file : '';
   if (!skillId) return { status: 'error', error: 'skill_id is required' };
   if (!relativePath) return { status: 'error', error: 'path is required' };
+
+  const { DOME_LOAD_DOC_IDS } = require('../prompts/prompt-sections.cjs');
+  const pathNorm = relativePath.replace(/\.(txt|md)$/i, '').trim();
+  const isArtifactSkill = skillId === 'artifacts' || skillId === 'artifact';
+  if (isArtifactSkill && DOME_LOAD_DOC_IDS.includes(pathNorm)) {
+    const { getSectionBody } = require('../prompts/prompt-sections.cjs');
+    const body = getSectionBody(pathNorm);
+    if (body) {
+      return {
+        status: 'success',
+        redirected_from: 'skill_read',
+        use_instead: 'dome_load_doc',
+        id: pathNorm,
+        content: body,
+        size: body.length,
+      };
+    }
+  }
+
   try {
     const { readSkillFile } = require('../skills/install.cjs');
     const content = readSkillFile(skillId, relativePath);

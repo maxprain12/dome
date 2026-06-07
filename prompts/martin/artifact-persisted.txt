@@ -8,7 +8,9 @@ Use this companion to `artifacts.txt` whenever you mutate **Kind B — library**
 
 > **Title is auto-derived** — `title` is OPTIONAL in `artifact_create`. If omitted, Dome falls back to: HTML `<title>` tag → `artifact_type` → `'Untitled Artifact'`. Pass it explicitly only when you want a specific display name.
 
-1. **Design (MANDATORY — never skip)** — Before every `artifact_create`, call `dome_load_doc('artifact_design')` (if not already loaded this session) and choose one of the two design paths:
+1. **Design** — Before `artifact_create`, call `dome_load_doc('artifact_design')` unless the user asked for a **mini/simple** artifact (one section, no tabs) and context is already sufficient. For mini artifacts: skip `artifact_design` tool; pass compact `html` + seed `data` from conversation or `file_read` results into `artifact_create`. Always call `dome_load_doc('artifact_persisted')` once if not loaded this session.
+
+   For full dashboards, call `dome_load_doc('artifact_design')` and choose one of the two design paths:
 
    | Artifact kind | Design path |
    |---|---|

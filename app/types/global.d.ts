@@ -1862,7 +1862,7 @@ declare global {
       };
 
       threads: {
-        list: (opts?: { limit?: number }) => Promise<{
+        list: (opts?: { limit?: number; rootOnly?: boolean }) => Promise<{
           threads?: Array<{ threadId: string; checkpointCount: number; latestCheckpointId: string; metadata: Record<string, unknown> }>;
           error?: string;
         }>;

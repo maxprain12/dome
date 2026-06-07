@@ -51,6 +51,17 @@ export * from './utils/validation.js';
 
 // Dome-specific: resolve Model<TApi> from legacy provider + model id settings.
 export * from './tool-schema.js';
+export {
+	buildAnthropicServerWebTools,
+	buildGoogleSearchTool,
+	buildOpenAIResponsesWebSearchTool,
+	filterClientWebTools,
+	resolveNativeWebActivation,
+	resolveNativeWebSupport,
+	toolNamesIncludeWeb,
+	WEB_CLIENT_TOOL_NAMES,
+} from './native-web-tools.js';
+export type { NativeWebSupport, WebClientToolName } from './native-web-tools.js';
 export { legacyMessagesToContext, mapThinkingLevel } from './legacy-bridge.js';
 export { resolveDomeModel, domeUsageToLegacy, legacyUsageToDome, extractTextFromAssistantMessage } from './dome-bridge.js';
 export type { ResolveDomeModelOptions, DomeLegacyProvider } from './dome-bridge.js';

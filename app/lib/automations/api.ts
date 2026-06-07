@@ -257,6 +257,8 @@ export async function startLangGraphRun(params: {
   voiceLanguage?: string;
   /** IDs of resources pinned to the chat context (lazy content loading). */
   pinnedResourceIds?: string[];
+  /** USER.md / MEMORY.md block for context budget rules segment. */
+  userMemory?: string;
 }): Promise<PersistentRun> {
   return invoke<PersistentRun>('runs:startLangGraph', params);
 }
@@ -299,6 +301,21 @@ export interface RunChunkBudgetBreakdown {
   totalApprox: number;
   toolCount: number;
   historyTurns: number;
+  systemPromptApprox?: number;
+  skillsApprox?: number;
+  rulesApprox?: number;
+  toolsRegistryApprox?: number;
+  mcpApprox?: number;
+  subagentsApprox?: number;
+  summarizedApprox?: number;
+  conversationApprox?: number;
+}
+
+export interface RunChunkCompaction {
+  tokensBefore: number;
+  tokensAfter: number | null;
+  summaryPreview: string;
+  automatic: boolean;
 }
 
 /** Discriminated union of every `runs:chunk` payload emitted by the run engine. */
@@ -321,6 +338,14 @@ export type RunChunkPayload =
       agentName?: string;
     }
   | { runId: string; type: 'budget'; breakdown: RunChunkBudgetBreakdown }
+  | {
+      runId: string;
+      type: 'compaction';
+      tokensBefore: number;
+      tokensAfter: number | null;
+      summaryPreview: string;
+      automatic: boolean;
+    }
   | {
       runId: string;
       type: 'usage';

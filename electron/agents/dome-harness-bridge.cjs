@@ -10,6 +10,23 @@ const os = require('os');
 
 const SESSION_CWD = 'dome';
 
+/** Nested harness sessions (subagents, team delegates, forks) — hidden from Many chat list. */
+const NESTED_THREAD_ID_RE = /_(sub|member|fork)_/;
+
+function isNestedThreadId(threadId) {
+  return typeof threadId === 'string' && NESTED_THREAD_ID_RE.test(threadId);
+}
+
+/** Root Many/user sessions only — PI keeps child sessions off the sidebar list. */
+function isRootSessionMeta(meta) {
+  if (!meta || typeof meta.id !== 'string') return false;
+  if (meta.parentSessionPath) return false;
+  if (isNestedThreadId(meta.id)) return false;
+  // Legacy per-run Many ids (pre stable threadId = sessionId).
+  if (meta.id.startsWith('many_')) return false;
+  return true;
+}
+
 let sessionRepo = null;
 let sessionEnv = null;
 
@@ -48,9 +65,10 @@ async function getSessionRepo() {
 
 /**
  * @param {string|undefined|null} threadId
+ * @param {{ parentThreadId?: string, parentSessionPath?: string }} [options]
  * @returns {Promise<{ session: import('@dome/agent-core').Session, threadId: string }>}
  */
-async function resolveSession(threadId) {
+async function resolveSession(threadId, options = {}) {
   const core = await import('@dome/agent-core');
   const repo = await getSessionRepo();
   const list = await repo.list({ cwd: SESSION_CWD });
@@ -61,7 +79,16 @@ async function resolveSession(threadId) {
       const session = await repo.open(existing);
       return { session, threadId };
     }
-    const session = await repo.create({ cwd: SESSION_CWD, id: threadId });
+    const createOpts = { cwd: SESSION_CWD, id: threadId };
+    if (options.parentSessionPath) {
+      createOpts.parentSessionPath = options.parentSessionPath;
+    } else if (options.parentThreadId) {
+      const parentMeta = list.find((s) => s.id === options.parentThreadId);
+      if (parentMeta?.path) {
+        createOpts.parentSessionPath = parentMeta.path;
+      }
+    }
+    const session = await repo.create(createOpts);
     return { session, threadId };
   }
 
@@ -167,6 +194,8 @@ async function findSessionMetadata(threadId) {
 
 module.exports = {
   SESSION_CWD,
+  isNestedThreadId,
+  isRootSessionMeta,
   getSessionsRoot,
   getSessionRepo,
   resolveSession,

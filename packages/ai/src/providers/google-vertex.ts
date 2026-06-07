@@ -13,6 +13,7 @@ import type {
 	AssistantMessage,
 	Context,
 	Model,
+	NativeWebActivation,
 	ThinkingLevel as PiThinkingLevel,
 	SimpleStreamOptions,
 	StreamFunction,
@@ -34,9 +35,11 @@ import {
 	retainThoughtSignature,
 } from "./google-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
+import { buildGoogleSearchTool } from "../native-web-tools.js";
 
 export interface GoogleVertexOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";
+	nativeWeb?: NativeWebActivation;
 	thinking?: {
 		enabled: boolean;
 		budgetTokens?: number; // -1 for dynamic, 0 to disable
@@ -298,10 +301,12 @@ export const streamSimpleGoogleVertex: StreamFunction<"google-vertex", SimpleStr
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
 	const base = buildBaseOptions(model, options, undefined);
+	const nativeWeb = options?.nativeWeb;
 	if (!options?.reasoning) {
 		return streamGoogleVertex(model, context, {
 			...base,
 			thinking: { enabled: false },
+			nativeWeb,
 		} satisfies GoogleVertexOptions);
 	}
 
@@ -316,6 +321,7 @@ export const streamSimpleGoogleVertex: StreamFunction<"google-vertex", SimpleStr
 				enabled: true,
 				level: getGemini3ThinkingLevel(effort, geminiModel),
 			},
+			nativeWeb,
 		} satisfies GoogleVertexOptions);
 	}
 
@@ -325,6 +331,7 @@ export const streamSimpleGoogleVertex: StreamFunction<"google-vertex", SimpleStr
 			enabled: true,
 			budgetTokens: getGoogleBudget(geminiModel, effort, options.thinkingBudgets),
 		},
+		nativeWeb,
 	} satisfies GoogleVertexOptions);
 };
 
@@ -442,8 +449,15 @@ function buildParams(
 	const config: GenerateContentConfig = {
 		...(Object.keys(generationConfig).length > 0 && generationConfig),
 		...(context.systemPrompt && { systemInstruction: sanitizeSurrogates(context.systemPrompt) }),
-		...(context.tools && context.tools.length > 0 && { tools: convertTools(context.tools) }),
 	};
+
+	const clientTools = context.tools && context.tools.length > 0 ? convertTools(context.tools) : undefined;
+	const nativeWeb = options.nativeWeb;
+	if (nativeWeb?.search) {
+		config.tools = [...(clientTools ?? []), buildGoogleSearchTool()];
+	} else if (clientTools) {
+		config.tools = clientTools;
+	}
 
 	if (context.tools && context.tools.length > 0 && options.toolChoice) {
 		config.toolConfig = {

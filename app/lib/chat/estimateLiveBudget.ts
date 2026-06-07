@@ -1,4 +1,4 @@
-import type { BudgetBreakdown } from '@/components/many/TokenBudgetBadge';
+import type { BudgetBreakdown } from '@/lib/chat/contextUsage';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 
 function approxTokens(chars: number): number {
@@ -40,6 +40,7 @@ export function estimateLiveBudget(
   return {
     ...base,
     historyApprox: base.historyApprox + delta,
+    conversationApprox: (base.conversationApprox ?? base.historyApprox) + delta,
     totalApprox: base.totalApprox + delta,
   };
 }

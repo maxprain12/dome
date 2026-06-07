@@ -46,7 +46,8 @@ import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
-import TokenBudgetBadge, { type LiveTokenUsage } from '@/components/many/TokenBudgetBadge';
+import ContextUsageIndicator from '@/components/many/ContextUsageIndicator';
+import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
 
 const EMPTY_BUDGET_BREAKDOWN = {
   systemApprox: 0,
@@ -724,7 +725,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       {/* Live provider token usage (real billing, not the char/4 estimate) */}
       {liveUsage ? (
         <div className="flex justify-end px-3 py-0.5">
-          <TokenBudgetBadge breakdown={EMPTY_BUDGET_BREAKDOWN} liveUsage={liveUsage} />
+          <ContextUsageIndicator breakdown={EMPTY_BUDGET_BREAKDOWN} liveUsage={liveUsage} />
         </div>
       ) : null}
 

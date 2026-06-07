@@ -10,6 +10,7 @@ import type {
 	AssistantMessage,
 	Context,
 	Model,
+	NativeWebActivation,
 	SimpleStreamOptions,
 	StreamFunction,
 	StreamOptions,
@@ -31,9 +32,11 @@ import {
 	retainThoughtSignature,
 } from "./google-shared.js";
 import { buildBaseOptions } from "./simple-options.js";
+import { buildGoogleSearchTool } from "../native-web-tools.js";
 
 export interface GoogleOptions extends StreamOptions {
 	toolChoice?: "auto" | "none" | "any";
+	nativeWeb?: NativeWebActivation;
 	thinking?: {
 		enabled: boolean;
 		budgetTokens?: number; // -1 for dynamic, 0 to disable
@@ -288,8 +291,13 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 	}
 
 	const base = buildBaseOptions(model, options, apiKey);
+	const nativeWeb = options?.nativeWeb;
 	if (!options?.reasoning) {
-		return streamGoogle(model, context, { ...base, thinking: { enabled: false } } satisfies GoogleOptions);
+		return streamGoogle(model, context, {
+			...base,
+			thinking: { enabled: false },
+			nativeWeb,
+		} satisfies GoogleOptions);
 	}
 
 	const clampedReasoning = clampThinkingLevel(model, options.reasoning);
@@ -303,6 +311,7 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 				enabled: true,
 				level: getThinkingLevel(effort, googleModel),
 			},
+			nativeWeb,
 		} satisfies GoogleOptions);
 	}
 
@@ -312,6 +321,7 @@ export const streamSimpleGoogle: StreamFunction<"google-generative-ai", SimpleSt
 			enabled: true,
 			budgetTokens: getGoogleBudget(googleModel, effort, options.thinkingBudgets),
 		},
+		nativeWeb,
 	} satisfies GoogleOptions);
 };
 
@@ -353,8 +363,15 @@ function buildParams(
 	const config: GenerateContentConfig = {
 		...(Object.keys(generationConfig).length > 0 && generationConfig),
 		...(context.systemPrompt && { systemInstruction: sanitizeSurrogates(context.systemPrompt) }),
-		...(context.tools && context.tools.length > 0 && { tools: convertTools(context.tools) }),
 	};
+
+	const clientTools = context.tools && context.tools.length > 0 ? convertTools(context.tools) : undefined;
+	const nativeWeb = options.nativeWeb;
+	if (nativeWeb?.search) {
+		config.tools = [...(clientTools ?? []), buildGoogleSearchTool()];
+	} else if (clientTools) {
+		config.tools = clientTools;
+	}
 
 	if (context.tools && context.tools.length > 0 && options.toolChoice) {
 		config.toolConfig = {

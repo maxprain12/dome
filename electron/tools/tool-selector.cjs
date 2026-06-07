@@ -15,6 +15,7 @@ const INTENT_RULES = [
     id: 'artifact',
     re: /\b(artifact|artefacto|artefact|reproductor|player|html|mini-?app|__dome_updatestate|persist)\b/i,
     tools: [
+      'dome_load_doc',
       'artifact_list',
       'artifact_get',
       'artifact_create',

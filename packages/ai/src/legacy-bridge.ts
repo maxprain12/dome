@@ -13,6 +13,10 @@ type LegacyMessage = {
   toolCalls?: Array<{ id: string; name: string; arguments?: Record<string, unknown> }>;
   toolCallId?: string;
   name?: string;
+  attachments?: {
+    images?: Array<{ dataUrl: string; mime?: string; name?: string }>;
+    videos?: Array<{ dataUrl?: string; fileId?: string; mime?: string; name?: string; sizeBytes?: number }>;
+  };
 };
 
 function contentToUserContent(content: unknown): UserMessage['content'] {
@@ -102,9 +106,24 @@ export function legacyMessagesToContext(
     if (m.role === 'system') continue;
 
     if (m.role === 'user') {
+      let content = contentToUserContent(m.content);
+      if (m.attachments?.images?.length) {
+        if (typeof content === 'string') {
+          content = content ? [{ type: 'text' as const, text: content }] : [];
+        }
+        if (Array.isArray(content)) {
+          for (const img of m.attachments.images) {
+            const url = img.dataUrl;
+            const match = /^data:([^;]+);base64,(.+)$/.exec(url || '');
+            if (match) {
+              content.push({ type: 'image' as const, mimeType: match[1]!, data: match[2]! });
+            }
+          }
+        }
+      }
       piMessages.push({
         role: 'user',
-        content: contentToUserContent(m.content),
+        content,
         timestamp: now,
       });
       continue;

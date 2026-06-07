@@ -362,20 +362,51 @@ function filterToolsForServerPolicy(tools, server) {
   });
 }
 
+const MCP_SERVER_LOAD_TIMEOUT_MS = 25_000;
+const MCP_TOOLS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/** @type {{ key: string; tools: import('@langchain/core/tools').StructuredToolInterface[]; at: number } | null} */
+let mcpToolsCache = null;
+
+function mcpCacheKey(serverIds) {
+  if (!serverIds || serverIds.length === 0) return '__all__';
+  return [...serverIds].map((id) => String(id).trim().toLowerCase()).sort().join('|');
+}
+
+function invalidateMcpToolsCache() {
+  mcpToolsCache = null;
+}
+
 async function loadToolsForServer(server) {
-  const client = await createClientForServers([server]);
-  if (!client) {
-    return { tools: [], manifest: [] };
+  const loadPromise = (async () => {
+    const client = await createClientForServers([server]);
+    if (!client) {
+      return { tools: [], manifest: [] };
+    }
+
+    const tools = await client.getTools();
+    const safeTools = (Array.isArray(tools) ? tools : [])
+      .map((tool) => wrapMcpToolWithCap(tool));
+    const manifest = safeTools
+      .map((tool) => serializeTool(tool))
+      .filter(Boolean);
+
+    return { tools: safeTools, manifest };
+  })();
+
+  let timeoutId;
+  const timeoutPromise = new Promise((resolve) => {
+    timeoutId = setTimeout(() => {
+      console.warn(`[MCP] ${server?.name || 'server'} tool load timed out after ${MCP_SERVER_LOAD_TIMEOUT_MS}ms`);
+      resolve({ tools: [], manifest: [] });
+    }, MCP_SERVER_LOAD_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([loadPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
   }
-
-  const tools = await client.getTools();
-  const safeTools = (Array.isArray(tools) ? tools : [])
-    .map((tool) => wrapMcpToolWithCap(tool));
-  const manifest = safeTools
-    .map((tool) => serializeTool(tool))
-    .filter(Boolean);
-
-  return { tools: safeTools, manifest };
 }
 
 /**
@@ -406,6 +437,15 @@ async function getMCPTools(database, serverIds) {
     if (servers.length === 0) return [];
   }
 
+  const cacheKey = mcpCacheKey(serverIds);
+  if (
+    mcpToolsCache
+    && mcpToolsCache.key === cacheKey
+    && Date.now() - mcpToolsCache.at < MCP_TOOLS_CACHE_TTL_MS
+  ) {
+    return mcpToolsCache.tools;
+  }
+
   try {
     const allTools = [];
     for (const server of servers) {
@@ -421,6 +461,7 @@ async function getMCPTools(database, serverIds) {
       const filteredTools = policyFiltered.filter((tool) => enabledSet.has(normalizeToolId(tool?.name)));
       allTools.push(...filteredTools);
     }
+    mcpToolsCache = { key: cacheKey, tools: allTools, at: Date.now() };
     return allTools;
   } catch (err) {
     console.warn('[MCP] Failed to load MCP tools:', err?.message);
@@ -460,6 +501,7 @@ async function testSingleMcpServer(server) {
 
 module.exports = {
   getMCPTools,
+  invalidateMcpToolsCache,
   parseMcpServersConfig,
   buildMcpServersObject,
   testSingleMcpServer,

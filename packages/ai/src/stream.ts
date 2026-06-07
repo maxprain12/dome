@@ -2,6 +2,7 @@ import "./providers/register-builtins.js";
 
 import { getApiProvider } from "./api-registry.js";
 import { getEnvApiKey } from "./env-api-keys.js";
+import { filterClientWebTools, resolveNativeWebActivation } from "./native-web-tools.js";
 import type {
 	Api,
 	AssistantMessage,
@@ -55,13 +56,33 @@ export async function complete<TApi extends Api>(
 	return s.result();
 }
 
+function applyNativeWebContext<TApi extends Api>(
+	model: Model<TApi>,
+	context: Context,
+	options?: SimpleStreamOptions,
+): { context: Context; options?: SimpleStreamOptions } {
+	const nativeWeb = options?.nativeWeb ?? resolveNativeWebActivation(model, context.tools);
+	if (!nativeWeb.search && !nativeWeb.fetch) {
+		return { context, options };
+	}
+	return {
+		context: {
+			...context,
+			tools: filterClientWebTools(context.tools, nativeWeb),
+		},
+		options: { ...options, nativeWeb },
+	};
+}
+
 export function streamSimple<TApi extends Api>(
 	model: Model<TApi>,
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream {
 	const provider = resolveApiProvider(model.api);
-	return provider.streamSimple(model, context, withEnvApiKey(model, options));
+	const withKey = withEnvApiKey(model, options);
+	const { context: ctx, options: opts } = applyNativeWebContext(model, context, withKey);
+	return provider.streamSimple(model, ctx, opts);
 }
 
 export async function completeSimple<TApi extends Api>(

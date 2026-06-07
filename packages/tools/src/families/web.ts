@@ -20,7 +20,7 @@ export function webToolDefinitions(): ToolDefinition[] {
       function: {
         name: 'web_search',
         description:
-          'Search the web for current information. Returns titles, URLs, and snippets from a configurable backend (SearXNG/DDG by default; Tavily/Brave if configured).',
+          'Search the web for current information. On Anthropic, Google Gemini, and OpenAI Responses models this uses the provider native search tool; otherwise falls back to Dome HTTP search (SearXNG/Tavily/Brave).',
         parameters: {
           type: 'object',
           properties: {

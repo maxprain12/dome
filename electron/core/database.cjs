@@ -3557,7 +3557,12 @@ function getQueries() {
       SELECT * FROM chat_sessions WHERE resource_id = ? ORDER BY updated_at DESC LIMIT ?
     `),
     getChatSessionsGlobal: db.prepare(`
-      SELECT * FROM chat_sessions WHERE agent_id IS NULL AND resource_id IS NULL AND project_id = ? ORDER BY updated_at DESC LIMIT ?
+      SELECT * FROM chat_sessions
+      WHERE agent_id IS NULL
+        AND resource_id IS NULL
+        AND project_id = ?
+        AND (mode IS NULL OR mode = 'many')
+      ORDER BY updated_at DESC LIMIT ?
     `),
     createChatMessage: db.prepare(`
       INSERT INTO chat_messages (id, session_id, role, content, tool_calls, thinking, metadata, created_at)

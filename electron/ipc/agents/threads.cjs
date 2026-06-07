@@ -20,6 +20,8 @@ const { resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs'
 
 const ThreadsListOptsSchema = z.object({
   limit: z.coerce.number().int().positive().max(500).optional(),
+  /** When true (default), omit subagent / fork / child sessions from the list. */
+  rootOnly: z.boolean().optional(),
 });
 
 const ThreadIdPayloadSchema = z.object({
@@ -74,37 +76,30 @@ async function resolveThreadProviderConfig(provider, model) {
 
 function register({ ipcMain, windowManager, validateSender }) {
   ipcMain.handle('threads:list', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', threads: [] };
     const parsedOpts = ThreadsListOptsSchema.safeParse(raw ?? {});
     if (!parsedOpts.success) {
       return { error: 'Invalid payload', threads: [] };
     }
     try {
+      validateSender(event, windowManager);
       const repo = await bridge.getSessionRepo();
-      const sessions = await repo.list({ cwd: bridge.SESSION_CWD });
-      const limit = Math.min(Number(parsedOpts.data.limit ?? 100), 500);
-      const threads = [];
-      for (const meta of sessions.slice(0, limit)) {
-        let entryCount = 0;
-        try {
-          const session = await repo.open(meta);
-          const entries = await session.getStorage().getEntries();
-          entryCount = entries.length;
-        } catch {
-          entryCount = 0;
-        }
-        threads.push({
-          threadId: meta.id,
-          checkpointCount: entryCount,
-          latestCheckpointId: meta.id,
-          metadata: {
-            cwd: meta.cwd,
-            path: meta.path,
-            createdAt: meta.createdAt,
-            parentSessionPath: meta.parentSessionPath ?? null,
-          },
-        });
+      let sessions = await repo.list({ cwd: bridge.SESSION_CWD });
+      const rootOnly = parsedOpts.data.rootOnly !== false;
+      if (rootOnly) {
+        sessions = sessions.filter(bridge.isRootSessionMeta);
       }
+      const limit = Math.min(Number(parsedOpts.data.limit ?? 100), 500);
+      const threads = sessions.slice(0, limit).map((meta) => ({
+        threadId: meta.id,
+        checkpointCount: 0,
+        latestCheckpointId: meta.id,
+        metadata: {
+          cwd: meta.cwd,
+          path: meta.path,
+          createdAt: meta.createdAt,
+          parentSessionPath: meta.parentSessionPath ?? null,
+        },
+      }));
       return { threads };
     } catch (err) {
       console.error('[threads:list]', err?.message);
@@ -113,13 +108,13 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   ipcMain.handle('threads:get-state', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', state: null };
     const parsed = ThreadIdPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'threadId required', state: null };
     }
     const { threadId } = parsed.data;
     try {
+      validateSender(event, windowManager);
       const opened = await openThreadSession(threadId);
       if (!opened) return { state: null };
       const { meta, session } = opened;
@@ -148,13 +143,13 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   ipcMain.handle('threads:get-history', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', history: [] };
     const parsed = ThreadsGetHistoryPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'threadId required', history: [] };
     }
     const { threadId, limit: rawLimit } = parsed.data;
     try {
+      validateSender(event, windowManager);
       const opened = await openThreadSession(threadId);
       if (!opened) return { threadId, history: [] };
       const { session } = opened;
@@ -176,13 +171,13 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   ipcMain.handle('threads:delete', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', deleted: 0 };
     const parsed = ThreadIdPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'threadId required', deleted: 0 };
     }
     const { threadId } = parsed.data;
     try {
+      validateSender(event, windowManager);
       const meta = await bridge.findSessionMetadata(threadId);
       if (!meta) return { deleted: 0 };
       const repo = await bridge.getSessionRepo();
@@ -196,13 +191,13 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   ipcMain.handle('threads:update-state', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized' };
     const parsed = ThreadsUpdateStatePayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'Invalid payload', success: undefined };
     }
     const { threadId, values } = parsed.data;
     try {
+      validateSender(event, windowManager);
       const opened = await openThreadSession(threadId);
       if (!opened) return { error: 'Thread not found' };
       const { meta, repo } = opened;
@@ -229,7 +224,6 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   ipcMain.handle('threads:compact', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', success: false };
     const parsed = ThreadsCompactPayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'Invalid payload', success: false };
@@ -237,6 +231,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     const { threadId, provider, model, customInstructions } = parsed.data;
     let cleanup = () => {};
     try {
+      validateSender(event, windowManager);
       const providerConfig = await resolveThreadProviderConfig(provider, model);
       const setup = await agentRuntime.openHarnessForThread({
         threadId,
@@ -257,7 +252,6 @@ function register({ ipcMain, windowManager, validateSender }) {
   });
 
   ipcMain.handle('threads:navigate-tree', async (event, raw) => {
-    if (validateSender && !validateSender(event.sender)) return { error: 'Unauthorized', success: false };
     const parsed = ThreadsNavigateTreePayloadSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return { error: 'Invalid payload', success: false };
@@ -274,6 +268,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     } = parsed.data;
     let cleanup = () => {};
     try {
+      validateSender(event, windowManager);
       const providerConfig = await resolveThreadProviderConfig(provider, model);
       const setup = await agentRuntime.openHarnessForThread({
         threadId,

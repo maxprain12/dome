@@ -16,6 +16,7 @@ import type {
 	ImageContent,
 	Message,
 	Model,
+	NativeWebActivation,
 	SimpleStreamOptions,
 	StopReason,
 	StreamFunction,
@@ -34,6 +35,10 @@ import { sanitizeSurrogates } from "../utils/sanitize-unicode.js";
 import { resolveCloudflareBaseUrl } from "./cloudflare.js";
 import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copilot-headers.js";
 import { adjustMaxTokensForThinking, buildBaseOptions } from "./simple-options.js";
+import {
+	anthropicNativeWebBetaHeaders,
+	buildAnthropicServerWebTools,
+} from "../native-web-tools.js";
 import { transformMessages } from "./transform-messages.js";
 
 /**
@@ -182,6 +187,8 @@ function getAnthropicCompat(
 }
 
 export interface AnthropicOptions extends StreamOptions {
+	/** Provider-native server web search/fetch (see native-web-tools.ts). */
+	nativeWeb?: NativeWebActivation;
 	/**
 	 * Enable extended thinking.
 	 * For adaptive thinking models: the model decides when/how much to think.
@@ -504,6 +511,7 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 					options?.headers,
 					copilotDynamicHeaders,
 					cacheSessionId,
+					options?.nativeWeb,
 				);
 				client = created.client;
 				isOAuth = created.isOAuthToken;
@@ -745,7 +753,11 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 
 	const base = buildBaseOptions(model, options, apiKey);
 	if (!options?.reasoning) {
-		return streamAnthropic(model, context, { ...base, thinkingEnabled: false } satisfies AnthropicOptions);
+		return streamAnthropic(model, context, {
+			...base,
+			thinkingEnabled: false,
+			nativeWeb: options?.nativeWeb,
+		} satisfies AnthropicOptions);
 	}
 
 	// For models with adaptive thinking: use an effort level.
@@ -756,6 +768,7 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 			...base,
 			thinkingEnabled: true,
 			effort,
+			nativeWeb: options?.nativeWeb,
 		} satisfies AnthropicOptions);
 	}
 
@@ -773,6 +786,7 @@ export const streamSimpleAnthropic: StreamFunction<"anthropic-messages", SimpleS
 		maxTokens: adjusted.maxTokens,
 		thinkingEnabled: true,
 		thinkingBudgetTokens: adjusted.thinkingBudget,
+		nativeWeb: options?.nativeWeb,
 	} satisfies AnthropicOptions);
 };
 
@@ -788,6 +802,7 @@ function createClient(
 	optionsHeaders?: Record<string, string>,
 	dynamicHeaders?: Record<string, string>,
 	sessionId?: string,
+	nativeWeb?: NativeWebActivation,
 ): { client: Anthropic; isOAuthToken: boolean } {
 	// Adaptive thinking models have interleaved thinking built in, so skip the beta header.
 	const needsInterleavedBeta = interleavedThinking && model.compat?.forceAdaptiveThinking !== true;
@@ -797,6 +812,9 @@ function createClient(
 	}
 	if (needsInterleavedBeta) {
 		betaFeatures.push(INTERLEAVED_THINKING_BETA);
+	}
+	if (nativeWeb) {
+		betaFeatures.push(...anthropicNativeWebBetaHeaders(nativeWeb));
 	}
 
 	if (model.provider === "cloudflare-ai-gateway") {
@@ -944,6 +962,12 @@ function buildParams(
 			compat.supportsEagerToolInputStreaming,
 			compat.supportsCacheControlOnTools ? cacheControl : undefined,
 		);
+	}
+
+	const nativeWeb = options?.nativeWeb;
+	if (nativeWeb && (nativeWeb.search || nativeWeb.fetch)) {
+		const serverTools = buildAnthropicServerWebTools(nativeWeb);
+		params.tools = [...(params.tools ?? []), ...(serverTools as Anthropic.Messages.Tool[])];
 	}
 
 	// Configure thinking mode: adaptive, budget-based, or explicitly disabled.

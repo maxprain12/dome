@@ -84,6 +84,112 @@ function piUsageToLegacyChunk(usage) {
   };
 }
 
+function piMessageToHistoryEntry(msg) {
+  if (!msg) return { content: '' };
+  if (typeof msg.content === 'string') return { content: msg.content };
+  if (Array.isArray(msg.content)) {
+    const text = msg.content
+      .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
+      .map((b) => b.text)
+      .join('\n');
+    return { content: text };
+  }
+  return { content: '' };
+}
+
+/** Build the renderer budget breakdown from session + tools + system prompt. */
+async function buildBudgetBreakdown(setup, opts = {}) {
+  const { measurePromptDetailed } = require('../prompts/prompt-budget.cjs');
+  const { session, core, baseSystemPrompt, tools, resources, mcpToolNames, subagentToolNames } = setup;
+  const skillsBlock = core.formatSkillsForSystemPrompt(resources?.skills ?? []);
+  const rulesBlock = typeof opts.userMemory === 'string' ? opts.userMemory : '';
+  let baseSystem = baseSystemPrompt || '';
+  if (rulesBlock && baseSystem.includes(rulesBlock)) {
+    baseSystem = baseSystem.replace(rulesBlock, '').trim();
+  }
+
+  const subSet = new Set(subagentToolNames || ['task', 'delegate_to_agent']);
+  const mcpSet = new Set(mcpToolNames || []);
+  const domeTools = [];
+  const mcpTools = [];
+  const subagentTools = [];
+  for (const t of tools || []) {
+    if (subSet.has(t.name)) subagentTools.push(t);
+    else if (mcpSet.has(t.name)) mcpTools.push(t);
+    else domeTools.push(t);
+  }
+
+  const sessionCtx = await session.buildContext();
+  const history = (sessionCtx.messages || [])
+    .filter((m) => m && m.role !== 'system')
+    .map(piMessageToHistoryEntry);
+
+  let summarizedChars = 0;
+  try {
+    const branch = await session.getBranch();
+    for (const entry of branch) {
+      if (entry && entry.type === 'compaction' && typeof entry.summary === 'string') {
+        summarizedChars += entry.summary.length;
+      }
+    }
+  } catch {
+    // optional
+  }
+  for (const m of history) {
+    const text = typeof m.content === 'string' ? m.content : '';
+    if (text.includes('[Conversation summary]')) {
+      summarizedChars += text.length;
+    }
+  }
+
+  const breakdown = measurePromptDetailed({
+    baseSystem,
+    skillsBlock,
+    rulesBlock,
+    domeTools: domeTools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    })),
+    mcpTools: mcpTools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    })),
+    subagentTools: subagentTools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      parameters: t.parameters,
+    })),
+    history,
+    summarizedChars,
+  });
+
+  try {
+    const estimate = core.estimateContextTokens(sessionCtx.messages || []);
+    if (estimate.tokens > 0) breakdown.totalApprox = estimate.tokens;
+  } catch {
+    // keep char/4 total
+  }
+  return breakdown;
+}
+
+function emitBudgetChunk(onChunk, breakdown) {
+  if (typeof onChunk !== 'function' || !breakdown) return;
+  onChunk({ type: 'budget', breakdown });
+}
+
+function emitCompactionChunk(onChunk, payload) {
+  if (typeof onChunk !== 'function' || !payload) return;
+  onChunk({
+    type: 'compaction',
+    tokensBefore: payload.tokensBefore ?? 0,
+    tokensAfter: payload.tokensAfter ?? null,
+    summaryPreview: payload.summaryPreview ?? '',
+    automatic: payload.automatic !== false,
+  });
+}
+
 /**
  * Resolve which runtime a surface uses. Only the Dome-native runtime
  * (`@dome/agent-core`) exists; kept as a function for call sites and tests.
@@ -199,6 +305,16 @@ function lastUserText(messages) {
   return '';
 }
 
+/** Last raw renderer user message (with attachments) from legacy message list. */
+function lastRawUserMessage(messages) {
+  if (!Array.isArray(messages)) return null;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i];
+    if (m && m.role === 'user') return m;
+  }
+  return null;
+}
+
 function detectHarmfulContent(text) {
   if (!text || typeof text !== 'string') return null;
   for (const pattern of HARMFUL_PATTERNS) {
@@ -289,7 +405,7 @@ function buildBeforeToolCall(opts, caps) {
  * the conversation approaches the model context window. Falls back to the
  * original messages on any error (the loop contract forbids throwing here).
  */
-function buildCompaction(core, piModel, apiKey) {
+function buildCompaction(core, piModel, apiKey, onChunk) {
   const settings = core.DEFAULT_COMPACTION_SETTINGS;
   return async function transformContext(messages, signal) {
     try {
@@ -297,6 +413,7 @@ function buildCompaction(core, piModel, apiKey) {
       if (!window) return messages;
       const estimate = core.estimateContextTokens(messages);
       if (!core.shouldCompact(estimate.tokens, window, settings)) return messages;
+      const tokensBefore = estimate.tokens;
 
       // Walk back from the end keeping roughly `keepRecentTokens`.
       let acc = 0;
@@ -333,7 +450,15 @@ function buildCompaction(core, piModel, apiKey) {
         content: [{ type: 'text', text: `[Conversation summary]\n${summary}` }],
         timestamp: Date.now(),
       };
-      return [summaryMessage, ...recent];
+      const compacted = [summaryMessage, ...recent];
+      const tokensAfter = core.estimateContextTokens(compacted).tokens;
+      emitCompactionChunk(onChunk, {
+        tokensBefore,
+        tokensAfter,
+        summaryPreview: summary.slice(0, 280),
+        automatic: true,
+      });
+      return compacted;
     } catch (err) {
       console.error('[AgentRuntime] compaction skipped:', err && err.message ? err.message : err);
       return messages;
@@ -379,8 +504,8 @@ function buildHarnessToolCallHook(session, opts) {
 }
 
 /** Build a harness `context` hook that runs summarization-based compaction. */
-function buildHarnessContextHook(core, piModel, apiKey) {
-  const transform = buildCompaction(core, piModel, apiKey);
+function buildHarnessContextHook(core, piModel, apiKey, onChunk) {
+  const transform = buildCompaction(core, piModel, apiKey, onChunk);
   return async function harnessContext(event) {
     const next = await transform(event.messages);
     return { messages: next };
@@ -449,18 +574,27 @@ async function setupHarness(surface, opts) {
         : '';
   const nonSystem = (Array.isArray(messages) ? messages : []).filter((m) => m && m.role !== 'system');
 
+  const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
+  const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model });
+
   let piModel = ai.resolveDomeModel({ provider, model, baseUrl });
   if (baseUrl && piModel && piModel.baseUrl !== baseUrl) {
     piModel = { ...piModel, baseUrl };
   }
-  const piMessages = ai.legacyMessagesToContext(baseSystemPrompt, nonSystem).messages;
+  const piMessages = ai.legacyMessagesToContext(baseSystemPrompt, normalizedNonSystem).messages;
 
-  const { session, threadId } = await bridge.resolveSession(effectiveThreadId);
+  const { session, threadId } = await bridge.resolveSession(effectiveThreadId, {
+    parentThreadId: opts.parentThreadId,
+    parentSessionPath: opts.parentSessionPath,
+  });
   await bridge.seedSessionIfEmpty(session, piMessages);
 
   const executeToolInMain = (name, args) =>
     dispatcher.executeToolInMain(name, args, opts.runtimeContext);
+  const mcpToolsList = await bridge.buildMcpAgentTools(database, opts.mcpServerIds);
+  const mcpToolNames = mcpToolsList.map((t) => t.name);
   const tools = await bridge.buildAllTools(database, opts, executeToolInMain);
+  const subagentToolNames = ['task', 'delegate_to_agent'];
 
   if (surface === 'many') {
     const { manySubagentIds, buildTaskTool } = require('./subagents-native.cjs');
@@ -493,15 +627,22 @@ async function setupHarness(surface, opts) {
     }, opts.teamMemberAgents));
   }
 
+  const nativeWeb = ai.resolveNativeWebActivation(piModel, tools);
+  const activeTools =
+    nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools;
+
   const resources = await bridge.loadSkillsResources();
   const env = new NodeExecutionEnv({ cwd: process.cwd() });
   const harness = new core.AgentHarness({
     env,
     session,
-    tools,
+    tools: activeTools,
     resources,
     model: piModel,
     thinkingLevel: thinkingLevel && thinkingLevel !== 'off' ? thinkingLevel : 'off',
+    streamOptions: {
+      nativeWeb: nativeWeb.search || nativeWeb.fetch ? nativeWeb : undefined,
+    },
     getApiKeyAndHeaders: async () => {
       if (!apiKey) return undefined;
       if (provider === 'copilot' || piModel.provider === 'github-copilot') {
@@ -520,9 +661,19 @@ async function setupHarness(surface, opts) {
   });
 
   const unsubTool = harness.on('tool_call', buildHarnessToolCallHook(session, opts));
-  const unsubCtx = harness.on('context', buildHarnessContextHook(core, piModel, apiKey));
+  const unsubCtx = harness.on('context', buildHarnessContextHook(core, piModel, apiKey, onChunk));
   const unsubEvents = harness.subscribe((event) => {
     if (!event || typeof event.type !== 'string') return;
+    if (event.type === 'session_compact' && event.compactionEntry) {
+      const entry = event.compactionEntry;
+      emitCompactionChunk(onChunk, {
+        tokensBefore: entry.tokensBefore ?? 0,
+        tokensAfter: null,
+        summaryPreview: typeof entry.summary === 'string' ? entry.summary.slice(0, 280) : '',
+        automatic: false,
+      });
+      return;
+    }
     if (event.type === 'agent_end' || event.type === 'message_update' || event.type === 'tool_execution_start' ||
         event.type === 'tool_execution_end' || event.type === 'message_end') {
       const chunk = mapAgentEventToChunk(event);
@@ -552,6 +703,11 @@ async function setupHarness(surface, opts) {
     session,
     threadId,
     piModel,
+    baseSystemPrompt,
+    tools,
+    resources,
+    mcpToolNames,
+    subagentToolNames,
     cleanup: () => {
       if (abortListener && signal) signal.removeEventListener('abort', abortListener);
       unsubTool();
@@ -725,12 +881,26 @@ async function openHarnessForThread(opts) {
 
 async function runDomeAgent(surface, opts) {
   console.log(`[AgentRuntime] ⚡ Dome-native AgentHarness — ${surface}`);
-  const userPrompt = lastUserText(
-    (await import('@dome/ai')).legacyMessagesToContext(
-      '',
-      (Array.isArray(opts.messages) ? opts.messages : []).filter((m) => m && m.role !== 'system'),
-    ).messages,
+  const ai = await import('@dome/ai');
+  const rawNonSystem = (Array.isArray(opts.messages) ? opts.messages : []).filter(
+    (m) => m && m.role !== 'system',
   );
+  const { normalizeMessagesForProvider } = require('../ai/message-multimodal.cjs');
+  const { attachmentsToImageContent } = require('../ai/image-attach.cjs');
+  const normalizedNonSystem = normalizeMessagesForProvider(rawNonSystem, {
+    provider: opts.provider,
+    modelId: opts.model,
+  });
+  const piMessages = ai.legacyMessagesToContext('', normalizedNonSystem).messages;
+  let userPrompt = lastUserText(piMessages);
+  const lastRaw = lastRawUserMessage(rawNonSystem);
+  const promptImages = await attachmentsToImageContent(lastRaw?.attachments, {
+    provider: opts.provider,
+    modelId: opts.model,
+  });
+  if (!userPrompt.trim() && promptImages.length > 0) {
+    userPrompt = '(see attached image)';
+  }
 
   if (process.env.DOME_GUARDRAILS === '1') {
     const reason = detectHarmfulContent(userPrompt);
@@ -747,7 +917,20 @@ async function runDomeAgent(surface, opts) {
   const { harness, threadId, cleanup } = setup;
 
   try {
-    const assistant = await harness.prompt(userPrompt);
+    if (typeof opts.onChunk === 'function') {
+      try {
+        const breakdown = await buildBudgetBreakdown(setup, {
+          userMemory: opts.userMemory,
+        });
+        emitBudgetChunk(opts.onChunk, breakdown);
+      } catch (budgetErr) {
+        console.warn('[AgentRuntime] budget telemetry skipped:', budgetErr?.message || budgetErr);
+      }
+    }
+    const assistant = await harness.prompt(
+      userPrompt,
+      promptImages.length > 0 ? { images: promptImages } : undefined,
+    );
     const finalText = assistantText(assistant);
     if (assistant?.stopReason === 'error') {
       const errText = finalText || assistant.errorMessage || 'Agent error';
@@ -771,9 +954,22 @@ async function runDomeAgent(surface, opts) {
       }
       return payload;
     }
-    console.error('[AgentRuntime] run failed:', err?.message || err);
-    if (typeof opts.onChunk === 'function' && err?.message) {
+    const aborted = opts.signal?.aborted
+      || err?.name === 'AbortError'
+      || `${err?.message || ''}`.toLowerCase().includes('terminated')
+      || `${err?.message || ''}`.toLowerCase().includes('abort');
+    if (aborted) {
+      console.log('[AgentRuntime] run cancelled:', err?.message || 'aborted');
+    } else {
+      console.error('[AgentRuntime] run failed:', err?.message || err);
+    }
+    if (typeof opts.onChunk === 'function' && err?.message && !aborted) {
       opts.onChunk({ type: 'error', error: err.message });
+    }
+    if (aborted) {
+      const abortErr = new Error('Run cancelled');
+      abortErr.name = 'AbortError';
+      throw abortErr;
     }
     throw err;
   } finally {
@@ -784,6 +980,9 @@ async function runDomeAgent(surface, opts) {
 module.exports = {
   resolveRuntime,
   mapAgentEventToChunk,
+  buildBudgetBreakdown,
+  emitBudgetChunk,
+  emitCompactionChunk,
   runAgent,
   runManyAgent,
   runDomeAgent,

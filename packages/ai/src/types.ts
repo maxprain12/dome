@@ -84,6 +84,12 @@ export interface ProviderResponse {
 	headers: Record<string, string>;
 }
 
+/** Active provider-native web search/fetch (server-side) for this request. */
+export interface NativeWebActivation {
+	search: boolean;
+	fetch: boolean;
+}
+
 export interface StreamOptions {
 	temperature?: number;
 	maxTokens?: number;
@@ -153,6 +159,8 @@ export interface StreamOptions {
 	 * For example, Anthropic uses `user_id` for abuse tracking and rate limiting.
 	 */
 	metadata?: Record<string, unknown>;
+	/** When set, providers inject native server web tools instead of client HTTP tools. */
+	nativeWeb?: NativeWebActivation;
 }
 
 export type ProviderStreamOptions = StreamOptions & Record<string, unknown>;

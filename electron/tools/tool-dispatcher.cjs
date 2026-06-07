@@ -2309,7 +2309,8 @@ function getAllToolDefinitions() {
       function: {
         name: 'skill_read',
         description:
-          'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). Use for auxiliary skill docs referenced in SKILL.md.',
+          'Read a text file from an installed Dome skill (~/.dome/skills/<skill_id>/). Use for auxiliary skill docs referenced in SKILL.md. ' +
+          'Do NOT use for artifact_persisted, artifact_design, or artifacts — call dome_load_doc(id) instead.',
         parameters: {
           type: 'object',
           properties: {

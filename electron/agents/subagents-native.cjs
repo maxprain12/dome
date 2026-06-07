@@ -89,6 +89,7 @@ async function runSubagentTurn(agentName, query, parentOpts) {
     threadId: parentOpts.threadId
       ? `${parentOpts.threadId}_sub_${agentName}_${Date.now()}`
       : undefined,
+    parentThreadId: parentOpts.threadId,
   });
 
   return typeof text === 'string' ? text : String(text?.text ?? text ?? '');
@@ -103,7 +104,7 @@ function buildTaskTool(parentOpts) {
   const allowed = new Set(manySubagentIds());
   return {
     name: 'task',
-    label: 'task',
+    label: 'Subagent',
     description:
       'Delegate a specialized subtask to a subagent (research, library, writer, or data). ' +
       'Use for parallel or domain-specific work; return findings to synthesize the final answer.',
@@ -178,7 +179,7 @@ function buildDelegateToAgentTool(parentOpts, memberAgents) {
 
   return {
     name: 'delegate_to_agent',
-    label: 'delegate_to_agent',
+    label: 'Delegate',
     description:
       'Delegate a subtask to a team member agent. Use the member subagent key from the team list.',
     parameters: {
@@ -248,6 +249,7 @@ function buildDelegateToAgentTool(parentOpts, memberAgents) {
           threadId: parentOpts.threadId
             ? `${parentOpts.threadId}_member_${key}_${Date.now()}`
             : undefined,
+          parentThreadId: parentOpts.threadId,
         });
         const result = typeof text === 'string' ? text : String(text?.text ?? text ?? '');
         const capped = capToolResultString('delegate_to_agent', result);

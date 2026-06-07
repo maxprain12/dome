@@ -1,4 +1,4 @@
-import type { ImageContent, Model, SimpleStreamOptions, TextContent, Transport } from "@dome/ai";
+import type { ImageContent, Model, NativeWebActivation, SimpleStreamOptions, TextContent, Transport } from "@dome/ai";
 import type { AgentEvent, AgentMessage, AgentTool, QueueMode, ThinkingLevel } from "../index.js";
 import type { Session } from "./session/session.js";
 
@@ -93,6 +93,8 @@ export interface AgentHarnessStreamOptions {
 	metadata?: SimpleStreamOptions["metadata"];
 	/** Provider cache retention hint. */
 	cacheRetention?: SimpleStreamOptions["cacheRetention"];
+	/** Provider-native server web search/fetch for this harness session. */
+	nativeWeb?: NativeWebActivation;
 }
 
 /** Per-request stream option patch returned by provider hooks. */

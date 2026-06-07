@@ -1,8 +1,9 @@
-import { useState, useMemo, type FormEvent } from 'react';
+import { useState, useMemo, startTransition, type FormEvent } from 'react';
 import { Search, X, Plus, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
+import { filterOutDeletedSessions } from '@/lib/store/manySessionStorage';
 import { useTabStore } from '@/lib/store/useTabStore';
 import DomeButton from '@/components/ui/DomeButton';
 import { DomeInput } from '@/components/ui/DomeInput';
@@ -17,7 +18,7 @@ interface ChatHistoryPanelProps {
 
 export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }: ChatHistoryPanelProps) {
   const { t } = useTranslation();
-  const sessions = useManyStore((s) => s.sessions);
+  const sessions = useManyStore((s) => filterOutDeletedSessions(s.sessions));
   const currentSessionId = useManyStore((s) => s.currentSessionId);
   const [searchQuery, setSearchQuery] = useState('');
   const [renameId, setRenameId] = useState<string | null>(null);
@@ -40,12 +41,15 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
   };
 
   const handleOpenSession = (session: ManyChatSession) => {
-    useManyStore.getState().switchSession(session.id);
+    if (session.id === currentSessionId) return;
+    startTransition(() => {
+      useManyStore.getState().switchSession(session.id);
+    });
     useTabStore.getState().openChatTab(session.id, session.title || t('chat.new_chat'));
   };
 
   const handleDeleteSession = (sessionId: string) => {
-    useManyStore.getState().deleteSession?.(sessionId);
+    void useManyStore.getState().deleteSession(sessionId);
   };
 
   const handleStartRename = (s: ManyChatSession) => {

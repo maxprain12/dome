@@ -13,7 +13,7 @@ import { useEffect } from 'react';
 import type { TFunction } from 'i18next';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
-import type { BudgetBreakdown } from '@/components/many/TokenBudgetBadge';
+import type { BudgetBreakdown } from '@/lib/chat/contextUsage';
 import {
   onRunChunk,
   onRunStep,
@@ -23,7 +23,7 @@ import {
   type PersistentRunStep,
   type PersistentRunUsage,
 } from '@/lib/automations/api';
-import { streamingLabelForToolName } from './streamingLabels';
+import { streamingLabelForToolCall } from './streamingLabels';
 import { coalesceDuplicateToolCalls, applyToolResultChunk } from './coalesceToolCalls';
 
 export interface RunPendingApproval {
@@ -52,6 +52,15 @@ export interface LangGraphRunStreamOptions {
    * Called when the first chunk of a run emits a token budget breakdown.
    */
   onBudget?: (breakdown: BudgetBreakdown) => void;
+  /**
+   * Called when the session is auto-compacted or manually compacted mid-run.
+   */
+  onCompaction?: (event: {
+    tokensBefore: number;
+    tokensAfter: number | null;
+    summaryPreview: string;
+    automatic: boolean;
+  }) => void;
   /**
    * Provider-reported token usage (partial chunks may arrive during the run).
    */
@@ -83,6 +92,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
     onRunTerminal,
     onBudget,
     onUsage,
+    onCompaction,
     t,
   } = options;
 
@@ -102,6 +112,16 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
 
       if (payload.type === 'budget' && payload.breakdown && onBudget) {
         onBudget(payload.breakdown);
+        return;
+      }
+
+      if (payload.type === 'compaction' && onCompaction) {
+        onCompaction({
+          tokensBefore: payload.tokensBefore,
+          tokensAfter: payload.tokensAfter,
+          summaryPreview: payload.summaryPreview,
+          automatic: payload.automatic,
+        });
         return;
       }
 
@@ -165,7 +185,10 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
             ? {
                 ...prev,
                 toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
-                streamingLabel: streamingLabelForToolName(tc.name, t),
+                streamingLabel: streamingLabelForToolCall(
+                  { name: tc.name, arguments: parsedArgs, agentName: payload.agentName },
+                  t,
+                ),
               }
             : {
                 id: `run-${payload.runId}`,
@@ -174,7 +197,10 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
-                streamingLabel: streamingLabelForToolName(tc.name, t),
+                streamingLabel: streamingLabelForToolCall(
+                  { name: tc.name, arguments: parsedArgs, agentName: payload.agentName },
+                  t,
+                ),
               };
         });
         return;
@@ -232,7 +258,7 @@ export function useLangGraphRunStream(options: LangGraphRunStreamOptions): void 
       unsubChunk();
       unsubStep();
     };
-  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, onUsage, t]);
+  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, onUsage, onCompaction, t]);
 }
 
 function upsertRunStep(steps: PersistentRunStep[], step: PersistentRunStep): PersistentRunStep[] {
