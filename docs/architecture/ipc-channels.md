@@ -1,16 +1,16 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-06T18:48:51.576Z
+> Última generación: 2026-06-07T22:35:40.436Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
 | Canal | Archivo: línea |
 | ----- | --------------- |
+| `ai:agent:abort` | `electron/ipc/ai/ai.cjs:331` |
+| `ai:agent:resume` | `electron/ipc/ai/ai.cjs:345` |
+| `ai:agent:stream` | `electron/ipc/ai/ai.cjs:194` |
 | `ai:chat` | `electron/ipc/ai/ai.cjs:32` |
-| `ai:langgraph:abort` | `electron/ipc/ai/ai.cjs:331` |
-| `ai:langgraph:resume` | `electron/ipc/ai/ai.cjs:345` |
-| `ai:langgraph:stream` | `electron/ipc/ai/ai.cjs:194` |
 | `ai:openrouter:listModels` | `electron/ipc/ai/ai.cjs:536` |
 | `ai:provider:listModels` | `electron/ipc/ai/ai.cjs:555` |
 | `ai:stream` | `electron/ipc/ai/ai.cjs:84` |
@@ -390,7 +390,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `runs:getActiveBySession` | `electron/ipc/agents/runs.cjs:26` |
 | `runs:list` | `electron/ipc/agents/runs.cjs:16` |
 | `runs:resume` | `electron/ipc/agents/runs.cjs:56` |
-| `runs:startLangGraph` | `electron/ipc/agents/runs.cjs:36` |
+| `runs:start` | `electron/ipc/agents/runs.cjs:36` |
 | `runs:startWorkflow` | `electron/ipc/agents/runs.cjs:46` |
 | `select-file` | `electron/ipc/core/system.cjs:37` |
 | `select-files` | `electron/ipc/core/system.cjs:55` |
@@ -417,13 +417,13 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `system:get-login-item` | `electron/ipc/core/system.cjs:177` |
 | `system:quit` | `electron/ipc/core/system.cjs:210` |
 | `system:set-login-item` | `electron/ipc/core/system.cjs:188` |
-| `threads:compact` | `electron/ipc/agents/threads.cjs:231` |
-| `threads:delete` | `electron/ipc/agents/threads.cjs:178` |
-| `threads:get-history` | `electron/ipc/agents/threads.cjs:150` |
-| `threads:get-state` | `electron/ipc/agents/threads.cjs:115` |
-| `threads:list` | `electron/ipc/agents/threads.cjs:76` |
-| `threads:navigate-tree` | `electron/ipc/agents/threads.cjs:259` |
-| `threads:update-state` | `electron/ipc/agents/threads.cjs:198` |
+| `threads:compact` | `electron/ipc/agents/threads.cjs:226` |
+| `threads:delete` | `electron/ipc/agents/threads.cjs:173` |
+| `threads:get-history` | `electron/ipc/agents/threads.cjs:145` |
+| `threads:get-state` | `electron/ipc/agents/threads.cjs:110` |
+| `threads:list` | `electron/ipc/agents/threads.cjs:78` |
+| `threads:navigate-tree` | `electron/ipc/agents/threads.cjs:254` |
+| `threads:update-state` | `electron/ipc/agents/threads.cjs:193` |
 | `transcription:get-active` | `electron/ipc/media/transcription.cjs:401` |
 | `transcription:get-permissions` | `electron/ipc/media/transcription.cjs:242` |
 | `transcription:get-settings` | `electron/ipc/media/transcription.cjs:143` |
