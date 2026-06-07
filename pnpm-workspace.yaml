@@ -1,6 +1,7 @@
 # pnpm 11: settings live here (see https://pnpm.io/settings).
 packages:
   - '.'
+  - 'packages/*'
 
 # Fresh publishes (<24h) would otherwise fail resolution in CI/dev.
 minimumReleaseAge: 0
@@ -27,3 +28,4 @@ allowBuilds:
   protobufjs: true
   sharp: true
   onnxruntime-node: set this to true or false
+  '@google/genai': set this to true or false

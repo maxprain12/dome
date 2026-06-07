@@ -18,11 +18,11 @@ El perfil aislado vive en `~/.dome-bench` (no toca `~/.dome`).
 
 ### Objetivo del harness
 
-Medir y endurecer **Dome** (catálogo de tools + LangGraph), no “si MiniMax improvisa bien”. Reglas:
+Medir y endurecer **Dome** (catálogo de tools + runtime nativo `@dome/agent-core`), no “si MiniMax improvisa bien”. Reglas:
 
 1. **Catálogo completo** — cada entrada de `TOOL_HANDLER_MAP` debe existir en `getAllToolDefinitions()` (`pnpm run check:tool-coverage`).
 2. **Un caso = una tool** — `tool-scope.cjs` expone solo la tool del caso (+ helpers mínimos).
-3. **Sin deepagents filesystem en bench** — perfil `bench` en `agent-middleware.cjs` (sin `ls`/`grep`/`execute` fantasma).
+3. **Sin filesystem fantasma en bench** — el bench usa solo las tools del caso vía `tool-scope.cjs`.
 4. **Proveedor-agnóstico** — recuperación de `<invoke>` en texto (`parse-text-tool-invokes.cjs`) para MiniMax; el prompt exige `tool_call` nativo.
 
 ### Evitar que el agente explore el repo Dome

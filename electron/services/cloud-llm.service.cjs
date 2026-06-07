@@ -5,17 +5,26 @@
  */
 'use strict';
 
-const llmService = require('../llm-service.cjs');
-const { MINIMAX_BASE_URL } = require('../minimax-config.cjs');
-const database = require('../database.cjs');
-const domeOauth = require('../dome-oauth.cjs');
-const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
-const { resolveTemperature } = require('../model-params.cjs');
+const llmService = require('../ai/llm-service.cjs');
+const { MINIMAX_BASE_URL } = require('../ai/minimax-config.cjs');
+const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 
-const VISION_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'minimax', 'dome', 'ollama', 'openrouter']);
+const VISION_PROVIDERS = new Set([
+  'openai',
+  'anthropic',
+  'google',
+  'minimax',
+  'dome',
+  'ollama',
+  'openrouter',
+  'copilot',
+  'deepseek',
+  'moonshot',
+  'qwen',
+]);
 
 /**
- * @param {() => import('better-sqlite3').Database extends infer _ ? ReturnType<typeof database.getQueries> : never} getQueries
+ * @param {() => any} getQueries
  */
 function resolveConfig(getQueries) {
   const q = getQueries();
@@ -31,20 +40,51 @@ function resolveConfig(getQueries) {
   }
 
   if (provider === 'dome') {
+    const row = q.getDomeProviderSessionWithRefresh?.get?.();
     return {
       provider: 'dome',
       model: q.getSetting.get('ai_model')?.value || 'dome/auto',
+      apiKey: row?.access_token || '',
+      openaiBase: `${getDomeProviderBaseUrl()}/api/v1`,
     };
   }
 
+  if (provider === 'copilot') {
+    return {
+      provider: 'copilot',
+      apiKey: q.getSetting.get('copilot_github_token')?.value || '',
+      model: q.getSetting.get('ai_model')?.value || 'gpt-4.1',
+      openaiBase: 'https://api.individual.githubcopilot.com',
+    };
+  }
+
+  const { DEFAULT_BASE_URLS } = require('../ai/model-factory.cjs');
+  const { MINIMAX_ANTHROPIC_BASE_URL } = require('../ai/minimax-config.cjs');
   const rawBase = q.getSetting.get('ai_base_url')?.value;
-  const openaiBase = rawBase && String(rawBase).trim() ? String(rawBase).trim().replace(/\/$/, '') : 'https://api.openai.com';
+  const customBase = rawBase && String(rawBase).trim() ? String(rawBase).trim().replace(/\/$/, '') : undefined;
+
+  const supported = [
+    'openai',
+    'anthropic',
+    'google',
+    'minimax',
+    'openrouter',
+    'deepseek',
+    'moonshot',
+    'qwen',
+  ];
+  const resolvedProvider = supported.includes(provider) ? provider : 'openai';
+
+  let openaiBase = customBase || 'https://api.openai.com';
+  if (resolvedProvider === 'minimax') openaiBase = MINIMAX_ANTHROPIC_BASE_URL;
+  else if (resolvedProvider === 'openrouter') openaiBase = 'https://openrouter.ai/api/v1';
+  else if (DEFAULT_BASE_URLS[resolvedProvider]) openaiBase = DEFAULT_BASE_URLS[resolvedProvider];
 
   return {
-    provider: ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(provider) ? provider : 'openai',
+    provider: resolvedProvider,
     apiKey: q.getSetting.get('ai_api_key')?.value,
     model: q.getSetting.get('ai_model')?.value,
-    openaiBase: provider === 'minimax' ? MINIMAX_BASE_URL : openaiBase,
+    openaiBase,
   };
 }
 
@@ -60,10 +100,27 @@ function isCloudLlmAvailable(getQueries) {
       const row = getQueries().getDomeProviderSessionWithRefresh?.get?.();
       return Boolean(row?.access_token);
     }
+    if (cfg.provider === 'copilot') {
+      return Boolean(getQueries().getSetting.get('copilot_github_token')?.value);
+    }
     return Boolean(cfg.apiKey && String(cfg.apiKey).trim());
   } catch {
     return false;
   }
+}
+
+async function resolveLlmAuth(cfg) {
+  if (cfg.provider === 'copilot') {
+    const database = require('../core/database.cjs');
+    const copilotOAuth = require('../auth/github-copilot-oauth.cjs');
+    const { token, baseUrl } = await copilotOAuth.getCopilotToken(database);
+    if (!token) throw new Error('GitHub Copilot no conectado. Ve a Ajustes > IA.');
+    return { apiKey: token, baseUrl };
+  }
+  return {
+    apiKey: cfg.apiKey,
+    baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+  };
 }
 
 /**
@@ -162,11 +219,7 @@ async function generateText(opts) {
   let out = '';
   let err = null;
   try {
-    if (cfg.provider === 'dome') {
-      const body = { model: cfg.model, messages };
-      if (json) body.response_format = { type: 'json_object' };
-      out = await domeChatCompletions(body);
-    } else if (cfg.provider === 'anthropic' && json) {
+    if (cfg.provider === 'anthropic' && json) {
       // Anthropic: inject JSON instruction in system, no response_format param
       if (!cfg.apiKey) throw new Error('Falta la clave API en Ajustes');
       const m2 = hasImages
@@ -191,113 +244,46 @@ async function generateText(opts) {
         options: anthOpts,
       });
     } else {
-      if (cfg.provider !== 'ollama' && !cfg.apiKey) throw new Error('Falta la clave API en Ajustes');
-      out = await llmService.chat({
+      if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && cfg.provider !== 'copilot' && !cfg.apiKey) {
+        throw new Error('Falta la clave API en Ajustes');
+      }
+      const auth = await resolveLlmAuth(cfg);
+      const chatResult = await llmService.chat({
         provider: cfg.provider,
         model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
-        apiKey: cfg.apiKey,
-        baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+        apiKey: auth.apiKey,
+        baseUrl: auth.baseUrl,
         messages,
-        options: cfg.provider === 'google' ? googleOpts : openOpts,
+        options: {
+          ...(cfg.provider === 'google' ? googleOpts : openOpts),
+          ...(json ? { responseFormat: 'json_object' } : {}),
+        },
       });
+      out = chatResult;
     }
   } catch (e) {
     err = e instanceof Error ? e : new Error(String(e));
     throw err;
   } finally {
-    emitAnalytics(windowManager, { task, provider: cfg.provider, ms: Date.now() - t0, ok: !err, error: err?.message });
+    const usage = out && typeof out === 'object' && out.usage ? out.usage : null;
+    emitAnalytics(windowManager, {
+      task,
+      provider: cfg.provider,
+      ms: Date.now() - t0,
+      ok: !err,
+      error: err?.message,
+      ...(usage
+        ? {
+            inputTokens: usage.inputTokens ?? null,
+            outputTokens: usage.outputTokens ?? null,
+            totalTokens: usage.totalTokens ?? null,
+          }
+        : {}),
+    });
   }
 
   const text = typeof out === 'object' && out && 'text' in out ? out.text : String(out || '');
   return String(text || '');
-}
-
-/**
- * @param {{ messages: Array<unknown>, model: string, temperature?: number, response_format?: { type: string } }} body
- */
-async function domeChatCompletions(body) {
-  const db = database;
-  const temp = resolveTemperature(body?.model);
-  const res = await domeOauth.fetchWithDomeAuth(db, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...(temp !== undefined ? { temperature: temp } : {}),
-      ...body,
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Dome: ${res.status} ${t}`);
-  }
-  const data = await res.json();
-  const c = data?.choices?.[0]?.message?.content;
-  if (c == null) throw new Error('Dome: respuesta vacía');
-  return String(c);
-}
-
-/**
- * @param {{ messages: any[], model: string }} p
- * @param {(c: { type: string, text?: string }) => void} onChunk
- */
-async function domeStreamChatCompletions(p, onChunk) {
-  const db = database;
-  const temp = resolveTemperature(p?.model);
-  const res = await domeOauth.fetchWithDomeAuth(db, `${getDomeProviderBaseUrl()}/api/v1/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...p,
-      stream: true,
-      ...(temp !== undefined ? { temperature: temp } : {}),
-    }),
-  });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Dome stream: ${res.status} ${t}`);
-  }
-  if (!res.body || typeof res.body.getReader !== 'function') {
-    throw new Error('Dome: stream no disponible en este entorno');
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let full = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const raw = line.slice(6).trim();
-      if (raw === '[DONE]') continue;
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed?.usage) {
-          const u = parsed.usage;
-          onChunk({
-            type: 'usage',
-            usage: {
-              inputTokens: u.prompt_tokens ?? 0,
-              outputTokens: u.completion_tokens ?? 0,
-              totalTokens: u.total_tokens ?? (u.prompt_tokens ?? 0) + (u.completion_tokens ?? 0),
-            },
-            partial: true,
-          });
-        }
-        const t = parsed?.choices?.[0]?.delta?.content;
-        if (t) {
-          full += t;
-          onChunk({ type: 'text', text: t });
-        }
-      } catch {
-        /* skip */
-      }
-    }
-  }
-  return full;
 }
 
 /**
@@ -316,6 +302,7 @@ async function streamGenerate(opts) {
     throw new Error('Configura un proveedor de IA en Ajustes.');
   }
   const streamOpts = { maxTokens: maxTokens || 1024 };
+  const googleOpts = { maxOutputTokens: streamOpts.maxTokens };
   const resolvedModel = cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model;
 
   const messages = hasImages
@@ -333,40 +320,54 @@ async function streamGenerate(opts) {
 
   let err = null;
   let full = '';
+  let usage = null;
   try {
-    if (cfg.provider === 'dome') {
-      full = await domeStreamChatCompletions({ messages, model: cfg.model || 'dome/auto' }, wrap);
-    } else {
-      if (cfg.provider !== 'ollama' && !cfg.apiKey) throw new Error('Falta la clave API');
-      const googleOpts = { maxOutputTokens: streamOpts.maxTokens };
-      const streamResult = await llmService.stream({
-        provider: cfg.provider,
-        model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
-        apiKey: cfg.apiKey,
-        baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
-        messages,
-        options: cfg.provider === 'google' ? googleOpts : streamOpts,
-        onChunk: (data) => {
-          if (data?.type === 'usage' && data.usage) {
-            onChunk(data);
-            return;
-          }
-          wrap(data);
-        },
-      });
-      full = streamResult?.text ?? String(streamResult || '');
+    if (cfg.provider !== 'ollama' && cfg.provider !== 'dome' && cfg.provider !== 'copilot' && !cfg.apiKey) {
+      throw new Error('Falta la clave API');
     }
+    const auth = await resolveLlmAuth(cfg);
+    const streamResult = await llmService.stream({
+      provider: cfg.provider,
+      model: cfg.provider === 'minimax' ? (cfg.model || 'MiniMax-M3') : cfg.model,
+      apiKey: auth.apiKey,
+      baseUrl: auth.baseUrl,
+      messages,
+      options: cfg.provider === 'google' ? googleOpts : streamOpts,
+      onChunk: (data) => {
+        if (data?.type === 'usage' && data.usage) {
+          usage = data.usage;
+          onChunk(data);
+          return;
+        }
+        wrap(data);
+      },
+    });
+    full = streamResult?.text ?? String(streamResult || '');
+    usage = streamResult?.usage ?? usage;
   } catch (e) {
     err = e instanceof Error ? e : new Error(String(e));
     throw err;
   } finally {
-    emitAnalytics(windowManager, { task, provider: cfg.provider, ms: Date.now() - t0, ok: !err, error: err?.message });
+    emitAnalytics(windowManager, {
+      task,
+      provider: cfg.provider,
+      ms: Date.now() - t0,
+      ok: !err,
+      error: err?.message,
+      ...(usage
+        ? {
+            inputTokens: usage.inputTokens ?? null,
+            outputTokens: usage.outputTokens ?? null,
+            totalTokens: usage.totalTokens ?? null,
+          }
+        : {}),
+    });
   }
   return full;
 }
 
 /**
- * @param {import('../services/cloud-llm-tasks.cjs')} tasks - lazy ref
+ * @param {import('./cloud-llm-tasks.cjs')} tasks - lazy ref
  * @param {string} dataUrl
  * @param {string} pageNumber
  * @param {{ getQueries: () => any, windowManager?: any }} ctx

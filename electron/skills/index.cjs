@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 /**
- * Thin wrapper over deepagents `listSkills` / `createSkillsMiddleware`.
+ * Native skills discovery via `@dome/agent-core` (SKILL.md loader).
  * Single source of truth for the user skills directory path.
  */
 const path = require('path');
@@ -15,30 +15,27 @@ function userSkillsDir() {
 
 /**
  * List all skills from the user skills directory.
- * Uses deepagents.listSkills which reads SKILL.md frontmatter synchronously.
- * @returns {Promise<Array<import('deepagents').SkillMetadata>>}
+ * @returns {Promise<Array<{ name: string, description: string, path: string }>>}
  */
 async function listAllSkills() {
   try {
-    const { listSkills } = await import('deepagents');
-    return listSkills({ userSkillsDir: userSkillsDir(), projectSkillsDir: null });
+    const core = await import('@dome/agent-core');
+    const { NodeExecutionEnv } = await import('@dome/agent-core/node');
+    const dir = userSkillsDir();
+    const env = new NodeExecutionEnv({ cwd: dir });
+    const { skills, diagnostics } = await core.loadSkills(env, dir);
+    for (const d of diagnostics) {
+      console.warn(`[Skills] ${d.code}: ${d.message} (${d.path})`);
+    }
+    return skills.map((s) => ({
+      name: s.name,
+      description: s.description,
+      path: s.filePath,
+    }));
   } catch (err) {
     console.warn('[Skills] listAllSkills failed:', err?.message);
     return [];
   }
 }
 
-/**
- * Build a createSkillsMiddleware instance backed by the user skills directory.
- * Must be called inside an async context (uses dynamic ESM import).
- * @returns {Promise<import('deepagents').AgentMiddleware>}
- */
-async function buildSkillsMiddleware() {
-  const { createSkillsMiddleware, FilesystemBackend } = await import('deepagents');
-  return createSkillsMiddleware({
-    backend: new FilesystemBackend({ rootDir: os.homedir() }),
-    sources: [userSkillsDir()],
-  });
-}
-
-module.exports = { userSkillsDir, listAllSkills, buildSkillsMiddleware };
+module.exports = { userSkillsDir, listAllSkills };

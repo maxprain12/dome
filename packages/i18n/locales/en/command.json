@@ -1,0 +1,17 @@
+{
+  "add_url": "Add URL",
+  "add_web_resource": "Add Web Resource",
+  "youtube": "YouTube",
+  "article": "Article",
+  "ai": "AI",
+  "clear_search": "Clear search",
+  "please_enter_url": "Please enter a valid URL starting with http:// or https://",
+  "youtube_detected": "YouTube video detected - will extract video info",
+  "article_detected": "Web article - will extract content",
+  "new_note": "New note",
+  "new_notebook": "New notebook",
+  "upload_files": "Upload files",
+  "no_results": "No results found for \"{{query}}\"",
+  "resources": "Resources",
+  "notes_annotations": "Notes & Annotations"
+}

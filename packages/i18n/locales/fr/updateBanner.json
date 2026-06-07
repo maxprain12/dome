@@ -1,0 +1,7 @@
+{
+  "version_available": "Nouvelle version {{version}} disponible",
+  "download": "Télécharger",
+  "downloading": "Téléchargement de la mise à jour... {{percent}}%",
+  "ready_to_install": "Mise à jour prête à installer",
+  "restart_to_install": "Redémarrer pour installer"
+}

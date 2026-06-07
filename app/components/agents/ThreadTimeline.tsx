@@ -1,5 +1,5 @@
 /**
- * ThreadTimeline — Time-travel UI for LangGraph thread checkpoints.
+ * ThreadTimeline — Time-travel UI for agent thread checkpoints.
  *
  * Shows the ordered list of checkpoints for a thread, allows the user to
  * inspect checkpoint state, and fork execution from any historical point.

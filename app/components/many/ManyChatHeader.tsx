@@ -1,8 +1,9 @@
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import { X, Plus, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import ManyAvatar from './ManyAvatar';
+import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
 
 interface ManyChatHeaderProps {
   status: string;
@@ -21,6 +22,8 @@ interface ManyChatHeaderProps {
   showClose?: boolean;
   /** Sidebar Many: overlay; fullscreen: columna derecha interna */
   showHistoryToggle?: boolean;
+  /** Context window donut + popup */
+  contextUsage?: ReactNode;
 }
 
 export default memo(function ManyChatHeader({
@@ -38,12 +41,16 @@ export default memo(function ManyChatHeader({
   historyOpen = false,
   showClose = true,
   showHistoryToggle = true,
+  contextUsage,
 }: ManyChatHeaderProps) {
   const { t } = useTranslation();
   const isThinking = status === 'thinking';
   const isSpeaking = status === 'speaking';
 
-  const titleText = sessionTitle || t('many.many');
+  const titleText =
+    sessionTitle && sessionTitle !== 'New chat'
+      ? sanitizeManySessionTitle(sessionTitle)
+      : t('many.many');
   const subtitleText = isThinking || isSpeaking ? null : loadingHint || null;
 
   return (
@@ -123,6 +130,7 @@ export default memo(function ManyChatHeader({
 
       {/* Actions */}
       <div className="flex items-center shrink-0" style={{ gap: 2 }}>
+        {contextUsage}
         <button
           type="button"
           className="many-icon-btn"

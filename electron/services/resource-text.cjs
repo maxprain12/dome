@@ -1,6 +1,6 @@
 'use strict';
 
-const { getResolvedStateForArtifactRow } = require('../artifact-serialize.cjs');
+const { getResolvedStateForArtifactRow } = require('../artifacts/artifact-serialize.cjs');
 
 /** Max length stored in `resources.content` for FTS (artifacts only; keeps SQLite rows reasonable). */
 const ARTIFACT_FTS_CONTENT_CAP = 200_000;

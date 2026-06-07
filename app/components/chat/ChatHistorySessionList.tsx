@@ -5,7 +5,7 @@ import type { ManyChatSession } from '@/lib/store/useManyStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import DomeListState from '@/components/ui/DomeListState';
 import type { ChatHistorySection } from './chatHistoryUtils';
-import { formatHistoryTime, sessionPreview } from './chatHistoryUtils';
+import { displaySessionTitle, formatHistoryTime, sessionPreview } from './chatHistoryUtils';
 
 interface ChatHistorySessionListProps {
   sections: ChatHistorySection[];
@@ -71,7 +71,9 @@ export default function ChatHistorySessionList({
                         aria-hidden
                       />
                     ) : null}
-                    <span className="min-w-0 truncate">{session.title || newChatLabel}</span>
+                    <span className="min-w-0 truncate">
+                      {displaySessionTitle(session, newChatLabel)}
+                    </span>
                   </div>
                   {(preview || timeLabel) && (
                     <div className="chat-history-row-meta">

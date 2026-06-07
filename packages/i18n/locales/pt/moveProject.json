@@ -1,0 +1,9 @@
+{
+  "title": "Mover para projeto",
+  "description": "Os itens aparecerão na raiz do projeto de destino (fora de pastas). Pastas mantêm a estrutura interna ao mover.",
+  "itemsCount_one": "{{count}} item a mover",
+  "itemsCount_other": "{{count}} itens a mover",
+  "confirm": "Mover aqui",
+  "noTargets": "Não há outro projeto disponível como destino.",
+  "menu": "Mover para projeto…"
+}

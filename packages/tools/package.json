@@ -1,0 +1,22 @@
+{
+  "name": "@dome/tools",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Agent tool registry: one module per tool family. Definitions (schema) are renderer-safe; execution is main-process only.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "echo \"@dome/tools: no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@dome/ai": "workspace:*",
+    "typebox": "^1.1.38"
+  }
+}

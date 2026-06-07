@@ -114,7 +114,7 @@ export interface PersistentRunLink {
   createdAt: number;
 }
 
-/** Token usage persisted on `PersistentRun.metadata.usage` (see run-engine / langgraph-agent). */
+/** Token usage persisted on `PersistentRun.metadata.usage` (see run-engine / agent-runtime). */
 export interface PersistentRunUsage {
   inputTokens: number;
   outputTokens: number;
@@ -233,7 +233,7 @@ export async function getActiveRunBySession(sessionId: string): Promise<Persiste
   return invoke<PersistentRun | null>('runs:getActiveBySession', sessionId);
 }
 
-export async function startLangGraphRun(params: {
+export async function startAgentRun(params: {
   automationId?: string | null;
   projectId?: string;
   ownerType: 'many' | 'agent';
@@ -257,8 +257,10 @@ export async function startLangGraphRun(params: {
   voiceLanguage?: string;
   /** IDs of resources pinned to the chat context (lazy content loading). */
   pinnedResourceIds?: string[];
+  /** USER.md / MEMORY.md block for context budget rules segment. */
+  userMemory?: string;
 }): Promise<PersistentRun> {
-  return invoke<PersistentRun>('runs:startLangGraph', params);
+  return invoke<PersistentRun>('runs:start', params);
 }
 
 export async function startWorkflowRun(params: {
@@ -292,30 +294,76 @@ export function onRunStep(callback: (payload: { step: PersistentRunStep }) => vo
   return electron.on('runs:step', callback);
 }
 
-export function onRunChunk(callback: (payload: {
-  runId: string;
-  type: string;
-  text?: string;
-  toolCall?: { id: string; name: string; arguments: string };
-  toolCallId?: string;
-  result?: string;
-  /** Subagent that produced this tool_call / tool_result (deepagents `task`). */
-  agentName?: string;
-  actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
-  reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
-  threadId?: string;
-  /** Provider-reported token usage (live partial or final). */
-  usage?: PersistentRunUsage;
-  partial?: boolean;
-  breakdown?: {
-    systemApprox: number;
-    toolsApprox: number;
-    historyApprox: number;
-    totalApprox: number;
-    toolCount: number;
-    historyTurns: number;
-  };
-}) => void): () => void {
+export interface RunChunkBudgetBreakdown {
+  systemApprox: number;
+  toolsApprox: number;
+  historyApprox: number;
+  totalApprox: number;
+  toolCount: number;
+  historyTurns: number;
+  systemPromptApprox?: number;
+  skillsApprox?: number;
+  rulesApprox?: number;
+  toolsRegistryApprox?: number;
+  mcpApprox?: number;
+  subagentsApprox?: number;
+  summarizedApprox?: number;
+  conversationApprox?: number;
+}
+
+export interface RunChunkCompaction {
+  tokensBefore: number;
+  tokensAfter: number | null;
+  summaryPreview: string;
+  automatic: boolean;
+}
+
+/** Discriminated union of every `runs:chunk` payload emitted by the run engine. */
+export type RunChunkPayload =
+  | { runId: string; type: 'thinking'; text: string }
+  | { runId: string; type: 'text'; text: string }
+  | {
+      runId: string;
+      type: 'tool_call';
+      toolCall: { id: string; name: string; arguments: string };
+      /** Subagent that produced this tool_call (deepagents `task`). */
+      agentName?: string;
+    }
+  | {
+      runId: string;
+      type: 'tool_result';
+      toolCallId: string;
+      result?: string;
+      /** Subagent that produced this tool_result (deepagents `task`). */
+      agentName?: string;
+    }
+  | { runId: string; type: 'budget'; breakdown: RunChunkBudgetBreakdown }
+  | {
+      runId: string;
+      type: 'compaction';
+      tokensBefore: number;
+      tokensAfter: number | null;
+      summaryPreview: string;
+      automatic: boolean;
+    }
+  | {
+      runId: string;
+      type: 'usage';
+      /** Provider-reported token usage (live partial or final). */
+      usage: PersistentRunUsage;
+      partial?: boolean;
+    }
+  | {
+      runId: string;
+      type: 'interrupt';
+      actionRequests: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
+      reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
+      threadId?: string;
+    }
+  | { runId: string; type: 'error'; error?: string }
+  | { runId: string; type: 'done' };
+
+export function onRunChunk(callback: (payload: RunChunkPayload) => void): () => void {
   const electron = ensureElectron();
   return electron.on('runs:chunk', callback);
 }

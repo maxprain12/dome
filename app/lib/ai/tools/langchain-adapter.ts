@@ -2,7 +2,7 @@
  * LangChain Tools Adapter
  *
  * Converts Dome AgentTools (TypeBox schema) to LangChain StructuredTool format.
- * Used when running the LangGraph agent in main process - tools execute via
+ * Used when running the agent runtime in main process - tools execute via
  * executeToolInMain. For renderer context, executeToolCall is used (which may IPC).
  */
 

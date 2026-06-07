@@ -1,0 +1,9 @@
+{
+  "loading": "Carregando Dome...",
+  "initializing": "Inicializando seu espaço de trabalho",
+  "limited_functionality": "Dome iniciou com funcionalidade limitada. Alguns recursos podem não funcionar.",
+  "ppt_created": "\"{{name}}\" está pronta — já aparece na sua biblioteca",
+  "ppt_failed": "Erro ao criar \"{{name}}\": {{error}}",
+  "resource": "Recurso",
+  "calendar_upcoming": "Em breve: {{title}}"
+}

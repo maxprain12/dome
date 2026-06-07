@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { InlineSearch } from '@/components/Search/SimpleSearch';
+import { InlineSearch } from '@/components/search/SimpleSearch';
 
 export function HomeSearchBar({
   onResourceSelect,

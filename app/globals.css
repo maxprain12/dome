@@ -1439,6 +1439,13 @@ a:hover {
   justify-content: flex-start;
 }
 
+.many-composer-context {
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
 .many-composer-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1676,6 +1683,146 @@ a:hover {
 .many-token-budget-meta .many-token-budget-fill {
   min-width: 2%;
   transition: width 200ms ease;
+}
+
+/* Context usage indicator (PI-style donut + popup) */
+:root {
+  --ctx-seg-system: #9ca3af;
+  --ctx-seg-tools: #a855f7;
+  --ctx-seg-rules: #22c55e;
+  --ctx-seg-skills: #ca8a04;
+  --ctx-seg-mcp: #ec4899;
+  --ctx-seg-subagents: #3b82f6;
+  --ctx-seg-summarized: #ef4444;
+  --ctx-seg-conversation: #f97316;
+}
+
+.many-context-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--tertiary-text);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.many-context-trigger:hover {
+  background: var(--bg-hover);
+  color: var(--secondary-text);
+}
+
+.many-context-trigger--header {
+  margin-right: 2px;
+}
+
+.many-context-trigger--inline {
+  padding: 4px 10px;
+  border: 1px solid var(--border-soft);
+  background: var(--bg-secondary);
+  border-radius: var(--radius-full, 9999px);
+}
+
+.many-context-trigger__pct {
+  font-weight: 500;
+  color: var(--secondary-text);
+}
+
+.many-context-popup {
+  border: 1px solid var(--border-soft) !important;
+  background: var(--bg-elevated) !important;
+  overflow: hidden;
+}
+
+.many-context-popup__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 12px 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.many-context-popup__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary-text);
+}
+
+.many-context-popup__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px 8px;
+  font-size: 12px;
+  color: var(--secondary-text);
+}
+
+.many-context-popup__bar {
+  display: flex;
+  height: 6px;
+  margin: 0 12px 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  gap: 1px;
+}
+
+.many-context-popup__bar-seg {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  transition: opacity 120ms ease;
+}
+
+.many-context-popup__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 6px 8px;
+}
+
+.many-context-popup__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-md, 8px);
+  font-size: 12px;
+  color: var(--secondary-text);
+}
+
+.many-context-popup__row[data-active] {
+  background: var(--bg-hover);
+}
+
+.many-context-popup__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.many-context-popup__label {
+  flex: 1;
+  min-width: 0;
+}
+
+.many-context-popup__value {
+  color: var(--primary-text);
+  font-weight: 500;
+}
+
+.many-context-popup__footnote {
+  margin: 0;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 10.5px;
+  line-height: 1.45;
+  color: var(--quaternary-text);
 }
 
 .many-error-card {
@@ -1916,6 +2063,41 @@ a:hover {
 .many-icon-btn:hover {
   background: var(--bg-hover);
   color: var(--primary-text);
+}
+
+/* Subagent delegation section (nested tools under research/library/…) */
+.many-subagent-section {
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent-bg) 35%, var(--bg-secondary));
+  overflow: hidden;
+}
+.many-subagent-section-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.many-subagent-section-trigger:hover {
+  background: color-mix(in srgb, var(--bg-hover) 50%, transparent);
+}
+.many-subagent-section-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.many-subagent-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--secondary-text);
+}
+.many-subagent-section-body {
+  padding: 4px 8px 8px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 12%, var(--border));
 }
 
 /* New card-based tool card (many surface) */

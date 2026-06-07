@@ -1,0 +1,11 @@
+{
+  "open_settings": "Ouvrir les paramètres",
+  "sign_out": "Se déconnecter",
+  "settings": "Paramètres",
+  "signingOut": "Déconnexion...",
+  "menu_aria": "Menu utilisateur : {{name}}",
+  "no_email": "Aucun e-mail",
+  "default_name": "Utilisateur",
+  "confirm_sign_out": "Voulez-vous vraiment vous déconnecter ?\n\nVotre profil sera réinitialisé et l'assistant de configuration réapparaîtra.",
+  "sign_out_error": "Impossible de vous déconnecter. Veuillez réessayer."
+}

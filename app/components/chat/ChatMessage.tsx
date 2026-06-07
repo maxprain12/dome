@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { Copy, Check, RefreshCw, ChevronRight, BookmarkPlus } from 'lucide-react';
-import ChatToolCard, { ChatToolCardGroup, type ToolCallData } from './ChatToolCard';
+import ChatToolCard, { ChatToolCardGroup, SubagentToolSection, type ToolCallData } from './ChatToolCard';
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
@@ -20,6 +20,7 @@ import { parseArtifactBlocks, stripArtifactBlocks } from '@/lib/chat/artifactSch
 import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { calendarArtifactFromToolCalls } from '@/lib/chat/calendarToolArtifact';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
+import { buildToolDisplayBlocks, type ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
 import type { PersistentRunStep } from '@/lib/automations/api';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
 
@@ -44,7 +45,7 @@ export interface ChatMessageData {
   agentLabel?: string;
   /** PDF region (cloud vision) — show handoff actions */
   pdfRegionMeta?: PdfRegionMeta;
-  /** Structured run steps streamed from LangGraph / run engine. */
+  /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];
 }
 
@@ -248,22 +249,10 @@ export default function ChatMessage({
     [message.toolCalls],
   );
 
-  // Group tool calls by name for cleaner display
-  const groupedToolCalls = useMemo(() => {
-    if (!displayToolCalls.length) return [];
-    const grouped = new Map<string, ToolCallData[]>();
-    for (const tc of displayToolCalls) {
-      const arr = grouped.get(tc.name) ?? [];
-      arr.push(tc);
-      grouped.set(tc.name, arr);
-    }
-    return Array.from(grouped.entries()).map(([name, calls]) =>
-      // write_todos is a running plan: only the latest snapshot reflects current state
-      name === 'write_todos' && calls.length > 1
-        ? { name, calls: [calls[calls.length - 1]] }
-        : { name, calls },
-    );
-  }, [displayToolCalls]);
+  const toolDisplayBlocks = useMemo(
+    () => buildToolDisplayBlocks(displayToolCalls, t),
+    [displayToolCalls, t],
+  );
 
   const derivedCalendarArtifact = useMemo((): AnyArtifact | null => {
     if (!isAssistant || !displayToolCalls.length) return null;
@@ -302,27 +291,18 @@ export default function ChatMessage({
           </div>
         )}
 
-        {/* Tool calls (Assistant only) - grouped by name for cleaner display */}
-        {groupedToolCalls.length > 0 && (
-          <div className="w-full min-w-0 max-w-full space-y-1">
-            {groupedToolCalls.map(({ name, calls }) =>
-              calls.length === 1 ? (
-                <ChatToolCard
-                  key={calls[0].id}
-                  toolCall={calls[0]}
-                  surfaceVariant={surfaceVariant}
-                />
-              ) : (
-                <ChatToolCardGroup
-                  key={name}
-                  name={name}
-                  calls={calls}
-                  surfaceVariant={surfaceVariant}
-                />
-              ),
-            )}
+        {/* Tool calls — supervisor tools + nested subagent sections */}
+        {toolDisplayBlocks.length > 0 ? (
+          <div className="w-full min-w-0 max-w-full space-y-1.5">
+            {toolDisplayBlocks.map((block, idx) => (
+              <ToolDisplayBlockView
+                key={toolBlockKey(block, idx)}
+                block={block}
+                surfaceVariant={surfaceVariant}
+              />
+            ))}
           </div>
-        )}
+        ) : null}
 
         {derivedCalendarArtifact ? (
           <div className="w-full min-w-0 max-w-full my-2">
@@ -562,5 +542,52 @@ export default function ChatMessage({
         )}
       </div>
     </div>
+  );
+}
+
+function toolBlockKey(block: ToolDisplayBlock, idx: number): string {
+  if (block.type === 'tool') return block.call.id;
+  if (block.type === 'tool-group') return `group:${block.name}:${idx}`;
+  return `subagent:${block.agentKey}:${idx}`;
+}
+
+function ToolDisplayBlockView({
+  block,
+  surfaceVariant,
+}: {
+  block: ToolDisplayBlock;
+  surfaceVariant: 'default' | 'many';
+}) {
+  if (block.type === 'tool') {
+    return <ChatToolCard toolCall={block.call} surfaceVariant={surfaceVariant} />;
+  }
+  if (block.type === 'tool-group') {
+    return (
+      <ChatToolCardGroup
+        name={block.name}
+        calls={block.calls}
+        surfaceVariant={surfaceVariant}
+      />
+    );
+  }
+  return (
+    <SubagentToolSection
+      agentKey={block.agentKey}
+      agentLabel={block.agentLabel}
+      surfaceVariant={surfaceVariant}
+    >
+      {block.blocks.map((inner, innerIdx) =>
+        inner.type === 'tool' ? (
+          <ChatToolCard key={inner.call.id} toolCall={inner.call} surfaceVariant={surfaceVariant} />
+        ) : (
+          <ChatToolCardGroup
+            key={`${inner.name}:${innerIdx}`}
+            name={inner.name}
+            calls={inner.calls}
+            surfaceVariant={surfaceVariant}
+          />
+        ),
+      )}
+    </SubagentToolSection>
   );
 }

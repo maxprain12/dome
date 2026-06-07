@@ -1,0 +1,20 @@
+{
+  "newNote": "Nova nota",
+  "emptyFolder": "Esta pasta está vazia",
+  "emptyFolderHint": "Solte aqui ou use a barra de ferramentas para adicionar",
+  "rename": "Renomear",
+  "delete": "Eliminar",
+  "untitled": "Sem título",
+  "folderNamePlaceholder": "Nome da pasta",
+  "foldersHeading": "Pastas",
+  "filesHeading": "Arquivos",
+  "newFolderBtn": "Nova pasta",
+  "addBtn": "Adicionar",
+  "confirmDelete": "Eliminar este arquivo?",
+  "confirmDeleteFolder": "Eliminar esta pasta e todo o seu conteúdo?",
+  "changeColor": "Mudar cor",
+  "itemCount_one": "{{count}} item",
+  "itemCount_other": "{{count}} itens",
+  "subfolderCount_one": "· {{count}} pasta",
+  "subfolderCount_other": "· {{count}} pastas"
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Move to project",
+  "description": "Items will appear at the root of the destination project (outside folders). Folder structures are preserved for folder moves.",
+  "itemsCount_one": "{{count}} item to move",
+  "itemsCount_other": "{{count}} items to move",
+  "confirm": "Move here",
+  "noTargets": "No other project is available as a destination.",
+  "menu": "Move to project…"
+}

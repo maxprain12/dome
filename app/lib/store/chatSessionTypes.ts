@@ -37,7 +37,7 @@ export type ChatStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
 /**
  * Minimum contract a chat store must expose so shared hooks
- * (useLangGraphRunStream, useUnifiedChatSend in the future…) can
+ * (useAgentRunStream, useUnifiedChatSend in the future…) can
  * operate on any surface without knowing the full store shape.
  */
 export interface ChatSessionStoreApi<TMessage extends ChatMessageBase = ChatMessageBase> {

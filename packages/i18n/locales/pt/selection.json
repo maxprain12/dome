@@ -1,0 +1,11 @@
+{
+  "items_selected_one": "{{count}} item selecionado",
+  "items_selected_other": "{{count}} itens selecionados",
+  "move": "Mover",
+  "move_to_folder": "Mover para pasta…",
+  "move_to_project": "Mover para projeto…",
+  "delete": "Excluir",
+  "deselect": "Desselecionar",
+  "bulk_delete_confirm": "Excluir {{count}} itens selecionados (incluindo todo o conteúdo das pastas selecionadas)?",
+  "move_to_root": "Raiz do projeto (sem pasta)"
+}

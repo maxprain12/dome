@@ -1,0 +1,9 @@
+{
+  "title": "Vers un projet",
+  "description": "Les éléments apparaîtront à la racine du projet cible (hors dossiers). La structure des dossiers est conservée pour un dossier déplacé.",
+  "itemsCount_one": "{{count}} élément à déplacer",
+  "itemsCount_other": "{{count}} éléments à déplacer",
+  "confirm": "Déplacer ici",
+  "noTargets": "Aucun autre projet disponible comme destination.",
+  "menu": "Vers un projet…"
+}

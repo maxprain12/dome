@@ -1,0 +1,14 @@
+{
+  "setup_title": "Meeting capture",
+  "setup_hint": "Pick the meeting window or screen below, then start. This mode records your microphone and that source at the same time (not the same as dictation: there you choose either mic or system only).",
+  "start_button": "Start meeting",
+  "stop_button": "Stop and save note",
+  "starting": "Starting…",
+  "finalizing": "Saving transcript…",
+  "start_failed": "Could not start meeting",
+  "track_mic": "Mic",
+  "track_system": "Meeting audio",
+  "show_live_transcript": "Show live transcript",
+  "streaming_placeholder": "Transcribed chunks will appear here…",
+  "summary_ready": "Summary updated"
+}

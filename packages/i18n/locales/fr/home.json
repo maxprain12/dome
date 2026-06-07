@@ -1,0 +1,14 @@
+{
+  "aria_current_path": "Chemin actuel",
+  "aria_all_documents": "Tous les documents",
+  "aria_folders": "Dossiers",
+  "aria_folder_options": "Options du dossier",
+  "aria_resources": "Ressources",
+  "aria_column_headers": "En-têtes des colonnes du tableau",
+  "aria_sort_name": "Trier par nom",
+  "aria_sort_modified": "Trier par date de modification",
+  "aria_select_folder_color": "Choisir la couleur du dossier",
+  "aria_close": "Fermer",
+  "delete_resource": "Supprimer la ressource",
+  "aria_select_color_swatch": "Choisir la couleur {{color}}"
+}

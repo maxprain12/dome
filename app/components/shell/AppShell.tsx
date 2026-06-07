@@ -101,7 +101,7 @@ export default function AppShell() {
     setManyWidth(readInt(MANY_WIDTH_KEY, MANY_DEFAULT, MANY_MIN, MANY_MAX));
   }, []);
 
-  /** LangGraph ui_* actions — exactly one ipcRenderer listener app-wide */
+  /** agent ui_* actions — exactly one ipcRenderer listener app-wide */
   useEffect(() => {
     const off = installDomeUiActionBridge();
     return off;

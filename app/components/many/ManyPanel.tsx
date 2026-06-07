@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import TokenBudgetBadge, { type BudgetBreakdown, type LiveTokenUsage } from './TokenBudgetBadge';
+import { useState, useEffect, useRef, useCallback, useMemo, startTransition } from 'react';
+import ContextUsageIndicator, { type BudgetBreakdown, type LiveTokenUsage } from './ContextUsageIndicator';
+import CompactionNotice, { type CompactionNoticeData } from './CompactionNotice';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail, AlertCircle } from 'lucide-react';
@@ -10,11 +11,21 @@ import ManyChatHistoryPanel from './ManyChatHistoryPanel';
 import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
-import { mergeManySessionMessages } from '@/lib/chat/mergeManySessionMessages';
+import {
+  filterOutDeletedSessions,
+  persistManySessions,
+  sanitizeManySessionTitle,
+  syncManyDeletedIdsFromDb,
+} from '@/lib/store/manySessionStorage';
+import {
+  fetchManyMessagesFromThread,
+  refreshManySessionFromThread,
+} from '@/lib/chat/manyThreadBridge';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import {
   getAIConfig,
+  checkChatProviderReady,
   createManyToolsForContext,
   findModelById,
   providerSupportsTools,
@@ -23,6 +34,7 @@ import {
   type AnyAgentTool,
 } from '@/lib/ai';
 import { estimateLiveBudget } from '@/lib/chat/estimateLiveBudget';
+import { estimateClientBudgetFromChat } from '@/lib/chat/contextUsage';
 import {
   buildSharedResourceHint,
   buildSharedUiContextBlock,
@@ -47,7 +59,7 @@ import {
   abortRun,
   getActiveRunBySession,
   resumeRun,
-  startLangGraphRun,
+  startAgentRun,
   type PersistentRun,
 } from '@/lib/automations/api';
 import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/manySendController';
@@ -55,7 +67,7 @@ import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
 import UICursorOverlay from './UICursorOverlay';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
 import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
-import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import ManyHitlInlineSection from '@/components/many/ManyHitlInlineSection';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
@@ -90,6 +102,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     switchSession: _switchSession,
     deleteSession: _deleteSession,
     hydrateSession,
+    hydrateFromThreads,
     sessions,
     currentSessionId,
     currentResourceId,
@@ -108,6 +121,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       switchSession: s.switchSession,
       deleteSession: s.deleteSession,
       hydrateSession: s.hydrateSession,
+      hydrateFromThreads: s.hydrateFromThreads,
       sessions: s.sessions,
       currentSessionId: s.currentSessionId,
       currentResourceId: s.currentResourceId,
@@ -147,7 +161,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [providerInfo, setProviderInfo] = useState<string>('');
   const [providerId, setProviderId] = useState<string>('');
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
+  const [lastBudgetSessionId, setLastBudgetSessionId] = useState<string | null>(null);
   const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
+  const [liveUsageSessionId, setLiveUsageSessionId] = useState<string | null>(null);
+  const [compactionNotice, setCompactionNotice] = useState<CompactionNoticeData | null>(null);
+  const currentSessionIdRef = useRef<string | null>(currentSessionId);
   const [budgetCapApprox, setBudgetCapApprox] = useState(200_000);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingMessageRef = useRef<ChatMessageData | null>(null);
@@ -157,9 +175,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const hitlDecisionsRef = useRef<Array<unknown> | null>(null);
   const isSubmittingRef = useRef(false);
   const voiceAutoSpeakForRunIdRef = useRef<string | null>(null);
-  // Ref so the onRunUpdated listener always calls the latest refreshSessionFromDb
+  // Ref so the onRunUpdated listener always calls the latest refreshSessionFromThread
   // without re-registering the listener every time currentSession changes.
-  const refreshSessionFromDbRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
+  const refreshSessionFromThreadRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === currentSessionId) ?? null,
     [sessions, currentSessionId],
@@ -172,6 +190,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   useEffect(() => {
     streamingMessageRef.current = streamingMessage;
   }, [streamingMessage]);
+
+  useEffect(() => {
+    currentSessionIdRef.current = currentSessionId;
+  }, [currentSessionId]);
 
   useEffect(() => {
     const loadProviderInfo = async () => {
@@ -241,162 +263,88 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     loadMemory();
   }, []);
 
-  // Startup: sync current session from DB — recovers messages that survived an app restart
-  // even if localStorage was cleared or quota-failed.
+  // Hydrate session list from JSONL on startup.
   useEffect(() => {
-    if (!currentSessionId || !db.isAvailable()) {
-      return;
-    }
+    let cancelled = false;
+    void syncManyDeletedIdsFromDb()
+      .then(() => {
+        if (cancelled) return;
+        const state = useManyStore.getState();
+        const purged = filterOutDeletedSessions(state.sessions);
+        if (purged.length !== state.sessions.length) {
+          persistManySessions(purged);
+          const nextCurrent =
+            state.currentSessionId && purged.some((s) => s.id === state.currentSessionId)
+              ? state.currentSessionId
+              : (purged[0]?.id ?? null);
+          const nextMessages =
+            nextCurrent && nextCurrent === state.currentSessionId
+              ? state.messages
+              : (purged.find((s) => s.id === nextCurrent)?.messages ?? []);
+          useManyStore.setState({
+            sessions: purged,
+            currentSessionId: nextCurrent,
+            messages: nextMessages,
+          });
+        }
+        return hydrateFromThreads();
+      })
+      .catch((err) => {
+        console.warn('[Many] JSONL session hydration failed:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrateFromThreads]);
+
+  // Load messages from JSONL when switching chats.
+  useEffect(() => {
+    if (!currentSessionId || !window.electron?.threads?.getState) return;
 
     let cancelled = false;
-    void db.getChatSession(currentSessionId).then((result) => {
-      if (cancelled || !result.success || !result.data) {
-        return;
-      }
+    void fetchManyMessagesFromThread(currentSessionId).then((threadMessages) => {
+      if (cancelled || threadMessages.length === 0) return;
 
-      const persistedMessages: ManyMessage[] = result.data.messages.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        timestamp: message.created_at,
-        toolCalls: message.tool_calls ?? undefined,
-        thinking: message.thinking ?? undefined,
-      }));
+      const localMessages = useManyStore.getState().messages;
+      if (localMessages.length > threadMessages.length) return;
 
-      // Must have at least one user message and one assistant message to be worth hydrating.
-      // If DB only has an assistant message (partial write), keep localStorage as-is.
-      const hasUserMsg = persistedMessages.some((m) => m.role === 'user');
-      const hasAssistantMsg = persistedMessages.some((m) => m.role === 'assistant');
-      if (!hasUserMsg || !hasAssistantMsg) return;
-
-      const localMessages = currentSession?.messages ?? [];
-      const mergedMessages = mergeManySessionMessages(localMessages, persistedMessages);
-      const localCount = localMessages.length;
-      const localAssistants = localMessages.filter((m) => m.role === 'assistant').length;
-      const mergedAssistants = mergedMessages.filter((m) => m.role === 'assistant').length;
-
-      if (mergedMessages.length <= localCount && mergedAssistants <= localAssistants) {
-        return;
-      }
-
+      const localSession = useManyStore.getState().sessions.find((s) => s.id === currentSessionId);
+      const firstUser = threadMessages.find((m) => m.role === 'user')?.content ?? '';
       hydrateSession({
         id: currentSessionId,
-        title: result.data.title || currentSession?.title || t('chat.session_fallback_new'),
-        messages: mergedMessages,
-        createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
+        title: sanitizeManySessionTitle(localSession?.title ?? firstUser),
+        messages: threadMessages,
+        createdAt: localSession?.createdAt ?? threadMessages[0]?.timestamp ?? Date.now(),
+        updatedAt: threadMessages[threadMessages.length - 1]?.timestamp ?? localSession?.updatedAt,
+        pinned: localSession?.pinned,
       } satisfies ManyChatSession);
     }).catch((error) => {
-      console.warn('[Many] Could not hydrate session from DB:', error);
+      console.warn('[Many] Could not load session from JSONL:', error);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [currentSessionId, currentSession, hydrateSession, t]);
+  }, [currentSessionId, hydrateSession]);
 
-  // Startup: recover sessions from DB that are missing from localStorage.
-  // Runs once on mount. Handles the case where localStorage was cleared but DB survived.
-  useEffect(() => {
-    if (!db.isAvailable()) return;
-    let cancelled = false;
-
-    void (async () => {
-      try {
-        const listResult = await db.getChatSessionsGlobal(20);
-        if (cancelled || !listResult.success || !Array.isArray(listResult.data)) return;
-
-        const { sessions: localSessions, hydrateSession: hydrateS } = useManyStore.getState();
-        const localIds = new Set(localSessions.map((s) => s.id));
-
-        // The SQL SELECT * returns all columns; cast through unknown to access title/mode
-        type DbSessionRow = { id: string; title?: string | null; created_at?: number; updated_at?: number; mode?: string | null };
-        for (const dbSession of (listResult.data as unknown as DbSessionRow[])) {
-          if (cancelled) break;
-          // Skip if already in localStorage
-          if (localIds.has(dbSession.id)) continue;
-
-          // Load full session to get messages
-          const fullResult = await db.getChatSession(dbSession.id);
-          if (cancelled || !fullResult.success || !fullResult.data) continue;
-
-          const msgs: ManyMessage[] = fullResult.data.messages.map((m) => ({
-            id: m.id,
-            role: m.role as 'user' | 'assistant',
-            content: m.content,
-            timestamp: m.created_at,
-            toolCalls: m.tool_calls ?? undefined,
-            thinking: m.thinking ?? undefined,
-          }));
-
-          // Only recover sessions that have at least one user+assistant exchange
-          const hasUser = msgs.some((m) => m.role === 'user');
-          const hasAssistant = msgs.some((m) => m.role === 'assistant');
-          if (!hasUser || !hasAssistant) continue;
-
-          hydrateS({
-            id: dbSession.id,
-            title: fullResult.data.title || dbSession.title || t('chat.session_fallback_chat'),
-            messages: msgs,
-            createdAt: dbSession.created_at ?? Date.now(),
-          } satisfies ManyChatSession);
-        }
-      } catch (err) {
-        console.warn('[Many] DB session recovery failed:', err);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [t]); // also when language changes
-
-  const refreshSessionFromDb = useCallback(async (): Promise<boolean> => {
-    if (!currentSessionId || !db.isAvailable()) {
+  const refreshSessionFromThread = useCallback(async (): Promise<boolean> => {
+    if (!currentSessionId || !window.electron?.threads?.getState) {
       return false;
     }
-    const result = await db.getChatSession(currentSessionId);
-    if (!result.success || !result.data) {
-      return false;
-    }
-    const dbMessages = result.data.messages.map((message) => ({
-      id: message.id,
-      role: message.role as 'user' | 'assistant',
-      content: message.content,
-      timestamp: message.created_at,
-      toolCalls: message.tool_calls ?? undefined,
-      thinking: message.thinking ?? undefined,
-    }));
-    // Guard: the last DB message must be an assistant message.
-    // If it's a user message (or missing), the run's assistant write hasn't
-    // landed yet (sessionId null, DB error, or race). Keep streaming visible.
-    const lastDbMessage = dbMessages[dbMessages.length - 1];
-    if (!lastDbMessage || lastDbMessage.role !== 'assistant') return false;
-    // Guard: the DB session must have at least one user message before the assistant.
-    // If DB only has assistant messages (user message write failed), don't hydrate —
-    // that would wipe the user message that's already visible in localStorage.
-    const hasUserMessage = dbMessages.some((m) => m.role === 'user');
-    if (!hasUserMessage) return false;
-    // Guard: if the last assistant message has neither content nor tool calls,
-    // the write may have landed but with empty output. Keep streaming visible.
-    const hasContent = !!lastDbMessage.content?.trim();
-    const hasToolCalls = Array.isArray(lastDbMessage.toolCalls) && lastDbMessage.toolCalls.length > 0;
-    if (!hasContent && !hasToolCalls) return false;
-
     const localMessages = useManyStore.getState().messages;
-    const mergedMessages = mergeManySessionMessages(localMessages, dbMessages);
-    const localAssistants = localMessages.filter((m) => m.role === 'assistant').length;
-    const mergedAssistants = mergedMessages.filter((m) => m.role === 'assistant').length;
-    if (mergedMessages.length < localMessages.length || mergedAssistants < localAssistants) {
-      return false;
-    }
+    const refreshed = await refreshManySessionFromThread(currentSessionId, localMessages);
+    if (!refreshed) return false;
 
     hydrateSession({
       id: currentSessionId,
-      title: result.data.title || currentSession?.title || t('chat.session_fallback_new'),
-      messages: mergedMessages,
-      createdAt: currentSession?.createdAt ?? result.data.messages[0]?.created_at ?? Date.now(),
+      title: refreshed.title || currentSession?.title || t('chat.session_fallback_new'),
+      messages: refreshed.messages,
+      createdAt: currentSession?.createdAt ?? refreshed.messages[0]?.timestamp ?? Date.now(),
+      updatedAt: refreshed.messages[refreshed.messages.length - 1]?.timestamp,
     } satisfies ManyChatSession);
     return true;
   }, [currentSession, currentSessionId, hydrateSession, t]);
-  refreshSessionFromDbRef.current = refreshSessionFromDb;
+  refreshSessionFromThreadRef.current = refreshSessionFromThread;
 
   const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
     if (!run) {
@@ -448,14 +396,26 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   }, [setStatus, t]);
 
   useEffect(() => {
+    setLastBudget(null);
+    setLastBudgetSessionId(null);
+    setLiveUsage(null);
+    setLiveUsageSessionId(null);
+    setCompactionNotice(null);
+    setStreamingMessage(null);
+    setPendingApproval(null);
+    setIsLoading(false);
+    setStatus('idle');
+    setActiveRunId(null);
+    setError(null);
+
     if (!currentSessionId) {
-      setActiveRunId(null);
       return;
     }
+
     let cancelled = false;
     void getActiveRunBySession(currentSessionId)
       .then((run) => {
-        if (!cancelled) {
+        if (!cancelled && currentSessionIdRef.current === currentSessionId) {
           applyRunSnapshot(run);
         }
       })
@@ -465,7 +425,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return () => {
       cancelled = true;
     };
-  }, [applyRunSnapshot, currentSessionId]);
+  }, [applyRunSnapshot, currentSessionId, setStatus]);
 
   const handleManyRunStatus = useCallback(
     (run: PersistentRun) => {
@@ -568,7 +528,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       }
 
       const tryRefresh = (attemptsLeft: number) => {
-        void refreshSessionFromDbRef
+        void refreshSessionFromThreadRef
           .current()
           .then((hydrated) => {
             if (!hydrated && attemptsLeft > 0) {
@@ -576,7 +536,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             }
           })
           .catch((err) => {
-            console.warn('[Many] refreshSessionFromDb failed after run terminal:', err);
+            console.warn('[Many] refreshSessionFromThread failed after run terminal:', err);
           });
       };
       tryRefresh(2);
@@ -605,14 +565,49 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     [],
   );
 
-  useLangGraphRunStream({
+  useAgentRunStream({
     activeRunId,
     setStreamingMessage,
     setPendingApproval: handleManyPendingApproval,
     onRunStatus: handleManyRunStatus,
     onRunTerminal: handleManyRunTerminal,
-    onBudget: setLastBudget,
-    onUsage: (usage) => setLiveUsage(usage),
+    onBudget: (breakdown) => {
+      const sid = currentSessionIdRef.current;
+      if (!sid) return;
+      setLastBudgetSessionId(sid);
+      setLastBudget(breakdown);
+    },
+    onUsage: (usage) => {
+      const sid = currentSessionIdRef.current;
+      if (!sid) return;
+      setLiveUsageSessionId(sid);
+      setLiveUsage(usage);
+    },
+    onCompaction: (event) => {
+      const sid = currentSessionIdRef.current;
+      if (!sid) return;
+      setCompactionNotice({ ...event, at: Date.now() });
+      setLastBudgetSessionId(sid);
+      setLastBudget((prev) => {
+        if (!prev) return prev;
+        const nextTotal =
+          event.tokensAfter != null && event.tokensAfter > 0
+            ? event.tokensAfter
+            : Math.max(prev.systemApprox + prev.toolsApprox, Math.round(event.tokensBefore * 0.35));
+        const summarizedDelta = Math.max(
+          prev.summarizedApprox ?? 0,
+          Math.round(event.tokensBefore * 0.55),
+        );
+        const conversationApprox = Math.max(0, (prev.conversationApprox ?? prev.historyApprox) - summarizedDelta);
+        return {
+          ...prev,
+          totalApprox: nextTotal,
+          historyApprox: summarizedDelta + conversationApprox,
+          summarizedApprox: summarizedDelta,
+          conversationApprox,
+        };
+      });
+    },
     t,
   });
 
@@ -678,7 +673,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return buildManyFloatingPrompt();
   }, [petPromptOverride]);
 
-  const hasLangGraph = typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
+  const hasAgentStream = typeof window !== 'undefined' && !!window.electron?.ai?.streamAgent;
 
   const handlePdfRegionSend = useCallback(
     async (userMessage: string, pending: PendingPdfRegion) => {
@@ -781,8 +776,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setStatus('thinking');
     setError(null);
     setStreamingMessage(null);
-    setLastBudget(null);
     setLiveUsage(null);
+    setCompactionNotice(null);
     setAbortController(null);
 
     addMessage({ role: 'user', content: userMessage });
@@ -803,19 +798,19 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         return;
       }
 
-      const needsApiKey = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'].includes(config.provider);
-      const hasApiKey = !!config.apiKey;
-      if (needsApiKey && !hasApiKey && !['synthetic', 'venice'].includes(config.provider)) {
-        setError(t('chat.api_key_error_inline'));
+      const providerReady = await checkChatProviderReady(config);
+      if (!providerReady.ready) {
+        const isApiKey = providerReady.messageKey === 'chat.no_api_key';
+        if (isApiKey) setError(t('chat.api_key_error_inline'));
         addMessage({
           role: 'assistant',
-          content: t('chat.no_api_key'),
+          content: t(providerReady.messageKey),
         });
         return;
       }
 
-      if (!hasLangGraph) {
-        throw new Error(t('chat.langgraph_required'));
+      if (!hasAgentStream) {
+        throw new Error(t('chat.agent_tools_required'));
       }
 
       const staticPersona = buildStaticPersona();
@@ -935,7 +930,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             : t('chat.processing'),
       });
 
-      const threadId = `many_${effectiveResourceId || 'global'}_${Date.now()}`;
+      const threadId = currentSessionId!;
 
       let dbSessionId: string | null = null;
       if (db.isAvailable() && currentSessionId) {
@@ -964,7 +959,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         }
       }
 
-      const run = await startLangGraphRun({
+      const run = await startAgentRun({
         ownerType: 'many',
         ownerId: currentSessionId || `many-${Date.now()}`,
         title: userMessage.slice(0, 80) || t('chat.many_run_title'),
@@ -981,6 +976,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         autoSpeak: sendOptions?.autoSpeak ? true : undefined,
         voiceLanguage: sendOptions?.autoSpeak ? voiceLanguage : undefined,
         pinnedResourceIds: pinnedResources.length > 0 ? pinnedResources.map((r) => r.id) : undefined,
+        userMemory: userMemory || undefined,
       });
       delegatedToRunEngine = true;
       if (sendOptions?.autoSpeak) {
@@ -1033,7 +1029,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     toolsEnabled,
     mcpEnabled,
     supportsTools,
-    hasLangGraph,
+    hasAgentStream,
     activeTools,
     scrollToBottom,
     currentResourceTitle,
@@ -1162,10 +1158,32 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const contextDescription = currentResourceTitle?.trim() ?? '';
 
-  const displayBudget = useMemo(
-    () => (lastBudget ? estimateLiveBudget(lastBudget, streamingMessage) : null),
-    [lastBudget, streamingMessage],
-  );
+  const clientBudgetEstimate = useMemo(() => {
+    if (messages.length === 0 && !isLoading) return null;
+    return estimateClientBudgetFromChat({
+      messages,
+      toolCount: activeTools.length,
+      userMemoryChars: userMemory.length,
+      mcpToolCount: toolsEnabled && mcpEnabled ? 8 : 0,
+    });
+  }, [messages, isLoading, activeTools.length, userMemory.length, toolsEnabled, mcpEnabled]);
+
+  const sessionLiveUsage =
+    liveUsage && liveUsageSessionId === currentSessionId && isLoading ? liveUsage : null;
+
+  const displayBudget = useMemo(() => {
+    const serverBudget =
+      lastBudget && lastBudgetSessionId === currentSessionId ? lastBudget : null;
+    const base = serverBudget ?? clientBudgetEstimate;
+    if (!base) return null;
+    return estimateLiveBudget(base, streamingMessage);
+  }, [
+    lastBudget,
+    lastBudgetSessionId,
+    currentSessionId,
+    clientBudgetEstimate,
+    streamingMessage,
+  ]);
 
   const loadingHint = useMemo(() => {
     if (showHitlInline) return t('many.hitl_waiting');
@@ -1180,8 +1198,34 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return undefined;
   }, [showHitlInline, streamingMessage?.toolCalls, isLoading, toolsEnabled, status, t]);
 
-  const showComposerMetaBar = Boolean(
-    isFullscreen && chatMessages.length > 0 && displayBudget && !showHitlInline,
+  const showContextUsage = Boolean(
+    displayBudget &&
+      !showHitlInline &&
+      (messages.length > 0 || isLoading || lastBudgetSessionId === currentSessionId),
+  );
+
+  const contextUsageNode = showContextUsage ? (
+    <ContextUsageIndicator
+      key={currentSessionId ?? 'none'}
+      breakdown={displayBudget!}
+      liveUsage={sessionLiveUsage}
+      budgetCapApprox={budgetCapApprox}
+      variant="header"
+    />
+  ) : null;
+
+  const handleSelectSession = useCallback(
+    (id: string) => {
+      if (id === currentSessionId) {
+        setShowHistory(false);
+        return;
+      }
+      startTransition(() => {
+        _switchSession(id);
+      });
+      setShowHistory(false);
+    },
+    [_switchSession, currentSessionId],
   );
 
   /** Fullscreen: columna de historial a la derecha (mismo UI compacto). Sidebar: overlay. */
@@ -1243,7 +1287,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         contextDescription={contextDescription}
         messagesCount={messages.length}
         loadingHint={loadingHint}
-        sessionTitle={currentSession?.title}
+        sessionTitle={
+          currentSession?.title
+            ? sanitizeManySessionTitle(currentSession.title)
+            : undefined
+        }
         historyOpen={showHistory}
         onClear={handleClear}
         onStartNewChat={() => { startNewChat(); setShowHistory(false); }}
@@ -1251,14 +1299,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         onClose={onClose}
         showClose={!isFullscreen}
         showHistoryToggle
+        contextUsage={!isFullscreen ? contextUsageNode : null}
       />
 
       {showHistory && !isFullscreen ? (
         <ManyChatHistoryPanel
           sessions={sessions}
           currentSessionId={currentSessionId}
-          onSelectSession={(id) => { _switchSession(id); setShowHistory(false); }}
+          onSelectSession={handleSelectSession}
           onNewChat={() => { startNewChat(); setShowHistory(false); }}
+          onDeleteSession={_deleteSession}
           onClose={() => setShowHistory(false)}
         />
       ) : null}
@@ -1433,7 +1483,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 <div ref={pendingApprovalRef}>
                   <ManyHitlInlineSection
                     pendingApproval={pendingApproval}
-                    onDismissLangGraph={() => setPendingApproval(null)}
+                    onDismissApproval={() => setPendingApproval(null)}
                   />
                 </div>
               ) : null}
@@ -1468,11 +1518,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         />
       ) : null}
 
-      {/* Token budget — sidebar / compact badge; fullscreen + messages uses composer meta bar */}
-      {displayBudget && !showHitlInline && !showComposerMetaBar ? (
-        <div className="flex justify-end px-3 py-0.5">
-          <TokenBudgetBadge breakdown={displayBudget} liveUsage={liveUsage} budgetCapApprox={budgetCapApprox} />
-        </div>
+      {compactionNotice && !showHitlInline ? (
+        <CompactionNotice event={compactionNotice} onDismiss={() => setCompactionNotice(null)} />
       ) : null}
 
       {/* Hide bottom input when welcome screen is showing centered input */}
@@ -1485,18 +1532,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       ) && (
         isFullscreen ? (
           <div className="many-composer-anchor">
-            {showComposerMetaBar ? (
-              <div className="many-composer-meta px-4 pt-3 pb-1">
-                <div className="many-composer-meta-row">
-                  <TokenBudgetBadge
-                    breakdown={displayBudget!}
-                    liveUsage={liveUsage}
-                    variant="pill"
-                    budgetCapApprox={budgetCapApprox}
-                  />
-                </div>
-              </div>
-            ) : null}
             <div className="px-4 pb-4">
               <UnifiedChatInput
                 mode="many"
@@ -1519,6 +1554,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 attachments={chatAttachments}
                 onAttachmentsChange={setChatAttachments}
                 showComposerKeyboardHint
+                composerContextUsage={contextUsageNode}
               />
             </div>
           </div>
@@ -1545,6 +1581,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             onAttachmentsChange={setChatAttachments}
             showComposerKeyboardHint
             compact={!isFullscreen}
+            composerContextUsage={contextUsageNode}
           />
         )
       )}

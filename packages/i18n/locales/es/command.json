@@ -1,0 +1,17 @@
+{
+  "add_url": "Añadir URL",
+  "add_web_resource": "Añadir recurso web",
+  "youtube": "YouTube",
+  "article": "Artículo",
+  "ai": "IA",
+  "clear_search": "Limpiar búsqueda",
+  "please_enter_url": "Por favor introduce una URL válida que empiece con http:// o https://",
+  "youtube_detected": "Video de YouTube detectado - se extraerá información del video",
+  "article_detected": "Artículo web - se extraerá el contenido",
+  "new_note": "Nueva nota",
+  "new_notebook": "Nuevo cuaderno",
+  "upload_files": "Subir archivos",
+  "no_results": "No se encontraron resultados para \"{{query}}\"",
+  "resources": "Recursos",
+  "notes_annotations": "Notas y anotaciones"
+}

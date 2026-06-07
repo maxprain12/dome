@@ -153,6 +153,134 @@ function generateStreamId(): string {
   return `stream-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
+const API_KEY_CHAT_PROVIDERS: AIProviderType[] = [
+  'openai',
+  'anthropic',
+  'google',
+  'minimax',
+  'openrouter',
+  'deepseek',
+  'moonshot',
+  'qwen',
+];
+
+const OAUTH_CHAT_PROVIDERS: AIProviderType[] = ['dome', 'copilot'];
+
+/** Providers routed through ai:chat / ai:stream IPC (not ollama). */
+type IpcCloudChatProvider = Exclude<AIProviderType, 'ollama'>;
+
+export type ChatProviderReadyResult =
+  | { ready: true }
+  | { ready: false; messageKey: string };
+
+/** Pre-flight check before starting a chat/agent run. */
+export async function checkChatProviderReady(config: AIConfig): Promise<ChatProviderReadyResult> {
+  const provider = config.provider === 'local' ? 'ollama' : config.provider;
+
+  if (OAUTH_CHAT_PROVIDERS.includes(provider as AIProviderType)) {
+    if (provider === 'dome') {
+      const session = await window.electron?.domeAuth?.getSession?.();
+      if (!session?.success || !session?.connected) {
+        return { ready: false, messageKey: 'chat.no_ai_config' };
+      }
+      return { ready: true };
+    }
+    if (provider === 'copilot') {
+      const status = await window.electron?.copilotAuth?.status?.();
+      if (!status?.connected) {
+        return { ready: false, messageKey: 'chat.no_ai_config' };
+      }
+      return { ready: true };
+    }
+  }
+
+  if (API_KEY_CHAT_PROVIDERS.includes(provider as AIProviderType) && !config.apiKey) {
+    return { ready: false, messageKey: 'chat.no_api_key' };
+  }
+
+  return { ready: true };
+}
+
+async function chatViaMainProcess(
+  provider: IpcCloudChatProvider,
+  messages: Array<{ role: string; content: string }>,
+  model: string,
+): Promise<string> {
+  if (!isElectron()) {
+    throw new Error('AI chat requires Electron environment');
+  }
+  const result = await window.electron.ai.chat(provider, messages, model);
+  if (!result.success || !result.content) {
+    throw new Error(result.error || `${provider} chat failed`);
+  }
+  return result.content;
+}
+
+async function* streamViaMainProcess(
+  provider: IpcCloudChatProvider,
+  messages: Array<{ role: string; content: string }>,
+  model: string,
+  tools?: ToolDefinition[],
+  _signal?: AbortSignal,
+): AsyncIterable<ChatStreamChunk> {
+  if (!isElectron()) {
+    throw new Error('AI streaming requires Electron environment');
+  }
+
+  const streamId = generateStreamId();
+  const chunks: ChatStreamChunk[] = [];
+  let done = false;
+  let error: Error | null = null;
+  let resolveWait: (() => void) | null = null;
+
+  const unsubscribe = window.electron.ai.onStreamChunk((data: {
+    streamId: string;
+    type?: string;
+    text?: string;
+    error?: string;
+    toolCall?: { id: string; name: string; arguments: string };
+  }) => {
+    if (data.streamId !== streamId) return;
+
+    if (data.type === 'text' && data.text) {
+      chunks.push({ type: 'text', text: data.text });
+    } else if (data.type === 'tool_call' && data.toolCall) {
+      chunks.push({
+        type: 'tool_call',
+        toolCall: {
+          id: data.toolCall.id,
+          name: data.toolCall.name,
+          arguments: data.toolCall.arguments,
+        },
+      });
+    } else if (data.type === 'done') {
+      chunks.push({ type: 'done' });
+      done = true;
+    } else if (data.type === 'error') {
+      error = new Error(data.error || 'Stream error');
+      done = true;
+    }
+
+    if (resolveWait) resolveWait();
+  });
+
+  void window.electron.ai.stream(provider, messages, model, streamId, tools);
+
+  try {
+    while (!done || chunks.length > 0) {
+      if (chunks.length > 0) {
+        yield chunks.shift()!;
+      } else if (!done) {
+        await new Promise<void>((resolve) => { resolveWait = resolve; });
+        resolveWait = null;
+      }
+    }
+    if (error) throw error;
+  } finally {
+    unsubscribe();
+  }
+}
+
 // OpenAI
 export async function chatWithOpenAI(
   messages: Array<{ role: string; content: string }>,
@@ -782,6 +910,23 @@ export async function chat(
     case 'dome':
       return chatWithDome(messages, config.model || getDefaultModelId('dome'));
 
+    case 'copilot':
+      return chatViaMainProcess(
+        'copilot',
+        messages,
+        config.model || getDefaultModelId('copilot'),
+      );
+
+    case 'deepseek':
+    case 'moonshot':
+    case 'qwen':
+      if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
+      return chatViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+      );
+
     case 'ollama':
       throw new Error('Ollama chat must be handled from the main process via IPC');
 
@@ -791,7 +936,7 @@ export async function chat(
 }
 
 /**
- * Plain streaming completion without tools. For tool-calling, use chatWithToolsStream (LangGraph).
+ * Plain streaming completion without tools. For tool-calling, use chatWithToolsStream (the agent runtime).
  * The optional `tools` positional arg is kept as `undefined`-only for backward call-site
  * compatibility; it is no longer forwarded to providers.
  */
@@ -878,13 +1023,36 @@ export async function* chatStream(
       );
       break;
 
+    case 'copilot':
+      yield* streamViaMainProcess(
+        'copilot',
+        messages,
+        config.model || getDefaultModelId('copilot'),
+        undefined,
+        signal,
+      );
+      break;
+
+    case 'deepseek':
+    case 'moonshot':
+    case 'qwen':
+      if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
+      yield* streamViaMainProcess(
+        config.provider,
+        messages,
+        config.model || getDefaultModelId(config.provider),
+        undefined,
+        signal,
+      );
+      break;
+
     default:
       throw new Error(`Provider ${config.provider} does not support streaming`);
   }
 }
 
 // =============================================================================
-// Tool Execution (LangGraph)
+// Tool Execution (the agent runtime)
 // =============================================================================
 
 type StreamChunkData = {
@@ -901,7 +1069,7 @@ type StreamChunkData = {
 };
 
 /**
- * Stream chat with tools using LangGraph agent.
+ * Stream chat with tools using agent runtime.
  * Yields chunks in real time (text, thinking, tool_call, tool_result, done, error).
  */
 export async function* chatWithToolsStream(
@@ -915,8 +1083,8 @@ export async function* chatWithToolsStream(
     subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>;
   },
 ): AsyncIterable<import('./types').ChatStreamChunk> {
-  if (!isElectron() || !window.electron?.ai?.streamLangGraph) {
-    throw new Error('Chat with tools requires Electron with LangGraph support');
+  if (!isElectron() || !window.electron?.ai?.streamAgent) {
+    throw new Error('Chat with tools requires Electron with agent runtime support');
   }
 
   const config = await getAIConfig();
@@ -924,7 +1092,7 @@ export async function* chatWithToolsStream(
 
   const provider = config.provider as string;
   if (provider === 'dome') {
-    // Architecture-first fallback: Dome proxy streaming without LangGraph runtime.
+    // Architecture-first fallback: Dome proxy streaming without agent runtime.
     // Tool orchestration remains in phase 2.
     const toolDefinitions = toOpenAIToolDefinitions(tools);
     yield* streamDome(messages, config.model || getDefaultModelId('dome'), toolDefinitions);
@@ -942,9 +1110,9 @@ export async function* chatWithToolsStream(
   let done = false;
   let streamError: Error | null = null;
 
-  if (options?.signal && window.electron?.ai?.abortLangGraph) {
+  if (options?.signal && window.electron?.ai?.abortAgent) {
     options.signal.addEventListener('abort', () => {
-      window.electron.ai.abortLangGraph(streamId);
+      window.electron.ai.abortAgent(streamId);
     });
   }
 
@@ -976,7 +1144,7 @@ export async function* chatWithToolsStream(
         reviewConfigs,
         submitResume: (decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>) => {
           if (threadId) {
-            void window.electron?.ai?.resumeLangGraph?.({ threadId, streamId, decisions });
+            void window.electron?.ai?.resumeAgent?.({ threadId, streamId, decisions });
           }
         },
       });
@@ -993,8 +1161,8 @@ export async function* chatWithToolsStream(
     }
   });
 
-  const invokePromise = window.electron.ai.streamLangGraph(
-    provider as 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax' | 'openrouter',
+  const invokePromise = window.electron.ai.streamAgent(
+    provider as AIProviderType,
     messages,
     model,
     streamId,
@@ -1036,7 +1204,7 @@ export async function* chatWithToolsStream(
 }
 
 /**
- * Execute a chat with tools using LangGraph agent (runs in main process).
+ * Execute a chat with tools using agent runtime (runs in main process).
  * Consumes chatWithToolsStream and returns the final result. Use for non-UI consumers (e.g. run engine).
  */
 export async function chatWithTools(

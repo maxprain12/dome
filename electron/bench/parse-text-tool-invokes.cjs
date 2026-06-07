@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const { normalizeToolName } = require('../tool-dispatcher.cjs');
+const { normalizeToolName } = require('../tools/tool-dispatcher.cjs');
 
 /**
  * MiniMax (and some providers) sometimes emit tool calls as XML text instead of

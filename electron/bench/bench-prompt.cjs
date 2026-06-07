@@ -7,7 +7,7 @@ const {
   buildCoreToolsBlock,
   PROMPT_VERSION,
 } = require('../../shared/prompt-assembler/index.cjs');
-const { loadCorePromptSections } = require('../core-prompt-loader.cjs');
+const { loadCorePromptSections } = require('../prompts/core-prompt-loader.cjs');
 
 const BENCH_PROJECT_ID = 'bench-project';
 

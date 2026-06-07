@@ -18,6 +18,8 @@ Load when the task needs them:
 
 Skip reload if the current turn already contains a prior `dome_load_doc` result for the same id.
 
+Never use `skill_read` for `artifact_persisted`, `artifact_design`, or `artifacts` — those bodies live in `prompts/martin/` and must be loaded with `dome_load_doc(id)`.
+
 ---
 
 ToolUse:

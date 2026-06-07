@@ -2,7 +2,7 @@
 'use strict';
 
 /**
- * Embeddings service — LangChain-backed (OpenAI, Google Gemini, Ollama).
+ * Embeddings service — native HTTP clients (OpenAI, Google Gemini, Ollama).
  * Settings keys (independent from chat): embeddings_provider, embeddings_api_key,
  * embeddings_model, embeddings_base_url.
  */
@@ -20,7 +20,7 @@ const MAX_EMBED_RETRY_DEPTH = 5;
 
 const SUPPORTED_PROVIDERS = new Set(['openai', 'google', 'ollama']);
 
-/** @type {import('@langchain/core/embeddings').Embeddings | null} */
+/** @type {{ embedQuery: (text: string) => Promise<number[]>, embedDocuments: (texts: string[]) => Promise<number[][]> } | null} */
 let _cachedClient = null;
 /** @type {string | null} */
 let _cachedConfigKey = null;
@@ -32,10 +32,10 @@ let _activeDim = null;
 let _activeContextTokens = null;
 
 /**
- * @param {() => import('better-sqlite3').Database['prepare'] extends never ? any : ReturnType<typeof import('../database.cjs').getQueries>} getQueries
+ * @param {() => import('better-sqlite3').Database['prepare'] extends never ? any : ReturnType<typeof import('../core/database.cjs').getQueries>} getQueries
  */
 function defaultGetQueries() {
-  const database = require('../database.cjs');
+  const database = require('../core/database.cjs');
   return database.getQueries();
 }
 
@@ -127,7 +127,7 @@ function averageVectors(a, b) {
 }
 
 /**
- * @param {import('@langchain/core/embeddings').Embeddings} client
+ * @param {{ embedQuery: (text: string) => Promise<number[]>, embedDocuments: (texts: string[]) => Promise<number[][]> }} client
  * @param {string[]} batch
  * @param {number} [depth]
  * @returns {Promise<number[][]>}
@@ -159,23 +159,11 @@ async function embedBatchWithRetry(client, batch, depth = 0) {
 
 /**
  * @param {{ provider: string, model: string, apiKey: string, baseUrl: string }} cfg
- * @returns {Promise<import('@langchain/core/embeddings').Embeddings>}
+ * @returns {Promise<{ embedQuery: (text: string) => Promise<number[]>, embedDocuments: (texts: string[]) => Promise<number[][]> }>}
  */
 async function createEmbeddingsClient(cfg) {
-  const { provider, model, apiKey, baseUrl } = cfg;
-  if (provider === 'openai') {
-    const { OpenAIEmbeddings } = await import('@langchain/openai');
-    return new OpenAIEmbeddings({ apiKey, model });
-  }
-  if (provider === 'google') {
-    const { GoogleGenerativeAIEmbeddings } = await import('@langchain/google-genai');
-    return new GoogleGenerativeAIEmbeddings({ apiKey, model });
-  }
-  if (provider === 'ollama') {
-    const { OllamaEmbeddings } = await import('@langchain/ollama');
-    return new OllamaEmbeddings({ baseUrl, model });
-  }
-  throw new Error(`Unsupported embeddings provider: ${provider}`);
+  const { createEmbeddingsClient: createNative } = require('./embeddings-client.cjs');
+  return createNative(cfg);
 }
 
 /**

@@ -1,0 +1,20 @@
+{
+  "tab_agents": "Agents",
+  "tab_workflows": "Workflows",
+  "tab_automations": "Automatisations",
+  "tab_runs": "Exécutions",
+  "agents_subtitle": "Configurez et exécutez des agents IA personnalisés dans votre workspace.",
+  "workflows_subtitle": "Concevez des pipelines multi-étapes avec le canvas visuel.",
+  "automations_subtitle": "Planifiez des tâches et réagissez aux événements du workspace.",
+  "runs_subtitle": "Suivez les exécutions en direct et consultez l'historique.",
+  "stat_agents": "Agents",
+  "stat_workflows": "Workflows",
+  "stat_automations": "Automatisations",
+  "stat_runs": "Exécutions",
+  "stat_project": "Projet",
+  "import_btn": "Importer",
+  "export_btn": "Exporter",
+  "automations_list_one": "{{count}} automatisation",
+  "automations_list_other": "{{count}} automatisations",
+  "automations_scope_banner": "Les automatisations dans «{{name}}» n’utilisent que des outils limités à ce projet (pas d’accès aux ressources d’autres projets)."
+}

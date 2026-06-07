@@ -149,7 +149,7 @@ async function main() {
   }
 
   try {
-    const { validatePptxBuffer } = require('../../electron/pptx-validate.cjs');
+    const { validatePptxBuffer } = require('../../electron/documents/pptx-validate.cjs');
     const buf = fs.readFileSync(resolvedOutputPath);
     const check = await validatePptxBuffer(buf, { minSlides: 1 });
     if (!check.ok) {

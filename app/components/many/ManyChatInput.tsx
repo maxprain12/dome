@@ -1,5 +1,5 @@
 
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ArrowUp,
@@ -61,6 +61,8 @@ export interface ManyChatInputProps {
   showComposerKeyboardHint?: boolean;
   /** Sidebar / narrow panel: icon-only toolbar, capabilities in + menu. */
   compact?: boolean;
+  /** Context donut + popup, shown before the send button. */
+  composerContextUsage?: React.ReactNode;
 }
 
 export default memo(function ManyChatInput({
@@ -84,6 +86,7 @@ export default memo(function ManyChatInput({
   variant = 'full',
   showComposerKeyboardHint = true,
   compact = false,
+  composerContextUsage = null,
 }: ManyChatInputProps) {
   const { t } = useTranslation();
   const multimodalCaps = useComposerMultimodalCapabilities();
@@ -520,6 +523,10 @@ export default memo(function ManyChatInput({
               <span className="many-model-pill shrink min-w-0">
                 <InlineModelSwitcher />
               </span>
+            ) : null}
+
+            {composerContextUsage ? (
+              <span className="many-composer-context">{composerContextUsage}</span>
             ) : null}
 
             {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(

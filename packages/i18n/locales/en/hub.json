@@ -1,0 +1,15 @@
+{
+  "mode": {
+    "dictation": "Dictation",
+    "call": "Meeting",
+    "streaming": "Streaming"
+  },
+  "minimize_panel": "Minimize hub",
+  "expand_panel": "Expand hub",
+  "hide_panel": "Hide transcription panel",
+  "window_minimize": "Minimize window",
+  "window_close": "Close window",
+  "minimized_setup_hint": "Expand the hub to choose microphone, window, or mixed capture.",
+  "dock_section_mic": "Mic only",
+  "dock_section_screen": "Window or screen"
+}

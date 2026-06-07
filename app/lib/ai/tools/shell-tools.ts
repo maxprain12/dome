@@ -1,7 +1,7 @@
 /**
  * Shell execution tool for Many.
  * Shows a native confirmation dialog before running any command.
- * Main-process execution goes through LangGraph → executeToolInMain → aiToolsHandler.shellExec.
+ * Main-process execution goes through the agent runtime → executeToolInMain → aiToolsHandler.shellExec.
  */
 
 import { Type } from '@sinclair/typebox';

@@ -7,7 +7,7 @@
 - [Canales IPC](ipc-channels.md) — **autogenerado**; ejecutar `pnpm run generate:ipc-inventory` tras añadir handlers.
 - [Aislamiento por worktree](worktree-isolation.md) — `DOME_PROFILE` y desarrollo en paralelo.
 - [Herramientas de runtime para agentes](agent-runtime-tools.md) — DevTools, observabilidad local.
-- [Middleware de agentes](middleware.md) — stack LangChain/DeepAgents (retry, limits, HITL, etc.).
+- [Runtime de agente](agent-runtime.md) — `@dome/agent-core`, loop nativo, skills, compactación.
 - [Decisiones (ADRs)](decisions/) — registro de decisiones numeradas.
 
 Las guías de **features** del producto están en [../features/](../features/).

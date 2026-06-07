@@ -1,4 +1,5 @@
 import type { TFunction } from 'i18next';
+import { getToolDisplayLabelForCall } from '@/lib/chat/toolDisplayLabels';
 
 /** Keys cycled in agent chat while waiting (before tools). */
 export const CHAT_THINKING_ROTATION_KEYS = [
@@ -10,11 +11,27 @@ export const CHAT_THINKING_ROTATION_KEYS = [
   'chat.thinking_l6',
 ] as const;
 
-/** i18n label for tool / subagent streaming (uses `chat.tool_<name>` if present). */
+export interface StreamingLabelToolCall {
+  name?: string;
+  arguments?: Record<string, unknown>;
+  agentName?: string;
+}
+
+/** i18n label for tool / subagent streaming (uses enriched tool catalog). */
 export function streamingLabelForToolName(name: string | undefined, t: TFunction): string {
   if (!name) return `${t('chat.tool_label_suffix')}...`;
-  const fullKey = `chat.tool_${name}`;
-  const tr = t(fullKey);
-  if (tr !== fullKey) return tr;
-  return `${t('chat.stream_tool_fallback', { name: name.replace(/_/g, ' ') })}...`;
+  const label = getToolDisplayLabelForCall({ name, arguments: {} }, t, true);
+  if (label.endsWith('...') || label.endsWith('…')) return label;
+  return `${label}...`;
+}
+
+export function streamingLabelForToolCall(toolCall: StreamingLabelToolCall, t: TFunction): string {
+  if (!toolCall.name) return `${t('chat.tool_label_suffix')}...`;
+  const label = getToolDisplayLabelForCall(
+    { name: toolCall.name, arguments: toolCall.arguments ?? {} },
+    t,
+    true,
+  );
+  if (label.endsWith('...') || label.endsWith('…')) return label;
+  return `${label}...`;
 }

@@ -1,0 +1,7 @@
+{
+  "transcribe_failed": "Transcription impossible",
+  "mode_input": "Insérer dans le champ",
+  "mode_send": "Envoyer le message",
+  "toggle_send_mode": "Basculer : insérer ou envoyer",
+  "ptt_subtitle": "Maintenir pour parler · relâcher pour envoyer"
+}

@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const { createModelFromConfig } = require('../langgraph-agent.cjs');
+const { createModelFromConfig } = require('../ai/model-factory.cjs');
 
 const JUDGE_PASS_THRESHOLD = 3;
 

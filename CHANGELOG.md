@@ -4,6 +4,35 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.3.5](https://github.com/maxprain12/dome/releases/tag/v2.3.5) - 2026-06-07
+
+### Added
+
+- **Dome-native agent runtime** (`@dome/agent-core` + `AgentHarness`) for Many, agent-chat, workflows, Agent Team, automations, and bench — LangGraph fully removed.
+- **JSONL session persistence** for Many (`threads:*` IPC, `manyThreadBridge`, sidebar hydration from `threads:list?rootOnly=true`).
+- **Context usage UI**: `ContextUsageIndicator`, segmented budget popup, `CompactionNotice`, live token estimates.
+- **HITL resume**, Many `task` subagents, Agent Team `delegate_to_agent`, manual `threads:compact` / `threads:navigate-tree`.
+- **Native web search** for Anthropic / Gemini / OpenAI Responses; HTTP `web_search` / `web_fetch` fallback for other providers.
+- **Multimodal Many attachments** via `ImageContent` (sharp resize in main process).
+- **Tool schema normalization** (`normalizeToolParameters`, `tool-schema.ts`) for strict providers (MiniMax error 2013).
+- **Workflow DAG executor** in `run-engine.cjs` (topological levels, per-node retry); text-only propagation between agent nodes.
+
+### Changed
+
+- Renamed `useLangGraphRunStream` → `useAgentRunStream`; renderer/runtime terminology aligned with Dome agent harness (no upstream product names in code).
+- MiniMax: disabled Anthropic server web tools; client HTTP search/fetch retained; empty tool names filtered in Anthropic provider.
+- Provider config unified (`resolve-provider-config.cjs`); cloud providers wired end-to-end in settings.
+
+### Fixed
+
+- MiniMax API **2013** (`function name or parameters is empty`) from invalid native web tools and empty tool schemas.
+- Many session list drift (JSONL as source of truth; localStorage UI meta only).
+- Workflow LLM usage double-counting on multi-agent runs.
+
+### Docs
+
+- `docs/architecture/agent-runtime.md` — runtime, sessions, workflow propagation, provider notes; upstream [pi](https://github.com/earendil-works/pi) cited as design reference only.
+
 ## [2.3.0](https://github.com/maxprain12/dome/releases/tag/v2.3.0) - 2026-06-02
 
 ### Added

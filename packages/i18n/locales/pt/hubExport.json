@@ -1,0 +1,12 @@
+{
+  "import_workflow": "Importar workflow",
+  "import_automation": "Importar automação",
+  "title_export_workflow": "Exportar workflow (com agentes, skills e MCP)",
+  "title_export_automation": "Exportar automação (com alvo, skills e MCP)",
+  "export_done": "Exportação transferida",
+  "error_export": "Não foi possível exportar",
+  "invalid_bundle": "Ficheiro de exportação inválido ou não suportado",
+  "error_import": "Falha na importação",
+  "import_done_workflow": "Importados {{workflows}} workflow(s), {{agents}} agente(s) (skills e MCP fundidos quando novos).",
+  "import_done_automation": "Importadas {{automations}} automação(ões), {{workflows}} workflow(s), {{agents}} agente(s)."
+}

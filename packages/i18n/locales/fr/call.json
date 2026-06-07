@@ -1,0 +1,14 @@
+{
+  "setup_title": "Capture de réunion",
+  "setup_hint": "Choisissez la fenêtre ou l’écran de la réunion, puis démarrez. Le micro et l’audio de cette source sont enregistrés en parallèle (en dictée, vous choisissez soit le micro soit le système, pas les deux).",
+  "start_button": "Démarrer la réunion",
+  "stop_button": "Arrêter et enregistrer la note",
+  "starting": "Démarrage…",
+  "finalizing": "Enregistrement…",
+  "start_failed": "Impossible de démarrer la réunion",
+  "track_mic": "Micro",
+  "track_system": "Audio de la réunion",
+  "show_live_transcript": "Afficher la transcription en direct",
+  "streaming_placeholder": "Les segments transcrits apparaîtront ici…",
+  "summary_ready": "Résumé mis à jour"
+}

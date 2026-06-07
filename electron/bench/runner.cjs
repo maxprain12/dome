@@ -3,13 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const langgraphAgent = require('../langgraph-agent.cjs');
-const database = require('../database.cjs');
-const { normalizeToolName, executeToolInMain } = require('../tool-dispatcher.cjs');
+const agentRuntime = require('../agents/agent-runtime.cjs');
+const database = require('../core/database.cjs');
+const { normalizeToolName, executeToolInMain } = require('../tools/tool-dispatcher.cjs');
 const { parseTextToolInvokes } = require('./parse-text-tool-invokes.cjs');
 const { buildBenchSystemPrompt, BENCH_PROJECT_ID } = require('./bench-prompt.cjs');
 const { getToolDefinitionsForCase } = require('./tool-scope.cjs');
-const { parseRuntimeContext } = require('../agent-runtime-context.cjs');
+const { parseRuntimeContext } = require('../agents/agent-runtime-context.cjs');
 const { getBenchProviderConfig } = require('./provider-config.cjs');
 const { validateExecution, validateStructural, deriveOutcome } = require('./validators.cjs');
 const { runJudge } = require('./judge.cjs');
@@ -247,8 +247,9 @@ async function runSingleCase(caseDef, opts) {
 
   let finalText = '';
   let error = null;
-  let hitInterrupt = false;
-  let interruptThreadId = threadId;
+  // HITL interrupts were a the agent runtime feature; the Dome-native runtime does not
+  // interrupt mid-run. Kept for the result shape consumed downstream.
+  const hitInterrupt = false;
 
   const fixtureIds = caseDef.fixtures || [];
 
@@ -277,23 +278,11 @@ async function runSingleCase(caseDef, opts) {
       automationProjectId: BENCH_PROJECT_ID,
     };
 
-    let result = await langgraphAgent.invokeLangGraphAgent(invokeOpts);
-
-    if (result?.__interrupt__) {
-      hitInterrupt = true;
-      interruptThreadId = result.threadId || threadId;
-      if (caseDef.skip_hitl === false) {
-        const decisions = (result.actionRequests || []).map(() => ({ type: 'approve' }));
-        result = await langgraphAgent.resumeLangGraphAgent({
-          ...invokeOpts,
-          messages: [],
-          threadId: interruptThreadId,
-          decisions: decisions.length ? decisions : [{ type: 'approve' }],
-        });
-        if (typeof result === 'string') finalText = result;
-        else if (result?.__interrupt__) hitInterrupt = true;
-      }
-    } else if (typeof result === 'string') {
+    // HITL interrupt/resume was a the agent runtime checkpointer feature; the
+    // Dome-native runtime runs straight through (bench cases run with
+    // skip_hitl). The final text is accumulated via the onChunk handler above.
+    const result = await agentRuntime.runAgent('bench', invokeOpts);
+    if (typeof result === 'string') {
       finalText = result || finalText;
     }
   } catch (err) {

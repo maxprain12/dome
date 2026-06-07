@@ -1,0 +1,26 @@
+{
+  "sort_by": "Ordenar por",
+  "sort": {
+    "recently_updated": "Atualizado recentemente",
+    "date_created": "Data de criação",
+    "alphabetical": "Alfabético"
+  },
+  "filter": "Filtrar",
+  "filter_by_type": "Filtrar por tipo",
+  "clear_all": "Limpar tudo",
+  "new_folder": "Nova pasta",
+  "grid_view": "Vista em grade",
+  "list_view": "Vista em lista",
+  "types": {
+    "notes": "Notas",
+    "notebooks": "Cadernos",
+    "images": "Imagens",
+    "videos": "Vídeos",
+    "audio": "Áudio",
+    "pdfs": "PDFs",
+    "links": "Links",
+    "docs": "Docs",
+    "excel": "Excel",
+    "presentations": "Apresentações"
+  }
+}

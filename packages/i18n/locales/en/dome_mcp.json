@@ -1,0 +1,21 @@
+{
+  "title": "Dome as MCP Server",
+  "subtitle": "Expose all Dome tools to external clients (Cursor, Claude Desktop, etc.) via an HTTP MCP server.",
+  "enable_label": "Enable Dome MCP Server",
+  "status_running": "Running on port {{port}}",
+  "status_stopped": "Server is stopped",
+  "port_label": "Port",
+  "sessions_label": "Connected clients",
+  "no_sessions": "No clients connected",
+  "server_stopped_hint": "Start the server to allow connections.",
+  "config_label": "Client configuration",
+  "config_hint": "Add this to your Cursor or Claude Desktop settings:",
+  "copy_config": "Copy config for Cursor / Claude Desktop",
+  "copied": "Copied!",
+  "refresh": "Refresh status",
+  "error_start": "Failed to start MCP server",
+  "error_stop": "Failed to stop MCP server",
+  "error_generic": "An error occurred",
+  "info_hint": "Clients identify themselves by name (Cursor → \"cursor\", Claude Desktop → \"claude-ai\"). Tool calls from external clients appear in Dome logs.",
+  "claude_desktop_note": "Requires Claude Desktop v0.10 or later (supports remote HTTP MCP). Older versions only support stdio servers."
+}

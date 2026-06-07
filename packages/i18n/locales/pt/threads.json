@@ -1,0 +1,8 @@
+{
+  "timeline": "Linha do tempo do thread",
+  "latest": "mais recente",
+  "fork": "Bifurcar",
+  "fork_from_here": "Bifurcar execução deste checkpoint",
+  "view_state": "Ver estado do checkpoint",
+  "no_history": "Nenhum histórico de checkpoint encontrado para este thread."
+}

@@ -1,0 +1,11 @@
+{
+  "open_settings": "Abrir ajustes",
+  "sign_out": "Cerrar sesión",
+  "settings": "Ajustes",
+  "signingOut": "Cerrando sesión...",
+  "menu_aria": "Menú de usuario: {{name}}",
+  "no_email": "Sin correo",
+  "default_name": "Usuario",
+  "confirm_sign_out": "¿Seguro que quieres cerrar sesión?\n\nEsto restablecerá tu perfil y volverás a ver el asistente de configuración.",
+  "sign_out_error": "Error al cerrar sesión. Por favor, inténtalo de nuevo."
+}

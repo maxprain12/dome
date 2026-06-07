@@ -1,0 +1,11 @@
+{
+  "items_selected_one": "{{count}} élément sélectionné",
+  "items_selected_other": "{{count}} éléments sélectionnés",
+  "move": "Déplacer",
+  "move_to_folder": "Vers un dossier…",
+  "move_to_project": "Vers un projet…",
+  "delete": "Supprimer",
+  "deselect": "Désélectionner",
+  "bulk_delete_confirm": "Supprimer {{count}} éléments sélectionnés (y compris tout le contenu des dossiers sélectionnés) ?",
+  "move_to_root": "Racine du projet (sans dossier)"
+}

@@ -1,0 +1,14 @@
+{
+  "setup_title": "Captura de reunião",
+  "setup_hint": "Escolha a janela ou ecrã da reunião e inicie. O microfone e o áudio dessa fonte gravam ao mesmo tempo (em ditado escolhe só micro ou só sistema, não os dois).",
+  "start_button": "Iniciar reunião",
+  "stop_button": "Parar e salvar nota",
+  "starting": "A iniciar…",
+  "finalizing": "A guardar transcrição…",
+  "start_failed": "Não foi possível iniciar a reunião",
+  "track_mic": "Microfone",
+  "track_system": "Áudio da reunião",
+  "show_live_transcript": "Mostrar transcrição ao vivo",
+  "streaming_placeholder": "Os segmentos transcritos aparecerão aqui…",
+  "summary_ready": "Resumo atualizado"
+}

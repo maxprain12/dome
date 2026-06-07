@@ -10,7 +10,7 @@ import process from 'node:process';
 
 const require = createRequire(import.meta.url);
 const { loadDotenv } = require('../../electron/bench/load-env.cjs');
-const llmService = require('../../electron/llm-service.cjs');
+const llmService = require('../../electron/ai/llm-service.cjs');
 
 loadDotenv();
 
@@ -96,7 +96,7 @@ async function smokeProvider(cfg, modelOverride) {
 }
 
 async function agentBaselineCheck() {
-  const { normalizeUserMessage } = require('../../electron/message-multimodal.cjs');
+  const { normalizeUserMessage } = require('../../electron/ai/message-multimodal.cjs');
   const markdown = `\n![test.png](${TINY_PNG_DATA_URL})\n\nDescribe this image briefly.`;
   const asString = normalizeUserMessage(markdown, { provider: 'openai', modelId: 'gpt-4o-mini' });
   const isNative = Array.isArray(asString);

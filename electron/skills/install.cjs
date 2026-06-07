@@ -8,7 +8,7 @@ const path = require('path');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
-const githubClient = require('../github-client.cjs');
+const githubClient = require('../marketplace/github-client.cjs');
 const { userSkillsDir } = require('./index.cjs');
 
 const SKILL_SCAN_DIRS = ['skills', 'skills/.curated', 'skills/.experimental', 'skills/.system'];

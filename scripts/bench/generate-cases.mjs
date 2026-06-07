@@ -523,7 +523,7 @@ function buildCase(tool) {
 }
 
 function main() {
-  const src = fs.readFileSync(path.join(ROOT, 'electron/tool-dispatcher.cjs'), 'utf-8');
+  const src = fs.readFileSync(path.join(ROOT, 'electron/tools/tool-dispatcher.cjs'), 'utf-8');
   const mapEq = src.indexOf('const TOOL_HANDLER_MAP = ');
   const mapOpen = src.indexOf('{', mapEq);
   const mapClose = indexOfMatchingBrace(src, mapOpen);

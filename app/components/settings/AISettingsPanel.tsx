@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Cloud, Search, MessageSquare, Mic, Layers } from 'lucide-react';
 import AIEmbeddingsTab from './ai/AIEmbeddingsTab';
@@ -17,6 +17,8 @@ import { accentMix } from '@/lib/ui/accent';
 import AIProviderSelection, { isCloudAIProvider } from './ai/AIProviderSelection';
 import AICloudProviderConfig from './ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from './ai/AIOllamaProviderConfig';
+import ModelSelector from './ModelSelector';
+import { getCopilotModels } from '@/lib/ai/catalogs/copilot';
 import TranscriptionSettingsSections, {
   type TranscriptionSettingsSectionsHandle,
 } from './TranscriptionSettingsSections';
@@ -59,8 +61,12 @@ export default function AISettingsPanel() {
   } | null>(null);
   const [cloudSyncBusy, setCloudSyncBusy] = useState(false);
   const [cloudSyncMsg, setCloudSyncMsg] = useState<string | null>(null);
+  const [copilotConnected, setCopilotConnected] = useState(false);
+  const [copilotConnecting, setCopilotConnecting] = useState(false);
+  const [copilotUserCode, setCopilotUserCode] = useState<string | null>(null);
   const transcriptionRef = useRef<TranscriptionSettingsSectionsHandle>(null);
   const [activeTab, setActiveTab] = useState<AISettingsTab>('chat');
+  const copilotModels = useMemo(() => getCopilotModels(), []);
 
   const {
     models: currentProviderModels,
@@ -130,7 +136,63 @@ export default function AISettingsPanel() {
     }
   }, [domeConnected, t]);
 
+  const refreshCopilotStatus = useCallback(async () => {
+    if (!window.electron?.copilotAuth) return;
+    try {
+      const s = await window.electron.copilotAuth.status();
+      setCopilotConnected(s.success && s.connected === true);
+    } catch {
+      setCopilotConnected(false);
+    }
+  }, []);
+
+  const handleConnectCopilot = async () => {
+    if (!window.electron?.copilotAuth) {
+      setTestResult({ success: false, message: 'GitHub Copilot no disponible en esta versión.' });
+      return;
+    }
+    setCopilotConnecting(true);
+    setCopilotUserCode(null);
+    setTestResult(null);
+    try {
+      const started = await window.electron.copilotAuth.start();
+      if (!started.success || !started.deviceCode || !started.userCode) {
+        setTestResult({ success: false, message: started.error || 'No se pudo iniciar el login de GitHub Copilot.' });
+        return;
+      }
+      setCopilotUserCode(started.userCode);
+      const result = await window.electron.copilotAuth.poll({
+        deviceCode: started.deviceCode,
+        interval: started.interval,
+        expiresIn: started.expiresIn,
+      });
+      if (result.success) {
+        setCopilotConnected(true);
+        setTestResult({ success: true, message: t('settings.ai.copilot_connected_ok') });
+      } else {
+        setTestResult({ success: false, message: result.error || t('settings.ai.copilot_connect_failed') });
+      }
+    } catch (error) {
+      setTestResult({ success: false, message: error instanceof Error ? error.message : 'Error desconocido' });
+    } finally {
+      setCopilotConnecting(false);
+      setCopilotUserCode(null);
+    }
+  };
+
+  const handleDisconnectCopilot = async () => {
+    if (!window.electron?.copilotAuth) return;
+    try {
+      await window.electron.copilotAuth.disconnect();
+      setCopilotConnected(false);
+      setTestResult({ success: true, message: t('settings.ai.copilot_disconnected') });
+    } catch (error) {
+      setTestResult({ success: false, message: error instanceof Error ? error.message : 'No se pudo desconectar.' });
+    }
+  };
+
   useEffect(() => { void refreshDomeSession(); }, [refreshDomeSession]);
+  useEffect(() => { void refreshCopilotStatus(); }, [refreshCopilotStatus]);
   useEffect(() => { void refreshCloudSyncStatus(); }, [refreshCloudSyncStatus]);
   useEffect(() => {
     const onFocus = () => void refreshDomeSession();
@@ -155,6 +217,10 @@ export default function AISettingsPanel() {
       case 'dome': config.model = 'dome/auto'; config.base_url = ''; break;
       case 'minimax': config.api_key = apiKey; config.model = model; break;
       case 'openrouter': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'deepseek': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'moonshot': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'qwen': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'copilot': config.model = model; config.base_url = ''; break;
       case 'ollama': config.ollama_base_url = ollamaBaseURL; config.ollama_model = ollamaModel; config.ollama_api_key = ollamaApiKey; break;
     }
     try {
@@ -400,6 +466,67 @@ export default function AISettingsPanel() {
                 </div>
               </div>
             )}
+          </DomeCard>
+        )}
+
+        {provider === 'copilot' && (
+          <DomeCard className="space-y-4">
+            <div className="rounded-lg p-4" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
+              <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
+                {t('settings.ai.copilot_connect_title')}
+              </p>
+              <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('settings.ai.copilot_connect_desc')}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <DomeButton type="button" variant="primary" size="md" onClick={() => void handleConnectCopilot()} disabled={copilotConnecting}>
+                {copilotConnecting ? t('settings.ai.connecting') : copilotConnected ? t('settings.ai.reconnect') : t('settings.ai.copilot_connect')}
+              </DomeButton>
+              {copilotConnected ? (
+                <DomeButton type="button" variant="outline" size="md" onClick={() => void handleDisconnectCopilot()}>
+                  {t('settings.ai.disconnect')}
+                </DomeButton>
+              ) : null}
+            </div>
+
+            {copilotConnecting && copilotUserCode ? (
+              <div className="rounded-lg p-3" style={{ backgroundColor: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
+                <p className="text-xs mb-1" style={{ color: 'var(--dome-text-muted)' }}>
+                  {t('settings.ai.copilot_enter_code')}
+                </p>
+                <p className="text-lg font-mono font-bold tracking-widest" style={{ color: 'var(--dome-text)' }}>
+                  {copilotUserCode}
+                </p>
+              </div>
+            ) : null}
+
+            <div className="flex items-center gap-2">
+              <div className="size-1.5 rounded-full" style={{ backgroundColor: copilotConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }} />
+              <span className="text-xs" style={{ color: copilotConnected ? 'var(--dome-accent)' : 'var(--dome-text-muted)' }}>
+                {copilotConnected ? t('settings.ai.status_connected') : t('settings.ai.status_disconnected')}
+              </span>
+            </div>
+
+            {copilotConnected && copilotModels.length > 0 ? (
+              <div>
+                <span className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
+                  {t('settings.ai.model')}
+                </span>
+                <ModelSelector
+                  models={copilotModels}
+                  selectedModelId={model}
+                  onChange={setModel}
+                  showBadges
+                  searchable={copilotModels.length > 5}
+                  placeholder={t('settings.ai.model')}
+                  providerType="cloud"
+                  providerId="copilot"
+                  configuredHint
+                />
+              </div>
+            ) : null}
           </DomeCard>
         )}
       </div>

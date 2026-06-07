@@ -1,0 +1,10 @@
+{
+  "image_describe": {
+    "name": "Descrever imagem (visão)",
+    "description": "Descreve uma imagem com a sua IA configurada para pesquisa e contexto no chat."
+  },
+  "screen_understand": {
+    "name": "Compreender captura de interface",
+    "description": "Analisa uma captura de UI e devolve elementos estruturados (IA configurada)."
+  }
+}

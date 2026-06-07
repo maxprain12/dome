@@ -193,7 +193,7 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
 
   const handleStop = useCallback(() => {
     store.resetExecution();
-    window.electron?.invoke('ai:langgraph:abort').catch(() => {});
+    window.electron?.invoke('ai:agent:abort').catch(() => {});
   }, [store]);
 
   const handleSave = useCallback(async () => {

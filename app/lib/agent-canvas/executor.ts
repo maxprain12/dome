@@ -4,7 +4,7 @@
  * Performs a level-based topological sort to group nodes by execution level,
  * then executes each level in parallel using Promise.all.
  *
- * Agent nodes use chatWithToolsStream (via LangGraph) with correct chunk handling.
+ * Agent nodes use chatWithToolsStream (via the agent runtime) with correct chunk handling.
  * Supports both user-defined ManyAgents and built-in SystemAgents.
  */
 

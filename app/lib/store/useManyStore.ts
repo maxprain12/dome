@@ -1,8 +1,23 @@
 import { create } from 'zustand';
 import { db } from '@/lib/db/client';
-
-const SESSIONS_STORAGE_KEY = 'dome-many-sessions:v1';
-const MAX_SESSIONS = 20;
+import {
+  filterOutDeletedSessions,
+  isManySessionDeleted,
+  loadManySessionsFromStorage,
+  loadManySessionUiMeta,
+  markManySessionDeleted,
+  MAX_MANY_SESSIONS,
+  persistManySessionMeta,
+  persistManySessions,
+  pruneManySessionUiMeta,
+  removeManySessionUiMeta,
+  sanitizeManySessionTitle,
+  setPersistedCurrentManySessionId,
+} from '@/lib/store/manySessionStorage';
+import {
+  isNestedManyThreadId,
+  listManyThreadSummariesResult,
+} from '@/lib/chat/manyThreadBridge';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
@@ -54,94 +69,34 @@ export interface ManyChatSession {
 }
 
 function createSessionId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
   return `session-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
 
-function getInitialSessionsState(): {
-  sessions: ManyChatSession[];
-  currentSessionId: string | null;
-  messages: ManyMessage[];
-} {
-  if (typeof window === 'undefined') {
-    return { sessions: [], currentSessionId: null, messages: [] };
-  }
-  try {
-    const raw = localStorage.getItem(SESSIONS_STORAGE_KEY);
-    if (!raw) return { sessions: [], currentSessionId: null, messages: [] };
-    const parsed = JSON.parse(raw) as unknown;
-    const sessions: ManyChatSession[] = (Array.isArray(parsed)
-      ? parsed.slice(0, MAX_SESSIONS).filter(
-          (s): s is ManyChatSession =>
-            s &&
-            typeof s === 'object' &&
-            typeof s.id === 'string' &&
-            Array.isArray(s.messages)
-        )
-      : []).map((s) => ({
-        ...s,
-        // Backfill title from first user message if missing or still default
-        title: (!s.title || s.title === 'New chat')
-          ? (s.messages.find((m: ManyMessage) => m.role === 'user')?.content?.slice(0, 50)?.trim() || 'New chat')
-          : s.title,
-        updatedAt:
-          s.updatedAt ??
-          s.messages[s.messages.length - 1]?.timestamp ??
-          s.createdAt,
-        pinned: s.pinned ?? false,
-      }));
-    if (sessions.length === 0) return { sessions: [], currentSessionId: null, messages: [] };
-    const sorted = [...sessions].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-    const current = sorted[0];
-    return {
-      sessions,
-      currentSessionId: current.id,
-      messages: current.messages ?? [],
-    };
-  } catch {
-    return { sessions: [], currentSessionId: null, messages: [] };
-  }
+function trimSessions(sessions: ManyChatSession[], currentId: string | null): ManyChatSession[] {
+  const trimmed = sessions.slice(0, MAX_MANY_SESSIONS);
+  if (!currentId || trimmed.some((s) => s.id === currentId)) return trimmed;
+  const current = sessions.find((s) => s.id === currentId);
+  if (!current) return trimmed;
+  return [current, ...trimmed.filter((s) => s.id !== currentId)].slice(0, MAX_MANY_SESSIONS);
 }
 
-function persistSessions(sessions: ManyChatSession[]): void {
-  const MAX_MSG_LENGTH = 4000; // chars per message before trimming
-  const toStore = sessions.slice(0, MAX_SESSIONS);
-  try {
-    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(toStore));
-  } catch {
-    // Quota exceeded — retry with trimmed message content to free space
-    try {
-      const trimmed = toStore.map((s) => ({
-        ...s,
-        messages: s.messages.map((m) => ({
-          ...m,
-          content: m.content.length > MAX_MSG_LENGTH ? m.content.slice(0, MAX_MSG_LENGTH) + '…' : m.content,
-          // Drop tool call results (usually large) when saving under pressure
-          toolCalls: m.toolCalls?.map((tc) => ({ ...tc, result: undefined })),
-        })),
-      }));
-      localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify(trimmed));
-    } catch {
-      // incognito, disabled, or completely out of space — silently skip
-    }
-  }
-}
+const initialState = loadManySessionsFromStorage();
 
-const initialState = getInitialSessionsState();
-
-// Ensure we have at least one session when store hydrates with empty state
+// Ensure we always have a "current" chat to type into when the store hydrates
+// empty. This is an EPHEMERAL in-memory draft: it is NOT added to the session
+// list nor persisted to UI meta. It only becomes a real, listed session once the
+// first message is sent (see addMessage), which is also when its JSONL thread is
+// created. This prevents empty "New chat" entries from polluting the history.
 function ensureInitialSession(
   state: { sessions: ManyChatSession[]; currentSessionId: string | null; messages: ManyMessage[] }
 ): typeof state {
-  if (state.sessions.length > 0) return state;
-  const newSession: ManyChatSession = {
-    id: createSessionId(),
-    title: 'New chat',
-    messages: [],
-    createdAt: Date.now(),
-  };
+  if (state.currentSessionId) return state;
   return {
-    sessions: [newSession],
-    currentSessionId: newSession.id,
+    sessions: state.sessions,
+    currentSessionId: createSessionId(),
     messages: [],
   };
 }
@@ -170,10 +125,12 @@ interface ManyState {
   clearMessages: () => void;
   startNewChat: () => void;
   switchSession: (id: string) => void;
-  deleteSession: (id: string) => void;
+  deleteSession: (id: string) => Promise<void>;
   updateSessionTitle: (id: string, title: string) => void;
   toggleSessionPin: (id: string) => void;
   hydrateSession: (session: ManyChatSession) => void;
+  /** Load session list from JSONL and merge with local UI meta. */
+  hydrateFromThreads: () => Promise<void>;
   setCurrentInput: (input: string) => void;
   incrementUnread: () => void;
   clearUnread: () => void;
@@ -261,33 +218,48 @@ export const useManyStore = create<ManyState>((set, get) => ({
     let nextCurrentId = currentSessionId;
 
     if (currentSessionId) {
-      const idx = nextSessions.findIndex((s) => s.id === currentSessionId);
-      if (idx >= 0) {
-        const session = nextSessions[idx];
-        const updated = {
-          ...session,
-          messages: [...session.messages, newMessage],
+      let idx = nextSessions.findIndex((s) => s.id === currentSessionId);
+      if (idx < 0) {
+        const revived: ManyChatSession = {
+          id: currentSessionId,
+          title: 'New chat',
+          messages: [...get().messages],
+          createdAt: Date.now(),
           updatedAt: Date.now(),
-          title:
-            message.role === 'user' && (!session.title || session.title === 'New chat')
-              ? message.content.slice(0, 50).trim() || 'New chat'
-              : session.title,
         };
-        nextSessions = [...nextSessions];
-        nextSessions[idx] = updated;
-        persistSessions(nextSessions);
+        nextSessions = [revived, ...nextSessions];
+        idx = 0;
       }
+      const session = nextSessions[idx]!;
+      const updated = {
+        ...session,
+        messages: [...session.messages, newMessage],
+        updatedAt: Date.now(),
+        title:
+          message.role === 'user' && (!session.title || session.title === 'New chat')
+            ? sanitizeManySessionTitle(message.content)
+            : session.title,
+      };
+      nextSessions = [...nextSessions];
+      nextSessions[idx] = updated;
+      nextSessions = trimSessions(nextSessions, currentSessionId);
+      persistManySessions(nextSessions);
+      setPersistedCurrentManySessionId(currentSessionId);
     } else {
       const newSession: ManyChatSession = {
         id: createSessionId(),
-        title: message.role === 'user' ? message.content.slice(0, 50).trim() || 'New chat' : 'New chat',
+        title:
+          message.role === 'user'
+            ? sanitizeManySessionTitle(message.content)
+            : 'New chat',
         messages: [newMessage],
         createdAt: Date.now(),
         updatedAt: Date.now(),
       };
-      nextSessions = [newSession, ...sessions].slice(0, MAX_SESSIONS);
+      nextSessions = trimSessions([newSession, ...sessions], newSession.id);
       nextCurrentId = newSession.id;
-      persistSessions(nextSessions);
+      persistManySessions(nextSessions);
+      setPersistedCurrentManySessionId(newSession.id);
     }
 
     set({
@@ -311,7 +283,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
         const updated = { ...session, messages: [], title: 'New chat' };
         const nextSessions = [...sessions];
         nextSessions[idx] = updated;
-        persistSessions(nextSessions);
+        persistManySessions(nextSessions);
         set({ messages: [], sessions: nextSessions });
         const sid = currentSessionId;
         void db.clearManyChatSession(sid).catch((err) => {
@@ -324,53 +296,111 @@ export const useManyStore = create<ManyState>((set, get) => ({
   },
 
   startNewChat: () => {
-    const newSession: ManyChatSession = {
-      id: createSessionId(),
-      title: 'New chat',
-      messages: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    const { sessions } = get();
-    const nextSessions = [newSession, ...sessions].slice(0, MAX_SESSIONS);
-    persistSessions(nextSessions);
+    // The new chat is an ephemeral in-memory draft: not listed, not persisted.
+    // It is promoted to a real session on the first message (addMessage), which
+    // also creates its JSONL thread. The existing session list is left intact.
+    const newId = createSessionId();
+    setPersistedCurrentManySessionId(newId);
     set({
-      sessions: nextSessions,
-      currentSessionId: newSession.id,
+      currentSessionId: newId,
       messages: [],
     });
   },
 
   switchSession: (id) => {
-    const { sessions } = get();
+    if (isManySessionDeleted(id)) return;
+    const { sessions, currentSessionId } = get();
+    if (id === currentSessionId) return;
+    setPersistedCurrentManySessionId(id);
     const session = sessions.find((s) => s.id === id);
-    if (session) {
-      set({
-        currentSessionId: id,
-        messages: [...session.messages],
-      });
-    }
+    // If the session isn't in the in-memory list yet (JSONL-backed but not
+    // hydrated), still switch: ManyPanel loads its messages from JSONL by id.
+    set({
+      currentSessionId: id,
+      messages: session ? [...session.messages] : [],
+    });
   },
 
-  deleteSession: (id) => {
+  deleteSession: async (id) => {
     const { sessions, currentSessionId } = get();
-    const nextSessions = sessions.filter((s) => s.id !== id);
-    persistSessions(nextSessions);
+    markManySessionDeleted(id);
+    if (window.electron?.threads?.delete) {
+      try {
+        await window.electron.threads.delete(id);
+      } catch (err) {
+        console.warn('[ManyStore] threads:delete failed:', err);
+      }
+    }
+    removeManySessionUiMeta(id);
+    const nextSessions = filterOutDeletedSessions(sessions.filter((s) => s.id !== id));
+    persistManySessions(nextSessions);
     let nextId = currentSessionId;
     let nextMessages = get().messages;
     if (currentSessionId === id) {
       const nextCurrent = nextSessions[0];
-      nextId = nextCurrent?.id ?? null;
+      // Fall back to the most recent remaining session, or a fresh in-memory
+      // draft (never null) so there is always somewhere to type.
+      nextId = nextCurrent?.id ?? createSessionId();
       nextMessages = nextCurrent?.messages ?? [];
+      setPersistedCurrentManySessionId(nextId);
     }
     set({
       sessions: nextSessions,
       currentSessionId: nextId,
       messages: nextMessages,
     });
-    void db.deleteManyChatSession(id).catch((err) => {
-      console.warn('[ManyStore] deleteManyChatSession failed:', err);
-    });
+    if (db.isAvailable()) {
+      const result = await db.deleteManyChatSession(id);
+      if (!result.success) {
+        console.warn('[ManyStore] deleteManyChatSession failed:', result.error);
+      }
+    }
+  },
+
+  hydrateFromThreads: async () => {
+    const { ok, summaries } = await listManyThreadSummariesResult(MAX_MANY_SESSIONS);
+    const uiMeta = loadManySessionUiMeta();
+    const { sessions: localSessions, currentSessionId } = get();
+    const localById = new Map(localSessions.map((s) => [s.id, s]));
+    const byId = new Map<string, ManyChatSession>();
+
+    for (const summary of summaries) {
+      const local = localById.get(summary.id);
+      const meta = uiMeta[summary.id];
+      byId.set(summary.id, {
+        id: summary.id,
+        title: sanitizeManySessionTitle(meta?.title ?? local?.title ?? 'New chat'),
+        messages: local?.messages ?? [],
+        createdAt: meta?.createdAt ?? local?.createdAt ?? summary.createdAt,
+        updatedAt: meta?.updatedAt ?? local?.updatedAt ?? summary.updatedAt,
+        pinned: meta?.pinned ?? local?.pinned,
+      });
+    }
+
+    for (const local of localSessions) {
+      if (isManySessionDeleted(local.id) || byId.has(local.id)) continue;
+      if (isNestedManyThreadId(local.id)) continue;
+      if (local.messages.length > 0) {
+        byId.set(local.id, local);
+      }
+    }
+
+    const nextSessions = trimSessions(
+      [...byId.values()].sort((a, b) => {
+        const at = a.updatedAt ?? a.createdAt ?? 0;
+        const bt = b.updatedAt ?? b.createdAt ?? 0;
+        return bt - at;
+      }),
+      currentSessionId,
+    );
+
+    persistManySessions(nextSessions);
+    // Only GC localStorage UI meta when the JSONL listing actually succeeded,
+    // so a transient IPC failure can never wipe metadata for real sessions.
+    if (ok) {
+      pruneManySessionUiMeta(nextSessions.map((s) => s.id));
+    }
+    set({ sessions: nextSessions });
   },
 
   updateSessionTitle: (id, title) => {
@@ -379,7 +409,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     if (idx >= 0) {
       const nextSessions = [...sessions];
       nextSessions[idx] = { ...nextSessions[idx], title, updatedAt: Date.now() };
-      persistSessions(nextSessions);
+      persistManySessions(nextSessions);
       set({ sessions: nextSessions });
     }
   },
@@ -391,15 +421,18 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const nextSessions = [...sessions];
     const cur = nextSessions[idx]!;
     nextSessions[idx] = { ...cur, pinned: !cur.pinned, updatedAt: Date.now() };
-    persistSessions(nextSessions);
+    persistManySessions(nextSessions);
     set({ sessions: nextSessions });
   },
 
   hydrateSession: (session) => {
+    if (isManySessionDeleted(session.id)) return;
     const { sessions, currentSessionId } = get();
     const idx = sessions.findIndex((item) => item.id === session.id);
+    const firstUser = session.messages.find((m) => m.role === 'user')?.content ?? '';
     const normalizedSession: ManyChatSession = {
       ...session,
+      title: sanitizeManySessionTitle(session.title || firstUser),
       createdAt: session.createdAt ?? Date.now(),
       updatedAt:
         session.updatedAt ??
@@ -408,24 +441,34 @@ export const useManyStore = create<ManyState>((set, get) => ({
       messages: Array.isArray(session.messages) ? session.messages : [],
       pinned: session.pinned ?? false,
     };
-    const nextSessions = idx >= 0
-      ? sessions.map((item) => (item.id === session.id ? normalizedSession : item))
-      : [normalizedSession, ...sessions].slice(0, MAX_SESSIONS);
+    const merged =
+      idx >= 0
+        ? sessions.map((item) => (item.id === session.id ? normalizedSession : item))
+        : [normalizedSession, ...sessions];
+    const nextSessions = trimSessions(merged, currentSessionId ?? normalizedSession.id);
+    const nextCurrentId = currentSessionId ?? normalizedSession.id;
     // Update in-memory state FIRST so the UI always reflects the latest messages,
     // even if the localStorage write below fails (e.g. quota exceeded).
     set({
       sessions: nextSessions,
-      currentSessionId: currentSessionId ?? normalizedSession.id,
+      currentSessionId: nextCurrentId,
       messages:
-        currentSessionId === normalizedSession.id || (!currentSessionId && nextSessions[0]?.id === normalizedSession.id)
+        nextCurrentId === normalizedSession.id
           ? [...normalizedSession.messages]
           : get().messages,
     });
-    // Best-effort persistence — a failure here must never clear the chat UI.
+    setPersistedCurrentManySessionId(nextCurrentId);
+    persistManySessionMeta({
+      id: normalizedSession.id,
+      title: normalizedSession.title,
+      pinned: normalizedSession.pinned,
+      createdAt: normalizedSession.createdAt,
+      updatedAt: normalizedSession.updatedAt,
+    });
     try {
-      persistSessions(nextSessions);
+      persistManySessions(nextSessions);
     } catch (e) {
-      console.warn('[ManyStore] Could not persist sessions to localStorage:', e);
+      console.warn('[ManyStore] Could not persist session UI meta:', e);
     }
   },
 

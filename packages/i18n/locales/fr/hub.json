@@ -1,0 +1,15 @@
+{
+  "mode": {
+    "dictation": "Dictée",
+    "call": "Réunion",
+    "streaming": "Direct"
+  },
+  "minimize_panel": "Réduire le hub",
+  "expand_panel": "Agrandir le hub",
+  "hide_panel": "Masquer le panneau de transcription",
+  "window_minimize": "Réduire la fenêtre",
+  "window_close": "Fermer la fenêtre",
+  "minimized_setup_hint": "Agrandissez le hub pour choisir micro, fenêtre ou capture mixte.",
+  "dock_section_mic": "Micro seul",
+  "dock_section_screen": "Fenêtre ou écran"
+}

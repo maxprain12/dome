@@ -1,0 +1,20 @@
+{
+  "newNote": "Nueva nota",
+  "emptyFolder": "Esta carpeta está vacía",
+  "emptyFolderHint": "Arrastra aquí o usa el toolbar para añadir",
+  "rename": "Renombrar",
+  "delete": "Eliminar",
+  "untitled": "Sin título",
+  "folderNamePlaceholder": "Nombre de carpeta",
+  "foldersHeading": "Carpetas",
+  "filesHeading": "Archivos",
+  "newFolderBtn": "Nueva carpeta",
+  "addBtn": "Añadir",
+  "confirmDelete": "¿Eliminar este archivo?",
+  "confirmDeleteFolder": "¿Eliminar esta carpeta y todo su contenido?",
+  "changeColor": "Cambiar color",
+  "itemCount_one": "{{count}} elemento",
+  "itemCount_other": "{{count}} elementos",
+  "subfolderCount_one": "· {{count}} carpeta",
+  "subfolderCount_other": "· {{count}} carpetas"
+}

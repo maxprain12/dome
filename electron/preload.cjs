@@ -147,7 +147,7 @@ const ALLOWED_CHANNELS = {
     'runs:get',
     'runs:list',
     'runs:getActiveBySession',
-    'runs:startLangGraph',
+    'runs:start',
     'runs:startWorkflow',
     'runs:resume',
     'runs:abort',
@@ -316,9 +316,9 @@ const ALLOWED_CHANNELS = {
     // AI Cloud (OpenAI, Anthropic, Google)
     'ai:chat',
     'ai:stream',
-    'ai:langgraph:stream',
-    'ai:langgraph:abort',
-    'ai:langgraph:resume',
+    'ai:agent:stream',
+    'ai:agent:abort',
+    'ai:agent:resume',
     'ai:testConnection',
     'ai:openrouter:listModels',
     'ai:provider:listModels',
@@ -522,12 +522,14 @@ const ALLOWED_CHANNELS = {
     'shell:file:search',
     // In-app approval (HITL — renderer responds to main's request)
     'approval:respond',
-    // LangGraph thread lifecycle (time-travel, HITL inspection, pruning)
+    // agent thread lifecycle (time-travel, HITL inspection, pruning)
     'threads:list',
     'threads:get-state',
     'threads:get-history',
     'threads:delete',
     'threads:update-state',
+    'threads:compact',
+    'threads:navigate-tree',
     // Dome MCP server management
     'dome-mcp:start',
     'dome-mcp:stop',
@@ -634,7 +636,7 @@ const ALLOWED_CHANNELS = {
     'dome:open-resource-in-tab',
     'dome:open-settings-in-tab',
     'dome:open-singleton-tab',
-    // UI cursor actions (dispatched from main process when Many uses LangGraph ui_* tools)
+    // UI cursor actions (dispatched from main process when Many uses agent ui_* tools)
     'dome:ui-action',
     // Artifact events
     'artifact:created',
@@ -912,6 +914,16 @@ const electronHandler = {
   },
 
   // ============================================
+  // GITHUB COPILOT OAUTH API
+  // ============================================
+  copilotAuth: {
+    start: () => ipcRenderer.invoke('copilot:auth:start'),
+    poll: (payload) => ipcRenderer.invoke('copilot:auth:poll', payload),
+    status: () => ipcRenderer.invoke('copilot:auth:status'),
+    disconnect: () => ipcRenderer.invoke('copilot:auth:disconnect'),
+  },
+
+  // ============================================
   // PLUGINS API
   // ============================================
   plugins: {
@@ -1134,7 +1146,7 @@ const electronHandler = {
     get: (runId) => ipcRenderer.invoke('runs:get', runId),
     list: (filters) => ipcRenderer.invoke('runs:list', filters),
     getActiveBySession: (sessionId) => ipcRenderer.invoke('runs:getActiveBySession', sessionId),
-    startLangGraph: (params) => ipcRenderer.invoke('runs:startLangGraph', params),
+    start: (params) => ipcRenderer.invoke('runs:start', params),
     startWorkflow: (params) => ipcRenderer.invoke('runs:startWorkflow', params),
     resume: (runId, decisions) => ipcRenderer.invoke('runs:resume', { runId, decisions }),
     abort: (runId) => ipcRenderer.invoke('runs:abort', runId),
@@ -1379,15 +1391,15 @@ const electronHandler = {
     stream: (provider, messages, model, streamId, tools) =>
       ipcRenderer.invoke('ai:stream', { provider, messages, model, streamId, tools }),
 
-    // Stream chat using LangGraph agent (tools executed in main process)
-    streamLangGraph: (provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds) =>
-      ipcRenderer.invoke('ai:langgraph:stream', { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds }),
+    // Stream chat using agent runtime (tools executed in main process)
+    streamAgent: (provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds) =>
+      ipcRenderer.invoke('ai:agent:stream', { provider, messages, model, streamId, tools, threadId, skipHitl, mcpServerIds, subagentIds }),
 
-    // Abort LangGraph stream (for Stop button in chat)
-    abortLangGraph: (streamId) => ipcRenderer.invoke('ai:langgraph:abort', streamId),
+    // Abort the agent runtime stream (for Stop button in chat)
+    abortAgent: (streamId) => ipcRenderer.invoke('ai:agent:abort', streamId),
 
-    // Resume LangGraph after HITL interrupt
-    resumeLangGraph: (opts) => ipcRenderer.invoke('ai:langgraph:resume', opts),
+    // Resume the agent runtime after HITL interrupt
+    resumeAgent: (opts) => ipcRenderer.invoke('ai:agent:resume', opts),
 
     // Listen for stream chunks
     onStreamChunk: (callback) => {
@@ -1763,7 +1775,7 @@ const electronHandler = {
   },
 
   // ============================================
-  // THREADS — LangGraph thread lifecycle (time-travel, HITL inspection)
+  // THREADS — agent thread lifecycle (time-travel, HITL inspection)
   // ============================================
   threads: {
     /** List all threads with checkpoint metadata. */
@@ -1777,6 +1789,12 @@ const electronHandler = {
     /** Inject values into a thread's state (time-travel fork). */
     updateState: (threadId, values, asNode) =>
       ipcRenderer.invoke('threads:update-state', { threadId, values, asNode }),
+    /** Compact conversation history in a JSONL session. */
+    compact: (threadId, opts) =>
+      ipcRenderer.invoke('threads:compact', { threadId, ...(opts ?? {}) }),
+    /** Navigate session tree to a branch entry (optional LLM branch summary). */
+    navigateTree: (threadId, targetId, opts) =>
+      ipcRenderer.invoke('threads:navigate-tree', { threadId, targetId, ...(opts ?? {}) }),
   },
 
   // ============================================

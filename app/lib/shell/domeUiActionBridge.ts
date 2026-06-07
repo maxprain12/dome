@@ -1,5 +1,5 @@
 /**
- * Single subscriber for IPC `dome:ui-action` (LangGraph ui_* tools).
+ * Single subscriber for IPC `dome:ui-action` (agent ui_* tools).
  * ManyPanel mounts several times (sidebar + headless + chat tab) — each registering
  * `window.electron.on` tripped Electron's MaxListenersExceededWarning on ipcRenderer (10).
  */

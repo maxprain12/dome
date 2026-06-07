@@ -1,0 +1,7 @@
+{
+  "transcribe_failed": "Could not transcribe",
+  "mode_input": "Insert in field",
+  "mode_send": "Send message",
+  "toggle_send_mode": "Switch: insert text vs send as message",
+  "ptt_subtitle": "Hold to speak · release to send"
+}

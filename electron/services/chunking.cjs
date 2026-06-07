@@ -6,24 +6,6 @@
 
 const DEFAULT_SEPARATORS = ['\n\n', '\n', '. ', '? ', '! ', ' '];
 
-/** @type {import('@langchain/textsplitters').RecursiveCharacterTextSplitter | null} */
-let _splitterCtor = null;
-
-/**
- * @returns {Promise<typeof import('@langchain/textsplitters').RecursiveCharacterTextSplitter>}
- */
-async function getRecursiveSplitterCtor() {
-  if (_splitterCtor) return _splitterCtor;
-  try {
-    const mod = await import('@langchain/textsplitters');
-    _splitterCtor = mod.RecursiveCharacterTextSplitter;
-    return _splitterCtor;
-  } catch (err) {
-    console.warn('[chunking] @langchain/textsplitters unavailable, using local splitter', err?.message || err);
-    return null;
-  }
-}
-
 /**
  * @param {string} full
  * @param {string[]} parts
@@ -66,17 +48,6 @@ async function chunkTextForEmbeddings(text, opts = {}) {
 
   const full = String(text ?? '');
   if (!full.trim()) return [];
-
-  const Splitter = await getRecursiveSplitterCtor();
-  if (Splitter) {
-    const splitter = new Splitter({
-      chunkSize: maxChars,
-      chunkOverlap: overlapChars,
-      separators: DEFAULT_SEPARATORS,
-    });
-    const parts = await splitter.splitText(full);
-    return mapPartsToChunks(full, parts);
-  }
 
   return chunkText(full, { maxChars, overlapChars, separators: DEFAULT_SEPARATORS });
 }

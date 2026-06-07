@@ -1,0 +1,23 @@
+{
+  "tab_title": "Grafo semántico",
+  "tab_title_focus": "Ideas relacionadas",
+  "filter_all": "Todas",
+  "filter_auto": "Auto",
+  "filter_strong": "Fuertes",
+  "filter_confirmed": "Confirmadas",
+  "min_similarity": "Similitud mín.",
+  "confirm_relation": "Confirmar relación",
+  "reject_relation": "No relacionadas",
+  "indexing": "Indexando…",
+  "reindex_all": "Reindexar todo",
+  "reindex_progress": "{{done}} / {{total}} recursos",
+  "empty": "Ninguna conexión coincide con los filtros.",
+  "no_focus": "Abre este grafo desde un recurso para ver conexiones.",
+  "similar": "similares",
+  "auto_detected": "Detectado automáticamente",
+  "edge_panel_aria": "Acciones de relación",
+  "resource_types": "Tipos",
+  "legend_heading": "Colores por tipo",
+  "legend_expand": "Mostrar leyenda",
+  "legend_collapse": "Ocultar leyenda"
+}

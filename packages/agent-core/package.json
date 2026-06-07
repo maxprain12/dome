@@ -1,0 +1,29 @@
+{
+  "name": "@dome/agent-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dome-native agent runtime: agent loop, harness, session, compaction, skills.",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js",
+      "require": "./dist/node.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "echo \"@dome/agent-core: no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "@dome/ai": "workspace:*",
+    "ignore": "7.0.5",
+    "typebox": "^1.1.38",
+    "yaml": "2.9.0"
+  }
+}

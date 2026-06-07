@@ -1,0 +1,11 @@
+{
+  "embed_modal_title_youtube": "Inserir YouTube",
+  "embed_modal_title_iframe": "Inserir iframe",
+  "embed_modal_url_label": "URL",
+  "embed_modal_url_placeholder": "https://…",
+  "embed_modal_url_help_youtube": "Cole o link do vídeo (youtube.com ou youtu.be)",
+  "embed_modal_url_help_iframe": "URL da página para incorporar (use apenas fontes confiáveis)",
+  "embed_modal_submit": "Inserir",
+  "embed_modal_invalid_url": "Introduza um URL válido",
+  "embed_modal_invalid_youtube": "URL do YouTube não reconhecida"
+}

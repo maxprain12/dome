@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const database = require('../database.cjs');
+const database = require('../core/database.cjs');
 
 const PROVIDER_DEFAULTS = {
   minimax: { model: 'MiniMax-M3', envKey: 'MINIMAX_BENCH_API_KEY' },

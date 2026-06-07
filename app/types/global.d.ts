@@ -420,6 +420,22 @@ declare global {
         }>;
       };
 
+      // GitHub Copilot OAuth API
+      copilotAuth: {
+        start: () => Promise<{
+          success: boolean;
+          deviceCode?: string;
+          userCode?: string;
+          verificationUri?: string;
+          interval?: number;
+          expiresIn?: number;
+          error?: string;
+        }>;
+        poll: (payload: { deviceCode: string; interval?: number; expiresIn?: number }) => Promise<{ success: boolean; error?: string }>;
+        status: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
+        disconnect: () => Promise<{ success: boolean; error?: string }>;
+      };
+
       // Plugins API
       plugins: {
         list: () => Promise<{ success: boolean; data?: any[] }>;
@@ -899,7 +915,17 @@ declare global {
       // AI Cloud API (OpenAI, Anthropic, Google)
       ai: {
         chat: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'minimax' | 'openrouter',
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'google'
+            | 'dome'
+            | 'minimax'
+            | 'openrouter'
+            | 'copilot'
+            | 'deepseek'
+            | 'moonshot'
+            | 'qwen',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -937,7 +963,18 @@ declare global {
           cached?: boolean;
         }>;
         stream: (
-          provider: 'openai' | 'anthropic' | 'google' | 'dome' | 'ollama' | 'minimax' | 'openrouter',
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'google'
+            | 'dome'
+            | 'ollama'
+            | 'minimax'
+            | 'openrouter'
+            | 'copilot'
+            | 'deepseek'
+            | 'moonshot'
+            | 'qwen',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -954,8 +991,19 @@ declare global {
           content?: string;
           error?: string;
         }>;
-        streamLangGraph: (
-          provider: 'openai' | 'anthropic' | 'google' | 'ollama' | 'minimax' | 'openrouter',
+        streamAgent: (
+          provider:
+            | 'openai'
+            | 'anthropic'
+            | 'google'
+            | 'ollama'
+            | 'minimax'
+            | 'openrouter'
+            | 'copilot'
+            | 'dome'
+            | 'deepseek'
+            | 'moonshot'
+            | 'qwen',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,
@@ -972,8 +1020,8 @@ declare global {
           mcpServerIds?: string[],
           subagentIds?: Array<'research' | 'library' | 'writer' | 'data'>
         ) => Promise<{ success: boolean; error?: string }>;
-        abortLangGraph: (streamId: string) => Promise<void>;
-        resumeLangGraph: (opts: {
+        abortAgent: (streamId: string) => Promise<void>;
+        resumeAgent: (opts: {
           threadId: string;
           streamId: string;
           decisions: Array<{ type: 'approve' } | { type: 'edit'; editedAction: { name: string; args: Record<string, unknown> } } | { type: 'reject'; message?: string }>;
@@ -1814,7 +1862,7 @@ declare global {
       };
 
       threads: {
-        list: (opts?: { limit?: number }) => Promise<{
+        list: (opts?: { limit?: number; rootOnly?: boolean }) => Promise<{
           threads?: Array<{ threadId: string; checkpointCount: number; latestCheckpointId: string; metadata: Record<string, unknown> }>;
           error?: string;
         }>;
@@ -1829,6 +1877,35 @@ declare global {
         }>;
         delete: (threadId: string) => Promise<{ deleted?: number; error?: string }>;
         updateState: (threadId: string, values: Record<string, unknown>, asNode?: string | null) => Promise<{ success?: boolean; config?: unknown; error?: string }>;
+        compact: (
+          threadId: string,
+          opts?: { provider?: string; model?: string; customInstructions?: string },
+        ) => Promise<{
+          success?: boolean;
+          threadId?: string;
+          summary?: string;
+          firstKeptEntryId?: string;
+          tokensBefore?: number;
+          error?: string;
+        }>;
+        navigateTree: (
+          threadId: string,
+          targetId: string,
+          opts?: {
+            provider?: string;
+            model?: string;
+            summarize?: boolean;
+            customInstructions?: string;
+            replaceInstructions?: boolean;
+            label?: string;
+          },
+        ) => Promise<{
+          success?: boolean;
+          threadId?: string;
+          leafId?: string;
+          cancelled?: boolean;
+          error?: string;
+        }>;
       };
 
       embeddings: {

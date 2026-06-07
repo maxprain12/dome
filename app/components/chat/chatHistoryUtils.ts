@@ -1,9 +1,30 @@
 import type { TFunction } from 'i18next';
 import type { ManyChatSession } from '@/lib/store/useManyStore';
+import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
+
+function stripPreviewGarbage(text: string): string {
+  return text
+    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/```[\s\S]*?```/g, '')
+    .replace(/\{"tools"[\s\S]*?\}/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export function sessionPreview(session: ManyChatSession): string {
   const last = session.messages[session.messages.length - 1];
-  return last?.content?.slice(0, 96).replace(/\s+/g, ' ').trim() ?? '';
+  const raw = last?.content ?? '';
+  const cleaned = stripPreviewGarbage(raw);
+  return cleaned.slice(0, 96).trim();
+}
+
+export function displaySessionTitle(session: ManyChatSession, fallback: string): string {
+  const title = session.title?.trim();
+  if (!title || title === 'New chat') {
+    const firstUser = session.messages.find((m) => m.role === 'user')?.content ?? '';
+    return sanitizeManySessionTitle(firstUser) || fallback;
+  }
+  return sanitizeManySessionTitle(title);
 }
 
 export function formatHistoryTime(ts: number): string {

@@ -9,6 +9,7 @@ import { useAgentChatStore } from '@/lib/store/useAgentChatStore';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 import {
   getAIConfig,
+  checkChatProviderReady,
   createCustomAgentTools,
   toOpenAIToolDefinitions,
   providerSupportsTools,
@@ -34,7 +35,7 @@ import {
   abortRun,
   getActiveRunBySession,
   resumeRun,
-  startLangGraphRun,
+  startAgentRun,
   type PersistentRun,
 } from '@/lib/automations/api';
 import { CHAT_THINKING_ROTATION_KEYS } from '@/lib/chat/streamingLabels';
@@ -43,8 +44,19 @@ import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile'
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
-import { useLangGraphRunStream, type RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
+import ContextUsageIndicator from '@/components/many/ContextUsageIndicator';
+import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
+
+const EMPTY_BUDGET_BREAKDOWN = {
+  systemApprox: 0,
+  toolsApprox: 0,
+  historyApprox: 0,
+  totalApprox: 0,
+  toolCount: 0,
+  historyTurns: 0,
+};
 
 type AgentResourcePayload = {
   content?: string | null;
@@ -87,6 +99,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [pendingOneShotSkillId, setPendingOneShotSkillId] = useState<string | null>(null);
   const [activeStickySkillId, setActiveStickySkillId] = useState<string | null>(null);
   const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
+  const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
   const thinkingLabelIdxRef = useRef(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -258,12 +271,13 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     [refreshSessionFromDb, addMessage, t],
   );
 
-  useLangGraphRunStream({
+  useAgentRunStream({
     activeRunId,
     setStreamingMessage,
     setPendingApproval,
     onRunStatus: handleRunStatus,
     onRunTerminal: handleRunTerminal,
+    onUsage: (usage) => setLiveUsage(usage),
     t,
   });
 
@@ -310,8 +324,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     return () => clearInterval(interval);
   }, [isLoading, t]);
 
-  const hasLangGraph =
-    typeof window !== 'undefined' && !!window.electron?.ai?.streamLangGraph;
+  const hasAgentStream =
+    typeof window !== 'undefined' && !!window.electron?.ai?.streamAgent;
   const enabledMcpIds = useMemo(
     () => (agent?.mcpServerIds ?? []).filter((id) => !disabledMcpIds.has(id)),
     [agent?.mcpServerIds, disabledMcpIds]
@@ -324,7 +338,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   );
   const hasMcpForAgent =
     Array.isArray(agent?.mcpServerIds) && agent.mcpServerIds.length > 0;
-  const useToolsStream = supportsTools && hasLangGraph;
+  const useToolsStream = supportsTools && hasAgentStream;
 
   const handleSend = useCallback(async () => {
     const textPart = input.trim();
@@ -339,6 +353,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     setStatus('thinking');
     setError(null);
     setStreamingMessage(null);
+    setLiveUsage(null);
 
     const userRunMessage = buildUserRunMessage(
       textPart,
@@ -362,6 +377,15 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         addMessage({
           role: 'assistant',
           content: t('chat.no_ai_config'),
+        });
+        return;
+      }
+
+      const providerReady = await checkChatProviderReady(config);
+      if (!providerReady.ready) {
+        addMessage({
+          role: 'assistant',
+          content: t(providerReady.messageKey),
         });
         return;
       }
@@ -454,7 +478,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           }
         }
 
-        const run = await startLangGraphRun({
+        const run = await startAgentRun({
           ownerType: 'agent',
           ownerId: agentId,
           title: `${agent.name}: ${userMessage.slice(0, 60)}`,
@@ -474,9 +498,9 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setActiveRunId(run.id);
         applyRunSnapshot(run);
       } else {
-        if (!hasLangGraph) {
+        if (!hasAgentStream) {
           throw new Error(
-            'Este agente usa herramientas y requiere LangGraph. Reinicia Dome o revisa la configuración.'
+            'Este agente usa herramientas y requiere el runtime de agente. Reinicia Dome o revisa la configuración.'
           );
         }
         const { chatStream } = await import('@/lib/ai');
@@ -541,7 +565,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
     chatAttachments,
     pinnedResources,
-    hasLangGraph,
+    hasAgentStream,
     pendingOneShotSkillId,
     activeStickySkillId,
   ]);
@@ -697,6 +721,13 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         ) : null}
         <div ref={messagesEndRef} />
       </UnifiedChatMessageArea>
+
+      {/* Live provider token usage (real billing, not the char/4 estimate) */}
+      {liveUsage ? (
+        <div className="flex justify-end px-3 py-0.5">
+          <ContextUsageIndicator breakdown={EMPTY_BUDGET_BREAKDOWN} liveUsage={liveUsage} />
+        </div>
+      ) : null}
 
       {/* Fixed Input */}
       <UnifiedChatInput

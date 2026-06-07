@@ -79,7 +79,7 @@ export {
   type ActionGate,
 } from './common';
 
-// LangChain adapter (for LangGraph integration)
+// LangChain adapter (for agent tool integration)
 export {
   toLangChainTools,
   toLangChainToolsFromOpenAIDefinitions,
@@ -343,6 +343,7 @@ import { createGraphTools } from './graph-tools';
 import { createNotebookTools } from './notebook-tools';
 import { createExcelTools } from './excel-tools';
 import { createDocxTools } from './docx-tools';
+import { createDocsTools } from './docs-tools';
 import { createPptTools } from './ppt-tools';
 import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
@@ -461,6 +462,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // UI interaction tools (cursor, click, navigate)
   tools.push(...createUiTools());
 
+  // On-demand reference docs + tool schema lookup
+  tools.push(...createDocsTools());
+
   // Artifact tools (create, get, update, list, delete persisted artifacts)
   tools.push(...createArtifactTools());
 
@@ -554,6 +558,8 @@ export function createManyToolsForContext(
 
   // UI interaction tools (cursor, click, navigate)
   tools.push(...createUiTools());
+
+  tools.push(...createDocsTools());
 
   // Artifact tools
   tools.push(...createArtifactTools());

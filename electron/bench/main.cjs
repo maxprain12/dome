@@ -35,8 +35,8 @@ const {
   finalizeRun,
 } = require('./storage.cjs');
 
-const database = require('../database.cjs');
-const runEngine = require('../run-engine.cjs');
+const database = require('../core/database.cjs');
+const runEngine = require('../agents/run-engine.cjs');
 
 async function main() {
   const args = parseBenchArgs(process.argv.slice(2));

@@ -1,11 +1,11 @@
 /**
- * HITLReviewPanel — LangGraph interrupt, inline in chat (prototype .hitl).
+ * HITLReviewPanel — agent interrupt, inline in chat (prototype .hitl).
  */
 
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import ManyHitlInlineCard from '@/components/many/ManyHitlInlineCard';
-import type { RunPendingApproval } from '@/lib/chat/useLangGraphRunStream';
+import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 
 interface ActionDecision {
   type: 'approve' | 'reject';

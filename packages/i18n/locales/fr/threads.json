@@ -1,0 +1,8 @@
+{
+  "timeline": "Chronologie du fil",
+  "latest": "dernier",
+  "fork": "Bifurquer",
+  "fork_from_here": "Bifurquer l'exécution depuis ce checkpoint",
+  "view_state": "Voir l'état du checkpoint",
+  "no_history": "Aucun historique de checkpoint trouvé pour ce fil."
+}
