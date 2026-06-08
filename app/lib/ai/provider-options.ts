@@ -31,6 +31,19 @@ export function getProviderLogoSrc(provider: ProviderWithBrandLogo): string {
   return PROVIDER_LOGO_PATHS[provider];
 }
 
+/** Monochrome logos (Simple Icons) need --dome-logo-filter in dark theme. */
+const PROVIDER_LOGO_DARK_INVERT = new Set<ProviderWithBrandLogo>([
+  'copilot',
+  'deepseek',
+  'moonshot',
+  'ollama',
+  'qwen',
+]);
+
+export function providerLogoUsesDarkInvert(provider: ProviderWithBrandLogo): boolean {
+  return PROVIDER_LOGO_DARK_INVERT.has(provider);
+}
+
 export function isProviderWithBrandLogo(provider: string): provider is ProviderWithBrandLogo {
   return provider in PROVIDER_LOGO_PATHS;
 }
