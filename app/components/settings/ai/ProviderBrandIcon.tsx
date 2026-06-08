@@ -1,4 +1,9 @@
-import { getProviderLogoSrc, isProviderWithBrandLogo, type ProviderWithBrandLogo } from '@/lib/ai/provider-options';
+import {
+  getProviderLogoSrc,
+  isProviderWithBrandLogo,
+  providerLogoUsesDarkInvert,
+  type ProviderWithBrandLogo,
+} from '@/lib/ai/provider-options';
 import { cn } from '@/lib/utils';
 
 export interface ProviderBrandIconProps {
@@ -28,6 +33,7 @@ export default function ProviderBrandIcon({
         fill ? 'size-[78%] max-h-full max-w-full' : '',
         className,
       )}
+      style={providerLogoUsesDarkInvert(provider) ? { filter: 'var(--dome-logo-filter)' } : undefined}
     />
   );
 }
