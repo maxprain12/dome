@@ -22,6 +22,7 @@ indexing-sync.cjs
 init.cjs
 interactions.cjs
 kb-llm.cjs
+learn.cjs
 marketplace.cjs
 mcp.cjs
 migration.cjs
