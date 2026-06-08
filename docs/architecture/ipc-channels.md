@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-08T11:22:40.147Z
+> Última generación: 2026-06-08T11:29:04.641Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -251,10 +251,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:workflows:get` | `electron/ipc/data/database.cjs:1002` |
 | `db:workflows:list` | `electron/ipc/data/database.cjs:990` |
 | `db:workflows:update` | `electron/ipc/data/database.cjs:1041` |
-| `dome-mcp:bridge-path` | `electron/ipc/integrations/dome-mcp.cjs:116` |
-| `dome-mcp:start` | `electron/ipc/integrations/dome-mcp.cjs:47` |
-| `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:108` |
-| `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:90` |
+| `dome-mcp:bridge-path` | `electron/ipc/integrations/dome-mcp.cjs:115` |
+| `dome-mcp:start` | `electron/ipc/integrations/dome-mcp.cjs:46` |
+| `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:107` |
+| `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:89` |
 | `domeauth:disconnect` | `electron/ipc/integrations/dome-auth.cjs:44` |
 | `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:57` |
 | `domeauth:getSession` | `electron/ipc/integrations/dome-auth.cjs:19` |
