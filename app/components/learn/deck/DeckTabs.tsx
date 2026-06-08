@@ -5,6 +5,8 @@ export type DeckTabId = 'questions' | 'history' | 'sources' | 'settings';
 interface DeckTabsProps {
   active: DeckTabId;
   onChange: (tab: DeckTabId) => void;
+  /** First tab is "Cards" for flashcard decks, "Questions" for quizzes. */
+  isFlash?: boolean;
 }
 
 const TABS: { id: DeckTabId; labelKey: string; fallback: string }[] = [
@@ -14,7 +16,7 @@ const TABS: { id: DeckTabId; labelKey: string; fallback: string }[] = [
   { id: 'settings', labelKey: 'learn.deck_tab_settings', fallback: 'Settings' },
 ];
 
-export default function DeckTabs({ active, onChange }: DeckTabsProps) {
+export default function DeckTabs({ active, onChange, isFlash }: DeckTabsProps) {
   const { t } = useTranslation();
 
   return (
@@ -28,7 +30,9 @@ export default function DeckTabs({ active, onChange }: DeckTabsProps) {
           className={`lr-deck-tab${active === tab.id ? ' on' : ''}`}
           onClick={() => onChange(tab.id)}
         >
-          {t(tab.labelKey, tab.fallback)}
+          {tab.id === 'questions' && isFlash
+            ? t('learn.deck_tab_cards', 'Cards')
+            : t(tab.labelKey, tab.fallback)}
         </button>
       ))}
     </div>

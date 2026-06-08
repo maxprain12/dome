@@ -12,12 +12,16 @@ export interface LearnTabShellProps {
  */
 export default function LearnTabShell({ initialSection }: LearnTabShellProps) {
   const setActiveSection = useLearnStore((s) => s.setActiveSection);
+  const subscribeToLearnEvents = useLearnStore((s) => s.subscribeToLearnEvents);
 
   useEffect(() => {
     if (initialSection) {
       setActiveSection(initialSection);
     }
   }, [initialSection, setActiveSection]);
+
+  // Keep the Learn views in sync with main-process mutations (multi-window safe).
+  useEffect(() => subscribeToLearnEvents(), [subscribeToLearnEvents]);
 
   return <LearnPage />;
 }

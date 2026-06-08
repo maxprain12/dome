@@ -2,6 +2,22 @@ import type { FlashcardDeck, FlashcardDeckStats, StudioOutput, StudioOutputType 
 import type { LearnDeckItem } from '@/lib/learn/types';
 import type { LearnSection } from '@/lib/store/useLearnStore';
 
+/** Cards available to study now (new + review-due). */
+export function flashcardStudyableCount(stats?: FlashcardDeckStats): number {
+  if (!stats) return 0;
+  return (stats.new_cards ?? 0) + (stats.due_cards ?? 0);
+}
+
+export function resolveFlashDeckId(
+  activeDeckId: string | null,
+  deck?: FlashcardDeck | null,
+  output?: StudioOutput | null,
+): string | null {
+  if (deck?.id) return deck.id;
+  if (output?.type === 'flashcards' && output.deck_id) return output.deck_id;
+  return activeDeckId;
+}
+
 const SECTION_TYPE_MAP: Record<Exclude<LearnSection, 'all' | 'decks'>, StudioOutputType> = {
   mindmaps: 'mindmap',
   quizzes: 'quiz',
@@ -75,8 +91,8 @@ export function buildLearnDeckItems(
       description: deck.description,
       type: 'flashcards',
       count: total,
-      mastery: total > 0 ? Math.round(((stats?.mastered_cards ?? 0) / total) * 100) : 0,
-      dueCount: stats?.due_cards ?? 0,
+      mastery: stats?.maturity ?? (total > 0 ? Math.round(((stats?.mastered_cards ?? 0) / total) * 100) : 0),
+      dueCount: flashcardStudyableCount(stats),
       lastSeen: deck.updated_at,
       pinned: false,
       sourceIds: deck.resource_id ? [deck.resource_id] : undefined,
@@ -167,15 +183,22 @@ export function countBySection(items: LearnDeckItem[]): Record<LearnSection, num
   };
 }
 
+/** Decks that actually need study now (have due/new cards). */
 export function continueStudyingItems(items: LearnDeckItem[]): LearnDeckItem[] {
-  const weekAgo = Date.now() - 7 * 86400000;
-  return items.filter(
-    (i) => (i.dueCount ?? 0) > 0 || (i.lastSeen ?? 0) >= weekAgo,
-  );
+  return items.filter((i) => (i.dueCount ?? 0) > 0);
 }
 
-export function recentlyCreatedItems(items: LearnDeckItem[], limit = 12): LearnDeckItem[] {
-  return [...items].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
+/**
+ * Recently created/updated content. Pass the ids already shown under
+ * "Continue studying" so the same item never appears in two sections.
+ */
+export function recentlyCreatedItems(
+  items: LearnDeckItem[],
+  excludeIds?: Set<string>,
+  limit = 12,
+): LearnDeckItem[] {
+  const pool = excludeIds ? items.filter((i) => !excludeIds.has(i.id)) : items;
+  return [...pool].sort((a, b) => b.createdAt - a.createdAt).slice(0, limit);
 }
 
 export function titleGlyph(title: string): string {

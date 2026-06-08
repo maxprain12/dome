@@ -1,4 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
+import LearnViewerEmpty from '../LearnViewerEmpty';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import StudyGuide from '@/components/studio/StudyGuide';
@@ -13,14 +14,18 @@ export default function GuideReader({ output, onBack }: GuideReaderProps) {
   const { t } = useTranslation();
   const [activeSection, setActiveSection] = useState(0);
 
-  const data = useMemo(() => {
-    if (!output.content) return { sections: [] } as StudyGuideData;
+  const { data, corrupt } = useMemo(() => {
+    if (!output.content) return { data: { sections: [] } as StudyGuideData, corrupt: false };
     try {
-      return JSON.parse(output.content) as StudyGuideData;
+      return { data: JSON.parse(output.content) as StudyGuideData, corrupt: false };
     } catch {
-      return { sections: [] } as StudyGuideData;
+      return { data: { sections: [] } as StudyGuideData, corrupt: true };
     }
   }, [output.content]);
+
+  if (!data.sections || data.sections.length === 0) {
+    return <LearnViewerEmpty onBack={onBack} corrupt={corrupt} />;
+  }
 
   return (
     <div className="lr-guide">

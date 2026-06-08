@@ -183,5 +183,15 @@
   "filter_no_search": "No results for your search",
   "filter_no_search_sub": "Try another term or clear the search filter.",
   "filter_no_section": "No {{section}} yet",
-  "filter_no_section_sub": "Generate content or switch to another category."
+  "filter_no_section_sub": "Generate content or switch to another category.",
+  "kpi_caught_up": "Caught up",
+  "kpi_to_review": "to review",
+  "kpi_mastery_sub": "cards memorized",
+  "kpi_goal_reached": "Goal reached",
+  "deck_tab_cards": "Cards",
+  "deck_no_cards": "No cards yet.",
+  "viewer_corrupt_title": "This content couldn't be displayed",
+  "viewer_corrupt_sub": "The generated content seems incomplete or invalid. Try generating it again.",
+  "viewer_empty_title": "Nothing to show yet",
+  "viewer_empty_sub": "This item has no content yet."
 }

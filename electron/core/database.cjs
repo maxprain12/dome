@@ -3190,6 +3190,251 @@ function runMigrations(db) {
       console.error('[DB] Migration 37 failed:', error);
     }
   }
+
+  // Migration 38: FSRS spaced-repetition fields on flashcards (replaces SM-2)
+  if (version < 38) {
+    console.log('[DB] Running migration 38 - FSRS flashcard fields');
+    try {
+      const now = Date.now();
+      const info = db.prepare('PRAGMA table_info(flashcards)').all();
+      const cols = new Set(info.map((c) => c.name));
+      const addCol = (name, ddl) => {
+        if (!cols.has(name)) db.exec(`ALTER TABLE flashcards ADD COLUMN ${ddl}`);
+      };
+      // NB: a TEXT `difficulty` column (easy/medium/hard) already exists — FSRS
+      // difficulty lives in its own `fsrs_difficulty` REAL column to avoid clobbering it.
+      addCol('stability', 'stability REAL');
+      addCol('fsrs_difficulty', 'fsrs_difficulty REAL');
+      addCol('fsrs_state', 'fsrs_state INTEGER DEFAULT 0');
+      addCol('lapses', 'lapses INTEGER DEFAULT 0');
+      addCol('scheduled_days', 'scheduled_days INTEGER DEFAULT 0');
+      addCol('learning_steps', 'learning_steps INTEGER DEFAULT 0');
+      addCol('last_rating', 'last_rating INTEGER');
+
+      // Backfill FSRS state from legacy SM-2 fields for already-reviewed cards.
+      // Never-reviewed cards stay New (stability NULL) and are scheduled on first review.
+      const { backfillFromLegacy } = require('../services/fsrs-scheduler.cjs');
+      const allCards = db
+        .prepare('SELECT id, ease_factor, interval, repetitions, last_reviewed_at, stability FROM flashcards')
+        .all();
+      const upd = db.prepare(
+        'UPDATE flashcards SET stability = ?, fsrs_difficulty = ?, fsrs_state = ?, lapses = ?, scheduled_days = ?, learning_steps = ? WHERE id = ?',
+      );
+      const backfill = db.transaction((rows) => {
+        for (const row of rows) {
+          if (row.stability != null) continue; // already migrated
+          const next = backfillFromLegacy(row);
+          if (!next) continue; // never reviewed → leave New
+          upd.run(next.stability, next.fsrs_difficulty, next.fsrs_state, next.lapses, next.scheduled_days, next.learning_steps, row.id);
+        }
+      });
+      backfill(allCards);
+
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '38', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '38', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 38 complete - FSRS fields');
+    } catch (error) {
+      console.error('[DB] Migration 38 failed:', error);
+    }
+  }
+
+  // Migration 39: keep flashcard_decks.card_count accurate via triggers
+  if (version < 39) {
+    console.log('[DB] Running migration 39 - card_count triggers');
+    try {
+      const now = Date.now();
+      // Repair existing skew (single-card deletes never decremented the count)
+      db.exec(
+        'UPDATE flashcard_decks SET card_count = (SELECT COUNT(*) FROM flashcards WHERE flashcards.deck_id = flashcard_decks.id)',
+      );
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_flashcards_count_ai
+        AFTER INSERT ON flashcards
+        BEGIN
+          UPDATE flashcard_decks SET card_count = (SELECT COUNT(*) FROM flashcards WHERE deck_id = NEW.deck_id) WHERE id = NEW.deck_id;
+        END;
+      `);
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_flashcards_count_ad
+        AFTER DELETE ON flashcards
+        BEGIN
+          UPDATE flashcard_decks SET card_count = (SELECT COUNT(*) FROM flashcards WHERE deck_id = OLD.deck_id) WHERE id = OLD.deck_id;
+        END;
+      `);
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_flashcards_count_au
+        AFTER UPDATE OF deck_id ON flashcards
+        WHEN OLD.deck_id IS NOT NEW.deck_id
+        BEGIN
+          UPDATE flashcard_decks SET card_count = (SELECT COUNT(*) FROM flashcards WHERE deck_id = OLD.deck_id) WHERE id = OLD.deck_id;
+          UPDATE flashcard_decks SET card_count = (SELECT COUNT(*) FROM flashcards WHERE deck_id = NEW.deck_id) WHERE id = NEW.deck_id;
+        END;
+      `);
+
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '39', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '39', updated_at = excluded.updated_at`,
+      ).run(now);
+      console.log('[DB] Migration 39 complete - card_count triggers');
+    } catch (error) {
+      console.error('[DB] Migration 39 failed:', error);
+    }
+  }
+
+  // Migration 40: unified study_events table (flash + quiz) and missing FKs
+  if (version < 40) {
+    console.log('[DB] Running migration 40 - study_events + FKs');
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS study_events (
+          id TEXT PRIMARY KEY,
+          project_id TEXT,
+          deck_id TEXT,
+          studio_output_id TEXT,
+          kind TEXT NOT NULL,
+          cards_studied INTEGER DEFAULT 0,
+          cards_correct INTEGER DEFAULT 0,
+          cards_incorrect INTEGER DEFAULT 0,
+          duration_ms INTEGER DEFAULT 0,
+          started_at INTEGER NOT NULL,
+          completed_at INTEGER
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_study_events_kind ON study_events(kind)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_study_events_started ON study_events(started_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_study_events_deck ON study_events(deck_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_study_events_project ON study_events(project_id)');
+
+      // Backfill from legacy flashcard_sessions (resolve project via deck)
+      db.exec(`
+        INSERT OR IGNORE INTO study_events
+          (id, project_id, deck_id, studio_output_id, kind, cards_studied, cards_correct, cards_incorrect, duration_ms, started_at, completed_at)
+        SELECT s.id, d.project_id, s.deck_id, NULL, 'flashcard',
+               s.cards_studied, s.cards_correct, s.cards_incorrect, s.duration_ms, s.started_at, s.completed_at
+        FROM flashcard_sessions s LEFT JOIN flashcard_decks d ON s.deck_id = d.id
+      `);
+      // Backfill from legacy quiz_runs (resolve project via studio output)
+      db.exec(`
+        INSERT OR IGNORE INTO study_events
+          (id, project_id, deck_id, studio_output_id, kind, cards_studied, cards_correct, cards_incorrect, duration_ms, started_at, completed_at)
+        SELECT q.id, so.project_id, q.deck_id, q.studio_output_id, 'quiz',
+               q.total, q.correct, (q.total - q.correct), q.duration_ms, q.started_at, q.completed_at
+        FROM quiz_runs q LEFT JOIN studio_outputs so ON q.studio_output_id = so.id
+      `);
+
+      // Add ON DELETE SET NULL FKs to studio_outputs.deck_id / resource_id if missing
+      const soFks = db.prepare('PRAGMA foreign_key_list(studio_outputs)').all();
+      if (!soFks.some((f) => f.from === 'deck_id')) {
+        db.exec('PRAGMA foreign_keys = OFF');
+        db.exec(`
+          CREATE TABLE studio_outputs_new (
+            id TEXT PRIMARY KEY,
+            project_id TEXT NOT NULL,
+            type TEXT NOT NULL,
+            title TEXT NOT NULL,
+            content TEXT,
+            source_ids TEXT,
+            file_path TEXT,
+            metadata TEXT,
+            deck_id TEXT,
+            resource_id TEXT,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+            FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE SET NULL,
+            FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE SET NULL
+          )
+        `);
+        db.exec(`
+          INSERT INTO studio_outputs_new
+            (id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at)
+          SELECT id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at
+          FROM studio_outputs
+        `);
+        // Null out dangling links so the new FKs are consistent
+        db.exec('UPDATE studio_outputs_new SET deck_id = NULL WHERE deck_id IS NOT NULL AND deck_id NOT IN (SELECT id FROM flashcard_decks)');
+        db.exec('UPDATE studio_outputs_new SET resource_id = NULL WHERE resource_id IS NOT NULL AND resource_id NOT IN (SELECT id FROM resources)');
+        db.exec('DROP TABLE studio_outputs');
+        db.exec('ALTER TABLE studio_outputs_new RENAME TO studio_outputs');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_project ON studio_outputs(project_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_type ON studio_outputs(type)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_deck ON studio_outputs(deck_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_studio_outputs_resource ON studio_outputs(resource_id)');
+        db.exec('PRAGMA foreign_keys = ON');
+      }
+
+      // Add ON DELETE SET NULL FK to quiz_runs.deck_id if missing
+      const qrFks = db.prepare('PRAGMA foreign_key_list(quiz_runs)').all();
+      if (!qrFks.some((f) => f.from === 'deck_id')) {
+        db.exec('PRAGMA foreign_keys = OFF');
+        db.exec(`
+          CREATE TABLE quiz_runs_new (
+            id TEXT PRIMARY KEY,
+            studio_output_id TEXT NOT NULL,
+            deck_id TEXT,
+            total INTEGER NOT NULL,
+            correct INTEGER NOT NULL,
+            duration_ms INTEGER NOT NULL,
+            per_question TEXT NOT NULL,
+            started_at INTEGER NOT NULL,
+            completed_at INTEGER NOT NULL,
+            FOREIGN KEY (studio_output_id) REFERENCES studio_outputs(id) ON DELETE CASCADE,
+            FOREIGN KEY (deck_id) REFERENCES flashcard_decks(id) ON DELETE SET NULL
+          )
+        `);
+        db.exec('UPDATE quiz_runs SET deck_id = NULL WHERE deck_id IS NOT NULL AND deck_id NOT IN (SELECT id FROM flashcard_decks)');
+        db.exec(`
+          INSERT INTO quiz_runs_new (id, studio_output_id, deck_id, total, correct, duration_ms, per_question, started_at, completed_at)
+          SELECT id, studio_output_id, deck_id, total, correct, duration_ms, per_question, started_at, completed_at FROM quiz_runs
+        `);
+        db.exec('DROP TABLE quiz_runs');
+        db.exec('ALTER TABLE quiz_runs_new RENAME TO quiz_runs');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_quiz_runs_output ON quiz_runs(studio_output_id)');
+        db.exec('CREATE INDEX IF NOT EXISTS idx_quiz_runs_completed ON quiz_runs(completed_at DESC)');
+        db.exec('PRAGMA foreign_keys = ON');
+      }
+
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '40', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '40', updated_at = excluded.updated_at`,
+      ).run(now);
+      invalidateQueries();
+      console.log('[DB] Migration 40 complete - study_events + FKs');
+    } catch (error) {
+      db.exec('PRAGMA foreign_keys = ON');
+      console.error('[DB] Migration 40 failed:', error);
+    }
+  }
+
+  // Migration 41: KPI cache so getKpis/getStreak don't rescan 365 days each call
+  if (version < 41) {
+    console.log('[DB] Running migration 41 - learn_kpis_cache');
+    try {
+      const now = Date.now();
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS learn_kpis_cache (
+          scope TEXT PRIMARY KEY,
+          payload TEXT NOT NULL,
+          computed_at INTEGER NOT NULL
+        )
+      `);
+      db.prepare(
+        `INSERT INTO settings (key, value, updated_at)
+         VALUES ('schema_version', '41', ?)
+         ON CONFLICT(key) DO UPDATE SET value = '41', updated_at = excluded.updated_at`,
+      ).run(now);
+      console.log('[DB] Migration 41 complete - learn_kpis_cache');
+    } catch (error) {
+      console.error('[DB] Migration 41 failed:', error);
+    }
+  }
 }
 
 /**
@@ -3963,8 +4208,19 @@ function getQueries() {
         COUNT(*) as total,
         SUM(CASE WHEN next_review_at IS NULL THEN 1 ELSE 0 END) as new_cards,
         SUM(CASE WHEN next_review_at IS NOT NULL AND next_review_at <= ? THEN 1 ELSE 0 END) as due_cards,
-        SUM(CASE WHEN interval >= 21 THEN 1 ELSE 0 END) as mastered_cards
+        SUM(CASE WHEN COALESCE(stability, interval) >= 21 THEN 1 ELSE 0 END) as mastered_cards,
+        -- Continuous progress (0..100): each card matures toward 21-day stability,
+        -- so the metric climbs with every successful review instead of jumping at 21.
+        CAST(ROUND(AVG(MIN(1.0, COALESCE(stability, interval, 0) / 21.0)) * 100) AS INTEGER) as maturity
       FROM flashcards WHERE deck_id = ?
+    `),
+    // FSRS review: persist memory state + legacy interval mirror
+    reviewFlashcardFsrs: db.prepare(`
+      UPDATE flashcards SET
+        stability = ?, fsrs_difficulty = ?, fsrs_state = ?, lapses = ?, scheduled_days = ?,
+        learning_steps = ?, repetitions = ?, next_review_at = ?, last_reviewed_at = ?,
+        last_rating = ?, interval = ?, updated_at = ?
+      WHERE id = ?
     `),
 
     // Flashcard Sessions
@@ -3973,6 +4229,21 @@ function getQueries() {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSessionsByDeck: db.prepare('SELECT * FROM flashcard_sessions WHERE deck_id = ? ORDER BY started_at DESC LIMIT ?'),
+
+    // Unified study events (flashcard + quiz) — single source for KPIs/streak
+    createStudyEvent: db.prepare(`
+      INSERT INTO study_events (id, project_id, deck_id, studio_output_id, kind, cards_studied, cards_correct, cards_incorrect, duration_ms, started_at, completed_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getStudyEventsSince: db.prepare('SELECT * FROM study_events WHERE started_at >= ? ORDER BY started_at ASC'),
+
+    // Learn KPI cache
+    getKpiCache: db.prepare('SELECT payload, computed_at FROM learn_kpis_cache WHERE scope = ?'),
+    setKpiCache: db.prepare(`
+      INSERT INTO learn_kpis_cache (scope, payload, computed_at) VALUES (?, ?, ?)
+      ON CONFLICT(scope) DO UPDATE SET payload = excluded.payload, computed_at = excluded.computed_at
+    `),
+    clearKpiCache: db.prepare('DELETE FROM learn_kpis_cache'),
 
     // Gemma PDF transcripts (per page cache)
     upsertResourceTranscript: db.prepare(`

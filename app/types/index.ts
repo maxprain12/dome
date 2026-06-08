@@ -734,11 +734,20 @@ export interface Flashcard {
   difficulty: 'easy' | 'medium' | 'hard';
   tags?: string;
   metadata?: string;
+  // Legacy SM-2 fields (kept for backward-compat reads; no longer written)
   ease_factor: number;
   interval: number;
   repetitions: number;
   next_review_at: number | null;
   last_reviewed_at: number | null;
+  // FSRS scheduling state (migration 38+)
+  stability?: number | null;
+  fsrs_difficulty?: number | null;
+  fsrs_state?: number | null;
+  lapses?: number | null;
+  scheduled_days?: number | null;
+  learning_steps?: number | null;
+  last_rating?: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -759,6 +768,8 @@ export interface FlashcardDeckStats {
   new_cards: number;
   due_cards: number;
   mastered_cards: number;
+  /** Continuous progress 0–100 (avg FSRS maturity toward 21-day stability). */
+  maturity?: number;
 }
 
 // ============================================

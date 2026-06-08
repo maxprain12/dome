@@ -60,6 +60,7 @@ interface LearnState {
   sessionIncorrect: number;
   sessionStreak: number;
   maxStreak: number;
+  sessionPlannedCards: number;
 
   isGenerateModalOpen: boolean;
   isDeckEditorOpen: boolean;
@@ -76,8 +77,12 @@ interface LearnState {
   loadDecks: () => Promise<void>;
   loadStudioOutputs: (projectId?: string) => Promise<void>;
   loadDeckStats: (deckId: string) => Promise<void>;
+  loadAllDeckStats: (deckIds: string[]) => Promise<void>;
   deleteDeck: (deckId: string) => Promise<boolean>;
   deleteStudioOutput: (outputId: string) => Promise<boolean>;
+
+  /** Subscribe to main-process learn broadcasts; returns an unsubscribe fn. */
+  subscribeToLearnEvents: () => () => void;
 
   startStudy: (deckId: string) => Promise<void>;
   flipCard: () => void;
@@ -175,6 +180,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
   sessionIncorrect: 0,
   sessionStreak: 0,
   maxStreak: 0,
+  sessionPlannedCards: 0,
 
   isGenerateModalOpen: false,
   isDeckEditorOpen: false,
@@ -248,6 +254,25 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     }
   },
 
+  // Load stats for many decks in parallel (avoids the old N+1 serial loop)
+  loadAllDeckStats: async (deckIds: string[]) => {
+    try {
+      const entries = await Promise.all(
+        deckIds.map(async (id) => {
+          const result = await window.electron.db.flashcards.getStats(id);
+          return [id, result.success ? result.data : undefined] as const;
+        }),
+      );
+      set((state) => {
+        const next = { ...state.deckStats };
+        for (const [id, data] of entries) if (data) next[id] = data as FlashcardDeckStats;
+        return { deckStats: next };
+      });
+    } catch (error) {
+      console.error('[LearnStore] Error loading deck stats batch:', error);
+    }
+  },
+
   deleteDeck: async (deckId: string) => {
     try {
       const result = await window.electron.db.flashcards.deleteDeck(deckId);
@@ -279,15 +304,27 @@ export const useLearnStore = create<LearnState>((set, get) => ({
   loadDueCards: async (deckId: string) => {
     try {
       const result = await window.electron.db.flashcards.getDueCards(deckId, 50);
-      if (result.success && result.data) set({ dueCards: result.data });
+      let cards: Flashcard[] = result.success && Array.isArray(result.data) ? result.data : [];
+
+      // SM-2 may schedule every card in the future; still allow cram / re-study the full deck.
+      if (cards.length === 0) {
+        const allResult = await window.electron.db.flashcards.getCards(deckId);
+        if (allResult.success && Array.isArray(allResult.data) && allResult.data.length > 0) {
+          cards = allResult.data.slice(0, 50);
+        }
+      }
+
+      set({ dueCards: cards });
     } catch (error) {
       console.error('[LearnStore] Error loading due cards:', error);
+      set({ dueCards: [] });
     }
   },
 
   startStudy: async (deckId: string) => {
     const { loadDueCards } = get();
     await loadDueCards(deckId);
+    const planned = get().dueCards.length;
     set({
       isStudying: true,
       view: 'studying',
@@ -300,6 +337,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
       sessionIncorrect: 0,
       sessionStreak: 0,
       maxStreak: 0,
+      sessionPlannedCards: planned,
     });
   },
 
@@ -334,33 +372,82 @@ export const useLearnStore = create<LearnState>((set, get) => ({
   },
 
   endStudy: async () => {
-    const { currentDeckId, sessionCorrect, sessionIncorrect, studyStartTime } = get();
+    const {
+      currentDeckId,
+      sessionCorrect,
+      sessionIncorrect,
+      studyStartTime,
+      currentCardIndex,
+      sessionPlannedCards,
+    } = get();
     if (!currentDeckId) return;
     const duration = studyStartTime ? Date.now() - studyStartTime : 0;
+    const cardsStudied = Math.max(sessionCorrect + sessionIncorrect, currentCardIndex);
     try {
-      await window.electron.db.flashcards.createSession({
-        deck_id: currentDeckId,
-        cards_studied: sessionCorrect + sessionIncorrect,
-        cards_correct: sessionCorrect,
-        cards_incorrect: sessionIncorrect,
-        duration_ms: duration,
-        started_at: studyStartTime || Date.now(),
-        completed_at: Date.now(),
-      });
+      if (cardsStudied > 0 || duration > 0) {
+        await window.electron.db.flashcards.createSession({
+          deck_id: currentDeckId,
+          cards_studied: cardsStudied,
+          cards_correct: sessionCorrect,
+          cards_incorrect: sessionIncorrect,
+          duration_ms: duration,
+          started_at: studyStartTime || Date.now(),
+          completed_at: Date.now(),
+        });
+      }
     } catch (error) {
       console.error('[LearnStore] Error saving session:', error);
     }
+    const deckId = currentDeckId;
+    const { activeDeckId } = get();
     set({
       isStudying: false,
-      view: 'library',
+      view: activeDeckId ? 'deck' : 'library',
       studyMode: null,
       currentDeckId: null,
       currentCardIndex: 0,
       isCardFlipped: false,
       studyStartTime: null,
+      sessionPlannedCards: 0,
+      dueCards: [],
     });
+    void get().loadDeckStats(deckId);
+    void get().loadDecks();
     void get().loadKpis();
     void get().loadStreak();
+  },
+
+  subscribeToLearnEvents: () => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refresh = () => {
+      // Debounce bursts of broadcasts into a single refresh
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const s = get();
+        void s.loadDecks();
+        void s.loadStudioOutputs();
+        void s.loadKpis();
+        void s.loadStreak();
+        const ids = get().decks.map((d) => d.id);
+        if (ids.length) void s.loadAllDeckStats(ids);
+      }, 150);
+    };
+
+    const channels = [
+      'flashcard:deckCreated',
+      'flashcard:deckUpdated',
+      'flashcard:deckDeleted',
+      'flashcard:sessionEnded',
+      'studio:outputCreated',
+      'studio:outputDeleted',
+    ];
+    const unsubs = channels.map((ch) => window.electron.on(ch, refresh));
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsubs.forEach((fn) => {
+        if (typeof fn === 'function') fn();
+      });
+    };
   },
 
   reset: () => {
@@ -388,6 +475,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
       sessionIncorrect: 0,
       sessionStreak: 0,
       maxStreak: 0,
+      sessionPlannedCards: 0,
       isGenerateModalOpen: false,
       isDeckEditorOpen: false,
       editingDeckId: null,

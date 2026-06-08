@@ -66,7 +66,9 @@ export default function DeckQuestionsTab({
   if (items.length === 0) {
     return (
       <p className="lr-tab-empty">
-        {t('learn.deck_no_questions', 'No questions yet.')}
+        {quizQuestions
+          ? t('learn.deck_no_questions', 'No questions yet.')
+          : t('learn.deck_no_cards', 'No cards yet.')}
       </p>
     );
   }

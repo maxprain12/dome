@@ -2,6 +2,7 @@ import { ArrowLeft, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { DataTableData, StudioOutput } from '@/types';
+import LearnViewerEmpty from '../LearnViewerEmpty';
 
 interface TableViewProps {
   output: StudioOutput;
@@ -14,12 +15,12 @@ export default function TableView({ output, onBack }: TableViewProps) {
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
 
-  const data = useMemo(() => {
-    if (!output.content) return { columns: [], rows: [] } as DataTableData;
+  const { data, corrupt } = useMemo(() => {
+    if (!output.content) return { data: { columns: [], rows: [] } as DataTableData, corrupt: false };
     try {
-      return JSON.parse(output.content) as DataTableData;
+      return { data: JSON.parse(output.content) as DataTableData, corrupt: false };
     } catch {
-      return { columns: [], rows: [] } as DataTableData;
+      return { data: { columns: [], rows: [] } as DataTableData, corrupt: true };
     }
   }, [output.content]);
 
@@ -49,6 +50,10 @@ export default function TableView({ output, onBack }: TableViewProps) {
       setSortAsc(true);
     }
   };
+
+  if (data.columns.length === 0 || data.rows.length === 0) {
+    return <LearnViewerEmpty onBack={onBack} corrupt={corrupt} />;
+  }
 
   return (
     <div className="lr-table-view">

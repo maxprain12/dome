@@ -1,8 +1,17 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
+const { schedule } = require('../../services/fsrs-scheduler.cjs');
+const { invalidateLearnKpisCache } = require('../../services/learn-kpis.cjs');
 
 function generateId() {
   return crypto.randomUUID();
+}
+
+/** Trim a value and ensure it is a non-empty string. */
+function requireText(value, field) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) throw new Error(`${field} is required`);
+  return text;
 }
 
 function resolveProjectId(queries, rawProjectId) {
@@ -52,6 +61,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         deck.updated_at || now
       );
       const created = queries.getFlashcardDeckById.get(id);
+      invalidateLearnKpisCache(database.getDB());
       windowManager.broadcast('flashcard:deckCreated', created);
       return { success: true, data: created };
     } catch (error) {
@@ -129,6 +139,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       queries.deleteFlashcardDeck.run(id);
+      invalidateLearnKpisCache(database.getDB());
       windowManager.broadcast('flashcard:deckDeleted', { id });
       return { success: true };
     } catch (error) {
@@ -144,11 +155,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const queries = database.getQueries();
       const now = Date.now();
       const id = card.id || generateId();
+      const question = requireText(card.question, 'question');
+      const answer = requireText(card.answer, 'answer');
       queries.createFlashcard.run(
         id,
         card.deck_id,
-        card.question,
-        card.answer,
+        question,
+        answer,
         card.difficulty || 'medium',
         card.tags ? JSON.stringify(card.tags) : null,
         card.metadata ? JSON.stringify(card.metadata) : null,
@@ -168,7 +181,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Bulk create cards (for AI-generated decks)
+  // Bulk create cards (for AI-generated decks). card_count is kept in sync by triggers.
   ipcMain.handle('db:flashcards:createCards', (event, { deckId, cards }) => {
     try {
       validateSender(event, windowManager);
@@ -176,36 +189,35 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const queries = database.getQueries();
       const now = Date.now();
 
+      const rows = (Array.isArray(cards) ? cards : [])
+        .map((card) => ({
+          question: typeof card.question === 'string' ? card.question.trim() : '',
+          answer: typeof card.answer === 'string' ? card.answer.trim() : '',
+          difficulty: card.difficulty || 'medium',
+          tags: card.tags ? JSON.stringify(card.tags) : null,
+          metadata: card.metadata ? JSON.stringify(card.metadata) : null,
+        }))
+        .filter((card) => card.question && card.answer);
+
       const insertMany = db.transaction((cardsToInsert) => {
         for (const card of cardsToInsert) {
-          const id = generateId();
           queries.createFlashcard.run(
-            id,
+            generateId(),
             deckId,
             card.question,
             card.answer,
-            card.difficulty || 'medium',
-            card.tags ? JSON.stringify(card.tags) : null,
-            card.metadata ? JSON.stringify(card.metadata) : null,
-            2.5, 0, 0, null, null, now, now
+            card.difficulty,
+            card.tags,
+            card.metadata,
+            2.5, 0, 0, null, null, now, now,
           );
         }
-        // Update deck card count
-        const allCards = queries.getFlashcardsByDeck.all(deckId);
-        queries.updateFlashcardDeck.run(
-          queries.getFlashcardDeckById.get(deckId)?.title || 'Untitled',
-          queries.getFlashcardDeckById.get(deckId)?.description || null,
-          allCards.length,
-          queries.getFlashcardDeckById.get(deckId)?.tags || null,
-          queries.getFlashcardDeckById.get(deckId)?.settings || null,
-          now,
-          deckId
-        );
       });
-
-      insertMany(cards);
+      insertMany(rows);
 
       const allCards = queries.getFlashcardsByDeck.all(deckId);
+      const updated = queries.getFlashcardDeckById.get(deckId);
+      if (updated) windowManager.broadcast('flashcard:deckUpdated', updated);
       return { success: true, data: { count: allCards.length, cards: allCards } };
     } catch (error) {
       console.error('[DB] Error bulk creating flashcards:', error);
@@ -240,50 +252,36 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Review a card (update SM-2 fields)
+  // Review a card (FSRS scheduling). quality: 1=Again, 2=Hard, 3=Good, 4=Easy
   ipcMain.handle('db:flashcards:reviewCard', (event, { cardId, quality }) => {
     try {
       validateSender(event, windowManager);
+      const db = database.getDB();
       const queries = database.getQueries();
       const card = queries.getFlashcardById.get(cardId);
       if (!card) {
         return { success: false, error: 'Card not found' };
       }
 
-      // SM-2 algorithm
-      const q = Math.max(0, Math.min(5, Math.round(quality)));
-      let newEF = card.ease_factor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02));
-      newEF = Math.max(1.3, newEF);
-
-      let newInterval;
-      let newReps;
-
-      if (q < 3) {
-        newReps = 0;
-        newInterval = 1;
-      } else {
-        newReps = card.repetitions + 1;
-        if (newReps === 1) {
-          newInterval = 1;
-        } else if (newReps === 2) {
-          newInterval = 6;
-        } else {
-          newInterval = Math.round(card.interval * newEF);
-        }
-      }
-
       const now = Date.now();
-      const nextReviewAt = now + newInterval * 24 * 60 * 60 * 1000;
+      const next = schedule(card, quality, now);
 
-      queries.updateFlashcardReview.run(
-        Math.round(newEF * 100) / 100,
-        newInterval,
-        newReps,
-        nextReviewAt,
+      queries.reviewFlashcardFsrs.run(
+        next.stability,
+        next.fsrs_difficulty,
+        next.fsrs_state,
+        next.lapses,
+        next.scheduled_days,
+        next.learning_steps,
+        next.repetitions,
+        next.next_review_at,
+        next.last_reviewed_at,
+        next.last_rating,
+        next.interval,
         now,
-        now,
-        cardId
+        cardId,
       );
+      invalidateLearnKpisCache(db);
 
       const updated = queries.getFlashcardById.get(cardId);
       return { success: true, data: updated };
@@ -300,8 +298,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const queries = database.getQueries();
       const now = Date.now();
       queries.updateFlashcard.run(
-        card.question,
-        card.answer,
+        requireText(card.question, 'question'),
+        requireText(card.answer, 'answer'),
         card.difficulty || 'medium',
         card.tags ? JSON.stringify(card.tags) : null,
         card.metadata ? JSON.stringify(card.metadata) : null,
@@ -316,12 +314,17 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Delete card
+  // Delete card (card_count kept in sync by trigger; broadcast updated deck)
   ipcMain.handle('db:flashcards:deleteCard', (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
+      const card = queries.getFlashcardById.get(id);
       queries.deleteFlashcard.run(id);
+      if (card?.deck_id) {
+        const deck = queries.getFlashcardDeckById.get(card.deck_id);
+        if (deck) windowManager.broadcast('flashcard:deckUpdated', deck);
+      }
       return { success: true };
     } catch (error) {
       console.error('[DB] Error deleting flashcard:', error);
@@ -343,22 +346,45 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Create study session
+  // Create study session (writes legacy flashcard_sessions + unified study_events)
   ipcMain.handle('db:flashcards:createSession', (event, session) => {
     try {
       validateSender(event, windowManager);
+      const db = database.getDB();
       const queries = database.getQueries();
       const id = session.id || generateId();
-      queries.createFlashcardSession.run(
-        id,
-        session.deck_id,
-        session.cards_studied || 0,
-        session.cards_correct || 0,
-        session.cards_incorrect || 0,
-        session.duration_ms || 0,
-        session.started_at || Date.now(),
-        session.completed_at || null
-      );
+      const deck = session.deck_id ? queries.getFlashcardDeckById.get(session.deck_id) : null;
+      const startedAt = session.started_at || Date.now();
+      const completedAt = session.completed_at || Date.now();
+
+      const persist = db.transaction(() => {
+        queries.createFlashcardSession.run(
+          id,
+          session.deck_id,
+          session.cards_studied || 0,
+          session.cards_correct || 0,
+          session.cards_incorrect || 0,
+          session.duration_ms || 0,
+          startedAt,
+          completedAt,
+        );
+        queries.createStudyEvent.run(
+          id,
+          deck?.project_id || null,
+          session.deck_id || null,
+          null,
+          'flashcard',
+          session.cards_studied || 0,
+          session.cards_correct || 0,
+          session.cards_incorrect || 0,
+          session.duration_ms || 0,
+          startedAt,
+          completedAt,
+        );
+      });
+      persist();
+      invalidateLearnKpisCache(db);
+
       windowManager.broadcast('flashcard:sessionEnded', {
         type: 'flashcard',
         deckId: session.deck_id,
