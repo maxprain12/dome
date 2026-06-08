@@ -26,7 +26,7 @@ export default function LearnLibrary() {
     deckStats,
     loadDecks,
     loadStudioOutputs,
-    loadDeckStats,
+    loadAllDeckStats,
     openDeck,
     startStudy,
     setDeckEditorOpen,
@@ -40,10 +40,9 @@ export default function LearnLibrary() {
   }, [loadDecks, loadStudioOutputs]);
 
   useEffect(() => {
-    for (const deck of decks) {
-      if (!deckStats[deck.id]) void loadDeckStats(deck.id);
-    }
-  }, [decks, deckStats, loadDeckStats]);
+    const missing = decks.filter((d) => !deckStats[d.id]).map((d) => d.id);
+    if (missing.length > 0) void loadAllDeckStats(missing);
+  }, [decks, deckStats, loadAllDeckStats]);
 
   const allItems = useMemo(
     () => buildLearnDeckItems(decks, studioOutputs, deckStats),
@@ -56,7 +55,11 @@ export default function LearnLibrary() {
   );
 
   const continueItems = useMemo(() => continueStudyingItems(filtered), [filtered]);
-  const recentItems = useMemo(() => recentlyCreatedItems(filtered), [filtered]);
+  const continueIds = useMemo(() => new Set(continueItems.map((i) => i.id)), [continueItems]);
+  const recentItems = useMemo(
+    () => recentlyCreatedItems(filtered, continueIds),
+    [filtered, continueIds],
+  );
 
   const openItem = (item: (typeof filtered)[number]) => {
     if (item.kind === 'flashcard_deck') {

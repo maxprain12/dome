@@ -27,34 +27,38 @@ export default function DeckHistoryTab({ sessions, quizRuns }: DeckHistoryTabPro
     );
   }
 
+  // Interleave flashcard sessions and quiz runs into one chronological timeline
+  type Entry = { id: string; kind: 'fc' | 'qz'; ts: number; text: string };
+  const entries: Entry[] = [
+    ...sessions.map((s) => ({
+      id: s.id,
+      kind: 'fc' as const,
+      ts: s.completed_at ?? s.started_at,
+      text: t('learn.history_flash_session', '{{studied}} cards · {{correct}} correct', {
+        studied: s.cards_studied,
+        correct: s.cards_correct,
+      }),
+    })),
+    ...quizRuns.map((run) => ({
+      id: run.id,
+      kind: 'qz' as const,
+      ts: run.completed_at,
+      text: t('learn.history_quiz_run', '{{correct}}/{{total}} correct', {
+        correct: run.correct,
+        total: run.total,
+      }),
+    })),
+  ].sort((a, b) => b.ts - a.ts);
+
   return (
     <div className="lr-body" style={{ paddingTop: 16 }}>
       <div className="lr-q-list">
-        {sessions.map((s) => (
-          <div key={s.id} className="lr-q-row">
-            <span className="lr-q-num">FC</span>
+        {entries.map((e) => (
+          <div key={`${e.kind}-${e.id}`} className="lr-q-row">
+            <span className="lr-q-num">{e.kind === 'fc' ? 'FC' : 'QZ'}</span>
             <div className="lr-q-content">
-              <div className="lr-q-text">
-                {t('learn.history_flash_session', '{{studied}} cards · {{correct}} correct', {
-                  studied: s.cards_studied,
-                  correct: s.cards_correct,
-                })}
-              </div>
-              <div className="lr-q-meta">{formatWhen(s.completed_at ?? s.started_at)}</div>
-            </div>
-          </div>
-        ))}
-        {quizRuns.map((run) => (
-          <div key={run.id} className="lr-q-row">
-            <span className="lr-q-num">QZ</span>
-            <div className="lr-q-content">
-              <div className="lr-q-text">
-                {t('learn.history_quiz_run', '{{correct}}/{{total}} correct', {
-                  correct: run.correct,
-                  total: run.total,
-                })}
-              </div>
-              <div className="lr-q-meta">{formatWhen(run.completed_at)}</div>
+              <div className="lr-q-text">{e.text}</div>
+              <div className="lr-q-meta">{formatWhen(e.ts)}</div>
             </div>
           </div>
         ))}

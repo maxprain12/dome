@@ -128,8 +128,8 @@ export default function ProjectsDashboard({
           scopedDecks.map((deck: { id: string }) => window.electron.db.flashcards.getStats(deck.id)),
         );
         dueFlashcards = deckStats.reduce((sum, result) => {
-          const dueCards = result?.success ? Number(result.data?.due_cards || 0) : 0;
-          return sum + dueCards;
+          if (!result?.success || !result.data) return sum;
+          return sum + Number(result.data.due_cards || 0) + Number(result.data.new_cards || 0);
         }, 0);
       }
 
@@ -158,11 +158,20 @@ export default function ProjectsDashboard({
     const unsubscribeProjectDeleted = window.electron.on('project:deleted', () => { void loadProjects(); });
     const unsubscribeResource = window.electron.on('resource:created', () => { void loadProjects(); });
     const unsubscribeResourceUpdate = window.electron.on('resource:updated', () => { void loadProjects(); });
+    // Refresh learn KPIs (due cards, studio counts) when study activity changes
+    const unsubscribeSession = window.electron.on('flashcard:sessionEnded', () => { void loadProjects(); });
+    const unsubscribeStudioCreated = window.electron.on('studio:outputCreated', () => { void loadProjects(); });
+    const unsubscribeStudioDeleted = window.electron.on('studio:outputDeleted', () => { void loadProjects(); });
+    const unsubscribeDeckDeleted = window.electron.on('flashcard:deckDeleted', () => { void loadProjects(); });
     return () => {
       unsubscribeProject?.();
       unsubscribeProjectDeleted?.();
       unsubscribeResource?.();
       unsubscribeResourceUpdate?.();
+      unsubscribeSession?.();
+      unsubscribeStudioCreated?.();
+      unsubscribeStudioDeleted?.();
+      unsubscribeDeckDeleted?.();
     };
   }, [loadProjects]);
 

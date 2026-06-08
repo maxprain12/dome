@@ -162,6 +162,7 @@
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.5",
     "tailwind-merge": "^2.6.1",
+    "ts-fsrs": "^5.4.1",
     "turndown": "^7.2.4",
     "yauzl": "^3.2.1",
     "yjs": "^13.6.30",
@@ -236,6 +237,7 @@
       }
     ],
     "asarUnpack": [
+      "electron/dome-mcp-bridge.cjs",
       "node_modules/@napi-rs/canvas/**/*",
       "node_modules/@napi-rs/canvas-*/**/*",
       "node_modules/better-sqlite3/**/*",

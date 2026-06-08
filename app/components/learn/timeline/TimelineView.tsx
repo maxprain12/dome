@@ -2,6 +2,7 @@ import { ArrowLeft } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { StudioOutput, TimelineData } from '@/types';
+import LearnViewerEmpty from '../LearnViewerEmpty';
 
 interface TimelineViewProps {
   output: StudioOutput;
@@ -16,15 +17,22 @@ function parseDate(value: string): number {
 export default function TimelineView({ output, onBack }: TimelineViewProps) {
   const { t } = useTranslation();
 
-  const events = useMemo(() => {
-    if (!output.content) return [];
+  const { events, corrupt } = useMemo(() => {
+    if (!output.content) return { events: [] as TimelineData['events'], corrupt: false };
     try {
       const data = JSON.parse(output.content) as TimelineData;
-      return [...(data.events ?? [])].sort((a, b) => parseDate(a.date) - parseDate(b.date));
+      return {
+        events: [...(data.events ?? [])].sort((a, b) => parseDate(a.date) - parseDate(b.date)),
+        corrupt: false,
+      };
     } catch {
-      return [];
+      return { events: [] as TimelineData['events'], corrupt: true };
     }
   }, [output.content]);
+
+  if (events.length === 0) {
+    return <LearnViewerEmpty onBack={onBack} corrupt={corrupt} />;
+  }
 
   return (
     <div className="lr-timeline">

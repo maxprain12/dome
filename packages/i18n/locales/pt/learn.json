@@ -183,5 +183,15 @@
   "filter_no_search": "Nenhum resultado para sua pesquisa",
   "filter_no_search_sub": "Tente outro termo ou limpe o filtro de pesquisa.",
   "filter_no_section": "Ainda não há {{section}}",
-  "filter_no_section_sub": "Gere conteúdo ou mude de categoria."
+  "filter_no_section_sub": "Gere conteúdo ou mude de categoria.",
+  "kpi_caught_up": "Em dia",
+  "kpi_to_review": "para revisar",
+  "kpi_mastery_sub": "cartões memorizados",
+  "kpi_goal_reached": "Meta alcançada",
+  "deck_tab_cards": "Cartões",
+  "deck_no_cards": "Ainda não há cartões.",
+  "viewer_corrupt_title": "Não foi possível exibir este conteúdo",
+  "viewer_corrupt_sub": "O conteúdo gerado parece incompleto ou inválido. Tente gerá-lo novamente.",
+  "viewer_empty_title": "Nada para mostrar ainda",
+  "viewer_empty_sub": "Este item ainda não tem conteúdo."
 }

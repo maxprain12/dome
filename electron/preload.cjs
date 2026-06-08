@@ -595,6 +595,7 @@ const ALLOWED_CHANNELS = {
     'updater:status',
     // Studio events
     'studio:outputCreated',
+    'studio:outputDeleted',
     'studio:progress',
     // Deep link: open studio output from dome://studio/ID
     'dome:open-studio-output',

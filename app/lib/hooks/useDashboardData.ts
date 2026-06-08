@@ -191,7 +191,8 @@ export function useDashboardData(projectId: string | null = null): DashboardData
           ),
         );
         dueFlashcards = deckStats.reduce((sum, r) => {
-          return sum + (r?.success ? Number(r.data?.due_cards || 0) : 0);
+          if (!r?.success || !r.data) return sum;
+          return sum + Number(r.data.due_cards || 0) + Number(r.data.new_cards || 0);
         }, 0);
       }
 

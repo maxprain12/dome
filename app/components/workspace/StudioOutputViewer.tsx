@@ -46,7 +46,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
   }, [output.content]);
 
   const renderOutput = () => {
-    // Flashcards: use deck_id, render FlashcardStudyView (content is in deck)
+    // Flashcards: use deck_id, render FlashPlayerSession (content is in deck)
     if (output.type === 'flashcards' && output.deck_id) {
       return (
         <FlashPlayerSession
