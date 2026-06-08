@@ -183,5 +183,15 @@
   "filter_no_search": "Aucun résultat pour votre recherche",
   "filter_no_search_sub": "Essayez un autre terme ou effacez le filtre.",
   "filter_no_section": "Pas encore de {{section}}",
-  "filter_no_section_sub": "Générez du contenu ou changez de catégorie."
+  "filter_no_section_sub": "Générez du contenu ou changez de catégorie.",
+  "kpi_caught_up": "À jour",
+  "kpi_to_review": "à réviser",
+  "kpi_mastery_sub": "cartes mémorisées",
+  "kpi_goal_reached": "Objectif atteint",
+  "deck_tab_cards": "Cartes",
+  "deck_no_cards": "Aucune carte pour le moment.",
+  "viewer_corrupt_title": "Impossible d'afficher ce contenu",
+  "viewer_corrupt_sub": "Le contenu généré semble incomplet ou invalide. Essayez de le régénérer.",
+  "viewer_empty_title": "Rien à afficher pour le moment",
+  "viewer_empty_sub": "Cet élément n'a pas encore de contenu."
 }

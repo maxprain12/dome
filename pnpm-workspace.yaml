@@ -27,5 +27,5 @@ allowBuilds:
   esbuild: true
   protobufjs: true
   sharp: true
-  onnxruntime-node: set this to true or false
-  '@google/genai': set this to true or false
+  onnxruntime-node: false
+  '@google/genai': false

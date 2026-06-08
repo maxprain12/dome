@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const { validateAndNormalizeStudioContent } = require('../../services/studio-validators.cjs');
 const { cancelRun } = require('../../services/studio-progress.cjs');
+const { invalidateLearnKpisCache } = require('../../services/learn-kpis.cjs');
 
 function generateId() {
   return crypto.randomUUID();
@@ -184,17 +185,24 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  // Delete studio output (and linked flashcard deck if type=flashcards)
+  // Delete studio output (and linked flashcard deck if type=flashcards) atomically
   ipcMain.handle('db:studio:delete', (event, id) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
       const row = db.prepare('SELECT deck_id FROM studio_outputs WHERE id = ?').get(id);
+      const remove = db.transaction(() => {
+        if (row?.deck_id) {
+          db.prepare('DELETE FROM flashcard_decks WHERE id = ?').run(row.deck_id);
+        }
+        db.prepare('DELETE FROM studio_outputs WHERE id = ?').run(id);
+      });
+      remove();
       if (row?.deck_id) {
-        db.prepare('DELETE FROM flashcard_decks WHERE id = ?').run(row.deck_id);
         windowManager.broadcast('flashcard:deckDeleted', { id: row.deck_id });
       }
-      db.prepare('DELETE FROM studio_outputs WHERE id = ?').run(id);
+      invalidateLearnKpisCache(db);
+      windowManager.broadcast('studio:outputDeleted', { id });
       return { success: true };
     } catch (error) {
       console.error('[DB] Error deleting studio output:', error);

@@ -1,6 +1,7 @@
 /* eslint-disable no-console */
 const crypto = require('crypto');
 const { z } = require('zod');
+const { invalidateLearnKpisCache } = require('../../services/learn-kpis.cjs');
 
 const QuizCreateRunSchema = z.object({
   id: z.string().optional(),
@@ -36,25 +37,48 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         typeof payload.per_question === 'string'
           ? payload.per_question
           : JSON.stringify(payload.per_question ?? []);
+      const startedAt = payload.started_at ?? now;
+      const completedAt = payload.completed_at ?? now;
 
-      db.prepare(
-        `
-        INSERT INTO quiz_runs (
-          id, studio_output_id, deck_id, total, correct, duration_ms,
-          per_question, started_at, completed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `,
-      ).run(
-        id,
-        payload.studio_output_id,
-        payload.deck_id ?? null,
-        payload.total,
-        payload.correct,
-        payload.duration_ms,
-        perQuestion,
-        payload.started_at ?? now,
-        payload.completed_at ?? now,
-      );
+      // Resolve project for the unified study event via the studio output
+      const projectRow = db
+        .prepare('SELECT project_id FROM studio_outputs WHERE id = ?')
+        .get(payload.studio_output_id);
+
+      const persist = db.transaction(() => {
+        db.prepare(
+          `INSERT INTO quiz_runs (
+            id, studio_output_id, deck_id, total, correct, duration_ms,
+            per_question, started_at, completed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ).run(
+          id,
+          payload.studio_output_id,
+          payload.deck_id ?? null,
+          payload.total,
+          payload.correct,
+          payload.duration_ms,
+          perQuestion,
+          startedAt,
+          completedAt,
+        );
+        // Mirror into unified study_events so quizzes count toward streak/time
+        database.getQueries().createStudyEvent.run(
+          id,
+          projectRow?.project_id || null,
+          payload.deck_id ?? null,
+          payload.studio_output_id,
+          'quiz',
+          payload.total,
+          payload.correct,
+          Math.max(0, payload.total - payload.correct),
+          payload.duration_ms,
+          startedAt,
+          completedAt,
+        );
+      });
+      persist();
+      invalidateLearnKpisCache(db);
 
       const created = db.prepare('SELECT * FROM quiz_runs WHERE id = ?').get(id);
       windowManager.broadcast('flashcard:sessionEnded', { type: 'quiz', runId: id });

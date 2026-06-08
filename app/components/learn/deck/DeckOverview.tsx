@@ -19,6 +19,7 @@ import TimelineView from '../timeline/TimelineView';
 import TableView from '../table/TableView';
 import type { DeckSettings } from './DeckSettingsTab';
 import { computeQuizDeckStats } from '@/lib/learn/quizStats';
+import { flashcardStudyableCount, resolveFlashDeckId } from '@/lib/learn/deckItems';
 
 export default function DeckOverview() {
   const { t } = useTranslation();
@@ -45,9 +46,12 @@ export default function DeckOverview() {
   const [sourceTitles, setSourceTitles] = useState<Record<string, string>>({});
   const [playingQuiz, setPlayingQuiz] = useState(false);
 
-  const deck = decks.find((d) => d.id === activeDeckId);
   const output = studioOutputs.find((o) => o.id === activeDeckId);
+  const deck =
+    decks.find((d) => d.id === activeDeckId) ??
+    (output?.deck_id ? decks.find((d) => d.id === output.deck_id) : undefined);
   const isFlashDeck = activeDeckKind === 'flashcard_deck' || output?.type === 'flashcards';
+  const flashDeckId = resolveFlashDeckId(activeDeckId, deck, output);
 
   const deckSettings = useMemo((): DeckSettings => {
     if (!deck?.settings) return {};
@@ -59,14 +63,14 @@ export default function DeckOverview() {
   }, [deck?.settings]);
 
   const reloadFlashCards = async () => {
-    if (!activeDeckId || !isFlashDeck) return;
-    const cardsResult = await window.electron.db.flashcards.getCards(activeDeckId);
+    if (!flashDeckId || !isFlashDeck) return;
+    const cardsResult = await window.electron.db.flashcards.getCards(flashDeckId);
     if (cardsResult.success && cardsResult.data) setCards(cardsResult.data as Flashcard[]);
   };
 
   const title = deck?.title ?? output?.title ?? t('learn.untitled', 'Untitled');
   const description = deck?.description;
-  const stats = activeDeckId ? deckStats[activeDeckId] : undefined;
+  const stats = flashDeckId ? deckStats[flashDeckId] : undefined;
 
   const sourceIds = useMemo(() => {
     if (output?.source_ids) {
@@ -96,15 +100,15 @@ export default function DeckOverview() {
   );
 
   useEffect(() => {
-    if (!activeDeckId || !isFlashDeck) return;
-    void loadDeckStats(activeDeckId);
+    if (!flashDeckId || !isFlashDeck) return;
+    void loadDeckStats(flashDeckId);
     void (async () => {
-      const cardsResult = await window.electron.db.flashcards.getCards(activeDeckId);
+      const cardsResult = await window.electron.db.flashcards.getCards(flashDeckId);
       if (cardsResult.success && cardsResult.data) setCards(cardsResult.data as Flashcard[]);
-      const sessResult = await window.electron.db.flashcards.getSessions(activeDeckId, 20);
+      const sessResult = await window.electron.db.flashcards.getSessions(flashDeckId, 20);
       if (sessResult.success && sessResult.data) setSessions(sessResult.data as FlashcardStudySession[]);
     })();
-  }, [activeDeckId, isFlashDeck, loadDeckStats]);
+  }, [flashDeckId, isFlashDeck, loadDeckStats]);
 
   useEffect(() => {
     if (!activeDeckId || output?.type !== 'quiz') return;
@@ -140,13 +144,14 @@ export default function DeckOverview() {
             : (output?.type ?? t('learn.content', 'Content'));
 
   const total = stats?.total ?? cards.length ?? output?.deck_card_count ?? 0;
-  const due = stats?.due_cards ?? 0;
+  const due = flashcardStudyableCount(stats);
   const mastered = stats?.mastered_cards ?? 0;
-  const masteryPct = total > 0 ? Math.round((mastered / total) * 100) : 0;
+  // Continuous maturity climbs with each review; fall back to the mature-card ratio.
+  const masteryPct = stats?.maturity ?? (total > 0 ? Math.round((mastered / total) * 100) : 0);
 
   const handleStudy = () => {
-    if (isFlashDeck && deck) {
-      void startStudy(deck.id);
+    if (isFlashDeck && flashDeckId) {
+      void startStudy(flashDeckId);
       return;
     }
     if (output?.type === 'quiz') {
@@ -255,7 +260,7 @@ export default function DeckOverview() {
           avgTimeSec={quizStats.avgTimeSec}
         />
       ) : null}
-      <DeckTabs active={tab} onChange={setTab} />
+      <DeckTabs active={tab} onChange={setTab} isFlash={isFlashDeck} />
       {tab === 'questions' ? (
         <DeckQuestionsTab
           cards={cards}
@@ -282,9 +287,9 @@ export default function DeckOverview() {
       {tab === 'settings' ? (
         <DeckSettingsTab
           title={title}
-          deckId={isFlashDeck ? activeDeckId : undefined}
+          deckId={isFlashDeck ? flashDeckId ?? undefined : undefined}
           settings={deckSettings}
-          onEdit={isFlashDeck ? () => setDeckEditorOpen(true, activeDeckId) : undefined}
+          onEdit={isFlashDeck && flashDeckId ? () => setDeckEditorOpen(true, flashDeckId) : undefined}
           onDelete={handleDelete}
         />
       ) : null}

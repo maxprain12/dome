@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, CheckCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useLearnStore } from '@/lib/store/useLearnStore';
+import { formatElapsed } from '@/lib/learn/fsrs';
 import FlashSrsButtons from './FlashSrsButtons';
 
 interface FlashPlayerProps {
@@ -17,6 +18,7 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
     studyStartTime,
     sessionCorrect,
     sessionIncorrect,
+    sessionPlannedCards,
     flipCard,
     reviewCard,
     skipCard,
@@ -25,7 +27,8 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
 
   const currentCard = dueCards[currentCardIndex];
   const isComplete = currentCardIndex >= dueCards.length;
-  const totalCards = dueCards.length;
+  const totalCards = sessionPlannedCards || dueCards.length;
+  const studiedCount = Math.max(sessionCorrect + sessionIncorrect, currentCardIndex);
   const [elapsedSec, setElapsedSec] = useState(0);
 
   const handleEnd = async () => {
@@ -78,7 +81,7 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
           </div>
           <h2>{t('flashcard.session_complete', 'Session complete')}</h2>
           <p>
-            {t('flashcard.studied_cards_count', 'You studied {{count}} cards', { count: totalCards })}
+            {t('flashcard.studied_cards_count', 'You studied {{count}} cards', { count: studiedCount })}
             {' · '}
             {accuracy}%
           </p>
@@ -106,14 +109,19 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
             style={{ width: `${totalCards > 0 ? ((currentCardIndex + 1) / totalCards) * 100 : 0}%` }}
           />
         </div>
-        <span className="timer">{elapsedSec}s</span>
+        <span className="timer">{formatElapsed(elapsedSec * 1000)}</span>
       </div>
 
       <div className="lr-flash-body">
         <div
-          className="lr-flash-card"
+          className="flashcard-container lr-flash-card-host"
           role="button"
           tabIndex={0}
+          aria-label={
+            isCardFlipped
+              ? t('flashcard.show_question', 'Show question')
+              : t('flashcard.show_answer', 'Show answer')
+          }
           onClick={flipCard}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
@@ -122,22 +130,25 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
             }
           }}
         >
-          <span className="lr-flash-side">
-            {isCardFlipped ? t('flashcard.answer', 'Answer') : t('flashcard.question', 'Question')}
-          </span>
-          <span className="lr-flash-tag">{currentCard?.difficulty ?? '—'}</span>
-          <div className="lr-flash-content">
-            {isCardFlipped ? (
-              <p className="lr-flash-a">{currentCard?.answer}</p>
-            ) : (
-              <p className="lr-flash-q">{currentCard?.question}</p>
-            )}
-          </div>
-          {!isCardFlipped ? (
-            <div className="lr-flash-hint">
-              {t('flashcard.press_space_flip', 'Press Space to flip')}
+          <div className={`flashcard-flip${isCardFlipped ? ' flipped' : ''}`}>
+            <div className="flashcard-face flashcard-front">
+              <span className="lr-flash-side">{t('flashcard.question', 'Question')}</span>
+              <span className="lr-flash-tag">{currentCard?.difficulty ?? '—'}</span>
+              <div className="lr-flash-content">
+                <p className="lr-flash-q">{currentCard?.question}</p>
+              </div>
+              <div className="lr-flash-hint">
+                {t('flashcard.press_space_flip', 'Press Space to flip')}
+              </div>
             </div>
-          ) : null}
+            <div className="flashcard-face flashcard-back">
+              <span className="lr-flash-side">{t('flashcard.answer', 'Answer')}</span>
+              <span className="lr-flash-tag">{currentCard?.difficulty ?? '—'}</span>
+              <div className="lr-flash-content">
+                <p className="lr-flash-a">{currentCard?.answer}</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

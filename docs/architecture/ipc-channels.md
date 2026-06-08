@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-07T22:35:40.436Z
+> Última generación: 2026-06-08T11:15:01.828Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -145,22 +145,22 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:chat:getSessionsByAgent` | `electron/ipc/agents/chat.cjs:147` |
 | `db:chat:getSessionsGlobal` | `electron/ipc/agents/chat.cjs:160` |
 | `db:chat:updateSession` | `electron/ipc/agents/chat.cjs:125` |
-| `db:flashcards:createCard` | `electron/ipc/learn/flashcards.cjs:141` |
-| `db:flashcards:createCards` | `electron/ipc/learn/flashcards.cjs:172` |
-| `db:flashcards:createDeck` | `electron/ipc/learn/flashcards.cjs:34` |
-| `db:flashcards:createSession` | `electron/ipc/learn/flashcards.cjs:347` |
-| `db:flashcards:deleteCard` | `electron/ipc/learn/flashcards.cjs:320` |
-| `db:flashcards:deleteDeck` | `electron/ipc/learn/flashcards.cjs:127` |
-| `db:flashcards:getAllDecks` | `electron/ipc/learn/flashcards.cjs:90` |
-| `db:flashcards:getCards` | `electron/ipc/learn/flashcards.cjs:217` |
-| `db:flashcards:getDeck` | `electron/ipc/learn/flashcards.cjs:64` |
-| `db:flashcards:getDecksByProject` | `electron/ipc/learn/flashcards.cjs:77` |
-| `db:flashcards:getDueCards` | `electron/ipc/learn/flashcards.cjs:230` |
-| `db:flashcards:getSessions` | `electron/ipc/learn/flashcards.cjs:375` |
-| `db:flashcards:getStats` | `electron/ipc/learn/flashcards.cjs:333` |
-| `db:flashcards:reviewCard` | `electron/ipc/learn/flashcards.cjs:244` |
-| `db:flashcards:updateCard` | `electron/ipc/learn/flashcards.cjs:297` |
-| `db:flashcards:updateDeck` | `electron/ipc/learn/flashcards.cjs:103` |
+| `db:flashcards:createCard` | `electron/ipc/learn/flashcards.cjs:152` |
+| `db:flashcards:createCards` | `electron/ipc/learn/flashcards.cjs:185` |
+| `db:flashcards:createDeck` | `electron/ipc/learn/flashcards.cjs:43` |
+| `db:flashcards:createSession` | `electron/ipc/learn/flashcards.cjs:350` |
+| `db:flashcards:deleteCard` | `electron/ipc/learn/flashcards.cjs:318` |
+| `db:flashcards:deleteDeck` | `electron/ipc/learn/flashcards.cjs:137` |
+| `db:flashcards:getAllDecks` | `electron/ipc/learn/flashcards.cjs:100` |
+| `db:flashcards:getCards` | `electron/ipc/learn/flashcards.cjs:229` |
+| `db:flashcards:getDeck` | `electron/ipc/learn/flashcards.cjs:74` |
+| `db:flashcards:getDecksByProject` | `electron/ipc/learn/flashcards.cjs:87` |
+| `db:flashcards:getDueCards` | `electron/ipc/learn/flashcards.cjs:242` |
+| `db:flashcards:getSessions` | `electron/ipc/learn/flashcards.cjs:401` |
+| `db:flashcards:getStats` | `electron/ipc/learn/flashcards.cjs:336` |
+| `db:flashcards:reviewCard` | `electron/ipc/learn/flashcards.cjs:256` |
+| `db:flashcards:updateCard` | `electron/ipc/learn/flashcards.cjs:295` |
+| `db:flashcards:updateDeck` | `electron/ipc/learn/flashcards.cjs:113` |
 | `db:graph:createEdge` | `electron/ipc/data/graph.cjs:58` |
 | `db:graph:createNode` | `electron/ipc/data/graph.cjs:3` |
 | `db:graph:getNeighbors` | `electron/ipc/data/graph.cjs:80` |
@@ -227,12 +227,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:settings:set` | `electron/ipc/data/database.cjs:648` |
 | `db:skills:list` | `electron/ipc/data/database.cjs:1305` |
 | `db:skills:replaceAll` | `electron/ipc/data/database.cjs:1316` |
-| `db:studio:create` | `electron/ipc/learn/studio.cjs:34` |
-| `db:studio:delete` | `electron/ipc/learn/studio.cjs:188` |
-| `db:studio:getAll` | `electron/ipc/learn/studio.cjs:79` |
-| `db:studio:getById` | `electron/ipc/learn/studio.cjs:119` |
-| `db:studio:getByProject` | `electron/ipc/learn/studio.cjs:99` |
-| `db:studio:update` | `electron/ipc/learn/studio.cjs:135` |
+| `db:studio:create` | `electron/ipc/learn/studio.cjs:35` |
+| `db:studio:delete` | `electron/ipc/learn/studio.cjs:189` |
+| `db:studio:getAll` | `electron/ipc/learn/studio.cjs:80` |
+| `db:studio:getById` | `electron/ipc/learn/studio.cjs:120` |
+| `db:studio:getByProject` | `electron/ipc/learn/studio.cjs:100` |
+| `db:studio:update` | `electron/ipc/learn/studio.cjs:136` |
 | `db:tags:addToResource` | `electron/ipc/data/tags.cjs:78` |
 | `db:tags:create` | `electron/ipc/data/tags.cjs:50` |
 | `db:tags:getAll` | `electron/ipc/data/tags.cjs:20` |
@@ -251,10 +251,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:workflows:get` | `electron/ipc/data/database.cjs:1002` |
 | `db:workflows:list` | `electron/ipc/data/database.cjs:990` |
 | `db:workflows:update` | `electron/ipc/data/database.cjs:1041` |
-| `dome-mcp:bridge-path` | `electron/ipc/integrations/dome-mcp.cjs:115` |
-| `dome-mcp:start` | `electron/ipc/integrations/dome-mcp.cjs:46` |
-| `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:107` |
-| `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:89` |
+| `dome-mcp:bridge-path` | `electron/ipc/integrations/dome-mcp.cjs:116` |
+| `dome-mcp:start` | `electron/ipc/integrations/dome-mcp.cjs:47` |
+| `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:108` |
+| `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:90` |
 | `domeauth:disconnect` | `electron/ipc/integrations/dome-auth.cjs:44` |
 | `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:57` |
 | `domeauth:getSession` | `electron/ipc/integrations/dome-auth.cjs:19` |
@@ -310,8 +310,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `kbllm:setProjectOverride` | `electron/ipc/ai/kb-llm.cjs:56` |
 | `kbllm:syncAll` | `electron/ipc/ai/kb-llm.cjs:89` |
 | `kbllm:syncProject` | `electron/ipc/ai/kb-llm.cjs:75` |
-| `learn:getKpis` | `electron/ipc/learn/learn.cjs:6` |
-| `learn:getStreak` | `electron/ipc/learn/learn.cjs:18` |
+| `learn:getKpis` | `electron/ipc/learn/learn.cjs:5` |
+| `learn:getStreak` | `electron/ipc/learn/learn.cjs:17` |
 | `marketplace:browse-skill-repo` | `electron/ipc/integrations/marketplace.cjs:807` |
 | `marketplace:fetch-agents` | `electron/ipc/integrations/marketplace.cjs:491` |
 | `marketplace:fetch-all` | `electron/ipc/integrations/marketplace.cjs:455` |
@@ -366,9 +366,9 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `plugin:read-asset` | `electron/ipc/integrations/plugins.cjs:89` |
 | `plugin:setEnabled` | `electron/ipc/integrations/plugins.cjs:77` |
 | `plugin:uninstall` | `electron/ipc/integrations/plugins.cjs:65` |
-| `quiz:createRun` | `electron/ipc/learn/quiz.cjs:24` |
-| `quiz:getRun` | `electron/ipc/learn/quiz.cjs:86` |
-| `quiz:listRuns` | `electron/ipc/learn/quiz.cjs:68` |
+| `quiz:createRun` | `electron/ipc/learn/quiz.cjs:25` |
+| `quiz:getRun` | `electron/ipc/learn/quiz.cjs:110` |
+| `quiz:listRuns` | `electron/ipc/learn/quiz.cjs:92` |
 | `resource:delete` | `electron/ipc/data/resources.cjs:710` |
 | `resource:export` | `electron/ipc/data/resources.cjs:660` |
 | `resource:extractPptImages` | `electron/ipc/data/resources.cjs:438` |
@@ -410,7 +410,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `storage:cleanup` | `electron/ipc/data/storage.cjs:20` |
 | `storage:getPath` | `electron/ipc/data/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/data/storage.cjs:3` |
-| `studio:cancel` | `electron/ipc/learn/studio.cjs:205` |
+| `studio:cancel` | `electron/ipc/learn/studio.cjs:213` |
 | `sync:export` | `electron/ipc/sync/sync.cjs:18` |
 | `sync:import` | `electron/ipc/sync/sync.cjs:85` |
 | `system:get-app-locale` | `electron/ipc/core/system.cjs:199` |

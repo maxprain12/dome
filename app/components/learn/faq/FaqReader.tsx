@@ -2,6 +2,7 @@ import { ArrowLeft, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { FAQData, StudioOutput } from '@/types';
+import LearnViewerEmpty from '../LearnViewerEmpty';
 
 interface FaqReaderProps {
   output: StudioOutput;
@@ -13,12 +14,12 @@ export default function FaqReader({ output, onBack }: FaqReaderProps) {
   const [query, setQuery] = useState('');
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
-  const data = useMemo(() => {
-    if (!output.content) return { pairs: [] } as FAQData;
+  const { data, corrupt } = useMemo(() => {
+    if (!output.content) return { data: { pairs: [] } as FAQData, corrupt: false };
     try {
-      return JSON.parse(output.content) as FAQData;
+      return { data: JSON.parse(output.content) as FAQData, corrupt: false };
     } catch {
-      return { pairs: [] } as FAQData;
+      return { data: { pairs: [] } as FAQData, corrupt: true };
     }
   }, [output.content]);
 
@@ -29,6 +30,10 @@ export default function FaqReader({ output, onBack }: FaqReaderProps) {
       (p) => p.question.toLowerCase().includes(q) || p.answer.toLowerCase().includes(q),
     );
   }, [data.pairs, query]);
+
+  if (!data.pairs || data.pairs.length === 0) {
+    return <LearnViewerEmpty onBack={onBack} corrupt={corrupt} />;
+  }
 
   return (
     <div className="lr-faq">
