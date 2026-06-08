@@ -1,16 +1,16 @@
 # Flashcards
 
-Documentación del sistema de tarjetas de memoria de Dome con algoritmo SM-2 (Spaced Repetition).
+Documentación del sistema de tarjetas de memoria de Dome con algoritmo **FSRS** (Free Spaced Repetition Scheduler). Las tarjetas legacy con campos SM-2 se migran automáticamente (migración DB 38).
 
 ---
 
 ## Concepto
 
-Las **Flashcards** de Dome implementan el algoritmo **SM-2** (SuperMemo 2) para optimizar el aprendizaje por repetición espaciada. El sistema calcula automáticamente cuándo volver a mostrarte cada tarjeta según tu rendimiento, maximizando la retención a largo plazo.
+Las **Flashcards** de Dome implementan **FSRS** para optimizar el aprendizaje por repetición espaciada. El sistema calcula automáticamente cuándo volver a mostrarte cada tarjeta según tu rendimiento, maximizando la retención a largo plazo. La UI de estudio (`FlashPlayer`) incluye volteo 3D de la tarjeta.
 
-### ¿Qué es SM-2?
+### ¿Qué es FSRS?
 
-SM-2 es un algoritmo de repetición espaciada que:
+FSRS es un algoritmo moderno de repetición espaciada que:
 
 - Muestra las tarjetas que estás a punto de olvidar (antes de que lo hagas)
 - Si recuerdas bien una tarjeta, el intervalo hasta verla de nuevo se alarga (1d → 3d → 7d → 15d...)

@@ -1,6 +1,6 @@
 # Manual Técnico — Dome Desktop
 
-> Referencia técnica consolidada para desarrolladores de Dome (v2.2.0).
+> Referencia técnica consolidada para desarrolladores de Dome (v2.3.5).
 > Asume conocimiento de TypeScript, React y Electron.
 
 ---
@@ -36,7 +36,7 @@ Dome usa el modelo multi-proceso de Electron (similar a Chrome):
 │  ✅ better-sqlite3                   │
 │  ✅ fs, child_process                │
 │  ✅ Electron APIs                    │
-│  ✅ LangGraph, LangChain             │
+│  ✅ @dome/agent-core, LangChain      │
 │  ✅ AI providers (directo)           │
 └──────────────┬───────────────────────┘
                │
@@ -224,7 +224,7 @@ const result = await window.electron.invoke('myfeature:doAction', params);
 | Semantic | `db:semantic:*`, `semantic:progress` | Embeddings, indexación, búsqueda |
 | Cloud LLM | `cloud:llm:*` | Visión / transcripción PDF e imagen (proveedor del usuario) |
 | Calendar | `calendar:*` | Events CRUD, Google Calendar sync |
-| Flashcards | `flashcards:*` | Decks, cards, SM-2 scheduling |
+| Flashcards | `flashcards:*` | Decks, cards, FSRS scheduling |
 | Studio | `studio:*` | Content generation |
 | Cloud | `cloud:*` | Google Drive, OneDrive |
 | Dome Auth | `dome-auth:*` | OAuth session con Provider |
@@ -368,19 +368,21 @@ for await (const chunk of client.streamChat(messages, options)) {
 | `dome` | dome/auto (proxy al Provider) | ✅ | ✅ | Según plan |
 | `openrouter` | Todos los modelos vía OR | ✅ | ✅ | Según modelo |
 
-### LangGraph (main process)
+### Agent runtime (main process)
 
-Las conversaciones complejas y agents usan LangGraph:
+Las conversaciones con herramientas y todos los agentes usan el harness nativo Dome (`@dome/agent-core`). Ver [architecture/agent-runtime.md](architecture/agent-runtime.md).
 
 ```javascript
-// electron/langgraph-agent.cjs
-const graph = buildAgentGraph({
-  agentConfig,
-  tools: getToolDefinitionsByIds(toolIds),
-  aiConfig: { provider, model, apiKey },
-});
+// electron/agents/agent-runtime.cjs
+const { runAgent } = require('./agent-runtime.cjs');
 
-const runId = await runEngine.startLangGraphRun({ graph, prompt, sessionId });
+await runAgent('many', {
+  threadId,
+  messages,
+  provider,
+  model,
+  tools,
+});
 ```
 
 ### Herramientas de IA disponibles
@@ -436,7 +438,7 @@ queued → running → completed
 |-------|-------------|
 | `runs:get` | Obtener run por ID |
 | `runs:list` | Listar runs con filtros |
-| `runs:startLangGraph` | Iniciar run de agente |
+| `runs:start` | Iniciar run de agente |
 | `runs:startWorkflow` | Iniciar run de workflow |
 | `runs:cancel` | Cancelar run activo |
 | `runs:resume` | Reanudar run con decisiones |
@@ -783,4 +785,4 @@ Checklist:
 
 ---
 
-*Manual Técnico — Dome v2.2.0*
+*Manual Técnico — Dome v2.3.5*

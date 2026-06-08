@@ -3,19 +3,22 @@
 // fetch/stream AbortSignal usage (MCP servers, AI streams, etc.)
 require('events').EventEmitter.defaultMaxListeners = 30;
 
-// Transitive deps (p. ej. whatwg-url/tr46 vía node-fetch) aún resuelven el punycode
-// incorporado de Node; DEP0040 no lo podemos arreglar aquí sin overrides profundos.
-// Con un listener, Node deja de imprimir warnings a stderr; reenviamos el resto.
-process.on('warning', (warning) => {
-  if (
-    warning.name === 'DeprecationWarning' &&
-    warning.code === 'DEP0040' &&
-    String(warning.message).includes('punycode')
-  ) {
-    return;
-  }
-  console.warn(warning.stack || `${warning.name}: ${warning.message}`);
-});
+// DEP0040: deps transitivas (whatwg-url/tr46 vía node-fetch) hacen `require('punycode')`,
+// que carga el módulo *incorporado* y deprecado de Node. En Electron ese warning sí se
+// imprime a stderr. En vez de silenciarlo (un listener de 'warning' NO evita el print),
+// redirigimos `require('punycode')` al paquete userland equivalente: así el built-in
+// deprecado nunca se carga y DEP0040 desaparece de raíz. Debe ir antes de cargar deps.
+(() => {
+  const Module = require('module');
+  const userlandPunycode = require('punycode/');
+  const originalLoad = Module._load;
+  Module._load = function (request, parent, isMain) {
+    if (request === 'punycode' || request === 'node:punycode') {
+      return userlandPunycode;
+    }
+    return originalLoad.call(this, request, parent, isMain);
+  };
+})();
 
 // Load .env in development
 const fs_env = require('fs');

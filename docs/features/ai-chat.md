@@ -7,7 +7,7 @@ Documentation for Dome's AI chat: unified client, streaming, tools, and UI.
 **Agent Teams** (v2.0.8): Multi-agent supervisor + specialized sub-agents. `electron/ipc/agent-team.cjs`. See [agent-teams.md](./agent-teams.md).
 **Agent Canvas** (v2.0.8): Visual workflow builder. `app/components/agent-canvas/`. See [agent-canvas.md](./agent-canvas.md).
 
-State: `app/lib/store/useManyStore.ts` (Many chat), `app/lib/store/useAgentChatStore.ts` (agent sessions). Main process AI: `electron/ai-chat-with-tools.cjs`, `electron/langgraph-agent.cjs`, `electron/ipc/ai.cjs`.
+State: `app/lib/store/useManyStore.ts` (Many chat), `app/lib/store/useAgentChatStore.ts` (agent sessions). Main process AI: `electron/agents/agent-runtime.cjs`, `electron/agents/dome-harness-bridge.cjs`, `electron/ipc/ai.cjs`, `electron/ipc/agents/threads.cjs`. Ver [agent-runtime.md](../architecture/agent-runtime.md).
 
 ---
 

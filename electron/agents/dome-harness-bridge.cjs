@@ -13,17 +13,26 @@ const SESSION_CWD = 'dome';
 /** Nested harness sessions (subagents, team delegates, forks) — hidden from Many chat list. */
 const NESTED_THREAD_ID_RE = /_(sub|member|fork)_/;
 
+/**
+ * Non-Many surfaces that run through the agent runtime but must NOT appear in the
+ * Many chat history (Learn/Studio generation, agent-canvas nodes). They mark their
+ * sessions with one of these threadId prefixes.
+ */
+const NON_MANY_THREAD_PREFIXES = ['studio-', 'canvas-'];
+
 function isNestedThreadId(threadId) {
   return typeof threadId === 'string' && NESTED_THREAD_ID_RE.test(threadId);
 }
 
-/** Root Many/user sessions only — child sessions stay off the sidebar list. */
+/** Root Many/user sessions only — child / non-Many surfaces stay off the sidebar list. */
 function isRootSessionMeta(meta) {
   if (!meta || typeof meta.id !== 'string') return false;
   if (meta.parentSessionPath) return false;
   if (isNestedThreadId(meta.id)) return false;
   // Legacy per-run Many ids (pre stable threadId = sessionId).
   if (meta.id.startsWith('many_')) return false;
+  // Learn/Studio + agent-canvas runs are not Many chats.
+  if (NON_MANY_THREAD_PREFIXES.some((p) => meta.id.startsWith(p))) return false;
   return true;
 }
 

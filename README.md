@@ -9,7 +9,7 @@
 [![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat&logo=vite&logoColor=white)](https://vitejs.dev/)
 [![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black)](https://reactjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.1-00C853?style=flat)](https://langchain-ai.github.io/langgraphjs/)
+[![Agent Runtime](https://img.shields.io/badge/Agent%20Runtime-Dome%20native-6366f1?style=flat)](#tech-stack)
 [![License](https://img.shields.io/badge/License-Custom%20Open%20Source-blue.svg)](LICENSE)
 
 ![GitHub Stars](https://img.shields.io/github/stars/maxprain12/dome?style=for-the-badge&labelColor=grey&color=6366f1)
@@ -40,13 +40,13 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 
 | | |
 |---|---|
-| **Many AI Assistant** | LangGraph-powered chat with web search, resource search, memory, and MCP tools |
+| **Many AI Assistant** | Dome-native agent runtime with web search, resource search, JSONL sessions, and MCP tools |
 | **Many Agents** | Custom agents with their own instructions, tools, MCP servers, and sessions |
 | **Agent Canvas** | Visual drag-and-drop workflow builder (D3 + SVG edges) |
 | **Agent Teams** | Multi-agent collaboration in a shared chat session |
 | **Studio** | Generate mindmaps, quizzes, flashcards, guides, FAQs, and timelines from your content |
 | **Semantic search** | Configurable LangChain embeddings (OpenAI / Google / Ollama) in LanceDB, hybrid search (vectors + FTS + graph); PDF/image text via your cloud LLM (vision) |
-| **Flashcards** | SM-2 spaced repetition with AI-generated decks |
+| **Flashcards** | FSRS spaced repetition with AI-generated decks and 3D flip study UI |
 | **Calendar** | Google Calendar sync + AI tools to create and manage events from chat |
 | **Google Drive** | Native import with PKCE OAuth 2.0 — tokens stored locally, never on Dome servers |
 | **PDF Viewer** | Highlight, underline, comment, and annotate |
@@ -68,7 +68,7 @@ Dome is an open-source desktop app for researchers, academics, and knowledge wor
 | Desktop | [Electron 41](https://www.electronjs.org/) |
 | Frontend | [Vite 7](https://vitejs.dev/) + [React 18](https://reactjs.org/) |
 | Styling | [Tailwind CSS](https://tailwindcss.com/) + [Mantine UI](https://mantine.dev/) |
-| AI Agent | [LangGraph](https://langchain-ai.github.io/langgraphjs/) + [LangChain](https://js.langchain.com/) |
+| AI Agent | `@dome/agent-core` (Dome-native harness) + [LangChain](https://js.langchain.com/) (LLM/embeddings) |
 | MCP | [@langchain/mcp-adapters](https://js.langchain.com/docs/integrations/tools/mcp) |
 | Database | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
 | Semantic index | LangChain embeddings + LanceDB + hybrid search; see `docs/features/indexing.md` |

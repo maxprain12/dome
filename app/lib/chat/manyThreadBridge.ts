@@ -122,8 +122,15 @@ export interface ThreadSessionSummary {
 /** Nested harness sessions (subagents, team delegates, forks) — not shown in Many sidebar. */
 export const NESTED_MANY_THREAD_ID_RE = /_(sub|member|fork)_/;
 
+/** Non-Many surfaces (Learn/Studio generation, agent-canvas nodes) — not Many chats. */
+const NON_MANY_THREAD_PREFIXES = ['studio-', 'canvas-'];
+
 export function isNestedManyThreadId(threadId: string): boolean {
-  return NESTED_MANY_THREAD_ID_RE.test(threadId) || threadId.startsWith('many_');
+  return (
+    NESTED_MANY_THREAD_ID_RE.test(threadId) ||
+    threadId.startsWith('many_') ||
+    NON_MANY_THREAD_PREFIXES.some((p) => threadId.startsWith(p))
+  );
 }
 
 /**

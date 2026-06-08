@@ -1,6 +1,6 @@
 # Dome – índice de documentación
 
-Documentación del proyecto Dome (v2.2.0). Además de este índice:
+Documentación del proyecto Dome (v2.3.5). Además de este índice:
 
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
@@ -27,7 +27,8 @@ Documentación del proyecto Dome (v2.2.0). Además de este índice:
 
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
-| **AI / Chat (Martin/Many)** | [ai-chat.md](features/ai-chat.md) | Cliente, streaming, Many, Agent Teams, IPC `ai:`* |
+| **AI / Chat (Martin/Many)** | [ai-chat.md](features/ai-chat.md) | Cliente, streaming, Many, Agent Teams, IPC `ai:*` |
+| **Agent runtime** | [agent-runtime.md](architecture/agent-runtime.md) | Harness `@dome/agent-core`, JSONL, threads IPC |
 | **Recursos** | [resources.md](features/resources.md) | Resource/Project, DB client, almacenamiento |
 | **Editor** | [editor.md](features/editor.md) | Tiptap, bloques, slash commands |
 | **Workspace** | [workspace.md](features/workspace.md) | Layout, pestañas, rutas |
@@ -50,7 +51,7 @@ Documentación del proyecto Dome (v2.2.0). Además de este índice:
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
 | **Calendar** | [calendar.md](features/calendar.md) | Calendario, Google sync |
-| **Flashcards** | [flashcards.md](features/flashcards.md) | SM-2, sesiones |
+| **Flashcards** | [flashcards.md](features/flashcards.md) | FSRS, sesiones, volteo 3D |
 | **Automatizaciones** | [automations.md](features/automations.md) | Run Engine, feeders |
 | **Runs** | [runs.md](features/runs.md) | Estados, logs |
 

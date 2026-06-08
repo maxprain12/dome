@@ -24,7 +24,7 @@
 │  y investigación académica. Combina editor, IA, agentes,    │
 │  organización de recursos y herramientas de estudio.        │
 │                                                              │
-│  v2.1.6  ·  pnpm  ·  Electron 41  ·  TypeScript             │
+│  v2.3.5  ·  pnpm  ·  Electron 41  ·  TypeScript             │
 └──────────────────────────────┬──────────────────────────────┘
                                │ OAuth PKCE + AI Proxy
                                │ dome://dome-auth/oauth/callback
@@ -98,7 +98,7 @@
 | Feature | Doc | Estado |
 |---------|-----|--------|
 | Calendar + Google Calendar | [calendar.md](./docs/features/calendar.md) | ✅ v2.0.0 |
-| Flashcards SM-2 | [flashcards.md](./docs/features/flashcards.md) | ✅ Implementado |
+| Flashcards FSRS | [flashcards.md](./docs/features/flashcards.md) | ✅ v2.3.5 |
 | Automatizaciones | [automations.md](./docs/features/automations.md) | ✅ v2.0.8 |
 | Run Engine | [runs.md](./docs/features/runs.md) | ✅ v2.0.8 |
 
@@ -246,4 +246,4 @@ Ver: [CLAUDE.md](./CLAUDE.md) · [.claude/rules/architecture-rules.md](./.claude
 
 ---
 
-*Última actualización: v2.1.6 (2026-04-27) — Dome Desktop + Dome Provider Fase 1*
+*Última actualización: v2.3.5 (2026-06-08) — Dome Desktop + Dome Provider Fase 1*
