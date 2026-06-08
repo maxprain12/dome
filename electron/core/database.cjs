@@ -3876,6 +3876,9 @@ function getQueries() {
       WHERE id = ?
     `),
     getAutomationRunById: db.prepare('SELECT * FROM automation_runs WHERE id = ?'),
+    // Workflow run ids — used to hide per-node JSONL sessions (`${runId}_${nodeId}`)
+    // from the Many chat history list (they belong to Workflows, not Many chats).
+    getWorkflowRunIds: db.prepare("SELECT id FROM automation_runs WHERE owner_type = 'workflow'"),
     getAutomationRunsByOwner: db.prepare(`
       SELECT * FROM automation_runs
       WHERE owner_type = ? AND owner_id = ?

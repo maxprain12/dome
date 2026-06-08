@@ -1,6 +1,6 @@
 # Manual de Usuario — Dome
 
-> Guía completa para usuarios finales de Dome Desktop (v2.1.7).
+> Guía completa para usuarios finales de Dome Desktop (v2.3.5).
 > Este manual no requiere conocimientos técnicos.
 
 ---
@@ -36,7 +36,7 @@ Dome es una aplicación de escritorio para **gestión del conocimiento e investi
 - Generar automáticamente resúmenes, quizzes, flashcards y más
 - Crear workflows de IA complejos con una interfaz visual
 - Sincronizar con Google Calendar, Google Drive y OneDrive
-- Estudiar con repetición espaciada (SM-2)
+- Estudiar con repetición espaciada (FSRS)
 
 Dome funciona **completamente offline** con proveedores IA locales (Ollama), o conectado a la nube con OpenAI, Anthropic, Google u otros proveedores.
 
@@ -356,7 +356,7 @@ El **Studio** genera automáticamente materiales de estudio y contenido estructu
 
 ## 12. Flashcards — estudio inteligente
 
-Las **Flashcards** de Dome usan el algoritmo **SM-2** (Spaced Repetition) para optimizar cuándo repasar cada tarjeta según tu rendimiento.
+Las **Flashcards** de Dome usan el algoritmo **FSRS** (Free Spaced Repetition Scheduler) para optimizar cuándo repasar cada tarjeta según tu rendimiento. Las tarjetas se voltean con animación 3D al pulsar o con la barra espaciadora.
 
 ### Crear un deck
 

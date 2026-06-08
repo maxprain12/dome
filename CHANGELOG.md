@@ -4,34 +4,44 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
-## [2.3.5](https://github.com/maxprain12/dome/releases/tag/v2.3.5) - 2026-06-07
+## [2.3.5](https://github.com/maxprain12/dome/releases/tag/v2.3.5) - 2026-06-08
+
+Release pública para todos los usuarios. Sustituye el runtime LangGraph por el harness nativo Dome, corrige regresiones de Learn/Flashcards del redesign 2.3.0 y mejora la higiene del historial Many.
 
 ### Added
 
-- **Dome-native agent runtime** (`@dome/agent-core` + `AgentHarness`) for Many, agent-chat, workflows, Agent Team, automations, and bench — LangGraph fully removed.
-- **JSONL session persistence** for Many (`threads:*` IPC, `manyThreadBridge`, sidebar hydration from `threads:list?rootOnly=true`).
-- **Context usage UI**: `ContextUsageIndicator`, segmented budget popup, `CompactionNotice`, live token estimates.
-- **HITL resume**, Many `task` subagents, Agent Team `delegate_to_agent`, manual `threads:compact` / `threads:navigate-tree`.
-- **Native web search** for Anthropic / Gemini / OpenAI Responses; HTTP `web_search` / `web_fetch` fallback for other providers.
-- **Multimodal Many attachments** via `ImageContent` (sharp resize in main process).
-- **Tool schema normalization** (`normalizeToolParameters`, `tool-schema.ts`) for strict providers (MiniMax error 2013).
-- **Workflow DAG executor** in `run-engine.cjs` (topological levels, per-node retry); text-only propagation between agent nodes.
+- **Dome-native agent runtime** (`@dome/agent-core` + `AgentHarness`) para Many, agent-chat, workflows, Agent Team, automations y bench — **LangGraph eliminado por completo**.
+- **Persistencia de sesiones JSONL** para Many (`threads:*` IPC, `manyThreadBridge`, hidratación del sidebar desde `threads:list?rootOnly=true`).
+- **UI de uso de contexto**: `ContextUsageIndicator`, popup de presupuesto segmentado, `CompactionNotice`, estimaciones de tokens en vivo.
+- **HITL resume**, subagentes Many `task`, `delegate_to_agent` en Agent Team, `threads:compact` / `threads:navigate-tree` manuales.
+- **Búsqueda web nativa** para Anthropic / Gemini / OpenAI Responses; fallback HTTP `web_search` / `web_fetch` para otros proveedores.
+- **Adjuntos multimodales en Many** vía `ImageContent` (resize con sharp en main process).
+- **Normalización de schemas de tools** (`normalizeToolParameters`, `tool-schema.ts`) para proveedores estrictos (error MiniMax 2013).
+- **Ejecutor DAG de workflows** en `run-engine.cjs` (niveles topológicos, retry por nodo); propagación solo de texto entre nodos agente.
+- **FSRS** (`ts-fsrs`) para flashcards — migración DB 38; backfill desde campos SM-2 legacy; botones de estudio con vista previa de intervalos.
+- **Logos de marca de proveedores** actualizados (DeepSeek, Moonshot, Qwen, GitHub Copilot) + `modelcontextprotocol.svg`; filtro `--dome-logo-filter` en tema oscuro para iconos monocromos.
 
 ### Changed
 
-- Renamed `useLangGraphRunStream` → `useAgentRunStream`; renderer/runtime terminology aligned with Dome agent harness (no upstream product names in code).
-- MiniMax: disabled Anthropic server web tools; client HTTP search/fetch retained; empty tool names filtered in Anthropic provider.
-- Provider config unified (`resolve-provider-config.cjs`); cloud providers wired end-to-end in settings.
+- `useLangGraphRunStream` → `useAgentRunStream`; terminología renderer/runtime alineada con el harness Dome (sin nombres de productos upstream en código).
+- MiniMax: desactivadas web tools nativas Anthropic; búsqueda/fetch HTTP cliente conservados; nombres de tool vacíos filtrados en el proveedor Anthropic.
+- Config de proveedores unificada (`resolve-provider-config.cjs`); proveedores cloud cableados end-to-end en ajustes.
+- Empaquetado: `shared/` incluido en `app.asar` para que la app arranque en producción (#342).
 
 ### Fixed
 
-- MiniMax API **2013** (`function name or parameters is empty`) from invalid native web tools and empty tool schemas.
-- Many session list drift (JSONL as source of truth; localStorage UI meta only).
-- Workflow LLM usage double-counting on multi-agent runs.
+- MiniMax API **2013** (`function name or parameters is empty`) por web tools nativas inválidas y schemas vacíos.
+- Deriva de la lista de sesiones Many (JSONL como fuente de verdad; localStorage solo meta UI).
+- Doble conteo de usage LLM en workflows multi-agente.
+- **Flashcards (Learn 2.3.0)**: volteo 3D restaurado; tarjetas nuevas contaban como due; sesiones vacías; re-estudio bloqueado; `deck_id` incorrecto desde Studio (#344).
+- KPIs Learn: tarjetas con `next_review_at IS NULL` incluidas en el conteo due.
+- **Historial Many**: sesiones JSONL de Studio (`studio-*`), agent-canvas (`canvas-*`) y nodos de workflow (`{runId}_{nodeId}`) excluidas del sidebar de chats.
+- Aviso **DEP0040** de `punycode` incorporado en Electron — redirect a paquete userland en `main.cjs`.
 
 ### Docs
 
-- `docs/architecture/agent-runtime.md` — runtime, sessions, workflow propagation, provider notes; upstream [pi](https://github.com/earendil-works/pi) cited as design reference only.
+- `docs/architecture/agent-runtime.md` — runtime, sesiones, propagación en workflows, notas de proveedores; referencia upstream [pi](https://github.com/earendil-works/pi) solo como diseño.
+- Manuales, README y feature docs actualizados a v2.3.5 (runtime nativo, FSRS, logos).
 
 ## [2.3.0](https://github.com/maxprain12/dome/releases/tag/v2.3.0) - 2026-06-02
 

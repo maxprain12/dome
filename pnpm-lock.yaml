@@ -281,6 +281,9 @@ importers:
       protobufjs:
         specifier: ^7.5.6
         version: 7.5.8
+      punycode:
+        specifier: ^2.3.1
+        version: 2.3.1
       pyodide:
         specifier: ^0.29.0
         version: 0.29.4

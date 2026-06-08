@@ -405,7 +405,14 @@ export function useStudioGenerate(options?: {
         progress?.('writing', 'Writing draft…');
 
         if (useTools && tools && tools.length > 0) {
-          const result = await chatWithTools(messages, tools, { maxIterations: 5, skipHitl: true });
+          // Mark the harness session as a Learn/Studio run so it is excluded from
+          // the Many chat history (it is one-shot generation, not a conversation).
+          const studioThreadId = `studio-${type}-${Date.now()}`;
+          const result = await chatWithTools(messages, tools, {
+            maxIterations: 5,
+            skipHitl: true,
+            threadId: studioThreadId,
+          });
           response = result.response;
         } else {
           for await (const chunk of chatStream(messages)) {

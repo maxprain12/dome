@@ -65,6 +65,17 @@ async function openThreadSession(threadId) {
   return { meta, session, repo };
 }
 
+function getWorkflowRunIdSet() {
+  try {
+    const queries = database.getQueries();
+    const rows = queries?.getWorkflowRunIds?.all() ?? [];
+    return new Set(rows.map((row) => row.id));
+  } catch (err) {
+    console.error('[threads:list] getWorkflowRunIds', err?.message);
+    return new Set();
+  }
+}
+
 async function resolveThreadProviderConfig(provider, model) {
   const queries = database.getQueries();
   const providerResult = queries.getSetting.get('ai_provider');
@@ -87,6 +98,17 @@ function register({ ipcMain, windowManager, validateSender }) {
       const rootOnly = parsedOpts.data.rootOnly !== false;
       if (rootOnly) {
         sessions = sessions.filter(bridge.isRootSessionMeta);
+        // Hide workflow per-node sessions (`${workflowRunId}_${nodeId}`): they are
+        // root JSONL sessions but belong to Workflows, not the Many chat history.
+        // Workflow run ids are UUIDs (no underscores), so the segment before the
+        // first underscore is the run id — match it against known workflow runs.
+        const workflowRunIds = getWorkflowRunIdSet();
+        if (workflowRunIds.size > 0) {
+          sessions = sessions.filter((meta) => {
+            const sep = typeof meta.id === 'string' ? meta.id.indexOf('_') : -1;
+            return sep <= 0 || !workflowRunIds.has(meta.id.slice(0, sep));
+          });
+        }
       }
       const limit = Math.min(Number(parsedOpts.data.limit ?? 100), 500);
       const threads = sessions.slice(0, limit).map((meta) => ({
