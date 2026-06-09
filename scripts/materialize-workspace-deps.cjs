@@ -47,27 +47,32 @@ if (!fs.existsSync(scopeDir)) {
 
 for (const name of WORKSPACE_PKGS) {
   const linkPath = path.join(scopeDir, name);
+  const sourcePkgDir = path.join(root, 'packages', name);
+
   if (!fs.existsSync(linkPath)) {
     fail(`Missing @dome/${name} in node_modules`);
   }
+  if (!fs.existsSync(sourcePkgDir)) {
+    fail(`Missing packages/${name} — workspace package not checked out`);
+  }
 
-  const stat = fs.lstatSync(linkPath);
-  const realPkgDir = stat.isSymbolicLink() ? fs.realpathSync(linkPath) : linkPath;
-  const indexJs = path.join(realPkgDir, 'dist', 'index.js');
+  const indexJs = path.join(sourcePkgDir, 'dist', 'index.js');
   if (!fs.existsSync(indexJs)) {
     fail(`@dome/${name} dist/index.js not built — run pnpm run build:packages`);
   }
 
+  const stat = fs.lstatSync(linkPath);
   if (stat.isSymbolicLink()) {
     const tmpDir = path.join(scopeDir, `.${name}.materialize.tmp`);
-    copyPackage(realPkgDir, tmpDir);
+    copyPackage(sourcePkgDir, tmpDir);
     fs.rmSync(linkPath);
     fs.renameSync(tmpDir, linkPath);
-    console.log(`[materialize-workspace-deps] Materialized @dome/${name} from ${realPkgDir}`);
+    console.log(`[materialize-workspace-deps] Materialized @dome/${name} from ${sourcePkgDir}`);
   } else {
-    // Refresh dist in an already-materialized directory (idempotent rebuilds).
-    copyPackage(realPkgDir, linkPath);
-    console.log(`[materialize-workspace-deps] Refreshed @dome/${name}`);
+    // Idempotent: CI runs materialize twice (build step + electron:pack). Always copy
+    // from packages/, never from node_modules/@dome/* (copyPackage rmSync would delete source).
+    copyPackage(sourcePkgDir, linkPath);
+    console.log(`[materialize-workspace-deps] Refreshed @dome/${name} from ${sourcePkgDir}`);
   }
 }
 
