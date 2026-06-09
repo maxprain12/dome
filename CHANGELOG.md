@@ -4,6 +4,12 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.3.7](https://github.com/maxprain12/dome/releases/tag/v2.3.7) - 2026-06-09
+
+### Fixed
+
+- **CI release build**: `materialize:workspace-deps` fallaba en la segunda ejecución (`electron:pack` tras el paso de build) porque borraba `node_modules/@dome/*` antes de copiar — ahora siempre copia desde `packages/`.
+
 ## [2.3.6](https://github.com/maxprain12/dome/releases/tag/v2.3.6) - 2026-06-09
 
 ### Fixed
