@@ -5,7 +5,8 @@
 - [ ] All in-progress features are merged or intentionally deferred
 - [ ] CI is green on `main` (typecheck, lint, build all pass)
 - [ ] Tested the app end-to-end locally (`pnpm run electron:dev`)
-- [ ] **Packaged build tested** with `pnpm run electron:build` and the resulting app launches without main-process `Cannot find module ...` errors (CI only runs Vite, not electron-builder — see [shared-module-from-electron.md](./shared-module-from-electron.md))
+- [ ] **Packaged build tested** with `pnpm run electron:build` and the resulting app launches without main-process `Cannot find module ...` errors (CI only runs Vite, not electron-builder — see [shared-module-from-electron.md](./shared-module-from-electron.md) and [workspace-packages-packaging.md](./workspace-packages-packaging.md))
+- [ ] **`@dome/*` workspace packages** built and materialized (`pnpm run verify:workspace-deps` passes) before tagging a release
 - [ ] Version bump is correct (semver: patch for bugfixes, minor for features, major for breaking changes)
 
 ## Steps
