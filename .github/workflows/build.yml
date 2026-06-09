@@ -48,8 +48,11 @@ jobs:
 
       - name: Build Vite, natives, embed env, pack (macOS)
         run: |
+          pnpm run build:packages
+          pnpm run materialize:workspace-deps
           pnpm run build
           pnpm run rebuild:natives
+          pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
@@ -106,8 +109,11 @@ jobs:
 
       - name: Build Vite, natives, embed env, pack (Windows)
         run: |
+          pnpm run build:packages
+          pnpm run materialize:workspace-deps
           pnpm run build
           pnpm run rebuild:natives
+          pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
           pnpm run electron:pack -- --win --publish never

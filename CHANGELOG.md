@@ -4,6 +4,12 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.3.6](https://github.com/maxprain12/dome/releases/tag/v2.3.6) - 2026-06-09
+
+### Fixed
+
+- **Empaquetado crítico (Many roto en 2.3.5)**: `@dome/ai`, `@dome/agent-core` y `@dome/tools` se enlazan con pnpm como symlinks a `packages/`; electron-builder los copiaba al asar sin el destino → `Cannot find module '.../node_modules/@dome/ai/dist/index.js'`. Nuevo pipeline `build:packages` + `materialize:workspace-deps` antes de `electron:pack` / CI release; verificación `verify:workspace-deps`.
+
 ## [2.3.5](https://github.com/maxprain12/dome/releases/tag/v2.3.5) - 2026-06-08
 
 Release pública para todos los usuarios. Sustituye el runtime LangGraph por el harness nativo Dome, corrige regresiones de Learn/Flashcards del redesign 2.3.0 y mejora la higiene del historial Many.
