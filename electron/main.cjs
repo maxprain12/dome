@@ -238,6 +238,7 @@ const calendarNotificationService = require('./calendar/calendar-notification-se
 const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
 const automationService = require('./agents/automation-service.cjs');
 const runRetention = require('./agents/run-retention.cjs');
+const errorNotify = require('./core/error-notify.cjs');
 const runEngine = require('./agents/run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
@@ -1045,6 +1046,7 @@ app
     runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
     runRetention.init();
+    errorNotify.init(windowManager);
 
     // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {
