@@ -65,6 +65,19 @@ jobs:
       - name: Tool definitions vs handlers
         run: pnpm run check:tool-coverage
 
+      - name: Design system ratchet (hardcoded colors)
+        run: pnpm run check:design-system
+
+      - name: Security unit tests
+        run: pnpm run test:security
+
+      - name: Agent-core unit tests
+        run: pnpm --filter @dome/agent-core run test
+
+      - name: Dependency audit (prod, high+)
+        run: pnpm audit --prod --audit-level=high
+        continue-on-error: true
+
   build:
     name: Vite Build
     runs-on: ubuntu-latest
