@@ -4,6 +4,7 @@
  */
 
 import type { SystemAgentRole } from '@/types/canvas';
+import { CANVAS_AGENT_COLORS } from '@/lib/ui/palettes';
 
 export interface SystemAgentDefinition {
   role: SystemAgentRole;
@@ -21,8 +22,8 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     role: 'research',
     name: 'Research Agent',
     description: 'Web research and deep search',
-    color: '#0ea5e9',
-    bg: '#f0f9ff',
+    color: CANVAS_AGENT_COLORS.research.color,
+    bg: CANVAS_AGENT_COLORS.research.bg,
     emoji: '🔍',
     toolIds: ['web_search', 'web_fetch', 'deep_research'],
     systemPrompt: `You are an expert research agent. Your mission is to find, analyze, and synthesize high-quality information.
@@ -37,8 +38,8 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     role: 'library',
     name: 'Library Agent',
     description: 'Library resource management and analysis',
-    color: '#22c55e',
-    bg: '#f0fdf4',
+    color: CANVAS_AGENT_COLORS.writer.color,
+    bg: CANVAS_AGENT_COLORS.writer.bg,
     emoji: '📚',
     toolIds: ['resource_hybrid_search', 'resource_get', 'resource_get_section', 'resource_list'],
     systemPrompt: `You are a library agent expert in personal knowledge management.
@@ -53,8 +54,8 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     role: 'writer',
     name: 'Writer Agent',
     description: 'Writing and content creation',
-    color: '#f59e0b',
-    bg: '#fffbeb',
+    color: CANVAS_AGENT_COLORS.review.color,
+    bg: CANVAS_AGENT_COLORS.review.bg,
     emoji: '✍️',
     toolIds: ['resource_create', 'resource_update'],
     systemPrompt: `You are an expert writer agent specializing in creating clear, structured, high-quality content.
@@ -70,8 +71,8 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     role: 'data',
     name: 'Data Agent',
     description: 'Data analysis and processing',
-    color: '#596037',
-    bg: '#E0EAB4',
+    color: CANVAS_AGENT_COLORS.data.color,
+    bg: CANVAS_AGENT_COLORS.data.bg,
     emoji: '📊',
     toolIds: ['excel_get', 'excel_set_cell', 'excel_set_range', 'excel_add_row', 'resource_get', 'resource_list'],
     systemPrompt: `You are a data analysis agent expert in processing and visualizing structured information.
@@ -87,8 +88,8 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     role: 'presenter',
     name: 'Presenter Agent',
     description: 'Presentations, mind maps, and audio-visual materials',
-    color: '#8b5cf6',
-    bg: '#f5f3ff',
+    color: CANVAS_AGENT_COLORS.planner.color,
+    bg: CANVAS_AGENT_COLORS.planner.bg,
     emoji: '🎨',
     toolIds: [
       'ppt_create',
@@ -112,8 +113,8 @@ export const SYSTEM_AGENTS: Record<SystemAgentRole, SystemAgentDefinition> = {
     role: 'curator',
     name: 'Curator Agent',
     description: 'Knowledge graph curation, flashcards, and resource connections',
-    color: '#ec4899',
-    bg: '#fdf2f8',
+    color: CANVAS_AGENT_COLORS.creative.color,
+    bg: CANVAS_AGENT_COLORS.creative.bg,
     emoji: '🗂️',
     toolIds: [
       'generate_knowledge_graph',

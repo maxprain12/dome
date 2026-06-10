@@ -8,6 +8,7 @@
  * with user-controlled data.
  */
 import { useEffect, useRef } from 'react';
+import { PPT_SLIDE_LIGHT_DEFAULT } from '@/lib/ui/palettes';
 import { init as initPptxPreview } from '@/lib/pptx-preview';
 import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
 
@@ -47,7 +48,7 @@ export default function PptCapturePage() {
         display: none !important;
       }
       .pptx-preview-slide-wrapper {
-        color: var(--ppt-text-default, #ffffff);
+        color: var(--ppt-text-default);
       }
     `;
     document.head.appendChild(style);
@@ -89,7 +90,7 @@ export default function PptCapturePage() {
 
         await previewer.preview(bytes.buffer);
 
-        let lightColor = '#ffffff';
+        let lightColor: string = PPT_SLIDE_LIGHT_DEFAULT;
         try {
           const themes = (previewer as PptxPreviewer).pptx?.themes ?? [];
           const lt1 = themes[0]?.clrScheme?.lt1;
@@ -119,7 +120,7 @@ export default function PptCapturePage() {
         return new Promise((resolve) => {
           requestAnimationFrame(() =>
             requestAnimationFrame(() => {
-              const lightColor = (window as unknown as Record<string, unknown>).__pptLightColor as string ?? '#ffffff';
+              const lightColor = (window as unknown as Record<string, unknown>).__pptLightColor as string ?? PPT_SLIDE_LIGHT_DEFAULT;
               fixDarkSlideTextColors(containerRef.current!, lightColor);
               resolve(true);
             }),

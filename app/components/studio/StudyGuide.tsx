@@ -73,7 +73,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
                   onClick={() => toggleSection(index)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors group"
                   style={{
-                    background: isExpanded ? 'var(--dome-accent-bg, #F5F3EE)' : 'transparent',
+                    background: isExpanded ? 'var(--dome-accent-bg)' : 'transparent',
                   }}
                 >
                   {isExpanded ? (

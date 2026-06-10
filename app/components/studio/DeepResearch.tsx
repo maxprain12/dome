@@ -50,7 +50,7 @@ const LOG_TYPE_ICONS: Record<ResearchLogEntry['type'], typeof Search> = {
 
 const LOG_TYPE_COLORS: Record<ResearchLogEntry['type'], string> = {
   search: 'var(--info)',
-  fetch: 'var(--dome-accent, #596037)',
+  fetch: 'var(--dome-accent)',
   analyze: 'var(--warning)',
   synthesize: 'var(--accent)',
   info: 'var(--tertiary-text)',
@@ -724,7 +724,7 @@ export default function DeepResearch({
         style={{ borderColor: 'var(--border)' }}
       >
         <div className="flex items-center gap-2">
-          <Brain size={16} style={{ color: 'var(--dome-accent, #596037)' }} />
+          <Brain size={16} style={{ color: 'var(--dome-accent)' }} />
           <h3
             className="text-sm font-semibold"
             style={{ color: 'var(--primary-text)' }}

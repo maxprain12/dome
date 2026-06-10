@@ -19,6 +19,19 @@
   --home-cool-soft: #DBE4EF;
   --home-rose: #B85D6B;
   --home-rose-soft: #EFDADE;
+  /* Resource-tone chips (activity list) */
+  --home-tone-pdf-text: #b35858;
+  --home-tone-sheet: #22c55e;
+  --home-tone-sheet-text: #3d8f52;
+  --home-tone-deck: #f97316;
+  --home-tone-deck-text: #c45c20;
+  --home-tone-image: #a855f7;
+  --home-tone-image-text: #7c3aed;
+  --home-tone-audio: #ec4899;
+  --home-tone-audio-text: #be185d;
+  --home-tone-video: #3b82f6;
+  --home-tone-video-text: #2563eb;
+  --home-page-bg-dark: #050505;
 }
 
 [data-theme="dark"] {
@@ -37,6 +50,13 @@
   --home-warm-soft: #3A2418;
   --home-cool-soft: #1F2A38;
   --home-rose-soft: #3A1F25;
+  /* Resource-tone chips — lighter text variants for dark surfaces */
+  --home-tone-pdf-text: #d98f8f;
+  --home-tone-sheet-text: #7fc28f;
+  --home-tone-deck-text: #e0925c;
+  --home-tone-image-text: #b794e8;
+  --home-tone-audio-text: #e08bb4;
+  --home-tone-video-text: #84a9e8;
 }
 
 .home-shell {
@@ -935,7 +955,7 @@
 }
 .h-activity-item .attach-icon[data-resource-tone="pdf"] {
   background: color-mix(in srgb, var(--error) 15%, transparent);
-  color: #b35858;
+  color: var(--home-tone-pdf-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="note"] {
   background: color-mix(in srgb, var(--info) 15%, transparent);
@@ -946,24 +966,24 @@
   color: var(--accent);
 }
 .h-activity-item .attach-icon[data-resource-tone="sheet"] {
-  background: color-mix(in srgb, #22c55e 14%, transparent);
-  color: #3d8f52;
+  background: color-mix(in srgb, var(--home-tone-sheet) 14%, transparent);
+  color: var(--home-tone-sheet-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="deck"] {
-  background: color-mix(in srgb, #f97316 14%, transparent);
-  color: #c45c20;
+  background: color-mix(in srgb, var(--home-tone-deck) 14%, transparent);
+  color: var(--home-tone-deck-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="image"] {
-  background: color-mix(in srgb, #a855f7 14%, transparent);
-  color: #7c3aed;
+  background: color-mix(in srgb, var(--home-tone-image) 14%, transparent);
+  color: var(--home-tone-image-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="audio"] {
-  background: color-mix(in srgb, #ec4899 12%, transparent);
-  color: #be185d;
+  background: color-mix(in srgb, var(--home-tone-audio) 12%, transparent);
+  color: var(--home-tone-audio-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="video"] {
-  background: color-mix(in srgb, #3b82f6 14%, transparent);
-  color: #2563eb;
+  background: color-mix(in srgb, var(--home-tone-video) 14%, transparent);
+  color: var(--home-tone-video-text);
 }
 .h-activity-item .attach-icon[data-resource-tone="web"] {
   background: color-mix(in srgb, var(--info) 12%, transparent);
@@ -1126,7 +1146,7 @@
 
 /* dark theme adjustments */
 [data-theme="dark"] .h-quick-btn .icon { background: rgba(255,255,255,0.05); }
-[data-theme="dark"] body, [data-theme="dark"] html { background: #050505; }
+[data-theme="dark"] body, [data-theme="dark"] html { background: var(--home-page-bg-dark); }
 
 /* responsive */
 @media (max-width: 980px) {

@@ -188,13 +188,13 @@
 }
 
 .dome-tab-overflow-action--danger {
-  background: color-mix(in srgb, var(--dome-danger, #ef4444) 14%, var(--dome-surface));
-  border-color: color-mix(in srgb, var(--dome-danger, #ef4444) 35%, transparent);
-  color: var(--dome-danger, #dc2626);
+  background: color-mix(in srgb, var(--dome-danger) 14%, var(--dome-surface));
+  border-color: color-mix(in srgb, var(--dome-danger) 35%, transparent);
+  color: var(--dome-danger);
 }
 
 .dome-tab-overflow-action--danger:hover {
-  background: color-mix(in srgb, var(--dome-danger, #ef4444) 22%, var(--dome-surface));
+  background: color-mix(in srgb, var(--dome-danger) 22%, var(--dome-surface));
 }
 
 .dome-tab-scroll {
@@ -279,5 +279,5 @@
 }
 
 .dome-tab-ctx-item[data-danger='true'] {
-  color: var(--dome-danger, #ef4444);
+  color: var(--dome-danger);
 }

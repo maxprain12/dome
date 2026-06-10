@@ -291,7 +291,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             </div>
           ) : processingStatus === 'failed' ? (
             <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
-              <AlertCircle className="size-12" style={{ color: 'var(--dome-error, #ef4444)' }} aria-hidden />
+              <AlertCircle className="size-12" style={{ color: 'var(--dome-error)' }} aria-hidden />
               <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
                 {t('viewer.scrape_status_failed')}
               </h2>

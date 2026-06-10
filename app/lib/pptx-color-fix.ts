@@ -66,7 +66,7 @@ function parseColor(str: string): { r: number; g: number; b: number } | null {
  * Fix near-black text on dark-background slides.
  *
  * pptx-preview resolves PPTX theme color references to dk1 (Dark 1, typically
- * #000000) for text with no explicit color. On dark slides the text becomes
+ * black) for text with no explicit color. On dark slides the text becomes
  * nearly invisible.
  *
  * Strategy:

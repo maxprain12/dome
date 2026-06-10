@@ -9,7 +9,7 @@ import DomeBadge from '@/components/ui/DomeBadge';
 import DomeListState from '@/components/ui/DomeListState';
 
 const DOME_GREEN = 'var(--dome-accent)';
-const DOME_ORANGE = 'var(--warning, #f97316)';
+const DOME_ORANGE = 'var(--warning)';
 
 const INTERVAL_OPTIONS = [5, 15, 30, 60] as const;
 

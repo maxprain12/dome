@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { PDF_CANVAS_FALLBACKS } from '@/lib/ui/palettes';
 import type { PDFPageProxy } from 'pdfjs-dist';
 import type { PDFAnnotation, AnnotationType } from '@/lib/pdf/annotation-utils';
 import { 
@@ -98,7 +99,7 @@ export default function AnnotationLayer({
             width: coordinates.width,
             height: coordinates.height,
           });
-          ctx.strokeStyle = resolveCssColor('var(--accent)') ?? '#0ea5e9';
+          ctx.strokeStyle = resolveCssColor('var(--accent)') ?? PDF_CANVAS_FALLBACKS.accent;
           ctx.lineWidth = 2;
           ctx.setLineDash([5, 5]);
           ctx.strokeRect(
@@ -114,7 +115,7 @@ export default function AnnotationLayer({
       if (isDrawing && startPoint && currentPoint && activeTool === 'highlight') {
         ctx.globalAlpha = 0.3;
         const resolvedFill = resolveCssColor(color);
-        ctx.fillStyle = resolvedFill ?? '#0ea5e9';
+        ctx.fillStyle = resolvedFill ?? PDF_CANVAS_FALLBACKS.accent;
         ctx.fillRect(
           Math.min(startPoint.x, currentPoint.x),
           Math.min(startPoint.y, currentPoint.y),

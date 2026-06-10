@@ -165,12 +165,16 @@
   --warning: #E6C47A;
   /* Kept for utility */
   --warning-bg: #FDF7E8;
+  --warning-text: #8A6D3B;
   --error: #E88585;
   /* Kept for utility */
   --error-bg: #FFEAEA;
   --info: #7B9DD0;
   /* Kept for utility */
   --info-bg: #E8EFF8;
+
+  /* PPT viewer: default slide text (overridden per-presentation via JS) */
+  --ppt-text-default: #1a1a1a;
 
   /* Highlight / Mark */
   --primary-light: #FEF9C3;
@@ -256,6 +260,8 @@
   --dome-accent-hover: var(--accent-hover);
   --dome-accent-bg: var(--translucent);
   --dome-error: var(--error);
+  --dome-danger: var(--error);
+  --dome-on-accent: #ffffff;
   --dome-bg-hover: var(--bg-hover);
   --dome-logo-filter: none;
   --tertiary: var(--tertiary-text);
@@ -305,10 +311,15 @@
   --success-bg: #2A2E1A;
   --warning: #E6C47A;
   --warning-bg: #2E2A18;
+  --warning-text: #E6C47A;
   --error: #E88585;
   --error-bg: #2E1E1E;
   --info: #7B9DD0;
   --info-bg: #1A2030;
+
+  /* PPT viewer: default slide text — slides carry their own background, so this
+     does NOT follow the app theme (overridden per-presentation via JS) */
+  --ppt-text-default: #1a1a1a;
 
   --primary-light: #2A2E1A;
 
@@ -381,6 +392,8 @@
   --dome-accent-hover: var(--accent-hover);
   --dome-accent-bg: var(--translucent);
   --dome-error: var(--error);
+  --dome-danger: var(--error);
+  --dome-on-accent: #ffffff;
   --dome-bg-hover: var(--bg-hover);
   --dome-logo-filter: invert(1) brightness(1.2);
   --tertiary: var(--tertiary-text);

@@ -1,6 +1,7 @@
 # T01 — Migrar colores hardcodeados a variables CSS
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UI Visual
+**Estado**: ✅ Implementado (2026-06-10, rama `fix/ui-migracion-colores-hardcodeados`) — ratchet en **0/0**. Paletas de contenido centralizadas en `app/lib/ui/palettes.ts` (swatches de carpetas/tags persistidos en DB, highlights del editor, nodos del canvas, fallbacks de canvas PDF, tints del marketplace) — único archivo de app con hex permitido junto a `resource-actions.ts` (hex solo en descripciones de tools). ~111 fallbacks `var(--x, #hex)` eliminados (variables ya definidas; se añadieron `--dome-on-accent`, `--dome-danger`, `--warning-text`, `--ppt-text-default` a `globals.css`). CSS de learn/notes-editor/home-dashboard migrados a variables locales con par light/dark (gradientes pastel, badges SRS, tone-chips). Pendiente de revisión visual manual en ambos temas (home, sidebar, learn, editor, canvas).
 
 ## Problema
 

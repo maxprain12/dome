@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
+import { CONTENT_PINK, FOLDER_TAB_SWATCHES, FOLDER_COLOR_DEFAULT } from '@/lib/ui/palettes';
 import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -49,16 +50,12 @@ const TYPE_LABELS: Record<string, string> = {
 
 const TYPE_COLORS: Record<string, string> = {
   note: 'var(--accent)', notebook: 'var(--accent)', url: 'var(--success)',
-  pdf: 'var(--error)', image: 'var(--warning)', video: '#ec4899', audio: 'var(--accent)', ppt: 'var(--warning)',
+  pdf: 'var(--error)', image: 'var(--warning)', video: CONTENT_PINK, audio: 'var(--accent)', ppt: 'var(--warning)',
 };
 
 // ─── ColorPickerPopover ───────────────────────────────────────────────────────
 
-const SWATCHES = [
-  '#596037', '#6d7a42', '#7d8b52', '#8a9668',
-  '#7b76d0', '#998eec', '#3b82f6', '#22c55e',
-  '#f97316', '#ef4444', '#ec4899', '#6b7280',
-];
+const SWATCHES = FOLDER_TAB_SWATCHES;
 
 function ColorPickerPopover({
   pos, currentColor, onSave, onClose,
@@ -309,7 +306,7 @@ function SubfolderCard({
       {colorPickerPos && (
         <ColorPickerPopover
           pos={colorPickerPos}
-          currentColor={color.startsWith('#') ? color : '#596037'}
+          currentColor={color.startsWith('#') ? color : FOLDER_COLOR_DEFAULT}
           onSave={onChangeColor}
           onClose={() => setColorPickerPos(null)}
         />
@@ -497,7 +494,7 @@ function FileRow({
                 type="button"
                 onClick={() => { setMenuOpen(false); onDelete(); }}
                 className="flex items-center gap-2 w-full px-3 py-2 text-xs text-left"
-                style={{ color: 'var(--dome-error, #ef4444)', background: 'none', border: 'none', cursor: 'pointer' }}
+                style={{ color: 'var(--dome-error)', background: 'none', border: 'none', cursor: 'pointer' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'none'; }}
               >
@@ -621,7 +618,7 @@ function AddMenu({ onNewNote, onNewFolder, onUpload, onAddUrl }: {
         className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all"
         style={{
           background: 'var(--dome-accent)',
-          color: 'var(--dome-on-accent, #fff)',
+          color: 'var(--dome-on-accent)',
           border: 'none',
           cursor: 'pointer',
           boxShadow: '0 2px 8px rgba(124,111,205,0.35)',

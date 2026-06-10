@@ -548,21 +548,21 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               className="size-7 rounded-full flex items-center justify-center shrink-0"
               style={{ background: 'rgba(99,102,241,0.12)' }}
             >
-              <Cpu className="size-3.5" style={{ color: 'var(--dome-accent, #6366f1)' }} />
+              <Cpu className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
             </div>
             <div className="flex items-center gap-2">
               <div className="flex gap-1">
                 <span
                   className="size-1.5 rounded-full animate-bounce"
-                  style={{ background: 'var(--dome-accent, #6366f1)', animationDelay: '0ms' }}
+                  style={{ background: 'var(--dome-accent)', animationDelay: '0ms' }}
                 />
                 <span
                   className="size-1.5 rounded-full animate-bounce"
-                  style={{ background: 'var(--dome-accent, #6366f1)', animationDelay: '150ms' }}
+                  style={{ background: 'var(--dome-accent)', animationDelay: '150ms' }}
                 />
                 <span
                   className="size-1.5 rounded-full animate-bounce"
-                  style={{ background: 'var(--dome-accent, #6366f1)', animationDelay: '300ms' }}
+                  style={{ background: 'var(--dome-accent)', animationDelay: '300ms' }}
                 />
               </div>
               <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>

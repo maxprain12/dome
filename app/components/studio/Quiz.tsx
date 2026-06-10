@@ -432,7 +432,7 @@ export default function Quiz({
           className="h-full transition-all duration-300"
           style={{
             width: `${((currentIndex + (showExplanation ? 1 : 0)) / totalQuestions) * 100}%`,
-            background: 'var(--dome-accent, #596037)',
+            background: 'var(--dome-accent)',
           }}
         />
       </div>
@@ -464,14 +464,14 @@ export default function Quiz({
                     onClick={() => handleSelectAnswer(idx)}
                     className={optionClass}
                     style={{
-                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent, #596037)' : 'var(--border)'}`,
-                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'var(--error-bg)' : isSelected ? 'var(--dome-accent-bg, #F5F3EE)' : 'var(--bg-secondary)',
+                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent)' : 'var(--border)'}`,
+                      background: isCorrect ? 'var(--success-bg)' : isWrong ? 'var(--error-bg)' : isSelected ? 'var(--dome-accent-bg)' : 'var(--bg-secondary)',
                       cursor: showExplanation ? 'default' : 'pointer',
                     }}
                   >
                     <span className="size-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0"
                       style={{
-                        background: isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent, #596037)' : 'var(--bg-tertiary)',
+                        background: isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent)' : 'var(--bg-tertiary)',
                         color: (isCorrect || isWrong || isSelected) ? 'var(--base-text)' : 'var(--secondary-text)',
                       }}
                     >
@@ -499,7 +499,7 @@ export default function Quiz({
                     onClick={() => handleSelectAnswer(idx)}
                     className="flex-1 p-4 rounded-lg text-center text-sm font-medium transition-all"
                     style={{
-                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent, #596037)' : 'var(--border)'}`,
+                      border: `2px solid ${isCorrect ? 'var(--success)' : isWrong ? 'var(--error)' : isSelected ? 'var(--dome-accent)' : 'var(--border)'}`,
                       background: isCorrect ? 'var(--success-bg)' : isWrong ? 'var(--error-bg)' : isSelected ? 'var(--dome-accent-bg)' : 'var(--bg-secondary)',
                       color: 'var(--primary-text)',
                       cursor: showExplanation ? 'default' : 'pointer',

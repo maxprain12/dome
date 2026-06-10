@@ -334,7 +334,7 @@
 .hub-toolbar-btn-primary {
   background: var(--home-accent);
   border-color: color-mix(in srgb, var(--home-accent) 80%, var(--home-edge));
-  color: var(--dome-on-accent, #fff);
+  color: var(--dome-on-accent);
 }
 
 .hub-toolbar-btn-primary:hover {
@@ -451,7 +451,7 @@
 }
 
 .hub-runs-metric-card .value.is-error {
-  color: var(--error, #e88585);
+  color: var(--error);
 }
 
 .hub-runs-metric-card .sub {

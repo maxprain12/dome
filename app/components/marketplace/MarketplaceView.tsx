@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { MARKETPLACE_TYPE_TINTS } from '@/lib/ui/palettes';
 import {
   Search,
   Store,
@@ -75,11 +76,11 @@ interface UnifiedItem {
 
 const TYPE_CONFIG = {
   all:       { Icon: Store,     iconBg: 'var(--bg-tertiary)',   iconColor: 'var(--tertiary-text)', label: '' },
-  agents:    { Icon: Bot,       iconBg: 'var(--accent-bg, #ede9fe)', iconColor: 'var(--accent)',  label: 'Agent' },
-  workflows: { Icon: Workflow,  iconBg: '#d1fae5',              iconColor: '#059669',              label: 'Workflow' },
-  mcp:       { Icon: FolderCog, iconBg: '#fef3c7',              iconColor: '#d97706',              label: 'MCP' },
-  skills:    { Icon: Sparkles,  iconBg: '#ede9fe',              iconColor: '#7c3aed',              label: 'Skill' },
-  plugins:   { Icon: Plug,      iconBg: '#dbeafe',              iconColor: '#2563eb',              label: 'Plugin' },
+  agents:    { Icon: Bot,       iconBg: 'var(--accent-bg)', iconColor: 'var(--accent)',  label: 'Agent' },
+  workflows: { Icon: Workflow,  iconBg: MARKETPLACE_TYPE_TINTS.workflows.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.workflows.iconColor,              label: 'Workflow' },
+  mcp:       { Icon: FolderCog, iconBg: MARKETPLACE_TYPE_TINTS.mcp.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.mcp.iconColor,              label: 'MCP' },
+  skills:    { Icon: Sparkles,  iconBg: MARKETPLACE_TYPE_TINTS.skills.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.skills.iconColor,              label: 'Skill' },
+  plugins:   { Icon: Plug,      iconBg: MARKETPLACE_TYPE_TINTS.plugins.iconBg,              iconColor: MARKETPLACE_TYPE_TINTS.plugins.iconColor,              label: 'Plugin' },
 } satisfies Record<FilterType, { Icon: React.ElementType; iconBg: string; iconColor: string; label: string }>;
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -152,7 +153,7 @@ function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
             }}>
               {item.name}
             </span>
-            {item.featured && <Star size={13} fill="var(--warning, #f59e0b)" color="var(--warning, #f59e0b)" />}
+            {item.featured && <Star size={13} fill="var(--warning)" color="var(--warning)" />}
             <span style={{
               fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999,
               backgroundColor: TYPE_CONFIG[item.type].iconBg,
@@ -714,7 +715,7 @@ export default function MarketplaceView() {
             {showFeatured ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <Star size={13} fill="var(--warning, #f59e0b)" color="var(--warning, #f59e0b)" />
+                  <Star size={13} fill="var(--warning)" color="var(--warning)" />
                   <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
                     {t('marketplace.featured', 'Featured')}
                   </span>

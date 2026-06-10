@@ -133,7 +133,7 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
                     className={cn(
                       'w-full justify-start gap-2.5 px-2.5 py-1.5 mb-0.5 rounded-md text-[13px] font-normal h-auto min-h-0',
                       isActive
-                        ? 'bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] text-[var(--dome-accent,#7b76d0)] font-medium hover:bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))]'
+                        ? 'bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] text-[var(--dome-accent)] font-medium hover:bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))]'
                         : 'text-[var(--dome-text-secondary,var(--dome-text-muted))] hover:bg-[var(--dome-bg-hover,rgba(0,0,0,0.04))] hover:text-[var(--dome-text)]',
                     )}
                   >

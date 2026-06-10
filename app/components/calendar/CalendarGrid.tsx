@@ -326,7 +326,7 @@ function DraggableTimeEvent({
         top: renderTop,
         height: renderHeight,
         backgroundColor: event.calendar_color ?? 'var(--dome-accent)',
-        color: 'var(--dome-on-accent, #fff)',
+        color: 'var(--dome-on-accent)',
         zIndex: dragging ? 20 : 2,
         cursor: onEventDateChange ? (dragging === 'move' ? 'grabbing' : 'grab') : 'pointer',
         opacity: dragging ? 0.85 : 1,
@@ -446,7 +446,7 @@ function WeekView({
               className="text-base mx-auto mt-0.5 size-8 flex items-center justify-center rounded-full font-medium"
               style={{
                 background: isToday(day) ? 'var(--dome-accent)' : undefined,
-                color: isToday(day) ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
+                color: isToday(day) ? 'var(--dome-on-accent)' : 'var(--dome-text)',
                 fontWeight: isToday(day) ? 700 : 500,
               }}
             >
@@ -648,7 +648,7 @@ function YearView({
                       className="size-4 flex items-center justify-center rounded-full text-[12px] leading-none"
                       style={{
                         background: today && inMonth ? 'var(--dome-accent)' : undefined,
-                        color: !inMonth ? 'transparent' : today ? 'var(--dome-on-accent, #fff)' : 'var(--dome-text)',
+                        color: !inMonth ? 'transparent' : today ? 'var(--dome-on-accent)' : 'var(--dome-text)',
                         fontWeight: today ? 700 : 400,
                       }}
                     >

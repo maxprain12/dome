@@ -179,7 +179,7 @@ export default function AdvancedSettings() {
               </DomeButton>
             ) : null}
             {updaterState.status === 'error' && (
-              <span className="text-xs" style={{ color: 'var(--dome-error, #ef4444)' }}>
+              <span className="text-xs" style={{ color: 'var(--dome-error)' }}>
                 {updaterState.error || t('settings.advanced.error_update')}
               </span>
             )}

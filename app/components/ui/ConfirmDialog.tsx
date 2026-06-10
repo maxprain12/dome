@@ -117,7 +117,7 @@ export function ConfirmDialog({
                 flexShrink: 0,
               }}
             >
-              <AlertTriangle size={18} style={{ color: 'var(--dome-error, #ef4444)' }} />
+              <AlertTriangle size={18} style={{ color: 'var(--dome-error)' }} />
             </div>
           )}
           <h3
@@ -202,8 +202,8 @@ export function ConfirmDialog({
               padding: '8px 16px',
               borderRadius: 'var(--radius-md, 6px)',
               border: 'none',
-              background: isDanger ? 'var(--dome-error, #ef4444)' : 'var(--accent)',
-              color: 'var(--dome-on-accent, #fff)',
+              background: isDanger ? 'var(--dome-error)' : 'var(--accent)',
+              color: 'var(--dome-on-accent)',
               fontSize: '14px',
               fontWeight: 500,
               cursor: 'pointer',

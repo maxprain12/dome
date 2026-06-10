@@ -67,7 +67,7 @@ export default function ManyAvatar({
                 ? 'var(--warning)'
                 : state === 'speaking'
                   ? 'var(--accent)'
-                  : '#b5b5b5',
+                  : 'var(--tertiary-text)',
           }}
         />
       )}

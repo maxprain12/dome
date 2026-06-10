@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Tag, ChevronLeft, FileText, Video, Music, FileImage, Globe, Folder } from 'lucide-react';
 import { EditorialShell } from '@/components/home/editorial/EditorialShell';
 import { EditorialPageHero } from '@/components/home/editorial/EditorialPageHero';
+import { TAG_COLOR_PALETTE, TAG_COLOR_DEFAULT } from '@/lib/ui/palettes';
 
 interface TagWithCount {
   id: string;
@@ -20,15 +21,11 @@ interface TagResource {
 
 function tagColor(name: string, stored?: string | null): string {
   if (stored) return stored;
-  const palette = [
-    '#7b76d0', '#3b82f6', '#10b981', '#f59e0b',
-    '#e85d4a', '#a855f7', '#6366f1', '#0ea5e9',
-  ];
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
     hash = name.charCodeAt(i) + ((hash << 5) - hash);
   }
-  return palette[Math.abs(hash) % palette.length] ?? '#7b76d0';
+  return TAG_COLOR_PALETTE[Math.abs(hash) % TAG_COLOR_PALETTE.length] ?? TAG_COLOR_DEFAULT;
 }
 
 function ResourceTypeIcon({ type }: { type: string }) {

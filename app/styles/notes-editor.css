@@ -18,10 +18,10 @@
 
   --info-soft-note: color-mix(in srgb, var(--info, #7b9dd0) 14%, transparent);
   --info-text-note: color-mix(in srgb, var(--info, #7b9dd0) 70%, var(--text, var(--primary-text)));
-  --warn-soft-note: color-mix(in srgb, var(--warning, #e89b2a) 14%, transparent);
-  --warn-text-note: color-mix(in srgb, var(--warning, #e89b2a) 55%, var(--text));
-  --rose-soft-note: color-mix(in srgb, var(--error, #e85c4a) 14%, transparent);
-  --rose-text-note: color-mix(in srgb, var(--error, #e85c4a) 55%, var(--text));
+  --warn-soft-note: color-mix(in srgb, var(--warning) 14%, transparent);
+  --warn-text-note: color-mix(in srgb, var(--warning) 55%, var(--text));
+  --rose-soft-note: color-mix(in srgb, var(--error) 14%, transparent);
+  --rose-text-note: color-mix(in srgb, var(--error) 55%, var(--text));
   --olive-soft-note: var(--accent-bg);
   --olive-text-note: var(--accent);
 
@@ -699,7 +699,7 @@ button.note-crumb--interactive {
 }
 
 .bubble-menu-shell.note-bubble-scope {
-  background: color-mix(in srgb, var(--dome-surface, #fff) 92%, transparent);
+  background: color-mix(in srgb, var(--dome-surface) 92%, transparent);
   color: var(--dome-text, var(--primary-text));
   border: 1px solid var(--dome-border, var(--border-soft-note));
   box-shadow:
@@ -708,9 +708,9 @@ button.note-crumb--interactive {
 }
 
 [data-theme='dark'] .bubble-menu-shell.note-bubble-scope {
-  background: color-mix(in srgb, var(--dome-surface, #242424) 94%, transparent);
+  background: color-mix(in srgb, var(--dome-surface) 94%, transparent);
   color: var(--dome-text, var(--text));
-  border-color: color-mix(in srgb, var(--dome-text, #fff) 12%, transparent);
+  border-color: color-mix(in srgb, var(--dome-text) 12%, transparent);
   box-shadow:
     0 16px 44px rgb(0 0 0 / 0.45),
     0 1px 0 rgb(255 255 255 / 0.04) inset;
@@ -764,14 +764,14 @@ button.note-crumb--interactive {
 .bubble-menu-shell.note-bubble-scope .bubble-ai-pill.is-open {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 88%, #3d4a24) 0%,
+    color-mix(in srgb, var(--accent) 88%, var(--base-active)) 0%,
     var(--accent) 100%
   ) !important;
-  color: #fff !important;
+  color: var(--dome-on-accent) !important;
 }
 .bubble-menu-shell .bubble-ai-pill span,
 .bubble-menu-shell .bubble-ai-pill svg {
-  color: #fff;
+  color: var(--dome-on-accent);
 }
 
 .bubble-menu-shell.note-bubble-scope .bubble-bb-sep {
@@ -809,10 +809,10 @@ button.note-crumb--interactive {
 .bubble-menu-shell .bubble-ai-pill {
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 88%, #3d4a24) 0%,
+    color-mix(in srgb, var(--accent) 88%, var(--base-active)) 0%,
     var(--accent) 100%
   );
-  color: var(--accent-on, #fff);
+  color: var(--dome-on-accent);
   padding: 4px 10px;
   gap: 5px;
   border-radius: 8px;
@@ -866,7 +866,7 @@ button.note-crumb--interactive {
     color-mix(in srgb, var(--accent) 85%, black) 0%,
     var(--accent) 100%
   );
-  color: var(--accent-on, #fff);
+  color: var(--dome-on-accent);
   cursor: pointer;
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 42%, transparent);
 }
@@ -919,7 +919,7 @@ button.note-crumb--interactive {
 
 /* Legacy dark bubble mark buttons — overridden by .note-bubble-scope above */
 .bubble-menu-shell:not(.note-bubble-scope) .tiptap-button {
-  color: #f5f5f5 !important;
+  color: var(--dome-on-accent) !important;
   background: transparent !important;
   height: 28px;
   min-width: 28px;
@@ -932,7 +932,7 @@ button.note-crumb--interactive {
 }
 .bubble-menu-shell .tiptap-button[data-active-state='on'] {
   background: rgb(255 255 255 / 0.2) !important;
-  color: #fff !important;
+  color: var(--dome-on-accent) !important;
 }
 .bubble-menu-shell .tiptap-button-icon {
   color: inherit;
@@ -1022,7 +1022,7 @@ button.note-crumb--interactive {
   align-items: center;
   gap: 4px;
   padding: 5px 8px;
-  background: color-mix(in srgb, var(--dome-surface, #fff) 94%, transparent);
+  background: color-mix(in srgb, var(--dome-surface) 94%, transparent);
   border: 1px solid var(--dome-border, var(--border));
   border-radius: 999px;
   box-shadow:
@@ -1032,8 +1032,8 @@ button.note-crumb--interactive {
 }
 
 [data-theme='dark'] .note-insert-bar-inner {
-  background: color-mix(in srgb, var(--dome-surface, #242424) 92%, transparent);
-  border-color: color-mix(in srgb, var(--dome-text, #fff) 10%, transparent);
+  background: color-mix(in srgb, var(--dome-surface) 92%, transparent);
+  border-color: color-mix(in srgb, var(--dome-text) 10%, transparent);
   box-shadow:
     0 16px 40px rgb(0 0 0 / 0.42),
     0 1px 0 rgb(255 255 255 / 0.04) inset;
@@ -1098,15 +1098,15 @@ button.note-crumb--interactive {
   height: 34px;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--accent) 88%, #3d4a24) 0%,
+    color-mix(in srgb, var(--accent) 88%, var(--base-active)) 0%,
     var(--accent) 100%
   );
-  color: var(--accent-on, #fff);
+  color: var(--dome-on-accent);
   box-shadow: 0 2px 10px color-mix(in srgb, var(--accent) 38%, transparent);
 }
 .note-insert-bar-inner button.note-ai-insert-trigger:hover {
   filter: brightness(1.06);
-  color: var(--accent-on, #fff);
+  color: var(--dome-on-accent);
 }
 .note-insert-bar-inner .note-insert-bar-label-kbd {
   padding: 0 12px;
@@ -1118,7 +1118,7 @@ button.note-crumb--interactive {
 /* ── Slash menu (prototype layout) ─────────────────────── */
 .slash-menu-proto {
   width: 340px;
-  background: var(--bg, #fff);
+  background: var(--bg);
   border: 1px solid var(--border-soft-note);
   border-radius: 16px;
   overflow: hidden;
@@ -1128,7 +1128,7 @@ button.note-crumb--interactive {
   max-height: 420px;
 }
 [data-theme='dark'] .slash-menu-proto {
-  background: var(--elevated-low, #1a1a2e);
+  background: var(--bg-secondary);
 }
 
 .slash-search-row {
@@ -1231,7 +1231,7 @@ button.note-crumb--interactive {
 .slash-item-btn.active .slash-item-icon--accent {
   background: var(--accent);
   border-color: transparent;
-  color: #fff;
+  color: var(--dome-on-accent);
 }
 .slash-item-text {
   min-width: 0;
