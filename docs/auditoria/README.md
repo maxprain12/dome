@@ -79,6 +79,22 @@ Validación final en local (tras 3ª pasada): `test:security` **38/38** ✓ · a
 
 **Quedan (refactors multi-PR, hacer por feature):** 02/T01 migración de 279 hex, 03/T01 consolidar modales, 03/T02 componentes gigantes, 03/T03 a11y, 03/T05 botones, 03/T06 responsive, 04/T05 modularizar run-engine, 05/T03 modularizar database, 06/T03 errores visibles. **Pendiente global:** smoke test manual (`pnpm run electron:dev`) y habilitar la app de Renovate en GitHub (owner).
 
+## Ramas de trabajo para lo pendiente
+
+PR de esta rama: [#351](https://github.com/maxprain12/dome/pull/351). Las 9 tareas restantes tienen rama propia (creadas desde la punta de `fix/auditoria-seguridad-p0-p2` para heredar ratchet, tests y logger; rebasar sobre `main` cuando #351 mergee):
+
+| Tarea | Rama |
+|-------|------|
+| 02/T01 Migrar colores hardcodeados | `fix/ui-migracion-colores-hardcodeados` |
+| 03/T01 Consolidar modales en DomeModal | `refactor/ux-consolidar-modales` |
+| 03/T02 Refactor componentes gigantes | `refactor/ux-componentes-gigantes` |
+| 03/T03 Accesibilidad (aria, roles, focus) | `fix/ux-accesibilidad` |
+| 03/T05 Unificar botones | `refactor/ux-unificar-botones` |
+| 03/T06 Responsive y ventanas pequeñas | `fix/ux-responsive` |
+| 04/T05 Modularizar run-engine.cjs | `refactor/harness-modularizar-run-engine` |
+| 05/T03 Modularizar database.cjs | `refactor/data-modularizar-database` |
+| 06/T03 Errores visibles para el usuario | `feat/ux-errores-visibles` |
+
 ## Roadmap sugerido
 
 **Sprint 1 — Cerrar lo crítico (P0)**
