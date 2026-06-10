@@ -686,6 +686,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       if (!destinationPath || typeof destinationPath !== 'string') {
         return { success: false, error: 'destinationPath is required and must be a string' };
       }
+      // allowExternal: export destination picked via the native save dialog (granted)
       const safeDest = sanitizePath(destinationPath, true);
 
       // Ensure destination directory exists

@@ -19,8 +19,8 @@ const grantedExternalPaths = new Map();
 const GRANT_TTL_MS = 60 * 60 * 1000;
 
 function grantExternalPath(filePath, ttlMs = GRANT_TTL_MS) {
-  if (!filePath) return;
-  grantedExternalPaths.set(path.resolve(String(filePath)), Date.now() + ttlMs);
+  if (!filePath || typeof filePath !== 'string') return;
+  grantedExternalPaths.set(path.resolve(filePath), Date.now() + ttlMs);
 }
 
 function isDeniedExternalPath(normalizedPath) {
@@ -28,15 +28,23 @@ function isDeniedExternalPath(normalizedPath) {
   return EXTERNAL_PATH_DENYLIST.some((re) => re.test(resolved));
 }
 
+/**
+ * A path is granted if it (or any ancestor directory) was granted — picking a
+ * folder in a native dialog grants its subtree for the TTL window.
+ */
 function isGrantedExternalPath(normalizedPath) {
   const resolved = path.resolve(normalizedPath);
-  const expires = grantedExternalPaths.get(resolved);
-  if (!expires) return false;
-  if (expires < Date.now()) {
-    grantedExternalPaths.delete(resolved);
-    return false;
+  const now = Date.now();
+  for (const [granted, expires] of grantedExternalPaths) {
+    if (expires < now) {
+      grantedExternalPaths.delete(granted);
+      continue;
+    }
+    if (resolved === granted || resolved.startsWith(granted + path.sep)) {
+      return true;
+    }
   }
-  return true;
+  return false;
 }
 
 /**

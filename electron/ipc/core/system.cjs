@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 const { shell, nativeTheme, dialog, BrowserWindow } = require('electron');
+const { grantExternalPath } = require('../../core/security.cjs');
 
 function register({ ipcMain, app, windowManager, validateSender, sanitizePath, validateUrl }) {
   // System paths
@@ -45,6 +46,8 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
         ...options,
       });
 
+      // User-picked paths: register them so later IPC reads are known-granted.
+      result.filePaths.forEach((p) => grantExternalPath(p));
       return { success: true, data: result.filePaths };
     } catch (error) {
       console.error('[IPC] Error in select-file:', error.message);
@@ -63,6 +66,7 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
         ...options,
       });
 
+      result.filePaths.forEach((p) => grantExternalPath(p));
       return { success: true, data: result.filePaths };
     } catch (error) {
       console.error('[IPC] Error in select-files:', error.message);
@@ -85,6 +89,8 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
         properties: ['openDirectory'],
       });
 
+      // Granting a directory grants its subtree (see isGrantedExternalPath).
+      grantExternalPath(result.filePaths[0]);
       return { success: true, data: result.filePaths[0] };
     } catch (error) {
       console.error('[IPC] Error in select-folder:', error.message);
@@ -99,9 +105,27 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
       if (!win || win.isDestroyed()) return { success: true, data: undefined };
 
       const result = await dialog.showSaveDialog(win, options);
+      grantExternalPath(result.filePath);
       return { success: true, data: result.filePath };
     } catch (error) {
       console.error('[IPC] Error in show-save-dialog:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Drag & drop grant: invoked by the PRELOAD (not exposed on window.electron)
+  // right after webUtils.getPathForFile resolves a dropped file. webUtils only
+  // returns real paths for disk-backed File objects (drop / <input type=file>),
+  // so a renderer cannot mint grants for arbitrary paths through this channel.
+  ipcMain.handle('security:grant-external-path', (event, filePath) => {
+    try {
+      validateSender(event, windowManager);
+      if (typeof filePath === 'string' && filePath) {
+        grantExternalPath(filePath);
+      }
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] Error in security:grant-external-path:', error.message);
       return { success: false, error: error.message };
     }
   });
@@ -110,6 +134,7 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('open-path', async (event, filePath) => {
     try {
       validateSender(event, windowManager);
+      // allowExternal: opening arbitrary user files in the OS is this channel's purpose
       const safePath = sanitizePath(filePath, true);
       return { success: true, data: await shell.openPath(safePath) };
     } catch (error) {
@@ -121,6 +146,7 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
   ipcMain.handle('show-item-in-folder', async (event, filePath) => {
     try {
       validateSender(event, windowManager);
+      // allowExternal: revealing arbitrary user files in Finder/Explorer is this channel's purpose
       const safePath = sanitizePath(filePath, true);
       return { success: true, data: await shell.showItemInFolder(safePath) };
     } catch (error) {

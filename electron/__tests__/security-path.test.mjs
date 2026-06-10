@@ -24,4 +24,23 @@ describe('security path denylist', () => {
     grantExternalPath(tmpFile);
     assert.doesNotThrow(() => sanitizePath(tmpFile, true));
   });
+
+  it('granting a directory grants files inside it (dialog folder pick)', () => {
+    const dir = path.join(os.tmpdir(), `dome-audit-dir-${Date.now()}`);
+    grantExternalPath(dir);
+    const inside = path.join(dir, 'sub', 'notebook.ipynb');
+    assert.doesNotThrow(() => sanitizePath(inside, true));
+  });
+
+  it('directory grant does not bypass the denylist', () => {
+    const home = os.homedir();
+    grantExternalPath(home);
+    assert.throws(() => sanitizePath(path.join(home, '.ssh', 'id_rsa'), true), /sensitive system location/);
+  });
+
+  it('ignores non-string grant inputs', () => {
+    assert.doesNotThrow(() => grantExternalPath(null));
+    assert.doesNotThrow(() => grantExternalPath(undefined));
+    assert.doesNotThrow(() => grantExternalPath(42));
+  });
 });

@@ -679,6 +679,7 @@ function register({ ipcMain, windowManager, validateSender }) {
         return { success: false, cancelled: true };
       }
 
+      // allowExternal: path comes from the main-side dialog above, never from the renderer
       const sourceDir = sanitizePath(filePaths[0], true);
       const pluginLoader = require('../../marketplace/plugin-loader.cjs');
       const result = pluginLoader.installFromDir(sourceDir);
@@ -713,6 +714,7 @@ function register({ ipcMain, windowManager, validateSender }) {
         return { success: false, cancelled: true };
       }
 
+      // allowExternal: path comes from the main-side dialog above, never from the renderer
       const sourceDir = sanitizePath(filePaths[0], true);
       const skillsDir = userSkillsDir();
       

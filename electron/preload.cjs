@@ -684,7 +684,14 @@ const electronHandler = {
   getPathForFile: (file) => {
     try {
       // webUtils.getPathForFile() is the recommended way in Electron 24+
-      return webUtils.getPathForFile(file);
+      const filePath = webUtils.getPathForFile(file);
+      // Register the user-dropped path as granted for follow-up IPC reads.
+      // webUtils only resolves disk-backed File objects, so this cannot be
+      // used to grant arbitrary paths from renderer-constructed Files.
+      if (filePath) {
+        void ipcRenderer.invoke('security:grant-external-path', filePath).catch(() => {});
+      }
+      return filePath;
     } catch (error) {
       console.error('Error getting path for file:', error);
       return null;
@@ -698,7 +705,11 @@ const electronHandler = {
     }
     return files.map((file) => {
       try {
-        return webUtils.getPathForFile(file);
+        const filePath = webUtils.getPathForFile(file);
+        if (filePath) {
+          void ipcRenderer.invoke('security:grant-external-path', filePath).catch(() => {});
+        }
+        return filePath;
       } catch {
         return null;
       }

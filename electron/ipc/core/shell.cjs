@@ -110,6 +110,7 @@ function register({ ipcMain, windowManager, sanitizePath }) {
       return { success: false, error: 'No pattern provided' };
     }
 
+    // allowExternal: agent file-search tool over user dirs (HITL/caps govern)
     const safeDir = sanitizePath(directory.trim(), true);
     if (!safeDir) {
       return { success: false, error: 'Invalid path' };

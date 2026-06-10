@@ -53,6 +53,7 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
         return { success: false, cancelled: true };
       }
 
+      // allowExternal: path comes from the main-side dialog above, never from the renderer
       const sourceDir = sanitizePath(filePaths[0], true);
       const result = pluginLoader.installFromDir(sourceDir);
       return result;
