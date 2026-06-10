@@ -10,5 +10,8 @@
   "aria_select_folder_color": "Choisir la couleur du dossier",
   "aria_close": "Fermer",
   "delete_resource": "Supprimer la ressource",
-  "aria_select_color_swatch": "Choisir la couleur {{color}}"
+  "aria_select_color_swatch": "Choisir la couleur {{color}}",
+  "status_pending": "En attente",
+  "status_processing": "En cours",
+  "status_failed": "Échec"
 }

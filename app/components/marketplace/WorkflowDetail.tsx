@@ -84,7 +84,7 @@ export default function WorkflowDetail({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-lg transition-colors hover:bg-white/50"
+            className="p-1.5 rounded-lg transition-colors hover:bg-[color-mix(in_srgb,var(--bg-secondary)_50%,transparent)]"
           >
             <X className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
           </button>

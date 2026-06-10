@@ -259,8 +259,6 @@
   --dome-bg-hover: var(--bg-hover);
   --dome-logo-filter: none;
   --tertiary: var(--tertiary-text);
-  --brand-accent: var(--accent);
-  --brand-secondary: var(--secondary);
 
   /* Sidebar — DenchClaw-inspired warm stone tone */
   --dome-sidebar-bg: #f0f0ed;
@@ -386,8 +384,6 @@
   --dome-bg-hover: var(--bg-hover);
   --dome-logo-filter: invert(1) brightness(1.2);
   --tertiary: var(--tertiary-text);
-  --brand-accent: var(--accent);
-  --brand-secondary: var(--secondary);
 
   --dome-sidebar-bg: #181818;
 }
