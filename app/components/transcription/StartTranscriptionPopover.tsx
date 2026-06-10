@@ -133,8 +133,8 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
         right: position.right,
         width: 360,
         zIndex: 9999,
-        background: 'var(--dome-bg, #fff)',
-        border: '1px solid var(--dome-border, #dcdce8)',
+        background: 'var(--dome-bg)',
+        border: '1px solid var(--dome-border)',
         borderRadius: 12,
         boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
         padding: 14,
@@ -248,8 +248,8 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
         <div
           style={{
             fontSize: 12,
-            color: 'var(--dome-danger, #d23434)',
-            background: 'color-mix(in srgb, var(--dome-danger, #d23434) 8%, transparent)',
+            color: 'var(--dome-danger)',
+            background: 'color-mix(in srgb, var(--dome-danger) 8%, transparent)',
             padding: '6px 8px',
             borderRadius: 6,
             marginBottom: 8,

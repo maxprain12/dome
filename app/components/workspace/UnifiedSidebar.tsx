@@ -59,33 +59,15 @@ import {
 import { db } from '@/lib/db/client';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import ManyIcon from '@/components/many/ManyIcon';
+import { FOLDER_COLOR_OPTIONS, NAMED_FOLDER_COLORS } from '@/lib/ui/palettes';
 
 // ---------------------------------------------------------------------------
-// Folder colors
+// Folder colors — central palette in app/lib/ui/palettes.ts (persisted in DB)
 // ---------------------------------------------------------------------------
-const FOLDER_COLOR_OPTIONS = [
-  { label: 'Oliva',    value: '#596037' },
-  { label: 'Violeta',  value: '#7b76d0' },
-  { label: 'Verde',    value: '#22c55e' },
-  { label: 'Azul',     value: '#3b82f6' },
-  { label: 'Gris',     value: '#6b7280' },
-  { label: 'Rojo',     value: '#ef4444' },
-  { label: 'Naranja',  value: '#f97316' },
-  { label: 'Rosa',     value: '#ec4899' },
-  { label: 'Amarillo', value: '#eab308' },
-  { label: 'Cian',     value: '#06b6d4' },
-];
-
 const FOLDER_AUTO_PALETTE = FOLDER_COLOR_OPTIONS.map((o) => o.value);
 function pickFolderColor(): string {
   return FOLDER_AUTO_PALETTE[Math.floor(Math.random() * FOLDER_AUTO_PALETTE.length)];
 }
-
-const NAMED_FOLDER_COLORS: Record<string, string> = {
-  blue: '#5B9BD5', purple: '#8B7EC8', green: '#5BA85A',
-  yellow: '#D4A843', red: '#D05C5C', orange: '#D47B3F',
-  pink: '#C45C8E', cyan: '#4BA3B5',
-};
 
 function parseMeta(resource: Resource): Record<string, unknown> {
   const m = resource.metadata;
@@ -363,7 +345,7 @@ function CtxItem({ icon, label, onClick, danger = false }: {
       className="flex items-center w-full text-left transition-colors"
       style={{
         gap: 8, padding: '6px 12px', fontSize: 12.5, border: 'none', cursor: 'pointer',
-        color: danger ? 'var(--dome-error, #ef4444)' : 'var(--dome-text)',
+        color: danger ? 'var(--dome-error)' : 'var(--dome-text)',
         background: hovered ? (danger ? 'rgba(239,68,68,0.08)' : 'var(--dome-bg-hover)') : 'transparent',
         fontWeight: 450,
       }}
@@ -371,7 +353,7 @@ function CtxItem({ icon, label, onClick, danger = false }: {
       onMouseLeave={() => setHovered(false)}
       onClick={onClick}
     >
-      <span style={{ opacity: 0.75, color: danger ? 'var(--dome-error, #ef4444)' : 'var(--dome-text-muted)', display: 'flex' }}>{icon}</span>
+      <span style={{ opacity: 0.75, color: danger ? 'var(--dome-error)' : 'var(--dome-text-muted)', display: 'flex' }}>{icon}</span>
       <span>{label}</span>
     </button>
   );
@@ -471,7 +453,7 @@ function DeleteConfirmModal({ resource, onConfirm, onClose }: {
         </div>
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
-          <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'var(--base-text)' }}>{t('ui.delete')}</button>
+          <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error)', border: 'none', cursor: 'pointer', color: 'var(--base-text)' }}>{t('ui.delete')}</button>
         </div>
       </div>
     </div>
@@ -998,8 +980,8 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
               disabled={bulkDeleting}
               className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] font-medium"
               style={{
-                background: 'color-mix(in srgb, var(--dome-error, #ef4444) 10%, transparent)',
-                color: 'var(--dome-error, #ef4444)',
+                background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)',
+                color: 'var(--dome-error)',
                 border: 'none',
                 cursor: 'pointer',
               }}
@@ -1092,7 +1074,7 @@ function FileTree({ resources, onRefresh }: FileTreeProps) {
                 disabled={bulkDeleting}
                 onClick={() => void handleBulkDelete()}
                 className="px-3 py-1.5 rounded-md text-xs font-medium"
-                style={{ background: 'var(--dome-error, #ef4444)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: bulkDeleting ? 0.6 : 1 }}>
+                style={{ background: 'var(--dome-error)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: bulkDeleting ? 0.6 : 1 }}>
                 {bulkDeleting ? '...' : t('ui.delete')}
               </button>
             </div>

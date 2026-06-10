@@ -101,7 +101,7 @@ export default function AIOllamaProviderConfig({
               <CheckCircle2 className="size-3.5" /> {t('settings.ai.status_connected')}
             </span>
           ) : ollamaAvailable === false ? (
-            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error, #ef4444)' }}>
+            <span className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--dome-error)' }}>
               <XCircle className="size-3.5" /> {t('settings.ai.status_disconnected')}
             </span>
           ) : (

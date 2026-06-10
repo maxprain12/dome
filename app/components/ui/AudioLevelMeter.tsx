@@ -46,8 +46,8 @@ export const AudioLevelMeter = memo(function AudioLevelMeter({
   stream,
   level: externalLevel,
   active = true,
-  color = 'var(--dome-accent, #7b76d0)',
-  idleColor = 'var(--dome-text-muted, #999)',
+  color = 'var(--dome-accent)',
+  idleColor = 'var(--dome-text-muted)',
   barWidth = 3,
   height = 24,
 }: AudioLevelMeterProps) {

@@ -22,7 +22,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
         style={{ borderColor: 'var(--border)' }}
       >
         <div className="flex items-center gap-2">
-          <Calendar size={16} style={{ color: 'var(--dome-accent, #596037)' }} />
+          <Calendar size={16} style={{ color: 'var(--dome-accent)' }} />
           <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
             {title || 'Timeline'}
           </h3>
@@ -51,9 +51,9 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
                   className="size-10 rounded-full flex items-center justify-center"
                   style={{
                     background: index === 0
-                      ? 'var(--dome-accent, #596037)'
+                      ? 'var(--dome-accent)'
                       : 'var(--bg-secondary)',
-                    border: `2px solid ${index === 0 ? 'var(--dome-accent, #596037)' : 'var(--border)'}`,
+                    border: `2px solid ${index === 0 ? 'var(--dome-accent)' : 'var(--border)'}`,
                   }}
                 >
                   <span
@@ -71,7 +71,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
               <div className="flex-1 pt-1">
                 <div
                   className="text-xs font-medium mb-1"
-                  style={{ color: 'var(--dome-accent, #596037)' }}
+                  style={{ color: 'var(--dome-accent)' }}
                 >
                   {event.date}
                 </div>

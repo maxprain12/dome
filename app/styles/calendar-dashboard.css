@@ -243,7 +243,7 @@
 
 .c-calendar-grid .c-cal-mode-btn.is-active {
   background: var(--home-accent);
-  color: #fff;
+  color: var(--dome-on-accent);
 }
 
 .c-calendar-grid .c-cal-mode-btn:not(.is-active):hover {

@@ -32,9 +32,9 @@ const toneStyles: Record<
     title: 'var(--dome-text, var(--primary-text))',
   },
   warning: {
-    border: 'color-mix(in srgb, var(--warning, #d97706) 35%, var(--dome-border, var(--border)))',
-    bg: 'color-mix(in srgb, var(--warning, #d97706) 10%, var(--dome-bg, var(--bg)))',
-    icon: 'var(--warning, #d97706)',
+    border: 'color-mix(in srgb, var(--warning) 35%, var(--dome-border, var(--border)))',
+    bg: 'color-mix(in srgb, var(--warning) 10%, var(--dome-bg, var(--bg)))',
+    icon: 'var(--warning)',
     title: 'var(--dome-text, var(--primary-text))',
   },
   error: {
@@ -44,9 +44,9 @@ const toneStyles: Record<
     title: 'var(--dome-text, var(--primary-text))',
   },
   success: {
-    border: 'color-mix(in srgb, var(--success, #10b981) 35%, var(--dome-border, var(--border)))',
-    bg: 'color-mix(in srgb, var(--success, #10b981) 10%, var(--dome-bg, var(--bg)))',
-    icon: 'var(--success, #10b981)',
+    border: 'color-mix(in srgb, var(--success) 35%, var(--dome-border, var(--border)))',
+    bg: 'color-mix(in srgb, var(--success) 10%, var(--dome-bg, var(--bg)))',
+    icon: 'var(--success)',
     title: 'var(--dome-text, var(--primary-text))',
   },
 };

@@ -1,5 +1,26 @@
 /* ─── Learn redesign — screen-level styles ─────────────────────── */
 
+:root {
+  /* Decorative pastel gradients for output-type cards (theme-independent) */
+  --lr-visual-quiz-a: #f5f1e0;     --lr-visual-quiz-b: #e8eccc;
+  --lr-visual-flash-a: #ece6f3;    --lr-visual-flash-b: #d8d0e8;
+  --lr-visual-mind-a: #e0ecec;     --lr-visual-mind-b: #c8dde0;
+  --lr-visual-guide-a: #f3e6da;    --lr-visual-guide-b: #ead2b8;
+  --lr-visual-faq-a: #f3dadf;      --lr-visual-faq-b: #e8b9c3;
+  --lr-visual-timeline-a: #dee7d6; --lr-visual-timeline-b: #c1d2b3;
+  --lr-visual-table-a: #e2e7ef;    --lr-visual-table-b: #c5cfdf;
+  /* Difficulty/SRS badge text */
+  --lr-badge-med-text: #8a6818;
+  --lr-badge-hard-text: #b35858;
+  --lr-badge-easy-text: #4a6da4;
+}
+
+[data-theme="dark"] {
+  --lr-badge-med-text: #d9b96a;
+  --lr-badge-hard-text: #d98f8f;
+  --lr-badge-easy-text: #8fb0dd;
+}
+
 .lr-frame {
   --lr-pad-x: 20px;
   --lr-pad-y: 16px;
@@ -305,13 +326,13 @@
   align-items: center;
   justify-content: center;
 }
-.lr-card-visual.quiz { background: linear-gradient(135deg, #f5f1e0 0%, #e8eccc 100%); }
-.lr-card-visual.flash { background: linear-gradient(135deg, #ece6f3 0%, #d8d0e8 100%); }
-.lr-card-visual.mind { background: linear-gradient(135deg, #e0ecec 0%, #c8dde0 100%); }
-.lr-card-visual.guide { background: linear-gradient(135deg, #f3e6da 0%, #ead2b8 100%); }
-.lr-card-visual.faq { background: linear-gradient(135deg, #f3dadf 0%, #e8b9c3 100%); }
-.lr-card-visual.timeline { background: linear-gradient(135deg, #dee7d6 0%, #c1d2b3 100%); }
-.lr-card-visual.table { background: linear-gradient(135deg, #e2e7ef 0%, #c5cfdf 100%); }
+.lr-card-visual.quiz { background: linear-gradient(135deg, var(--lr-visual-quiz-a) 0%, var(--lr-visual-quiz-b) 100%); }
+.lr-card-visual.flash { background: linear-gradient(135deg, var(--lr-visual-flash-a) 0%, var(--lr-visual-flash-b) 100%); }
+.lr-card-visual.mind { background: linear-gradient(135deg, var(--lr-visual-mind-a) 0%, var(--lr-visual-mind-b) 100%); }
+.lr-card-visual.guide { background: linear-gradient(135deg, var(--lr-visual-guide-a) 0%, var(--lr-visual-guide-b) 100%); }
+.lr-card-visual.faq { background: linear-gradient(135deg, var(--lr-visual-faq-a) 0%, var(--lr-visual-faq-b) 100%); }
+.lr-card-visual.timeline { background: linear-gradient(135deg, var(--lr-visual-timeline-a) 0%, var(--lr-visual-timeline-b) 100%); }
+.lr-card-visual.table { background: linear-gradient(135deg, var(--lr-visual-table-a) 0%, var(--lr-visual-table-b) 100%); }
 
 .lr-card-typebadge {
   position: absolute;
@@ -989,7 +1010,7 @@
   font-size: 16px;
   font-weight: 600;
   color: rgba(0,0,0,0.22);
-  background: linear-gradient(135deg, #f5f1e0 0%, #e8eccc 100%);
+  background: linear-gradient(135deg, var(--lr-visual-quiz-a) 0%, var(--lr-visual-quiz-b) 100%);
 }
 .lr-deck-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .lr-deck-info-eyebrow {
@@ -1111,8 +1132,8 @@
   color: var(--secondary-text);
 }
 .lr-q-badge.easy { background: rgba(89,96,55,0.12); color: var(--accent); }
-.lr-q-badge.med { background: rgba(230,196,122,0.22); color: #8a6818; }
-.lr-q-badge.hard { background: rgba(232,133,133,0.18); color: #b35858; }
+.lr-q-badge.med { background: rgba(230,196,122,0.22); color: var(--lr-badge-med-text); }
+.lr-q-badge.hard { background: rgba(232,133,133,0.18); color: var(--lr-badge-hard-text); }
 .lr-q-actions {
   display: flex; gap: 2px;
   opacity: 0;
@@ -1591,13 +1612,13 @@
   font-family: var(--font-mono);
 }
 .lr-flash-srs-btn.again { border-color: rgba(232,133,133,0.4); }
-.lr-flash-srs-btn.again .lbl { color: #b35858; }
+.lr-flash-srs-btn.again .lbl { color: var(--lr-badge-hard-text); }
 .lr-flash-srs-btn.hard { border-color: rgba(230,196,122,0.5); }
-.lr-flash-srs-btn.hard .lbl { color: #8a6818; }
+.lr-flash-srs-btn.hard .lbl { color: var(--lr-badge-med-text); }
 .lr-flash-srs-btn.good { border-color: var(--secondary); background: color-mix(in srgb, var(--accent) 10%, transparent); }
 .lr-flash-srs-btn.good .lbl { color: var(--accent); }
 .lr-flash-srs-btn.easy { border-color: rgba(123,157,208,0.4); }
-.lr-flash-srs-btn.easy .lbl { color: #4a6da4; }
+.lr-flash-srs-btn.easy .lbl { color: var(--lr-badge-easy-text); }
 
 /* ─── Spinner ─── */
 @keyframes lr-spin { to { transform: rotate(360deg); } }
@@ -1643,9 +1664,9 @@
 .lr-deck-edit-remove {
   flex-shrink: 0;
   padding: 8px;
-  color: var(--error, #b35858);
+  color: var(--error);
 }
-.lr-deck-edit-remove:hover { background: color-mix(in srgb, var(--error, #b35858) 12%, transparent); }
+.lr-deck-edit-remove:hover { background: color-mix(in srgb, var(--error) 12%, transparent); }
 .lr-deck-edit-add {
   display: flex;
   align-items: center;

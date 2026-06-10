@@ -27,7 +27,7 @@ export default memo(function ManyFloatingTrigger({
 
       {totalNotifications > 0 ? (
         <span
-          className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full border-2 border-[var(--bg)] bg-[var(--error,#ef4444)] text-[11px] font-bold text-white"
+          className="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full border-2 border-[var(--bg)] bg-[var(--error)] text-[11px] font-bold text-white"
           aria-hidden
         >
           {totalNotifications > 9 ? '9+' : totalNotifications}
@@ -37,7 +37,7 @@ export default memo(function ManyFloatingTrigger({
       {status !== 'idle' && (
         <span
           className={`absolute bottom-0 right-0 size-3.5 rounded-full border-2 border-[var(--bg)] ${
-            status === 'thinking' ? 'bg-[var(--warning,#f59e0b)] animate-many-pulse' : 'bg-[var(--success,#22c55e)]'
+            status === 'thinking' ? 'bg-[var(--warning)] animate-many-pulse' : 'bg-[var(--success)]'
           }`}
           aria-hidden
         />

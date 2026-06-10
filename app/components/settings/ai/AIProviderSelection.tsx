@@ -71,7 +71,7 @@ export default function AIProviderSelection({
                     label={t('settings.ai.recommended')}
                     size="xs"
                     variant={activeProvider === 'dome' ? 'outline' : 'soft'}
-                    color={activeProvider === 'dome' ? '#ffffff' : 'var(--dome-accent)'}
+                    color={activeProvider === 'dome' ? 'var(--dome-on-accent)' : 'var(--dome-accent)'}
                     className={activeProvider === 'dome' ? '!border-white/30 !text-white' : ''}
                   />
                 </div>

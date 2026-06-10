@@ -22,8 +22,8 @@ function DataTableSortIcon({
   sortDir: SortDirection;
 }) {
   if (sortKey !== columnKey) return <ArrowUpDown size={12} className="opacity-30" />;
-  if (sortDir === 'asc') return <ArrowUp size={12} style={{ color: 'var(--dome-accent, #596037)' }} />;
-  return <ArrowDown size={12} style={{ color: 'var(--dome-accent, #596037)' }} />;
+  if (sortDir === 'asc') return <ArrowUp size={12} style={{ color: 'var(--dome-accent)' }} />;
+  return <ArrowDown size={12} style={{ color: 'var(--dome-accent)' }} />;
 }
 
 export default function DataTable({ data, title, onClose }: DataTableProps) {
@@ -137,7 +137,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
                   style={{
                     background: 'var(--bg-secondary)',
                     borderBottom: '2px solid var(--border)',
-                    color: sortKey === col.key ? 'var(--dome-accent, #596037)' : 'var(--secondary-text)',
+                    color: sortKey === col.key ? 'var(--dome-accent)' : 'var(--secondary-text)',
                   }}
                 >
                   <div className="flex items-center gap-1">
@@ -154,7 +154,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
                 key={rowIdx}
                 className="transition-colors"
                 style={{ background: rowIdx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--dome-accent-bg, #F5F3EE)'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--dome-accent-bg)'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = rowIdx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)'; }}
               >
                 {data.columns.map(col => (

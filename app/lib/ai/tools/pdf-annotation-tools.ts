@@ -6,6 +6,7 @@
  */
 
 import { Type } from '@sinclair/typebox';
+import { PDF_HIGHLIGHT_DEFAULT } from '@/lib/ui/palettes';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
 import { generateId, isElectronDB } from '@/lib/utils/formatting';
@@ -102,7 +103,7 @@ export function createPdfAnnotationCreateTool(): AnyAgentTool {
           },
           metadata: {
             type: 'note',
-            color: '#ffeb3b',
+            color: PDF_HIGHLIGHT_DEFAULT,
           },
           created_at: now,
           updated_at: now,

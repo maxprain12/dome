@@ -187,9 +187,9 @@ export default function TranscriptionPill() {
             style={{
               height: 28,
               alignSelf: 'center',
-              background: 'color-mix(in srgb, var(--dome-danger, #d23434) 12%, transparent)',
-              border: '1px solid var(--dome-danger, #d23434)',
-              color: 'var(--dome-danger, #d23434)',
+              background: 'color-mix(in srgb, var(--dome-danger) 12%, transparent)',
+              border: '1px solid var(--dome-danger)',
+              color: 'var(--dome-danger)',
               fontSize: 12,
               fontWeight: 600,
             }}

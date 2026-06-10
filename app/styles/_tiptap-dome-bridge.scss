@@ -5,7 +5,7 @@
    under the --tt-* namespace. This bridge re-points those tokens
    to Dome's --bg / --border / --accent / --primary-text scale so
    toolbar, dropdowns, popovers, tooltips and inputs blend with
-   the Dome shell (warm-stone #596037 instead of brand purple).
+   the Dome shell (warm-stone olive instead of brand purple).
 
    Tiptap's component SCSS gates dark mode behind `.dark &`. Dome
    sets `data-theme="dark"` on <html>; ThemeProvider mirrors that

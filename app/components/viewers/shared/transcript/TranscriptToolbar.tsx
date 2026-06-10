@@ -177,7 +177,7 @@ export default function TranscriptToolbar({
                 variant="primary"
                 size="sm"
                 onClick={onOpenNote}
-                className="ml-1 gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs !h-auto min-h-0 !bg-[var(--dome-accent)] !text-[var(--dome-on-accent,#fff)]"
+                className="ml-1 gap-1.5 !rounded-lg !px-3 !py-1.5 !text-xs !h-auto min-h-0 !bg-[var(--dome-accent)] !text-[var(--dome-on-accent)]"
                 leftIcon={<ExternalLink className="size-3.5" aria-hidden />}
               >
                 {t('media.open_linked_note')}

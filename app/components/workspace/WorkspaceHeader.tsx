@@ -66,12 +66,12 @@ function getTypeMeta(type: string): TypeMeta {
   const base = { size: 13, strokeWidth: 2 };
   switch (type) {
     case 'note':     return { icon: <FileEdit {...base} />,   color: 'var(--dome-accent)',   bg: 'var(--dome-accent-bg)',  label: 'Nota' };
-    case 'pdf':      return { icon: <FileText {...base} />,   color: 'var(--dome-error, #e85c4a)',              bg: 'rgba(232,92,74,0.1)',    label: 'PDF' };
-    case 'video':    return { icon: <Video {...base} />,      color: 'var(--accent, #7c6fcd)',              bg: 'rgba(124,111,205,0.1)',  label: 'Video' };
-    case 'audio':    return { icon: <Music {...base} />,      color: 'var(--secondary, #9b6fcd)',           bg: 'rgba(155,111,205,0.1)', label: 'Audio' };
-    case 'image':    return { icon: <Image {...base} />,       color: 'var(--success, #3ba68d)',            bg: 'rgba(59,166,141,0.1)',   label: 'Imagen' };
+    case 'pdf':      return { icon: <FileText {...base} />,   color: 'var(--dome-error)',              bg: 'rgba(232,92,74,0.1)',    label: 'PDF' };
+    case 'video':    return { icon: <Video {...base} />,      color: 'var(--accent)',              bg: 'rgba(124,111,205,0.1)',  label: 'Video' };
+    case 'audio':    return { icon: <Music {...base} />,      color: 'var(--secondary)',           bg: 'rgba(155,111,205,0.1)', label: 'Audio' };
+    case 'image':    return { icon: <Image {...base} />,       color: 'var(--success)',            bg: 'rgba(59,166,141,0.1)',   label: 'Imagen' };
     case 'notebook': return { icon: <Notebook {...base} />,   color: 'var(--accent)',                            bg: 'rgba(74,144,217,0.1)',   label: 'Notebook' };
-    case 'ppt':      return { icon: <Presentation {...base}/>, color: 'var(--warning, #e8924a)',          bg: 'rgba(232,146,74,0.1)',   label: 'Presentación' };
+    case 'ppt':      return { icon: <Presentation {...base}/>, color: 'var(--warning)',          bg: 'rgba(232,146,74,0.1)',   label: 'Presentación' };
     case 'url':      return { icon: <ExternalLink {...base} />, color: 'var(--accent)',                         bg: 'rgba(74,144,217,0.1)',   label: 'URL' };
     case 'excel':    return { icon: <FileText {...base} />,   color: 'var(--success)',                            bg: 'rgba(59,166,104,0.1)',   label: 'Excel' };
     default:         return { icon: <Folder {...base} />,     color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)', label: 'Recurso' };

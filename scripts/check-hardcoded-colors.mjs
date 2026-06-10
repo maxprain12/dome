@@ -17,6 +17,11 @@ const ALLOWED_FILES = new Set([
   'app/globals.css',
   'app/styles/_variables.scss',
   'app/lib/vendor/pptx-preview.patched.es.js',
+  // Content palettes (swatches persisted in DB, editor highlight hex, canvas
+  // fallbacks) — the single sanctioned home for hex in app code.
+  'app/lib/ui/palettes.ts',
+  // Hex appears only inside agent-tool description strings (prompt copy).
+  'app/lib/ai/tools/resource-actions.ts',
 ]);
 
 const SCAN_DIRS = ['app/components', 'app/pages', 'app/workspace', 'app/lib'];

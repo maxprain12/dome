@@ -76,7 +76,7 @@ export function EdgeConfirmPanel({ edge, position, onConfirm, onReject, onClose 
             <button
               type="button"
               className="text-sm font-medium py-2 px-3 rounded-lg"
-              style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent, #fff)' }}
+              style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)' }}
               onClick={() => onConfirm(edge.id)}
             >
               {t('semantic_graph.confirm_relation')}

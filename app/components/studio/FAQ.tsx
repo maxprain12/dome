@@ -22,7 +22,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
         style={{ borderColor: 'var(--border)' }}
       >
         <div className="flex items-center gap-2">
-          <MessageCircle size={16} style={{ color: 'var(--dome-accent, #596037)' }} />
+          <MessageCircle size={16} style={{ color: 'var(--dome-accent)' }} />
           <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
             {title || 'Frequently Asked Questions'}
           </h3>
@@ -54,7 +54,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
                 key={index}
                 className="rounded-lg overflow-hidden transition-all"
                 style={{
-                  border: `1px solid ${isExpanded ? 'var(--dome-accent, #596037)' : 'var(--border)'}`,
+                  border: `1px solid ${isExpanded ? 'var(--dome-accent)' : 'var(--border)'}`,
                   background: 'var(--bg-secondary)',
                 }}
               >
@@ -66,7 +66,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
                     className="size-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                     style={{
                       background: isExpanded
-                        ? 'var(--dome-accent, #596037)'
+                        ? 'var(--dome-accent)'
                         : 'var(--bg-tertiary)',
                       color: isExpanded ? 'var(--base-text)' : 'var(--secondary-text)',
                     }}
