@@ -15,7 +15,27 @@
  */
 
 const database = require('../core/database.cjs');
+const logger = require('../core/logger.cjs');
 const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('../prompts/prompt-sections.cjs');
+
+const DEFAULT_TOOL_TIMEOUT_MS = Number(process.env.DOME_TOOL_TIMEOUT_MS) || 120_000;
+const TOOL_TIMEOUT_OVERRIDES = {
+  transcribe_audio: 600_000,
+  notebook_run_cell: 300_000,
+  ppt_create: 300_000,
+  shell_exec: 120_000,
+  web_fetch: 90_000,
+  resource_index: 180_000,
+  semantic_index_resource: 180_000,
+};
+
+function getToolTimeoutMs(toolName) {
+  const normalized = String(toolName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_');
+  return TOOL_TIMEOUT_OVERRIDES[normalized] ?? DEFAULT_TOOL_TIMEOUT_MS;
+}
 
 // Lazy-load ai-tools-handler to break the circular dependency:
 // ai-tools-handler → pdf-transcription → cloud-llm.service → llm-service
@@ -182,7 +202,7 @@ function normalizeToolName(name) {
  * @param {{ automationProjectId?: string | null } | null | undefined} [toolContext] - When set, resource tools are scoped to this project (automation / workflow runs).
  * @returns {Promise<object>} Result suitable for appending to conversation
  */
-async function executeToolInMain(toolName, args, toolContext) {
+async function executeToolInMainImpl(toolName, args, toolContext) {
   const automationProjectId = toolContext?.automationProjectId ?? null;
 
   function denyUnlessResourceInScope(resourceId) {
@@ -2570,6 +2590,30 @@ function getToolDefinitionsByIds(toolIds) {
       .replace(/[^a-z0-9_]/g, '_');
     return normalizedIds.has(normalizedName);
   });
+}
+
+async function executeToolInMain(toolName, args, toolContext) {
+  const timeoutMs = getToolTimeoutMs(toolName);
+  let timer;
+  try {
+    return await Promise.race([
+      executeToolInMainImpl(toolName, args, toolContext),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(`Tool "${toolName}" timed out after ${timeoutMs}ms`)),
+          timeoutMs,
+        );
+      }),
+    ]);
+  } catch (err) {
+    if (String(err?.message || '').includes('timed out')) {
+      logger.warn('tool-dispatcher', err.message, { tool: toolName, timeoutMs });
+      return { status: 'error', error: err.message };
+    }
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 module.exports = {

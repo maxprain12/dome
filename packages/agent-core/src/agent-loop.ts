@@ -617,6 +617,11 @@ async function prepareToolCall(
 			args: validatedArgs,
 		};
 	} catch (error) {
+		// Interrupt-style errors (e.g. human-in-the-loop approval) must abort the
+		// loop and surface to the caller instead of becoming an error tool result.
+		if ((error as { isAgentInterrupt?: boolean })?.isAgentInterrupt === true) {
+			throw error;
+		}
 		return {
 			kind: "immediate",
 			result: createErrorToolResult(error instanceof Error ? error.message : String(error)),

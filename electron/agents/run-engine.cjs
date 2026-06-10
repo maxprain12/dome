@@ -13,6 +13,7 @@ const { getOpenAIKey } = require('../ai/openai-key.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const { readPrompt } = require('../prompts/prompts-loader.cjs');
+const logger = require('../core/logger.cjs');
 
 function manySubagentIds() {
   const { manySubagentIds: ids } = require('./subagents-native.cjs');
@@ -108,6 +109,17 @@ const SYSTEM_AGENTS = {
 let _windowManager = null;
 let _database = null;
 const activeRunContexts = new Map();
+
+function releaseRunContext(runId, { force = false } = {}) {
+  const ctx = activeRunContexts.get(runId);
+  if (!ctx) return;
+  if (!force) {
+    const run = getRun(runId);
+    if (run?.status === 'waiting_approval') return;
+  }
+  if (ctx.apiKey) ctx.apiKey = undefined;
+  activeRunContexts.delete(runId);
+}
 
 function getQueries() {
   return _database?.getQueries?.();
@@ -685,7 +697,7 @@ function deleteAutomation(id) {
 
 function deleteRun(runId) {
   abortRun(runId);
-  activeRunContexts.delete(runId);
+  releaseRunContext(runId, { force: true });
   const queries = getQueries();
   const row = queries.getAutomationRunById.get(runId);
   if (!row) return;
@@ -1328,7 +1340,7 @@ async function executeAgentRun(runId, params) {
   } finally {
     const latest = getRun(runId);
     if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
-      activeRunContexts.delete(runId);
+      releaseRunContext(runId, { force: true });
     }
   }
 }
@@ -1526,7 +1538,7 @@ async function resumeRun(runId, decisions) {
   } finally {
     const latest = getRun(runId);
     if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
-      activeRunContexts.delete(runId);
+      releaseRunContext(runId, { force: true });
     }
   }
 }
@@ -1947,7 +1959,7 @@ async function executeWorkflowRun(runId, params, workflow) {
     }
     return null;
   } finally {
-    activeRunContexts.delete(runId);
+    releaseRunContext(runId, { force: true });
   }
 }
 
