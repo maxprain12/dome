@@ -149,7 +149,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
   /**
    * Bounded recursive directory tree (safe alternative to MCP directory_tree).
    */
-  ipcMain.handle('file:tree', (event, payload) => {
+  ipcMain.handle('file:tree', async (event, payload) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -161,7 +161,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
         return { success: false, error: 'dirPath is required' };
       }
       const safePath = sanitizePath(dirPath, true);
-      const result = buildFileTree(safePath, {
+      const result = await buildFileTree(safePath, {
         maxDepth: payload?.max_depth ?? payload?.maxDepth,
         maxEntries: payload?.max_entries ?? payload?.maxEntries,
         exclude: Array.isArray(payload?.exclude) ? payload.exclude : undefined,
