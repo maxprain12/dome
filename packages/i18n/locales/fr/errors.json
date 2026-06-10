@@ -1,3 +1,24 @@
 {
-  "database_unavailable": "Base de données indisponible"
+  "database_unavailable": "Base de données indisponible",
+  "system": {
+    "scope": {
+      "runs": "Échec du run d'agent",
+      "workflows": "Échec du workflow",
+      "automations": "Échec de l'automatisation",
+      "ai": "Erreur du fournisseur d'IA",
+      "indexing": "Problème d'indexation",
+      "sync": "Problème de synchronisation",
+      "app": "Erreur de l'application"
+    },
+    "code": {
+      "invalid_api_key": "Le fournisseur a rejeté la clé API. Vérifiez votre clé dans Paramètres → IA.",
+      "rate_limit": "La limite de requêtes du fournisseur est atteinte. Patientez un instant et réessayez, ou vérifiez votre forfait.",
+      "model_not_found": "Le modèle sélectionné n'est pas disponible. Choisissez un autre modèle dans Paramètres → IA.",
+      "network": "Impossible de joindre le service. Vérifiez votre connexion internet et réessayez.",
+      "context_overflow": "La conversation est trop longue pour le modèle. Démarrez une nouvelle discussion ou compactez le fil.",
+      "unknown": "Une erreur s'est produite. Le détail technique est dans le journal."
+    },
+    "viewDetails": "Voir les détails",
+    "openAiSettings": "Ouvrir les paramètres IA"
+  }
 }
