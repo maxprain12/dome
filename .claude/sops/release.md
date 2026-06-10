@@ -50,6 +50,12 @@ The `build.yml` workflow triggers automatically on release publish:
 - [ ] All 4 release artifacts appear in the GitHub Release
 - [ ] Test the DMG/EXE on a clean machine if possible
 
+## Dependency & Electron version policy
+
+- **Electron**: stay on a major with upstream security support (Electron supports the **3 latest majors**). Check the [Electron releases timeline](https://www.electronjs.org/docs/latest/tutorial/electron-timelines) at every release; if our major is about to fall out of support, schedule the upgrade as its own PR (rebuild natives with `pnpm run rebuild:natives` + `verify:natives`, full smoke on macOS and Windows). Renovate is configured to **not** open Electron major PRs (`renovate.json`) — that upgrade is always manual and tested.
+- **Security updates**: Renovate opens vulnerability PRs immediately (any package) and groups routine minor/patch bumps into a weekly PR. Native modules (`better-sqlite3`, `sharp`, `@napi-rs/canvas`, `electron-updater`) get individual PRs and must pass a packaged-build smoke before merge.
+- **CI**: `pnpm audit --prod --audit-level=high` runs on every PR (non-blocking during triage; make blocking once the baseline is clean). Review notes for the higher-risk parsers (`pyodide`, `pptx-preview`, `linkedom`) live in `docs/auditoria/06-calidad-observabilidad/T04-auditoria-dependencias.md`.
+
 ## Hotfix process
 
 For urgent fixes:
