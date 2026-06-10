@@ -65,14 +65,24 @@ async function openThreadSession(threadId) {
   return { meta, session, repo };
 }
 
+// Cached: the id list grows with automation history and threads:list is called
+// often; a short TTL keeps the filter fresh without re-reading every run id.
+const WORKFLOW_RUN_IDS_TTL_MS = 30_000;
+let workflowRunIdsCache = { set: null, at: 0 };
+
 function getWorkflowRunIdSet() {
+  const now = Date.now();
+  if (workflowRunIdsCache.set && now - workflowRunIdsCache.at < WORKFLOW_RUN_IDS_TTL_MS) {
+    return workflowRunIdsCache.set;
+  }
   try {
     const queries = database.getQueries();
     const rows = queries?.getWorkflowRunIds?.all() ?? [];
-    return new Set(rows.map((row) => row.id));
+    workflowRunIdsCache = { set: new Set(rows.map((row) => row.id)), at: now };
+    return workflowRunIdsCache.set;
   } catch (err) {
     console.error('[threads:list] getWorkflowRunIds', err?.message);
-    return new Set();
+    return workflowRunIdsCache.set ?? new Set();
   }
 }
 
