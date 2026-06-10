@@ -18,7 +18,10 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "echo \"@dome/agent-core: no tests yet\" && exit 0"
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@dome/ai": "workspace:*",
