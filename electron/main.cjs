@@ -237,6 +237,7 @@ const { handleDomeUrl } = require('./core/deep-link-handler.cjs');
 const calendarNotificationService = require('./calendar/calendar-notification-service.cjs');
 const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
 const automationService = require('./agents/automation-service.cjs');
+const runRetention = require('./agents/run-retention.cjs');
 const runEngine = require('./agents/run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
@@ -1043,6 +1044,7 @@ app
     calendarSyncScheduler.init(windowManager);
     runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
+    runRetention.init();
 
     // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {
@@ -1094,6 +1096,7 @@ app.on('before-quit', async () => {
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
   automationService.stop();
+  runRetention.stop();
   runEngine.stop();
   try {
     require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();
