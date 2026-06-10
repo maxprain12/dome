@@ -14,7 +14,7 @@
 | T06 shell:exec + ReDoS | ✅ | `shell-policy.cjs` + picomatch |
 | T07 SSRF web fetch | ✅ | `url-guard.cjs` |
 | T08 OAuth timeouts | ✅ | 10 min dome + mcp |
-| T09 Paths externos | ⚠️ Parcial | Denylist + log; `allowExternal=true` conservado |
+| T09 Paths externos | ✅ | Denylist + grants desde diálogos/drag&drop; 21 `allowExternal=true` justificados con comentario |
 | T10 Updater + deps | ✅ | Skip expira a 7 días; `pnpm audit` en CI |
 
 ## Archivos clave
@@ -55,7 +55,9 @@ pnpm run test:security  # url-guard suite
 # shell:exec denylist: agente intenta rm -rf / → rechazo sin diálogo HITL
 ```
 
-## Pendiente (T09 completo)
+## T09 — cierre (2026-06-10)
 
-- Registro de paths concedidos vía diálogo nativo (grant TTL)
-- Reducir handlers con `sanitizePath(..., true)` a los estrictamente necesarios
+- Diálogos nativos (`select-file/files/folder`, `show-save-dialog` en `ipc/core/system.cjs`) registran los paths con `grantExternalPath` (TTL 1h; un directorio concede su subárbol).
+- Drag&drop: el preload concede el path tras `webUtils.getPathForFile` vía canal interno `security:grant-external-path` (no expuesto en `window.electron`).
+- Los 21 call-sites con `sanitizePath(..., true)` en `electron/ipc/` llevan comentario de justificación; los no concedidos siguen permitidos pero logueados.
+- Mejora futura opcional: bloqueo estricto de externos sin grant (requiere migrar flujos con paths persistidos, p. ej. workspace de notebook).

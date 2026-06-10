@@ -23,10 +23,10 @@ Auditoría de la postura de seguridad de Dome (Electron main process, IPC, secre
 | [T06 — Hardening de shell:exec y fix ReDoS](T06-shell-exec-hardening.md) | P1 | Alta | S | ✅ Implementada |
 | [T07 — Bloqueo SSRF a IPs locales y metadata](T07-ssrf-bloqueo-ips.md) | P2 | Media | S | ✅ Implementada |
 | [T08 — Timeout y limpieza del estado OAuth pendiente](T08-oauth-timeouts.md) | P2 | Media | S | ✅ Implementada |
-| [T09 — Limitar acceso a paths externos en files.cjs](T09-limitar-paths-externos.md) | P2 | Media | M | 🔶 Parcial |
+| [T09 — Limitar acceso a paths externos en files.cjs](T09-limitar-paths-externos.md) | P2 | Media | M | ✅ Implementada |
 | [T10 — Updater y auditoría de dependencias](T10-updater-y-dependencias.md) | P3 | Baja | S | ✅ Implementada |
 
-> **Validación 2026-06-10**: T01–T08 y T10 implementadas en el working tree (sin commitear) y verificadas a nivel de código; `pnpm run test:security` (30 tests) en verde en local. T09 parcial (denylist + grantExternalPath listos; falta cablear los diálogos nativos). Queda pendiente la verificación en runtime (smoke test de la app y build empaquetado).
+> **Validación 2026-06-10 (3ª pasada)**: T01–T10 implementadas y verificadas a nivel de código; `pnpm run test:security` (38 tests) en verde en local. T09 cerrada: grants cableados desde los diálogos nativos y drag&drop (canal interno `security:grant-external-path` desde el preload), `allowExternal=true` justificado con comentario en los 21 call-sites. Queda pendiente la verificación en runtime (smoke test de la app y build empaquetado).
 
 ## Lo que ya está bien (no duplicar trabajo)
 

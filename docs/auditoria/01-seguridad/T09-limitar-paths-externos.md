@@ -1,7 +1,7 @@
 # T09 — Limitar acceso a paths externos en files.cjs
 
 **Prioridad**: P2 · **Severidad**: Media · **Esfuerzo**: M · **Área**: Seguridad
-**Estado**: 🔶 Parcial (2026-06-10) — denylist (`~/.ssh`, `~/.aws`, `~/.gnupg`, Keychains, gcloud) + log de acceso externo + `grantExternalPath` con TTL en `security.cjs`; test `security-path.test.mjs`. Pendiente: llamar `grantExternalPath` desde diálogos nativos y reducir `allowExternal=true` en handlers IPC.
+**Estado**: ✅ Implementado (2026-06-10) — denylist (`~/.ssh`, `~/.aws`, `~/.gnupg`, Keychains, gcloud) + log de acceso externo + `grantExternalPath` con TTL en `security.cjs` (test `security-path.test.mjs`, 6 tests). **Cableado de grants**: los 4 diálogos nativos de `ipc/core/system.cjs` (`select-file`, `select-files`, `select-folder`, `show-save-dialog`) registran los paths devueltos; conceder un directorio concede su subárbol (TTL 1h, denylist sigue aplicando). Drag&drop: el preload concede el path tras `webUtils.getPathForFile` vía canal interno `security:grant-external-path` (no expuesto en `window.electron`; webUtils solo resuelve Files respaldados por disco, así que el renderer no puede acuñar grants arbitrarios). **`allowExternal=true` justificado**: los 21 call-sites en `electron/ipc/` llevan comentario (`// allowExternal: …`) — importación por diálogo/drop (granted), workspace de notebook fuera de userData, tools de agente (gobernadas por HITL/caps), open-path/show-item (propósito del canal) y diálogo-en-handler (el path nunca viaja por el renderer). Los accesos externos sin grant siguen permitidos pero se loguean (`[Security] External path access`); endurecer a bloqueo estricto requeriría migrar los flujos con paths persistidos (notebook workspace) y queda como mejora futura opcional.
 
 ## Problema
 

@@ -46,7 +46,7 @@ Exploración exhaustiva del repo en tres frentes (seguridad / UI-UX / arquitectu
 | 05/T02 | [I/O asíncrona en el main](05-datos-rendimiento/T02-io-asincrona-main.md) | P1 | M | ✅ |
 | 01/T07 | [Bloqueo SSRF a IPs locales](01-seguridad/T07-ssrf-bloqueo-ips.md) | P2 | S | ✅ |
 | 01/T08 | [Timeout del estado OAuth pendiente](01-seguridad/T08-oauth-timeouts.md) | P2 | S | ✅ |
-| 01/T09 | [Limitar paths externos en files.cjs](01-seguridad/T09-limitar-paths-externos.md) | P2 | M | 🔶 |
+| 01/T09 | [Limitar paths externos en files.cjs](01-seguridad/T09-limitar-paths-externos.md) | P2 | M | ✅ |
 | 02/T03 | [Eliminar paleta deprecada](02-ui-visual/T03-paleta-deprecada.md) | P2 | S | ✅ |
 | 02/T04 | [Lint del design system](02-ui-visual/T04-lint-design-system.md) | P2 | S | ✅ |
 | 03/T03 | [Accesibilidad (aria, roles, focus)](03-ux-componentes/T03-accesibilidad.md) | P2 | M | ⬜ |
@@ -60,22 +60,24 @@ Exploración exhaustiva del repo en tres frentes (seguridad / UI-UX / arquitectu
 | 01/T10 | [Updater y dependencias](01-seguridad/T10-updater-y-dependencias.md) | P3 | S | ✅ |
 | 02/T05 | [Cobertura i18n al 100%](02-ui-visual/T05-i18n-restante.md) | P3 | S | ✅ |
 | 03/T06 | [Responsive y ventanas pequeñas](03-ux-componentes/T06-responsive.md) | P3 | M | ⬜ |
-| 05/T04 | [Queries de arranque y retención](05-datos-rendimiento/T04-queries-startup.md) | P3 | S | 🔶 |
-| 06/T04 | [Auditoría continua de dependencias](06-calidad-observabilidad/T04-auditoria-dependencias.md) | P3 | S | 🔶 |
+| 05/T04 | [Queries de arranque y retención](05-datos-rendimiento/T04-queries-startup.md) | P3 | S | ✅ |
+| 06/T04 | [Auditoría continua de dependencias](06-calidad-observabilidad/T04-auditoria-dependencias.md) | P3 | S | ✅ |
 
 **34 tareas**: 5 × P0 · 11 × P1 · 13 × P2 · 5 × P3.
 
-## Estado de ejecución (validado 2026-06-10, 2ª pasada)
+## Estado de ejecución (validado 2026-06-10, 3ª pasada)
 
-**22 ✅ implementadas · 3 🔶 parciales · 9 ⬜ pendientes.** La implementación está en el **working tree sin commitear** (sobre `338646c`).
+**25 ✅ implementadas · 0 🔶 parciales · 9 ⬜ pendientes.** Las pasadas 1ª y 2ª están commiteadas en la rama (`4322036..5b3d3dc`); la 3ª pasada cierra las 3 parciales.
 
 **1ª pasada** (seguridad + base): sandbox activado, secretos cifrados con safeStorage, extractor PPT sin `executeJavaScript`, CSP (`csp.cjs`), guard de sender IPC (`ipc-guard.cjs`), shell-policy + picomatch, url-guard SSRF, timeouts OAuth, timeout por tool, `releaseRunContext`, check de colores con ratchet, backup pre-migración. **Corrección post-masking:** claves enmascaradas (`sk-…abc4`) ya no se envían a headers HTTP — `resolveSettingSecretForApi` en main + filtro en `app/lib/ai/client.ts`.
 
 **2ª pasada** (completar parciales y pendientes ejecutables): suite real de agent-core (39 tests con mock de modelo: loop/compaction/skills), policy de tools con cap global 200/run + cap default 50/tool + umbral HITL para mutaciones (8 tests), restore automático desde backup si falla una migración (4 tests), I/O async en ppt/excel/file-tree, logger con archivo+rotación+masking (4 tests), navegación completa por teclado en tabs (tablist ARIA, Cmd+W, Cmd+1..9), dark mode terminado con variables semánticas, i18n al 100%, docs de paleta alineadas, caché del id-set de workflow runs, nota de revisión de dependencias.
 
-Validación final en local: `test:security` **30/30** ✓ · agent-core **39/39** ✓ · `check:design-system` OK (279/279) · `typecheck` ✓ · `lint` 0 errores · `check:ipc-inventory` ✓ (regenerado) · `check:tool-coverage` ✓ · build de Vite ✓.
+Validación final en local (tras 3ª pasada): `test:security` **38/38** ✓ · agent-core **39/39** ✓ · `typecheck` ✓ · `lint` 0 errores · `check:ipc-inventory` ✓ (regenerado, 449 canales).
 
-**Quedan (refactors multi-PR, hacer por feature):** 02/T01 migración de 279 hex, 03/T01 consolidar modales, 03/T02 componentes gigantes, 03/T03 a11y, 03/T05 botones, 03/T06 responsive, 04/T05 modularizar run-engine, 05/T03 modularizar database, 06/T03 errores visibles. Parciales menores: 01/T09 (cablear diálogos), 05/T04 (retención), 06/T04 (Renovate). **Pendiente global:** smoke test manual (`pnpm run electron:dev`) y commitear el trabajo troceado.
+**3ª pasada** (cierre de parciales): 01/T09 — grants cableados desde los 4 diálogos nativos y drag&drop (canal interno `security:grant-external-path` desde el preload; un directorio concedido cubre su subárbol), 21 `allowExternal=true` justificados con comentario, +3 tests. 05/T04 — retención de runs en `electron/agents/run-retention.cjs` (purga terminales > `runs_retention_days`, default 90; sesiones JSONL de workflows borradas antes que las filas; 5 tests). 06/T04 — `renovate.json` (vulnerability alerts inmediatos, minor/patch agrupados semanales, Electron major manual) + política de Electron en `.claude/sops/release.md`.
+
+**Quedan (refactors multi-PR, hacer por feature):** 02/T01 migración de 279 hex, 03/T01 consolidar modales, 03/T02 componentes gigantes, 03/T03 a11y, 03/T05 botones, 03/T06 responsive, 04/T05 modularizar run-engine, 05/T03 modularizar database, 06/T03 errores visibles. **Pendiente global:** smoke test manual (`pnpm run electron:dev`) y habilitar la app de Renovate en GitHub (owner).
 
 ## Roadmap sugerido
 

@@ -1,7 +1,7 @@
 # T04 — Revisar queries y cargas completas en el arranque
 
 **Prioridad**: P3 · **Severidad**: Baja · **Esfuerzo**: S · **Área**: Rendimiento
-**Estado**: 🔶 Parcial (2026-06-10) — auditadas las queries: todas las de listado de runs ya tienen `LIMIT` (`database.cjs:3918-3945`); el único `.all()` sin límite (`getWorkflowRunIds`, usado en cada `threads:list`) ahora se cachea con TTL de 30s en `ipc/agents/threads.cjs`. Pendiente: política de retención/purga del histórico de runs (punto 3) — feature aparte.
+**Estado**: ✅ Implementado (2026-06-10) — auditadas las queries: todas las de listado de runs ya tienen `LIMIT` (`database.cjs:3918-3945`); el único `.all()` sin límite (`getWorkflowRunIds`, usado en cada `threads:list`) se cachea con TTL de 30s en `ipc/agents/threads.cjs`. **Retención**: `electron/agents/run-retention.cjs` purga runs terminales (`completed/failed/cancelled`) con más de `runs_retention_days` días (setting; default 90, ≤0 desactiva) — corre 30s tras el arranque y cada 24h. Borra en cascada steps/links (FK), purga `feeder_runs` terminales y, para runs de workflow, elimina **antes** sus sesiones JSONL por nodo (`${runId}_${nodeId}`) para que no reaparezcan en el historial de Many (si falla el borrado de una sesión, la fila del run se conserva y se reintenta). Tests: `run-retention.test.mjs` (5/5, en `test:security`). `automation_artifact_bindings` no referencia run ids, así que la purga no afecta a los bindings.
 
 ## Problema
 

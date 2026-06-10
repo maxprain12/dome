@@ -1,7 +1,7 @@
 # T04 — Auditoría continua de dependencias
 
 **Prioridad**: P3 · **Severidad**: Baja · **Esfuerzo**: S · **Área**: Calidad
-**Estado**: 🔶 Parcial (2026-06-10) — `pnpm audit --prod --audit-level=high` en CI (no bloqueante durante triage) y nota de revisión de las 3 deps escrita abajo. Pendiente: activar Renovate/Dependabot (config del repo en GitHub) y documentar la política de versión de Electron en `.claude/sops/release.md`.
+**Estado**: ✅ Implementado (2026-06-10) — `pnpm audit --prod --audit-level=high` en CI (no bloqueante durante triage), nota de revisión de las 3 deps escrita abajo, `renovate.json` en la raíz (vulnerability alerts inmediatos, minor/patch agrupados semanalmente, Electron major excluido, nativos sin agrupar) y política de versión de Electron documentada en `.claude/sops/release.md`. Nota: falta habilitar la app de Renovate en GitHub (acción del repo owner, no de código).
 
 ## Problema
 

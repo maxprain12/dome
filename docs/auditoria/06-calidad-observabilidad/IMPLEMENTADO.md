@@ -7,9 +7,9 @@
 | Tarea | Estado | Notas |
 |-------|--------|-------|
 | T01 Tests en CI | ✅ | `pnpm run test` + jobs CI |
-| T02 Logging estructurado | ⚠️ Parcial | `electron/core/logger.cjs` JSON; usado en tool-dispatcher |
+| T02 Logging estructurado | ✅ | `electron/core/logger.cjs` JSON con archivo+rotación+masking (4 tests) |
 | T03 Errores visibles usuario | ⏳ Pendiente | |
-| T04 Auditoría dependencias | ✅ | `pnpm audit --prod` en CI (continue-on-error) |
+| T04 Auditoría dependencias | ✅ | `pnpm audit --prod` en CI + `renovate.json` + política Electron en `.claude/sops/release.md` |
 
 ## Archivos clave
 
@@ -31,6 +31,6 @@ CI debe pasar jobs: Lint, Design system ratchet, Security unit tests, Agent-core
 
 ## Pendiente
 
-- T02: migrar `console.log` ad-hoc del main a `logger.*`
 - T03: toast unificado para errores IPC `{ success: false }` en renderer
 - Endurecer CI audit a bloqueante tras triage
+- Habilitar la app de Renovate en el repo de GitHub (acción del owner; el `renovate.json` ya está en la raíz)
