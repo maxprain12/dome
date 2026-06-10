@@ -7,6 +7,38 @@
 const path = require('path');
 const { app } = require('electron');
 
+const EXTERNAL_PATH_DENYLIST = [
+  /\.ssh(?:\/|$)/i,
+  /\.aws(?:\/|$)/i,
+  /\.gnupg(?:\/|$)/i,
+  /\/Keychains\//i,
+  /\/\.config\/gcloud\//i,
+];
+
+const grantedExternalPaths = new Map();
+const GRANT_TTL_MS = 60 * 60 * 1000;
+
+function grantExternalPath(filePath, ttlMs = GRANT_TTL_MS) {
+  if (!filePath) return;
+  grantedExternalPaths.set(path.resolve(String(filePath)), Date.now() + ttlMs);
+}
+
+function isDeniedExternalPath(normalizedPath) {
+  const resolved = path.resolve(normalizedPath);
+  return EXTERNAL_PATH_DENYLIST.some((re) => re.test(resolved));
+}
+
+function isGrantedExternalPath(normalizedPath) {
+  const resolved = path.resolve(normalizedPath);
+  const expires = grantedExternalPaths.get(resolved);
+  if (!expires) return false;
+  if (expires < Date.now()) {
+    grantedExternalPaths.delete(resolved);
+    return false;
+  }
+  return true;
+}
+
 /**
  * Validates that the IPC event sender is authorized
  * @param {Electron.IpcMainInvokeEvent} event - IPC event
@@ -64,9 +96,14 @@ function sanitizePath(filePath, allowExternal = false) {
   // If allowExternal is true, only check for dangerous patterns
   // This is for operations like shell.openPath where we might open external files
   if (allowExternal) {
-    // Still prevent null bytes and other dangerous characters
     if (normalized.includes('\0')) {
       throw new Error('Path contains null byte');
+    }
+    if (isDeniedExternalPath(normalized)) {
+      throw new Error('Path not allowed: sensitive system location');
+    }
+    if (!isGrantedExternalPath(normalized)) {
+      console.warn('[Security] External path access:', normalized);
     }
     return normalized;
   }
@@ -145,4 +182,6 @@ module.exports = {
   validateUrl,
   validateString,
   getAllowedPaths,
+  grantExternalPath,
+  isDeniedExternalPath,
 };

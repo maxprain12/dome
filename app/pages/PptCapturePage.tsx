@@ -3,9 +3,9 @@
  * to render PPTX slides and capture them as PNG images via Electron's
  * webContents.capturePage(). Never shown to the user.
  *
- * The main process loads this route in an invisible BrowserWindow,
- * then communicates via executeJavaScript() through the window.__pptCapture
- * API exposed here.
+ * The main process loads this route in an invisible BrowserWindow and
+ * communicates via IPC (ppt-capture:* channels) — no executeJavaScript
+ * with user-controlled data.
  */
 import { useEffect, useRef } from 'react';
 import { init as initPptxPreview } from '@/lib/pptx-preview';
@@ -24,18 +24,21 @@ interface PptxPreviewer {
   pptx?: {
     themes?: PptxTheme[];
   };
+  slideCount?: number;
+  renderSingleSlide?: (index: number) => void;
+  preview?: (buffer: ArrayBuffer) => Promise<void>;
 }
+
+type PptCaptureApi = {
+  init: (base64Data: string) => Promise<number>;
+  renderSlide: (index: number) => Promise<boolean>;
+};
 
 export default function PptCapturePage() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const captureApiRef = useRef<PptCaptureApi | null>(null);
 
   useEffect(() => {
-    // Hide pptx-preview navigation controls (arrows + pagination counter).
-    // Also neutralise Dome's global text color so the slide's own theme
-    // color becomes the effective default — pptx-preview sets explicit inline
-    // `style="color:…"` on elements it can resolve, which always wins over
-    // this class-level rule. The `--ppt-text-default` variable is set
-    // dynamically in `init()` after we can read the PPTX theme.
     const style = document.createElement('style');
     style.setAttribute('data-ppt-capture', '');
     style.textContent = `
@@ -43,18 +46,12 @@ export default function PptCapturePage() {
       .pptx-preview-wrapper-pagination {
         display: none !important;
       }
-      /* Default text color for slide content that has no explicit color in
-         the PPTX XML (i.e. uses theme inheritance). Updated per-presentation
-         in init() from the PPTX theme's lt1 (Light 1) value. Falls back to
-         white which is correct for the most common dark-background designs. */
       .pptx-preview-slide-wrapper {
         color: var(--ppt-text-default, #ffffff);
       }
     `;
     document.head.appendChild(style);
 
-    // Force the page to look like a plain 960×540 white canvas —
-    // no app chrome, no scrollbars.
     const root = document.getElementById('root');
     const prevRootStyle = root?.getAttribute('style') ?? '';
     const prevBodyStyle = document.body.getAttribute('style') ?? '';
@@ -70,24 +67,16 @@ export default function PptCapturePage() {
       );
     }
 
-    // Expose the control API that ppt-slide-extractor.cjs calls via
-    // win.webContents.executeJavaScript().
-    (window as unknown as Record<string, unknown>).__pptCapture = {
-      /**
-       * Load a PPTX file from a base64 string and render the first slide.
-       * @returns The total number of slides.
-       */
+    const captureApi: PptCaptureApi = {
       init: async (base64Data: string): Promise<number> => {
         if (!containerRef.current) throw new Error('Capture container not mounted');
 
-        // Decode base64 → ArrayBuffer
         const binaryStr = atob(base64Data);
         const bytes = new Uint8Array(binaryStr.length);
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i);
         }
 
-        // Clear any previous presentation
         containerRef.current.innerHTML = '';
 
         const previewer = initPptxPreview(containerRef.current, {
@@ -96,30 +85,23 @@ export default function PptCapturePage() {
           mode: 'slide',
         });
 
-        // Store on window so renderSlide() can access it
         (window as unknown as Record<string, unknown>).__pptPreviewer = previewer;
 
         await previewer.preview(bytes.buffer);
 
-        // Read the PPTX theme's "lt1" (Light 1) color — this is the default
-        // text color on dark-background slides (white in most dark themes).
-        // We apply it as a CSS variable so any text element that pptx-preview
-        // doesn't explicitly color (theme-inherited) still renders correctly.
         let lightColor = '#ffffff';
         try {
           const themes = (previewer as PptxPreviewer).pptx?.themes ?? [];
           const lt1 = themes[0]?.clrScheme?.lt1;
           if (lt1 && containerRef.current) {
-            // lt1 is stored without the '#' prefix in pptx-preview's clrScheme
             lightColor = lt1.startsWith('#') ? lt1 : `#${lt1}`;
             containerRef.current.style.setProperty('--ppt-text-default', lightColor);
           }
         } catch {
-          // Non-critical: the CSS fallback (#ffffff) handles the common case.
+          // Non-critical
         }
         (window as unknown as Record<string, unknown>).__pptLightColor = lightColor;
 
-        // Fix dark-slide text colors for slide 0 (already rendered by preview)
         await new Promise<void>((r) =>
           requestAnimationFrame(() => requestAnimationFrame(() => r())),
         );
@@ -130,16 +112,10 @@ export default function PptCapturePage() {
         return previewer.slideCount;
       },
 
-      /**
-       * Render the slide at the given 0-based index.
-       * Waits two rAF cycles so getComputedStyle reflects the new slide, then
-       * applies the dark-slide text color fix. Returns a promise for the caller to await.
-       */
       renderSlide: (index: number): Promise<boolean> => {
         const previewer = (window as unknown as Record<string, unknown>).__pptPreviewer as PptxPreviewer | undefined;
         if (!previewer || !containerRef.current) return Promise.resolve(false);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (previewer as unknown as { renderSingleSlide: (index: number) => void }).renderSingleSlide(index);
+        previewer.renderSingleSlide?.(index);
         return new Promise((resolve) => {
           requestAnimationFrame(() =>
             requestAnimationFrame(() => {
@@ -150,22 +126,41 @@ export default function PptCapturePage() {
           );
         });
       },
-
-      getSlideCount: (): number => {
-        return (window as unknown as Record<string, { slideCount?: number }>).__pptPreviewer?.slideCount ?? 0;
-      },
     };
 
-    // Signal that the API is ready for the main process to poll.
-    (window as unknown as Record<string, unknown>).__pptCaptureReady = true;
+    captureApiRef.current = captureApi;
+
+    const unsubInit = window.electron.on('ppt-capture:init', async (base64Data: string) => {
+      try {
+        const slideCount = await captureApi.init(base64Data);
+        window.electron.send('ppt-capture:init-done', { slideCount });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        window.electron.send('ppt-capture:init-done', { error: message });
+      }
+    });
+
+    const unsubRender = window.electron.on('ppt-capture:render-slide', async (index: number) => {
+      try {
+        const ok = await captureApi.renderSlide(index);
+        if (!ok) {
+          window.electron.send('ppt-capture:render-done', { error: `Failed to render slide ${index}` });
+          return;
+        }
+        window.electron.send('ppt-capture:render-done', { ok: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        window.electron.send('ppt-capture:render-done', { error: message });
+      }
+    });
+
+    window.electron.send('ppt-capture:ready');
 
     return () => {
+      unsubInit();
+      unsubRender();
       style.remove();
-      (window as unknown as Record<string, unknown>).__pptCapture = null;
-      (window as unknown as Record<string, unknown>).__pptCaptureReady = false;
-      (window as unknown as Record<string, unknown>).__pptPreviewer = null;
-      (window as unknown as Record<string, unknown>).__pptLightColor = undefined;
-      // Restore styles
+      captureApiRef.current = null;
       document.body.setAttribute('style', prevBodyStyle);
       if (root) root.setAttribute('style', prevRootStyle);
     };

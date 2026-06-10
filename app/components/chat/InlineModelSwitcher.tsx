@@ -68,9 +68,10 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
     }
 
     const dynamicProviders: AIProviderType[] = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'];
-    if (dynamicProviders.includes(p) && cfg.apiKey?.trim()) {
+    const key = cfg.apiKey?.trim();
+    if (dynamicProviders.includes(p) && key) {
       try {
-        const res = await fetchProviderModels(p, cfg.apiKey);
+        const res = await fetchProviderModels(p, key);
         if (res?.success && Array.isArray(res.models)) {
           setDynamicOpts(res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name })));
         } else {

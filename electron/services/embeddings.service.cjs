@@ -12,6 +12,7 @@ const {
   clearContextCache,
   DEFAULT_CONTEXT_TOKENS,
 } = require('./embedding-context.cjs');
+const { readSettingSecret } = require('../core/settings-secrets.cjs');
 
 const EMBEDDINGS_NOT_CONFIGURED = 'EMBEDDINGS_NOT_CONFIGURED';
 const EMBED_BATCH = 32;
@@ -45,7 +46,7 @@ function defaultGetQueries() {
 function readEmbeddingsSettings(queries) {
   const provider = String(queries.getSetting.get('embeddings_provider')?.value || '').toLowerCase();
   const model = String(queries.getSetting.get('embeddings_model')?.value || '').trim();
-  const apiKey = String(queries.getSetting.get('embeddings_api_key')?.value || '').trim();
+  const apiKey = readSettingSecret(queries, 'embeddings_api_key') || '';
   const baseUrl = String(
     queries.getSetting.get('embeddings_base_url')?.value || 'http://127.0.0.1:11434',
   ).replace(/\/$/, '');

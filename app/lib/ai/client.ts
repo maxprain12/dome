@@ -633,13 +633,27 @@ export type ProviderModelsListResult = {
   error?: string;
 };
 
+/** True when the value is a display-only mask from db:settings:get (not a real API key). */
+export function isMaskedSecretValue(value: string | undefined | null): boolean {
+  if (!value) return false;
+  const s = value.trim();
+  if (s === '••••••••') return true;
+  return /^.{1,3}\u2026.{4}$/.test(s) || /^.{1,3}\.{3}.{4}$/.test(s);
+}
+
+function apiKeyForProviderFetch(apiKey?: string): string | undefined {
+  const trimmed = apiKey?.trim();
+  if (!trimmed || isMaskedSecretValue(trimmed)) return undefined;
+  return trimmed;
+}
+
 export async function fetchOpenRouterModels(
   apiKey?: string,
 ): Promise<ProviderModelsListResult> {
   if (!isElectron()) {
     return { success: false, error: 'OpenRouter listing requires Electron.' };
   }
-  return window.electron.ai.listOpenRouterModels(apiKey);
+  return window.electron.ai.listOpenRouterModels(apiKeyForProviderFetch(apiKey));
 }
 
 export async function fetchProviderModels(
@@ -649,10 +663,11 @@ export async function fetchProviderModels(
   if (!isElectron()) {
     return { success: false, error: 'Provider model listing requires Electron.' };
   }
+  const key = apiKeyForProviderFetch(apiKey);
   if (provider === 'openrouter') {
-    return fetchOpenRouterModels(apiKey);
+    return fetchOpenRouterModels(key);
   }
-  return window.electron.ai.listProviderModels({ provider, apiKey });
+  return window.electron.ai.listProviderModels({ provider, apiKey: key });
 }
 
 export async function chatWithDome(

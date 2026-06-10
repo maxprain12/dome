@@ -11,7 +11,7 @@
  * webContents.capturePage(). No external dependencies required.
  */
 
-const { BrowserWindow, app } = require('electron');
+const { BrowserWindow, app, ipcMain } = require('electron');
 const fs = require('fs');
 const { getDistIndexHtml, getPreloadPath } = require('../paths.cjs');
 
@@ -19,19 +19,17 @@ const { getDistIndexHtml, getPreloadPath } = require('../paths.cjs');
 const SLIDE_W = 960;
 const SLIDE_H = 540;
 
-// How long to wait for the /ppt-capture page to expose window.__pptCapture
+// How long to wait for the /ppt-capture page to signal readiness
 const PAGE_READY_TIMEOUT_MS = 15000;
 
-// How long to poll each check interval
-const POLL_INTERVAL_MS = 100;
-
 // How long to wait after renderSingleSlide() before capturing (ms).
-// Two rAF cycles handle deferred CSS transitions; 250 ms is a safe buffer
-// for complex slides with echarts or many shapes.
 const RENDER_SETTLE_MS = 250;
 
 // Maximum slides to extract (guard against corrupt files)
 const MAX_SLIDES = 200;
+
+const INIT_TIMEOUT_MS = 120_000;
+const RENDER_TIMEOUT_MS = 30_000;
 
 /**
  * Returns true when running in development mode (Vite dev server).
@@ -47,8 +45,6 @@ function isDev() {
 
 /**
  * Build the URL the hidden window should load.
- * Dev  → http://localhost:5173/ppt-capture  (Vite dev server)
- * Prod → app://dome/ppt-capture             (bundled dist via custom protocol)
  */
 function buildCaptureUrl() {
   return isDev()
@@ -57,44 +53,28 @@ function buildCaptureUrl() {
 }
 
 /**
- * Wait (polling) until window.__pptCaptureReady === true inside the given
- * BrowserWindow, or throw if the timeout is exceeded.
+ * Wait for a one-shot IPC message from a specific webContents id.
  */
-async function waitForPageReady(win, timeoutMs = PAGE_READY_TIMEOUT_MS) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (win.isDestroyed()) throw new Error('Capture window was destroyed');
-    const ready = await win.webContents.executeJavaScript(
-      'typeof window.__pptCapture !== "undefined" && window.__pptCapture !== null && window.__pptCaptureReady === true',
-    );
-    if (ready) return;
-    await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
-  }
-  throw new Error(`PPT capture page not ready after ${timeoutMs} ms`);
-}
+function waitForCaptureEvent(win, channel, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      ipcMain.removeListener(channel, handler);
+      reject(new Error(`Timeout waiting for ${channel} after ${timeoutMs} ms`));
+    }, timeoutMs);
 
-/**
- * Wait for two animation frames (requestAnimationFrame) inside the hidden
- * window so that pptx-preview's DOM mutations are fully painted before we
- * call capturePage().
- */
-async function waitForRender(win) {
-  await win.webContents.executeJavaScript(
-    'new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))',
-  );
-  // Extra buffer for slow/complex slides
-  await new Promise((r) => setTimeout(r, RENDER_SETTLE_MS));
+    const handler = (event, payload) => {
+      if (win.isDestroyed() || event.sender.id !== win.webContents.id) return;
+      clearTimeout(timer);
+      ipcMain.removeListener(channel, handler);
+      resolve(payload);
+    };
+
+    ipcMain.on(channel, handler);
+  });
 }
 
 /**
  * Extract one PNG image per slide from a PPTX file.
- *
- * Uses a hidden Electron BrowserWindow with the /ppt-capture route to render
- * slides via pptx-preview, then captures each via webContents.capturePage().
- * No LibreOffice, no poppler, no external tools required.
- *
- * @param {string} pptxPath  Absolute path to the .pptx file.
- * @returns {Promise<{ success: boolean; slides?: Array<{ index: number; image_base64: string }>; error?: string }>}
  */
 async function extractPptSlideImages(pptxPath) {
   if (!fs.existsSync(pptxPath)) {
@@ -105,52 +85,49 @@ async function extractPptSlideImages(pptxPath) {
   let win = null;
 
   try {
-    // ── Create hidden window ────────────────────────────────────────────────
     win = new BrowserWindow({
       width: SLIDE_W,
       height: SLIDE_H,
       show: false,
       frame: false,
-      // Keep it out of the taskbar / dock
       skipTaskbar: true,
       webPreferences: {
         preload: getPreloadPath(),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
-        // Disable web security for the local app protocol (same as main window)
+        sandbox: true,
         webSecurity: true,
         ...(app.isPackaged ? { devTools: false } : {}),
       },
     });
 
-    // Suppress any unhandled console errors from the app's normal init code
-    // that doesn't apply to this minimal context.
     win.webContents.on('console-message', (_e, _level, message) => {
       if (process.env.PPT_EXTRACTOR_DEBUG) {
         console.log('[PptExtractor/page]', message);
       }
     });
 
+    const readyPromise = waitForCaptureEvent(win, 'ppt-capture:ready', PAGE_READY_TIMEOUT_MS);
     await win.loadURL(url);
-    await waitForPageReady(win);
+    await readyPromise;
 
-    // ── Pass PPTX data to the renderer ─────────────────────────────────────
     const pptxBuffer = fs.readFileSync(pptxPath);
     const pptxBase64 = pptxBuffer.toString('base64');
 
-    // init() loads the PPTX, renders slide 0, and returns the slide count.
-    const slideCount = await win.webContents.executeJavaScript(
-      `window.__pptCapture.init(${JSON.stringify(pptxBase64)})`,
-    );
+    const initDonePromise = waitForCaptureEvent(win, 'ppt-capture:init-done', INIT_TIMEOUT_MS);
+    win.webContents.send('ppt-capture:init', pptxBase64);
+    const initResult = await initDonePromise;
 
+    if (!initResult || initResult.error) {
+      return { success: false, error: initResult?.error || 'Failed to initialize PPT capture' };
+    }
+
+    const slideCount = initResult.slideCount;
     if (!slideCount || typeof slideCount !== 'number' || slideCount <= 0) {
       return { success: false, error: 'No slides found in the presentation' };
     }
 
     const total = Math.min(slideCount, MAX_SLIDES);
-
-    // ── Capture each slide ─────────────────────────────────────────────────
     const slides = [];
 
     for (let i = 0; i < total; i++) {
@@ -158,14 +135,16 @@ async function extractPptSlideImages(pptxPath) {
         return { success: false, error: 'Capture window was destroyed during extraction' };
       }
 
-      // Slide 0 is already rendered by init(); render subsequent slides.
       if (i > 0) {
-        await win.webContents.executeJavaScript(
-          `window.__pptCapture.renderSlide(${i})`,
-        );
+        const renderDonePromise = waitForCaptureEvent(win, 'ppt-capture:render-done', RENDER_TIMEOUT_MS);
+        win.webContents.send('ppt-capture:render-slide', i);
+        const renderResult = await renderDonePromise;
+        if (!renderResult || renderResult.error) {
+          return { success: false, error: renderResult?.error || `Failed to render slide ${i}` };
+        }
       }
 
-      await waitForRender(win);
+      await new Promise((r) => setTimeout(r, RENDER_SETTLE_MS));
 
       const image = await win.webContents.capturePage({
         x: 0,

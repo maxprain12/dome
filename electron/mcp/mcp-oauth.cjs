@@ -100,6 +100,25 @@ async function exchangeCodeForToken(providerId, code, codeVerifier, clientId) {
   return data.access_token || data.token;
 }
 
+const OAUTH_PENDING_TIMEOUT_MS = 10 * 60 * 1000;
+
+function registerOAuthPending(pendingMap, key, entry) {
+  const timer = setTimeout(() => {
+    if (pendingMap.delete(key)) {
+      entry.reject(new Error('OAuth timeout'));
+    }
+  }, OAUTH_PENDING_TIMEOUT_MS);
+  pendingMap.set(key, { ...entry, timer });
+}
+
+function consumeOAuthPending(pendingMap, key) {
+  const flow = pendingMap.get(key);
+  if (!flow) return null;
+  if (flow.timer) clearTimeout(flow.timer);
+  pendingMap.delete(key);
+  return flow;
+}
+
 /**
  * Inicia el flujo OAuth: abre el navegador y retorna una Promise que se resuelve
  * cuando llega el callback con el token.
@@ -120,7 +139,7 @@ function startOAuthFlow(providerId, database) {
     const authUrl = buildAuthUrl(providerId, codeChallenge, state, clientId);
 
     const pending = global.__mcpOAuthPending || (global.__mcpOAuthPending = new Map());
-    pending.set(providerId, { resolve, reject, codeVerifier, state, clientId });
+    registerOAuthPending(pending, providerId, { resolve, reject, codeVerifier, state, clientId });
 
     shell.openExternal(authUrl);
   });
@@ -141,10 +160,11 @@ function handleOAuthCallback(url) {
     if (error) {
       const pending = global.__mcpOAuthPending;
       if (pending) {
-        for (const [, p] of pending) {
+        for (const [providerId, p] of pending) {
+          if (p.timer) clearTimeout(p.timer);
           p.reject(new Error('OAuth rechazado: ' + (parsed.searchParams.get('error_description') || error)));
+          pending.delete(providerId);
         }
-        pending.clear();
       }
       return true;
     }
@@ -156,13 +176,16 @@ function handleOAuthCallback(url) {
 
     for (const [providerId, p] of pending) {
       if (p.state === state) {
-        pending.delete(providerId);
-        exchangeCodeForToken(providerId, code, p.codeVerifier, p.clientId)
-          .then((token) => p.resolve({ token, providerId }))
-          .catch((err) => p.reject(err));
+        const flow = consumeOAuthPending(pending, providerId);
+        if (!flow) return true;
+        exchangeCodeForToken(providerId, code, flow.codeVerifier, flow.clientId)
+          .then((token) => flow.resolve({ token, providerId }))
+          .catch((err) => flow.reject(err));
         return true;
       }
     }
+
+    console.warn('[MCP OAuth] Callback with unknown or expired state ignored');
   } catch (e) {
     console.warn('[MCP OAuth] Callback error:', e?.message);
   }

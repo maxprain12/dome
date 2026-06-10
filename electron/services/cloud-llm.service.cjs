@@ -8,6 +8,7 @@
 const llmService = require('../ai/llm-service.cjs');
 const { MINIMAX_BASE_URL } = require('../ai/minimax-config.cjs');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
+const { readSettingSecret } = require('../core/settings-secrets.cjs');
 
 const VISION_PROVIDERS = new Set([
   'openai',
@@ -33,7 +34,7 @@ function resolveConfig(getQueries) {
   if (provider === 'ollama') {
     return {
       provider: 'ollama',
-      apiKey: q.getSetting.get('ollama_api_key')?.value || '',
+      apiKey: readSettingSecret(q, 'ollama_api_key') || '',
       model: q.getSetting.get('ollama_model')?.value || 'llama3.2',
       ollamaBase: String(q.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434').replace(/\/$/, ''),
     };
@@ -52,7 +53,7 @@ function resolveConfig(getQueries) {
   if (provider === 'copilot') {
     return {
       provider: 'copilot',
-      apiKey: q.getSetting.get('copilot_github_token')?.value || '',
+      apiKey: readSettingSecret(q, 'copilot_github_token') || '',
       model: q.getSetting.get('ai_model')?.value || 'gpt-4.1',
       openaiBase: 'https://api.individual.githubcopilot.com',
     };
@@ -82,7 +83,7 @@ function resolveConfig(getQueries) {
 
   return {
     provider: resolvedProvider,
-    apiKey: q.getSetting.get('ai_api_key')?.value,
+    apiKey: readSettingSecret(q, 'ai_api_key'),
     model: q.getSetting.get('ai_model')?.value,
     openaiBase,
   };
@@ -101,7 +102,7 @@ function isCloudLlmAvailable(getQueries) {
       return Boolean(row?.access_token);
     }
     if (cfg.provider === 'copilot') {
-      return Boolean(getQueries().getSetting.get('copilot_github_token')?.value);
+      return Boolean(readSettingSecret(getQueries(), 'copilot_github_token'));
     }
     return Boolean(cfg.apiKey && String(cfg.apiKey).trim());
   } catch {

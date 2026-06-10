@@ -3,11 +3,14 @@
  */
 
 const { fetchWithTimeout } = require('../http-utils.cjs');
+const { assertPublicUrl } = require('../url-guard.cjs');
 
 async function scrape(request, apiKey) {
   if (!apiKey) {
     throw new Error('Tavily API key is not configured');
   }
+
+  await assertPublicUrl(request.url);
 
   const response = await fetchWithTimeout(
     'https://api.tavily.com/extract',

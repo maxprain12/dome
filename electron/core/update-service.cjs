@@ -21,14 +21,22 @@ function readUpdaterState() {
   try {
     const raw = fs.readFileSync(updaterStatePath(), 'utf8');
     const data = JSON.parse(raw);
-    return typeof data?.skippedVersion === 'string' ? data : {};
+    return typeof data === 'object' && data ? data : {};
   } catch {
     return {};
   }
 }
 
+const SKIP_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
+
 function getSkippedVersion() {
-  return readUpdaterState().skippedVersion ?? null;
+  const state = readUpdaterState();
+  if (!state.skippedVersion) return null;
+  if (state.skippedAt && Date.now() - state.skippedAt > SKIP_EXPIRY_MS) {
+    clearSkippedVersion();
+    return null;
+  }
+  return state.skippedVersion;
 }
 
 /**
@@ -37,7 +45,7 @@ function getSkippedVersion() {
  */
 function skipVersion(version) {
   if (!version || typeof version !== 'string') return;
-  const next = { ...readUpdaterState(), skippedVersion: version };
+  const next = { ...readUpdaterState(), skippedVersion: version, skippedAt: Date.now() };
   fs.mkdirSync(path.dirname(updaterStatePath()), { recursive: true });
   fs.writeFileSync(updaterStatePath(), JSON.stringify(next, null, 2), 'utf8');
   console.log('[Updater] Skipping version until cleared:', version);
@@ -50,6 +58,7 @@ function clearSkippedVersion() {
   try {
     const next = { ...readUpdaterState() };
     delete next.skippedVersion;
+    delete next.skippedAt;
     fs.writeFileSync(updaterStatePath(), JSON.stringify(next, null, 2), 'utf8');
   } catch {
     /* ignore */

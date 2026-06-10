@@ -1,4 +1,6 @@
 /* eslint-disable no-console */
+const { readSettingSecret } = require('../../core/settings-secrets.cjs');
+
 function register({ ipcMain, windowManager, database, ollamaService, getOllamaManager }) {
   function ensureEmbeddedOllama() {
     const win = windowManager.get?.('main');
@@ -16,9 +18,8 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
 
     try {
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
-      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-      const apiKey = apiKeyResult?.value || '';
+      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const isAvailable = await ollamaService.checkAvailability(baseUrl, apiKey);
       return { success: true, available: isAvailable };
     } catch (error) {
@@ -37,9 +38,7 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
 
     try {
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
-      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
-      const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-      const apiKey = apiKeyResult?.value || '';
+      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const models = await ollamaService.listModels(baseUrl, apiKey);
       return { success: true, models };
     } catch (error) {
@@ -69,11 +68,10 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       }
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
       const embeddingModelResult = database.getQueries().getSetting.get('ollama_embedding_model');
-      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const model = embeddingModelResult?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-      const apiKey = apiKeyResult?.value || '';
+      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
 
       const embedding = await ollamaService.generateEmbedding(text, model, baseUrl, apiKey);
       return { success: true, embedding };
@@ -104,11 +102,10 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       }
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
       const modelResult = database.getQueries().getSetting.get('ollama_model');
-      const apiKeyResult = database.getQueries().getSetting.get('ollama_api_key');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const model = modelResult?.value || ollamaService.DEFAULT_MODEL;
-      const apiKey = apiKeyResult?.value || '';
+      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
 
       const summary = await ollamaService.generateSummary(text, model, baseUrl, apiKey);
       return { success: true, summary };
@@ -159,11 +156,10 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       const queries = database.getQueries();
       const baseUrlResult = queries.getSetting.get('ollama_base_url');
       const modelResult = queries.getSetting.get('ollama_model');
-      const apiKeyResult = queries.getSetting.get('ollama_api_key');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
-      const apiKey = apiKeyResult?.value || '';
+      const apiKey = readSettingSecret(queries, 'ollama_api_key') || '';
 
       console.log(`[Ollama] Chat config - Base URL: ${baseUrl}, Model from param: ${model}, Model from DB: ${modelResult?.value}, Using: ${chatModel}`);
 
