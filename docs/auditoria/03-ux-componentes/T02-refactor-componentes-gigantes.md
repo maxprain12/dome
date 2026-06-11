@@ -1,7 +1,7 @@
 # T02 — Refactor de componentes gigantes (>1.100 líneas)
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UX Componentes
-**Estado**: 🔶 Fase 1 implementada (2026-06-11, rama `refactor/ux-componentes-gigantes`) — `ChatToolCard.tsx` (el primero del orden sugerido) pasa de **1.298 a 790 líneas** extrayendo a `chat/tool-card/`: `toolCardConfig.ts` (141 — mapeo tool→categoría/icono y límites de codegen, datos puros), `toolResultParsers.ts` (192 — parsers de resultados/args, funciones puras testables) y `ToolResultHighlights.tsx` (225 — highlights de calendar/flashcard/resource, preview de codegen, resumen de tree). Refactor puro: API pública intacta (`ToolCallData`, `ChatToolSurfaceVariant`, `SubagentToolSection`, `ChatToolCardGroup` siguen exportándose desde `ChatToolCard.tsx`; los 10 consumidores no se tocan). **Pendiente (un componente por PR, en este orden):** FolderTabView (1.190), RunsWorkspaceView (1.895) + AutomationsWorkspaceView (1.342) con piezas comunes en `hub/shared/`, ManyPanel (1.597, smoke fuerte) y UnifiedSidebar (2.140).
+**Estado**: 🔶 Fase 2 implementada (2026-06-11, rama `refactor/ux-foldertabview`) — tras ChatToolCard (#367), **FolderTabView pasa de 1.194 a ~565 líneas** extrayendo a `shell/folder-tab/`: `folderTabShared.tsx` (color de carpeta, icono/etiquetas de tipo), `ColorPickerPopover`, `SubfolderCard` (216), `FileRow` (203), `NewFolderInline` y `AddMenu`. Refactor puro, imports muertos podados. **Pendiente:** RunsWorkspaceView (1.895) + AutomationsWorkspaceView (1.342) con comunes en `hub/shared/`, ManyPanel (1.597, smoke fuerte) y UnifiedSidebar (2.140).
 
 ## Problema
 
