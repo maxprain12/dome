@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Text, ScrollArea, UnstyledButton, Button, Group, Stack } from '@mantine/core';
+import { Modal, Text, ScrollArea, UnstyledButton, Group, Stack } from '@mantine/core';
+import DomeButton from '@/components/ui/DomeButton';
 import { useTranslation } from 'react-i18next';
 import type { Project } from '@/types';
 import type { Resource } from '@/lib/hooks/useResources';
@@ -204,16 +205,17 @@ export default function MoveToProjectModal({
         ) : null}
 
         <Group justify="flex-end" mt="md">
-          <Button variant="default" onClick={onClose} disabled={submitting}>
+          <DomeButton variant="secondary" onClick={onClose} disabled={submitting}>
             {t('common.cancel')}
-          </Button>
-          <Button
+          </DomeButton>
+          <DomeButton
+            variant="primary"
             onClick={() => void handleMove()}
             loading={submitting}
             disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}
           >
             {t('moveProject.confirm')}
-          </Button>
+          </DomeButton>
         </Group>
       </Stack>
     </Modal>

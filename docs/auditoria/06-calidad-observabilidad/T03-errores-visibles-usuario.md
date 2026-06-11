@@ -1,6 +1,7 @@
 # T03 — Errores de tools/runs visibles para el usuario
 
 **Prioridad**: P2 · **Severidad**: Media · **Esfuerzo**: M · **Área**: Observabilidad / UX
+**Estado**: ✅ Implementado (2026-06-10, rama `feat/ux-errores-visibles`) — `electron/core/error-notify.cjs` es el embudo único: loguea con el logger estructurado (T02) y emite `system:error-notification` (broadcast, throttle 1/min por scope). Clasificador de errores comunes (`invalid_api_key`, `rate_limit`, `model_not_found`, `network`, `context_overflow`) → mensajes i18n con causa+acción en 4 idiomas (`errors.system.*`). Conectado a: fallo de agent-run y de workflow en `run-engine.cjs` (scope `runs`/`workflows`) y fallo de automation en `automation-service.cjs` (scope `automations`). Renderer: `SystemErrorNotifier.tsx` montado en AppShell muestra toasts Mantine (click en errores de clave/modelo abre Settings). `RunLogView` ya mostraba `run.error` en un callout (sin cambios). Tests: `error-notify.test.mjs` (4: classify, payload, throttle, sin windowManager).
 
 ## Problema
 

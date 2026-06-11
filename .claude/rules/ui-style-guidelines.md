@@ -420,16 +420,25 @@ Los valores hex por tema viven en `app/globals.css` (`:root` y `[data-theme="dar
 
 ---
 
-## Responsive Breakpoints
+## Responsive Breakpoints (desktop app — 03/T06)
 
-```css
-/* Mobile first approach */
---breakpoint-sm: 640px;   /* Large phones */
---breakpoint-md: 768px;   /* Tablets */
---breakpoint-lg: 1024px;  /* Small laptops */
---breakpoint-xl: 1280px;  /* Desktops */
---breakpoint-2xl: 1536px; /* Large screens */
-```
+Dome es una app Electron: el objetivo es robustez entre la ventana mínima y
+pantallas grandes, **no** mobile-first. Contrato vigente:
+
+| Umbral | Qué pasa |
+|--------|----------|
+| **800×600** | Tamaño mínimo de ventana, forzado en `electron/main.cjs` (`minWidth`/`minHeight`). Toda vista principal debe ser usable aquí. |
+| **≤ 980px** | El panel derecho (Many) pasa a overlay (`position: absolute`, `width: min(380px, 86vw)`) y el sidebar izquierdo cede ancho (`min(260px, 28vw)`, mínimo 200px). Definido en `app/globals.css` (`@media (max-width: 980px)`). |
+| **> 980px** | Layout de tres paneles completo (sidebar 260px + contenido + Many 280–600px redimensionable). |
+
+Reglas al añadir UI nueva:
+- Anchos fijos solo si caben a 800px de ventana; si no, `min()`/`clamp()`.
+- El contenido principal siempre con `min-width: 0` dentro de filas flex.
+- Probar a 800×600 y ~1000×700 antes de mergear cambios de layout.
+
+Tailwind sigue ofreciendo sus breakpoints estándar (`sm`/`md`/`lg`…) para
+utilidades puntuales, pero los umbrales de comportamiento del shell son los
+de la tabla.
 
 ---
 

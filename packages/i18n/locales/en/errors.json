@@ -1,3 +1,24 @@
 {
-  "database_unavailable": "Database not available"
+  "database_unavailable": "Database not available",
+  "system": {
+    "scope": {
+      "runs": "Agent run failed",
+      "workflows": "Workflow failed",
+      "automations": "Automation failed",
+      "ai": "AI provider error",
+      "indexing": "Indexing problem",
+      "sync": "Sync problem",
+      "app": "Application error"
+    },
+    "code": {
+      "invalid_api_key": "The API key was rejected by the provider. Check your key in Settings → AI.",
+      "rate_limit": "The provider rate limit was reached. Wait a moment and try again, or check your plan.",
+      "model_not_found": "The selected model is not available. Pick another model in Settings → AI.",
+      "network": "Could not reach the service. Check your internet connection and try again.",
+      "context_overflow": "The conversation is too long for the model. Start a new chat or compact the thread.",
+      "unknown": "Something went wrong. The technical detail is in the log."
+    },
+    "viewDetails": "View details",
+    "openAiSettings": "Open AI settings"
+  }
 }

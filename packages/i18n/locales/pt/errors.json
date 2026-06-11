@@ -1,3 +1,24 @@
 {
-  "database_unavailable": "Banco de dados indisponível"
+  "database_unavailable": "Banco de dados indisponível",
+  "system": {
+    "scope": {
+      "runs": "Falha no run do agente",
+      "workflows": "Falha no workflow",
+      "automations": "Falha na automação",
+      "ai": "Erro do provedor de IA",
+      "indexing": "Problema de indexação",
+      "sync": "Problema de sincronização",
+      "app": "Erro do aplicativo"
+    },
+    "code": {
+      "invalid_api_key": "O provedor rejeitou a API key. Verifique sua chave em Configurações → IA.",
+      "rate_limit": "O limite de requisições do provedor foi atingido. Aguarde um momento e tente novamente, ou verifique seu plano.",
+      "model_not_found": "O modelo selecionado não está disponível. Escolha outro modelo em Configurações → IA.",
+      "network": "Não foi possível conectar ao serviço. Verifique sua conexão com a internet e tente novamente.",
+      "context_overflow": "A conversa é longa demais para o modelo. Inicie um novo chat ou compacte a thread.",
+      "unknown": "Algo deu errado. O detalhe técnico está no log."
+    },
+    "viewDetails": "Ver detalhes",
+    "openAiSettings": "Abrir configurações de IA"
+  }
 }

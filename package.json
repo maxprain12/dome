@@ -38,7 +38,7 @@
     "test:filesystem-tools": "node --test scripts/test-filesystem-tools.mjs",
     "test:feeders": "node --test scripts/test-feeders.mjs",
     "test:web-search": "node --test scripts/test-web-search.mjs",
-    "test:security": "node --test electron/__tests__/shell-policy.test.mjs electron/__tests__/url-guard.test.mjs electron/__tests__/migration-backup.test.mjs electron/__tests__/settings-secrets.test.mjs electron/__tests__/security-path.test.mjs electron/__tests__/logger.test.mjs electron/__tests__/tool-call-policy.test.mjs electron/__tests__/run-retention.test.mjs electron/__tests__/workflow-dag.test.mjs",
+    "test:security": "node --test electron/__tests__/shell-policy.test.mjs electron/__tests__/url-guard.test.mjs electron/__tests__/migration-backup.test.mjs electron/__tests__/settings-secrets.test.mjs electron/__tests__/security-path.test.mjs electron/__tests__/logger.test.mjs electron/__tests__/tool-call-policy.test.mjs electron/__tests__/run-retention.test.mjs electron/__tests__/error-notify.test.mjs electron/__tests__/workflow-dag.test.mjs",
     "test": "pnpm run test:security && pnpm --filter @dome/agent-core run test",
     "test:studio": "node scripts/test-studio-validators.mjs",
     "test:studio:tools": "node scripts/test-studio-tools.mjs",

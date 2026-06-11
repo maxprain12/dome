@@ -14,6 +14,7 @@ const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const { readPrompt } = require('../prompts/prompts-loader.cjs');
 const logger = require('../core/logger.cjs');
+const { notifyError } = require('../core/error-notify.cjs');
 const runStore = require('./run-store.cjs');
 const { topologicalLevels, mergePayloads, getInputPayloads } = require('./workflow-dag.cjs');
 
@@ -905,6 +906,14 @@ async function executeAgentRun(runId, params) {
       content: error?.message || String(error),
       ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
     });
+    if (!aborted) {
+      notifyError({
+        scope: 'runs',
+        message: error?.message || String(error),
+        runId,
+        title: getRun(runId)?.title || undefined,
+      });
+    }
     const currentMeta = getRun(runId)?.metadata ?? {};
     const patched = await patchRun(runId, {
       status: aborted ? 'cancelled' : 'failed',
@@ -1554,6 +1563,14 @@ async function executeWorkflowRun(runId, params, workflow) {
           ...(workflowLlmUsage ? { usage: workflowLlmUsage } : {}),
         },
       });
+      if (!aborted) {
+        notifyError({
+          scope: 'workflows',
+          message: error?.message || String(error),
+          runId,
+          title: workflow?.title || workflow?.name || undefined,
+        });
+      }
       patchRun(runId, {
         status: aborted ? 'cancelled' : 'failed',
         error: aborted ? null : (error?.message || String(error)),
