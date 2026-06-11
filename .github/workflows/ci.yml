@@ -71,6 +71,11 @@ jobs:
       - name: Security unit tests
         run: pnpm run test:security
 
+      - name: Build workspace packages (agent-core deps)
+        # vitest resolves @dome/ai from its dist/ — install runs with
+        # --ignore-scripts, so the workspace packages are never built otherwise
+        run: pnpm run build:packages
+
       - name: Agent-core unit tests
         run: pnpm --filter @dome/agent-core run test
 
