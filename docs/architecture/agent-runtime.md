@@ -65,9 +65,16 @@ IPC handlers and `automation-service.cjs`). Extracted so far:
   note-resource side effect. Terminal automation status flows back to the
   engine via the `onTerminalAutomationStatus` hook (no circular import).
 
-Pending extractions (next PRs): `workflow-executor.cjs` (executeWorkflowRun /
-node retry) and `run-lifecycle.cjs` (activeRunContexts, abort, HITL
-pause/resume).
+- `workflow-executor.cjs` — the workflow DAG executor (`executeWorkflowRun`,
+  `resolveWorkflowAgent`, `SYSTEM_AGENTS`, static-node resolution); wired by
+  `run-engine.init()` with `{ database, loadManyAgents }`.
+- `run-lifecycle.cjs` — `activeRunContexts`, `releaseRunContext`, `abortRun`
+  and shutdown cleanup (`abortAllRunContexts`).
+- `run-helpers.cjs` — pure helpers (abort detection, tool-arg parsing, LLM
+  usage merge, tool-step patches); unit-tested.
+
+`run-engine.cjs` remains the façade (startAgentRun/startWorkflowRun/resumeRun,
+automations, chunk emitter, legacy migrations) at ~1.300 lines.
 Removed npm deps: `langchain`, `@langchain/langgraph`, `@langchain/langgraph-checkpoint-sqlite`, `deepagents`.
 
 Still present (not LangGraph / not the agent runtime):
