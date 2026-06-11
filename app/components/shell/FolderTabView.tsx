@@ -1,5 +1,6 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
-import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
+import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group } from '@mantine/core';
+import DomeButton from '@/components/ui/DomeButton';
 import { formatDistanceToNow } from 'date-fns';
 import {
   FolderOpen, Folder, FileText, Plus, Home, ChevronRight,
@@ -1171,9 +1172,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             </Stack>
           </ScrollArea.Autosize>
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setFolderPickOpen(false)}>
+            <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
               {t('common.cancel')}
-            </Button>
+            </DomeButton>
           </Group>
         </Stack>
       </Modal>
