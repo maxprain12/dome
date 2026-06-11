@@ -12,6 +12,7 @@ import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
 import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
+import SystemErrorNotifier from '@/components/shell/SystemErrorNotifier';
 import TranscriptionPill from '@/components/transcription/TranscriptionPill';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
@@ -402,6 +403,7 @@ export default function AppShell() {
 
       {/* Voice IPC bridge — always mounted, zero UI */}
       <ManyVoiceBridge />
+      <SystemErrorNotifier />
 
       {/* In-app HITL approval modals */}
       <ApprovalProvider />
