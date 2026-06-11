@@ -1,7 +1,7 @@
 # T05 — Modularizar run-engine.cjs
 
 **Prioridad**: P2 · **Severidad**: Media · **Esfuerzo**: L · **Área**: Harness
-**Estado**: 🔶 Fase 1 implementada (2026-06-11, rama `refactor/harness-modularizar-run-engine`) — extraídos sin reescribir: `workflow-dag.cjs` (70 líneas, puro: `topologicalLevels`/`mergePayloads`/`getInputPayloads`, **7 tests unitarios** en `workflow-dag.test.mjs`) y `run-store.cjs` (411 líneas: persistencia de runs/steps/links, eventos `runs:updated`/`runs:step`, `createNoteResource`; el estado terminal de la automation vuelve al engine vía hook `onTerminalAutomationStatus`, sin import circular). `run-engine.cjs` queda en 1.933 líneas como fachada — API pública intacta (IPC y automation-service no se tocan). Diagrama actualizado en `docs/architecture/agent-runtime.md`. **Pendiente (fase 2):** `workflow-executor.cjs` (executeWorkflowRun/retry, ~360 líneas) y `run-lifecycle.cjs` (activeRunContexts/abort/HITL) — requieren smoke manual de workflow multi-nodo + abort por PR.
+**Estado**: ✅ Implementado (fase 2, 2026-06-11, rama `refactor/harness-run-engine-fase2`) — extraídos además `workflow-executor.cjs` (593 líneas: executeWorkflowRun/retry, resolveWorkflowAgent, SYSTEM_AGENTS, resolución de nodos estáticos; DI vía `init({database, loadManyAgents})`), `run-lifecycle.cjs` (61: activeRunContexts/releaseRunContext/abortRun/abortAll) y `run-helpers.cjs` (97: helpers puros con 6 tests). `run-engine.cjs` queda en **1.310 líneas** como fachada (API pública intacta). Total fase 1+2: dag (7 tests) + store + executor + lifecycle + helpers (6 tests). Pendiente: smoke manual de workflow multi-nodo + abort.
 
 ## Problema
 
