@@ -15,6 +15,29 @@ const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const { readPrompt } = require('../prompts/prompts-loader.cjs');
 const logger = require('../core/logger.cjs');
 const { notifyError } = require('../core/error-notify.cjs');
+const runStore = require('./run-store.cjs');
+const { topologicalLevels, mergePayloads, getInputPayloads } = require('./workflow-dag.cjs');
+
+// Persistence layer (04/T05): run rows/steps/links + renderer events live in
+// run-store.cjs; these aliases keep the internal call sites unchanged.
+const {
+  RUN_EVENT_CHANNEL,
+  RUN_STEP_CHANNEL,
+  RUN_CHUNK_CHANNEL,
+  RUN_TERMINAL_STATUSES,
+  parseJsonSafely,
+  toJson,
+  normalizeRunRow,
+  createRun,
+  patchRun,
+  appendRunStep,
+  updateRunStep,
+  finalizeRunningRunSteps,
+  getRun,
+  listRuns,
+  getActiveRunBySession,
+  createNoteResource,
+} = runStore;
 
 function manySubagentIds() {
   const { manySubagentIds: ids } = require('./subagents-native.cjs');
@@ -26,12 +49,7 @@ function getApprovalSenderId() {
   return win?.webContents?.id ?? null;
 }
 
-const RUN_EVENT_CHANNEL = 'runs:updated';
-const RUN_STEP_CHANNEL = 'runs:step';
-const RUN_CHUNK_CHANNEL = 'runs:chunk';
-
 const OUTPUT_MODES = new Set(['chat_only', 'note', 'studio_output', 'mixed']);
-const RUN_TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 const RUN_RECOVERY_STALE_MS = 120 * 1000;
 const RUN_RESTART_ERROR = 'Interrupted - the app was restarted while this run was active.';
 
@@ -128,19 +146,6 @@ function getQueries() {
 
 function now() {
   return Date.now();
-}
-
-function parseJsonSafely(value, fallback) {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
-  }
-}
-
-function toJson(value) {
-  return value == null ? null : JSON.stringify(value);
 }
 
 function parseToolArguments(rawArguments) {
@@ -293,311 +298,6 @@ function normalizeAutomationRow(row) {
   };
 }
 
-function normalizeRunRow(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    projectId: row.project_id ?? 'default',
-    automationId: row.automation_id ?? null,
-    ownerType: row.owner_type,
-    ownerId: row.owner_id,
-    title: row.title ?? '',
-    status: row.status,
-    sessionId: row.session_id ?? null,
-    workflowId: row.workflow_id ?? null,
-    workflowExecutionId: row.workflow_execution_id ?? null,
-    threadId: row.thread_id ?? null,
-    outputText: row.output_text ?? '',
-    summary: row.summary ?? null,
-    error: row.error ?? null,
-    metadata: parseJsonSafely(row.metadata, {}),
-    startedAt: row.started_at,
-    updatedAt: row.updated_at,
-    finishedAt: row.finished_at ?? null,
-    lastHeartbeatAt: row.last_heartbeat_at ?? null,
-  };
-}
-
-function normalizeStepRow(row) {
-  if (!row) return null;
-  return {
-    id: row.id,
-    runId: row.run_id,
-    parentStepId: row.parent_step_id ?? null,
-    stepType: row.step_type,
-    title: row.title,
-    status: row.status,
-    content: row.content ?? null,
-    metadata: parseJsonSafely(row.metadata, {}),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
-
-function updateStoredRun(run) {
-  const queries = getQueries();
-  if (!queries?.updateAutomationRun) {
-    throw new Error('Database queries unavailable');
-  }
-  queries.updateAutomationRun.run(
-    run.projectId ?? 'default',
-    run.automationId ?? null,
-    run.ownerType,
-    run.ownerId,
-    run.title ?? null,
-    run.status,
-    run.sessionId ?? null,
-    run.workflowId ?? null,
-    run.workflowExecutionId ?? null,
-    run.threadId ?? null,
-    run.outputText ?? '',
-    run.summary ?? null,
-    run.error ?? null,
-    toJson(run.metadata ?? {}),
-    run.updatedAt,
-    run.finishedAt ?? null,
-    run.lastHeartbeatAt ?? null,
-    run.id,
-  );
-}
-
-function createRun(params) {
-  const queries = getQueries();
-  const timestamp = now();
-  const run = {
-    id: params.id ?? crypto.randomUUID(),
-    projectId: params.projectId ?? 'default',
-    automationId: params.automationId ?? null,
-    ownerType: params.ownerType,
-    ownerId: params.ownerId,
-    title: params.title ?? '',
-    status: params.status ?? 'queued',
-    sessionId: params.sessionId ?? null,
-    workflowId: params.workflowId ?? null,
-    workflowExecutionId: params.workflowExecutionId ?? null,
-    threadId: params.threadId ?? null,
-    outputText: params.outputText ?? '',
-    summary: params.summary ?? null,
-    error: params.error ?? null,
-    metadata: params.metadata ?? {},
-    startedAt: params.startedAt ?? timestamp,
-    updatedAt: params.updatedAt ?? timestamp,
-    finishedAt: params.finishedAt ?? null,
-    lastHeartbeatAt: params.lastHeartbeatAt ?? timestamp,
-  };
-  queries.createAutomationRun.run(
-    run.id,
-    run.projectId,
-    run.automationId,
-    run.ownerType,
-    run.ownerId,
-    run.title,
-    run.status,
-    run.sessionId,
-    run.workflowId,
-    run.workflowExecutionId,
-    run.threadId,
-    run.outputText,
-    run.summary,
-    run.error,
-    toJson(run.metadata),
-    run.startedAt,
-    run.updatedAt,
-    run.finishedAt,
-    run.lastHeartbeatAt,
-  );
-  emit(RUN_EVENT_CHANNEL, { run: run });
-  return run;
-}
-
-function patchRun(runId, patch) {
-  const queries = getQueries();
-  const current = normalizeRunRow(queries.getAutomationRunById.get(runId));
-  if (!current) {
-    console.warn('[RunEngine] patchRun skipped — run not found:', runId);
-    return null;
-  }
-  const next = {
-    ...current,
-    ...patch,
-    metadata: { ...(current.metadata ?? {}), ...(patch.metadata ?? {}) },
-    updatedAt: patch.updatedAt ?? now(),
-    lastHeartbeatAt:
-      Object.prototype.hasOwnProperty.call(patch, 'lastHeartbeatAt')
-        ? patch.lastHeartbeatAt
-        : (patch.status === 'running' ? now() : current.lastHeartbeatAt),
-  };
-  updateStoredRun(next);
-  emit(RUN_EVENT_CHANNEL, { run: next });
-  if (next.automationId && RUN_TERMINAL_STATUSES.has(next.status)) {
-    try {
-      setAutomationRunStatus(next.automationId, next.status);
-    } catch (e) {
-      console.warn('[RunEngine] setAutomationRunStatus failed:', e?.message);
-    }
-  }
-  const becameCompleted =
-    next.status === 'completed' &&
-    current.status !== 'completed' &&
-    next.automationId &&
-    typeof next.outputText === 'string' &&
-    next.outputText.trim() !== '';
-  if (becameCompleted && _database && _windowManager) {
-    try {
-      const { applyArtifactSinksForCompletedRun } = require('../artifacts/artifact-sink.cjs');
-      applyArtifactSinksForCompletedRun(_database, _windowManager, {
-        automationId: next.automationId,
-        runId,
-        outputText: next.outputText,
-      });
-    } catch (e) {
-      console.warn('[RunEngine] artifact sink failed:', e?.message);
-    }
-  }
-  return next;
-}
-
-function appendRunStep(params) {
-  const queries = getQueries();
-  if (!queries.getAutomationRunById.get(params.runId)) {
-    console.warn('[RunEngine] appendRunStep skipped — run not found:', params.runId);
-    return null;
-  }
-  const timestamp = now();
-  const step = {
-    id: params.id ?? crypto.randomUUID(),
-    runId: params.runId,
-    parentStepId: params.parentStepId ?? null,
-    stepType: params.stepType ?? 'info',
-    title: params.title ?? 'Paso',
-    status: params.status ?? 'done',
-    content: params.content ?? null,
-    metadata: params.metadata ?? {},
-    createdAt: params.createdAt ?? timestamp,
-    updatedAt: params.updatedAt ?? timestamp,
-  };
-  try {
-    queries.createAutomationRunStep.run(
-      step.id,
-      step.runId,
-      step.parentStepId,
-      step.stepType,
-      step.title,
-      step.status,
-      step.content,
-      toJson(step.metadata),
-      step.createdAt,
-      step.updatedAt,
-    );
-  } catch (error) {
-    console.warn('[RunEngine] appendRunStep failed:', error?.message || error);
-    return null;
-  }
-  emit(RUN_STEP_CHANNEL, { step });
-  return step;
-}
-
-function updateRunStep(stepId, patch, existingStep = null) {
-  const queries = getQueries();
-  const mergedMetadata = existingStep
-    ? { ...(existingStep.metadata ?? {}), ...(patch.metadata ?? {}) }
-    : (patch.metadata ?? {});
-  const nextStep = existingStep
-    ? {
-      ...existingStep,
-      ...patch,
-      metadata: mergedMetadata,
-      updatedAt: patch.updatedAt ?? now(),
-    }
-    : null;
-  queries.updateAutomationRunStep.run(
-    patch.status ?? 'done',
-    patch.content ?? null,
-    toJson(mergedMetadata),
-    nextStep?.updatedAt ?? patch.updatedAt ?? now(),
-    stepId,
-  );
-  if (nextStep) emit(RUN_STEP_CHANNEL, { step: nextStep });
-  return nextStep;
-}
-
-function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
-  const stepStatus =
-    runTerminalStatus === 'completed' ? 'done'
-      : runTerminalStatus === 'cancelled' ? 'cancelled'
-        : 'failed';
-
-  if (context?.toolSteps instanceof Map) {
-    for (const [toolCallId, step] of context.toolSteps.entries()) {
-      if (!step || step.status !== 'running') continue;
-      const next = updateRunStep(step.id, {
-        status: stepStatus,
-        metadata: { ...(step.metadata ?? {}), autoFinalized: true },
-      }, step);
-      if (next) context.toolSteps.set(toolCallId, next);
-    }
-  }
-
-  const queries = getQueries();
-  if (!queries.getAutomationRunById.get(runId)) return;
-  const steps = queries.getAutomationRunSteps.all(runId).map(normalizeStepRow);
-  for (const step of steps) {
-    if (step.status !== 'running') continue;
-    updateRunStep(step.id, {
-      status: stepStatus,
-      metadata: { ...(step.metadata ?? {}), autoFinalized: true },
-    }, step);
-  }
-
-  if (Array.isArray(context?.toolCalls)) {
-    for (const entry of context.toolCalls) {
-      if (entry.status === 'running') {
-        entry.status = runTerminalStatus === 'completed' ? 'success'
-          : runTerminalStatus === 'cancelled' ? 'cancelled' : 'error';
-      }
-    }
-  }
-}
-
-function getRun(runId) {
-  const queries = getQueries();
-  const run = normalizeRunRow(queries.getAutomationRunById.get(runId));
-  if (!run) return null;
-  const steps = queries.getAutomationRunSteps.all(runId).map(normalizeStepRow);
-  const links = queries.getAutomationRunLinks.all(runId).map((row) => ({
-    id: row.id,
-    runId: row.run_id,
-    linkType: row.link_type,
-    linkId: row.link_id,
-    createdAt: row.created_at,
-  }));
-  return { ...run, steps, links };
-}
-
-function listRuns(filters = {}) {
-  const queries = getQueries();
-  const limit = Math.max(1, Math.min(Number(filters.limit ?? 20), 100));
-  if (filters.sessionId) {
-    const row = queries.getActiveRunBySession.get(filters.sessionId);
-    return row ? [normalizeRunRow(row)] : [];
-  }
-  if (filters.automationId) {
-    return queries.getAutomationRunsByAutomation.all(filters.automationId, limit).map(normalizeRunRow);
-  }
-  if (filters.ownerType && filters.ownerId) {
-    return queries.getAutomationRunsByOwner.all(filters.ownerType, filters.ownerId, limit).map(normalizeRunRow);
-  }
-  if (filters.projectId) {
-    return queries.getLatestAutomationRunsByProject.all(filters.projectId, limit).map(normalizeRunRow);
-  }
-  return queries.getLatestAutomationRuns.all(limit).map(normalizeRunRow);
-}
-
-function getActiveRunBySession(sessionId) {
-  const queries = getQueries();
-  return normalizeRunRow(queries.getActiveRunBySession.get(sessionId));
-}
-
 function normalizeAutomationInput(input, existingRow = null) {
   const timestamp = now();
   const projectId =
@@ -724,36 +424,6 @@ function setAutomationRunStatus(automationId, status) {
   });
 }
 
-function createNoteResource(projectId, title, content, metadata = {}) {
-  const queries = getQueries();
-  const timestamp = now();
-  const id = crypto.randomUUID();
-  queries.createResource.run(
-    id,
-    projectId || 'default',
-    'note',
-    title,
-    content,
-    null,
-    null,
-    JSON.stringify(metadata),
-    timestamp,
-    timestamp,
-  );
-  const resource = {
-    id,
-    project_id: projectId || 'default',
-    type: 'note',
-    title,
-    content,
-    metadata,
-    created_at: timestamp,
-    updated_at: timestamp,
-  };
-  emit('resource:created', resource);
-  return resource;
-}
-
 function ensureSettingsFlag(key) {
   const queries = getQueries();
   return queries?.getSetting?.get(key)?.value === '1';
@@ -807,64 +477,6 @@ function loadWorkflowById(workflowId) {
   const parsed = parseJsonSafely(raw, []);
   if (!Array.isArray(parsed)) return null;
   return parsed.find((workflow) => workflow?.id === workflowId) ?? null;
-}
-
-function topologicalLevels(nodes, edges) {
-  const inDegree = {};
-  const adjacency = {};
-  for (const node of nodes) {
-    inDegree[node.id] = 0;
-    adjacency[node.id] = [];
-  }
-  for (const edge of edges) {
-    adjacency[edge.source]?.push(edge.target);
-    inDegree[edge.target] = (inDegree[edge.target] ?? 0) + 1;
-  }
-  const levels = [];
-  let currentLevel = nodes.filter((node) => inDegree[node.id] === 0);
-  while (currentLevel.length > 0) {
-    levels.push(currentLevel);
-    const nextLevel = [];
-    for (const node of currentLevel) {
-      for (const neighborId of adjacency[node.id] ?? []) {
-        inDegree[neighborId] = (inDegree[neighborId] ?? 1) - 1;
-        if (inDegree[neighborId] === 0) {
-          const neighbor = nodes.find((candidate) => candidate.id === neighborId);
-          if (neighbor) nextLevel.push(neighbor);
-        }
-      }
-    }
-    currentLevel = nextLevel;
-  }
-  const processedCount = levels.reduce((count, level) => count + level.length, 0);
-  if (processedCount !== nodes.length) {
-    throw new Error('El workflow contiene ciclos o dependencias inválidas');
-  }
-  return levels;
-}
-
-function mergePayloads(payloads) {
-  const resources = payloads.flatMap((payload) => payload.resources ?? []);
-  const uniqueResources = resources.filter(
-    (resource, index) =>
-      resources.findIndex(
-        (candidate) =>
-          candidate.resourceId === resource.resourceId &&
-          candidate.resourceType === resource.resourceType,
-      ) === index,
-  );
-  return {
-    kind: payloads.length > 1 ? 'bundle' : payloads[0]?.kind ?? 'text',
-    text: payloads.map((payload) => payload.text).filter(Boolean).join('\n\n---\n\n'),
-    resources: uniqueResources.length > 0 ? uniqueResources : undefined,
-  };
-}
-
-function getInputPayloads(targetNodeId, edges, resolvedPayloads) {
-  return edges
-    .filter((edge) => edge.target === targetNodeId)
-    .map((edge) => resolvedPayloads[edge.source])
-    .filter(Boolean);
 }
 
 function resourceReferenceToPromptBlock(resource) {
@@ -2288,6 +1900,10 @@ function recoverStuckRuns() {
 function init(windowManager, database, ttsService) {
   _windowManager = windowManager;
   _database = database;
+  runStore.init(database, windowManager, {
+    onTerminalAutomationStatus: (automationId, status) =>
+      setAutomationRunStatus(automationId, status),
+  });
 
   // Initialize streaming TTS with dependencies
   if (ttsService) {
