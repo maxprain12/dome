@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const { fetchOpenRouterModels } = require('./openrouter-models.cjs');
+const { listOpenCodeModels } = require('./opencode-models.cjs');
 
 const TTL_MS = 15 * 60 * 1000;
 
@@ -279,6 +280,17 @@ async function fetchProviderModels(provider, options = {}) {
 
   if (normalized === 'dome') {
     return { success: true, models: DOME_MODELS };
+  }
+
+  if (normalized === 'opencode' || normalized === 'opencode-go') {
+    try {
+      const models = await listOpenCodeModels(normalized);
+      return { success: true, models };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[Provider models] ${normalized}:`, msg);
+      return { success: false, error: msg };
+    }
   }
 
   if (normalized === 'openrouter') {

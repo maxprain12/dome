@@ -21,13 +21,30 @@ const PROVIDER_LOGO_PATHS = {
   moonshot: '/brandlogo/moonshot.svg',
   qwen: '/brandlogo/qwen.svg',
   copilot: '/brandlogo/github.svg',
+  opencode: '/brandlogo/opencode.svg',
+  'opencode-go': '/brandlogo/opencode-go.svg',
 } as const;
 
 export type ProviderWithBrandLogo = keyof typeof PROVIDER_LOGO_PATHS;
 
+export type ResolvedTheme = 'light' | 'dark';
+
+/** Light-theme variants (official OpenCode brand assets). */
+const PROVIDER_LOGO_LIGHT_PATHS: Partial<Record<ProviderWithBrandLogo, string>> = {
+  opencode: '/brandlogo/opencode-light.svg',
+  'opencode-go': '/brandlogo/opencode-go-light.svg',
+};
+
 export const DOME_BRAND_LOGO_SRC = PROVIDER_LOGO_PATHS.dome;
 
-export function getProviderLogoSrc(provider: ProviderWithBrandLogo): string {
+export function getProviderLogoSrc(
+  provider: ProviderWithBrandLogo,
+  resolvedTheme: ResolvedTheme = 'dark',
+): string {
+  if (resolvedTheme === 'light') {
+    const light = PROVIDER_LOGO_LIGHT_PATHS[provider];
+    if (light) return light;
+  }
   return PROVIDER_LOGO_PATHS[provider];
 }
 
@@ -84,6 +101,18 @@ export const AI_PROVIDER_OPTIONS: ProviderOption[] = [
     label: PROVIDERS.openrouter.name,
     description: PROVIDERS.openrouter.description + '. Requires OpenRouter API key.',
     logoSrc: PROVIDER_LOGO_PATHS.openrouter,
+  },
+  {
+    value: 'opencode',
+    label: PROVIDERS.opencode.name,
+    description: PROVIDERS.opencode.description + '. Requires OpenCode API key.',
+    logoSrc: PROVIDER_LOGO_PATHS.opencode,
+  },
+  {
+    value: 'opencode-go',
+    label: PROVIDERS['opencode-go'].name,
+    description: PROVIDERS['opencode-go'].description + '. Requires OpenCode API key.',
+    logoSrc: PROVIDER_LOGO_PATHS['opencode-go'],
   },
   {
     value: 'dome',

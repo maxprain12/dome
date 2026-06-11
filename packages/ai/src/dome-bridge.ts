@@ -25,7 +25,9 @@ export type DomeLegacyProvider =
   | 'minimax'
   | 'deepseek'
   | 'moonshot'
-  | 'qwen';
+  | 'qwen'
+  | 'opencode'
+  | 'opencode-go';
 
 export interface ResolveDomeModelOptions {
   provider: DomeLegacyProvider | string;
@@ -40,6 +42,8 @@ const MINIMAX_ANTHROPIC = 'https://api.minimax.io/anthropic';
 const DEEPSEEK_DEFAULT = 'https://api.deepseek.com/v1';
 const MOONSHOT_DEFAULT = 'https://api.moonshot.cn/v1';
 const QWEN_DEFAULT = 'https://dashscope.aliyuncs.com/compatible-mode/v1';
+const OPENCODE_DEFAULT = 'https://opencode.ai/zen/v1';
+const OPENCODE_GO_DEFAULT = 'https://opencode.ai/zen/go/v1';
 
 function openAiCompletionsModel(
   id: string,
@@ -181,6 +185,16 @@ export function resolveDomeModel(opts: ResolveDomeModelOptions): Model<Api> {
       return openAiCompletionsModel(modelId, 'moonshot', baseUrl || MOONSHOT_DEFAULT);
     case 'qwen':
       return openAiCompletionsModel(modelId, 'qwen', baseUrl || QWEN_DEFAULT);
+    case 'opencode': {
+      const fromCatalog = getModel('opencode', modelId as never);
+      if (fromCatalog) return fromCatalog;
+      return openAiCompletionsModel(modelId, 'opencode', baseUrl || OPENCODE_DEFAULT);
+    }
+    case 'opencode-go': {
+      const fromCatalog = getModel('opencode-go', modelId as never);
+      if (fromCatalog) return fromCatalog;
+      return openAiCompletionsModel(modelId, 'opencode-go', baseUrl || OPENCODE_GO_DEFAULT);
+    }
     default: {
       const fromCatalog = getModel(provider as KnownProvider, modelId as never);
       if (fromCatalog) return fromCatalog;
