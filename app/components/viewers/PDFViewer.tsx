@@ -521,6 +521,9 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
                 />
               </div>
               {pdfRegionMode && (
+                // Pointer-driven region selection surface; keyboard users have
+                // the annotation toolbar as the alternative path.
+                // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
                 <div
                   role="region"
                   aria-label={t('pdf.region_selection', { defaultValue: 'Selección de región PDF' })}

@@ -2,6 +2,7 @@
 import { createRequire } from 'module';
 import tseslint from 'typescript-eslint';
 import reactHooks from 'eslint-plugin-react-hooks';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 
 const require = createRequire(import.meta.url);
 const eslintPluginDome = require('./tools/eslint-plugin-dome/index.cjs');
@@ -29,10 +30,17 @@ export default tseslint.config(
   {
     plugins: {
       'react-hooks': reactHooks,
+      'jsx-a11y': jsxA11y,
       dome: eslintPluginDome,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+
+      // Accessibility (03/T03): full recommended set as errors — the codebase
+      // is clean (every finding fixed or justified with an inline disable).
+      ...jsxA11y.configs.recommended.rules,
+      // Deprecated upstream (replaced by label-has-associated-control).
+      'jsx-a11y/label-has-for': 'off',
 
       // Warn on any but don't block — the codebase has some legitimate uses
       '@typescript-eslint/no-explicit-any': 'warn',

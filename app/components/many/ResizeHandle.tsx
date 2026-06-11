@@ -48,13 +48,31 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
     };
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        onResize(e.key === 'ArrowLeft' ? 16 : -16);
+        onResizeEnd?.();
+      }
+    },
+    [onResize, onResizeEnd],
+  );
+
   return (
+    // Focusable window-splitter (separator + tabIndex + arrow keys) — a valid
+    // ARIA pattern the static rule below doesn't model.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       role="separator"
       aria-orientation="vertical"
-      className="shrink-0 w-1.5 cursor-col-resize flex items-center justify-center group hover:bg-[var(--accent)]/10 transition-colors"
+      aria-label="Resize panel"
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable splitter
+      tabIndex={0}
+      className="shrink-0 w-1.5 cursor-col-resize flex items-center justify-center group hover:bg-[var(--accent)]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
       style={{ minWidth: 6 }}
       onMouseDown={handleMouseDown}
+      onKeyDown={handleKeyDown}
     >
       <div
         className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-60 transition-opacity"
