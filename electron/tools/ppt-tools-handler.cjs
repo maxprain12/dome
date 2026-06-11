@@ -308,10 +308,10 @@ async function pptExport(resourceId, options = {}) {
       return { success: false, error: 'PPT file not found on disk' };
     }
 
-    const buffer = fs.readFileSync(fullPath);
+    const buffer = await fs.promises.readFile(fullPath);
 
     if (options.destination_path) {
-      fs.writeFileSync(options.destination_path, buffer);
+      await fs.promises.writeFile(options.destination_path, buffer);
       return {
         success: true,
         resource_id: resourceId,

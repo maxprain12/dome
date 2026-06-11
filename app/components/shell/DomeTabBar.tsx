@@ -129,12 +129,22 @@ interface TabItemProps {
 
 function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemProps) {
   const { t } = useTranslation();
+  const btnRef = useRef<HTMLButtonElement>(null);
   const displayTitle = getDomeTabDisplayTitle(tab, t);
   const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
   const accentColor = folderColor ?? 'var(--dome-accent)';
+  useEffect(() => {
+    if (isActive) {
+      btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    }
+  }, [isActive]);
   return (
     <button
+      ref={btnRef}
       type="button"
+      role="tab"
+      aria-selected={isActive}
+      tabIndex={isActive ? 0 : -1}
       onClick={onActivate}
       onContextMenu={(e) => onContextMenu(e, tab)}
       data-ui-target={`tab-${tab.type}`}
@@ -218,6 +228,66 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     ro.observe(el);
     return () => ro.disconnect();
   }, [tabs.length]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey;
+      if (!mod) return;
+
+      // Ctrl/Cmd+Tab — cycle through tabs
+      if (e.key === 'Tab' && tabs.length >= 2) {
+        e.preventDefault();
+        const idx = tabs.findIndex((tab) => tab.id === activeTabId);
+        if (idx < 0) return;
+        const nextIdx = e.shiftKey
+          ? (idx - 1 + tabs.length) % tabs.length
+          : (idx + 1) % tabs.length;
+        activateTab(tabs[nextIdx].id);
+        return;
+      }
+
+      // Ctrl/Cmd+W — close the active tab (pinned/home tabs stay open)
+      if ((e.key === 'w' || e.key === 'W') && !e.shiftKey && !e.altKey) {
+        const active = tabs.find((tab) => tab.id === activeTabId);
+        if (active && !active.pinned && active.id !== HOME_TAB_ID) {
+          e.preventDefault();
+          closeTab(active.id);
+        }
+        return;
+      }
+
+      // Ctrl/Cmd+1..9 — jump to tab N (9 = last tab, like browsers)
+      if (!e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '9') {
+        const n = Number(e.key);
+        const target = n === 9 ? tabs[tabs.length - 1] : tabs[n - 1];
+        if (target) {
+          e.preventDefault();
+          activateTab(target.id);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [tabs, activeTabId, activateTab, closeTab]);
+
+  /* WAI-ARIA tabs: arrow keys move focus between tabs (roving tabindex) */
+  const onTablistKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+    const list = scrollRef.current;
+    if (!list) return;
+    const tabButtons = Array.from(list.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
+    if (tabButtons.length === 0) return;
+    const focused = document.activeElement as HTMLElement | null;
+    const currentIdx = tabButtons.findIndex((b) => b === focused);
+    if (currentIdx < 0) return;
+    e.preventDefault();
+    let nextIdx = currentIdx;
+    if (e.key === 'ArrowLeft') nextIdx = (currentIdx - 1 + tabButtons.length) % tabButtons.length;
+    else if (e.key === 'ArrowRight') nextIdx = (currentIdx + 1) % tabButtons.length;
+    else if (e.key === 'Home') nextIdx = 0;
+    else if (e.key === 'End') nextIdx = tabButtons.length - 1;
+    tabButtons[nextIdx]?.focus();
+  }, []);
 
   const showOverflowList =
     hasHorizontalOverflow || tabs.length >= TAB_OVERFLOW_MIN_COUNT;
@@ -378,7 +448,13 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             )
           : null}
 
-        <div ref={scrollRef} className="dome-tab-scroll">
+        <div
+          ref={scrollRef}
+          className="dome-tab-scroll"
+          role="tablist"
+          aria-label={t('workspace.tabs', { defaultValue: 'Tabs' })}
+          onKeyDown={onTablistKeyDown}
+        >
           {tabs.map((tab) => (
             <TabItem
               key={tab.id}

@@ -6,6 +6,7 @@ const path = require('path');
 const { z } = require('zod');
 const { MINIMAX_BASE_URL } = require('../../ai/minimax-config.cjs');
 const database = require('../../core/database.cjs');
+const { readSettingSecret } = require('../../core/settings-secrets.cjs');
 
 const MiniMaxUploadSchema = z.object({
   filePath: z.string().min(1),
@@ -84,11 +85,11 @@ function register({ ipcMain, validateSender }) {
       if (provider !== 'minimax') {
         return { success: false, error: 'MiniMax Files API requires MiniMax as active provider' };
       }
-      const apiKey = queries?.getSetting?.get?.('ai_api_key')?.value;
-      if (!apiKey || !String(apiKey).trim()) {
+      const apiKey = readSettingSecret(queries, 'ai_api_key');
+      if (!apiKey) {
         return { success: false, error: 'MiniMax API key not configured' };
       }
-      return await uploadMiniMaxFile(String(apiKey).trim(), filePath, purpose);
+      return await uploadMiniMaxFile(apiKey, filePath, purpose);
     } catch (err) {
       console.error('[MiniMax Files] upload error:', err);
       return { success: false, error: err instanceof Error ? err.message : String(err) };

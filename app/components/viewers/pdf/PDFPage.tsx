@@ -136,7 +136,7 @@ const PDFPage = forwardRef<HTMLCanvasElement, PDFPageProps>(function PDFPage(
           className="absolute inset-0 flex items-center justify-center"
           style={{ background: 'rgba(255, 255, 255, 0.9)' }}
         >
-          <div className="text-sm text-red-500">Error: {error}</div>
+          <div className="text-sm text-[var(--error)]">Error: {error}</div>
         </div>
       )}
     </div>

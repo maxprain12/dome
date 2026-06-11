@@ -3,8 +3,10 @@
  */
 
 const { fetchWithTimeout } = require('../http-utils.cjs');
+const { assertPublicUrl } = require('../url-guard.cjs');
 
 async function scrape(request) {
+  await assertPublicUrl(request.url);
   const readerUrl = `https://r.jina.ai/${request.url}`;
 
   const response = await fetchWithTimeout(

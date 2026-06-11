@@ -145,6 +145,11 @@ type AgentHarnessHandler = (event: any, signal?: AbortSignal) => Promise<any> | 
 
 function normalizeHarnessError(error: unknown, fallbackCode: AgentHarnessError["code"]): AgentHarnessError {
 	if (error instanceof AgentHarnessError) return error;
+	// Interrupt-style errors (human-in-the-loop approval) must reach the caller
+	// unchanged so it can pause the run and resume it later.
+	if ((error as { isAgentInterrupt?: boolean })?.isAgentInterrupt === true) {
+		return error as AgentHarnessError;
+	}
 	const cause = toError(error);
 	if (cause instanceof SessionError) return new AgentHarnessError("session", cause.message, cause);
 	if (cause instanceof CompactionError) return new AgentHarnessError("compaction", cause.message, cause);
@@ -589,6 +594,7 @@ export class AgentHarness<
 					this.createStreamFn(getTurnState),
 				);
 			} catch (error) {
+				if ((error as { isAgentInterrupt?: boolean })?.isAgentInterrupt === true) throw error;
 				try {
 					return await this.emitRunFailure(
 						activeTurnState.model,
@@ -666,6 +672,7 @@ export class AgentHarness<
 					this.createStreamFn(getTurnState),
 				);
 			} catch (error) {
+				if ((error as { isAgentInterrupt?: boolean })?.isAgentInterrupt === true) throw error;
 				try {
 					return await this.emitRunFailure(
 						activeTurnState.model,

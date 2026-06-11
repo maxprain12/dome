@@ -52,7 +52,7 @@ function makeTreeNode(name, fullPath, isDirectory) {
  * @param {{ maxDepth?: number; maxEntries?: number; exclude?: string[] }} [opts]
  * @returns {{ status: 'success' | 'error'; error?: string; path?: string; max_depth?: number; max_entries?: number; shown?: number; truncated?: boolean; tree?: object }}
  */
-function buildFileTree(rootPath, opts = {}) {
+async function buildFileTree(rootPath, opts = {}) {
   const maxDepth = Math.min(Math.max(Number(opts.maxDepth) || DEFAULT_TREE_MAX_DEPTH, 1), 10);
   const maxEntries = Math.min(Math.max(Number(opts.maxEntries) || DEFAULT_TREE_MAX_ENTRIES, 1), 2000);
   const exclude = Array.isArray(opts.exclude) && opts.exclude.length > 0 ? opts.exclude : DEFAULT_EXCLUDES;
@@ -64,14 +64,13 @@ function buildFileTree(rootPath, opts = {}) {
     return { status: 'error', error: err instanceof Error ? err.message : String(err) };
   }
 
-  if (!fs.existsSync(resolved)) {
-    return { status: 'error', error: 'Directory not found' };
-  }
-
   let stat;
   try {
-    stat = fs.statSync(resolved);
+    stat = await fs.promises.stat(resolved);
   } catch (err) {
+    if (err?.code === 'ENOENT') {
+      return { status: 'error', error: 'Directory not found' };
+    }
     return { status: 'error', error: err instanceof Error ? err.message : String(err) };
   }
   if (!stat.isDirectory()) {
@@ -90,7 +89,7 @@ function buildFileTree(rootPath, opts = {}) {
 
     let entries;
     try {
-      entries = fs.readdirSync(current.dirPath, { withFileTypes: true });
+      entries = await fs.promises.readdir(current.dirPath, { withFileTypes: true });
     } catch {
       continue;
     }

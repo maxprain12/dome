@@ -1,5 +1,6 @@
 
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
 import { File, Trash2, FolderOpen, Loader2, AlertCircle, Play, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow, formatShortDistance, formatFileSize, getResourceTypeLabel } from '@/lib/utils';
@@ -22,12 +23,13 @@ interface ResourceCardProps {
 }
 
 function ProcessingStatusBadge({ status }: { status?: string }) {
+  const { t } = useTranslation();
   if (!status || status === 'completed') return null;
 
   const statusConfig = {
-    pending: { icon: Loader2, color: 'var(--warning)', label: 'Pending', spinning: false },
-    processing: { icon: Loader2, color: 'var(--accent)', label: 'Processing', spinning: true },
-    failed: { icon: AlertCircle, color: 'var(--error)', label: 'Failed', spinning: false },
+    pending: { icon: Loader2, color: 'var(--warning)', label: t('home.status_pending'), spinning: false },
+    processing: { icon: Loader2, color: 'var(--accent)', label: t('home.status_processing'), spinning: true },
+    failed: { icon: AlertCircle, color: 'var(--error)', label: t('home.status_failed'), spinning: false },
   };
 
   const config = statusConfig[status as keyof typeof statusConfig];
@@ -80,11 +82,11 @@ export default memo(function ResourceCard({
       case 'note': return 'var(--accent)';
       case 'notebook': return 'var(--success)';
       case 'ppt': return 'var(--warning)';
-      case 'image': return 'var(--brand-accent)';
+      case 'image': return 'var(--accent)';
       case 'video': return 'var(--info)';
       case 'audio': return 'var(--warning)';
       case 'pdf': return 'var(--error)';
-      case 'url': return 'var(--brand-secondary)';
+      case 'url': return 'var(--secondary)';
       case 'folder': return 'var(--accent)';
       default: return 'var(--tertiary-text)';
     }
@@ -258,14 +260,14 @@ export default memo(function ResourceCard({
 
       {resource.type === 'video' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-          <div className="size-10 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+          <div className="size-10 rounded-full bg-[color-mix(in_srgb,var(--bg-secondary)_90%,transparent)] flex items-center justify-center shadow-lg">
             <Play size={20} className="ml-0.5 text-black" fill="currentColor" />
           </div>
         </div>
       )}
 
       {resource.updated_at && (
-        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-white/90 text-neutral-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] font-medium bg-[color-mix(in_srgb,var(--bg-secondary)_90%,transparent)] text-[var(--secondary-text)] shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
           {formatShortDistance(resource.updated_at)}
         </div>
       )}

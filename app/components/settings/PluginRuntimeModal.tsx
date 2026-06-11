@@ -185,9 +185,9 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
             </DomeButton>
           </div>
         </div>
-        <div className="relative flex-1 bg-white">
+        <div className="relative flex-1 bg-[var(--bg)]">
           {loading ? (
-            <div className="flex h-full items-center justify-center text-sm text-slate-500">
+            <div className="flex h-full items-center justify-center text-sm text-[var(--secondary-text)]">
               Cargando plugin...
             </div>
           ) : error ? (

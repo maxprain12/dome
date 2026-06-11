@@ -4,10 +4,10 @@
 
 const { Readability } = require('@mozilla/readability');
 const { parseHTML } = require('linkedom');
-const { fetchWithTimeout } = require('../http-utils.cjs');
+const { fetchPublicWithTimeout } = require('../url-guard.cjs');
 
 async function scrape(request) {
-  const response = await fetchWithTimeout(
+  const response = await fetchPublicWithTimeout(
     request.url,
     {
       method: 'GET',

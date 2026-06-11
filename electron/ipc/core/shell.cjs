@@ -9,8 +9,10 @@
 const { exec } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const picomatch = require('picomatch');
 const { z } = require('zod');
 const approval = require('../agents/approval.cjs');
+const { assessShellCommand } = require('../../core/shell-policy.cjs');
 
 const ShellExecPayloadSchema = z.object({
   command: z.string(),
@@ -25,6 +27,13 @@ const ShellFileSearchPayloadSchema = z.object({
 
 const EXEC_TIMEOUT_MS = 60_000;
 const SEARCH_MAX_RESULTS = 200;
+const SEARCH_MAX_DEPTH = 32;
+
+function globPatternToMatcher(pattern) {
+  const trimmed = pattern.trim();
+  if (!trimmed) return () => false;
+  return picomatch(trimmed, { nocase: true, dot: true, contains: true });
+}
 
 function register({ ipcMain, windowManager, sanitizePath }) {
   /**
@@ -45,6 +54,11 @@ function register({ ipcMain, windowManager, sanitizePath }) {
     }
 
     const workDir = cwd && cwd.trim() ? cwd.trim() : undefined;
+
+    const policy = assessShellCommand(command);
+    if (policy.blocked) {
+      return { success: false, error: policy.reason || 'Command blocked by security policy' };
+    }
 
     // In-app Dome approval modal (replaces native dialog).
     const approved = await approval.requestApproval({
@@ -96,6 +110,7 @@ function register({ ipcMain, windowManager, sanitizePath }) {
       return { success: false, error: 'No pattern provided' };
     }
 
+    // allowExternal: agent file-search tool over user dirs (HITL/caps govern)
     const safeDir = sanitizePath(directory.trim(), true);
     if (!safeDir) {
       return { success: false, error: 'Invalid path' };
@@ -108,29 +123,27 @@ function register({ ipcMain, windowManager, sanitizePath }) {
     const matches = [];
 
     if (type === 'name') {
-      // Walk the tree and match file names.
-      const re = new RegExp(pattern.replace(/\*/g, '.*').replace(/\?/g, '.'), 'i');
+      const matcher = globPatternToMatcher(pattern);
       walkDir(root, (entry) => {
-        if (re.test(entry.name)) {
+        if (matcher(entry.name)) {
           matches.push({ path: entry.full, name: entry.name, isDirectory: entry.isDir });
         }
         return matches.length < SEARCH_MAX_RESULTS;
-      });
+      }, 0);
     } else {
-      // Content search: grep-style, text files only.
-      const re = new RegExp(pattern, 'i');
+      const needle = pattern.toLowerCase();
       walkDir(root, (entry) => {
         if (entry.isDir) return matches.length < SEARCH_MAX_RESULTS;
         try {
           const text = fs.readFileSync(entry.full, 'utf8');
-          if (re.test(text)) {
+          if (text.toLowerCase().includes(needle)) {
             matches.push({ path: entry.full, name: entry.name, isDirectory: false });
           }
         } catch {
           // Binary file or permission error — skip.
         }
         return matches.length < SEARCH_MAX_RESULTS;
-      });
+      }, 0);
     }
 
     return { success: true, matches };
@@ -143,7 +156,8 @@ function register({ ipcMain, windowManager, sanitizePath }) {
  * @param {(entry: { full: string, name: string, isDir: boolean }) => boolean} visitor
  *   Return false to stop traversal.
  */
-function walkDir(dir, visitor) {
+function walkDir(dir, visitor, depth = 0) {
+  if (depth > SEARCH_MAX_DEPTH) return true;
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -157,7 +171,7 @@ function walkDir(dir, visitor) {
     const cont = visitor({ full, name: e.name, isDir });
     if (!cont) return false;
     if (isDir) {
-      const cont2 = walkDir(full, visitor);
+      const cont2 = walkDir(full, visitor, depth + 1);
       if (!cont2) return false;
     }
   }

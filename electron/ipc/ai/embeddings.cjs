@@ -30,6 +30,7 @@ const { clearContextCache } = require('../../services/embedding-context.cjs');
 const { listEmbeddingModels, clearDiscoveryCache } = require('../../services/embedding-discovery.cjs');
 const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
+const { resolveSettingSecretForApi } = require('../../core/settings-secrets.cjs');
 
 function register({ ipcMain, windowManager, validateSender }) {
   semanticIndexScheduler.init(database);
@@ -76,10 +77,11 @@ function register({ ipcMain, windowManager, validateSender }) {
       const queries = database.getQueries();
       let cfg;
       if (parsed.data && parsed.data.provider && parsed.data.model) {
+        const candidate = String(parsed.data.api_key ?? parsed.data.apiKey ?? '');
         cfg = {
           provider: String(parsed.data.provider),
           model: String(parsed.data.model),
-          apiKey: String(parsed.data.api_key ?? parsed.data.apiKey ?? ''),
+          apiKey: resolveSettingSecretForApi(queries, 'embeddings_api_key', candidate),
           baseUrl: String(parsed.data.base_url ?? parsed.data.baseUrl ?? 'http://127.0.0.1:11434'),
         };
       } else {
@@ -111,12 +113,9 @@ function register({ ipcMain, windowManager, validateSender }) {
       }
       const queries = database.getQueries();
       const provider = String(parsed.data?.provider || '').toLowerCase();
-      let apiKey = String(parsed.data?.api_key ?? parsed.data?.apiKey ?? '').trim();
+      const candidate = String(parsed.data?.api_key ?? parsed.data?.apiKey ?? '').trim();
+      let apiKey = resolveSettingSecretForApi(queries, 'embeddings_api_key', candidate);
       let baseUrl = String(parsed.data?.base_url ?? parsed.data?.baseUrl ?? '').trim();
-
-      if (!apiKey) {
-        apiKey = String(queries.getSetting.get('embeddings_api_key')?.value || '').trim();
-      }
       if (!baseUrl) {
         baseUrl = String(
           queries.getSetting.get('embeddings_base_url')?.value || 'http://127.0.0.1:11434',

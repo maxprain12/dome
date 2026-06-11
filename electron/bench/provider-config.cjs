@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-const database = require('../core/database.cjs');
+const { readSettingSecret, writeSettingSecret } = require('../core/settings-secrets.cjs');
 
 const PROVIDER_DEFAULTS = {
   minimax: { model: 'MiniMax-M3', envKey: 'MINIMAX_BENCH_API_KEY' },
@@ -26,7 +26,7 @@ function applyProviderSettings(provider, model) {
   const ts = Date.now();
   const resolvedModel = model || def.model;
   queries.setSetting.run('ai_provider', provider, ts);
-  queries.setSetting.run('ai_api_key', apiKey, ts);
+  writeSettingSecret(queries, 'ai_api_key', apiKey);
   queries.setSetting.run('ai_model', resolvedModel, ts);
 
   return { provider, model: resolvedModel, apiKey };
@@ -38,7 +38,7 @@ function applyProviderSettings(provider, model) {
 async function getBenchProviderConfig(providerArg, modelArg) {
   const queries = database.getQueries();
   const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'minimax';
-  const apiKey = queries.getSetting.get('ai_api_key')?.value;
+  const apiKey = readSettingSecret(queries, 'ai_api_key');
   if (!apiKey) throw new Error(`API key not configured for ${provider}`);
   const model = modelArg || queries.getSetting.get('ai_model')?.value;
   return { provider, apiKey, baseUrl: undefined, model };

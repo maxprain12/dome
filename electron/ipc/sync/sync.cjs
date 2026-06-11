@@ -103,6 +103,7 @@ function register({ ipcMain, windowManager, database, fileStorage, sanitizePath 
         return { success: false, cancelled: true };
       }
 
+      // allowExternal: path comes from the main-side dialog above, never from the renderer
       const zipPath = sanitizePath(filePaths[0], true);
       if (!zipPath) {
         return { success: false, error: 'Invalid path' };

@@ -1,0 +1,44 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":semanticCommits"],
+  "timezone": "Europe/Madrid",
+  "schedule": ["before 8am on monday"],
+  "prConcurrentLimit": 5,
+  "labels": ["dependencies"],
+  "rangeStrategy": "bump",
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "labels": ["dependencies", "security"]
+  },
+  "osvVulnerabilityAlerts": true,
+  "packageRules": [
+    {
+      "description": "Agrupar actualizaciones menores/patch no urgentes en un solo PR semanal",
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "weekly non-major dependencies"
+    },
+    {
+      "description": "Electron sigue su propia política (ver .claude/sops/release.md): solo majors con soporte de seguridad, actualización manual y probada",
+      "matchPackageNames": ["electron"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
+      "description": "Módulos nativos: requieren rebuild + smoke en las 3 plataformas; PR individual, sin auto-merge",
+      "matchPackageNames": ["better-sqlite3", "sharp", "@napi-rs/canvas", "electron-updater"],
+      "groupName": null,
+      "automerge": false
+    },
+    {
+      "description": "Deps que procesan contenido no confiable (ver docs/auditoria/06-calidad-observabilidad/T04): priorizar y no agrupar",
+      "matchPackageNames": ["pyodide", "pptx-preview", "linkedom"],
+      "groupName": null,
+      "prPriority": 5
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 8am on the first day of the month"]
+  }
+}

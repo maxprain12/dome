@@ -10,6 +10,7 @@ const { getDomeProviderBaseUrl } = require('../../ai/dome-provider-url.cjs');
 const { fetchOpenRouterModels } = require('../../ai/openrouter-models.cjs');
 const { fetchProviderModels } = require('../../ai/provider-models.cjs');
 const { assertChatProvider, resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs');
+const { readSettingSecret, resolveSettingSecretForApi } = require('../../core/settings-secrets.cjs');
 
 /** Abort controllers by streamId for ai:agent:stream (enables renderer to stop stream) */
 const agentAbortControllers = new Map();
@@ -110,7 +111,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           const tempResult = queries.getSetting.get('ollama_temperature');
           const topPResult = queries.getSetting.get('ollama_top_p');
           const numPredictResult = queries.getSetting.get('ollama_num_predict');
-          const ollamaApiKey = queries.getSetting.get('ollama_api_key')?.value || '';
+          const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
 
           const ollamaMessages = messages.map((m) => ({
             role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
@@ -504,14 +505,10 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         }
       }
 
-      const apiKeyResult = queries.getSetting.get('ai_api_key');
-      const apiKey = apiKeyResult?.value;
-
-      if (!apiKey) {
+      const providerConfig = await resolveProviderConfig(database, provider, model);
+      if (!providerConfig.apiKey) {
         return { success: false, error: `API key not configured for ${provider}. Go to Settings > AI.` };
       }
-
-      const providerConfig = await resolveProviderConfig(database, provider, model);
       const testMessages = [{ role: 'user', content: 'Reply with OK' }];
       const response = await llmService.chat({
         provider,
@@ -538,14 +535,11 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      let apiKey = '';
-      if (params && typeof params === 'object' && typeof params.apiKey === 'string') {
-        apiKey = params.apiKey.trim();
-      }
-      if (!apiKey) {
-        const queries = database.getQueries();
-        apiKey = String(queries.getSetting.get('ai_api_key')?.value || '').trim();
-      }
+      const queries = database.getQueries();
+      const candidate = params && typeof params === 'object' && typeof params.apiKey === 'string'
+        ? params.apiKey
+        : '';
+      const apiKey = resolveSettingSecretForApi(queries, 'ai_api_key', candidate);
       return await fetchOpenRouterModels(apiKey);
     } catch (error) {
       return { success: false, error: error.message || String(error) };
@@ -561,11 +555,11 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         return { success: false, error: 'Invalid params: provider required' };
       }
       const provider = params.provider.trim().toLowerCase();
-      let apiKey = typeof params.apiKey === 'string' ? params.apiKey.trim() : '';
-      if (!apiKey && provider !== 'dome') {
-        const queries = database.getQueries();
-        apiKey = String(queries.getSetting.get('ai_api_key')?.value || '').trim();
-      }
+      const queries = database.getQueries();
+      const candidate = typeof params.apiKey === 'string' ? params.apiKey : '';
+      const apiKey = provider === 'dome'
+        ? ''
+        : resolveSettingSecretForApi(queries, 'ai_api_key', candidate);
       return await fetchProviderModels(provider, { apiKey });
     } catch (error) {
       return { success: false, error: error.message || String(error) };

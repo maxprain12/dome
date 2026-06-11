@@ -237,8 +237,10 @@ const { handleDomeUrl } = require('./core/deep-link-handler.cjs');
 const calendarNotificationService = require('./calendar/calendar-notification-service.cjs');
 const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
 const automationService = require('./agents/automation-service.cjs');
+const runRetention = require('./agents/run-retention.cjs');
 const runEngine = require('./agents/run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
+const { setupContentSecurityPolicy } = require('./core/csp.cjs');
 const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
 
 // IPC handlers (modularized)
@@ -319,7 +321,8 @@ const menuTemplate = [
         { type: 'separator' },
         { role: 'window' }
       ] : [
-        { role: 'close' }
+        // Ctrl+W is reserved for closing the active tab in the renderer.
+        { role: 'close', accelerator: 'CmdOrCtrl+Shift+W' }
       ])
     ]
   }
@@ -590,6 +593,8 @@ function serveFile(filePath) {
 app
   .whenReady()
   .then(async () => {
+    setupContentSecurityPolicy(isDev);
+
     // Remove stale staging files left by previous crashes or interruptions.
     documentStaging.cleanupStaleStagings();
 
@@ -1039,6 +1044,7 @@ app
     calendarSyncScheduler.init(windowManager);
     runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
+    runRetention.init();
 
     // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {
@@ -1090,6 +1096,7 @@ app.on('before-quit', async () => {
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
   automationService.stop();
+  runRetention.stop();
   runEngine.stop();
   try {
     require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();
@@ -1117,6 +1124,10 @@ app.on('before-quit', async () => {
 // Error handling
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
+  try {
+    const logger = require('./core/logger.cjs');
+    logger.error('main', 'uncaughtException', { error: error?.message, stack: error?.stack });
+  } catch { /* logging must never crash the handler */ }
   if (windowManager && typeof windowManager.broadcast === 'function') {
     const err = error instanceof Error ? error : new Error(String(error));
     windowManager.broadcast('analytics:event', {
@@ -1132,6 +1143,11 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled rejection:', reason);
+  try {
+    const logger = require('./core/logger.cjs');
+    const message = reason instanceof Error ? reason.message : String(reason);
+    logger.error('main', 'unhandledRejection', { error: message, stack: reason instanceof Error ? reason.stack : undefined });
+  } catch { /* logging must never crash the handler */ }
   if (windowManager && typeof windowManager.broadcast === 'function') {
     const message = reason instanceof Error ? reason.message : String(reason);
     const stack = reason instanceof Error ? reason.stack : undefined;

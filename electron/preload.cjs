@@ -1,18 +1,12 @@
 /* eslint-disable no-unused-vars */
-const fs = require('fs');
-const path = require('path');
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 /**
  * electron.app is main-process-only; preload must not use app.isPackaged.
- * Detect production bundle via resources layout (app.asar or unpacked app/).
+ * With sandbox enabled, avoid fs/path — use defaultApp (false when packaged).
  */
 function isPackagedPreload() {
-  const rp = process.resourcesPath;
-  if (!rp) return false;
-  if (fs.existsSync(path.join(rp, 'app.asar'))) return true;
-  if (fs.existsSync(path.join(rp, 'app', 'package.json'))) return true;
-  return false;
+  return process.defaultApp !== true;
 }
 
 // NOTE: Console logs removed for production - debug logging for preload initialization
@@ -653,12 +647,20 @@ const ALLOWED_CHANNELS = {
     'feeder:secret-request',
     'feeder:secret-updated',
     'feeder:secret-deleted',
+    // PPT slide capture (hidden window — main ↔ renderer)
+    'ppt-capture:init',
+    'ppt-capture:render-slide',
     // In-app approval (HITL — main requests approval, renderer shows modal)
     'approval:requested',
     'cloud-sync:revision',
     'cloud-sync:pull-done',
     'cloud-sync:pushed',
     'cloud-sync:reindex-done',
+  ],
+  send: [
+    'ppt-capture:ready',
+    'ppt-capture:init-done',
+    'ppt-capture:render-done',
   ],
 };
 
@@ -682,7 +684,14 @@ const electronHandler = {
   getPathForFile: (file) => {
     try {
       // webUtils.getPathForFile() is the recommended way in Electron 24+
-      return webUtils.getPathForFile(file);
+      const filePath = webUtils.getPathForFile(file);
+      // Register the user-dropped path as granted for follow-up IPC reads.
+      // webUtils only resolves disk-backed File objects, so this cannot be
+      // used to grant arbitrary paths from renderer-constructed Files.
+      if (filePath) {
+        void ipcRenderer.invoke('security:grant-external-path', filePath).catch(() => {});
+      }
+      return filePath;
     } catch (error) {
       console.error('Error getting path for file:', error);
       return null;
@@ -696,7 +705,11 @@ const electronHandler = {
     }
     return files.map((file) => {
       try {
-        return webUtils.getPathForFile(file);
+        const filePath = webUtils.getPathForFile(file);
+        if (filePath) {
+          void ipcRenderer.invoke('security:grant-external-path', filePath).catch(() => {});
+        }
+        return filePath;
       } catch {
         return null;
       }
@@ -770,6 +783,14 @@ const electronHandler = {
       throw new Error(`Channel not allowed: ${channel}`);
     }
     ipcRenderer.once(channel, (event, ...args) => callback(...args));
+  },
+
+  send: (channel, ...args) => {
+    if (!ALLOWED_CHANNELS.send.includes(channel)) {
+      console.error(`[Preload] Channel not allowed for send: ${channel}`);
+      throw new Error(`Channel not allowed: ${channel}`);
+    }
+    ipcRenderer.send(channel, ...args);
   },
 
   removeAllListeners: (channel) => {

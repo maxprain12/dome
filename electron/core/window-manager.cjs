@@ -39,7 +39,7 @@ class WindowManager {
         preload: getPreloadPath(),
         contextIsolation: true,
         nodeIntegration: false,
-        sandbox: false,
+        sandbox: true,
         webSecurity: true,
         webviewTag: true, // Required for <webview> in URL viewer
       },

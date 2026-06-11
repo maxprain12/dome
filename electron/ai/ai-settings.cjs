@@ -3,6 +3,7 @@
 const { getDomeProviderBaseUrl } = require('./dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
 const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
+const { readSettingSecret } = require('../core/settings-secrets.cjs');
 const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
@@ -33,7 +34,7 @@ async function getAISettings(database) {
   if (provider === 'ollama') {
     return {
       provider,
-      apiKey: queries.getSetting.get('ollama_api_key')?.value || undefined,
+      apiKey: readSettingSecret(queries, 'ollama_api_key') || undefined,
       model: queries.getSetting.get('ollama_model')?.value || 'llama3.2',
       baseUrl: queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434',
     };
@@ -62,7 +63,7 @@ async function getAISettings(database) {
 
   return {
     provider,
-    apiKey: queries.getSetting.get('ai_api_key')?.value,
+    apiKey: readSettingSecret(queries, 'ai_api_key'),
     model: queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
     baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
   };

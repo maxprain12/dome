@@ -4,6 +4,7 @@
 
 const { getWebSettings } = require('./web-settings.cjs');
 const { normalizeFetchRequest } = require('./http-utils.cjs');
+const { assertPublicUrl, fetchPublicWithTimeout } = require('./url-guard.cjs');
 const jinaReader = require('./providers/jina-reader.cjs');
 const readabilityFetch = require('./providers/readability-fetch.cjs');
 const tavilyExtract = require('./providers/tavily-extract.cjs');
@@ -39,14 +40,19 @@ function isLikelyApiUrl(url) {
 }
 
 async function fetchApiResponse(request) {
-  const response = await fetch(request.url, {
-    method: 'GET',
-    headers: {
-      'User-Agent': request.userAgent,
-      Accept: 'application/json,text/json,*/*',
-      'Accept-Language': 'en-US,en;q=0.5',
+  await assertPublicUrl(request.url);
+  const response = await fetchPublicWithTimeout(
+    request.url,
+    {
+      method: 'GET',
+      headers: {
+        'User-Agent': request.userAgent,
+        Accept: 'application/json,text/json,*/*',
+        'Accept-Language': 'en-US,en;q=0.5',
+      },
     },
-  });
+    request.timeoutMs,
+  );
 
   if (!response.ok) {
     throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
@@ -167,6 +173,21 @@ async function scrapeUrl(input) {
       success: false,
       url: request.url,
       error: `Invalid URL: ${request.url}`,
+      title: null,
+      content: null,
+      metadata: { url: request.url },
+      screenshot: null,
+      screenshotFormat: 'jpeg',
+    };
+  }
+
+  try {
+    await assertPublicUrl(request.url);
+  } catch (error) {
+    return {
+      success: false,
+      url: request.url,
+      error: error?.message || String(error),
       title: null,
       content: null,
       metadata: { url: request.url },

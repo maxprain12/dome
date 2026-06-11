@@ -479,7 +479,7 @@ async function excelExport(resourceId, options = {}) {
       const csv = ws ? worksheetToCsv(ws) : '';
       const buf = Buffer.from(csv, 'utf-8');
       if (options.destination_path) {
-        fs.writeFileSync(options.destination_path, buf);
+        await fs.promises.writeFile(options.destination_path, buf);
         return {
           success: true,
           resource_id: resourceId,
@@ -497,7 +497,7 @@ async function excelExport(resourceId, options = {}) {
 
     const buffer = await wb.xlsx.writeBuffer();
     if (options.destination_path) {
-      fs.writeFileSync(options.destination_path, Buffer.from(buffer));
+      await fs.promises.writeFile(options.destination_path, Buffer.from(buffer));
       return {
         success: true,
         resource_id: resourceId,

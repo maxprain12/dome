@@ -23,6 +23,10 @@ class HitlInterruptError extends Error {
   constructor(toolCall, reviewConfigs) {
     super('HITL interrupt');
     this.name = 'HitlInterruptError';
+    // Contract with @dome/agent-core: interrupt-style errors thrown from hooks
+    // propagate out of the loop/harness untouched instead of becoming an error
+    // tool result (see prepareToolCall / normalizeHarnessError).
+    this.isAgentInterrupt = true;
     this.toolCall = toolCall;
     this.reviewConfigs = reviewConfigs || [];
   }
@@ -60,6 +64,21 @@ const CREATION_TOOL_CAPS = Object.freeze({
   notebook_add_cell: 50,
   pdf_annotation_create: 50,
   link_resources: 40,
+});
+
+/** Total tool calls allowed per run (any tool); override with DOME_TOOL_CALL_LIMIT. */
+const DEFAULT_GLOBAL_TOOL_CALL_LIMIT = 200;
+
+/** Default per-tool cap for tools without an explicit entry in CREATION_TOOL_CAPS. */
+const DEFAULT_PER_TOOL_CAP = 50;
+
+/**
+ * Mutation-heavy tools get N free invocations per run; past the threshold each
+ * further call requires approval (or is blocked on unattended surfaces).
+ */
+const MUTATION_HITL_THRESHOLDS = Object.freeze({
+  resource_update: 5,
+  artifact_merge_data: 10,
 });
 
 /** Heuristics for obviously harmful patterns (NOT a security boundary). */
@@ -336,6 +355,24 @@ function countPriorToolCalls(messages, toolName) {
   return count;
 }
 
+/** Count every tool call across history (global per-run budget). */
+function countAllPriorToolCalls(messages) {
+  if (!Array.isArray(messages)) return 0;
+  let count = 0;
+  for (const m of messages) {
+    if (!m || m.role !== 'assistant' || !Array.isArray(m.content)) continue;
+    for (const block of m.content) {
+      if (block && block.type === 'toolCall') count += 1;
+    }
+  }
+  return count;
+}
+
+function globalToolCallLimit() {
+  const n = Number(process.env.DOME_TOOL_CALL_LIMIT);
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_GLOBAL_TOOL_CALL_LIMIT;
+}
+
 /**
  * Build the `beforeToolCall` hook: enforces creation/mutation caps and (when
  * configured) human-in-the-loop approval. Returns `{ block, reason }` to deny.
@@ -358,8 +395,21 @@ function buildBeforeToolCall(opts, caps) {
     const name = ctx?.toolCall?.name;
     if (!name) return undefined;
 
+    // Global budget: total tool calls per run, regardless of tool.
+    const totalPrior = countAllPriorToolCalls(ctx.context?.messages);
+    const globalLimit = globalToolCallLimit();
+    if (totalPrior > globalLimit) {
+      return {
+        block: true,
+        reason:
+          `Error: this run reached the global tool-call limit (${globalLimit}). ` +
+          'Summarize the work done so far and finish without further tool calls.',
+      };
+    }
+
     // Caps: block when the cap has already been reached in history.
-    const runLimit = limits[name];
+    // Tools without an explicit cap fall back to DEFAULT_PER_TOOL_CAP.
+    const runLimit = typeof limits[name] === 'number' ? limits[name] : DEFAULT_PER_TOOL_CAP;
     if (typeof runLimit === 'number' && runLimit > 0) {
       const prior = countPriorToolCalls(ctx.context?.messages, name);
       if (prior > runLimit) {
@@ -372,8 +422,28 @@ function buildBeforeToolCall(opts, caps) {
       }
     }
 
+    // Mutation threshold: heavy mutators get a few free calls, then need approval.
+    const mutationThreshold = MUTATION_HITL_THRESHOLDS[name];
+    let thresholdApproval = false;
+    if (typeof mutationThreshold === 'number' && !needsApproval(name)) {
+      const prior = countPriorToolCalls(ctx.context?.messages, name);
+      if (prior >= mutationThreshold) {
+        if (hitlInterrupt || typeof requestApproval === 'function') {
+          thresholdApproval = true;
+        } else {
+          // Unattended surface with no approval channel: deny instead of hanging.
+          return {
+            block: true,
+            reason:
+              `Error: tool "${name}" exceeded its unattended mutation threshold ` +
+              `(${mutationThreshold} calls per run). Remaining calls require user approval.`,
+          };
+        }
+      }
+    }
+
     // HITL approval.
-    if (needsApproval(name)) {
+    if (needsApproval(name) || thresholdApproval) {
       if (hitlInterrupt) {
         let args = ctx.toolCall?.arguments;
         if (typeof args === 'string') {
@@ -589,8 +659,10 @@ async function setupHarness(surface, opts) {
   });
   await bridge.seedSessionIfEmpty(session, contextMessages);
 
-  const executeToolInMain = (name, args) =>
-    dispatcher.executeToolInMain(name, args, opts.runtimeContext);
+  const executeToolInMain = (name, args, contextOverride) =>
+    dispatcher.executeToolInMain(name, args, contextOverride
+      ? { ...(opts.runtimeContext || {}), ...contextOverride }
+      : opts.runtimeContext);
   const mcpToolsList = await bridge.buildMcpAgentTools(database, opts.mcpServerIds);
   const mcpToolNames = mcpToolsList.map((t) => t.name);
   const tools = await bridge.buildAllTools(database, opts, executeToolInMain);
@@ -802,7 +874,9 @@ async function resumeDomeAgent(surface, opts) {
     let isError = false;
     if (approved) {
       try {
-        const raw = await executeToolInMain(toolName, effectiveArgs);
+        // The user already approved this exact call via the HITL card — tool
+        // handlers with their own approval dialog (e.g. shell_exec) must not ask again.
+        const raw = await executeToolInMain(toolName, effectiveArgs, { hitlApproved: true });
         resultText = typeof raw === 'string' ? raw : JSON.stringify(raw ?? '');
       } catch (err) {
         isError = true;
@@ -993,5 +1067,10 @@ module.exports = {
   // exported for tests
   detectHarmfulContent,
   countPriorToolCalls,
+  countAllPriorToolCalls,
+  buildBeforeToolCall,
   CREATION_TOOL_CAPS,
+  MUTATION_HITL_THRESHOLDS,
+  DEFAULT_GLOBAL_TOOL_CALL_LIMIT,
+  DEFAULT_PER_TOOL_CAP,
 };

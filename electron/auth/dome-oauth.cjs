@@ -2,6 +2,28 @@
 const crypto = require('crypto');
 const { shell } = require('electron');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
+const { encryptSessionField, decryptSessionField } = require('../core/settings-secrets.cjs');
+
+function decodeSessionRow(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    access_token: decryptSessionField(row.access_token),
+    refresh_token: decryptSessionField(row.refresh_token),
+  };
+}
+
+function persistSession(queries, userId, accessToken, refreshToken, expiresAt) {
+  const now = Date.now();
+  queries.upsertDomeProviderSession.run(
+    userId,
+    encryptSessionField(accessToken),
+    refreshToken ? encryptSessionField(refreshToken) : null,
+    expiresAt,
+    now,
+    now,
+  );
+}
 
 const REDIRECT_URI = 'dome://dome-auth/oauth/callback';
 const CLIENT_ID = 'dome-desktop';
@@ -50,7 +72,7 @@ async function refreshAccessToken(database, refreshToken) {
 async function getOrRefreshSession(database) {
   try {
     const queries = database.getQueries();
-    const row = queries.getDomeProviderSessionWithRefresh.get();
+    const row = decodeSessionRow(queries.getDomeProviderSessionWithRefresh.get());
     if (!row) return { connected: false };
 
     const now = Date.now();
@@ -71,13 +93,12 @@ async function getOrRefreshSession(database) {
         const tokenResponse = await refreshAccessToken(database, row.refresh_token);
         const newExpiresInSec = Number(tokenResponse.expires_in || 3600);
         const newExpiresAt = now + newExpiresInSec * 1000;
-        queries.upsertDomeProviderSession.run(
+        persistSession(
+          queries,
           row.user_id,
           tokenResponse.access_token,
           tokenResponse.refresh_token || row.refresh_token,
           newExpiresAt,
-          now,
-          now,
         );
         return {
           connected: true,
@@ -121,19 +142,18 @@ async function fetchWithDomeAuth(database, url, options = {}) {
   const doFetch = (token) => fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
   let response = await doFetch(session.accessToken);
   if (response.status === 401) {
-    const row = database.getQueries().getDomeProviderSessionWithRefresh.get();
+    const row = decodeSessionRow(database.getQueries().getDomeProviderSessionWithRefresh.get());
     if (row?.refresh_token) {
       try {
         const tokenResponse = await refreshAccessToken(database, row.refresh_token);
         const now = Date.now();
         const newExpiresAt = now + Number(tokenResponse.expires_in || 3600) * 1000;
-        database.getQueries().upsertDomeProviderSession.run(
+        persistSession(
+          database.getQueries(),
           row.user_id,
           tokenResponse.access_token,
           tokenResponse.refresh_token || row.refresh_token,
           newExpiresAt,
-          now,
-          now,
         );
         response = await doFetch(tokenResponse.access_token);
       } catch (err) {
@@ -147,7 +167,7 @@ async function fetchWithDomeAuth(database, url, options = {}) {
 function getSession(database) {
   try {
     const queries = database.getQueries();
-    const row = queries.getActiveDomeProviderSession.get(Date.now());
+    const row = decodeSessionRow(queries.getActiveDomeProviderSession.get(Date.now()));
     if (!row) return { connected: false };
     return {
       connected: true,
@@ -209,6 +229,25 @@ async function exchangeCodeForToken(code, codeVerifier) {
   return data;
 }
 
+const OAUTH_PENDING_TIMEOUT_MS = 10 * 60 * 1000;
+
+function registerOAuthPending(pendingMap, key, entry) {
+  const timer = setTimeout(() => {
+    if (pendingMap.delete(key)) {
+      entry.reject(new Error('OAuth timeout'));
+    }
+  }, OAUTH_PENDING_TIMEOUT_MS);
+  pendingMap.set(key, { ...entry, timer });
+}
+
+function consumeOAuthPending(pendingMap, key) {
+  const flow = pendingMap.get(key);
+  if (!flow) return null;
+  if (flow.timer) clearTimeout(flow.timer);
+  pendingMap.delete(key);
+  return flow;
+}
+
 function startOAuthFlow(database) {
   return new Promise((resolve, reject) => {
     const { codeVerifier, codeChallenge } = generatePKCE();
@@ -225,7 +264,7 @@ function startOAuthFlow(database) {
     authUrl.searchParams.set('user_id', userId);
 
     const pending = global.__domeOAuthPending || (global.__domeOAuthPending = new Map());
-    pending.set(state, { resolve, reject, codeVerifier, userId });
+    registerOAuthPending(pending, state, { resolve, reject, codeVerifier, userId });
 
     shell.openExternal(authUrl.toString());
   });
@@ -267,13 +306,12 @@ async function handleConnectCallback(url, database) {
     const queries = database.getQueries();
     const now = Date.now();
     const expiresInSec = Number(tokenResponse.expires_in || 3600);
-    queries.upsertDomeProviderSession.run(
+    persistSession(
+      queries,
       tokenResponse.user_id,
       tokenResponse.access_token,
       tokenResponse.refresh_token || null,
       now + expiresInSec * 1000,
-      now,
-      now,
     );
     console.log('[Dome OAuth] Connected via dashboard, user_id:', tokenResponse.user_id);
     return true;
@@ -296,9 +334,12 @@ function handleOAuthCallback(url, database) {
     if (!state) return false;
 
     const pending = global.__domeOAuthPending;
-    if (!pending || !pending.has(state)) return false;
-    const flow = pending.get(state);
-    pending.delete(state);
+    if (!pending || !pending.has(state)) {
+      console.warn('[Dome OAuth] Callback with unknown or expired state ignored');
+      return false;
+    }
+    const flow = consumeOAuthPending(pending, state);
+    if (!flow) return false;
 
     if (error) {
       flow.reject(new Error(error));
@@ -314,13 +355,12 @@ function handleOAuthCallback(url, database) {
         const queries = database.getQueries();
         const now = Date.now();
         const expiresInSec = Number(tokenResponse.expires_in || 3600);
-        queries.upsertDomeProviderSession.run(
+        persistSession(
+          queries,
           flow.userId,
           tokenResponse.access_token,
           tokenResponse.refresh_token || null,
           now + expiresInSec * 1000,
-          now,
-          now,
         );
         flow.resolve({
           success: true,

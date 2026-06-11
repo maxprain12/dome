@@ -4,6 +4,7 @@ const kbShared = require('../../agents/kb-llm-shared.cjs');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
 const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
+const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer } = require('../../core/settings-secrets.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   semanticIndexScheduler.init(database);
@@ -637,6 +638,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
+      if (isSecretSettingKey(key)) {
+        const masked = maskSettingForRenderer(queries, key);
+        return { success: true, data: masked, hasSecret: Boolean(masked) };
+      }
       const result = queries.getSetting.get(key);
       return { success: true, data: result ? result.value : null };
     } catch (error) {
@@ -649,8 +654,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-
-      queries.setSetting.run(key, value, Date.now());
+      if (isSecretSettingKey(key)) {
+        writeSettingSecret(queries, key, value);
+      } else {
+        queries.setSetting.run(key, value, Date.now());
+      }
       return { success: true };
     } catch (error) {
       console.error('[DB] Error setting setting:', error);
@@ -666,7 +674,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const { provider, apiKey, model, embeddingModel, baseURL } = config;
 
       if (provider) queries.setSetting.run('ai_provider', provider, Date.now());
-      if (apiKey) queries.setSetting.run('ai_api_key', apiKey, Date.now());
+      if (apiKey) writeSettingSecret(queries, 'ai_api_key', apiKey);
       if (model) queries.setSetting.run('ai_model', model, Date.now());
       if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
       if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());

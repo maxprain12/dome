@@ -26,47 +26,52 @@
 
 ## Color System
 
-### CSS Variables
+> **Fuente de verdad: [`new-color-palette.md`](new-color-palette.md) y `app/globals.css`.**
+> Las variables `--brand-*` están **eliminadas** (ya no existen en `globals.css`). No usar valores
+> hex en componentes — siempre variables CSS. El check `pnpm run check:design-system` lo verifica en CI.
+
+### Variables vigentes (resumen)
 
 ```css
-/* Brand Colors */
---brand-primary: #0ea5e9;      /* Sky blue - primary actions, links */
---brand-secondary: #a855f7;    /* Purple - AI features, premium */
---brand-accent: #10b981;       /* Emerald - success, confirmations */
+/* Texto */
+--primary-text     /* títulos, texto importante */
+--secondary-text   /* texto de cuerpo, descripciones */
+--tertiary-text    /* placeholders, deshabilitado */
 
-/* Text Colors */
---primary: #111827;            /* Dark gray - headings, important text */
---secondary: #6b7280;          /* Medium gray - body text, descriptions */
---tertiary: #9ca3af;           /* Light gray - placeholder, disabled */
+/* Fondos */
+--bg               /* fondo principal */
+--bg-secondary     /* cards, paneles */
+--bg-tertiary      /* inputs, fondos sutiles */
+--bg-hover         /* estados hover */
 
-/* Background Colors */
---bg: #ffffff;                 /* Main background */
---bg-secondary: #f9fafb;       /* Cards, panels */
---bg-tertiary: #f3f4f6;        /* Inputs, subtle backgrounds */
---bg-hover: #e5e7eb;           /* Hover states */
+/* Interactivo */
+--accent           /* botones primarios, links, focus */
+--secondary        /* estados activos, highlights */
 
-/* Border Colors */
---border: #e5e7eb;             /* Default borders */
---border-focus: #0ea5e9;       /* Focus states */
+/* Bordes */
+--border
+--border-hover
 
-/* Semantic Colors */
---success: #10b981;
---warning: #f59e0b;
---error: #ef4444;
---info: #3b82f6;
+/* Semánticos (con par light/dark y variantes -bg) */
+--success / --success-bg
+--warning / --warning-bg
+--error / --error-bg
+--info / --info-bg
 ```
+
+Los valores hex por tema viven en `app/globals.css` (`:root` y `[data-theme="dark"]`); consultarlos ahí, no copiarlos a componentes.
 
 ### Usage Guidelines
 
 | Element | Color Variable |
 |---------|---------------|
-| Primary buttons | `--brand-primary` |
-| Links | `--brand-primary` |
-| AI features | `--brand-secondary` |
-| Success states | `--brand-accent` |
-| Body text | `--secondary` |
-| Headings | `--primary` |
-| Disabled elements | `--tertiary` |
+| Primary buttons | `--accent` |
+| Links | `--accent` |
+| Success states | `--success` |
+| Error states | `--error` |
+| Body text | `--secondary-text` |
+| Headings | `--primary-text` |
+| Disabled elements | `--tertiary-text` |
 | Card backgrounds | `--bg-secondary` |
 | Input backgrounds | `--bg-tertiary` |
 
@@ -189,7 +194,7 @@
 ```css
 /* Primary Button */
 .btn-primary {
-  background: var(--brand-primary);
+  background: var(--accent);
   color: white;
   padding: 10px 16px;
   border-radius: var(--radius-md);
@@ -247,7 +252,7 @@
 }
 
 .card:hover {
-  border-color: var(--brand-primary);
+  border-color: var(--accent);
   box-shadow: var(--shadow-md);
 }
 
@@ -276,8 +281,8 @@
 
 .input:focus {
   outline: none;
-  border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 .input::placeholder {

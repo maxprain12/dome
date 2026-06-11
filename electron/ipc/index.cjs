@@ -1,5 +1,6 @@
 /* eslint-disable no-console */
 const { ipcMain, nativeTheme } = require('electron');
+const { createSecureIpcMain } = require('../core/ipc-guard.cjs');
 
 const systemHandlers = require('./core/system.cjs');
 const windowHandlers = require('./core/window.cjs');
@@ -95,51 +96,53 @@ function registerAll(deps) {
     pendingDisplayMediaSources,
   } = deps;
 
+  const secureIpcMain = createSecureIpcMain(ipcMain, windowManager, validateSender);
+
   const fs = require('fs');
   const path = require('path');
   const crypto = require('crypto');
 
-  systemHandlers.register({ ipcMain, app, windowManager, validateSender, sanitizePath, validateUrl });
-  windowHandlers.register({ ipcMain, nativeTheme, windowManager, database });
-  initHandlers.register({ ipcMain, windowManager, initModule, validateSender });
-  databaseHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService });
-  interactionsHandlers.register({ ipcMain, windowManager, database, validateSender });
-  semanticHandlers.register({ ipcMain, windowManager, validateSender });
-  embeddingsHandlers.register({ ipcMain, windowManager, validateSender });
-  cloudLlmHandlers.register({ ipcMain, windowManager, validateSender });
-  tagsHandlers.register({ ipcMain, windowManager, database, validateSender });
-  graphHandlers.register({ ipcMain, windowManager, database, validateSender });
-  resourcesHandlers.register({ ipcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath });
-  storageHandlers.register({ ipcMain, windowManager, database, fileStorage });
-  filesHandlers.register({ ipcMain, app, windowManager, sanitizePath });
-  migrationHandlers.register({ ipcMain, fs, windowManager, database, fileStorage, thumbnail });
-  webHandlers.register({ ipcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
-  imageHandlers.register({ ipcMain, windowManager, cropImage });
-  ollamaHandlers.register({ ipcMain, windowManager, database, ollamaService, getOllamaManager });
-  authHandlers.register({ ipcMain, windowManager, authManager });
-  personalityHandlers.register({ ipcMain, windowManager, personalityLoader });
-  aiHandlers.register({ ipcMain, windowManager, database, ollamaService });
-  aiToolsHandlers.register({ ipcMain, windowManager, aiToolsHandler });
-  flashcardsHandlers.register({ ipcMain, windowManager, database, validateSender });
-  studioHandlers.register({ ipcMain, windowManager, database, validateSender });
-  audioHandlers.register({ ipcMain, windowManager, database, ttsService });
-  notebookHandlers.register({ ipcMain, windowManager, notebookPython });
-  updaterHandlers.register({ ipcMain, windowManager, validateSender });
-  syncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
-  pluginsHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
-  mcpHandlers.register({ ipcMain, windowManager, database, validateSender });
-  indexingSyncHandlers.register({ ipcMain, windowManager, database, fileStorage, validateSender });
-  pdfRenderHandlers.register({ ipcMain, windowManager, database, validateSender });
-  calendarHandlers.register({ ipcMain, windowManager, validateSender, sanitizePath });
-  domeAuthHandlers.register({ ipcMain, windowManager, database });
-  agentTeamHandlers.register({ ipcMain, windowManager, database });
-  chatHandlers.register({ ipcMain, windowManager, database, validateSender });
-  runsHandlers.register({ ipcMain, windowManager, validateSender });
-  marketplaceHandlers.register({ ipcMain, windowManager, validateSender });
-  cloudStorageHandlers.register({ ipcMain, windowManager, database, fileStorage });
+  systemHandlers.register({ ipcMain: secureIpcMain, app, windowManager, validateSender, sanitizePath, validateUrl });
+  windowHandlers.register({ ipcMain: secureIpcMain, nativeTheme, windowManager, database });
+  initHandlers.register({ ipcMain: secureIpcMain, windowManager, initModule, validateSender });
+  databaseHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService });
+  interactionsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  semanticHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  embeddingsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  cloudLlmHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  tagsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  graphHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  resourcesHandlers.register({ ipcMain: secureIpcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath });
+  storageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  filesHandlers.register({ ipcMain: secureIpcMain, app, windowManager, sanitizePath });
+  migrationHandlers.register({ ipcMain: secureIpcMain, fs, windowManager, database, fileStorage, thumbnail });
+  webHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, webScraper, youtubeService, ollamaService, initModule });
+  imageHandlers.register({ ipcMain: secureIpcMain, windowManager, cropImage });
+  ollamaHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ollamaService, getOllamaManager });
+  authHandlers.register({ ipcMain: secureIpcMain, windowManager, authManager });
+  personalityHandlers.register({ ipcMain: secureIpcMain, windowManager, personalityLoader });
+  aiHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ollamaService });
+  aiToolsHandlers.register({ ipcMain: secureIpcMain, windowManager, aiToolsHandler });
+  flashcardsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  studioHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  audioHandlers.register({ ipcMain: secureIpcMain, windowManager, database, ttsService });
+  notebookHandlers.register({ ipcMain: secureIpcMain, windowManager, notebookPython });
+  updaterHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  syncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender, sanitizePath });
+  pluginsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
+  mcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  indexingSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender });
+  pdfRenderHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  calendarHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
+  domeAuthHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  agentTeamHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  chatHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  runsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  marketplaceHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  cloudStorageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   transcriptionSession.setWindowManager(windowManager);
   transcriptionHandlers.register({
-    ipcMain,
+    ipcMain: secureIpcMain,
     windowManager,
     database,
     fileStorage,
@@ -159,20 +162,20 @@ function registerAll(deps) {
     initModule,
     ollamaService,
   });
-  browserContextHandlers.register({ ipcMain, windowManager });
-  kbLlmHandlers.register({ ipcMain, windowManager, database, validateSender });
-  skillsHandlers.register({ ipcMain, windowManager, database, validateSender, app });
-  shellHandlers.register({ ipcMain, windowManager, sanitizePath });
-  domeMcpHandlers.register({ ipcMain, windowManager, database });
-  artifactsHandlers.register({ ipcMain, windowManager, database });
-  feedersHandlers.register({ ipcMain, windowManager, database });
-  approvalHandlers.register({ ipcMain, windowManager, validateSender });
-  cloudSyncHandlers.register({ ipcMain, windowManager, database, fileStorage });
-  threadsHandlers.register({ ipcMain, windowManager, validateSender });
-  learnHandlers.register({ ipcMain, windowManager, database, validateSender });
-  quizHandlers.register({ ipcMain, windowManager, database, validateSender });
-  minimaxFilesHandlers.register({ ipcMain, validateSender });
-  copilotHandlers.register({ ipcMain, windowManager, database });
+  browserContextHandlers.register({ ipcMain: secureIpcMain, windowManager });
+  kbLlmHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  skillsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender, app });
+  shellHandlers.register({ ipcMain: secureIpcMain, windowManager, sanitizePath });
+  domeMcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  feedersHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  cloudSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  threadsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  learnHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  quizHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
+  minimaxFilesHandlers.register({ ipcMain: secureIpcMain, validateSender });
+  copilotHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
 
 }
 

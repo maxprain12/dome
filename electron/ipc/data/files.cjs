@@ -21,6 +21,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: dedupe-hash of user-picked import files (dialog/drop → granted)
       const safePath = sanitizePath(filePath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'File not found' };
@@ -48,6 +49,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: reads user-picked import files (dialog/drop → granted)
       const safePath = sanitizePath(filePath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'File not found' };
@@ -70,6 +72,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: user-selected files from the Import dialog (granted)
       const safePath = sanitizePath(filePath, true);
       const content = fs.readFileSync(safePath, 'utf8');
       return { success: true, data: content };
@@ -89,6 +92,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: user-selected save location from the Export dialog (granted)
       const safePath = sanitizePath(filePath, true);
       fs.writeFileSync(safePath, content, 'utf8');
       return { success: true };
@@ -125,6 +129,8 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: notebook workspace dirs live outside userData
+      // (resource.metadata.notebook_workspace_path, persisted across sessions)
       const safePath = sanitizePath(dirPath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'Directory not found' };
@@ -149,7 +155,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
   /**
    * Bounded recursive directory tree (safe alternative to MCP directory_tree).
    */
-  ipcMain.handle('file:tree', (event, payload) => {
+  ipcMain.handle('file:tree', async (event, payload) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -160,8 +166,9 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
       if (!dirPath || typeof dirPath !== 'string') {
         return { success: false, error: 'dirPath is required' };
       }
+      // allowExternal: agent file-tree tool over user-chosen dirs (HITL/caps govern)
       const safePath = sanitizePath(dirPath, true);
-      const result = buildFileTree(safePath, {
+      const result = await buildFileTree(safePath, {
         maxDepth: payload?.max_depth ?? payload?.maxDepth,
         maxEntries: payload?.max_entries ?? payload?.maxEntries,
         exclude: Array.isArray(payload?.exclude) ? payload.exclude : undefined,
@@ -185,6 +192,8 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: src is a user-picked file (dialog → granted); dest is the
+      // notebook workspace dir, which lives outside userData
       const safeSrc = sanitizePath(sourcePath, true);
       const safeDest = sanitizePath(destPath, true);
       if (!fs.existsSync(safeSrc)) {
@@ -206,6 +215,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
+      // allowExternal: chat attachments are user-picked files (dialog/drop → granted)
       const safePath = sanitizePath(filePath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'File not found' };
@@ -242,6 +252,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: stat of user-picked import files (dialog/drop → granted)
       const safePath = sanitizePath(filePath, true);
       if (!fs.existsSync(safePath)) {
         return { success: false, error: 'File not found' };
@@ -272,6 +283,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: user-picked images for preview (dialog/drop → granted)
       const safePath = sanitizePath(filePath, true);
       const buffer = fs.readFileSync(safePath);
       const ext = path.extname(safePath).toLowerCase();
@@ -335,6 +347,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
     }
 
     try {
+      // allowExternal: user-picked PDFs at import time (dialog/drop → granted)
       const safePath = sanitizePath(filePath, true);
       const documentExtractor = require('../../documents/document-extractor.cjs');
       const text = await documentExtractor.extractTextFromPDF(safePath);

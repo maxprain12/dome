@@ -3420,7 +3420,7 @@ async function fileTree(args) {
   const maxDepth = args.max_depth ?? args.maxDepth;
   const maxEntries = args.max_entries ?? args.maxEntries;
   const exclude = Array.isArray(args.exclude) ? args.exclude : undefined;
-  return buildFileTree(dirPath, { maxDepth, maxEntries, exclude });
+  return await buildFileTree(dirPath, { maxDepth, maxEntries, exclude });
 }
 
 function _walkDirForSearch(dir, visitor) {
@@ -3464,6 +3464,11 @@ async function shellExec(args, toolContext = null) {
   const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : undefined;
   if (!command) return { status: 'error', error: 'command is required' };
 
+  // Resumed HITL runs already carry the user's approval for this exact call.
+  if (toolContext?.hitlApproved === true) {
+    return runShellCommand(command, cwd);
+  }
+
   const approval = require('../ipc/agents/approval.cjs');
   let senderId = toolContext?.senderWebContentsId;
   if (senderId == null && windowManagerRef?.getFocused) {
@@ -3501,6 +3506,10 @@ async function shellExec(args, toolContext = null) {
 
   if (!confirmed) return { status: 'cancelled', message: 'User cancelled execution' };
 
+  return runShellCommand(command, cwd);
+}
+
+function runShellCommand(command, cwd) {
   return new Promise((resolve) => {
     childExec(
       command,

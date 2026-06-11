@@ -10,5 +10,8 @@
   "aria_select_folder_color": "Selecionar cor da pasta",
   "aria_close": "Fechar",
   "delete_resource": "Excluir recurso",
-  "aria_select_color_swatch": "Selecionar cor {{color}}"
+  "aria_select_color_swatch": "Selecionar cor {{color}}",
+  "status_pending": "Pendente",
+  "status_processing": "Processando",
+  "status_failed": "Falhou"
 }

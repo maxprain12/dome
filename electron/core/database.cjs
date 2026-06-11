@@ -617,6 +617,8 @@ function extractLegacyMcpServers(raw) {
  * @param {import('better-sqlite3').Database} db
  */
 function runMigrations(db) {
+  const { backupDatabaseBeforeMigrations, restoreDatabaseFromBackup } = require('./migration-backup.cjs');
+
   // Get current schema version
   let version = 0;
   try {
@@ -628,6 +630,41 @@ function runMigrations(db) {
     // Settings table might not exist yet
   }
 
+  let backupPath = null;
+  if (db.name) {
+    // Flush the WAL so the file copy captures a consistent snapshot.
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      /* checkpoint is best-effort */
+    }
+    backupPath = backupDatabaseBeforeMigrations(db.name, version);
+  }
+
+  // Migrations toggle PRAGMA foreign_keys (a no-op inside SQLite transactions),
+  // so whole-run atomicity is provided by restoring the pre-migration backup on failure.
+  try {
+    applyMigrations(db, version);
+  } catch (err) {
+    console.error(`[DB] Migration failed (upgrading from schema v${version}):`, err?.message);
+    if (backupPath && db.name) {
+      const dbPath = db.name;
+      try {
+        db.close();
+      } catch {
+        /* ignore */
+      }
+      if (restoreDatabaseFromBackup(dbPath, backupPath)) {
+        throw new Error(
+          `Database migration from schema v${version} failed and the database was restored from the pre-migration backup (${backupPath}). Original error: ${err?.message}`,
+        );
+      }
+    }
+    throw err;
+  }
+}
+
+function applyMigrations(db, version) {
   // Migration 1: Add internal file storage columns to resources
   if (version < 1) {
     console.log('[DB] Running migration 1: Add internal file storage columns');

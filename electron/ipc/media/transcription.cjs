@@ -20,6 +20,7 @@
  */
 
 const transcriptionService = require('../../transcription/transcription-service.cjs');
+const { readSettingSecret, writeSettingSecret, isSecretSettingKey, maskSettingForRenderer } = require('../../core/settings-secrets.cjs');
 const transcriptionSession = require('../../transcription/transcription-session.cjs');
 
 function generateResourceId() {
@@ -170,12 +171,10 @@ function register({
         queries.setSetting.run('transcription_language', payload.language ? String(payload.language).trim() : '', now);
       }
       if (payload.dedicatedOpenaiKey !== undefined) {
-        const k = payload.dedicatedOpenaiKey;
-        queries.setSetting.run('transcription_openai_api_key', k === '' || k === null ? '' : String(k).trim(), now);
+        writeSettingSecret(queries, 'transcription_openai_api_key', payload.dedicatedOpenaiKey);
       }
       if (payload.groqApiKey !== undefined) {
-        const k = payload.groqApiKey;
-        queries.setSetting.run('transcription_groq_api_key', k === '' || k === null ? '' : String(k).trim(), now);
+        writeSettingSecret(queries, 'transcription_groq_api_key', payload.groqApiKey);
       }
       if (payload.globalShortcut !== undefined) {
         queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut || '').trim(), now);

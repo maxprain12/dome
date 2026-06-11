@@ -59,7 +59,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   if (error) {
     return (
       <div className="flex items-center justify-center h-full p-4">
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-[var(--error)]">{error}</p>
       </div>
     );
   }

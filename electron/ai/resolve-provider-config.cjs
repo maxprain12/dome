@@ -3,6 +3,7 @@
 const { getAISettings } = require('./ai-settings.cjs');
 const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
 const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
+const { readSettingSecret } = require('../core/settings-secrets.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 
@@ -82,7 +83,7 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
   if (provider === 'ollama') {
     return {
       provider,
-      apiKey: queries.getSetting.get('ollama_api_key')?.value || undefined,
+      apiKey: readSettingSecret(queries, 'ollama_api_key') || undefined,
       baseUrl: queries.getSetting.get('ollama_base_url')?.value || DEFAULT_BASE_URLS.ollama,
       model: model || queries.getSetting.get('ollama_model')?.value || DEFAULT_MODELS.ollama,
     };
@@ -112,7 +113,7 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
     return { provider, apiKey: token, baseUrl, model: model || DEFAULT_MODELS.copilot };
   }
 
-  const apiKey = queries.getSetting.get('ai_api_key')?.value;
+  const apiKey = readSettingSecret(queries, 'ai_api_key');
   if (!apiKey) throw new Error(`API key not configured for ${provider}`);
 
   return {

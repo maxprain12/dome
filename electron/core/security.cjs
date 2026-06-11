@@ -5,7 +5,56 @@
  */
 
 const path = require('path');
-const { app } = require('electron');
+
+// Electron's package throws on require when its binary isn't installed
+// (CI runs unit tests with `pnpm install --ignore-scripts`); `app` is only
+// used by getAllowedPaths(), which never runs in unit tests.
+let app = null;
+try {
+  ({ app } = require('electron'));
+} catch {
+  /* outside Electron (unit tests) */
+}
+
+const EXTERNAL_PATH_DENYLIST = [
+  /\.ssh(?:\/|$)/i,
+  /\.aws(?:\/|$)/i,
+  /\.gnupg(?:\/|$)/i,
+  /\/Keychains\//i,
+  /\/\.config\/gcloud\//i,
+];
+
+const grantedExternalPaths = new Map();
+const GRANT_TTL_MS = 60 * 60 * 1000;
+
+function grantExternalPath(filePath, ttlMs = GRANT_TTL_MS) {
+  if (!filePath || typeof filePath !== 'string') return;
+  grantedExternalPaths.set(path.resolve(filePath), Date.now() + ttlMs);
+}
+
+function isDeniedExternalPath(normalizedPath) {
+  const resolved = path.resolve(normalizedPath);
+  return EXTERNAL_PATH_DENYLIST.some((re) => re.test(resolved));
+}
+
+/**
+ * A path is granted if it (or any ancestor directory) was granted — picking a
+ * folder in a native dialog grants its subtree for the TTL window.
+ */
+function isGrantedExternalPath(normalizedPath) {
+  const resolved = path.resolve(normalizedPath);
+  const now = Date.now();
+  for (const [granted, expires] of grantedExternalPaths) {
+    if (expires < now) {
+      grantedExternalPaths.delete(granted);
+      continue;
+    }
+    if (resolved === granted || resolved.startsWith(granted + path.sep)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 /**
  * Validates that the IPC event sender is authorized
@@ -64,9 +113,14 @@ function sanitizePath(filePath, allowExternal = false) {
   // If allowExternal is true, only check for dangerous patterns
   // This is for operations like shell.openPath where we might open external files
   if (allowExternal) {
-    // Still prevent null bytes and other dangerous characters
     if (normalized.includes('\0')) {
       throw new Error('Path contains null byte');
+    }
+    if (isDeniedExternalPath(normalized)) {
+      throw new Error('Path not allowed: sensitive system location');
+    }
+    if (!isGrantedExternalPath(normalized)) {
+      console.warn('[Security] External path access:', normalized);
     }
     return normalized;
   }
@@ -145,4 +199,6 @@ module.exports = {
   validateUrl,
   validateString,
   getAllowedPaths,
+  grantExternalPath,
+  isDeniedExternalPath,
 };

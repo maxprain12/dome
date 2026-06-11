@@ -32,7 +32,7 @@ function CopyBlock({ label, value }: { label: string; value: string }) {
       </div>
       <DomeButton variant="secondary" size="sm" onClick={copy} className="w-full">
         {copied
-          ? <><CheckCircle2 className="size-3.5 mr-1.5 text-green-500" />Copiado</>
+          ? <><CheckCircle2 className="size-3.5 mr-1.5 text-[var(--success)]" />Copiado</>
           : <><Copy className="size-3.5 mr-1.5" />{`Copiar config (${label})`}</>}
       </DomeButton>
     </div>
@@ -116,7 +116,7 @@ export default function DomeMcpServerSettings() {
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             {status.running
-              ? <Wifi className="size-4 shrink-0 text-green-500" />
+              ? <Wifi className="size-4 shrink-0 text-[var(--success)]" />
               : <WifiOff className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />}
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
@@ -175,7 +175,7 @@ export default function DomeMcpServerSettings() {
             <div className="space-y-1">
               {status.sessions.map((s, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <Server className="size-3.5 shrink-0 text-green-500" />
+                  <Server className="size-3.5 shrink-0 text-[var(--success)]" />
                   <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                     {s.clientName}
                   </span>

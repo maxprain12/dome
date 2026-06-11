@@ -69,10 +69,12 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
 
     const catalogProviders: AIProviderType[] = ['opencode', 'opencode-go'];
     const dynamicProviders: AIProviderType[] = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', ...catalogProviders];
-    const canFetchModels = dynamicProviders.includes(p) && (catalogProviders.includes(p) || Boolean(cfg.apiKey?.trim()));
+    // key trimmeada (hardening de secretos); los catalog providers no la requieren
+    const key = cfg.apiKey?.trim();
+    const canFetchModels = dynamicProviders.includes(p) && (catalogProviders.includes(p) || Boolean(key));
     if (canFetchModels) {
       try {
-        const res = await fetchProviderModels(p, cfg.apiKey);
+        const res = await fetchProviderModels(p, key);
         if (res?.success && Array.isArray(res.models)) {
           setDynamicOpts(res.models.map((m: { id: string; name: string }) => ({ id: m.id, label: m.name })));
         } else {
