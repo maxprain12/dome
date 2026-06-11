@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw, X } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import type { DomePluginInfo } from '@/types/plugin';
 import DomeButton from '@/components/ui/DomeButton';
+import DomeModal from '@/components/ui/DomeModal';
 
 type PluginRuntimeModalProps = {
   plugin: DomePluginInfo;
@@ -148,64 +149,47 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
   }, [permissions]);
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-6 backdrop-blur-sm">
-      <div
-        className="flex h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border"
-        style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
-      >
-        <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: 'var(--dome-border)' }}>
-          <div>
-            <h3 className="text-sm font-semibold text-[var(--dome-text)]">{plugin.name}</h3>
-            <p className="text-xs text-[var(--dome-text-muted)]">{entry}</p>
+    <DomeModal
+      open
+      onClose={onClose}
+      title={plugin.name}
+      subtitle={entry}
+      size="full"
+      className="!p-0"
+      headerActions={
+        <DomeButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          iconOnly
+          onClick={() => setReloadKey((value) => value + 1)}
+          title="Recargar plugin"
+          aria-label="Recargar plugin"
+        >
+          <RefreshCw className="size-4" />
+        </DomeButton>
+      }
+    >
+      <div className="relative h-full min-h-[60vh] bg-[var(--bg)]">
+        {loading ? (
+          <div className="flex h-full items-center justify-center text-sm text-[var(--secondary-text)]">
+            Cargando plugin...
           </div>
-          <div className="flex items-center gap-2">
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={() => setReloadKey((value) => value + 1)}
-              title="Recargar plugin"
-              className="text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
-              aria-label="Recargar plugin"
-            >
-              <RefreshCw className="size-4" />
-            </DomeButton>
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={onClose}
-              title="Cerrar"
-              className="text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg)]"
-              aria-label="Cerrar"
-            >
-              <X className="size-4" />
-            </DomeButton>
+        ) : error ? (
+          <div className="flex h-full items-center justify-center px-8 text-sm text-[var(--dome-error)]">
+            {error}
           </div>
-        </div>
-        <div className="relative flex-1 bg-[var(--bg)]">
-          {loading ? (
-            <div className="flex h-full items-center justify-center text-sm text-[var(--secondary-text)]">
-              Cargando plugin...
-            </div>
-          ) : error ? (
-            <div className="flex h-full items-center justify-center px-8 text-sm text-[var(--dome-error)]">
-              {error}
-            </div>
-          ) : (
-            <iframe
-              key={reloadKey}
-              ref={iframeRef}
-              title={plugin.name}
-              srcDoc={srcDoc}
-              sandbox="allow-scripts"
-              className="size-full border-0"
-            />
-          )}
-        </div>
+        ) : (
+          <iframe
+            key={reloadKey}
+            ref={iframeRef}
+            title={plugin.name}
+            srcDoc={srcDoc}
+            sandbox="allow-scripts"
+            className="size-full border-0"
+          />
+        )}
       </div>
-    </div>
+    </DomeModal>
   );
 }

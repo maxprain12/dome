@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import DomeModal from '@/components/ui/DomeModal';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
 
@@ -90,24 +90,34 @@ export default function EventModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4" role="presentation">
-      <button
-        type="button"
-        className="absolute inset-0 min-h-full w-full border-0 p-0 cursor-pointer bg-black/50"
-        aria-label={t('ui.close')}
-        onClick={onClose}
-      />
-      <div className="c-calendar-modal relative z-10" role="dialog" aria-modal="true" aria-labelledby="event-modal-title">
-        <div className="c-calendar-modal-hd">
-          <h2 id="event-modal-title" className="c-calendar-modal-title">
-            {event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
-          </h2>
-          <button type="button" onClick={onClose} className="c-calendar-modal-close" aria-label={t('ui.close')}>
-            <X className="size-5" />
+    <DomeModal
+      open
+      onClose={onClose}
+      title={event ? t('calendarPage.edit_event') : t('calendarPage.new_event')}
+      size="md"
+      footer={
+        <>
+          {event && onDelete ? (
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              className="h-pill-btn mr-auto"
+              style={{ color: 'var(--home-rose)' }}
+            >
+              {deleting ? t('calendarPage.deleting') : t('common.delete')}
+            </button>
+          ) : null}
+          <button type="button" onClick={onClose} className="h-pill-btn">
+            {t('common.cancel')}
           </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="c-calendar-modal-form">
+          <button type="submit" form="event-modal-form" disabled={saving || !title.trim()} className="h-pill-btn primary">
+            {saving ? t('common.saving') : t('common.save')}
+          </button>
+        </>
+      }
+    >
+      <form id="event-modal-form" onSubmit={handleSubmit} className="c-calendar-modal-form">
           <div>
             <label htmlFor="event-modal-title-input" className="c-calendar-modal-label">
               {t('common.name')}
@@ -212,27 +222,7 @@ export default function EventModal({
             />
           </div>
 
-          <div className="c-calendar-modal-actions">
-            {event && onDelete ? (
-              <button
-                type="button"
-                onClick={() => void handleDelete()}
-                disabled={deleting}
-                className="h-pill-btn mr-auto"
-                style={{ color: 'var(--home-rose)' }}
-              >
-                {deleting ? t('calendarPage.deleting') : t('common.delete')}
-              </button>
-            ) : null}
-            <button type="button" onClick={onClose} className="h-pill-btn">
-              {t('common.cancel')}
-            </button>
-            <button type="submit" disabled={saving || !title.trim()} className="h-pill-btn primary">
-              {saving ? t('common.saving') : t('common.save')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </DomeModal>
   );
 }

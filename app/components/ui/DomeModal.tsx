@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DomeButton from './DomeButton';
 
-export type DomeModalSize = 'sm' | 'md' | 'lg' | 'xl';
+export type DomeModalSize = 'sm' | 'md' | 'lg' | 'xl' | 'full';
 
 export interface DomeModalProps {
   open: boolean;
@@ -17,6 +17,10 @@ export interface DomeModalProps {
   className?: string;
   /** Decoración opcional a la izquierda del título (p. ej. icono de peligro). */
   headerIcon?: ReactNode;
+  /** Línea secundaria bajo el título. */
+  subtitle?: string;
+  /** Acciones extra en la cabecera, antes del botón de cerrar. */
+  headerActions?: ReactNode;
   /** Cerrar con Escape (default true). */
   closeOnEscape?: boolean;
   /** Cerrar al hacer click en el overlay (default true). */
@@ -30,6 +34,8 @@ const sizeClass: Record<DomeModalSize, string> = {
   md: 'max-w-md',
   lg: 'max-w-2xl',
   xl: 'max-w-4xl',
+  // Superficie de trabajo (runtime de plugins, visores): casi pantalla completa
+  full: 'max-w-6xl h-[85vh] !max-h-[85vh]',
 };
 
 const FOCUSABLE_SELECTOR = [
@@ -55,6 +61,8 @@ export default function DomeModal({
   size = 'md',
   className,
   headerIcon,
+  subtitle,
+  headerActions,
   closeOnEscape = true,
   closeOnOverlay = true,
   initialFocusRef,
@@ -157,20 +165,28 @@ export default function DomeModal({
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             {headerIcon ?? null}
-            <h2 id={titleId} className="truncate text-base font-semibold text-[var(--primary-text)]">
-              {title}
-            </h2>
+            <div className="min-w-0">
+              <h2 id={titleId} className="truncate text-base font-semibold text-[var(--primary-text)]">
+                {title}
+              </h2>
+              {subtitle ? (
+                <p className="truncate text-xs text-[var(--tertiary-text)]">{subtitle}</p>
+              ) : null}
+            </div>
           </div>
-          <DomeButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            iconOnly
-            aria-label={t('common.close')}
-            onClick={onClose}
-          >
-            <X className="size-4" />
-          </DomeButton>
+          <div className="flex shrink-0 items-center gap-2">
+            {headerActions ?? null}
+            <DomeButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              iconOnly
+              aria-label={t('common.close')}
+              onClick={onClose}
+            >
+              <X className="size-4" />
+            </DomeButton>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[var(--primary-text)]">
           {children}
