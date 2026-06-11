@@ -95,7 +95,7 @@ function CapabilityToggleRow({
           <p className="truncate text-[10px] text-[var(--secondary-text)]">{description}</p>
         </div>
       </div>
-      <ChatInputToggle checked={checked} onChange={onChange} />
+      <ChatInputToggle checked={checked} onChange={onChange} label={label} />
     </div>
   );
 }

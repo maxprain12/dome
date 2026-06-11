@@ -152,6 +152,7 @@ export default function AIProviderSelection({
           return (
             <button
               type="button"
+              aria-label={ollamaOption.label}
               onClick={() => onProviderChange('ollama')}
               className="relative w-full p-3 rounded-xl text-left transition-all cursor-pointer"
               style={{

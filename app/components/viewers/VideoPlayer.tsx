@@ -322,6 +322,9 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
                 <LoadingState message={t('media.loading_video')} />
               </div>
             ) : videoUrl ? (
+              // User-imported video has no caption tracks; Dome offers
+              // transcription as the accessible alternative.
+              // eslint-disable-next-line jsx-a11y/media-has-caption
               <video
                 ref={videoRef}
                 src={videoUrl}

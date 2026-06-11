@@ -582,6 +582,8 @@ function TableContent({ artifact }: { artifact: TableArtifact }) {
               style={{ transition: 'background 150ms ease' }}
               onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
               onMouseOut={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              onFocus={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--bg-hover)'; }}
+              onBlur={(e) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
               {row.map((cell, cellIdx) => (
                 <td

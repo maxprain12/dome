@@ -68,6 +68,16 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                   el.style.background = 'var(--bg-secondary)';
                   el.style.borderColor = 'var(--border)';
                 }}
+                onFocus={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = 'var(--bg-hover)';
+                  el.style.borderColor = 'var(--border-hover)';
+                }}
+                onBlur={(e) => {
+                  const el = e.currentTarget as HTMLElement;
+                  el.style.background = 'var(--bg-secondary)';
+                  el.style.borderColor = 'var(--border)';
+                }}
                 title={[source.title, source.pageLabel, source.nodeTitle].filter(Boolean).join(' · ')}
               >
                 <span
