@@ -24,11 +24,29 @@ const STATIC_MODEL_INPUT = {
   'claude-opus-4-6': ['text', 'image'],
   'claude-sonnet-4-5': ['text', 'image'],
   'claude-haiku-4-5': ['text', 'image'],
+  'gemini-3-flash': ['text', 'image'],
   'gemini-3-flash-preview': ['text', 'image'],
   'gemini-3-pro-preview': ['text', 'image'],
   'gemini-2.5-flash': ['text', 'image'],
   'gemini-2.5-flash-lite': ['text', 'image'],
+  'kimi-k2.5': ['text', 'image'],
+  'kimi-k2.6': ['text', 'image'],
+  'minimax-m3': ['text', 'image'],
+  'qwen3.6-plus': ['text', 'image'],
+  'qwen3.7-plus': ['text', 'image'],
+  'mimo-v2.5': ['text', 'image'],
 };
+
+/** Models on OpenCode that use anthropic-messages API (content block style). */
+const OPENCODE_ANTHROPIC_MODEL_IDS = new Set([
+  'claude-haiku-4-5',
+  'claude-sonnet-4-5',
+  'claude-opus-4-1',
+  'minimax-m2.5',
+  'minimax-m3',
+  'qwen3.7-max',
+  'qwen3.7-plus',
+]);
 
 /**
  * @param {string} provider
@@ -71,6 +89,22 @@ function resolveModelCapabilities(provider, modelId) {
     return { supportsImage: vision, supportsVideo: false, input: vision ? ['text', 'image'] : ['text'] };
   }
 
+  if (p === 'opencode' || p === 'opencode-go') {
+    const staticInput = STATIC_MODEL_INPUT[lower];
+    if (staticInput) {
+      return {
+        supportsImage: staticInput.includes('image'),
+        supportsVideo: staticInput.includes('video'),
+        input: staticInput,
+      };
+    }
+    if (/claude|gemini|gpt-4|gpt-5|kimi|qwen.*plus|mimo|minimax-m3/i.test(id)) {
+      const hasVision = /claude|gemini|gpt-|kimi|qwen|mimo|minimax-m3/i.test(id);
+      return { supportsImage: hasVision, supportsVideo: false, input: hasVision ? ['text', 'image'] : ['text'] };
+    }
+    return { supportsImage: false, supportsVideo: false, input: ['text'] };
+  }
+
   return { supportsImage: OPENAI_STYLE_PROVIDERS.has(p), supportsVideo: false, input: ['text'] };
 }
 
@@ -86,11 +120,16 @@ function parseDataUrl(dataUrl) {
 
 /**
  * @param {string} provider
+ * @param {string} [modelId]
  * @returns {'openai'|'anthropic'}
  */
-function contentStyleForProvider(provider) {
+function contentStyleForProvider(provider, modelId) {
   const p = String(provider || '').toLowerCase();
+  const id = String(modelId || '').trim().toLowerCase();
   if (ANTHROPIC_STYLE_PROVIDERS.has(p)) return 'anthropic';
+  if ((p === 'opencode' || p === 'opencode-go') && (OPENCODE_ANTHROPIC_MODEL_IDS.has(id) || /^claude-/i.test(id))) {
+    return 'anthropic';
+  }
   return 'openai';
 }
 
@@ -153,7 +192,8 @@ function videoBlock(video) {
  */
 function buildNativeContentBlocks(opts) {
   const provider = String(opts.provider || 'openai').toLowerCase();
-  const style = contentStyleForProvider(provider);
+  const modelId = String(opts.modelId || '');
+  const style = contentStyleForProvider(provider, modelId);
   const blocks = [];
   for (const img of opts.images || []) {
     const block = imageBlock(img, style);

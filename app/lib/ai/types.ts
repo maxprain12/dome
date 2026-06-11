@@ -458,7 +458,9 @@ export type ProviderType =
   | 'openrouter'
   | 'moonshot'
   | 'qwen'
-  | 'deepseek';
+  | 'deepseek'
+  | 'opencode'
+  | 'opencode-go';
 
 /**
  * Provider metadata for UI display

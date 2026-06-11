@@ -16,7 +16,12 @@ const CLOUD_PROVIDERS: AIProviderType[] = [
   'minimax',
   'openrouter',
   'dome',
+  'opencode',
+  'opencode-go',
 ];
+
+/** Local catalog from @dome/ai — no remote /models API or API key required. */
+const CATALOG_PROVIDERS: AIProviderType[] = ['opencode', 'opencode-go'];
 
 function isDynamicCloudProvider(provider: AIProviderType): boolean {
   return CLOUD_PROVIDERS.includes(provider);
@@ -103,7 +108,7 @@ export function useProviderModels({
     }
 
     const key = apiKey.trim();
-    if (!key) {
+    if (!key && !CATALOG_PROVIDERS.includes(provider)) {
       setMergedModels(staticModels);
       setError(null);
       setLoading(false);

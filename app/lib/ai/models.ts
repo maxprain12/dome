@@ -74,7 +74,9 @@ export type AIProviderType =
   | 'minimax'
   | 'openrouter'
   | 'moonshot'
-  | 'qwen';
+  | 'qwen'
+  | 'opencode'
+  | 'opencode-go';
 
 // =============================================================================
 // Cost Definitions (per 1M tokens in USD)
@@ -694,6 +696,146 @@ export const PROVIDERS: Record<AIProviderType, ProviderDefinition> = {
     docsUrl: 'https://bailian.console.aliyun.com',
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   },
+  opencode: {
+    id: 'opencode',
+    name: 'OpenCode Zen',
+    description: 'Proxy multi-modelo vía opencode.ai/zen',
+    icon: 'opencode',
+    models: [
+      {
+        id: 'claude-sonnet-4-5',
+        name: 'Claude Sonnet 4.5',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 200000,
+        maxTokens: 64000,
+        recommended: true,
+        description: 'Claude Sonnet vía OpenCode Zen',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'claude-haiku-4-5',
+        name: 'Claude Haiku 4.5',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 200000,
+        maxTokens: 64000,
+        description: 'Claude Haiku vía OpenCode Zen',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'gpt-5.2',
+        name: 'GPT-5.2',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 400000,
+        maxTokens: 128000,
+        description: 'GPT-5.2 vía OpenCode Zen',
+        api: 'openai-responses',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'gemini-3-flash',
+        name: 'Gemini 3 Flash',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 1048576,
+        maxTokens: 65536,
+        description: 'Gemini 3 Flash vía OpenCode Zen',
+        api: 'google-generative-ai',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'big-pickle',
+        name: 'Big Pickle',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 200000,
+        maxTokens: 32000,
+        description: 'Modelo gratuito OpenCode',
+        api: 'openai-completions',
+        compat: { supportsTools: true, supportsStreaming: true },
+      },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'OPENCODE_API_KEY',
+    docsUrl: 'https://opencode.ai',
+    baseUrl: 'https://opencode.ai/zen/v1',
+  },
+  'opencode-go': {
+    id: 'opencode-go',
+    name: 'OpenCode Go',
+    description: 'Modelos Go/asia vía opencode.ai/zen/go',
+    icon: 'opencode',
+    models: [
+      {
+        id: 'deepseek-v4-flash',
+        name: 'DeepSeek V4 Flash',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 1000000,
+        maxTokens: 384000,
+        recommended: true,
+        description: 'DeepSeek V4 Flash — rápido y económico',
+        api: 'openai-completions',
+        compat: { supportsTools: true, supportsStreaming: true },
+      },
+      {
+        id: 'deepseek-v4-pro',
+        name: 'DeepSeek V4 Pro',
+        reasoning: true,
+        input: ['text'],
+        contextWindow: 1000000,
+        maxTokens: 384000,
+        description: 'DeepSeek V4 Pro — máxima calidad',
+        api: 'openai-completions',
+        compat: { supportsTools: true, supportsStreaming: true },
+      },
+      {
+        id: 'kimi-k2.6',
+        name: 'Kimi K2.6',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 262144,
+        maxTokens: 65536,
+        description: 'Kimi K2.6 con visión',
+        api: 'openai-completions',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'minimax-m3',
+        name: 'MiniMax M3',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 512000,
+        maxTokens: 131072,
+        description: 'MiniMax M3 vía OpenCode Go',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+      {
+        id: 'qwen3.7-plus',
+        name: 'Qwen3.7 Plus',
+        reasoning: true,
+        input: ['text', 'image'],
+        contextWindow: 262144,
+        maxTokens: 65536,
+        description: 'Qwen3.7 Plus con visión',
+        api: 'anthropic-messages',
+        compat: { supportsTools: true, supportsVision: true, supportsStreaming: true },
+      },
+    ],
+    supportsEmbeddings: false,
+    supportsStreaming: true,
+    supportsTools: true,
+    apiKeyPlaceholder: 'OPENCODE_API_KEY',
+    docsUrl: 'https://opencode.ai',
+    baseUrl: 'https://opencode.ai/zen/go/v1',
+  },
 };
 
 // =============================================================================
@@ -778,6 +920,8 @@ export function getDefaultModelId(providerId: AIProviderType): string {
     case 'openrouter': return 'anthropic/claude-sonnet-4.5';
     case 'moonshot': return 'moonshot-v1-8k';
     case 'qwen': return 'qwen-max';
+    case 'opencode': return 'claude-sonnet-4-5';
+    case 'opencode-go': return 'deepseek-v4-flash';
     default: return '';
   }
 }
@@ -858,6 +1002,8 @@ export function getModelApiType(model: ModelDefinition, providerId: AIProviderTy
     case 'openrouter':
     case 'moonshot':
     case 'qwen':
+    case 'opencode':
+    case 'opencode-go':
       return 'openai-completions';
     case 'anthropic':
       return 'anthropic-messages';

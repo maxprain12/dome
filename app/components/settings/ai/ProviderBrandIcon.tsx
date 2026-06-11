@@ -1,10 +1,34 @@
+import { useEffect, useState } from 'react';
 import {
   getProviderLogoSrc,
   isProviderWithBrandLogo,
   providerLogoUsesDarkInvert,
   type ProviderWithBrandLogo,
+  type ResolvedTheme,
 } from '@/lib/ai/provider-options';
 import { cn } from '@/lib/utils';
+
+function readResolvedTheme(): ResolvedTheme {
+  if (typeof document === 'undefined') return 'dark';
+  const attr = document.documentElement.getAttribute('data-theme');
+  return attr === 'light' ? 'light' : 'dark';
+}
+
+function useResolvedTheme(): ResolvedTheme {
+  const [theme, setTheme] = useState<ResolvedTheme>(readResolvedTheme);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const html = document.documentElement;
+    const sync = () => setTheme(readResolvedTheme());
+    sync();
+    const observer = new MutationObserver(sync);
+    observer.observe(html, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
+
+  return theme;
+}
 
 export interface ProviderBrandIconProps {
   provider: ProviderWithBrandLogo;
@@ -21,9 +45,11 @@ export default function ProviderBrandIcon({
   fill = false,
   className,
 }: ProviderBrandIconProps) {
+  const resolvedTheme = useResolvedTheme();
+
   return (
     <img
-      src={getProviderLogoSrc(provider)}
+      src={getProviderLogoSrc(provider, resolvedTheme)}
       alt=""
       aria-hidden
       width={fill ? undefined : size}

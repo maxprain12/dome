@@ -23,7 +23,7 @@ import { convertResponsesMessages, convertResponsesTools, processResponsesStream
 import { buildBaseOptions } from "./simple-options.js";
 import { buildOpenAIResponsesWebSearchTool } from "../native-web-tools.js";
 
-const OPENAI_TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode"]);
+const OPENAI_TOOL_CALL_PROVIDERS = new Set(["openai", "openai-codex", "opencode", "opencode-go"]);
 
 /**
  * Resolve cache retention preference.

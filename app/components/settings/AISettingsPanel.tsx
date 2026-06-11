@@ -220,6 +220,8 @@ export default function AISettingsPanel() {
       case 'deepseek': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'moonshot': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'qwen': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'opencode': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
+      case 'opencode-go': config.api_key = apiKey; config.model = model; config.base_url = ''; break;
       case 'copilot': config.model = model; config.base_url = ''; break;
       case 'ollama': config.ollama_base_url = ollamaBaseURL; config.ollama_model = ollamaModel; config.ollama_api_key = ollamaApiKey; break;
     }
