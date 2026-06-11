@@ -5,7 +5,16 @@
  */
 
 const path = require('path');
-const { app } = require('electron');
+
+// Electron's package throws on require when its binary isn't installed
+// (CI runs unit tests with `pnpm install --ignore-scripts`); `app` is only
+// used by getAllowedPaths(), which never runs in unit tests.
+let app = null;
+try {
+  ({ app } = require('electron'));
+} catch {
+  /* outside Electron (unit tests) */
+}
 
 const EXTERNAL_PATH_DENYLIST = [
   /\.ssh(?:\/|$)/i,
