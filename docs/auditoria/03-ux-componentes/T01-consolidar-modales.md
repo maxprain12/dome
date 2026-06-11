@@ -1,6 +1,7 @@
 # T01 — Consolidar modales en DomeModal
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UX Componentes
+**Estado**: 🔶 Fase 1 implementada (2026-06-11, rama `refactor/ux-consolidar-modales`) — `DomeModal` es la única base genérica: ahora con **focus trap** (ciclo Tab/Shift+Tab), **devolución de foco al trigger**, **scroll lock** del body, `closeOnEscape`/`closeOnOverlay`, `initialFocusRef`, `headerIcon`, tamaño `xl` y animaciones unificadas (`overlay-appear`/`modal-appear`). `ConfirmDialog` y `PromptModal` reescritos como composiciones finas sobre DomeModal+DomeButton (API pública intacta, −280 líneas de overlay duplicado). `Modal.tsx` **eliminado** (su único usuario, `GenerateSourceModal`, migrado). `MetadataModal` migrado; `NoteQuickTagModal` ya usaba DomeModal. **Pendiente (fase 2, oportunista con 03/T02):** los 8 modales de feature restantes (EventModal, EmbedModal, ImagePickerModal, ResourcePickerModal, FeederApprovalModal, PluginRuntimeModal, MoveToProjectModal y los Mantine Modal de FolderTabView/FileManagerTree).
 
 ## Problema
 
