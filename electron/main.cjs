@@ -383,8 +383,10 @@ async function createWindow() {
     {
       width: 1400,
       height: 900,
-      minWidth: 1024,
-      minHeight: 768,
+      // Contrato responsive (03/T06): la app debe ser usable hasta 800×600
+      // (media ventana en un portátil de 13"); el CSS colapsa paneles antes.
+      minWidth: 800,
+      minHeight: 600,
       icon: fs.existsSync(getAssetPath('icon.png'))
         ? getAssetPath('icon.png')
         : undefined,
