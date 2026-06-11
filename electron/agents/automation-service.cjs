@@ -2,6 +2,7 @@
 
 const runEngine = require('./run-engine.cjs');
 const database = require('../core/database.cjs');
+const { notifyError } = require('../core/error-notify.cjs');
 
 const TICK_INTERVAL_MS = 60 * 1000;
 
@@ -78,6 +79,11 @@ async function tick() {
       await runEngine.startAutomationNow(automation.id);
     } catch (error) {
       console.error(`[Automation] Failed to run ${automation.id}:`, error?.message || error);
+      notifyError({
+        scope: 'automations',
+        message: error?.message || String(error),
+        title: automation.title || automation.id,
+      });
     }
   }
 }

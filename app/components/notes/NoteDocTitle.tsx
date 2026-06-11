@@ -28,6 +28,9 @@ export default function NoteDocTitle({
   }, [value]);
 
   return (
+    // contentEditable title: behaves as a text input (focus/blur/Enter), a
+    // pattern the static rules below don't model; aria-label names it.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/heading-has-content
     <h1
       ref={ref}
       className="note-doc-title-editable"

@@ -451,6 +451,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
         <div
           ref={scrollRef}
           className="dome-tab-scroll"
+          tabIndex={-1}
           role="tablist"
           aria-label={t('workspace.tabs', { defaultValue: 'Tabs' })}
           onKeyDown={onTablistKeyDown}
@@ -620,6 +621,7 @@ function TabContextMenuBridge({
     <div
       className="dome-tab-ctx-menu"
       style={menuStyle}
+      tabIndex={-1}
       role="menu"
       aria-label={displayTitle}
       onContextMenu={(e) => e.stopPropagation()}

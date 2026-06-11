@@ -135,7 +135,9 @@ export default function DomeModal({
         if (closeOnOverlay && e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Dialog panel owns Escape/Tab handling (focus trap). */}
+      {/* Dialog panel owns Escape/Tab handling (focus trap) — a standard
+          dialog pattern the static rule does not model. */}
+      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
       <div
         ref={panelRef}
         role="dialog"

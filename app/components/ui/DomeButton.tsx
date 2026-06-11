@@ -5,14 +5,21 @@ import { cn } from '@/lib/utils';
 export type DomeButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
 export type DomeButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
-export interface DomeButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface DomeButtonBaseProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: DomeButtonVariant;
   size?: DomeButtonSize;
-  iconOnly?: boolean;
   loading?: boolean;
   leftIcon?: ReactNode;
   rightIcon?: ReactNode;
 }
+
+/**
+ * Icon-only buttons have no visible text, so an accessible name is required
+ * at the type level (WCAG A).
+ */
+export type DomeButtonProps =
+  | (DomeButtonBaseProps & { iconOnly: true; 'aria-label': string })
+  | (DomeButtonBaseProps & { iconOnly?: false });
 
 const sizeClasses: Record<DomeButtonSize, string> = {
   xs: 'text-[10px] font-semibold px-2 py-1 rounded-md gap-1',
@@ -48,6 +55,10 @@ const DomeButton = forwardRef<HTMLButtonElement, DomeButtonProps>(function DomeB
   ref,
 ) {
   const isDisabled = disabled || loading;
+
+  if (process.env.NODE_ENV === 'development' && iconOnly && !rest['aria-label'] && !rest['aria-labelledby']) {
+    console.warn('[DomeButton] iconOnly button rendered without an accessible name (aria-label).');
+  }
 
   const variantClass =
     variant === 'primary'

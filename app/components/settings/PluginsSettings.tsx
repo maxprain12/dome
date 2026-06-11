@@ -134,6 +134,7 @@ export default function PluginsSettings() {
                       onClick={() => void handleUninstall(p.id)}
                       className="text-[var(--dome-text-muted)]"
                       title="Desinstalar"
+                      aria-label="Desinstalar"
                     >
                       <Trash2 className="size-3.5" />
                     </DomeButton>

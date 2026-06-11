@@ -221,7 +221,9 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
 
       {/* Main area: canvas + detail panel */}
       <div className="flex-1 min-h-0 flex overflow-hidden">
-        {/* SVG Canvas */}
+        {/* SVG Canvas — pan/zoom surface (role=application); zoom buttons
+            provide the keyboard path, a pattern the static rule doesn't model. */}
+        {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
         <div
           className="flex-1 min-w-0 overflow-hidden"
           role="application"

@@ -74,7 +74,7 @@ export default function LearnDeckCard({ item, onOpen, onEdit, onDelete }: LearnD
       : t('learn.card_count_items', '{{count}} items', { count: item.count });
 
   return (
-    <article
+    <div
       className="lr-card"
       role="button"
       tabIndex={0}
@@ -150,6 +150,6 @@ export default function LearnDeckCard({ item, onOpen, onEdit, onDelete }: LearnD
           </span>
         </div>
       </div>
-    </article>
+    </div>
   );
 }

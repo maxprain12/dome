@@ -79,6 +79,7 @@ export function BubbleAnchoredSubmenu({
   return createPortal(
     <div
       className="bubble-submenu-panel"
+      tabIndex={-1}
       role="menu"
       style={{
         position: 'fixed',

@@ -616,6 +616,7 @@ function TreeNode({
         {inSelectionMode && (
           <button
             type="button"
+            role="checkbox"
             onClick={(e) => { e.stopPropagation(); onToggleSelect!(node.id); }}
             className="shrink-0 flex items-center justify-center rounded mr-1 transition-colors"
             style={{
@@ -1765,7 +1766,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   return (
     <aside
-      className="flex flex-col h-full relative shrink-0 overflow-hidden"
+      className="dome-left-sidebar flex flex-col h-full relative shrink-0 overflow-hidden"
       style={{ width: 260, minWidth: 260, background: 'var(--dome-sidebar-bg)', borderRight: '1px solid var(--dome-border)' }}
     >
       {/* Proyecto activo + selector (antes marca fija) */}

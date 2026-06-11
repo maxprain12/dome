@@ -1,6 +1,7 @@
 # T03 — Accesibilidad: aria-labels, roles y focus
 
 **Prioridad**: P2 · **Severidad**: Media · **Esfuerzo**: M · **Área**: UX Componentes
+**Estado**: ✅ Implementado (2026-06-11, rama `fix/ux-accesibilidad`) — `eslint-plugin-jsx-a11y` con el set recomendado completo en modo **error** y 0 hallazgos (~40 arreglados: roles/aria inválidos → `aria-pressed`/`aria-current`/`role=checkbox`, menús y tablist focusables (`tabIndex={-1}`), listbox del ModelSelector, switch del chat con nombre accesible obligatorio, splitter del panel Many ahora con teclado (flechas) y focus ring; los patrones que la regla estática no modela — splitters, contentEditable-title, backdrop de modal, barreras de stopPropagation, media importada sin captions — llevan disable inline justificado). `DomeButton` exige `aria-label` a nivel de **tipos** cuando `iconOnly: true` (union discriminada) + warning en dev; las 2 violaciones existentes corregidas. Pendiente manual: auditoría con axe DevTools sobre las 5 vistas principales en ambos temas.
 
 ## Problema
 

@@ -52,6 +52,22 @@ LangGraph fully removed — agent stack (`langgraph-agent.cjs`, checkpointer, su
 **and** the workflow `StateGraph` orchestrator. Workflows now run on a native
 topological DAG executor in `run-engine.cjs` (`executeWorkflowRun` → `topologicalLevels`,
 level-parallel with per-node retry; each node runs through the harness).
+
+### run-engine module split (04/T05)
+
+`electron/agents/run-engine.cjs` is the façade (public API unchanged for the
+IPC handlers and `automation-service.cjs`). Extracted so far:
+
+- `workflow-dag.cjs` — pure DAG helpers (`topologicalLevels`, `mergePayloads`,
+  `getInputPayloads`); unit-tested in `electron/__tests__/workflow-dag.test.mjs`.
+- `run-store.cjs` — run/step/link persistence (SQLite rows ↔ normalized
+  objects), the `runs:updated` / `runs:step` renderer events and the
+  note-resource side effect. Terminal automation status flows back to the
+  engine via the `onTerminalAutomationStatus` hook (no circular import).
+
+Pending extractions (next PRs): `workflow-executor.cjs` (executeWorkflowRun /
+node retry) and `run-lifecycle.cjs` (activeRunContexts, abort, HITL
+pause/resume).
 Removed npm deps: `langchain`, `@langchain/langgraph`, `@langchain/langgraph-checkpoint-sqlite`, `deepagents`.
 
 Still present (not LangGraph / not the agent runtime):

@@ -88,6 +88,12 @@
       min-width: 0;
     }
 
+    /* 03/T06: ventanas estrechas — el sidebar cede ancho al contenido */
+    .dome-left-sidebar {
+      width: min(260px, 28vw) !important;
+      min-width: 200px !important;
+    }
+
     .dome-right-panel {
       position: absolute;
       top: 0;
