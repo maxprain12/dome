@@ -2,9 +2,9 @@ import React, { useState, type ReactNode } from "react";
 import {
   ActionIcon,
   Popover,
-  Button,
   useMantineColorScheme,
 } from "@mantine/core";
+import DomeButton from "@/components/ui/DomeButton";
 import { useClickOutside, useDisclosure, useWindowEvent } from "@mantine/hooks";
 import { Suspense } from "react";
 const Picker = React.lazy(() => import("@emoji-mart/react"));
@@ -88,9 +88,8 @@ function EmojiPicker({
             skinTonePosition="search"
             theme={colorScheme}
           />
-          <Button
-            variant="default"
-            c="gray"
+          <DomeButton
+            variant="secondary"
             size="xs"
             style={{
               position: "absolute",
@@ -101,7 +100,7 @@ function EmojiPicker({
             onClick={handleRemoveEmoji}
           >
             {t("Remove")}
-          </Button>
+          </DomeButton>
         </Popover.Dropdown>
       </Suspense>
     </Popover>
