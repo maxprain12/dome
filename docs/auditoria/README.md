@@ -81,19 +81,21 @@ Validación final en local (tras 3ª pasada): `test:security` **38/38** ✓ · a
 
 ## Ramas de trabajo para lo pendiente
 
-PR de esta rama: [#351](https://github.com/maxprain12/dome/pull/351). Las 9 tareas restantes tienen rama propia (creadas desde la punta de `fix/auditoria-seguridad-p0-p2` para heredar ratchet, tests y logger; rebasar sobre `main` cuando #351 mergee):
+PR de esta rama: [#351](https://github.com/maxprain12/dome/pull/351). Las 9 tareas restantes están implementadas (2026-06-11), cada una con su PR sobre esta base (retargetear a `main` cuando #351 mergee). Las marcadas "fase 1" siguen el plan multi-PR de su propia tarea:
 
-| Tarea | Rama |
-|-------|------|
-| 02/T01 Migrar colores hardcodeados | `fix/ui-migracion-colores-hardcodeados` |
-| 03/T01 Consolidar modales en DomeModal | `refactor/ux-consolidar-modales` |
-| 03/T02 Refactor componentes gigantes | `refactor/ux-componentes-gigantes` |
-| 03/T03 Accesibilidad (aria, roles, focus) | `fix/ux-accesibilidad` |
-| 03/T05 Unificar botones | `refactor/ux-unificar-botones` |
-| 03/T06 Responsive y ventanas pequeñas | `fix/ux-responsive` |
-| 04/T05 Modularizar run-engine.cjs | `refactor/harness-modularizar-run-engine` |
-| 05/T03 Modularizar database.cjs | `refactor/data-modularizar-database` |
-| 06/T03 Errores visibles para el usuario | `feat/ux-errores-visibles` |
+| Tarea | Rama | PR | Alcance |
+|-------|------|----|---------|
+| 02/T01 Migrar colores hardcodeados | `fix/ui-migracion-colores-hardcodeados` | [#352](https://github.com/maxprain12/dome/pull/352) | ✅ completa — ratchet 279→0, paletas en `app/lib/ui/palettes.ts` |
+| 06/T03 Errores visibles | `feat/ux-errores-visibles` | [#353](https://github.com/maxprain12/dome/pull/353) | ✅ completa — error-notify + toasts i18n con throttle |
+| 03/T03 Accesibilidad | `fix/ux-accesibilidad` | [#355](https://github.com/maxprain12/dome/pull/355) | ✅ completa — jsx-a11y en error con 0 hallazgos; aria-label tipado en DomeButton |
+| 03/T05 Unificar botones | `refactor/ux-unificar-botones` | [#356](https://github.com/maxprain12/dome/pull/356) | ✅ completa — 6 Mantine Button → DomeButton + regla de lint |
+| 03/T01 Consolidar modales | `refactor/ux-consolidar-modales` | [#357](https://github.com/maxprain12/dome/pull/357) | 🔶 fase 1 — DomeModal base completa (focus trap/scroll lock), ConfirmDialog/PromptModal como wrappers, Modal.tsx eliminado |
+| 03/T06 Responsive | `fix/ux-responsive` | [#358](https://github.com/maxprain12/dome/pull/358) | ✅ completa — suelo 800×600, sidebar colapsa ≤980px, breakpoints documentados |
+| 04/T05 Modularizar run-engine | `refactor/harness-modularizar-run-engine` | [#359](https://github.com/maxprain12/dome/pull/359) | 🔶 fase 1 — workflow-dag (7 tests) + run-store extraídos; 2.317→1.933 líneas |
+| 05/T03 Modularizar database | `refactor/data-modularizar-database` | [#360](https://github.com/maxprain12/dome/pull/360) | 🔶 fase a — queries → db/queries.cjs; 5.015→3.940 líneas |
+| 03/T02 Componentes gigantes | `refactor/ux-componentes-gigantes` | [#361](https://github.com/maxprain12/dome/pull/361) | 🔶 fase 1 — ChatToolCard 1.298→790 líneas (tool-card/) |
+
+Nota de integración: #355 y #357 tocan ambos `DomeModal.tsx`; al integrar el segundo, conservar el `eslint-disable` de a11y sobre el panel del diálogo. #352 y #355/#357 tocan archivos comunes (UnifiedSidebar, ConfirmDialog) — mergear en orden y rebasar.
 
 ## Roadmap sugerido
 
