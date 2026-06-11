@@ -20,6 +20,8 @@ const ALL_CHAT_PROVIDERS = [
   'deepseek',
   'moonshot',
   'qwen',
+  'opencode',
+  'opencode-go',
 ];
 
 function assertChatProvider(provider) {
@@ -40,6 +42,8 @@ function resolveApiKeyProviderBaseUrl(queries, provider) {
   if (custom) return custom;
   if (provider === 'openrouter') return OPENROUTER_DEFAULT;
   if (provider === 'minimax') return MINIMAX_ANTHROPIC_BASE_URL;
+  if (provider === 'opencode') return DEFAULT_BASE_URLS.opencode;
+  if (provider === 'opencode-go') return DEFAULT_BASE_URLS['opencode-go'];
   return DEFAULT_BASE_URLS[provider];
 }
 

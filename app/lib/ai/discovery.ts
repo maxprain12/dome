@@ -43,6 +43,9 @@ const ENV_KEYS = {
   
   // DeepSeek
   DEEPSEEK_API_KEY: 'DEEPSEEK_API_KEY',
+
+  // OpenCode
+  OPENCODE_API_KEY: 'OPENCODE_API_KEY',
   
   // Search APIs
   BRAVE_API_KEY: 'BRAVE_API_KEY',
@@ -219,6 +222,30 @@ function discoverDeepSeek(): DiscoveredProvider {
   };
 }
 
+function discoverOpenCode(): DiscoveredProvider {
+  const apiKey = getEnv(ENV_KEYS.OPENCODE_API_KEY);
+
+  return {
+    id: 'opencode',
+    name: 'OpenCode Zen',
+    available: !!apiKey,
+    apiKey: apiKey ? '***' : undefined,
+    source: apiKey ? 'env' : 'config',
+  };
+}
+
+function discoverOpenCodeGo(): DiscoveredProvider {
+  const apiKey = getEnv(ENV_KEYS.OPENCODE_API_KEY);
+
+  return {
+    id: 'opencode-go',
+    name: 'OpenCode Go',
+    available: !!apiKey,
+    apiKey: apiKey ? '***' : undefined,
+    source: apiKey ? 'env' : 'config',
+  };
+}
+
 function discoverOpenRouter(): DiscoveredProvider {
   const apiKey = getEnv(ENV_KEYS.OPENROUTER_API_KEY);
   return {
@@ -261,6 +288,8 @@ export async function discoverProviders(): Promise<DiscoveryResult> {
     ollama,
     discoverCopilot(),
     discoverDeepSeek(),
+    discoverOpenCode(),
+    discoverOpenCodeGo(),
     discoverMiniMax(),
     discoverMoonshot(),
     discoverQwen(),

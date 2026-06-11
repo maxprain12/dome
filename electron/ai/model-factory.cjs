@@ -22,6 +22,8 @@ const DEFAULT_MODELS = {
   deepseek: 'deepseek-chat',
   moonshot: 'kimi-k2-0905-preview',
   qwen: 'qwen-max',
+  opencode: 'claude-sonnet-4-5',
+  'opencode-go': 'deepseek-v4-flash',
 };
 
 const DEFAULT_BASE_URLS = {
@@ -29,6 +31,8 @@ const DEFAULT_BASE_URLS = {
   moonshot: 'https://api.moonshot.cn/v1',
   qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   ollama: 'http://127.0.0.1:11434',
+  opencode: 'https://opencode.ai/zen/v1',
+  'opencode-go': 'https://opencode.ai/zen/go/v1',
 };
 
 function stripZodJsonSchemaMeta(obj) {
@@ -50,6 +54,7 @@ function resolveApiKey(provider, apiKey) {
   if (provider === 'anthropic') return process.env.ANTHROPIC_API_KEY;
   if (provider === 'google') return process.env.GOOGLE_API_KEY;
   if (provider === 'openrouter') return process.env.OPENROUTER_API_KEY;
+  if (provider === 'opencode' || provider === 'opencode-go') return process.env.OPENCODE_API_KEY;
   return apiKey;
 }
 

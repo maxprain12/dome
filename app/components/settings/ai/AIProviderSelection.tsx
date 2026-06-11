@@ -7,6 +7,24 @@ import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 import DomeBadge from '@/components/ui/DomeBadge';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import { cn } from '@/lib/utils';
+
+/** Fixed row height: 2-line title + 2-line subtitle + padding (tallest provider labels). */
+const PROVIDER_GRID_ROW_HEIGHT = '5.75rem';
+
+/** Reserved top-right slot so selection tick never steals width from labels. */
+function ProviderCardCheck({ selected }: { selected: boolean }) {
+  return (
+    <CheckCircle2
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute top-2.5 right-2.5 size-3.5 shrink-0 transition-opacity duration-150',
+        selected ? 'opacity-100' : 'opacity-0',
+      )}
+      style={{ color: 'var(--dome-accent)' }}
+    />
+  );
+}
 
 export interface AIProviderSelectionProps {
   provider: AIProviderType;
@@ -99,7 +117,10 @@ export default function AIProviderSelection({
           </button>
         )}
 
-        <div className="grid grid-cols-3 gap-2">
+        <div
+          className="grid grid-cols-3 gap-2"
+          style={{ gridAutoRows: PROVIDER_GRID_ROW_HEIGHT }}
+        >
           {AI_PROVIDER_OPTIONS.filter((o) => o.value !== 'dome' && o.value !== 'ollama').map((option) => {
             const isSelected = activeProvider === option.value;
             return (
@@ -108,7 +129,8 @@ export default function AIProviderSelection({
                 type="button"
                 onClick={() => !option.disabled && onProviderChange(option.value)}
                 disabled={option.disabled}
-                className="relative p-3 rounded-xl text-left transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-pressed={isSelected}
+                className="relative flex h-full w-full flex-col items-start justify-start p-3 pr-8 rounded-xl text-left transition-[background-color,box-shadow] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
                   backgroundColor: isSelected ? accentMix(8) : 'transparent',
                   border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
@@ -120,7 +142,8 @@ export default function AIProviderSelection({
                     <DomeBadge label={option.badge} size="xs" variant="filled" color="var(--dome-accent)" className="!text-[8px] !py-0.5 !px-1.5" />
                   </span>
                 ) : null}
-                <div className="flex items-start gap-2.5 w-full">
+                <ProviderCardCheck selected={isSelected} />
+                <div className="flex w-full min-w-0 items-start justify-start gap-2.5">
                   <DomeIconBox
                     size="sm"
                     className="!w-7 !h-7 !rounded-md shrink-0"
@@ -128,17 +151,20 @@ export default function AIProviderSelection({
                   >
                     <ProviderBrandIcon provider={option.value} size={16} />
                   </DomeIconBox>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold leading-tight mb-0.5" style={{ color: 'var(--dome-text)' }}>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className="mb-0.5 min-h-[2rem] line-clamp-2 text-xs font-semibold leading-[1.25]"
+                      style={{ color: 'var(--dome-text)' }}
+                    >
                       {option.label}
                     </p>
-                    <p className="text-[10px] leading-tight" style={{ color: 'var(--dome-text-muted)' }}>
+                    <p
+                      className="min-h-[1.25rem] line-clamp-2 text-[10px] leading-[1.25]"
+                      style={{ color: 'var(--dome-text-muted)' }}
+                    >
                       {t('settings.ai.api_key_required')}
                     </p>
                   </div>
-                  {isSelected ? (
-                    <CheckCircle2 className="size-3.5 shrink-0 mt-0.5" style={{ color: 'var(--dome-accent)' }} />
-                  ) : null}
                 </div>
               </button>
             );
@@ -153,14 +179,16 @@ export default function AIProviderSelection({
             <button
               type="button"
               onClick={() => onProviderChange('ollama')}
-              className="relative w-full p-3 rounded-xl text-left transition-all cursor-pointer"
+              aria-pressed={isSelected}
+              className="relative w-full p-3 pr-8 rounded-xl text-left transition-[background-color,box-shadow] cursor-pointer"
               style={{
                 backgroundColor: isSelected ? accentMix(8) : 'transparent',
                 border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
                 boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
               }}
             >
-              <div className="flex items-center gap-3">
+              <ProviderCardCheck selected={isSelected} />
+              <div className="flex items-center gap-3 min-w-0">
                 <DomeIconBox
                   size="sm"
                   className="!w-8 !h-8 !rounded-md shrink-0"
@@ -184,7 +212,6 @@ export default function AIProviderSelection({
                     <HardDrive className="size-2.5" />
                     <span className="text-[10px] font-medium">{t('onboarding.offline')}</span>
                   </div>
-                  {isSelected && <CheckCircle2 className="size-3.5" style={{ color: 'var(--dome-accent)' }} />}
                 </div>
               </div>
             </button>
@@ -204,6 +231,8 @@ export function isCloudAIProvider(provider: AIProviderType): boolean {
     provider === 'openrouter' ||
     provider === 'deepseek' ||
     provider === 'moonshot' ||
-    provider === 'qwen'
+    provider === 'qwen' ||
+    provider === 'opencode' ||
+    provider === 'opencode-go'
   );
 }

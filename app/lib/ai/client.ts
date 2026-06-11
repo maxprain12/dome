@@ -162,6 +162,8 @@ const API_KEY_CHAT_PROVIDERS: AIProviderType[] = [
   'deepseek',
   'moonshot',
   'qwen',
+  'opencode',
+  'opencode-go',
 ];
 
 const OAUTH_CHAT_PROVIDERS: AIProviderType[] = ['dome', 'copilot'];
@@ -935,6 +937,8 @@ export async function chat(
     case 'deepseek':
     case 'moonshot':
     case 'qwen':
+    case 'opencode':
+    case 'opencode-go':
       if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
       return chatViaMainProcess(
         config.provider,
@@ -1051,6 +1055,8 @@ export async function* chatStream(
     case 'deepseek':
     case 'moonshot':
     case 'qwen':
+    case 'opencode':
+    case 'opencode-go':
       if (!config.apiKey) throw new Error(`API key not configured for ${config.provider}`);
       yield* streamViaMainProcess(
         config.provider,

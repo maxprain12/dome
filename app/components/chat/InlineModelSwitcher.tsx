@@ -67,9 +67,12 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       setOllamaIds([]);
     }
 
-    const dynamicProviders: AIProviderType[] = ['openai', 'anthropic', 'google', 'minimax', 'openrouter'];
+    const catalogProviders: AIProviderType[] = ['opencode', 'opencode-go'];
+    const dynamicProviders: AIProviderType[] = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', ...catalogProviders];
+    // key trimmeada (hardening de secretos); los catalog providers no la requieren
     const key = cfg.apiKey?.trim();
-    if (dynamicProviders.includes(p) && key) {
+    const canFetchModels = dynamicProviders.includes(p) && (catalogProviders.includes(p) || Boolean(key));
+    if (canFetchModels) {
       try {
         const res = await fetchProviderModels(p, key);
         if (res?.success && Array.isArray(res.models)) {

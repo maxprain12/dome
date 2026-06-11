@@ -403,7 +403,9 @@ export type AIProviderType =
   | 'minimax'
   | 'openrouter'
   | 'moonshot'
-  | 'qwen';
+  | 'qwen'
+  | 'opencode'
+  | 'opencode-go';
 
 // Configuración de IA
 export interface AISettings {

@@ -926,7 +926,9 @@ declare global {
             | 'copilot'
             | 'deepseek'
             | 'moonshot'
-            | 'qwen',
+            | 'qwen'
+            | 'opencode'
+            | 'opencode-go',
           messages: Array<{ role: string; content: string }>,
           model?: string
         ) => Promise<{
@@ -975,7 +977,9 @@ declare global {
             | 'copilot'
             | 'deepseek'
             | 'moonshot'
-            | 'qwen',
+            | 'qwen'
+            | 'opencode'
+            | 'opencode-go',
           messages: Array<{ role: string; content: string }>,
           model: string | undefined,
           streamId: string,
@@ -1004,7 +1008,9 @@ declare global {
             | 'dome'
             | 'deepseek'
             | 'moonshot'
-            | 'qwen',
+            | 'qwen'
+            | 'opencode'
+            | 'opencode-go',
           messages: Array<{ role: string; content: string }>,
           model: string,
           streamId: string,
