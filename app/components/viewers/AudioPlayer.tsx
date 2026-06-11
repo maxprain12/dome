@@ -277,6 +277,9 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
           style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
         >
           {audioUrl && (
+            // User-imported audio has no caption tracks; Dome offers
+            // transcription as the accessible alternative.
+            // eslint-disable-next-line jsx-a11y/media-has-caption
             <audio
               ref={audioRef}
               src={audioUrl}

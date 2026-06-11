@@ -162,6 +162,7 @@ export default function DomeContextMenu({
             <div
               ref={menuRef}
               id={menuId}
+              tabIndex={-1}
               role="menu"
               className={cn(
                 'rounded-lg border py-1 shadow-lg',

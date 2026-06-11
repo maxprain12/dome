@@ -123,6 +123,9 @@ function TreeNodeComponent({
         }}
       >
         {showSelChrome ? (
+          // Handlers only stop the row click from firing (propagation barrier);
+          // the checkbox inside is the real control.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events
           <label
             htmlFor={`fm-tree-sel-${node.id}`}
             className="shrink-0 flex items-center justify-center cursor-pointer"

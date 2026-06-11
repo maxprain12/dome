@@ -146,6 +146,7 @@ export default function CloudStorageSettings() {
                       onClick={() => void handleDisconnect(account.accountId)}
                       className="text-[var(--dome-text-muted)]"
                       title={t('settings.cloud.disconnect')}
+                      aria-label={t('settings.cloud.disconnect')}
                     >
                       <Trash2 className="size-3.5" />
                     </DomeButton>

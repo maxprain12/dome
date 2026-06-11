@@ -616,6 +616,7 @@ function TreeNode({
         {inSelectionMode && (
           <button
             type="button"
+            role="checkbox"
             onClick={(e) => { e.stopPropagation(); onToggleSelect!(node.id); }}
             className="shrink-0 flex items-center justify-center rounded mr-1 transition-colors"
             style={{

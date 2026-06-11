@@ -204,6 +204,7 @@
     "electron-builder": "^26.9.0",
     "electron-devtools-installer": "^4.0.0",
     "eslint": "^9.39.4",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^5.2.0",
     "png2icons": "^2.0.1",
     "postcss": "^8.5.10",

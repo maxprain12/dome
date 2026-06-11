@@ -125,6 +125,9 @@ export function NoteBubbleMenu({
   if (!bubbleVisible || !bubblePosition) return null;
 
   return createPortal(
+    // Positioning shell; onMouseDown-preventDefault only preserves the editor
+    // selection (not an interaction). The toolbar inside carries the role.
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
       className={`note-selection-bubble-host note-selection-bubble-host--${bubblePosition.placement}`}
       style={{
@@ -410,6 +413,9 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
   if (!open) return null;
 
   return (
+    // onMouseDown-preventDefault keeps the editor selection while interacting
+    // with the dialog chrome (not an interaction with the dialog itself).
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className="rounded-lg border p-3 shadow-xl"
       style={{
@@ -457,6 +463,8 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
             onOpenChange(false);
           }
         }}
+        // Focus the just-opened link popover input (expected dialog UX).
+        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
       />
       <div className="flex justify-end gap-2 mt-2">

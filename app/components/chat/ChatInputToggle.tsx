@@ -1,12 +1,22 @@
 /**
  * Small switch used in chat composer menus (capabilities / tools).
  */
-export function ChatInputToggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+export function ChatInputToggle({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: () => void;
+  /** Accessible name for the switch (icon-only control). */
+  label: string;
+}) {
   return (
     <button
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
         checked ? 'bg-[var(--accent)]' : 'bg-[var(--bg-tertiary)]'
