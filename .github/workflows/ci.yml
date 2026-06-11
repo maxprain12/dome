@@ -1,12 +1,12 @@
 name: CI
 
-# Runs on every push to main and on every PR targeting main.
+# Runs on every push to main and on every PR (any base branch, so stacked
+# PRs over integration branches get checks too).
 # Keeps checks fast: no native module rebuild, no Electron packaging.
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 env:
   NODE_VERSION: '24'
