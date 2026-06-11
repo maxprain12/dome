@@ -85,7 +85,7 @@ function register({ ipcMain, validateSender }) {
       if (provider !== 'minimax') {
         return { success: false, error: 'MiniMax Files API requires MiniMax as active provider' };
       }
-      const apiKey = readSettingSecret(queries, 'ai_api_key');
+      const apiKey = require('../../ai/provider-keys.cjs').readProviderApiKey(queries, 'minimax');
       if (!apiKey) {
         return { success: false, error: 'MiniMax API key not configured' };
       }

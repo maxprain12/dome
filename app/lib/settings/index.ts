@@ -183,10 +183,19 @@ export async function setAnalyticsEnabled(enabled: boolean): Promise<void> {
 
 export async function getAIConfig(): Promise<AISettings> {
   const providerResult = await db.getSetting('ai_provider');
-  const apiKeyResult = await db.getSetting('ai_api_key');
+  const activeProviderRaw = (providerResult.data as string | null) === 'local' ? 'ollama' : providerResult.data;
+  // Per-provider credential slots (cambiar de provider conserva cada clave);
+  // legacy compartidas como fallback para configs previas a la migración 42.
+  const perProviderKeyResult = activeProviderRaw
+    ? await db.getSetting(`ai_api_key_${activeProviderRaw}`)
+    : { data: null };
+  const apiKeyResult = perProviderKeyResult.data ? perProviderKeyResult : await db.getSetting('ai_api_key');
   const modelResult = await db.getSetting('ai_model');
   const embeddingModelResult = await db.getSetting('ai_embedding_model');
-  const baseUrlResult = await db.getSetting('ai_base_url');
+  const perProviderBaseResult = activeProviderRaw
+    ? await db.getSetting(`ai_base_url_${activeProviderRaw}`)
+    : { data: null };
+  const baseUrlResult = perProviderBaseResult.data ? perProviderBaseResult : await db.getSetting('ai_base_url');
   const ollamaBaseUrlResult = await db.getSetting('ollama_base_url');
   const ollamaModelResult = await db.getSetting('ollama_model');
   const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
@@ -241,6 +250,9 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   }
 
   if (config.api_key !== undefined) {
+    if (config.provider !== undefined) {
+      await db.setSetting(`ai_api_key_${config.provider}`, config.api_key);
+    }
     await db.setSetting('ai_api_key', config.api_key);
   }
 
@@ -253,6 +265,9 @@ export async function saveAIConfig(config: Partial<AISettings>): Promise<void> {
   }
 
   if (config.base_url !== undefined) {
+    if (config.provider !== undefined) {
+      await db.setSetting(`ai_base_url_${config.provider}`, config.base_url);
+    }
     await db.setSetting('ai_base_url', config.base_url);
   }
 

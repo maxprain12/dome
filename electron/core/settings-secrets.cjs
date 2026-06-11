@@ -15,7 +15,13 @@ const SECRET_KEYS = new Set([
 
 function isSecretSettingKey(key) {
   if (!key || typeof key !== 'string') return false;
-  return SECRET_KEYS.has(key) || key.endsWith('_api_key') || key.endsWith('_token');
+  return (
+    SECRET_KEYS.has(key) ||
+    key.endsWith('_api_key') ||
+    key.endsWith('_token') ||
+    // Per-provider slots: ai_api_key_openai, ai_api_key_minimax, …
+    key.startsWith('ai_api_key_')
+  );
 }
 
 function readSettingSecret(queries, key) {

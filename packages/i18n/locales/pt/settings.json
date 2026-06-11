@@ -237,7 +237,10 @@
     "save_key": "Salvar chave",
     "saved_key": "Chave salva",
     "local_models": "Modelos locais",
-    "no_models": "Nenhum modelo encontrado"
+    "no_models": "Nenhum modelo encontrado",
+    "providers_configured": "Configurados",
+    "providers_available": "Disponíveis",
+    "key_saved": "Chave salva"
   },
   "transcription": {
     "title": "Transcrição de voz",

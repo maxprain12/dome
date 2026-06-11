@@ -61,8 +61,8 @@ function resolveConfig(getQueries) {
 
   const { DEFAULT_BASE_URLS } = require('../ai/model-factory.cjs');
   const { MINIMAX_ANTHROPIC_BASE_URL } = require('../ai/minimax-config.cjs');
-  const rawBase = q.getSetting.get('ai_base_url')?.value;
-  const customBase = rawBase && String(rawBase).trim() ? String(rawBase).trim().replace(/\/$/, '') : undefined;
+  const { readProviderBaseUrl } = require('../ai/provider-keys.cjs');
+  const customBase = readProviderBaseUrl(q, provider);
 
   const supported = [
     'openai',
@@ -83,7 +83,7 @@ function resolveConfig(getQueries) {
 
   return {
     provider: resolvedProvider,
-    apiKey: readSettingSecret(q, 'ai_api_key'),
+    apiKey: require('../ai/provider-keys.cjs').readProviderApiKey(q, resolvedProvider),
     model: q.getSetting.get('ai_model')?.value,
     openaiBase,
   };

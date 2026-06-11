@@ -3473,6 +3473,38 @@ function applyMigrations(db, version) {
       console.error('[DB] Migration 41 failed:', error);
     }
   }
+
+  // Migration 42: per-provider API keys/base URLs — copy the legacy shared
+  // ai_api_key / ai_base_url into the active provider's slots (encrypted value
+  // is copied verbatim; same safeStorage encryption). Legacy keys stay as a
+  // read fallback for the active provider only.
+  if (version < 42) {
+    console.log('[DB] Running migration 42 - per-provider AI credentials');
+    try {
+      const now = Date.now();
+      const getSetting = db.prepare('SELECT value FROM settings WHERE key = ?');
+      const setSetting = db.prepare(`
+        INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+      `);
+      const provider = getSetting.get('ai_provider')?.value;
+      const keyless = new Set(['dome', 'copilot', 'ollama']);
+      if (provider && !keyless.has(provider)) {
+        const legacyKey = getSetting.get('ai_api_key')?.value;
+        if (legacyKey && !getSetting.get(`ai_api_key_${provider}`)?.value) {
+          setSetting.run(`ai_api_key_${provider}`, legacyKey, now);
+        }
+        const legacyBase = getSetting.get('ai_base_url')?.value;
+        if (legacyBase && String(legacyBase).trim() && !getSetting.get(`ai_base_url_${provider}`)?.value) {
+          setSetting.run(`ai_base_url_${provider}`, legacyBase, now);
+        }
+      }
+      setSetting.run('schema_version', '42', now);
+      console.log('[DB] Migration 42 complete - per-provider AI credentials');
+    } catch (error) {
+      console.error('[DB] Migration 42 failed:', error);
+    }
+  }
 }
 
 /**

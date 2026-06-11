@@ -4,7 +4,7 @@ const kbShared = require('../../agents/kb-llm-shared.cjs');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
 const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
-const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer } = require('../../core/settings-secrets.cjs');
+const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer, isMaskedSecret } = require('../../core/settings-secrets.cjs');
 
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   semanticIndexScheduler.init(database);
@@ -655,7 +655,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
       if (isSecretSettingKey(key)) {
-        writeSettingSecret(queries, key, value);
+        // A masked display value (sk-…abc4) means "unchanged" — writing it
+        // would destroy the stored secret.
+        if (!isMaskedSecret(value)) writeSettingSecret(queries, key, value);
       } else {
         queries.setSetting.run(key, value, Date.now());
       }
@@ -666,17 +668,41 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  // Which AI providers have a stored API key (for the provider picker UI).
+  ipcMain.handle('db:settings:aiProviderKeyStatus', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const { hasProviderApiKey } = require('../../ai/provider-keys.cjs');
+      const providers = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', 'deepseek', 'moonshot', 'qwen', 'opencode', 'opencode-go'];
+      const status = {};
+      for (const p of providers) status[p] = hasProviderApiKey(queries, p);
+      return { success: true, data: status };
+    } catch (error) {
+      console.error('[DB] Error getting provider key status:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('db:settings:saveAI', (event, config) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
 
       const { provider, apiKey, model, embeddingModel, baseURL } = config;
+      const { writeProviderApiKey, writeProviderBaseUrl, KEYLESS_PROVIDERS } = require('../../ai/provider-keys.cjs');
 
       if (provider) queries.setSetting.run('ai_provider', provider, Date.now());
-      if (apiKey) writeSettingSecret(queries, 'ai_api_key', apiKey);
+      const targetProvider = provider || queries.getSetting.get('ai_provider')?.value;
+      if (apiKey && !isMaskedSecret(apiKey) && targetProvider && !KEYLESS_PROVIDERS.has(targetProvider)) {
+        // Per-provider slot (cambiar de provider conserva cada clave); la
+        // ai_api_key legacy compartida se mantiene para lectores antiguos.
+        writeProviderApiKey(queries, targetProvider, apiKey);
+        writeSettingSecret(queries, 'ai_api_key', apiKey);
+      }
       if (model) queries.setSetting.run('ai_model', model, Date.now());
       if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+      if (baseURL && targetProvider) writeProviderBaseUrl(queries, targetProvider, baseURL);
       if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());
 
       return { success: true };

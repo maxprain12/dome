@@ -4,6 +4,7 @@ const { getAISettings } = require('./ai-settings.cjs');
 const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
 const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
+const { readProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 
@@ -32,13 +33,8 @@ function assertChatProvider(provider) {
   }
 }
 
-function readCustomBaseUrl(queries) {
-  const raw = queries.getSetting.get('ai_base_url')?.value;
-  return raw && String(raw).trim() ? String(raw).trim().replace(/\/$/, '') : undefined;
-}
-
 function resolveApiKeyProviderBaseUrl(queries, provider) {
-  const custom = readCustomBaseUrl(queries);
+  const custom = readProviderBaseUrl(queries, provider);
   if (custom) return custom;
   if (provider === 'openrouter') return OPENROUTER_DEFAULT;
   if (provider === 'minimax') return MINIMAX_ANTHROPIC_BASE_URL;
@@ -113,7 +109,7 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
     return { provider, apiKey: token, baseUrl, model: model || DEFAULT_MODELS.copilot };
   }
 
-  const apiKey = readSettingSecret(queries, 'ai_api_key');
+  const apiKey = readProviderApiKey(queries, provider);
   if (!apiKey) throw new Error(`API key not configured for ${provider}`);
 
   return {

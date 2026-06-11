@@ -45,6 +45,7 @@ export default function AISettingsPanel() {
   const { t } = useTranslation();
   const [provider, setProvider] = useState<AIProviderType>('openai');
   const [apiKey, setApiKey] = useState('');
+  const [providerKeyStatus, setProviderKeyStatus] = useState<Record<string, boolean>>({});
   const [model, setModel] = useState('gpt-5.2');
   const [customModel, setCustomModel] = useState(false);
   const [ollamaBaseURL, setOllamaBaseURL] = useState('http://localhost:11434');
@@ -200,10 +201,36 @@ export default function AISettingsPanel() {
     return () => window.removeEventListener('focus', onFocus);
   }, [refreshDomeSession]);
 
+  const refreshProviderKeyStatus = useCallback(async () => {
+    try {
+      const res = await window.electron.invoke('db:settings:aiProviderKeyStatus');
+      if (res?.success && res.data) setProviderKeyStatus(res.data as Record<string, boolean>);
+    } catch { /* non-fatal: badges quedan vacíos */ }
+  }, []);
+
+  useEffect(() => {
+    void refreshProviderKeyStatus();
+  }, [refreshProviderKeyStatus]);
+
   const handleProviderChange = (newProvider: AIProviderType) => {
     setProvider(newProvider);
     setCustomModel(false);
     setModel(getDefaultModelId(newProvider));
+    // Cada provider tiene su propia clave en DB: al cambiar, carga la suya
+    // (enmascarada) en vez de arrastrar la del provider anterior.
+    if (isCloudAIProvider(newProvider)) {
+      void (async () => {
+        try {
+          const { db } = await import('@/lib/db/client');
+          const res = await db.getSetting(`ai_api_key_${newProvider}`);
+          setApiKey(res.data || '');
+        } catch {
+          setApiKey('');
+        }
+      })();
+    } else {
+      setApiKey('');
+    }
   };
 
   const handleSave = async () => {
@@ -227,6 +254,7 @@ export default function AISettingsPanel() {
     }
     try {
       await saveAIConfig(config);
+      void refreshProviderKeyStatus();
       await transcriptionRef.current?.save();
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
@@ -343,7 +371,11 @@ export default function AISettingsPanel() {
 
       {activeTab === 'chat' ? (
       <>
-      <AIProviderSelection provider={provider} onProviderChange={handleProviderChange} />
+      <AIProviderSelection
+        provider={provider}
+        onProviderChange={handleProviderChange}
+        configuredProviders={providerKeyStatus}
+      />
 
       <div>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.configuration')}</DomeSectionLabel>

@@ -238,7 +238,10 @@
     "save_key": "Save key",
     "saved_key": "Key saved",
     "local_models": "Local models",
-    "no_models": "No models found"
+    "no_models": "No models found",
+    "providers_configured": "Configured",
+    "providers_available": "Available",
+    "key_saved": "API key saved"
   },
   "transcription": {
     "title": "Voice transcription",
