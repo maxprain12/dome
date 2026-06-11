@@ -318,7 +318,7 @@ export default function StepSourcePicker({ projectId, selectedIds, onChange }: S
           )}
         </div>
       </div>
-      <p className="lr-field-hint" style={{ marginTop: 8, color: overBudget ? 'var(--warning-text, #b8860b)' : undefined }}>
+      <p className="lr-field-hint" style={{ marginTop: 8, color: overBudget ? 'var(--warning-text)' : undefined }}>
         {t('learn.source_token_estimate', '~{{tokens}} tokens estimated', { tokens: estimatedTokens.toLocaleString() })}
         {' · '}
         {t('learn.source_selected_count', '{{count}} selected', { count: selectedIds.length })}

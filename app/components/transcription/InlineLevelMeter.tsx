@@ -32,7 +32,7 @@ export default function InlineLevelMeter({ stream, bars = 6, active = true }: Pr
             width: 2,
             borderRadius: 1,
             height: `${Math.round(h * 100)}%`,
-            background: active ? 'var(--dome-accent, #7b76d0)' : 'var(--dome-text-muted, #858299)',
+            background: active ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
             transition: 'height 80ms linear',
           }}
         />

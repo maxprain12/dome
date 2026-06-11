@@ -218,7 +218,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         className="flex flex-col items-center justify-center min-h-full p-8"
         style={{ background: 'var(--dome-bg)' }}
       >
-        <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-error, #ef4444)' }} />
+        <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-error)' }} />
         <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
           {t('workspace.error_loading')}
         </h2>

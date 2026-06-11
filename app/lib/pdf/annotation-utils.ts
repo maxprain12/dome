@@ -4,6 +4,7 @@
  */
 
 import type { PageViewport } from 'pdfjs-dist';
+import { PDF_CANVAS_FALLBACKS } from '@/lib/ui/palettes';
 
 const CSS_VAR_CACHE: Record<string, string> = {};
 
@@ -223,8 +224,8 @@ function renderHighlight(
 ): void {
   if (viewportRect.width > 0 && viewportRect.height > 0) {
     ctx.globalAlpha = style.opacity ?? 0.3;
-    const resolved = resolveCssColor(style.color, '#0ea5e9');
-    ctx.fillStyle = resolved ?? '#0ea5e9';
+    const resolved = resolveCssColor(style.color, PDF_CANVAS_FALLBACKS.accent);
+    ctx.fillStyle = resolved ?? PDF_CANVAS_FALLBACKS.accent;
     ctx.fillRect(viewportRect.x, viewportRect.y, viewportRect.width, viewportRect.height);
   }
 }
@@ -238,18 +239,18 @@ function renderNote(
   const noteHeight = 150;
 
   ctx.globalAlpha = 0.95;
-  const resolvedColor = resolveCssColor(style.color, '#f59e0b');
-  ctx.fillStyle = resolvedColor ?? '#f59e0b';
+  const resolvedColor = resolveCssColor(style.color, PDF_CANVAS_FALLBACKS.warning);
+  ctx.fillStyle = resolvedColor ?? PDF_CANVAS_FALLBACKS.warning;
   ctx.fillRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   ctx.globalAlpha = 1;
-  ctx.strokeStyle = resolvedColor ?? '#f59e0b';
+  ctx.strokeStyle = resolvedColor ?? PDF_CANVAS_FALLBACKS.warning;
   ctx.lineWidth = 2;
   ctx.strokeRect(coordinates.x, coordinates.y, noteWidth, noteHeight);
 
   if (content) {
-    const resolvedTextColor = resolveCssColor('var(--primary-text)', '#111827');
-    ctx.fillStyle = resolvedTextColor ?? '#111827';
+    const resolvedTextColor = resolveCssColor('var(--primary-text)', PDF_CANVAS_FALLBACKS.text);
+    ctx.fillStyle = resolvedTextColor ?? PDF_CANVAS_FALLBACKS.text;
     ctx.font = '12px sans-serif';
     const lines = content.split('\n');
     const lineHeight = 16;

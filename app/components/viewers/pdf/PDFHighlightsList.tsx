@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { LEGACY_PDF_HIGHLIGHT_VARS } from '@/lib/ui/palettes';
 import { ChevronRight } from 'lucide-react';
 import type { PDFAnnotation } from '@/lib/pdf/annotation-utils';
 
@@ -6,14 +7,7 @@ const COLOR_ORDER = [
   'var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)',
 ];
 
-const HEX_TO_VAR_MAP: Record<string, string> = {
-  '#E6C47A': 'var(--warning)',
-  '#596037': 'var(--accent)',
-  '#A4AD7A': 'var(--accent)',
-  '#E88585': 'var(--error)',
-  '#ef4444': 'var(--error)',
-  '#0ea5e9': 'var(--accent)',
-};
+const HEX_TO_VAR_MAP = LEGACY_PDF_HIGHLIGHT_VARS;
 
 function normalizeColor(color: string | undefined): string {
   if (!color) return 'var(--warning)';

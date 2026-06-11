@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { EDITOR_HIGHLIGHT_HEX } from "@/lib/ui/palettes"
 import { type Editor } from "@tiptap/react"
 import { useHotkeys } from "react-hotkeys-hook"
 
@@ -19,68 +20,67 @@ import {
 import { HighlighterIcon } from "@/components/tiptap-icons/highlighter-icon"
 
 export const COLOR_HIGHLIGHT_SHORTCUT_KEY = "mod+shift+h"
-// TODO(tech-debt): colorValue hex values below are used as fallback when useColorValue=true.
-// The tiptap highlight extension requires actual hex values. Consider extracting to a
-// shared constants file if other components need similar patterns.
+// colorValue hex lives in app/lib/ui/palettes.ts (EDITOR_HIGHLIGHT_HEX): the
+// tiptap highlight extension writes literal hex into document content.
 export const HIGHLIGHT_COLORS = [
   {
     label: "Default background",
     value: "var(--tt-bg-color)",
-    colorValue: "#ffffff",
+    colorValue: EDITOR_HIGHLIGHT_HEX.default,
     border: "var(--tt-bg-color-contrast)",
   },
   {
     label: "Gray background",
     value: "var(--tt-color-highlight-gray)",
-    colorValue: "#f8f8f7",
+    colorValue: EDITOR_HIGHLIGHT_HEX.gray,
     border: "var(--tt-color-highlight-gray-contrast)",
   },
   {
     label: "Brown background",
     value: "var(--tt-color-highlight-brown)",
-    colorValue: "#f4eeee",
+    colorValue: EDITOR_HIGHLIGHT_HEX.brown,
     border: "var(--tt-color-highlight-brown-contrast)",
   },
   {
     label: "Orange background",
     value: "var(--tt-color-highlight-orange)",
-    colorValue: "#fbecdd",
+    colorValue: EDITOR_HIGHLIGHT_HEX.orange,
     border: "var(--tt-color-highlight-orange-contrast)",
   },
   {
     label: "Yellow background",
     value: "var(--tt-color-highlight-yellow)",
-    colorValue: "#fef9c3",
+    colorValue: EDITOR_HIGHLIGHT_HEX.yellow,
     border: "var(--tt-color-highlight-yellow-contrast)",
   },
   {
     label: "Green background",
     value: "var(--tt-color-highlight-green)",
-    colorValue: "#dcfce7",
+    colorValue: EDITOR_HIGHLIGHT_HEX.green,
     border: "var(--tt-color-highlight-green-contrast)",
   },
   {
     label: "Blue background",
     value: "var(--tt-color-highlight-blue)",
-    colorValue: "#e0f2fe",
+    colorValue: EDITOR_HIGHLIGHT_HEX.blue,
     border: "var(--tt-color-highlight-blue-contrast)",
   },
   {
     label: "Purple background",
     value: "var(--tt-color-highlight-purple)",
-    colorValue: "#f3e8ff",
+    colorValue: EDITOR_HIGHLIGHT_HEX.purple,
     border: "var(--tt-color-highlight-purple-contrast)",
   },
   {
     label: "Pink background",
     value: "var(--tt-color-highlight-pink)",
-    colorValue: "#fcf1f6",
+    colorValue: EDITOR_HIGHLIGHT_HEX.pink,
     border: "var(--tt-color-highlight-pink-contrast)",
   },
   {
     label: "Red background",
     value: "var(--tt-color-highlight-red)",
-    colorValue: "#ffe4e6",
+    colorValue: EDITOR_HIGHLIGHT_HEX.red,
     border: "var(--tt-color-highlight-red-contrast)",
   },
 ]

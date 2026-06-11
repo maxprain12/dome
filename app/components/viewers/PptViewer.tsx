@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
+import { PPT_SLIDE_LIGHT_DEFAULT } from '@/lib/ui/palettes';
 import { init as initPptxPreview } from '@/lib/pptx-preview';
 import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
@@ -55,7 +56,7 @@ interface PptViewerProps {
  * on the container, and return the resolved hex value for downstream use.
  */
 function applyThemeTextColor(previewer: PptxPreviewer, container: HTMLElement): string {
-  let hex = '#ffffff';
+  let hex: string = PPT_SLIDE_LIGHT_DEFAULT;
   try {
     const themes = previewer?.pptx?.themes ?? [];
     const lt1: string | undefined = themes[0]?.clrScheme?.lt1;
@@ -75,7 +76,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const previewerRef = useRef<PptxPreviewer | null>(null);
     const thumbDivRef = useRef<HTMLDivElement | null>(null);
-    const lightColorRef = useRef<string>('#ffffff');
+    const lightColorRef = useRef<string>(PPT_SLIDE_LIGHT_DEFAULT);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [scale, setScale] = useState(1);
@@ -88,7 +89,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
       style.setAttribute('data-ppt-viewer', '');
       style.textContent = `
         .ppt-viewer-host .pptx-preview-wrapper {
-          background: #ffffff !important;
+          background: ${PPT_SLIDE_LIGHT_DEFAULT} !important;
           width: 100% !important;
           height: 100% !important;
           margin: 0 !important;
@@ -99,7 +100,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
           display: none !important;
         }
         .ppt-viewer-host .pptx-preview-slide-wrapper {
-          color: var(--ppt-text-default, #1a1a1a);
+          color: var(--ppt-text-default);
         }
       `;
       document.head.appendChild(style);

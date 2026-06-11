@@ -190,7 +190,7 @@ export default function ThreadTimeline({ threadId, onFork, className }: ThreadTi
       )}
 
       {error && (
-        <p className="rounded border border-[var(--error,#ef4444)]/30 bg-[var(--error,#ef4444)]/5 px-2 py-1.5 text-[11px] text-[var(--error,#ef4444)]">
+        <p className="rounded border border-[var(--error)]/30 bg-[var(--error)]/5 px-2 py-1.5 text-[11px] text-[var(--error)]">
           {error}
         </p>
       )}

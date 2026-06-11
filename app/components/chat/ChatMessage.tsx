@@ -462,7 +462,7 @@ export default function ChatMessage({
                     className="rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors"
                     style={{
                       background: 'var(--accent)',
-                      color: 'var(--base-text, #fff)',
+                      color: 'var(--base-text)',
                     }}
                     onClick={handlePdfRegionCloudHandoff}
                   >

@@ -586,7 +586,7 @@ export default memo(function ManyChatInput({
                 type="button"
                 onClick={onAbort}
                 className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all"
-                style={{ background: 'var(--error)', color: 'var(--base-text, #ffffff)' }}
+                style={{ background: 'var(--error)', color: 'var(--base-text)' }}
                 title={t('chat.stop')}
                 aria-label={t('chat.stop')}
               >
@@ -600,7 +600,7 @@ export default memo(function ManyChatInput({
                 className="many-composer-send flex shrink-0 items-center justify-center rounded-full transition-all disabled:opacity-50"
                 style={{
                   background: canSend ? 'var(--accent)' : 'var(--bg-tertiary)',
-                  color: canSend ? 'var(--base-text, #ffffff)' : 'var(--quaternary-text)',
+                  color: canSend ? 'var(--base-text)' : 'var(--quaternary-text)',
                 }}
                 title={t('chat.send')}
                 aria-label={t('chat.send')}

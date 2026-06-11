@@ -272,7 +272,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
           </div>
 
           {message && (
-            <p style={{ fontSize: 12.5, color: message.type === 'success' ? 'var(--success, #10b981)' : 'var(--error)', marginBottom: repoSkills.length ? 10 : 0 }}>
+            <p style={{ fontSize: 12.5, color: message.type === 'success' ? 'var(--success)' : 'var(--error)', marginBottom: repoSkills.length ? 10 : 0 }}>
               {message.text}
             </p>
           )}

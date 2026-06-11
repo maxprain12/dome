@@ -149,7 +149,7 @@ export default function PDFNotesList({
                         type="button"
                         onClick={() => onDeleteNote(ann.id)}
                         className="p-1 rounded cursor-pointer hover:bg-[var(--border)] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-                        style={{ color: 'var(--error, #ef4444)' }}
+                        style={{ color: 'var(--error)' }}
                         title="Delete note"
                         aria-label="Delete note"
                       >

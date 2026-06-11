@@ -4,29 +4,12 @@ import { memo, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { HexColorPicker, HexColorInput } from 'react-colorful';
 import { Check } from 'lucide-react';
+import { FOLDER_COLOR_SWATCHES, FOLDER_COLOR_DEFAULT } from '@/lib/ui/palettes';
 
-/** Paleta ampliada: acento del proyecto + tonos oliva + neutros */
-export const FOLDER_COLOR_SWATCHES = [
-  '#596037',
-  '#6d7a42',
-  '#7d8b52',
-  '#8a9668',
-  '#4a5429',
-  '#3d4622',
-  '#7b76d0',
-  '#998eec',
-  '#5550a8',
-  '#22c55e',
-  '#3b82f6',
-  '#f97316',
-  '#ef4444',
-  '#6b7280',
-  '#9ca3af',
-  '#64748b',
-];
+export { FOLDER_COLOR_SWATCHES } from '@/lib/ui/palettes';
 
 const normalizeHex = (c: string) =>
-  c && /^#[0-9A-Fa-f]{6}$/.test(c) ? c : '#596037';
+  c && /^#[0-9A-Fa-f]{6}$/.test(c) ? c : FOLDER_COLOR_DEFAULT;
 
 interface FolderColorPickerProps {
   value: string;
