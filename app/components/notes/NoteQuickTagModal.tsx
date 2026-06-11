@@ -71,6 +71,8 @@ export default function NoteQuickTagModal({
             void submit();
           }
         }}
+        // Focus the single input of a just-opened quick modal (expected UX).
+        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
       />
     </DomeModal>

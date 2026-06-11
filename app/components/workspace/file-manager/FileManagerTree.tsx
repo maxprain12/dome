@@ -16,7 +16,8 @@ import type { Resource } from '@/lib/hooks/useResources';
 import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
 import { useTranslation } from 'react-i18next';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
-import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
+import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group } from '@mantine/core';
+import DomeButton from '@/components/ui/DomeButton';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
 type TreeNodeData = {
@@ -123,6 +124,9 @@ function TreeNodeComponent({
         }}
       >
         {showSelChrome ? (
+          // Handlers only stop the row click from firing (propagation barrier);
+          // the checkbox inside is the real control.
+          // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/click-events-have-key-events
           <label
             htmlFor={`fm-tree-sel-${node.id}`}
             className="shrink-0 flex items-center justify-center cursor-pointer"
@@ -631,9 +635,9 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
             </Stack>
           </ScrollArea.Autosize>
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setFolderPickOpen(false)}>
+            <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
               {t('common.cancel')}
-            </Button>
+            </DomeButton>
           </Group>
         </Stack>
       </Modal>

@@ -121,7 +121,7 @@ export function ProjectCard({
           type="button"
           className={`p-project-select ${isSelected ? 'is-on' : ''}`}
           onClick={onToggleSelect}
-          aria-checked={isSelected}
+          aria-pressed={isSelected}
           aria-label={t('projects.select_project_aria', { name: project.name })}
         >
           {isSelected ? <Check size={11} strokeWidth={2.5} aria-hidden /> : null}

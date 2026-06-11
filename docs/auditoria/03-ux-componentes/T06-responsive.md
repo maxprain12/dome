@@ -1,6 +1,7 @@
 # T06 — Responsive y ventanas pequeñas
 
 **Prioridad**: P3 · **Severidad**: Baja · **Esfuerzo**: M · **Área**: UX Componentes
+**Estado**: ✅ Implementado (2026-06-11, rama `fix/ux-responsive`) — contrato fijado en **800×600** (`minWidth`/`minHeight` de la ventana principal en `main.cjs`, antes 1024×768 que impedía media ventana en un 13"). El shell ya colapsaba el panel Many a overlay en ≤980px (`min(380px, 86vw)`); se añade que el sidebar izquierdo ceda ancho (`min(260px, 28vw)`, mínimo 200px) bajo ese mismo umbral (clase `dome-left-sidebar` nueva). Breakpoints del proyecto documentados en `.claude/rules/ui-style-guidelines.md` con semántica de app de escritorio (reemplaza la tabla mobile-first genérica). Pendiente manual: pase de prueba a 800×600 y ~1000×700 por home, chat/Many, viewer PDF, settings, learn, canvas y runs.
 
 ## Problema
 

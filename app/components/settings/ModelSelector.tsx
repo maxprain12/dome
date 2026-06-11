@@ -276,7 +276,7 @@ export default function ModelSelector({
               </div>
             </div>
           )}
-          <div ref={listRef} className="max-h-60 overflow-y-auto py-1" onKeyDown={handleListKeyDown}>
+          <div ref={listRef} role="listbox" tabIndex={-1} className="max-h-60 overflow-y-auto py-1" onKeyDown={handleListKeyDown}>
             {filteredModels.length === 0 ? (
               <div className="p-4 text-center text-sm text-[var(--secondary-text)]">
                 {searchQuery ? t('settings.ai.no_models_found', { query: searchQuery }) : emptyMessage}

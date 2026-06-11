@@ -153,7 +153,7 @@ export default memo(function ResourceCard({
         style={{ ...listGridStyle, padding: '8px 16px', height: '48px' }}
         onContextMenu={handleContextMenu}
         role="group"
-        aria-selected={isSelected}
+        aria-current={isSelected ? 'true' : undefined}
         draggable={isDraggable}
         onDragStart={handleDragStart}
       >
@@ -308,7 +308,7 @@ export default memo(function ResourceCard({
       style={{ aspectRatio: 'var(--card-aspect-ratio, 4/3)' }}
       onContextMenu={handleContextMenu}
       role="group"
-      aria-selected={isSelected}
+      aria-current={isSelected ? 'true' : undefined}
       draggable={isDraggable}
       onDragStart={handleDragStart}
     >

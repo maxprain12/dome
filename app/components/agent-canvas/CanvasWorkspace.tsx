@@ -423,6 +423,7 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
         {showOut ? (
           <button
             type="button"
+            aria-label={t('canvas.connect_from_node', { defaultValue: 'Conectar desde este nodo' })}
             className="wf-handle wf-handle-out wf-no-zoom-pan"
             data-wf-handle="out"
             data-wf-node-id={node.id}

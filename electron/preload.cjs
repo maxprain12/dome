@@ -557,6 +557,8 @@ const ALLOWED_CHANNELS = {
   // Canales para on/once (main → renderer)
   on: [
     'theme-changed',
+    // System error notifications (main → toast in renderer)
+    'system:error-notification',
     // Resource events
     'resource:created',
     'resource:updated',

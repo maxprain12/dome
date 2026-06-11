@@ -301,6 +301,7 @@ export default function DomeSyncSettings() {
                 <button
                   type="button"
                   role="switch"
+                  aria-label="Activar auto-sync"
                   aria-checked={settings.auto_enabled}
                   onClick={() => void saveSettings({ auto_enabled: !settings.auto_enabled })}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-none ${

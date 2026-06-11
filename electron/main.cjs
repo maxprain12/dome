@@ -238,6 +238,7 @@ const calendarNotificationService = require('./calendar/calendar-notification-se
 const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
 const automationService = require('./agents/automation-service.cjs');
 const runRetention = require('./agents/run-retention.cjs');
+const errorNotify = require('./core/error-notify.cjs');
 const runEngine = require('./agents/run-engine.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
@@ -382,8 +383,10 @@ async function createWindow() {
     {
       width: 1400,
       height: 900,
-      minWidth: 1024,
-      minHeight: 768,
+      // Contrato responsive (03/T06): la app debe ser usable hasta 800×600
+      // (media ventana en un portátil de 13"); el CSS colapsa paneles antes.
+      minWidth: 800,
+      minHeight: 600,
       icon: fs.existsSync(getAssetPath('icon.png'))
         ? getAssetPath('icon.png')
         : undefined,
@@ -1045,6 +1048,7 @@ app
     runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
     runRetention.init();
+    errorNotify.init(windowManager);
 
     // Initialize the app in background (SQLite settings, filesystem)
     initModule.initializeApp().catch(err => {

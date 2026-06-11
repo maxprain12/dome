@@ -1,6 +1,7 @@
 # T05 — Unificar botones: Mantine Button → DomeButton
 
 **Prioridad**: P2 · **Severidad**: Baja · **Esfuerzo**: M · **Área**: UX Componentes
+**Estado**: ✅ Implementado (2026-06-11, rama `refactor/ux-unificar-botones`) — los 6 usos de `Button` de Mantine migrados a `DomeButton` (EmbedModal, MoveToProjectModal con loading, FileManagerTree, FolderTabView, emoji-picker); regla ESLint `no-restricted-imports` en **error** prohíbe reintroducirlo. Los `<button className="btn …">` crudos (54) usan las clases del design system — mismo CSS que emite `DomeButton` (`.btn .btn-primary/...`), así que están unificados por construcción y son el escape válido del punto 4; migrarlos a componente queda como mejora oportunista al tocar cada archivo (T02).
 
 ## Problema
 

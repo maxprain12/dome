@@ -170,7 +170,9 @@ function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
             {item.description}
           </p>
         </div>
-        {/* Action pinned to top-right */}
+        {/* Action pinned to top-right — handlers only isolate events from the
+            clickable card behind (propagation barrier, not an interaction). */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
         <div
           style={{ flexShrink: 0 }}
           onClick={(e) => e.stopPropagation()}

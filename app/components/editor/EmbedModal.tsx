@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal, Stack, TextInput, Button, Text } from '@mantine/core';
+import { Modal, Stack, TextInput, Text } from '@mantine/core';
+import DomeButton from '@/components/ui/DomeButton';
 import { useTranslation } from 'react-i18next';
 import type { Editor } from '@tiptap/core';
 import type { NoteEmbedKind } from '@/lib/tiptap/extensions/note-editor-bridge';
@@ -71,7 +72,7 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
             {err}
           </Text>
         )}
-        <Button onClick={submit}>{t('editor.embed_modal_submit')}</Button>
+        <DomeButton variant="primary" onClick={submit}>{t('editor.embed_modal_submit')}</DomeButton>
       </Stack>
     </Modal>
   );

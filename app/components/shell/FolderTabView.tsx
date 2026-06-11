@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
 import { CONTENT_PINK, FOLDER_TAB_SWATCHES, FOLDER_COLOR_DEFAULT } from '@/lib/ui/palettes';
-import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group, Button } from '@mantine/core';
+import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group } from '@mantine/core';
+import DomeButton from '@/components/ui/DomeButton';
 import { formatDistanceToNow } from 'date-fns';
 import {
   FolderOpen, Folder, FileText, Plus, Home, ChevronRight,
@@ -77,6 +78,8 @@ function ColorPickerPopover({
   }, [onClose]);
 
   return (
+    // onMouseDown only stops the outside-click closer (propagation barrier).
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={ref}
       role="group"
@@ -90,6 +93,7 @@ function ColorPickerPopover({
           <button
             key={color}
             type="button"
+            aria-label={color}
             onClick={() => { onSave(color); onClose(); }}
             className="size-6 rounded-md transition-all hover:scale-110"
             style={{
@@ -196,6 +200,7 @@ function SubfolderCard({
       onMouseLeave={() => { setHovered(false); }}
     >
       {showSelectionChrome ? (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- stopPropagation barrier so the card click doesn't fire
         <label
           className="absolute left-2 top-2 z-[2] flex items-center cursor-pointer"
           htmlFor={folderSelectId}
@@ -283,6 +288,7 @@ function SubfolderCard({
           {menuOpen && menuPos && (
             <div
               role="menu"
+              tabIndex={-1}
               className="fixed z-[var(--z-popover)] rounded-lg shadow-lg py-1 min-w-[150px]"
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
@@ -466,6 +472,7 @@ function FileRow({
           {menuOpen && menuPos && (
             <div
               role="menu"
+              tabIndex={-1}
               className="fixed z-[var(--z-popover)] rounded-lg shadow-lg py-1 min-w-[130px]"
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
@@ -1168,9 +1175,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             </Stack>
           </ScrollArea.Autosize>
           <Group justify="flex-end">
-            <Button variant="default" onClick={() => setFolderPickOpen(false)}>
+            <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
               {t('common.cancel')}
-            </Button>
+            </DomeButton>
           </Group>
         </Stack>
       </Modal>

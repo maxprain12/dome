@@ -85,11 +85,15 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   const isHorizontal = direction === 'horizontal';
 
   return (
+    // Focusable window-splitter (separator + tabIndex + arrow keys) — a valid
+    // ARIA pattern these static rules don't model.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       ref={handleRef}
       role="separator"
       aria-orientation={separatorOrientation}
       aria-label={t('workspace.panel_resize_handle')}
+      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable splitter
       tabIndex={0}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
