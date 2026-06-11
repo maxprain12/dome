@@ -85,10 +85,18 @@ export async function saveChatModelForProvider(provider: AIProvider, modelId: st
 export async function getAIConfig(): Promise<AIConfig | null> {
   try {
     const providerResult = await db.getSetting('ai_provider');
-    const apiKeyResult = await db.getSetting('ai_api_key');
+    const activeProvider = providerResult.data as string | null;
+    // Per-provider credential slots; legacy shared keys as fallback
+    const apiKeyResult = activeProvider
+      ? await db.getSetting(`ai_api_key_${activeProvider}`)
+      : { data: null };
+    const legacyApiKeyResult = apiKeyResult.data ? { data: null } : await db.getSetting('ai_api_key');
     const modelResult = await db.getSetting('ai_model');
     const embeddingModelResult = await db.getSetting('ai_embedding_model');
-    const baseURLResult = await db.getSetting('ai_base_url');
+    const baseURLResult = activeProvider
+      ? await db.getSetting(`ai_base_url_${activeProvider}`)
+      : { data: null };
+    const legacyBaseURLResult = baseURLResult.data ? { data: null } : await db.getSetting('ai_base_url');
     const ollamaBaseURLResult = await db.getSetting('ollama_base_url');
     const ollamaModelResult = await db.getSetting('ollama_model');
     const ollamaEmbeddingModelResult = await db.getSetting('ollama_embedding_model');
@@ -97,10 +105,10 @@ export async function getAIConfig(): Promise<AIConfig | null> {
 
     return {
       provider: providerResult.data as AIProvider,
-      apiKey: apiKeyResult.data || undefined,
+      apiKey: apiKeyResult.data || legacyApiKeyResult.data || undefined,
       model: modelResult.data || undefined,
       embeddingModel: embeddingModelResult.data || undefined,
-      baseURL: baseURLResult.data || undefined,
+      baseURL: baseURLResult.data || legacyBaseURLResult.data || undefined,
       ollamaBaseURL: ollamaBaseURLResult.data || undefined,
       ollamaModel: ollamaModelResult.data || undefined,
       ollamaEmbeddingModel: ollamaEmbeddingModelResult.data || undefined,
@@ -115,6 +123,8 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
   await db.setSetting('ai_provider', config.provider);
 
   if (config.apiKey) {
+    // Slot por proveedor (cambiar de provider conserva cada clave) + legacy
+    await db.setSetting(`ai_api_key_${config.provider}`, config.apiKey);
     await db.setSetting('ai_api_key', config.apiKey);
   }
   if (config.model) {
@@ -124,6 +134,7 @@ export async function saveAIConfig(config: AIConfig): Promise<void> {
     await db.setSetting('ai_embedding_model', config.embeddingModel);
   }
   if (config.baseURL) {
+    await db.setSetting(`ai_base_url_${config.provider}`, config.baseURL);
     await db.setSetting('ai_base_url', config.baseURL);
   }
   if (config.ollamaBaseURL) {

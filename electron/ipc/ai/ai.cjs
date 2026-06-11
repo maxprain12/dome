@@ -539,7 +539,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const candidate = params && typeof params === 'object' && typeof params.apiKey === 'string'
         ? params.apiKey
         : '';
-      const apiKey = resolveSettingSecretForApi(queries, 'ai_api_key', candidate);
+      const apiKey = resolveSettingSecretForApi(queries, 'ai_api_key_openrouter', candidate)
+        || resolveSettingSecretForApi(queries, 'ai_api_key', '');
       return await fetchOpenRouterModels(apiKey);
     } catch (error) {
       return { success: false, error: error.message || String(error) };
@@ -557,9 +558,12 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const provider = params.provider.trim().toLowerCase();
       const queries = database.getQueries();
       const candidate = typeof params.apiKey === 'string' ? params.apiKey : '';
+      const { readProviderApiKey } = require('../../ai/provider-keys.cjs');
       const apiKey = provider === 'dome'
         ? ''
-        : resolveSettingSecretForApi(queries, 'ai_api_key', candidate);
+        : (resolveSettingSecretForApi(queries, `ai_api_key_${provider}`, candidate)
+          || readProviderApiKey(queries, provider)
+          || '');
       return await fetchProviderModels(provider, { apiKey });
     } catch (error) {
       return { success: false, error: error.message || String(error) };

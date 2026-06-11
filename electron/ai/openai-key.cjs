@@ -11,6 +11,10 @@ function getOpenAIKey(database) {
     const dedicated = readSettingSecret(queries, 'transcription_openai_api_key');
     if (dedicated) return dedicated;
 
+    // Per-provider slot (always OpenAI's own key, regardless of active provider)
+    const perProvider = readSettingSecret(queries, 'ai_api_key_openai');
+    if (perProvider) return perProvider;
+
     const providerRow = queries.getSetting.get('ai_provider');
     if (providerRow?.value === 'openai') {
       const k = readSettingSecret(queries, 'ai_api_key');

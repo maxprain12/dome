@@ -5,7 +5,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const LATEST_SCHEMA_VERSION = 41;
+const LATEST_SCHEMA_VERSION = 42;
 const MAX_BACKUPS = 3;
 
 function backupDatabaseBeforeMigrations(dbPath, currentVersion) {

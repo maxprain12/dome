@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, HardDrive, Lock, Zap } from 'lucide-react';
+import { CheckCircle2, HardDrive, KeyRound, Lock, Zap } from 'lucide-react';
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { accentMix, ACCENT_END } from '@/lib/ui/accent';
@@ -32,6 +32,8 @@ export interface AIProviderSelectionProps {
   showSectionLabel?: boolean;
   /** When false, no card appears selected (e.g. onboarding skip) */
   highlightSelection?: boolean;
+  /** provider → tiene API key guardada (badge + orden: configurados primero) */
+  configuredProviders?: Record<string, boolean>;
 }
 
 export default function AIProviderSelection({
@@ -39,9 +41,15 @@ export default function AIProviderSelection({
   onProviderChange,
   showSectionLabel = true,
   highlightSelection = true,
+  configuredProviders = {},
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
   const activeProvider = highlightSelection ? provider : null;
+
+  const cloudOptions = AI_PROVIDER_OPTIONS.filter((o) => o.value !== 'dome' && o.value !== 'ollama');
+  const configured = cloudOptions.filter((o) => configuredProviders[o.value]);
+  const available = cloudOptions.filter((o) => !configuredProviders[o.value]);
+  const hasGroups = configured.length > 0 && available.length > 0;
 
   return (
     <div>
@@ -117,59 +125,87 @@ export default function AIProviderSelection({
           </button>
         )}
 
-        <div
-          className="grid grid-cols-3 gap-2"
-          style={{ gridAutoRows: PROVIDER_GRID_ROW_HEIGHT }}
-        >
-          {AI_PROVIDER_OPTIONS.filter((o) => o.value !== 'dome' && o.value !== 'ollama').map((option) => {
-            const isSelected = activeProvider === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => !option.disabled && onProviderChange(option.value)}
-                disabled={option.disabled}
-                aria-pressed={isSelected}
-                className="relative flex h-full w-full flex-col items-start justify-start p-3 pr-8 rounded-xl text-left transition-[background-color,box-shadow] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: isSelected ? accentMix(8) : 'transparent',
-                  border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-                  boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
-                }}
+        {(hasGroups
+          ? [
+              { key: 'configured', label: t('settings.ai.providers_configured'), options: configured },
+              { key: 'available', label: t('settings.ai.providers_available'), options: available },
+            ]
+          : [{ key: 'all', label: null, options: cloudOptions }]
+        ).map((group) =>
+          group.options.length === 0 ? null : (
+            <div key={group.key}>
+              {group.label ? (
+                <p
+                  className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-widest"
+                  style={{ color: 'var(--dome-text-muted)' }}
+                >
+                  {group.label}
+                </p>
+              ) : null}
+              <div
+                className="grid grid-cols-3 gap-2"
+                style={{ gridAutoRows: PROVIDER_GRID_ROW_HEIGHT }}
               >
-                {option.badge ? (
-                  <span className="absolute -top-1.5 -right-1.5">
-                    <DomeBadge label={option.badge} size="xs" variant="filled" color="var(--dome-accent)" className="!text-[8px] !py-0.5 !px-1.5" />
-                  </span>
-                ) : null}
-                <ProviderCardCheck selected={isSelected} />
-                <div className="flex w-full min-w-0 items-start justify-start gap-2.5">
-                  <DomeIconBox
-                    size="sm"
-                    className="!w-7 !h-7 !rounded-md shrink-0"
-                    background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
-                  >
-                    <ProviderBrandIcon provider={option.value} size={16} />
-                  </DomeIconBox>
-                  <div className="min-w-0 flex-1">
-                    <p
-                      className="mb-0.5 min-h-[2rem] line-clamp-2 text-xs font-semibold leading-[1.25]"
-                      style={{ color: 'var(--dome-text)' }}
+                {group.options.map((option) => {
+                  const isSelected = activeProvider === option.value;
+                  const hasKey = Boolean(configuredProviders[option.value]);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => !option.disabled && onProviderChange(option.value)}
+                      disabled={option.disabled}
+                      aria-pressed={isSelected}
+                      className="relative flex h-full w-full flex-col items-start justify-start p-3 pr-8 rounded-xl text-left transition-[background-color,box-shadow] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: isSelected ? accentMix(8) : 'transparent',
+                        border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
+                        boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
+                      }}
                     >
-                      {option.label}
-                    </p>
-                    <p
-                      className="min-h-[1.25rem] line-clamp-2 text-[10px] leading-[1.25]"
-                      style={{ color: 'var(--dome-text-muted)' }}
-                    >
-                      {t('settings.ai.api_key_required')}
-                    </p>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                      {option.badge ? (
+                        <span className="absolute -top-1.5 -right-1.5">
+                          <DomeBadge label={option.badge} size="xs" variant="filled" color="var(--dome-accent)" className="!text-[8px] !py-0.5 !px-1.5" />
+                        </span>
+                      ) : null}
+                      <ProviderCardCheck selected={isSelected} />
+                      <div className="flex w-full min-w-0 items-start justify-start gap-2.5">
+                        <DomeIconBox
+                          size="sm"
+                          className="!w-7 !h-7 !rounded-md shrink-0"
+                          background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
+                        >
+                          <ProviderBrandIcon provider={option.value} size={16} />
+                        </DomeIconBox>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="mb-0.5 min-h-[2rem] line-clamp-2 text-xs font-semibold leading-[1.25]"
+                            style={{ color: 'var(--dome-text)' }}
+                          >
+                            {option.label}
+                          </p>
+                          {hasKey ? (
+                            <p className="flex min-h-[1.25rem] items-center gap-1 text-[10px] leading-[1.25]" style={{ color: 'var(--success)' }}>
+                              <KeyRound aria-hidden className="size-2.5 shrink-0" />
+                              {t('settings.ai.key_saved')}
+                            </p>
+                          ) : (
+                            <p
+                              className="min-h-[1.25rem] line-clamp-2 text-[10px] leading-[1.25]"
+                              style={{ color: 'var(--dome-text-muted)' }}
+                            >
+                              {t('settings.ai.api_key_required')}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ),
+        )}
 
         {(() => {
           const ollamaOption = AI_PROVIDER_OPTIONS.find((o) => o.value === 'ollama');

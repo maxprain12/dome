@@ -238,7 +238,10 @@
     "save_key": "Enregistrer la clé",
     "saved_key": "Clé enregistrée",
     "local_models": "Modèles locaux",
-    "no_models": "Aucun modèle trouvé"
+    "no_models": "Aucun modèle trouvé",
+    "providers_configured": "Configurés",
+    "providers_available": "Disponibles",
+    "key_saved": "Clé API enregistrée"
   },
   "transcription": {
     "title": "Transcription vocale",

@@ -188,6 +188,7 @@ const ALLOWED_CHANNELS = {
     'db:settings:get',
     'db:settings:set',
     'db:settings:saveAI',
+    'db:settings:aiProviderKeyStatus',
     'db:manyAgents:list',
     'db:manyAgents:get',
     'db:manyAgents:create',
@@ -1160,6 +1161,7 @@ const electronHandler = {
         return ipcRenderer.invoke('db:settings:set', key, value);
       },
       saveAI: (config) => ipcRenderer.invoke('db:settings:saveAI', config),
+      aiProviderKeyStatus: () => ipcRenderer.invoke('db:settings:aiProviderKeyStatus'),
     },
   },
 

@@ -4,17 +4,13 @@ const { getDomeProviderBaseUrl } = require('./dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
 const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
+const { readProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs');
 const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 
-function readCustomBaseUrl(queries) {
-  const raw = queries.getSetting.get('ai_base_url')?.value;
-  return raw && String(raw).trim() ? String(raw).trim().replace(/\/$/, '') : undefined;
-}
-
 function resolveApiKeyProviderBaseUrl(queries, provider) {
-  const custom = readCustomBaseUrl(queries);
+  const custom = readProviderBaseUrl(queries, provider);
   if (custom) return custom;
   if (provider === 'openrouter') return OPENROUTER_DEFAULT;
   if (provider === 'minimax') return MINIMAX_ANTHROPIC_BASE_URL;
@@ -63,7 +59,7 @@ async function getAISettings(database) {
 
   return {
     provider,
-    apiKey: readSettingSecret(queries, 'ai_api_key'),
+    apiKey: readProviderApiKey(queries, provider),
     model: queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
     baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
   };
