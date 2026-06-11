@@ -1,4 +1,3 @@
-export { default as Modal } from './Modal';
 export { default as PromptModal } from './PromptModal';
 export { default as ThemeProvider } from './ThemeProvider';
 export { useTheme } from './ThemeProvider';

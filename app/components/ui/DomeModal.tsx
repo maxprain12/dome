@@ -1,11 +1,11 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode, type RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DomeButton from './DomeButton';
 
-export type DomeModalSize = 'sm' | 'md' | 'lg';
+export type DomeModalSize = 'sm' | 'md' | 'lg' | 'xl';
 
 export interface DomeModalProps {
   open: boolean;
@@ -15,16 +15,36 @@ export interface DomeModalProps {
   footer?: ReactNode;
   size?: DomeModalSize;
   className?: string;
+  /** Decoración opcional a la izquierda del título (p. ej. icono de peligro). */
+  headerIcon?: ReactNode;
+  /** Cerrar con Escape (default true). */
+  closeOnEscape?: boolean;
+  /** Cerrar al hacer click en el overlay (default true). */
+  closeOnOverlay?: boolean;
+  /** Elemento que recibe el foco inicial; si no, el panel. */
+  initialFocusRef?: RefObject<HTMLElement | null>;
 }
 
 const sizeClass: Record<DomeModalSize, string> = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-2xl',
+  xl: 'max-w-4xl',
 };
 
+const FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
 /**
- * Modal accesible (portal, Escape, foco inicial en panel).
+ * Modal base del design system (03/T01): portal, Escape, focus trap,
+ * devolución de foco al trigger, scroll lock del body y aria completo.
+ * Todos los modales de la app deben componerse sobre esta base.
  */
 export default function DomeModal({
   open,
@@ -34,29 +54,71 @@ export default function DomeModal({
   footer,
   size = 'md',
   className,
+  headerIcon,
+  closeOnEscape = true,
+  closeOnOverlay = true,
+  initialFocusRef,
 }: DomeModalProps) {
   const { t } = useTranslation();
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
 
+  // Escape + focus trap (Tab cycling within the panel)
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && closeOnEscape) {
         e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.key === 'Tab' && panelRef.current) {
+        const focusables = Array.from(
+          panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+        ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+        if (focusables.length === 0) {
+          e.preventDefault();
+          panelRef.current.focus();
+          return;
+        }
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        if (e.shiftKey && (active === first || active === panelRef.current)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && active === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, closeOnEscape]);
 
+  // Initial focus + return focus to the trigger on close
   useEffect(() => {
     if (!open) return;
-    const t = window.setTimeout(() => {
-      panelRef.current?.focus();
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    const timer = window.setTimeout(() => {
+      if (initialFocusRef?.current) initialFocusRef.current.focus();
+      else panelRef.current?.focus();
     }, 0);
-    return () => window.clearTimeout(t);
+    return () => {
+      window.clearTimeout(timer);
+      previouslyFocused?.focus?.();
+    };
+  }, [open, initialFocusRef]);
+
+  // Body scroll lock
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
   }, [open]);
 
   if (!open) return null;
@@ -66,10 +128,11 @@ export default function DomeModal({
       className="fixed inset-0 z-[10000] flex items-center justify-center p-4"
       style={{
         backgroundColor: 'var(--overlay-bg, rgba(0, 0, 0, 0.45))',
+        animation: 'overlay-appear 0.2s ease-out',
       }}
       role="presentation"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (closeOnOverlay && e.target === e.currentTarget) onClose();
       }}
     >
       {/* Dialog panel owns Escape/Tab handling (focus trap) — a standard
@@ -88,12 +151,16 @@ export default function DomeModal({
           sizeClass[size],
           className,
         )}
+        style={{ animation: 'modal-appear 0.2s ease-out' }}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
-          <h2 id={titleId} className="text-base font-semibold text-[var(--primary-text)]">
-            {title}
-          </h2>
+          <div className="flex min-w-0 items-center gap-3">
+            {headerIcon ?? null}
+            <h2 id={titleId} className="truncate text-base font-semibold text-[var(--primary-text)]">
+              {title}
+            </h2>
+          </div>
           <DomeButton
             type="button"
             variant="ghost"
