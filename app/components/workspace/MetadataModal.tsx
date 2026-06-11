@@ -1,6 +1,7 @@
 
 import { useState, useCallback } from 'react';
-import { X, Save, FileText, Calendar, HardDrive, Hash, FolderOpen, ExternalLink, Loader2 } from 'lucide-react';
+import { Save, FileText, Calendar, HardDrive, Hash, FolderOpen, ExternalLink, Loader2 } from 'lucide-react';
+import DomeModal from '@/components/ui/DomeModal';
 import { type Resource } from '@/types';
 import { formatDateFull, getResourceTypeLabel } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
@@ -82,33 +83,34 @@ export default function MetadataModal({
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay animate-overlay relative" role="presentation">
-      <button
-        type="button"
-        className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
-        style={{ background: 'inherit' }}
-        aria-label={t('viewer.close_modal')}
-        onClick={onClose}
-      />
-      <div
-        className="modal-content max-w-lg animate-modal relative z-10"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="metadata-modal-title"
-      >
-        <div className="modal-header">
-          <h2 id="metadata-modal-title" className="text-lg font-semibold font-display" style={{ color: 'var(--primary-text)' }}>
-            Resource Info
-          </h2>
-          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')}>
-            <X size={18} style={{ color: 'var(--secondary-text)' }} />
+    <DomeModal
+      open={isOpen}
+      onClose={onClose}
+      title="Resource Info"
+      size="md"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn btn-ghost">
+            Cancel
           </button>
-        </div>
-
-        <div className="modal-body space-y-4">
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || title === resource.title}
+            className="btn btn-primary flex items-center gap-1.5"
+          >
+            {isSaving ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <Save size={14} />
+            )}
+            Save Changes
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
           <div>
             <label htmlFor="metadata-title" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
               Title
@@ -215,27 +217,7 @@ export default function MetadataModal({
               </button>
             </div>
           ) : null}
-        </div>
-
-        <div className="modal-footer">
-          <button type="button" onClick={onClose} className="btn btn-ghost">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving || title === resource.title}
-            className="btn btn-primary flex items-center gap-1.5"
-          >
-            {isSaving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Save size={14} />
-            )}
-            Save Changes
-          </button>
-        </div>
       </div>
-    </div>
+    </DomeModal>
   );
 }

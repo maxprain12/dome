@@ -1,7 +1,8 @@
-
-import { useEffect, useRef } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { useRef } from 'react';
+import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import DomeModal from './DomeModal';
+import DomeButton from './DomeButton';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -14,6 +15,10 @@ interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
+/**
+ * Diálogo de confirmación — composición fina sobre DomeModal (03/T01).
+ * API pública sin cambios.
+ */
 export function ConfirmDialog({
   isOpen,
   title,
@@ -28,198 +33,43 @@ export function ConfirmDialog({
   const resolvedConfirm = confirmLabel ?? t('ui.confirm');
   const resolvedCancel = cancelLabel ?? t('common.cancel');
   const confirmRef = useRef<HTMLButtonElement>(null);
-
-  // Focus confirm button when dialog opens
-  useEffect(() => {
-    if (isOpen && confirmRef.current) {
-      confirmRef.current.focus();
-    }
-  }, [isOpen]);
-
-  // Handle Escape key
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onCancel();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onCancel]);
-
-  if (!isOpen) return null;
-
   const isDanger = variant === 'danger';
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 'var(--z-modal)',
-        animation: 'overlay-appear 0.2s ease-out',
-      }}
-    >
-      <button
-        type="button"
-        className="absolute inset-0 min-h-full w-full border-0 p-0"
-        style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          backdropFilter: 'blur(4px)',
-          cursor: 'pointer',
-        }}
-        aria-label={t('ui.close')}
-        onClick={onCancel}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="confirm-dialog-title"
-        style={{
-          position: 'relative',
-          zIndex: 1,
-          width: '100%',
-          maxWidth: '400px',
-          margin: '0 16px',
-          backgroundColor: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-xl, 12px)',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-          animation: 'modal-appear 0.2s ease-out',
-        }}
-      >
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '16px 20px',
-            borderBottom: '1px solid var(--border)',
-          }}
-        >
-          {isDanger && (
-            <div
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-              }}
-            >
-              <AlertTriangle size={18} style={{ color: 'var(--dome-error, #ef4444)' }} />
-            </div>
-          )}
-          <h3
-            id="confirm-dialog-title"
-            style={{
-              margin: 0,
-              fontSize: '16px',
-              fontWeight: 600,
-              color: 'var(--primary-text)',
-              flex: 1,
-            }}
+    <DomeModal
+      open={isOpen}
+      onClose={onCancel}
+      title={title}
+      size="sm"
+      initialFocusRef={confirmRef}
+      headerIcon={
+        isDanger ? (
+          <span
+            aria-hidden
+            className="flex size-9 shrink-0 items-center justify-center rounded-full"
+            style={{ backgroundColor: 'color-mix(in srgb, var(--error) 12%, transparent)' }}
           >
-            {title}
-          </h3>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '4px',
-              borderRadius: 'var(--radius-sm, 4px)',
-              color: 'var(--tertiary-text)',
-              display: 'flex',
-              alignItems: 'center',
-            }}
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '16px 20px' }}>
-          <p
-            style={{
-              margin: 0,
-              fontSize: '14px',
-              color: 'var(--secondary-text)',
-              lineHeight: '1.5',
-            }}
-          >
-            {message}
-          </p>
-        </div>
-
-        {/* Footer */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '8px',
-            padding: '12px 20px',
-            borderTop: '1px solid var(--border)',
-          }}
-        >
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md, 6px)',
-              border: '1px solid var(--border)',
-              background: 'transparent',
-              color: 'var(--primary-text)',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'background 150ms ease',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.background = 'var(--bg-hover)';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.background = 'transparent';
-            }}
-          >
+            <AlertTriangle size={18} style={{ color: 'var(--error)' }} />
+          </span>
+        ) : undefined
+      }
+      footer={
+        <>
+          <DomeButton type="button" variant="secondary" onClick={onCancel}>
             {resolvedCancel}
-          </button>
-          <button
+          </DomeButton>
+          <DomeButton
             ref={confirmRef}
+            type="button"
+            variant={isDanger ? 'danger' : 'primary'}
             onClick={onConfirm}
-            style={{
-              padding: '8px 16px',
-              borderRadius: 'var(--radius-md, 6px)',
-              border: 'none',
-              background: isDanger ? 'var(--dome-error, #ef4444)' : 'var(--accent)',
-              color: 'var(--dome-on-accent, #fff)',
-              fontSize: '14px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'filter 150ms ease',
-            }}
-            onMouseEnter={(e) => {
-              (e.target as HTMLButtonElement).style.filter = 'brightness(1.1)';
-            }}
-            onMouseLeave={(e) => {
-              (e.target as HTMLButtonElement).style.filter = 'none';
-            }}
           >
             {resolvedConfirm}
-          </button>
-        </div>
-      </div>
-    </div>
+          </DomeButton>
+        </>
+      }
+    >
+      <p className="m-0 text-sm leading-relaxed text-[var(--secondary-text)]">{message}</p>
+    </DomeModal>
   );
 }

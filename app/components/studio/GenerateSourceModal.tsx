@@ -15,7 +15,7 @@ import {
   Square,
   Loader2,
 } from 'lucide-react';
-import Modal from '@/components/ui/Modal';
+import DomeModal from '@/components/ui/DomeModal';
 import { type Resource } from '@/types';
 
 function getTypeIcon(type: string, size = 14) {
@@ -321,14 +321,33 @@ export default function GenerateSourceModal({
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
+    <DomeModal
+      open={isOpen}
       onClose={onClose}
       title={
         titleOverride ??
         t('studio.generate_title', { tileTitle })
       }
-      size="md"
+      size="lg"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="btn btn-ghost min-h-[44px] px-4"
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={handleConfirm}
+            disabled={confirmDisabled}
+            className="btn btn-primary min-h-[44px] px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t('learn.generate')}
+          </button>
+        </>
+      }
     >
       <div className="flex flex-col gap-4">
         <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
@@ -369,24 +388,7 @@ export default function GenerateSourceModal({
             tree.map((item) => renderItem(item, 0))
           )}
         </div>
-        <div className="flex justify-end gap-2 pt-2 border-t" style={{ borderColor: 'var(--border)' }}>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-ghost min-h-[44px] px-4"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={confirmDisabled}
-            className="btn btn-primary min-h-[44px] px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t('learn.generate')}
-          </button>
-        </div>
       </div>
-    </Modal>
+    </DomeModal>
   );
 }
