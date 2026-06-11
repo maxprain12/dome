@@ -2,7 +2,15 @@
 /**
  * Encrypt/decrypt secrets at rest via Electron safeStorage.
  */
-const { safeStorage } = require('electron');
+// Electron's package throws on require when its binary isn't installed
+// (CI runs unit tests with `pnpm install --ignore-scripts`). All call sites
+// already degrade gracefully when safeStorage is unavailable.
+let safeStorage = null;
+try {
+  ({ safeStorage } = require('electron'));
+} catch {
+  /* outside Electron (unit tests) */
+}
 
 const ENC_PREFIX = 'enc:v1:';
 
