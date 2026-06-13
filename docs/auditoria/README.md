@@ -39,7 +39,7 @@ Exploración exhaustiva del repo en tres frentes (seguridad / UI-UX / arquitectu
 | 02/T01 | [Migrar colores hardcodeados](02-ui-visual/T01-colores-hardcodeados.md) | P1 | L | ✅ |
 | 02/T02 | [Arreglar dark mode roto](02-ui-visual/T02-dark-mode-roto.md) | P1 | S | ✅ |
 | 03/T01 | [Consolidar modales en DomeModal](03-ux-componentes/T01-consolidar-modales.md) | P1 | L | ✅ |
-| 03/T02 | [Refactor componentes gigantes](03-ux-componentes/T02-refactor-componentes-gigantes.md) | P1 | L | 🔶 |
+| 03/T02 | [Refactor componentes gigantes](03-ux-componentes/T02-refactor-componentes-gigantes.md) | P1 | L | ✅ |
 | 04/T02 | [Timeout configurable por tool](04-harness-agentes/T02-timeout-global-tools.md) | P1 | S | ✅ |
 | 04/T03 | [Ampliar HITL y caps de tools](04-harness-agentes/T03-ampliar-hitl-y-caps.md) | P1 | M | ✅ |
 | 05/T01 | [Migraciones transaccionales + backup](05-datos-rendimiento/T01-migraciones-transaccionales.md) | P1 | M | ✅ |
@@ -67,7 +67,7 @@ Exploración exhaustiva del repo en tres frentes (seguridad / UI-UX / arquitectu
 
 ## Estado de ejecución (final, 2026-06-13 — todo en `main`)
 
-**33 ✅ implementadas · 1 🔶 (03/T02, solo ManyPanel pendiente).** Todas las tareas están mergeadas en `main` (PRs #351 base + #362–#380). Las únicas cosas que no se pueden cerrar desde código quedan listadas al final.
+**34 ✅ implementadas.** 03/T02 cerrada: 5 gigantes troceados + ManyPanel Fase A (#387); el resto del chat se cierra a propósito (cluster cohesivo, ver [ManyPanel-plan.md](03-ux-componentes/ManyPanel-plan.md)). Todas las tareas están mergeadas en `main` (PRs #351 base + #362–#380). Las únicas cosas que no se pueden cerrar desde código quedan listadas al final.
 
 **1ª pasada** (seguridad + base): sandbox activado, secretos cifrados con safeStorage, extractor PPT sin `executeJavaScript`, CSP (`csp.cjs`), guard de sender IPC (`ipc-guard.cjs`), shell-policy + picomatch, url-guard SSRF, timeouts OAuth, timeout por tool, `releaseRunContext`, check de colores con ratchet, backup pre-migración. **Corrección post-masking:** claves enmascaradas (`sk-…abc4`) ya no se envían a headers HTTP — `resolveSettingSecretForApi` en main + filtro en `app/lib/ai/client.ts`.
 
@@ -80,8 +80,7 @@ Validación final en local (tras 3ª pasada): `test:security` **38/38** ✓ · a
 **Cierre 2026-06-13 (PRs #362–#380, todas en `main`):** 02/T01 colores (#370), 06/T03 errores visibles (#362), 03/T03 a11y (#368), 03/T05 botones (#363), 03/T01 modales — **completa** en 3 fases (#369 base + #373 ad-hoc + #379 los 6 Mantine → 0 `Modal` de Mantine), 03/T06 responsive (#364), 04/T05 run-engine — **completa** (#365 + #372: 2.317→1.310), 05/T03 database — **completa** en 3 fases (#360 queries + #377 migrations + #380 schema: ~5.000→657), 03/T02 componentes gigantes — ChatToolCard (#367), FolderTabView (#374), RunsWorkspaceView (#375), AutomationsWorkspaceView (#376), UnifiedSidebar (#378); **falta solo ManyPanel** (1.597, chat monolítico que requiere extraer envío/streaming a hook + smoke test en runtime).
 
 **Pendiente NO-código (requiere ejecutar la app o acción del owner):**
-1. **ManyPanel (03/T02)** — refactor de alto riesgo del panel de chat; hacerlo con la app levantada para smoke test.
-2. **Smoke tests manuales** — el checklist de cada PR (`pnpm run electron:dev`): provider keys (cambiar de proveedor conserva la clave), modales (Escape/foco), refactors de hub/sidebar (paridad visual), DB nueva/HEAD/vieja migrando.
+1. **Smoke tests manuales** — el checklist de cada PR (`pnpm run electron:dev`): provider keys (cambiar de proveedor conserva la clave), modales (Escape/foco), refactors de hub/sidebar (paridad visual), DB nueva/HEAD/vieja migrando.
 3. **Renovate** — el `renovate.json` ya está en la raíz; falta **habilitar la app de Renovate** en GitHub (Settings → Integrations), acción del owner del repo.
 
 ## PRs de la auditoría (todas mergeadas en `main`)
@@ -98,7 +97,7 @@ Base: [#351](https://github.com/maxprain12/dome/pull/351). Las siguientes se mer
 | 03/T01 Modales | [#369](https://github.com/maxprain12/dome/pull/369) · [#373](https://github.com/maxprain12/dome/pull/373) · [#379](https://github.com/maxprain12/dome/pull/379) | ✅ DomeModal base + ad-hoc + 6 Mantine → **0 `Modal` de Mantine** |
 | 04/T05 run-engine | [#365](https://github.com/maxprain12/dome/pull/365) · [#372](https://github.com/maxprain12/dome/pull/372) | ✅ workflow-dag/store/executor/lifecycle/helpers; 2.317→1.310 |
 | 05/T03 database | [#360](https://github.com/maxprain12/dome/pull/360) · [#377](https://github.com/maxprain12/dome/pull/377) · [#380](https://github.com/maxprain12/dome/pull/380) | ✅ queries+migrations+schema; ~5.000→657 |
-| 03/T02 Componentes gigantes | [#367](https://github.com/maxprain12/dome/pull/367) · [#374](https://github.com/maxprain12/dome/pull/374) · [#375](https://github.com/maxprain12/dome/pull/375) · [#376](https://github.com/maxprain12/dome/pull/376) · [#378](https://github.com/maxprain12/dome/pull/378) | 🔶 ChatToolCard, FolderTabView, Runs/Automations, UnifiedSidebar — falta ManyPanel |
+| 03/T02 Componentes gigantes | #367 · #374 · #375 · #376 · #378 · [#387](https://github.com/maxprain12/dome/pull/387) | ✅ ChatToolCard, FolderTabView, Runs/Automations, UnifiedSidebar + ManyPanel Fase A (resto = cluster cohesivo, cerrado a propósito) |
 | Extra: API keys por proveedor | [#371](https://github.com/maxprain12/dome/pull/371) | slot `ai_api_key_<provider>` cifrado + picker reorganizado |
 
 > Nota histórica: las PRs originales #352–#361 se cerraron al borrar la rama base con `--delete-branch` (GitHub no retargetea con ruleset squash-only); se reabrieron rebasadas como #362–#370.
