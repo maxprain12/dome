@@ -11,6 +11,7 @@ import ManyChatHistoryPanel from './ManyChatHistoryPanel';
 import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
+import { useManyConversationSettings } from './useManyConversationSettings';
 import {
   filterOutDeletedSessions,
   persistManySessions,
@@ -27,10 +28,7 @@ import {
   getAIConfig,
   checkChatProviderReady,
   createManyToolsForContext,
-  findModelById,
-  providerSupportsTools,
   toOpenAIToolDefinitions,
-  type AIProviderType,
   type AnyAgentTool,
 } from '@/lib/ai';
 import { estimateLiveBudget } from '@/lib/chat/estimateLiveBudget';
@@ -143,12 +141,17 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [userMemory, setUserMemory] = useState<string>('');
-  const [toolsEnabled, setToolsEnabled] = useState(true);
-  const [resourceToolsEnabled, setResourceToolsEnabled] = useState(true);
-  const [memoryEnabled, setMemoryEnabled] = useState(true);
-  const [mcpEnabled, setMcpEnabledState] = useState(true);
-  const [supportsTools, setSupportsTools] = useState(false);
+  const {
+    toolsEnabled, setToolsEnabled,
+    resourceToolsEnabled, setResourceToolsEnabled,
+    memoryEnabled, setMemoryEnabled,
+    mcpEnabled,
+    supportsTools,
+    userMemory,
+    providerInfo,
+    providerId,
+    budgetCapApprox,
+  } = useManyConversationSettings();
   const [error, setError] = useState<string | null>(null);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
@@ -158,15 +161,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const approvalQueueLen = useApprovalStore((s) => s.queue.length);
   const showHitlInline = Boolean(pendingApproval || approvalQueueLen > 0);
   const prefersReducedMotion = useReducedMotion();
-  const [providerInfo, setProviderInfo] = useState<string>('');
-  const [providerId, setProviderId] = useState<string>('');
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
   const [lastBudgetSessionId, setLastBudgetSessionId] = useState<string | null>(null);
   const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
   const [liveUsageSessionId, setLiveUsageSessionId] = useState<string | null>(null);
   const [compactionNotice, setCompactionNotice] = useState<CompactionNoticeData | null>(null);
   const currentSessionIdRef = useRef<string | null>(currentSessionId);
-  const [budgetCapApprox, setBudgetCapApprox] = useState(200_000);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const streamingMessageRef = useRef<ChatMessageData | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -196,34 +196,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   }, [currentSessionId]);
 
   useEffect(() => {
-    const loadProviderInfo = async () => {
-      const config = await getAIConfig();
-      if (config?.provider) {
-        const model =
-          config.provider === 'ollama'
-            ? (config.ollamaModel || 'default')
-            : (config.model || 'default');
-        const displayInfo = model.startsWith(`${config.provider}/`) ? config.provider : `${config.provider} / ${model}`;
-        setProviderId(String(config.provider));
-        setProviderInfo(displayInfo);
-        setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
-        const modelId = config.provider === 'ollama' ? config.ollamaModel : config.model;
-        const found = modelId ? findModelById(modelId) : undefined;
-        setBudgetCapApprox(found?.model.contextWindow ?? 200_000);
-      } else {
-        setProviderInfo(t('chat.not_configured'));
-        setProviderId('');
-        setSupportsTools(false);
-        setBudgetCapApprox(200_000);
-      }
-    };
-    loadProviderInfo();
-    const handleConfigChanged = () => loadProviderInfo();
-    window.addEventListener('dome:ai-config-changed', handleConfigChanged);
-    return () => window.removeEventListener('dome:ai-config-changed', handleConfigChanged);
-  }, [t]);
-
-  useEffect(() => {
     if (!isVisible || isHeadless) return;
     if (!pendingManyHandoff) return;
     const text = pendingManyHandoff;
@@ -237,31 +209,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       el.setSelectionRange(len, len);
     });
   }, [isVisible, isHeadless, pendingManyHandoff, setPendingManyHandoff]);
-
-  useEffect(() => {
-    const loadMcpEnabled = async () => {
-      if (db.isAvailable()) {
-        const res = await db.getMcpGlobalEnabled();
-        setMcpEnabledState(res.success ? res.data !== false : true);
-      }
-    };
-    loadMcpEnabled();
-  }, []);
-
-  useEffect(() => {
-    const loadMemory = async () => {
-      if (!window.electron?.personality?.readFile) return;
-      const [memRes, userRes] = await Promise.all([
-        window.electron.personality.readFile('MEMORY.md'),
-        window.electron.personality.readFile('USER.md'),
-      ]);
-      const parts: string[] = [];
-      if (memRes?.data?.trim()) parts.push(memRes.data.trim());
-      if (userRes?.data?.trim()) parts.push(userRes.data.trim());
-      setUserMemory(parts.join('\n\n'));
-    };
-    loadMemory();
-  }, []);
 
   // Hydrate session list from JSONL on startup.
   useEffect(() => {
