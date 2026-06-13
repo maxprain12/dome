@@ -1,7 +1,7 @@
 # T02 — Refactor de componentes gigantes (>1.100 líneas)
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UX Componentes
-**Estado**: 🔶 Fase 4 implementada (2026-06-13) — troceados en orden: ChatToolCard 1.298→790 (#367), FolderTabView 1.194→565 (#374), RunsWorkspaceView 1.895→582 (#375, módulos en `hub/runs/`), AutomationsWorkspaceView 1.342→~790 (rama `refactor/ux-automations-workspace`: `automations/automationsShared.ts` con tipos de draft + `formatHubDate` + `EMPTY_DRAFT`, y `AutomationEditDrawer.tsx` ~490). Refactor puro, imports muertos podados. **Pendiente:** ManyPanel (1.597, smoke fuerte) y UnifiedSidebar (2.140).
+**Estado**: 🔶 Fase 5 implementada (2026-06-13) — troceados en orden: ChatToolCard 1.298→790 (#367), FolderTabView 1.194→565 (#374), RunsWorkspaceView 1.895→582 (#375), AutomationsWorkspaceView 1.342→790 (#376), UnifiedSidebar 2.123→933 (rama `refactor/ux-unifiedsidebar`: `sidebar/` con sidebarHelpers, SidebarContextMenu, SidebarModals, SidebarFileTree —TreeNode+FileTree recursivos juntos— y AddResourceMenu). **Pendiente:** ManyPanel (1.597) — es un único componente de chat sin costuras mecánicas (la lógica de envío/streaming requeriría extraer a un hook), marcado como "smoke test fuerte" por la propia tarea; se difiere hasta poder validarlo en runtime.
 
 ## Problema
 
