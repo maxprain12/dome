@@ -13,6 +13,9 @@ jobs:
       repository-projects: write
     steps:
       - name: Add PR to Code Health project
+        # Best-effort: la sync al proyecto no debe poner la PR en rojo si
+        # PROJECT_TOKEN no está configurado o le falta scope.
+        continue-on-error: true
         uses: actions/add-to-project@v1.0.2
         with:
           project-url: https://github.com/users/maxprain12/projects/1
