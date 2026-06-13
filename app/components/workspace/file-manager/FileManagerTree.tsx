@@ -16,7 +16,8 @@ import type { Resource } from '@/lib/hooks/useResources';
 import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
 import { useTranslation } from 'react-i18next';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
-import { Modal, ScrollArea, Stack, UnstyledButton, Text, Group } from '@mantine/core';
+import { ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';
+import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
@@ -586,12 +587,16 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
         onAction={handleContextMenuAction}
       />
 
-      <Modal
-        opened={folderPickOpen}
+      <DomeModal
+        open={folderPickOpen}
         onClose={() => setFolderPickOpen(false)}
         title={t('selection.move_to_folder')}
-        centered
         size="sm"
+        footer={
+          <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
+            {t('common.cancel')}
+          </DomeButton>
+        }
       >
         <Stack gap="xs">
           <Text size="xs" c="dimmed">
@@ -634,13 +639,8 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
               ))}
             </Stack>
           </ScrollArea.Autosize>
-          <Group justify="flex-end">
-            <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
-              {t('common.cancel')}
-            </DomeButton>
-          </Group>
         </Stack>
-      </Modal>
+      </DomeModal>
 
       <MoveToProjectModal
         opened={moveProjectIds.length > 0}

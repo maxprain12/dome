@@ -1,7 +1,7 @@
 # T01 — Consolidar modales en DomeModal
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UX Componentes
-**Estado**: 🔶 Fase 2 implementada (2026-06-11, rama `refactor/ux-modales-fase2`) — sobre la fase 1 (#369): `DomeModal` gana `size="full"` (85vh, superficie de trabajo), `subtitle` y `headerActions`; migrados los dos modales ad-hoc restantes con overlay propio: **PluginRuntimeModal** (runtime de plugins con iframe + botón de recarga en cabecera) y **EventModal** (formulario de calendario con submit por `form=` y borrar/cancelar/guardar en el footer). `FeederApprovalModal` y `NoteQuickTagModal` ya estaban sobre DomeModal. **Pendiente (fase 3):** los 6 que usan `Modal` de Mantine (EmbedModal, ImagePickerModal, ResourcePickerModal, MoveToProjectModal, y los de FolderTabView/FileManagerTree) — comportamiento consistente entre sí; decidir si se migran o se toleran como casos Mantine-internos (nota de la propia tarea).
+**Estado**: ✅ Implementado (fase 3, 2026-06-13) — migrados a `DomeModal` los 6 modales que quedaban sobre `Modal` de Mantine: EmbedModal, ImagePickerModal, ResourcePickerModal, MoveToProjectModal (editor/workspace) y los dos folder-pick (FolderTabView, FileManagerTree). Ya **no queda ningún `Modal` de `@mantine/core`** en `app/` (grep: 0). Todos los modales de la app (genéricos + feature) comparten ahora la misma base: portal, Escape, focus trap, devolución de foco y scroll lock. Las primitivas de layout de Mantine (Stack/Text/ScrollArea/UnstyledButton) se conservan dentro del cuerpo (no son `Button`). Criterios de aceptación cumplidos.
 
 ## Problema
 
