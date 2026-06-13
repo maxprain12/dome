@@ -28,11 +28,11 @@ Smoke manual recomendado (requiere entorno gráfico; no automatizable en CI head
 | Área | Doc detallado | Completitud |
 |------|---------------|-------------|
 | [01 Seguridad](01-seguridad/IMPLEMENTADO.md) | T01–T10 ✅ | 100% |
-| [02 UI Visual](02-ui-visual/IMPLEMENTADO.md) | T02–T05 ✅, T01 ⏳ (multi-PR) | ~80% |
-| [03 UX Componentes](03-ux-componentes/IMPLEMENTADO.md) | T04 ✅, resto ⏳ | ~20% |
-| [04 Harness](04-harness-agentes/IMPLEMENTADO.md) | T01–T04 ✅, T05 ⏳ | ~80% |
-| [05 Datos/Rendimiento](05-datos-rendimiento/IMPLEMENTADO.md) | T01–T02, T04 ✅, T03 ⏳ | ~75% |
-| [06 Calidad/Obs](06-calidad-observabilidad/IMPLEMENTADO.md) | T01–T02, T04 ✅, T03 ⏳ | ~75% |
+| [02 UI Visual](02-ui-visual/IMPLEMENTADO.md) | T01–T05 ✅ | 100% |
+| [03 UX Componentes](03-ux-componentes/IMPLEMENTADO.md) | T01, T03–T06 ✅, T02 🔶 (solo ManyPanel) | ~95% |
+| [04 Harness](04-harness-agentes/IMPLEMENTADO.md) | T01–T05 ✅ | 100% |
+| [05 Datos/Rendimiento](05-datos-rendimiento/IMPLEMENTADO.md) | T01–T04 ✅ | 100% |
+| [06 Calidad/Obs](06-calidad-observabilidad/IMPLEMENTADO.md) | T01–T02, T04 ✅, T03 ✅ | 100% |
 
 ## Leyenda
 
@@ -40,11 +40,12 @@ Smoke manual recomendado (requiere entorno gráfico; no automatizable en CI head
 - ⚠️ Parcial — base lista, falta migración/refactor grande
 - ⏳ Pendiente — no abordado en esta rama
 
-## Siguiente PR sugerido (commits troceados)
+## Estado final (2026-06-13)
 
-1. **`fix/auditoria-seguridad`** — electron/core (secret-storage, csp, ipc-guard, shell-policy, url-guard), ipc handlers, PPT capture, OAuth timeouts
-2. **`fix/auditoria-harness-calidad`** — tool timeout, releaseRunContext, tests security+agent-core, CI jobs, migration-backup
-3. **`fix/auditoria-ui-ux`** — colores baseline, dark mode fixes, DomeTabBar a11y, globals.css paleta
-4. **`docs/auditoria-estado`** — carpeta `docs/auditoria/` con estados validados
+**33/34 tareas en `main`.** Lo único pendiente (no abordable sin ejecutar la app / acción del owner):
 
-Pendiente antes de merge: smoke manual (punto 1 del checklist arriba).
+1. **03/T02 — ManyPanel** (único componente gigante sin trocear): refactor de alto riesgo del panel de chat; requiere extraerlo con la app levantada para smoke test.
+2. **Smoke tests manuales** — checklists por PR (`pnpm run electron:dev`): provider keys, modales, refactors de hub/sidebar, DB nueva/HEAD/vieja migrando.
+3. **Renovate** — `renovate.json` ya en la raíz; habilitar la app en GitHub (Settings → Integrations) es acción del owner.
+
+Detalle por PR en [README.md](README.md) § "PRs de la auditoría".
