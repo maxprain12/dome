@@ -36,10 +36,10 @@ Exploración exhaustiva del repo en tres frentes (seguridad / UI-UX / arquitectu
 | 01/T04 | [CSP en la ventana principal](01-seguridad/T04-csp-ventana-principal.md) | P1 | S | ✅ |
 | 01/T05 | [Validación de sender en handlers IPC](01-seguridad/T05-validacion-sender-ipc.md) | P1 | M | ✅ |
 | 01/T06 | [Hardening shell:exec + fix ReDoS](01-seguridad/T06-shell-exec-hardening.md) | P1 | S | ✅ |
-| 02/T01 | [Migrar colores hardcodeados](02-ui-visual/T01-colores-hardcodeados.md) | P1 | L | ⬜ |
+| 02/T01 | [Migrar colores hardcodeados](02-ui-visual/T01-colores-hardcodeados.md) | P1 | L | ✅ |
 | 02/T02 | [Arreglar dark mode roto](02-ui-visual/T02-dark-mode-roto.md) | P1 | S | ✅ |
-| 03/T01 | [Consolidar modales en DomeModal](03-ux-componentes/T01-consolidar-modales.md) | P1 | L | ⬜ |
-| 03/T02 | [Refactor componentes gigantes](03-ux-componentes/T02-refactor-componentes-gigantes.md) | P1 | L | ⬜ |
+| 03/T01 | [Consolidar modales en DomeModal](03-ux-componentes/T01-consolidar-modales.md) | P1 | L | ✅ |
+| 03/T02 | [Refactor componentes gigantes](03-ux-componentes/T02-refactor-componentes-gigantes.md) | P1 | L | 🔶 |
 | 04/T02 | [Timeout configurable por tool](04-harness-agentes/T02-timeout-global-tools.md) | P1 | S | ✅ |
 | 04/T03 | [Ampliar HITL y caps de tools](04-harness-agentes/T03-ampliar-hitl-y-caps.md) | P1 | M | ✅ |
 | 05/T01 | [Migraciones transaccionales + backup](05-datos-rendimiento/T01-migraciones-transaccionales.md) | P1 | M | ✅ |
@@ -49,25 +49,25 @@ Exploración exhaustiva del repo en tres frentes (seguridad / UI-UX / arquitectu
 | 01/T09 | [Limitar paths externos en files.cjs](01-seguridad/T09-limitar-paths-externos.md) | P2 | M | ✅ |
 | 02/T03 | [Eliminar paleta deprecada](02-ui-visual/T03-paleta-deprecada.md) | P2 | S | ✅ |
 | 02/T04 | [Lint del design system](02-ui-visual/T04-lint-design-system.md) | P2 | S | ✅ |
-| 03/T03 | [Accesibilidad (aria, roles, focus)](03-ux-componentes/T03-accesibilidad.md) | P2 | M | ⬜ |
+| 03/T03 | [Accesibilidad (aria, roles, focus)](03-ux-componentes/T03-accesibilidad.md) | P2 | M | ✅ |
 | 03/T04 | [Navegación por teclado en el shell](03-ux-componentes/T04-navegacion-teclado-shell.md) | P2 | M | ✅ |
-| 03/T05 | [Unificar botones](03-ux-componentes/T05-unificar-botones.md) | P2 | M | ⬜ |
+| 03/T05 | [Unificar botones](03-ux-componentes/T05-unificar-botones.md) | P2 | M | ✅ |
 | 04/T04 | [Cleanup de activeRunContexts](04-harness-agentes/T04-cleanup-run-contexts.md) | P2 | S | ✅ |
-| 04/T05 | [Modularizar run-engine.cjs](04-harness-agentes/T05-modularizar-run-engine.md) | P2 | L | ⬜ |
-| 05/T03 | [Modularizar database.cjs](05-datos-rendimiento/T03-modularizar-database.md) | P2 | L | ⬜ |
+| 04/T05 | [Modularizar run-engine.cjs](04-harness-agentes/T05-modularizar-run-engine.md) | P2 | L | ✅ |
+| 05/T03 | [Modularizar database.cjs](05-datos-rendimiento/T03-modularizar-database.md) | P2 | L | ✅ |
 | 06/T02 | [Logging estructurado](06-calidad-observabilidad/T02-logging-estructurado.md) | P2 | M | ✅ |
-| 06/T03 | [Errores visibles para el usuario](06-calidad-observabilidad/T03-errores-visibles-usuario.md) | P2 | M | ⬜ |
+| 06/T03 | [Errores visibles para el usuario](06-calidad-observabilidad/T03-errores-visibles-usuario.md) | P2 | M | ✅ |
 | 01/T10 | [Updater y dependencias](01-seguridad/T10-updater-y-dependencias.md) | P3 | S | ✅ |
 | 02/T05 | [Cobertura i18n al 100%](02-ui-visual/T05-i18n-restante.md) | P3 | S | ✅ |
-| 03/T06 | [Responsive y ventanas pequeñas](03-ux-componentes/T06-responsive.md) | P3 | M | ⬜ |
+| 03/T06 | [Responsive y ventanas pequeñas](03-ux-componentes/T06-responsive.md) | P3 | M | ✅ |
 | 05/T04 | [Queries de arranque y retención](05-datos-rendimiento/T04-queries-startup.md) | P3 | S | ✅ |
 | 06/T04 | [Auditoría continua de dependencias](06-calidad-observabilidad/T04-auditoria-dependencias.md) | P3 | S | ✅ |
 
 **34 tareas**: 5 × P0 · 11 × P1 · 13 × P2 · 5 × P3.
 
-## Estado de ejecución (validado 2026-06-10, 3ª pasada)
+## Estado de ejecución (final, 2026-06-13 — todo en `main`)
 
-**25 ✅ implementadas · 0 🔶 parciales · 9 ⬜ pendientes.** Las pasadas 1ª y 2ª están commiteadas en la rama (`4322036..5b3d3dc`); la 3ª pasada cierra las 3 parciales.
+**33 ✅ implementadas · 1 🔶 (03/T02, solo ManyPanel pendiente).** Todas las tareas están mergeadas en `main` (PRs #351 base + #362–#380). Las únicas cosas que no se pueden cerrar desde código quedan listadas al final.
 
 **1ª pasada** (seguridad + base): sandbox activado, secretos cifrados con safeStorage, extractor PPT sin `executeJavaScript`, CSP (`csp.cjs`), guard de sender IPC (`ipc-guard.cjs`), shell-policy + picomatch, url-guard SSRF, timeouts OAuth, timeout por tool, `releaseRunContext`, check de colores con ratchet, backup pre-migración. **Corrección post-masking:** claves enmascaradas (`sk-…abc4`) ya no se envían a headers HTTP — `resolveSettingSecretForApi` en main + filtro en `app/lib/ai/client.ts`.
 
@@ -77,25 +77,31 @@ Validación final en local (tras 3ª pasada): `test:security` **38/38** ✓ · a
 
 **3ª pasada** (cierre de parciales): 01/T09 — grants cableados desde los 4 diálogos nativos y drag&drop (canal interno `security:grant-external-path` desde el preload; un directorio concedido cubre su subárbol), 21 `allowExternal=true` justificados con comentario, +3 tests. 05/T04 — retención de runs en `electron/agents/run-retention.cjs` (purga terminales > `runs_retention_days`, default 90; sesiones JSONL de workflows borradas antes que las filas; 5 tests). 06/T04 — `renovate.json` (vulnerability alerts inmediatos, minor/patch agrupados semanales, Electron major manual) + política de Electron en `.claude/sops/release.md`.
 
-**Quedan (refactors multi-PR, hacer por feature):** 02/T01 migración de 279 hex, 03/T01 consolidar modales, 03/T02 componentes gigantes, 03/T03 a11y, 03/T05 botones, 03/T06 responsive, 04/T05 modularizar run-engine, 05/T03 modularizar database, 06/T03 errores visibles. **Pendiente global:** smoke test manual (`pnpm run electron:dev`) y habilitar la app de Renovate en GitHub (owner).
+**Cierre 2026-06-13 (PRs #362–#380, todas en `main`):** 02/T01 colores (#370), 06/T03 errores visibles (#362), 03/T03 a11y (#368), 03/T05 botones (#363), 03/T01 modales — **completa** en 3 fases (#369 base + #373 ad-hoc + #379 los 6 Mantine → 0 `Modal` de Mantine), 03/T06 responsive (#364), 04/T05 run-engine — **completa** (#365 + #372: 2.317→1.310), 05/T03 database — **completa** en 3 fases (#360 queries + #377 migrations + #380 schema: ~5.000→657), 03/T02 componentes gigantes — ChatToolCard (#367), FolderTabView (#374), RunsWorkspaceView (#375), AutomationsWorkspaceView (#376), UnifiedSidebar (#378); **falta solo ManyPanel** (1.597, chat monolítico que requiere extraer envío/streaming a hook + smoke test en runtime).
 
-## Ramas de trabajo para lo pendiente
+**Pendiente NO-código (requiere ejecutar la app o acción del owner):**
+1. **ManyPanel (03/T02)** — refactor de alto riesgo del panel de chat; hacerlo con la app levantada para smoke test.
+2. **Smoke tests manuales** — el checklist de cada PR (`pnpm run electron:dev`): provider keys (cambiar de proveedor conserva la clave), modales (Escape/foco), refactors de hub/sidebar (paridad visual), DB nueva/HEAD/vieja migrando.
+3. **Renovate** — el `renovate.json` ya está en la raíz; falta **habilitar la app de Renovate** en GitHub (Settings → Integrations), acción del owner del repo.
 
-PR de esta rama: [#351](https://github.com/maxprain12/dome/pull/351). Las 9 tareas restantes están implementadas (2026-06-11), cada una con su PR sobre esta base (retargetear a `main` cuando #351 mergee). Las marcadas "fase 1" siguen el plan multi-PR de su propia tarea:
+## PRs de la auditoría (todas mergeadas en `main`)
 
-| Tarea | Rama | PR | Alcance |
-|-------|------|----|---------|
-| 02/T01 Migrar colores hardcodeados | `fix/ui-migracion-colores-hardcodeados` | [#352](https://github.com/maxprain12/dome/pull/352) | ✅ completa — ratchet 279→0, paletas en `app/lib/ui/palettes.ts` |
-| 06/T03 Errores visibles | `feat/ux-errores-visibles` | [#353](https://github.com/maxprain12/dome/pull/353) | ✅ completa — error-notify + toasts i18n con throttle |
-| 03/T03 Accesibilidad | `fix/ux-accesibilidad` | [#355](https://github.com/maxprain12/dome/pull/355) | ✅ completa — jsx-a11y en error con 0 hallazgos; aria-label tipado en DomeButton |
-| 03/T05 Unificar botones | `refactor/ux-unificar-botones` | [#356](https://github.com/maxprain12/dome/pull/356) | ✅ completa — 6 Mantine Button → DomeButton + regla de lint |
-| 03/T01 Consolidar modales | `refactor/ux-consolidar-modales` | [#357](https://github.com/maxprain12/dome/pull/357) | 🔶 fase 1 — DomeModal base completa (focus trap/scroll lock), ConfirmDialog/PromptModal como wrappers, Modal.tsx eliminado |
-| 03/T06 Responsive | `fix/ux-responsive` | [#358](https://github.com/maxprain12/dome/pull/358) | ✅ completa — suelo 800×600, sidebar colapsa ≤980px, breakpoints documentados |
-| 04/T05 Modularizar run-engine | `refactor/harness-modularizar-run-engine` | [#359](https://github.com/maxprain12/dome/pull/359) | 🔶 fase 1 — workflow-dag (7 tests) + run-store extraídos; 2.317→1.933 líneas |
-| 05/T03 Modularizar database | `refactor/data-modularizar-database` | [#360](https://github.com/maxprain12/dome/pull/360) | 🔶 fase a — queries → db/queries.cjs; 5.015→3.940 líneas |
-| 03/T02 Componentes gigantes | `refactor/ux-componentes-gigantes` | [#361](https://github.com/maxprain12/dome/pull/361) | 🔶 fase 1 — ChatToolCard 1.298→790 líneas (tool-card/) |
+Base: [#351](https://github.com/maxprain12/dome/pull/351). Las siguientes se mergearon una a una (squash) sobre `main`:
 
-Nota de integración: #355 y #357 tocan ambos `DomeModal.tsx`; al integrar el segundo, conservar el `eslint-disable` de a11y sobre el panel del diálogo. #352 y #355/#357 tocan archivos comunes (UnifiedSidebar, ConfirmDialog) — mergear en orden y rebasar.
+| Tarea | PR | Resultado |
+|-------|----|-----------|
+| 02/T01 Colores | [#370](https://github.com/maxprain12/dome/pull/370) | ratchet 279→0, paletas en `app/lib/ui/palettes.ts` |
+| 06/T03 Errores visibles | [#362](https://github.com/maxprain12/dome/pull/362) | error-notify + toasts i18n con throttle |
+| 03/T03 Accesibilidad | [#368](https://github.com/maxprain12/dome/pull/368) | jsx-a11y en error, 0 hallazgos; aria-label tipado en DomeButton |
+| 03/T05 Botones | [#363](https://github.com/maxprain12/dome/pull/363) | 6 Mantine Button → DomeButton + regla de lint |
+| 03/T06 Responsive | [#364](https://github.com/maxprain12/dome/pull/364) | suelo 800×600, sidebar colapsa ≤980px |
+| 03/T01 Modales | [#369](https://github.com/maxprain12/dome/pull/369) · [#373](https://github.com/maxprain12/dome/pull/373) · [#379](https://github.com/maxprain12/dome/pull/379) | ✅ DomeModal base + ad-hoc + 6 Mantine → **0 `Modal` de Mantine** |
+| 04/T05 run-engine | [#365](https://github.com/maxprain12/dome/pull/365) · [#372](https://github.com/maxprain12/dome/pull/372) | ✅ workflow-dag/store/executor/lifecycle/helpers; 2.317→1.310 |
+| 05/T03 database | [#360](https://github.com/maxprain12/dome/pull/360) · [#377](https://github.com/maxprain12/dome/pull/377) · [#380](https://github.com/maxprain12/dome/pull/380) | ✅ queries+migrations+schema; ~5.000→657 |
+| 03/T02 Componentes gigantes | [#367](https://github.com/maxprain12/dome/pull/367) · [#374](https://github.com/maxprain12/dome/pull/374) · [#375](https://github.com/maxprain12/dome/pull/375) · [#376](https://github.com/maxprain12/dome/pull/376) · [#378](https://github.com/maxprain12/dome/pull/378) | 🔶 ChatToolCard, FolderTabView, Runs/Automations, UnifiedSidebar — falta ManyPanel |
+| Extra: API keys por proveedor | [#371](https://github.com/maxprain12/dome/pull/371) | slot `ai_api_key_<provider>` cifrado + picker reorganizado |
+
+> Nota histórica: las PRs originales #352–#361 se cerraron al borrar la rama base con `--delete-branch` (GitHub no retargetea con ruleset squash-only); se reabrieron rebasadas como #362–#370.
 
 ## Roadmap sugerido
 
