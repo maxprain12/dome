@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Modal, Stack, TextInput, Text } from '@mantine/core';
+import { Stack, TextInput, Text } from '@mantine/core';
+import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import { useTranslation } from 'react-i18next';
 import type { Editor } from '@tiptap/core';
@@ -39,17 +40,19 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
     onClose();
   };
 
+  const handleClose = () => {
+    setUrl('');
+    setErr(null);
+    onClose();
+  };
+
   return (
-    <Modal
-      opened={opened}
-      onClose={() => {
-        setUrl('');
-        setErr(null);
-        onClose();
-      }}
+    <DomeModal
+      open={opened}
+      onClose={handleClose}
       title={kind === 'youtube' ? t('editor.embed_modal_title_youtube') : t('editor.embed_modal_title_iframe')}
       size="md"
-      centered
+      footer={<DomeButton variant="primary" onClick={submit}>{t('editor.embed_modal_submit')}</DomeButton>}
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
@@ -72,8 +75,7 @@ export default function EmbedModal({ opened, onClose, editor, kind }: EmbedModal
             {err}
           </Text>
         )}
-        <DomeButton variant="primary" onClick={submit}>{t('editor.embed_modal_submit')}</DomeButton>
       </Stack>
-    </Modal>
+    </DomeModal>
   );
 }

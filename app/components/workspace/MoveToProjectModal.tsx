@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Text, ScrollArea, UnstyledButton, Group, Stack } from '@mantine/core';
+import { Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
+import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import { useTranslation } from 'react-i18next';
 import type { Project } from '@/types';
@@ -144,12 +145,26 @@ export default function MoveToProjectModal({
   }, [pickedId, roots, onClose, onCompleted, t]);
 
   return (
-    <Modal
-      opened={opened}
+    <DomeModal
+      open={opened}
       onClose={onClose}
       title={t('moveProject.title')}
-      centered
       size="md"
+      footer={
+        <>
+          <DomeButton variant="secondary" onClick={onClose} disabled={submitting}>
+            {t('common.cancel')}
+          </DomeButton>
+          <DomeButton
+            variant="primary"
+            onClick={() => void handleMove()}
+            loading={submitting}
+            disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}
+          >
+            {t('moveProject.confirm')}
+          </DomeButton>
+        </>
+      }
     >
       <Stack gap="md">
         <Text size="sm" c="dimmed">
@@ -204,20 +219,7 @@ export default function MoveToProjectModal({
           </Text>
         ) : null}
 
-        <Group justify="flex-end" mt="md">
-          <DomeButton variant="secondary" onClick={onClose} disabled={submitting}>
-            {t('common.cancel')}
-          </DomeButton>
-          <DomeButton
-            variant="primary"
-            onClick={() => void handleMove()}
-            loading={submitting}
-            disabled={!pickedId || roots.length === 0 || eligibleProjects.length === 0}
-          >
-            {t('moveProject.confirm')}
-          </DomeButton>
-        </Group>
       </Stack>
-    </Modal>
+    </DomeModal>
   );
 }

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
+import { Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
+import DomeModal from '@/components/ui/DomeModal';
 import { Image as ImageIcon } from 'lucide-react';
 import type { Resource } from '@/types';
 
@@ -56,7 +57,7 @@ export default function ImagePickerModal({
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Imagen desde Dome" size="md" centered>
+    <DomeModal open={opened} onClose={onClose} title="Imagen desde Dome" size="md">
       <Stack gap="sm">
         <Text size="xs" c="dimmed">
           {loading ? 'Cargando…' : `${items.length} imagen(es) en el proyecto`}
@@ -113,6 +114,6 @@ export default function ImagePickerModal({
           </Stack>
         </ScrollArea>
       </Stack>
-    </Modal>
+    </DomeModal>
   );
 }

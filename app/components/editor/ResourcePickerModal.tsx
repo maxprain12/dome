@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Modal, TextInput, Stack, Text, ScrollArea, UnstyledButton } from '@mantine/core';
+import { TextInput, Stack, Text, ScrollArea, UnstyledButton } from '@mantine/core';
+import DomeModal from '@/components/ui/DomeModal';
 import type { Resource, ResourceType } from '@/types';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 
@@ -76,7 +77,7 @@ export default function ResourcePickerModal({
   }, [opened, load, query]);
 
   return (
-    <Modal opened={opened} onClose={onClose} title={title} size="md" centered>
+    <DomeModal open={opened} onClose={onClose} title={title} size="md">
       <Stack gap="sm">
         <TextInput
           placeholder="Buscar en la librería…"
@@ -126,6 +127,6 @@ export default function ResourcePickerModal({
           </Stack>
         </ScrollArea>
       </Stack>
-    </Modal>
+    </DomeModal>
   );
 }
