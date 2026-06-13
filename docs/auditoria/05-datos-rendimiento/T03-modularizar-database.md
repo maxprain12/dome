@@ -1,7 +1,7 @@
 # T03 — Modularizar database.cjs
 
 **Prioridad**: P2 · **Severidad**: Media · **Esfuerzo**: L · **Área**: Datos
-**Estado**: 🔶 Fase (a) implementada (2026-06-11, rama `refactor/data-modularizar-database`) — prepared statements extraídos a `electron/core/db/queries.cjs` (`buildQueries(db)`, 1.088 líneas; cohesivo como mapa único — si crece más, dividir por dominio). `database.cjs` baja de 5.015 a 3.940 líneas y conserva la API (`getQueries()` cachea `buildQueries(getDB())`; `invalidateQueries()` tras reparar FTS sigue funcionando). Cero cambios en consumidores. **Pendiente:** fase (b) migraciones → `db/migrations/NNN-*.cjs` + runner (las 23+ inline son ~2.800 líneas de `applyMigrations`; moverlas tal cual con fixture de DB vieja para validar) y fase (c) schema → `db/schema.cjs`. Smoke manual por fase: DB nueva, DB en HEAD y DB antigua migrando.
+**Estado**: 🔶 Fases (a)+(b) implementadas (2026-06-13) — (a) prepared statements en `db/queries.cjs` (#360); (b) las 42 migraciones + sus 3 helpers (`parseJsonValue`, `normalizeServerId`, `extractLegacyMcpServers`) movidas **verbatim** (`applyMigrations` byte-idéntico, verificado por diff) a `electron/core/db/migrations.cjs`. `database.cjs` baja de 3.971 a 1.097 líneas; `runMigrations` (backup/restore) sigue en la fachada y llama al `applyMigrations` importado. **Pendiente:** fase (c) extraer el schema DDL a `db/schema.cjs` y documentar la plantilla para migraciones futuras (idealmente un archivo por versión). Smoke manual: DB nueva, DB en HEAD y DB vieja migrando.
 
 ## Problema
 
