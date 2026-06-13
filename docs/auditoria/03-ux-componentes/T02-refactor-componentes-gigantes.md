@@ -1,7 +1,7 @@
 # T02 — Refactor de componentes gigantes (>1.100 líneas)
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UX Componentes
-**Estado**: 🔶 Fase 5 implementada (2026-06-13) — troceados en orden: ChatToolCard 1.298→790 (#367), FolderTabView 1.194→565 (#374), RunsWorkspaceView 1.895→582 (#375), AutomationsWorkspaceView 1.342→790 (#376), UnifiedSidebar 2.123→933 (rama `refactor/ux-unifiedsidebar`: `sidebar/` con sidebarHelpers, SidebarContextMenu, SidebarModals, SidebarFileTree —TreeNode+FileTree recursivos juntos— y AddResourceMenu). **Pendiente:** ManyPanel (1.597) — es un único componente de chat sin costuras mecánicas (la lógica de envío/streaming requeriría extraer a un hook), marcado como "smoke test fuerte" por la propia tarea; se difiere hasta poder validarlo en runtime. **Plan de ejecución detallado por fases:** [ManyPanel-plan.md](ManyPanel-plan.md).
+**Estado**: ✅ Implementado (2026-06-13) — troceados: ChatToolCard 1.298→790 (#367), FolderTabView 1.194→565 (#374), RunsWorkspaceView 1.895→582 (#375), AutomationsWorkspaceView 1.342→790 (#376), UnifiedSidebar 2.123→933 (#378). **ManyPanel** (1.597): Fase A extrajo `useManyConversationSettings` (#387, verificada en runtime, 1.597→1.544); el resto se **cierra a propósito** — análisis con la app levantada confirmó que send/stream/budget/sesiones son un cluster cohesivo de orquestación (no fases independientes) cuyo troceo es alto riesgo/bajo retorno en el path de chat. Detalle y justificación en [ManyPanel-plan.md](ManyPanel-plan.md).
 
 ## Problema
 

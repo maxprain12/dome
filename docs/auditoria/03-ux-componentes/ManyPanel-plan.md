@@ -1,6 +1,23 @@
 # Plan de ejecución — trocear ManyPanel (03/T02, último gigante)
 
-**Estado:** pendiente — requiere la app levantada (`pnpm run electron:dev`) para smoke test tras cada fase. ManyPanel es el panel de chat principal; un fallo aquí rompe la UX central, por eso NO se troceó a ciegas.
+**Estado:** ✅ Fase A hecha (#387, verificada en runtime). **Resto: cerrado a propósito** tras el análisis con la app levantada (2026-06-13) — ver "Hallazgo" abajo. ManyPanel es el panel de chat principal; un fallo aquí rompe la UX central.
+
+## Hallazgo (2026-06-13) — el resto NO son fases independientes
+
+Al examinar el código con la app abierta se confirmó que **solo la configuración de la conversación era separable limpiamente** (extraída en la Fase A: `useManyConversationSettings`). Las "fases" B/C/D del plan original están **entrelazadas en un único cluster cohesivo de ~1.500 líneas**:
+
+- Los setters de **budget** (`setLastBudget`/`setLiveUsage`/`setCompactionNotice`) se llaman **desde dentro de los callbacks de streaming** (`useAgentRunStream`), no desde un sitio aislado.
+- Los **snapshots de sesión** (`applyRunSnapshot`/`refreshSessionFromThread`) se llaman desde el **ciclo de vida del run** (onRunUpdated, run-terminal, handleSend).
+- `handleSend` (~290 líneas) lee ~20 valores de estado y llama ~15 setters, todos compartidos con el streaming y las sesiones.
+
+**Decisión:** parar en la Fase A. El render ya está delegado a subcomponentes (`UnifiedChatMessageArea`, `ManyChatHeader`, `UnifiedChatInput`, `ManyHitlInlineSection`, …) y hooks (`useAgentRunStream`); el tamaño restante de ManyPanel es **complejidad de orquestación inherente**, no código muerto ni duplicación. Trocear el cluster (mover ~600 líneas de estado a un hook, o extraer `handleSend` con un contexto de ~35 campos) introduce riesgo real de regresión (stale refs, setters olvidados, efectos reordenados) en el path más crítico de la app, a cambio de solo bajar un contador de líneas. El valor real del refactor —aislar lógica testeable— ya lo capturó la Fase A.
+
+Si en el futuro se quiere continuar, hacerlo **con la app levantada** y verificando tras cada cambio: enviar/stream/abort/regenerate, HITL aceptar y rechazar, voz global (modo headless), selección de región PDF, y cambio de sesión.
+
+---
+
+## Plan original (referencia histórica — B/C/D resultaron entrelazadas)
+
 
 ## Por qué es distinto de los otros gigantes
 
