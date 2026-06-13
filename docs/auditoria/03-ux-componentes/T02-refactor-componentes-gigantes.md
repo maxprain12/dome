@@ -1,7 +1,7 @@
 # T02 — Refactor de componentes gigantes (>1.100 líneas)
 
 **Prioridad**: P1 · **Severidad**: Alta · **Esfuerzo**: L · **Área**: UX Componentes
-**Estado**: 🔶 Fase 2 implementada (2026-06-11, rama `refactor/ux-foldertabview`) — tras ChatToolCard (#367), **FolderTabView pasa de 1.194 a ~565 líneas** extrayendo a `shell/folder-tab/`: `folderTabShared.tsx` (color de carpeta, icono/etiquetas de tipo), `ColorPickerPopover`, `SubfolderCard` (216), `FileRow` (203), `NewFolderInline` y `AddMenu`. Refactor puro, imports muertos podados. **Pendiente:** RunsWorkspaceView (1.895) + AutomationsWorkspaceView (1.342) con comunes en `hub/shared/`, ManyPanel (1.597, smoke fuerte) y UnifiedSidebar (2.140).
+**Estado**: 🔶 Fase 4 implementada (2026-06-13) — troceados en orden: ChatToolCard 1.298→790 (#367), FolderTabView 1.194→565 (#374), RunsWorkspaceView 1.895→582 (#375, módulos en `hub/runs/`), AutomationsWorkspaceView 1.342→~790 (rama `refactor/ux-automations-workspace`: `automations/automationsShared.ts` con tipos de draft + `formatHubDate` + `EMPTY_DRAFT`, y `AutomationEditDrawer.tsx` ~490). Refactor puro, imports muertos podados. **Pendiente:** ManyPanel (1.597, smoke fuerte) y UnifiedSidebar (2.140).
 
 ## Problema
 
