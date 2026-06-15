@@ -4,6 +4,46 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.4.0](https://github.com/maxprain12/dome/releases/tag/v2.4.0) - 2026-06-15
+
+Versión grande: una nueva forma de gestionar las claves de IA, la auditoría de seguridad P0–P2 completa, un arreglo de Windows y una modernización interna profunda.
+
+### Added
+
+- **API key y base URL propias por cada proveedor de IA.** Cada proveedor guarda su clave cifrada en su propio slot, así que **cambiar a un proveedor ya configurado no vuelve a pedir la clave** — se recupera automáticamente. El selector de proveedores se reorganiza en **Configurados** (con la insignia «Clave guardada») y **Disponibles**. (#371)
+- **Proveedores OpenCode Zen y OpenCode Go.** (#354)
+- **Errores del proceso principal visibles para el usuario**: fallos de agent-runs, workflows y automatizaciones aparecen como avisos (toasts) con causa y acción, en los 4 idiomas, agrupados para no inundar. (#362)
+
+### Fixed
+
+- **Carga de skills en Windows**: las rutas absolutas de Windows (`C:\Users\…\skills\…`) rompían la carga de skills (`path should be a path.relative()'d string`) o el respeto de `.gitignore`. Los helpers de ruta normalizan ahora los separadores. (#391)
+- **Ventanas pequeñas (responsive)**: la app vuelve a ser usable hasta 800×600; panel y sidebar colapsan en ventanas estrechas. (#364)
+- **Accesibilidad**: roles/labels/foco corregidos en todo el árbol; `jsx-a11y` en modo error en CI con 0 hallazgos; `DomeButton` exige nombre accesible en botones de solo icono. (#368)
+- **Colores hardcodeados**: los 279 valores hex sueltos pasan a variables CSS y paletas centralizadas (tema claro/oscuro consistente). (#370)
+
+### Security — Auditoría P0–P2 (#351)
+
+- `sandbox: true` en todas las ventanas; `contextIsolation`/`nodeIntegration` correctos.
+- **API keys y tokens cifrados en reposo** con `safeStorage` (`enc:v1:…`); las claves enmascaradas nunca viajan a las cabeceras HTTP.
+- CSP en la ventana principal; validación de sender en todos los handlers IPC.
+- Hardening de `shell:exec` (denylist + fix ReDoS); bloqueo SSRF a IPs locales/metadata en `web_fetch`.
+- Timeouts del estado OAuth pendiente; grants de paths externos desde diálogos nativos y drag&drop (denylist de `~/.ssh`, `~/.aws`, keychains…).
+- Retención del histórico de runs (purga configurable); backup automático de la DB antes de migrar, con restauración si una migración falla.
+
+### Changed (interno)
+
+- **Modales unificados**: todos (incluidos los 6 que usaban Mantine `Modal`) pasan a `DomeModal` con focus trap, Escape, devolución de foco y scroll lock. (#369, #373, #379)
+- **Botones unificados** en `DomeButton` + regla de lint que impide volver a `Button` de Mantine. (#363)
+- **Componentes gigantes troceados** (refactor puro): ChatToolCard, FolderTabView, RunsWorkspaceView, AutomationsWorkspaceView y UnifiedSidebar (2.123 → 933 líneas). (#367, #374, #375, #376, #378)
+- **`database.cjs` de ~5.000 a 657 líneas** — queries, migraciones y schema en `electron/core/db/`. (#360, #377, #380)
+- **`run-engine.cjs` de 2.317 a 1.310 líneas** — DAG, store, executor, lifecycle y helpers extraídos. (#365, #372)
+- Tests en CI (seguridad + agent-core), logging estructurado con rotación/masking, y **Renovate** para dependencias.
+
+### Dependencies
+
+- `protobufjs` → `^7.6.4` (parche de seguridad). (#385)
+- `pyodide` → `314` (notebooks; en escritorio se ejecuta vía Python local, pyodide es el fallback web). (#389, #390)
+
 ## [2.3.7](https://github.com/maxprain12/dome/releases/tag/v2.3.7) - 2026-06-09
 
 ### Fixed
