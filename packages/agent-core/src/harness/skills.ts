@@ -349,25 +349,36 @@ async function resolveKind(
 	return target.value.kind === "file" || target.value.kind === "directory" ? target.value.kind : undefined;
 }
 
+// Skill paths come from the host filesystem and may use native separators
+// (Windows `listDir`/`fileInfo` return `C:\Users\...\skills\foo`). These
+// helpers — and the `ignore` matcher, which requires a relative POSIX path —
+// operate on forward slashes, so normalize first. Without this, relativeEnvPath
+// fails the startsWith check on Windows and leaks an absolute path into
+// ignoreMatcher.ignores(), which throws "path should be a path.relative()'d
+// string, but got C:\Users\...".
+function toPosixPath(p: string): string {
+	return p.replace(/\\/g, "/");
+}
+
 function joinEnvPath(base: string, child: string): string {
-	return `${base.replace(/\/+$/, "")}/${child.replace(/^\/+/, "")}`;
+	return `${toPosixPath(base).replace(/\/+$/, "")}/${toPosixPath(child).replace(/^\/+/, "")}`;
 }
 
 function dirnameEnvPath(path: string): string {
-	const normalized = path.replace(/\/+$/, "");
+	const normalized = toPosixPath(path).replace(/\/+$/, "");
 	const slashIndex = normalized.lastIndexOf("/");
 	return slashIndex <= 0 ? "/" : normalized.slice(0, slashIndex);
 }
 
 function basenameEnvPath(path: string): string {
-	const normalized = path.replace(/\/+$/, "");
+	const normalized = toPosixPath(path).replace(/\/+$/, "");
 	const slashIndex = normalized.lastIndexOf("/");
 	return slashIndex === -1 ? normalized : normalized.slice(slashIndex + 1);
 }
 
 function relativeEnvPath(root: string, path: string): string {
-	const normalizedRoot = root.replace(/\/+$/, "");
-	const normalizedPath = path.replace(/\/+$/, "");
+	const normalizedRoot = toPosixPath(root).replace(/\/+$/, "");
+	const normalizedPath = toPosixPath(path).replace(/\/+$/, "");
 	if (normalizedPath === normalizedRoot) return "";
 	return normalizedPath.startsWith(`${normalizedRoot}/`)
 		? normalizedPath.slice(normalizedRoot.length + 1)
