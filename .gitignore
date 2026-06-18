@@ -71,3 +71,10 @@ Dome Desktop/
 
 # Generated credentials (baked in during CI build)
 electron/app-credentials.cjs
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+.design-sync/app-styles.css
+.design-sync/stubs/i18n-es.json

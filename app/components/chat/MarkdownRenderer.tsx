@@ -5,6 +5,8 @@ import remarkGfm from 'remark-gfm';
 import type { Components } from 'react-markdown';
 import CitationBadge from './CitationBadge';
 import DomePdfPageInline from './DomePdfPageInline';
+import GithubProxyImage from '@/components/github/GithubProxyImage';
+import { isGithubHostedImageUrl } from '@/lib/github/client';
 import type { ParsedCitation } from '@/lib/utils/citations';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
@@ -99,6 +101,8 @@ interface MarkdownRendererProps {
   content: string;
   citationMap?: Map<number, ParsedCitation>;
   onClickCitation?: (number: number) => void;
+  /** Load github.com / githubusercontent.com images via main-process OAuth proxy. */
+  githubImageProxy?: boolean;
 }
 
 /**
@@ -183,7 +187,7 @@ function processTextWithCitations(
   return parts;
 }
 
-export default function MarkdownRenderer({ content, citationMap, onClickCitation }: MarkdownRendererProps) {
+export default function MarkdownRenderer({ content, citationMap, onClickCitation, githubImageProxy }: MarkdownRendererProps) {
   const { t } = useTranslation();
   const hasCitations = citationMap && citationMap.size > 0;
   const navigate = useNavigate();
@@ -586,6 +590,13 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           }
           return null;
         }
+        if (
+          githubImageProxy &&
+          typeof src === 'string' &&
+          (src.startsWith('data:') || isGithubHostedImageUrl(src))
+        ) {
+          return <GithubProxyImage src={src} alt={alt} />;
+        }
         return (
           <img
             src={src}
@@ -664,7 +675,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
     };
 
     return baseComponents;
-  }, [citationMap, handleOpenExternalUrl, hasCitations, onClickCitation]);
+  }, [citationMap, githubImageProxy, handleOpenExternalUrl, hasCitations, onClickCitation]);
 
   const processedContent = useMemo(
     () =>
@@ -696,7 +707,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
   );
 
   const markdownUrlTransform = useCallback((url: string) => {
-    if (url.startsWith('dome://') || url.startsWith('dome-pdf-page:')) {
+    if (url.startsWith('dome://') || url.startsWith('dome-pdf-page:') || url.startsWith('data:')) {
       return url;
     }
 

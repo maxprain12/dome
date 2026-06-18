@@ -2791,6 +2791,158 @@ async function calendarDeleteEvent({ event_id } = {}) {
 }
 
 // =============================================================================
+// GitHub project sync (Seguimiento) — every result is tagged source: 'github'
+// =============================================================================
+
+function githubStore() {
+  return require('../github/github-store.cjs');
+}
+function githubSyncService() {
+  return require('../github/github-sync-service.cjs');
+}
+function ghParseArr(s) {
+  try {
+    const v = JSON.parse(s || '[]');
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+async function githubListRepos({ selected_only = true } = {}) {
+  try {
+    const repos = selected_only ? githubStore().listSelectedRepos() : githubStore().listRepos();
+    return {
+      success: true,
+      source: 'github',
+      repos: repos.map((r) => ({ id: r.id, full_name: r.full_name, private: !!r.private, selected: !!r.selected, url: r.html_url })),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubListMilestones({ repo_id } = {}) {
+  try {
+    if (!repo_id) return { success: false, error: 'repo_id is required' };
+    const repo = githubStore().getRepo(repo_id);
+    const milestones = githubStore().listMilestones(repo_id).map((m) => ({
+      id: m.id,
+      number: m.number,
+      title: m.title,
+      state: m.state,
+      due_on: m.due_on,
+      closed_at: m.closed_at ?? null,
+      open_issues: m.open_issues,
+      closed_issues: m.closed_issues,
+      url: m.html_url,
+      repo: repo?.full_name ?? null,
+    }));
+    return { success: true, source: 'github', milestones };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubUpcomingMilestones({ limit = 30, state = 'all', include_past_due = true } = {}) {
+  try {
+    const repos = githubStore().listSelectedRepos();
+    const rows = [];
+    const now = Date.now();
+    for (const repo of repos) {
+      for (const m of githubStore().listMilestones(repo.id)) {
+        if (state !== 'all' && m.state !== state) continue;
+        if (!include_past_due && m.due_on != null && m.due_on < now) continue;
+        rows.push({
+          repo: repo.full_name,
+          repo_id: repo.id,
+          id: m.id,
+          number: m.number,
+          title: m.title,
+          state: m.state,
+          due_on: m.due_on,
+          closed_at: m.closed_at ?? null,
+          open_issues: m.open_issues,
+          closed_issues: m.closed_issues,
+          url: m.html_url,
+        });
+      }
+    }
+    rows.sort((a, b) => {
+      if (a.due_on == null && b.due_on == null) return a.title.localeCompare(b.title);
+      if (a.due_on == null) return 1;
+      if (b.due_on == null) return -1;
+      return a.due_on - b.due_on;
+    });
+    const cap = Math.max(1, Math.min(Number(limit) || 30, 100));
+    return { success: true, source: 'github', count: rows.length, milestones: rows.slice(0, cap) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubListIssues({ repo_id, state = 'all' } = {}) {
+  try {
+    if (!repo_id) return { success: false, error: 'repo_id is required' };
+    let issues = githubStore().listIssues(repo_id);
+    if (state === 'open' || state === 'closed') issues = issues.filter((i) => i.state === state);
+    return {
+      success: true,
+      source: 'github',
+      issues: issues.map((i) => ({
+        id: i.id,
+        number: i.number,
+        title: i.title,
+        state: i.state,
+        milestone_number: i.milestone_number,
+        labels: ghParseArr(i.labels),
+        due_date: i.due_date,
+        url: i.html_url,
+      })),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubCreateIssue({ repo_id, title, body, milestone_number, labels } = {}) {
+  try {
+    if (!repo_id || !title) return { success: false, error: 'repo_id and title are required' };
+    const issue = await githubSyncService().createIssue(repo_id, { title, body, milestoneNumber: milestone_number, labels });
+    return { success: true, source: 'github', issue };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubUpdateIssue({ issue_id, title, body, state, milestone_number } = {}) {
+  try {
+    if (!issue_id) return { success: false, error: 'issue_id is required' };
+    const patch = {};
+    if (title != null) patch.title = title;
+    if (body != null) patch.body = body;
+    if (state === 'open' || state === 'closed') patch.state = state;
+    if (milestone_number !== undefined) patch.milestoneNumber = milestone_number;
+    const issue = githubStore().updateLocalIssue(issue_id, patch);
+    if (!issue) return { success: false, error: 'Issue not found' };
+    // Push to GitHub + refresh.
+    void githubSyncService().syncNow().catch(() => {});
+    return { success: true, source: 'github', issue };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function githubSync() {
+  try {
+    const res = await githubSyncService().syncNow();
+    return { ...res, source: 'github' };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // Entity Creation (Agents)
 // =============================================================================
 
@@ -4112,6 +4264,13 @@ module.exports = {
 
   // Calendar tools
   calendarListEvents,
+  githubListRepos,
+  githubListMilestones,
+  githubUpcomingMilestones,
+  githubListIssues,
+  githubCreateIssue,
+  githubUpdateIssue,
+  githubSync,
   calendarGetUpcoming,
   calendarCreateEvent,
   calendarUpdateEvent,

@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { ExternalLink } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
+import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
+
+const GITHUB_CALENDAR_ID = 'github-dome';
 
 function toLocalISO(d: Date) {
   const y = d.getFullYear();
@@ -12,6 +16,42 @@ function toLocalISO(d: Date) {
   const h = String(d.getHours()).padStart(2, '0');
   const min = String(d.getMinutes()).padStart(2, '0');
   return `${y}-${m}-${day}T${h}:${min}`;
+}
+
+function isGithubCalendarEvent(event: CalendarEvent | null | undefined): boolean {
+  if (!event) return false;
+  if (event.calendar_id === GITHUB_CALENDAR_ID) return true;
+  return event.metadata?.source === 'github';
+}
+
+function githubEventUrl(event: CalendarEvent): string | null {
+  const url = event.metadata?.url;
+  return typeof url === 'string' && url.startsWith('https://') ? url : null;
+}
+
+/** Drop the auto-appended source footer so markdown body stays clean. */
+function markdownBodyFromDescription(description: string | undefined): string {
+  if (!description) return '';
+  return description.replace(/\n\n— Fuente: GitHub(?: · .+)?$/u, '').trim();
+}
+
+function formatEventWhen(event: CalendarEvent, locale: string): string {
+  const dueOn = typeof event.metadata?.dueOn === 'number' ? event.metadata.dueOn : null;
+  const start = new Date(dueOn ?? event.start_at);
+  if (event.all_day) {
+    return start.toLocaleDateString(locale, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  }
+  return start.toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' });
+}
+
+function githubMilestoneMeta(event: CalendarEvent) {
+  if (event.metadata?.entityType !== 'milestone') return null;
+  return {
+    repoFullName: typeof event.metadata.repoFullName === 'string' ? event.metadata.repoFullName : null,
+    milestoneTitle: typeof event.metadata.milestoneTitle === 'string' ? event.metadata.milestoneTitle : null,
+    dueOn: typeof event.metadata.dueOn === 'number' ? event.metadata.dueOn : null,
+    state: event.metadata.milestoneState === 'closed' ? 'closed' as const : 'open' as const,
+  };
 }
 
 interface EventModalProps {
@@ -36,7 +76,12 @@ export default function EventModal({
   onSave,
   onDelete,
 }: EventModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const githubEvent = isGithubCalendarEvent(event);
+  const githubUrl = event ? githubEventUrl(event) : null;
+  const milestoneMeta = event ? githubMilestoneMeta(event) : null;
+  const markdownBody = markdownBodyFromDescription(event?.description);
+
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
   const [location, setLocation] = useState(event?.location ?? '');
@@ -88,6 +133,99 @@ export default function EventModal({
       setDeleting(false);
     }
   };
+
+  if (githubEvent && event) {
+    return (
+      <DomeModal
+        open
+        onClose={onClose}
+        title={event.title}
+        size="lg"
+        headerActions={
+          githubUrl ? (
+            <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
+              <ExternalLink size={16} />
+            </a>
+          ) : null
+        }
+        footer={
+          <div className="flex items-center justify-end w-full">
+            <button type="button" onClick={onClose} className="h-pill-btn primary">
+              {t('common.close', { defaultValue: 'Cerrar' })}
+            </button>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {milestoneMeta ? (
+            <dl
+              className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm rounded-lg px-3 py-3"
+              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+            >
+              {milestoneMeta.repoFullName ? (
+                <>
+                  <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_repo')}</dt>
+                  <dd style={{ color: 'var(--dome-text)' }}>{milestoneMeta.repoFullName}</dd>
+                </>
+              ) : null}
+              {milestoneMeta.milestoneTitle ? (
+                <>
+                  <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_milestone')}</dt>
+                  <dd style={{ color: 'var(--dome-text)' }}>{milestoneMeta.milestoneTitle}</dd>
+                </>
+              ) : null}
+              {milestoneMeta.dueOn ? (
+                <>
+                  <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_due_date')}</dt>
+                  <dd style={{ color: 'var(--dome-text)' }}>
+                    {new Date(milestoneMeta.dueOn).toLocaleDateString(i18n.language, {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </dd>
+                </>
+              ) : null}
+              <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_state')}</dt>
+              <dd style={{ color: milestoneMeta.state === 'closed' ? 'var(--success)' : 'var(--dome-text)' }}>
+                {milestoneMeta.state === 'closed' ? t('github.calendar_completed') : t('github.calendar_pending')}
+              </dd>
+            </dl>
+          ) : (
+            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              {formatEventWhen(event, i18n.language)}
+              {event.all_day ? ` · ${t('calendarPage.all_day')}` : null}
+            </p>
+          )}
+          {event.calendar_title && !milestoneMeta ? (
+            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              {event.calendar_title}
+            </p>
+          ) : null}
+          {markdownBody ? (
+            <GithubMarkdownBody content={markdownBody} className="text-sm max-h-[min(60vh,520px)] overflow-y-auto" />
+          ) : (
+            <p className="text-sm italic" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('github.no_description')}
+            </p>
+          )}
+          {githubUrl ? (
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm inline-flex items-center gap-1.5 w-fit"
+              style={{ color: 'var(--dome-accent)' }}
+            >
+              <ExternalLink size={14} />
+              {t('github.calendar_view_on_github')}
+            </a>
+          ) : null}
+        </div>
+      </DomeModal>
+    );
+  }
 
   return (
     <DomeModal

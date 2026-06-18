@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-11T20:44:08.834Z
+> Última generación: 2026-06-18T19:27:37.921Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -296,6 +296,27 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `get-home-path` | `electron/ipc/core/system.cjs:17` |
 | `get-theme` | `electron/ipc/core/system.cjs:171` |
 | `get-user-data-path` | `electron/ipc/core/system.cjs:7` |
+| `github:auth:disconnect` | `electron/ipc/integrations/github.cjs:65` |
+| `github:auth:poll` | `electron/ipc/integrations/github.cjs:43` |
+| `github:auth:start` | `electron/ipc/integrations/github.cjs:32` |
+| `github:auth:status` | `electron/ipc/integrations/github.cjs:56` |
+| `github:branches:list` | `electron/ipc/integrations/github.cjs:139` |
+| `github:image:resolve` | `electron/ipc/integrations/github.cjs:249` |
+| `github:issue:comment:create` | `electron/ipc/integrations/github.cjs:210` |
+| `github:issue:comments:list` | `electron/ipc/integrations/github.cjs:199` |
+| `github:issue:create` | `electron/ipc/integrations/github.cjs:188` |
+| `github:issue:move` | `electron/ipc/integrations/github.cjs:173` |
+| `github:issue:update` | `electron/ipc/integrations/github.cjs:160` |
+| `github:issues:get` | `electron/ipc/integrations/github.cjs:129` |
+| `github:issues:list` | `electron/ipc/integrations/github.cjs:119` |
+| `github:milestone:create` | `electron/ipc/integrations/github.cjs:233` |
+| `github:milestone:update` | `electron/ipc/integrations/github.cjs:221` |
+| `github:milestones:list` | `electron/ipc/integrations/github.cjs:109` |
+| `github:releases:list` | `electron/ipc/integrations/github.cjs:149` |
+| `github:repos:list` | `electron/ipc/integrations/github.cjs:77` |
+| `github:repos:refresh` | `electron/ipc/integrations/github.cjs:86` |
+| `github:repos:setSelected` | `electron/ipc/integrations/github.cjs:96` |
+| `github:sync:now` | `electron/ipc/integrations/github.cjs:290` |
 | `image:crop` | `electron/ipc/media/images.cjs:11` |
 | `image:metadata` | `electron/ipc/media/images.cjs:82` |
 | `image:resize` | `electron/ipc/media/images.cjs:37` |

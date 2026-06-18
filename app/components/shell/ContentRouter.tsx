@@ -16,6 +16,7 @@ const NoteWorkspaceClient = lazy(() => import('@/workspace/note/[[...params]]/cl
 const PptWorkspaceClient = lazy(() => import('@/workspace/ppt/client'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
+const GitHubView = lazy(() => import('@/components/github/GitHubView'));
 import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
@@ -204,6 +205,17 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
               <CalendarPage />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'github':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <GitHubView />
             </div>
           </Suspense>
         </ErrorBoundary>

@@ -236,6 +236,8 @@ const mcpOauth = require('./mcp/mcp-oauth.cjs');
 const { handleDomeUrl } = require('./core/deep-link-handler.cjs');
 const calendarNotificationService = require('./calendar/calendar-notification-service.cjs');
 const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
+const githubSyncService = require('./github/github-sync-service.cjs');
+const githubSyncScheduler = require('./github/github-sync-scheduler.cjs');
 const automationService = require('./agents/automation-service.cjs');
 const runRetention = require('./agents/run-retention.cjs');
 const errorNotify = require('./core/error-notify.cjs');
@@ -1045,6 +1047,8 @@ app
     // Initialize calendar notification service (upcoming events broadcast)
     calendarNotificationService.init(windowManager);
     calendarSyncScheduler.init(windowManager);
+    githubSyncService.init(windowManager);
+    githubSyncScheduler.init(windowManager);
     runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
     runRetention.init();
