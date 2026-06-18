@@ -1,0 +1,29 @@
+{
+  "comment": "design-sync ONLY. Path-resolution for the bundle. baseUrl '..' makes targets resolve from repo root. The pathsPlugin reads THIS file's compilerOptions.paths directly (it does not follow `extends`), so the real @/ aliases are duplicated here, plus Node/Electron builtins stubbed for the browser IIFE.",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@/lib/i18n": ["./.design-sync/stubs/i18n.ts"],
+      "@/lib/utils": ["./app/lib/utils/index.ts"],
+      "@/types": ["./app/types/index.ts"],
+      "@/components/*": ["./app/components/*"],
+      "@/lib/*": ["./app/lib/*"],
+      "@/*": ["./app/*"],
+      "@dome/i18n": ["./packages/i18n/src/index.ts"],
+      "path": ["./.design-sync/stubs/node-empty.ts"],
+      "node:path": ["./.design-sync/stubs/node-empty.ts"],
+      "os": ["./.design-sync/stubs/node-empty.ts"],
+      "node:os": ["./.design-sync/stubs/node-empty.ts"],
+      "fs": ["./.design-sync/stubs/node-empty.ts"],
+      "node:fs": ["./.design-sync/stubs/node-empty.ts"],
+      "fs/promises": ["./.design-sync/stubs/node-empty.ts"],
+      "node:fs/promises": ["./.design-sync/stubs/node-empty.ts"],
+      "crypto": ["./.design-sync/stubs/node-empty.ts"],
+      "node:crypto": ["./.design-sync/stubs/node-empty.ts"],
+      "child_process": ["./.design-sync/stubs/node-empty.ts"],
+      "node:child_process": ["./.design-sync/stubs/node-empty.ts"],
+      "electron": ["./.design-sync/stubs/node-empty.ts"],
+      "better-sqlite3": ["./.design-sync/stubs/node-empty.ts"]
+    }
+  }
+}
