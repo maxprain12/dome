@@ -152,7 +152,9 @@ export function buildSharedUiContextBlock(context: SharedAgentContext): string {
 }
 
 export function buildSharedResourceHint(context: SharedAgentContext): string {
-  const hints: string[] = [];
+  const hints: string[] = [
+    'GitHub milestones, fechas de entrega, issues or Seguimiento: call github_upcoming_milestones (all synced repos) or github_list_repos + github_list_milestones. Requires GitHub connected and repos selected in Seguimiento — never answer from library search alone.',
+  ];
   const isNotebook = context.pathname.includes('/workspace/notebook');
 
   if (context.currentResourceId) {
@@ -178,7 +180,7 @@ export function buildSharedResourceHint(context: SharedAgentContext): string {
     );
   }
 
-  return hints.length > 0 ? `\n\n## Active Resource and Folder Hints\n- ${hints.join('\n- ')}` : '';
+  return hints.length > 0 ? `\n\n## Tool routing hints\n- ${hints.join('\n- ')}` : '';
 }
 
 export function resolveManyCapabilityRuntime(

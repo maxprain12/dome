@@ -2894,6 +2894,171 @@ function applyMigrations(db, version) {
       console.error('[DB] Migration 42 failed:', error);
     }
   }
+
+  if (version < 43) {
+    console.log('[DB] Running migration 43 - GitHub project sync tables');
+    try {
+      // Selected repositories to sync.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_repos (
+          id TEXT PRIMARY KEY,
+          remote_id INTEGER NOT NULL,
+          owner TEXT NOT NULL,
+          name TEXT NOT NULL,
+          full_name TEXT NOT NULL,
+          private INTEGER DEFAULT 0,
+          html_url TEXT,
+          selected INTEGER DEFAULT 0,
+          last_sync_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          UNIQUE(full_name)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_repos_selected ON github_repos(selected)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_milestones (
+          id TEXT PRIMARY KEY,
+          repo_id TEXT NOT NULL,
+          number INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          due_on INTEGER,
+          state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open', 'closed')),
+          open_issues INTEGER DEFAULT 0,
+          closed_issues INTEGER DEFAULT 0,
+          html_url TEXT,
+          remote_updated_at INTEGER,
+          dome_updated_at INTEGER,
+          dirty INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (repo_id) REFERENCES github_repos(id) ON DELETE CASCADE,
+          UNIQUE(repo_id, number)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_milestones_repo ON github_milestones(repo_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_milestones_dirty ON github_milestones(dirty)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_issues (
+          id TEXT PRIMARY KEY,
+          repo_id TEXT NOT NULL,
+          number INTEGER NOT NULL,
+          title TEXT NOT NULL,
+          body TEXT,
+          state TEXT NOT NULL DEFAULT 'open' CHECK(state IN ('open', 'closed')),
+          milestone_number INTEGER,
+          due_date INTEGER,
+          labels TEXT,
+          assignees TEXT,
+          is_pull_request INTEGER DEFAULT 0,
+          html_url TEXT,
+          remote_updated_at INTEGER,
+          dome_updated_at INTEGER,
+          dirty INTEGER DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (repo_id) REFERENCES github_repos(id) ON DELETE CASCADE,
+          UNIQUE(repo_id, number)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_issues_repo ON github_issues(repo_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_issues_milestone ON github_issues(repo_id, milestone_number)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_issues_dirty ON github_issues(dirty)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_branches (
+          id TEXT PRIMARY KEY,
+          repo_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          sha TEXT,
+          protected INTEGER DEFAULT 0,
+          linked_issue_number INTEGER,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (repo_id) REFERENCES github_repos(id) ON DELETE CASCADE,
+          UNIQUE(repo_id, name)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_branches_repo ON github_branches(repo_id)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_releases (
+          id TEXT PRIMARY KEY,
+          repo_id TEXT NOT NULL,
+          remote_id INTEGER NOT NULL,
+          tag_name TEXT NOT NULL,
+          name TEXT,
+          published_at INTEGER,
+          html_url TEXT,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (repo_id) REFERENCES github_repos(id) ON DELETE CASCADE,
+          UNIQUE(repo_id, remote_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_releases_repo ON github_releases(repo_id)');
+
+      // Per-repo, per-resource ETags for conditional requests (rate-limit budget).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_sync_state (
+          id TEXT PRIMARY KEY,
+          repo_id TEXT NOT NULL,
+          resource TEXT NOT NULL,
+          etag TEXT,
+          last_synced_at INTEGER,
+          FOREIGN KEY (repo_id) REFERENCES github_repos(id) ON DELETE CASCADE,
+          UNIQUE(repo_id, resource)
+        )
+      `);
+
+      // Maps a GitHub entity to the Dome calendar event it projects to
+      // (mirrors calendar_event_links). Lets us upsert/delete idempotently.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS github_calendar_links (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL CHECK(entity_type IN ('milestone', 'issue', 'release')),
+          entity_id TEXT NOT NULL,
+          event_id TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (event_id) REFERENCES calendar_events(id) ON DELETE CASCADE,
+          UNIQUE(entity_type, entity_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_calendar_links_event ON github_calendar_links(event_id)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '43', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '43', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 43 complete - GitHub project sync tables');
+    } catch (error) {
+      console.error('[DB] Migration 43 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 44) {
+    console.log('[DB] Running migration 44 - GitHub milestone closed_at');
+    try {
+      const cols = db.prepare('PRAGMA table_info(github_milestones)').all();
+      if (!cols.some((c) => c.name === 'closed_at')) {
+        db.exec('ALTER TABLE github_milestones ADD COLUMN closed_at INTEGER');
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '44', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '44', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 44 complete - GitHub milestone closed_at');
+    } catch (error) {
+      console.error('[DB] Migration 44 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

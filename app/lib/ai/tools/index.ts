@@ -296,6 +296,9 @@ export {
   createMarketplaceTools,
 } from './marketplace-tools';
 
+// Tools - GitHub Seguimiento
+export { createGithubTools } from './github-tools';
+
 // Tools - Native File & Shell
 export {
   createFileReadTool,
@@ -349,6 +352,7 @@ import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
 import { createEntityTools } from './entity-tools';
 import { createMarketplaceTools } from './marketplace-tools';
+import { createGithubTools } from './github-tools';
 import { createFileTools } from './file-tools';
 import { createShellTools } from './shell-tools';
 import { createUiTools } from './ui-tools';
@@ -455,6 +459,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Marketplace tools (search and install)
   tools.push(...createMarketplaceTools());
 
+  // GitHub Seguimiento (milestones, issues, repos)
+  tools.push(...createGithubTools());
+
   // Native file & shell tools
   tools.push(...createFileTools());
   tools.push(...createShellTools());
@@ -551,6 +558,9 @@ export function createManyToolsForContext(
 
   // Marketplace tools: useful when user asks about marketplace agents/workflows
   tools.push(...createMarketplaceTools());
+
+  // GitHub Seguimiento (milestones, issues, repos)
+  tools.push(...createGithubTools());
 
   // Native file & shell tools
   tools.push(...createFileTools());

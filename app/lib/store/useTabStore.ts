@@ -14,6 +14,7 @@ export type TabType =
   | 'settings'
   | 'chat'
   | 'calendar'
+  | 'github'
   | 'studio'
   | 'flashcards'
   | 'tags'
@@ -51,6 +52,7 @@ export const HOME_TAB_ID = 'home';
 export const PROJECTS_TAB_ID = 'projects';
 export const SETTINGS_TAB_ID = 'settings';
 export const CALENDAR_TAB_ID = 'calendar';
+export const GITHUB_TAB_ID = 'github';
 export const CHAT_TAB_PREFIX = 'chat:';
 export const STUDIO_TAB_ID = 'studio';
 export const FLASHCARDS_TAB_ID = 'flashcards';
@@ -126,6 +128,7 @@ interface TabStore {
   openNoteTab: (resourceId: string, title: string) => void;
   openSettingsTab: () => void;
   openCalendarTab: () => void;
+  openGitHubTab: () => void;
   openChatTab: (sessionId: string, title: string) => void;
   openStudioTab: () => void;
   openFlashcardsTab: () => void;
@@ -449,8 +452,11 @@ export const useTabStore = create<TabStore>((set, get) => {
       get().openTab({ id: SETTINGS_TAB_ID, type: 'settings', title: 'Settings', pinned: false });
     },
 
+    openGitHubTab: () => {
+      get().openTab({ id: GITHUB_TAB_ID, type: 'github', title: i18n.t('github.tab_title'), pinned: false });
+    },
     openCalendarTab: () => {
-      get().openTab({ id: CALENDAR_TAB_ID, type: 'calendar', title: 'Calendario', pinned: false });
+      get().openTab({ id: CALENDAR_TAB_ID, type: 'calendar', title: i18n.t('tabs.calendar'), pinned: false });
     },
 
     openChatTab: (sessionId: string, title: string) => {

@@ -166,6 +166,72 @@ interface GraphEdge {
 }
 
 declare global {
+  // GitHub project sync row shapes (mirror migration 43 columns)
+  interface GitHubRepoRow {
+    id: string;
+    remote_id: number;
+    owner: string;
+    name: string;
+    full_name: string;
+    private: number;
+    html_url: string | null;
+    selected: number;
+    last_sync_at: number | null;
+  }
+  interface GitHubMilestoneRow {
+    id: string;
+    repo_id: string;
+    number: number;
+    title: string;
+    description: string | null;
+    due_on: number | null;
+    closed_at?: number | null;
+    state: 'open' | 'closed';
+    open_issues: number;
+    closed_issues: number;
+    html_url: string | null;
+  }
+  interface GitHubIssueRow {
+    id: string;
+    repo_id: string;
+    number: number;
+    title: string;
+    body: string | null;
+    state: 'open' | 'closed';
+    milestone_number: number | null;
+    due_date: number | null;
+    labels: string;
+    assignees: string;
+    is_pull_request: number;
+    html_url: string | null;
+  }
+  interface GitHubIssueCommentRow {
+    id: number;
+    body: string;
+    user: string | null;
+    user_avatar: string | null;
+    created_at: number | null;
+    updated_at: number | null;
+    html_url: string | null;
+  }
+  interface GitHubBranchRow {
+    id: string;
+    repo_id: string;
+    name: string;
+    sha: string | null;
+    protected: number;
+    linked_issue_number: number | null;
+  }
+  interface GitHubReleaseRow {
+    id: string;
+    repo_id: string;
+    remote_id: number;
+    tag_name: string;
+    name: string | null;
+    published_at: number | null;
+    html_url: string | null;
+  }
+
   /** Row from `semantic_relations` + source resource (backlinks panel). `link_type` is `relation_type`. */
   interface ResourceSemanticBacklink {
     id: string;
@@ -435,6 +501,47 @@ declare global {
         poll: (payload: { deviceCode: string; interval?: number; expiresIn?: number }) => Promise<{ success: boolean; error?: string }>;
         status: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
         disconnect: () => Promise<{ success: boolean; error?: string }>;
+      };
+      github: {
+        auth: {
+          start: () => Promise<{
+            success: boolean;
+            deviceCode?: string;
+            userCode?: string;
+            verificationUri?: string;
+            interval?: number;
+            expiresIn?: number;
+            error?: string;
+          }>;
+          poll: (payload: { deviceCode: string; interval?: number; expiresIn?: number }) => Promise<{ success: boolean; login?: string | null; error?: string }>;
+          status: () => Promise<{ success: boolean; connected?: boolean; login?: string | null; error?: string }>;
+          disconnect: () => Promise<{ success: boolean; error?: string }>;
+        };
+        repos: {
+          list: () => Promise<{ success: boolean; repos?: GitHubRepoRow[]; error?: string }>;
+          refresh: () => Promise<{ success: boolean; repos?: GitHubRepoRow[]; error?: string }>;
+          setSelected: (repoId: string, selected: boolean) => Promise<{ success: boolean; repo?: GitHubRepoRow; error?: string }>;
+        };
+        milestones: {
+          list: (repoId: string) => Promise<{ success: boolean; milestones?: GitHubMilestoneRow[]; error?: string }>;
+          create: (repoId: string, data: { title: string; description?: string; dueOn?: number | null; state?: string }) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
+          update: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
+        };
+        issues: {
+          list: (repoId: string) => Promise<{ success: boolean; issues?: GitHubIssueRow[]; error?: string }>;
+          get: (id: string) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
+          create: (repoId: string, data: { title: string; body?: string; milestoneNumber?: number; labels?: string[]; assignees?: string[] }) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
+          update: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
+          move: (id: string, target: { state?: 'open' | 'closed'; milestoneNumber?: number | null }) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
+          listComments: (issueId: string) => Promise<{ success: boolean; comments?: GitHubIssueCommentRow[]; error?: string }>;
+          createComment: (issueId: string, body: string) => Promise<{ success: boolean; comment?: GitHubIssueCommentRow; error?: string }>;
+        };
+        branches: { list: (repoId: string) => Promise<{ success: boolean; branches?: GitHubBranchRow[]; error?: string }> };
+        releases: { list: (repoId: string) => Promise<{ success: boolean; releases?: GitHubReleaseRow[]; error?: string }> };
+        resolveImage: (url: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
+        syncNow: () => Promise<{ success: boolean; repos?: number; error?: string }>;
+        onSyncStatus: (cb: (data: { status: string; lastSync?: number; error?: string }) => void) => () => void;
+        onDataUpdated: (cb: (data: Record<string, unknown>) => void) => () => void;
       };
 
       // Plugins API

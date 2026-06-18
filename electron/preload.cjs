@@ -554,9 +554,34 @@ const ALLOWED_CHANNELS = {
     'feeder-secrets:set',
     'feeder-secrets:delete',
     'feeder-secrets:vault-status',
+    // GitHub project sync
+    'github:auth:start',
+    'github:auth:poll',
+    'github:auth:status',
+    'github:auth:disconnect',
+    'github:repos:list',
+    'github:repos:refresh',
+    'github:repos:setSelected',
+    'github:milestones:list',
+    'github:issues:list',
+    'github:issues:get',
+    'github:branches:list',
+    'github:releases:list',
+    'github:issue:update',
+    'github:issue:move',
+    'github:issue:create',
+    'github:issue:comments:list',
+    'github:issue:comment:create',
+    'github:milestone:update',
+    'github:milestone:create',
+    'github:image:resolve',
+    'github:sync:now',
   ],
   // Canales para on/once (main → renderer)
   on: [
+    // GitHub project sync (main → renderer broadcasts)
+    'github:sync:status',
+    'github:data:updated',
     'theme-changed',
     // System error notifications (main → toast in renderer)
     'system:error-notification',
@@ -946,6 +971,51 @@ const electronHandler = {
     poll: (payload) => ipcRenderer.invoke('copilot:auth:poll', payload),
     status: () => ipcRenderer.invoke('copilot:auth:status'),
     disconnect: () => ipcRenderer.invoke('copilot:auth:disconnect'),
+  },
+
+  // ============================================
+  // GITHUB PROJECT SYNC API
+  // ============================================
+  github: {
+    auth: {
+      start: () => ipcRenderer.invoke('github:auth:start'),
+      poll: (payload) => ipcRenderer.invoke('github:auth:poll', payload),
+      status: () => ipcRenderer.invoke('github:auth:status'),
+      disconnect: () => ipcRenderer.invoke('github:auth:disconnect'),
+    },
+    repos: {
+      list: () => ipcRenderer.invoke('github:repos:list'),
+      refresh: () => ipcRenderer.invoke('github:repos:refresh'),
+      setSelected: (repoId, selected) => ipcRenderer.invoke('github:repos:setSelected', repoId, selected),
+    },
+    milestones: {
+      list: (repoId) => ipcRenderer.invoke('github:milestones:list', repoId),
+      create: (repoId, data) => ipcRenderer.invoke('github:milestone:create', repoId, data),
+      update: (id, patch) => ipcRenderer.invoke('github:milestone:update', id, patch),
+    },
+    issues: {
+      list: (repoId) => ipcRenderer.invoke('github:issues:list', repoId),
+      get: (id) => ipcRenderer.invoke('github:issues:get', id),
+      create: (repoId, data) => ipcRenderer.invoke('github:issue:create', repoId, data),
+      update: (id, patch) => ipcRenderer.invoke('github:issue:update', id, patch),
+      move: (id, target) => ipcRenderer.invoke('github:issue:move', id, target),
+      listComments: (issueId) => ipcRenderer.invoke('github:issue:comments:list', issueId),
+      createComment: (issueId, body) => ipcRenderer.invoke('github:issue:comment:create', issueId, body),
+    },
+    branches: { list: (repoId) => ipcRenderer.invoke('github:branches:list', repoId) },
+    releases: { list: (repoId) => ipcRenderer.invoke('github:releases:list', repoId) },
+    resolveImage: (url) => ipcRenderer.invoke('github:image:resolve', url),
+    syncNow: () => ipcRenderer.invoke('github:sync:now'),
+    onSyncStatus: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('github:sync:status', subscription);
+      return () => ipcRenderer.removeListener('github:sync:status', subscription);
+    },
+    onDataUpdated: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('github:data:updated', subscription);
+      return () => ipcRenderer.removeListener('github:data:updated', subscription);
+    },
   },
 
   // ============================================

@@ -118,6 +118,15 @@ const TOOL_HANDLER_MAP = {
   calendar_delete_event: 'calendarDeleteEvent',
   get_tool_definition: 'getToolDefinition',
 
+  // GitHub project sync tools (Seguimiento)
+  github_list_repos: 'githubListRepos',
+  github_upcoming_milestones: 'githubUpcomingMilestones',
+  github_list_milestones: 'githubListMilestones',
+  github_list_issues: 'githubListIssues',
+  github_create_issue: 'githubCreateIssue',
+  github_update_issue: 'githubUpdateIssue',
+  github_sync: 'githubSync',
+
   // Entity creation
   agent_create: 'agentCreate',
   automation_create: 'automationCreate',
@@ -1182,6 +1191,101 @@ function getAllToolDefinitions() {
           },
           required: ['event_id'],
         },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_list_repos',
+        description: 'List the synced GitHub repositories (the "Seguimiento" feature). Returns repo id, full_name and whether it is selected for sync. Source: GitHub.',
+        parameters: { type: 'object', properties: { selected_only: { type: 'boolean', description: 'Only repos selected for sync (default true)' } } },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_upcoming_milestones',
+        description:
+          'List milestones across ALL synced GitHub repos sorted by delivery date (due_on). Use for fechas de entrega, próximos hitos, últimas entregas. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            limit: { type: 'number', description: 'Max milestones (default 30)' },
+            state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Filter state (default all)' },
+            include_past_due: { type: 'boolean', description: 'Include past due_on dates (default true)' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_list_milestones',
+        description: 'List GitHub milestones for a synced repo (title, due date, state, progress). Use github_list_repos first to get the repo_id. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: { repo_id: { type: 'string', description: 'Dome repo id (e.g. ghr-12345) from github_list_repos' } },
+          required: ['repo_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_list_issues',
+        description: 'List GitHub issues for a synced repo (number, title, state, milestone, labels). Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id from github_list_repos' },
+            state: { type: 'string', enum: ['open', 'closed', 'all'], description: 'Filter by state (default all)' },
+          },
+          required: ['repo_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_create_issue',
+        description: 'Create a new GitHub issue in a synced repo. This writes to GitHub. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id from github_list_repos' },
+            title: { type: 'string', description: 'Issue title' },
+            body: { type: 'string', description: 'Issue body (Markdown). Add a "due:YYYY-MM-DD" line to project it onto the calendar.' },
+            milestone_number: { type: 'number', description: 'Optional milestone number to assign' },
+            labels: { type: 'array', items: { type: 'string' }, description: 'Optional labels' },
+          },
+          required: ['repo_id', 'title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_update_issue',
+        description: 'Update a GitHub issue (title, body, state open/closed, milestone). Writes to GitHub. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            issue_id: { type: 'string', description: 'Dome issue id (e.g. ghi-<repo>-<number>) from github_list_issues' },
+            title: { type: 'string' },
+            body: { type: 'string' },
+            state: { type: 'string', enum: ['open', 'closed'] },
+            milestone_number: { type: 'number', description: 'Milestone number, or null to clear' },
+          },
+          required: ['issue_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_sync',
+        description: 'Trigger a full GitHub ↔ Dome sync now (push local edits, pull latest, refresh calendar). Source: GitHub.',
+        parameters: { type: 'object', properties: {} },
       },
     },
     {

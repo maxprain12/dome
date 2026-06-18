@@ -14,6 +14,35 @@ import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import { ensureHubEventsBridge } from '@/lib/hub/hubEventsBridge';
 import PptCapturePage from './pages/PptCapturePage';
 import NoteFocusPage from './pages/NoteFocusPage';
+import { lazy, Suspense } from 'react';
+import StandaloneFrame from '@/components/shell/StandaloneFrame';
+
+const StandaloneGitHubView = lazy(() => import('@/components/github/GitHubView'));
+const StandaloneCalendarPage = lazy(() => import('@/pages/CalendarPage'));
+
+function StandaloneGitHubPopout() {
+  const { t } = useTranslation();
+  return (
+    <StandaloneFrame title={t('github.tab_title')}>
+      <Suspense fallback={null}>
+        <StandaloneGitHubView />
+      </Suspense>
+    </StandaloneFrame>
+  );
+}
+
+function StandaloneCalendarPopout() {
+  const { t } = useTranslation();
+  return (
+    <StandaloneFrame title={t('tabs.calendar')}>
+      <Suspense fallback={null}>
+        <div className="h-full w-full overflow-auto">
+          <StandaloneCalendarPage />
+        </div>
+      </Suspense>
+    </StandaloneFrame>
+  );
+}
 
 const NOTE_FOCUS_PREFIX = '/focus/note/';
 function MainApp() {
@@ -170,6 +199,24 @@ export default function App() {
         </ThemeProvider>
       );
     }
+  }
+
+  // Bare popout windows for "Seguimiento" (GitHub) and the calendar — no shell,
+  // just a draggable safe-zone frame so traffic lights / overlay controls don't
+  // overlap content.
+  if (pathname === '/standalone/github') {
+    return (
+      <ThemeProvider>
+        <StandaloneGitHubPopout />
+      </ThemeProvider>
+    );
+  }
+  if (pathname === '/standalone/calendar') {
+    return (
+      <ThemeProvider>
+        <StandaloneCalendarPopout />
+      </ThemeProvider>
+    );
   }
 
   // StrictMode for main shell — /ppt-capture avoids StrictMode above so slide capture isn’t doubled.

@@ -74,6 +74,19 @@ const INTENT_RULES = [
     ],
   },
   {
+    id: 'github',
+    re: /\b(github|git\s*hub|issue|issues|milestone|hito|hitos|entrega|entregas|repo|repositorio|pull\s*request|seguimiento|kanban|gantt|branch|rama)\b/i,
+    tools: [
+      'github_upcoming_milestones',
+      'github_list_repos',
+      'github_list_milestones',
+      'github_list_issues',
+      'github_create_issue',
+      'github_update_issue',
+      'github_sync',
+    ],
+  },
+  {
     id: 'browser',
     re: /\b(navegador|browser|p[aá]gina\s+web|screenshot|devtools|click)\b/i,
     tools: ['new_page', 'navigate_page', 'take_snapshot', 'browser_get_active_tab'],
