@@ -64,6 +64,7 @@
     "demo:seed": "node scripts/demo/seed.mjs",
     "demo:record:overview": "bash scripts/demo/record-overview.sh",
     "demo:record:pdf": "bash scripts/demo/record-pdf-artifact.sh",
+    "demo:record:many": "bash scripts/demo/record-many-pdf-demo.sh",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "tsx scripts/generate-icons.ts"
   },

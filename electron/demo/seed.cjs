@@ -6,9 +6,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+const { app } = require('electron');
 const database = require('../core/database.cjs');
 const { writeSettingSecret } = require('../core/settings-secrets.cjs');
 const fileStorage = require('../storage/file-storage.cjs');
+const { seedManyJsonlSession } = require('./seed-many-jsonl.cjs');
 
 const DEMO_PROJECT_ID = 'demo-dome-project';
 const DEMO_FOLDER_ID = 'demo-folder';
@@ -17,7 +19,10 @@ const DEMO_ARTIFACT_ID = 'demo-artifact-resumen';
 const DEMO_SESSION_ID = 'demo-many-session';
 const DEMO_USER_MSG_ID = 'demo-user-msg';
 const DEMO_ASSISTANT_MSG_ID = 'demo-assistant-msg';
-const SEED_FLAG = 'video_demo_seeded_v1';
+const SEED_FLAG = 'video_demo_seeded_v2';
+const DEMO_MANY_SESSION_SETTING = 'video_demo_many_session_id';
+const DEMO_USER_PROMPT =
+  'Resume este PDF en ideas clave y crea un artefacto interactivo con los hallazgos principales.';
 
 const PDF_CONTENT_SUMMARY = `Resumen ejecutivo — Inteligencia Artificial en la Investigación Académica
 
@@ -74,8 +79,8 @@ function upsertArtifact(queries, { artifactRowId, resourceId, artifactType, stat
 }
 
 function buildInteractiveHtml() {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Resumen interactivo</title></head><body>
-<section id="app"></section>
+  // Fragment only — ArtifactWorkspaceClient wraps this in its own srcdoc shell.
+  return `<section id="app"></section>
 <script>
 (function() {
   var data = window.DOME_DATA || {};
@@ -133,7 +138,7 @@ function buildInteractiveHtml() {
   window.addEventListener('message', function() { render(); });
   render();
 })();
-</script></body></html>`;
+</script>`;
 }
 
 function buildArtifactState() {
@@ -311,7 +316,7 @@ async function seedVideoDemo({ force = false } = {}) {
       DEMO_USER_MSG_ID,
       DEMO_SESSION_ID,
       'user',
-      'Resume este PDF en ideas clave y crea un artefacto interactivo con los hallazgos principales.',
+      DEMO_USER_PROMPT,
       null,
       null,
       null,
@@ -329,8 +334,18 @@ async function seedVideoDemo({ force = false } = {}) {
     );
   }
 
+  const assistantText = buildAssistantMessage(DEMO_PDF_ID);
+  seedManyJsonlSession({
+    userDataPath: app.getPath('userData'),
+    sessionId: DEMO_SESSION_ID,
+    userText: DEMO_USER_PROMPT,
+    assistantText,
+    now,
+  });
+  queries.setSetting.run(DEMO_MANY_SESSION_SETTING, DEMO_SESSION_ID, now);
+
   queries.setSetting.run(SEED_FLAG, '1', now);
-  console.log('[Demo:Seed] Complete — project:', DEMO_PROJECT_ID, 'pdf:', DEMO_PDF_ID);
+  console.log('[Demo:Seed] Complete — project:', DEMO_PROJECT_ID, 'pdf:', DEMO_PDF_ID, 'many:', DEMO_SESSION_ID);
 }
 
 module.exports = { seedVideoDemo, DEMO_PROJECT_ID, DEMO_PDF_ID, DEMO_ARTIFACT_ID };

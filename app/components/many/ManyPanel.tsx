@@ -214,7 +214,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   useEffect(() => {
     let cancelled = false;
     void syncManyDeletedIdsFromDb()
-      .then(() => {
+      .then(async () => {
         if (cancelled) return;
         const state = useManyStore.getState();
         const purged = filterOutDeletedSessions(state.sessions);
@@ -234,7 +234,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             messages: nextMessages,
           });
         }
-        return hydrateFromThreads();
+        await hydrateFromThreads();
+        if (cancelled || !db.isAvailable()) return;
+        const demoSetting = await db.getSetting('video_demo_many_session_id');
+        if (!demoSetting.success || !demoSetting.data) return;
+        useManyStore.getState().switchSession(demoSetting.data);
       })
       .catch((err) => {
         console.warn('[Many] JSONL session hydration failed:', err);
