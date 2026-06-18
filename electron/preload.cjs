@@ -483,6 +483,17 @@ const ALLOWED_CHANNELS = {
     'calendar:disconnectGoogle',
     'calendar:previewIcs',
     'calendar:importIcs',
+    // Email (himalaya)
+    'email:listAccounts',
+    'email:addAccount',
+    'email:removeAccount',
+    'email:testConnection',
+    'email:listFolders',
+    'email:listEnvelopes',
+    'email:read',
+    'email:search',
+    'email:send',
+    'email:reply',
     // Plugins
     'plugin:list',
     'plugin:install-from-folder',
@@ -572,6 +583,8 @@ const ALLOWED_CHANNELS = {
     'github:issue:create',
     'github:issue:comments:list',
     'github:issue:comment:create',
+    'github:issue:timeline:list',
+    'github:issue:mentionables:list',
     'github:milestone:update',
     'github:milestone:create',
     'github:image:resolve',
@@ -895,6 +908,22 @@ const electronHandler = {
   },
 
   // ============================================
+  // EMAIL API (himalaya)
+  // ============================================
+  email: {
+    listAccounts: () => ipcRenderer.invoke('email:listAccounts'),
+    addAccount: (input) => ipcRenderer.invoke('email:addAccount', input),
+    removeAccount: (accountId) => ipcRenderer.invoke('email:removeAccount', accountId),
+    testConnection: (accountId) => ipcRenderer.invoke('email:testConnection', accountId),
+    listFolders: (accountId) => ipcRenderer.invoke('email:listFolders', accountId),
+    listEnvelopes: (params) => ipcRenderer.invoke('email:listEnvelopes', params),
+    read: (params) => ipcRenderer.invoke('email:read', params),
+    search: (params) => ipcRenderer.invoke('email:search', params),
+    send: (params) => ipcRenderer.invoke('email:send', params),
+    reply: (params) => ipcRenderer.invoke('email:reply', params),
+  },
+
+  // ============================================
   // CALENDAR API
   // ============================================
   calendar: {
@@ -1001,6 +1030,8 @@ const electronHandler = {
       move: (id, target) => ipcRenderer.invoke('github:issue:move', id, target),
       listComments: (issueId) => ipcRenderer.invoke('github:issue:comments:list', issueId),
       createComment: (issueId, body) => ipcRenderer.invoke('github:issue:comment:create', issueId, body),
+      listTimeline: (issueId) => ipcRenderer.invoke('github:issue:timeline:list', issueId),
+      listMentionables: (issueId) => ipcRenderer.invoke('github:issue:mentionables:list', issueId),
     },
     branches: { list: (repoId) => ipcRenderer.invoke('github:branches:list', repoId) },
     releases: { list: (repoId) => ipcRenderer.invoke('github:releases:list', repoId) },

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   User, Palette, Brain, Settings as SettingsIcon,
   Puzzle, Plug2, Wand2, Database, Cloud, CloudCog,
-  Globe, BookMarked, Calendar, Server,
+  Globe, BookMarked, Calendar, Server, Mail,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import DomeButton from '@/components/ui/DomeButton';
@@ -24,7 +24,8 @@ export type SettingsSection =
   | 'dome_sync'
   | 'language'
   | 'kb_llm'
-  | 'calendar';
+  | 'calendar'
+  | 'email';
 
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
@@ -63,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'cloud',     icon: <Cloud className="size-3.5" /> },
       { id: 'dome_sync', icon: <CloudCog className="size-3.5" /> },
       { id: 'calendar',  icon: <Calendar className="size-3.5" /> },
+      { id: 'email',     icon: <Mail className="size-3.5" /> },
       { id: 'mcp',      icon: <Plug2 className="size-3.5" /> },
       { id: 'dome_mcp', icon: <Server className="size-3.5" /> },
     ],

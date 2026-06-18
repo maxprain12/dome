@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { ChevronDown, Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Bot, Workflow, Zap, Activity, Layers, Github } from 'lucide-react';
+import { ChevronDown, Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Bot, Workflow, Zap, Activity, Layers, ListTodo, Mail } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -85,6 +85,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openSettingsTab,
     openCalendarTab,
     openGitHubTab,
+    openEmailTab,
     openProjectsTab,
     openLearnTab,
     openTagsTab,
@@ -100,6 +101,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openSettingsTab: s.openSettingsTab,
       openCalendarTab: s.openCalendarTab,
       openGitHubTab: s.openGitHubTab,
+      openEmailTab: s.openEmailTab,
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
       openTagsTab: s.openTagsTab,
@@ -461,8 +463,16 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         kind: 'tab',
         tabType: 'github',
         label: t('github.tab_title'),
-        icon: <Github className="size-4 shrink-0" strokeWidth={sw} />,
+        icon: <ListTodo className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openGitHubTab,
+      },
+      {
+        key: 'email',
+        kind: 'tab',
+        tabType: 'email',
+        label: t('email.tab_title'),
+        icon: <Mail className="size-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openEmailTab,
       },
       {
         key: 'agents',
@@ -509,6 +519,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     hubCounts.runs,
     openCalendarTab,
     openGitHubTab,
+    openEmailTab,
     openProjectsTab,
     openAgentsTab,
     openWorkflowsTab,

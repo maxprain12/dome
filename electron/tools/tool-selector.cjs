@@ -74,6 +74,18 @@ const INTENT_RULES = [
     ],
   },
   {
+    id: 'email',
+    re: /\b(correo|correos|email|e-mail|mail|bandeja|inbox|imap|smtp|mensajes?\s+(?:de\s+)?correo)\b/i,
+    tools: [
+      'email_list',
+      'email_search',
+      'email_read',
+      'email_list_folders',
+      'email_send',
+      'email_reply',
+    ],
+  },
+  {
     id: 'github',
     re: /\b(github|git\s*hub|issue|issues|milestone|hito|hitos|entrega|entregas|repo|repositorio|pull\s*request|seguimiento|kanban|gantt|branch|rama)\b/i,
     tools: [

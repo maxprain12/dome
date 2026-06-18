@@ -118,6 +118,14 @@ const TOOL_HANDLER_MAP = {
   calendar_delete_event: 'calendarDeleteEvent',
   get_tool_definition: 'getToolDefinition',
 
+  // Email (himalaya IMAP/SMTP)
+  email_list_folders: 'emailListFolders',
+  email_list: 'emailListEnvelopes',
+  email_search: 'emailSearchEnvelopes',
+  email_read: 'emailReadMessage',
+  email_send: 'emailSendMessage',
+  email_reply: 'emailReplyMessage',
+
   // GitHub project sync tools (Seguimiento)
   github_list_repos: 'githubListRepos',
   github_upcoming_milestones: 'githubUpcomingMilestones',
@@ -665,6 +673,21 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
       case 'calendarDeleteEvent':
         result = await fn({ event_id: args.event_id });
         break;
+      case 'emailListEnvelopes':
+        result = await fn({ folder: args.folder, page: args.page, page_size: args.page_size });
+        break;
+      case 'emailSearchEnvelopes':
+        result = await fn({ query: args.query, folder: args.folder, page_size: args.page_size });
+        break;
+      case 'emailReadMessage':
+        result = await fn({ message_id: args.message_id, folder: args.folder });
+        break;
+      case 'emailSendMessage':
+        result = await fn({ to: args.to, subject: args.subject, body: args.body, cc: args.cc, bcc: args.bcc });
+        break;
+      case 'emailReplyMessage':
+        result = await fn({ message_id: args.message_id, body: args.body, folder: args.folder });
+        break;
       case 'domeLoadDoc': {
         const { getSectionBody } = require('../prompts/prompt-sections.cjs');
         const docId = args.id || args.section_id || args.doc_id;
@@ -1190,6 +1213,103 @@ function getAllToolDefinitions() {
             event_id: { type: 'string', description: 'ID of the event to delete' },
           },
           required: ['event_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'email_list_folders',
+        description:
+          "List mailbox folders for the user's connected email account (INBOX, Sent, Drafts, etc.). Use before email_list when the user asks about a specific folder.",
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'email_list',
+        description:
+          "You have direct access to the user's email. List messages in a folder (default INBOX). Returns envelope id, from, subject, date. Use immediately when asked to check email, inbox, or correo — never say the tool is unavailable without calling it.",
+        parameters: {
+          type: 'object',
+          properties: {
+            folder: { type: 'string', description: 'Mailbox folder name. Defaults to INBOX.' },
+            page: { type: 'number', description: 'Page number (1-based). Default 1.' },
+            page_size: { type: 'number', description: 'Messages per page. Default 30.' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'email_search',
+        description:
+          "Search the user's mailbox for messages matching a query (from, subject, date filters, or free text). Requires a connected email account in Settings → Email.",
+        parameters: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Search query (himalaya filter syntax or plain words).',
+            },
+            folder: { type: 'string', description: 'Folder to search in. Defaults to INBOX.' },
+            page_size: { type: 'number', description: 'Max results. Default 30.' },
+          },
+          required: ['query'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'email_read',
+        description:
+          'Read the full body of one email by message id (from email_list or email_search). Returns plain-text body for analysis.',
+        parameters: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'string', description: 'Envelope/message id from list or search results.' },
+            folder: { type: 'string', description: 'Folder the message is in. Defaults to INBOX.' },
+          },
+          required: ['message_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'email_send',
+        description:
+          'Compose and send a new email on behalf of the user. Requires user approval before sending. Provide to, subject and body.',
+        parameters: {
+          type: 'object',
+          properties: {
+            to: { type: 'string', description: 'Recipient address(es), comma-separated.' },
+            subject: { type: 'string', description: 'Subject line.' },
+            body: { type: 'string', description: 'Plain-text body.' },
+            cc: { type: 'string', description: 'Cc address(es), comma-separated.' },
+            bcc: { type: 'string', description: 'Bcc address(es), comma-separated.' },
+          },
+          required: ['to', 'body'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'email_reply',
+        description:
+          'Reply to an existing email by message id. Requires user approval before sending. Recipient and subject are derived from the original.',
+        parameters: {
+          type: 'object',
+          properties: {
+            message_id: { type: 'string', description: 'Id of the message to reply to.' },
+            body: { type: 'string', description: 'Plain-text reply body.' },
+            folder: { type: 'string', description: 'Folder of the original message. Defaults to INBOX.' },
+          },
+          required: ['message_id', 'body'],
         },
       },
     },

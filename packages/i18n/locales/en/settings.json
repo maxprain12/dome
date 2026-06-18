@@ -15,6 +15,7 @@
     "language": "Language",
     "kb_llm": "Knowledge Base",
     "calendar": "Calendar",
+    "email": "Email",
     "dome_mcp": "Dome as MCP"
   },
   "groups": {

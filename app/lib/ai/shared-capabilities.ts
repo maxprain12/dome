@@ -154,6 +154,7 @@ export function buildSharedUiContextBlock(context: SharedAgentContext): string {
 export function buildSharedResourceHint(context: SharedAgentContext): string {
   const hints: string[] = [
     'GitHub milestones, fechas de entrega, issues or Seguimiento: call github_upcoming_milestones (all synced repos) or github_list_repos + github_list_milestones. Requires GitHub connected and repos selected in Seguimiento — never answer from library search alone.',
+    'Email / correo / bandeja / inbox: call email_list (INBOX) or email_search, then email_read for details. Requires an IMAP account in Settings → Email — never say the tool is unavailable without calling it first.',
   ];
   const isNotebook = context.pathname.includes('/workspace/notebook');
 

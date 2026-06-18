@@ -30,6 +30,8 @@ import {
   Bot,
   Workflow,
   Activity,
+  Mail,
+  ListTodo,
   Network,
   LayoutTemplate,
   MoreHorizontal,
@@ -58,6 +60,8 @@ function TabIcon({ tab }: { tab: DomeTab }) {
     case 'projects': return <Layers className={cls} strokeWidth={sw} />;
     case 'settings': return <Settings className={cls} strokeWidth={sw} />;
     case 'calendar': return <Calendar className={cls} strokeWidth={sw} />;
+    case 'github': return <ListTodo className={cls} strokeWidth={sw} />;
+    case 'email': return <Mail className={cls} strokeWidth={sw} />;
     case 'chat': return <MessageCircle className={cls} strokeWidth={sw} />;
     case 'note': return <FileEdit className={cls} strokeWidth={sw} />;
     case 'notebook': return <BookOpen className={cls} strokeWidth={sw} />;

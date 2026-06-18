@@ -48,6 +48,8 @@ export const githubClient = {
     move: (id: string, target: { state?: 'open' | 'closed'; milestoneNumber?: number | null }) => gh().issues.move(id, target),
     listComments: (issueId: string) => gh().issues.listComments(issueId),
     createComment: (issueId: string, body: string) => gh().issues.createComment(issueId, body),
+    listTimeline: (issueId: string) => gh().issues.listTimeline(issueId),
+    listMentionables: (issueId: string) => gh().issues.listMentionables(issueId),
   },
   branches: { list: (repoId: string) => gh().branches.list(repoId) },
   releases: { list: (repoId: string) => gh().releases.list(repoId) },

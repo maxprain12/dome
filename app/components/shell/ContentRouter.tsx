@@ -17,6 +17,7 @@ const PptWorkspaceClient = lazy(() => import('@/workspace/ppt/client'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
 const GitHubView = lazy(() => import('@/components/github/GitHubView'));
+const EmailView = lazy(() => import('@/components/email/EmailView'));
 import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
@@ -216,6 +217,17 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <GitHubView />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'email':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <EmailView />
             </div>
           </Suspense>
         </ErrorBoundary>

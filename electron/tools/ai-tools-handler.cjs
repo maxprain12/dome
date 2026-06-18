@@ -2943,6 +2943,154 @@ async function githubSync() {
 }
 
 // =============================================================================
+// Email (himalaya IMAP/SMTP)
+// =============================================================================
+
+function emailService() {
+  return require('../email/himalaya-service.cjs');
+}
+
+function emailNotConfigured() {
+  const accounts = emailService().listAccounts();
+  if (accounts.success && (accounts.accounts?.length ?? 0) > 0) return null;
+  return {
+    status: 'error',
+    error: 'No email account configured. Ask the user to connect IMAP/SMTP in Settings → Email.',
+  };
+}
+
+/** Shrink message body for the agent (plain text preferred; avoid huge HTML). */
+function agentEmailBodyPayload(message, maxChars = 12000) {
+  if (message == null) return { body: '', format: 'empty' };
+  if (typeof message === 'string') {
+    const body = message.length > maxChars ? `${message.slice(0, maxChars)}…` : message;
+    return { body, format: 'plain' };
+  }
+  const plain = typeof message.plain === 'string' ? message.plain : typeof message.text === 'string' ? message.text : '';
+  const html = typeof message.html === 'string' ? message.html : '';
+  const pick = plain.trim() || html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const body = pick.length > maxChars ? `${pick.slice(0, maxChars)}…` : pick;
+  return {
+    body,
+    format: plain.trim() ? 'plain' : html ? 'html_stripped' : 'empty',
+    has_html: Boolean(html),
+  };
+}
+
+async function emailListFolders() {
+  try {
+    const blocked = emailNotConfigured();
+    if (blocked) return blocked;
+    const res = await emailService().listFolders(null);
+    if (!res.success) return { status: 'error', error: res.error || 'Failed to list folders.' };
+    return { status: 'success', folders: res.folders || [] };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function emailListEnvelopes({ folder, page, page_size } = {}) {
+  try {
+    const blocked = emailNotConfigured();
+    if (blocked) return blocked;
+    const res = await emailService().listEnvelopes(null, {
+      folder: folder || 'INBOX',
+      page: typeof page === 'number' && page > 0 ? page : 1,
+      pageSize: typeof page_size === 'number' && page_size > 0 ? page_size : 30,
+    });
+    if (!res.success) {
+      return { status: 'error', error: res.error || 'Failed to list emails.', errorCode: res.errorCode };
+    }
+    return {
+      status: 'success',
+      folder: res.folder || folder || 'INBOX',
+      envelopes: res.envelopes || [],
+      count: res.envelopes?.length ?? 0,
+    };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function emailSearchEnvelopes({ query, folder, page_size } = {}) {
+  try {
+    const blocked = emailNotConfigured();
+    if (blocked) return blocked;
+    if (!query || !String(query).trim()) {
+      return { status: 'error', error: 'query is required' };
+    }
+    const res = await emailService().searchEnvelopes(null, String(query).trim(), {
+      folder: folder || 'INBOX',
+      pageSize: typeof page_size === 'number' && page_size > 0 ? page_size : 30,
+    });
+    if (!res.success) {
+      return { status: 'error', error: res.error || 'Failed to search emails.', errorCode: res.errorCode };
+    }
+    return {
+      status: 'success',
+      query: String(query).trim(),
+      folder: folder || 'INBOX',
+      envelopes: res.envelopes || [],
+      count: res.envelopes?.length ?? 0,
+    };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function emailReadMessage({ message_id, folder } = {}) {
+  try {
+    const blocked = emailNotConfigured();
+    if (blocked) return blocked;
+    if (!message_id) return { status: 'error', error: 'message_id is required' };
+    const res = await emailService().readMessage(null, String(message_id), { folder: folder || 'INBOX' });
+    if (!res.success) {
+      return { status: 'error', error: res.error || 'Failed to read email.', errorCode: res.errorCode };
+    }
+    const bodyPayload = agentEmailBodyPayload(res.message);
+    return {
+      status: 'success',
+      message_id: String(message_id),
+      folder: folder || 'INBOX',
+      ...bodyPayload,
+    };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function emailSendMessage({ to, subject, body, cc, bcc } = {}) {
+  try {
+    const blocked = emailNotConfigured();
+    if (blocked) return blocked;
+    if (!to) return { status: 'error', error: 'to is required' };
+    if (!body) return { status: 'error', error: 'body is required' };
+    const res = await emailService().sendMessage(null, { to, subject, body, cc, bcc });
+    if (!res.success) return { status: 'error', error: res.error || 'Failed to send email.' };
+    return { status: 'success', message: `Email sent to ${to}.` };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+async function emailReplyMessage({ message_id, body, folder } = {}) {
+  try {
+    const blocked = emailNotConfigured();
+    if (blocked) return blocked;
+    if (!message_id) return { status: 'error', error: 'message_id is required' };
+    if (!body) return { status: 'error', error: 'body is required' };
+    const res = await emailService().replyMessage(null, String(message_id), {
+      body,
+      folder: folder || 'INBOX',
+    });
+    if (!res.success) return { status: 'error', error: res.error || 'Failed to send reply.' };
+    return { status: 'success', message: 'Reply sent.' };
+  } catch (err) {
+    return { status: 'error', error: err.message };
+  }
+}
+
+// =============================================================================
 // Entity Creation (Agents)
 // =============================================================================
 
@@ -4264,6 +4412,16 @@ module.exports = {
 
   // Calendar tools
   calendarListEvents,
+  calendarGetUpcoming,
+  calendarCreateEvent,
+  calendarUpdateEvent,
+  calendarDeleteEvent,
+  emailListFolders,
+  emailListEnvelopes,
+  emailSearchEnvelopes,
+  emailReadMessage,
+  emailSendMessage,
+  emailReplyMessage,
   githubListRepos,
   githubListMilestones,
   githubUpcomingMilestones,
@@ -4271,10 +4429,6 @@ module.exports = {
   githubCreateIssue,
   githubUpdateIssue,
   githubSync,
-  calendarGetUpcoming,
-  calendarCreateEvent,
-  calendarUpdateEvent,
-  calendarDeleteEvent,
 
   // Entity creation
   agentCreate,

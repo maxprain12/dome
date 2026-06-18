@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, LayoutGrid, GanttChartSquare, GitBranch, Settings as SettingsIcon, Github, Search, ExternalLink, Calendar, Leaf, Code2 } from 'lucide-react';
+import { RefreshCw, LayoutGrid, GanttChartSquare, GitBranch, Settings as SettingsIcon, ListTodo, Search, ExternalLink, Calendar, Leaf, Code2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import MinimalTracker from './MinimalTracker';
@@ -98,7 +98,7 @@ export default function GitHubView() {
   return (
     <div className="flex flex-col h-full" style={{ color: 'var(--dome-text)' }}>
       <div className="flex items-center gap-3 px-4 py-2 border-b flex-wrap" style={{ borderColor: 'var(--dome-border)' }}>
-        <Github size={18} style={{ color: 'var(--dome-accent)' }} />
+        <ListTodo size={18} style={{ color: 'var(--dome-accent)' }} />
         <select
           value={selectedRepoId ?? ''}
           onChange={(e) => void selectRepo(e.target.value)}

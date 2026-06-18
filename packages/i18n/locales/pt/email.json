@@ -1,0 +1,62 @@
+{
+  "tab_title": "E-mail",
+  "search_placeholder": "Pesquisar e-mail…",
+  "refresh": "Atualizar",
+  "compose": "Escrever",
+  "no_messages": "Sem mensagens",
+  "unknown_sender": "Remetente desconhecido",
+  "no_subject": "(sem assunto)",
+  "select_message": "Selecione uma mensagem para ler",
+  "reply": "Responder",
+  "to": "Para",
+  "subject": "Assunto",
+  "body": "Mensagem",
+  "send": "Enviar",
+  "compose_failed": "Não foi possível enviar a mensagem",
+  "folders": {
+    "title": "Pastas",
+    "inbox": "Caixa de entrada",
+    "sent": "Enviados",
+    "drafts": "Rascunhos",
+    "trash": "Lixo",
+    "spam": "Spam",
+    "archive": "Arquivo",
+    "starred": "Com estrela"
+  },
+  "errors": {
+    "app_password_required": "O Gmail (e outros provedores com verificação em duas etapas) exigem uma senha de aplicativo em vez da sua senha normal. Gere uma e cole no campo Senha.",
+    "auth_failed": "Falha na autenticação. Verifique o usuário e a senha. Para Gmail/Outlook/iCloud use uma senha de aplicativo.",
+    "connection_failed": "Não foi possível conectar ao servidor de e-mail. Verifique o servidor e a porta IMAP/SMTP e sua conexão com a internet.",
+    "tls_error": "Falha na conexão segura (TLS). Verifique a porta e a criptografia.",
+    "binary_unavailable": "Não foi possível baixar o mecanismo de e-mail. Verifique sua conexão com a internet e tente novamente.",
+    "unknown": "Algo deu errado.",
+    "learn_more": "Saiba mais"
+  },
+  "empty": {
+    "title": "Conecte seu e-mail",
+    "description": "Adicione uma conta de e-mail para ler, pesquisar e enviar mensagens no Dome e deixe o Many ajudar com sua caixa de entrada.",
+    "connect": "Conectar e-mail"
+  },
+  "settings": {
+    "title": "Contas de e-mail",
+    "description": "Conecte contas IMAP/SMTP. As senhas são criptografadas neste dispositivo e nunca saem dele.",
+    "no_accounts": "Nenhuma conta de e-mail conectada ainda.",
+    "default": "padrão",
+    "remove": "Remover",
+    "add_account": "Adicionar conta",
+    "email": "Endereço de e-mail",
+    "display_name": "Nome de exibição",
+    "imap_host": "Servidor IMAP",
+    "imap_port": "Porta IMAP",
+    "smtp_host": "Servidor SMTP",
+    "smtp_port": "Porta SMTP",
+    "username": "Usuário",
+    "password": "Senha",
+    "app_password_hint": "Para Gmail, Outlook ou iCloud, use uma senha de aplicativo.",
+    "test_and_save": "Testar e salvar",
+    "save_without_test": "Salvar sem testar",
+    "required_fields": "E-mail, servidor IMAP e servidor SMTP são obrigatórios.",
+    "test_failed": "Falha no teste de conexão.",
+    "add_failed": "Não foi possível adicionar a conta."
+  }
+}
