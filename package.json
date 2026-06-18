@@ -61,6 +61,9 @@
     "bench:smoke": "node scripts/bench/run.mjs -- --case web_search.basic --mode direct",
     "bench:run:minimax": "node scripts/bench/run.mjs -- --provider minimax --mode direct --concurrency 1",
     "bench:run:openrouter": "node scripts/bench/run.mjs -- --provider openrouter --model anthropic/claude-3.5-sonnet --mode direct --concurrency 1",
+    "demo:seed": "node scripts/demo/seed.mjs",
+    "demo:record:overview": "bash scripts/demo/record-overview.sh",
+    "demo:record:pdf": "bash scripts/demo/record-pdf-artifact.sh",
     "clean": "bash scripts/clean.sh",
     "generate-icons": "tsx scripts/generate-icons.ts"
   },
