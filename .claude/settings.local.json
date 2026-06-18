@@ -63,7 +63,19 @@
       "Bash(sqlite3 '__TRACKED_VAR__/Library/Application Support/Dome/dome.db' 'SELECT content, created_at FROM run_steps WHERE step_type='\\\\''error'\\\\'' ORDER BY created_at DESC LIMIT 3;')",
       "Bash(sqlite3 *)",
       "Bash(node --check electron/langgraph-agent.cjs)",
-      "Bash(node --check electron/run-engine.cjs)"
+      "Bash(node --check electron/run-engine.cjs)",
+      "mcp__dome-meta__repo_overview",
+      "mcp__dome-meta__get_integration_map",
+      "mcp__dome-meta__get_brief",
+      "mcp__dome-meta__kb_search",
+      "mcp__dome-meta__list_contracts",
+      "Read(//Users/maxprain/Documents/dome-meta/**)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm -s dome-meta brief \"implementar rate limiting por usuario en el proxy de IA del provider y mostrar el límite en la app y en companion\")",
+      "Bash(pnpm -s dome-meta sync)",
+      "Bash(pnpm -s dome-meta search \"database table\")",
+      "Bash(pnpm -s dome-meta eval)",
+      "Bash(pnpm -s dome-meta search \"oauth refresh token\")"
     ]
   }
 }
