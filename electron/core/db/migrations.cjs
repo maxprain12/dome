@@ -3059,6 +3059,43 @@ function applyMigrations(db, version) {
       throw error;
     }
   }
+
+  if (version < 45) {
+    console.log('[DB] Running migration 45 - email accounts (himalaya)');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS email_accounts (
+          id TEXT PRIMARY KEY,
+          email TEXT NOT NULL,
+          display_name TEXT,
+          imap_host TEXT NOT NULL,
+          imap_port INTEGER NOT NULL DEFAULT 993,
+          imap_encryption TEXT NOT NULL DEFAULT 'tls',
+          smtp_host TEXT NOT NULL,
+          smtp_port INTEGER NOT NULL DEFAULT 465,
+          smtp_encryption TEXT NOT NULL DEFAULT 'tls',
+          username TEXT NOT NULL,
+          secret TEXT NOT NULL,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_email_accounts_email ON email_accounts(email)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '45', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '45', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 45 complete - email accounts');
+    } catch (error) {
+      console.error('[DB] Migration 45 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

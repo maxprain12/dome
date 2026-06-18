@@ -1,0 +1,62 @@
+{
+  "tab_title": "E-mail",
+  "search_placeholder": "Rechercher un e-mail…",
+  "refresh": "Actualiser",
+  "compose": "Rédiger",
+  "no_messages": "Aucun message",
+  "unknown_sender": "Expéditeur inconnu",
+  "no_subject": "(sans objet)",
+  "select_message": "Sélectionnez un message à lire",
+  "reply": "Répondre",
+  "to": "À",
+  "subject": "Objet",
+  "body": "Message",
+  "send": "Envoyer",
+  "compose_failed": "Impossible d'envoyer le message",
+  "folders": {
+    "title": "Dossiers",
+    "inbox": "Boîte de réception",
+    "sent": "Envoyés",
+    "drafts": "Brouillons",
+    "trash": "Corbeille",
+    "spam": "Spam",
+    "archive": "Archives",
+    "starred": "Suivis"
+  },
+  "errors": {
+    "app_password_required": "Gmail (et d'autres fournisseurs avec la validation en deux étapes) exigent un mot de passe d'application au lieu de votre mot de passe normal. Générez-en un et collez-le dans le champ Mot de passe.",
+    "auth_failed": "Échec de l'authentification. Vérifiez le nom d'utilisateur et le mot de passe. Pour Gmail/Outlook/iCloud, utilisez un mot de passe d'application.",
+    "connection_failed": "Impossible de joindre le serveur de messagerie. Vérifiez le serveur et le port IMAP/SMTP ainsi que votre connexion internet.",
+    "tls_error": "La connexion sécurisée (TLS) a échoué. Vérifiez le port et le chiffrement.",
+    "binary_unavailable": "Le moteur de messagerie n'a pas pu être téléchargé. Vérifiez votre connexion internet et réessayez.",
+    "unknown": "Une erreur s'est produite.",
+    "learn_more": "En savoir plus"
+  },
+  "empty": {
+    "title": "Connectez votre messagerie",
+    "description": "Ajoutez un compte e-mail pour lire, rechercher et envoyer des e-mails depuis Dome et laissez Many vous aider avec votre boîte de réception.",
+    "connect": "Connecter la messagerie"
+  },
+  "settings": {
+    "title": "Comptes e-mail",
+    "description": "Connectez des comptes IMAP/SMTP. Les mots de passe sont chiffrés sur cet appareil et n'en sortent jamais.",
+    "no_accounts": "Aucun compte e-mail connecté pour le moment.",
+    "default": "par défaut",
+    "remove": "Supprimer",
+    "add_account": "Ajouter un compte",
+    "email": "Adresse e-mail",
+    "display_name": "Nom affiché",
+    "imap_host": "Serveur IMAP",
+    "imap_port": "Port IMAP",
+    "smtp_host": "Serveur SMTP",
+    "smtp_port": "Port SMTP",
+    "username": "Nom d'utilisateur",
+    "password": "Mot de passe",
+    "app_password_hint": "Pour Gmail, Outlook ou iCloud, utilisez un mot de passe d'application.",
+    "test_and_save": "Tester et enregistrer",
+    "save_without_test": "Enregistrer sans tester",
+    "required_fields": "L'e-mail, le serveur IMAP et le serveur SMTP sont requis.",
+    "test_failed": "Échec du test de connexion.",
+    "add_failed": "Impossible d'ajouter le compte."
+  }
+}

@@ -3,6 +3,8 @@ import { ExternalLink, MessageSquare, Save, Pencil, Send, X } from 'lucide-react
 import { useTranslation } from 'react-i18next';
 import DomeModal from '@/components/ui/DomeModal';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
+import IssueTimeline from '@/components/github/IssueTimeline';
+import MentionTextarea, { type Mentionable } from '@/components/github/MentionTextarea';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
@@ -76,6 +78,9 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const [newComment, setNewComment] = useState('');
   const [postingComment, setPostingComment] = useState(false);
 
+  const [timeline, setTimeline] = useState<GitHubTimelineEvent[]>([]);
+  const [mentionables, setMentionables] = useState<Mentionable[]>([]);
+
   const loadComments = useCallback(async () => {
     setCommentsLoading(true);
     setCommentsError(null);
@@ -95,6 +100,15 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     }
   }, [issueId, t]);
 
+  const loadTimeline = useCallback(async () => {
+    try {
+      const res = await githubClient.issues.listTimeline(issueId);
+      setTimeline(res.success ? res.timeline ?? [] : []);
+    } catch {
+      setTimeline([]);
+    }
+  }, [issueId]);
+
   useEffect(() => {
     if (initial) {
       setTitle(initial.title);
@@ -106,8 +120,37 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   }, [issueId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!editing) void loadComments();
-  }, [issueId, editing, loadComments]);
+    if (!editing) {
+      void loadComments();
+      void loadTimeline();
+    }
+  }, [issueId, editing, loadComments, loadTimeline]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const res = await githubClient.issues.listMentionables(issueId);
+      if (cancelled) return;
+      const byLogin = new Map<string, Mentionable>();
+      for (const u of res.success ? res.users ?? [] : []) {
+        byLogin.set(u.login, u);
+      }
+      for (const c of comments) {
+        if (c.user && !byLogin.has(c.user)) {
+          byLogin.set(c.user, { login: c.user, avatar_url: c.user_avatar });
+        }
+      }
+      for (const ev of timeline) {
+        if (ev.actor && !byLogin.has(ev.actor)) {
+          byLogin.set(ev.actor, { login: ev.actor, avatar_url: ev.actor_avatar });
+        }
+      }
+      setMentionables([...byLogin.values()].sort((a, b) => a.login.localeCompare(b.login)));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [issueId, comments, timeline]);
 
   if (!initial) return null;
 
@@ -258,6 +301,8 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
             )}
           </div>
 
+          <IssueTimeline events={timeline} />
+
           <section className="flex flex-col gap-3 pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
             <div className="flex items-center gap-2">
               <MessageSquare size={16} style={{ color: 'var(--dome-text-muted)' }} />
@@ -288,12 +333,13 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
             <label className="flex flex-col gap-1.5">
               <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.new_comment')}</span>
-              <textarea
+              <MentionTextarea
                 value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
+                onChange={setNewComment}
+                users={mentionables}
                 rows={4}
                 placeholder={t('github.comment_placeholder')}
-                className="text-sm rounded px-2 py-1.5 resize-none"
+                className="text-sm rounded px-2 py-1.5 resize-none w-full"
                 style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
               />
             </label>

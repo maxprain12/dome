@@ -221,6 +221,67 @@ async function createIssueComment(issueId, body) {
   return mapIssueComment(created);
 }
 
+/** Significant timeline events (closed/reopened, linked & cross-referenced PRs, mentions, …). */
+const TIMELINE_EVENTS = new Set([
+  'closed', 'reopened', 'merged', 'referenced', 'cross-referenced',
+  'connected', 'disconnected', 'mentioned', 'assigned', 'unassigned',
+  'labeled', 'unlabeled', 'renamed', 'milestoned', 'demilestoned',
+  'review_requested', 'head_ref_deleted', 'head_ref_force_pushed',
+]);
+
+function timelineSourceFromEvent(ev) {
+  const src = ev.source;
+  if (!src) return null;
+  const issue = src.issue ?? (src.number ? src : null);
+  if (!issue?.number) return null;
+  const pr = issue.pull_request ?? src.pull_request;
+  return {
+    number: issue.number,
+    title: issue.title || '',
+    html_url: issue.html_url || '',
+    state: issue.state || '',
+    is_pull_request: Boolean(pr),
+    merged: Boolean(pr?.merged_at),
+  };
+}
+
+function mapTimelineEvent(ev) {
+  const source = timelineSourceFromEvent(ev);
+  return {
+    id: ev.id ?? ev.node_id ?? `${ev.event}-${ev.created_at}`,
+    event: ev.event,
+    actor: ev.actor?.login ?? ev.user?.login ?? null,
+    actor_avatar: ev.actor?.avatar_url ?? ev.user?.avatar_url ?? null,
+    created_at: ev.created_at ? Date.parse(ev.created_at) : null,
+    label: ev.label?.name ?? null,
+    rename: ev.rename ? { from: ev.rename.from, to: ev.rename.to } : null,
+    commit_id: ev.commit_id ?? null,
+    state_reason: ev.state_reason ?? null,
+    source,
+  };
+}
+
+async function listIssueTimeline(issueId) {
+  const { issue, repo } = requireIssueRepo(issueId);
+  const res = await api.listIssueTimeline(repo.owner, repo.name, issue.number);
+  return (res.items || [])
+    .filter((ev) => TIMELINE_EVENTS.has(ev.event))
+    .map(mapTimelineEvent);
+}
+
+async function listMentionableUsers(issueId) {
+  const { repo } = requireIssueRepo(issueId);
+  const [assignees, collaborators] = await Promise.all([
+    api.listMentionableUsers(repo.owner, repo.name),
+    api.listCollaborators(repo.owner, repo.name).catch(() => ({ items: [] })),
+  ]);
+  const byLogin = new Map();
+  for (const u of [...(assignees.items || []), ...(collaborators.items || [])]) {
+    if (u?.login) byLogin.set(u.login, { login: u.login, avatar_url: u.avatar_url ?? null });
+  }
+  return [...byLogin.values()].sort((a, b) => a.login.localeCompare(b.login));
+}
+
 // --- top-level -------------------------------------------------------------
 
 async function syncNow() {
@@ -267,5 +328,7 @@ module.exports = {
   createMilestone,
   listIssueComments,
   createIssueComment,
+  listIssueTimeline,
+  listMentionableUsers,
   purgeAllData,
 };

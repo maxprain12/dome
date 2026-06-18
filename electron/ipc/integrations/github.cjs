@@ -218,6 +218,28 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
+  ipcMain.handle('github:issue:timeline:list', async (event, issueId) => {
+    if (!guard(event)) return fail('Unauthorized');
+    if (typeof issueId !== 'string') return fail('Invalid issueId');
+    try {
+      const timeline = await syncService.listIssueTimeline(issueId);
+      return ok({ timeline });
+    } catch (err) {
+      return fail(err);
+    }
+  });
+
+  ipcMain.handle('github:issue:mentionables:list', async (event, issueId) => {
+    if (!guard(event)) return fail('Unauthorized');
+    if (typeof issueId !== 'string') return fail('Invalid issueId');
+    try {
+      const users = await syncService.listMentionableUsers(issueId);
+      return ok({ users });
+    } catch (err) {
+      return fail(err);
+    }
+  });
+
   ipcMain.handle('github:milestone:update', async (event, id, patch) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');

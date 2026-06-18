@@ -1,0 +1,62 @@
+{
+  "tab_title": "Email",
+  "search_placeholder": "Search mail…",
+  "refresh": "Refresh",
+  "compose": "Compose",
+  "no_messages": "No messages",
+  "unknown_sender": "Unknown sender",
+  "no_subject": "(no subject)",
+  "select_message": "Select a message to read",
+  "reply": "Reply",
+  "to": "To",
+  "subject": "Subject",
+  "body": "Message",
+  "send": "Send",
+  "compose_failed": "Could not send the message",
+  "folders": {
+    "title": "Folders",
+    "inbox": "Inbox",
+    "sent": "Sent",
+    "drafts": "Drafts",
+    "trash": "Trash",
+    "spam": "Spam",
+    "archive": "Archive",
+    "starred": "Starred"
+  },
+  "errors": {
+    "app_password_required": "Gmail (and other providers with 2-step verification) require an app-specific password instead of your normal password. Generate one and paste it in the Password field.",
+    "auth_failed": "Authentication failed. Check the username and password. For Gmail/Outlook/iCloud use an app-specific password.",
+    "connection_failed": "Could not reach the mail server. Check the IMAP/SMTP host and port, and your internet connection.",
+    "tls_error": "Secure connection (TLS) failed. Check the port and encryption settings.",
+    "binary_unavailable": "The email engine could not be downloaded. Check your internet connection and try again.",
+    "unknown": "Something went wrong.",
+    "learn_more": "Learn more"
+  },
+  "empty": {
+    "title": "Connect your email",
+    "description": "Add a mail account to read, search and send email from Dome and let Many help you with your inbox.",
+    "connect": "Connect email"
+  },
+  "settings": {
+    "title": "Email accounts",
+    "description": "Connect IMAP/SMTP accounts. Passwords are encrypted on this device and never leave it.",
+    "no_accounts": "No email accounts connected yet.",
+    "default": "default",
+    "remove": "Remove",
+    "add_account": "Add account",
+    "email": "Email address",
+    "display_name": "Display name",
+    "imap_host": "IMAP host",
+    "imap_port": "IMAP port",
+    "smtp_host": "SMTP host",
+    "smtp_port": "SMTP port",
+    "username": "Username",
+    "password": "Password",
+    "app_password_hint": "For Gmail, Outlook or iCloud, use an app-specific password.",
+    "test_and_save": "Test & save",
+    "save_without_test": "Save without testing",
+    "required_fields": "Email, IMAP host and SMTP host are required.",
+    "test_failed": "Connection test failed.",
+    "add_failed": "Could not add the account."
+  }
+}

@@ -12,6 +12,10 @@ export function getDomeTabDisplayTitle(tab: DomeTab, t: TFunction): string {
       return t('tabs.settings');
     case 'calendar':
       return t('tabs.calendar');
+    case 'github':
+      return t('github.tab_title');
+    case 'email':
+      return t('email.tab_title');
     case 'learn':
       return t('tabs.learn');
     case 'marketplace':

@@ -299,6 +299,16 @@ export {
 // Tools - GitHub Seguimiento
 export { createGithubTools } from './github-tools';
 
+// Tools - Email (himalaya)
+export {
+  createEmailListTool,
+  createEmailSearchTool,
+  createEmailReadTool,
+  createEmailSendTool,
+  createEmailReplyTool,
+  createEmailTools,
+} from './email-tools';
+
 // Tools - Native File & Shell
 export {
   createFileReadTool,
@@ -350,6 +360,7 @@ import { createDocsTools } from './docs-tools';
 import { createPptTools } from './ppt-tools';
 import { createPdfAnnotationTools } from './pdf-annotation-tools';
 import { createCalendarTools } from './calendar-tools';
+import { createEmailTools } from './email-tools';
 import { createEntityTools } from './entity-tools';
 import { createMarketplaceTools } from './marketplace-tools';
 import { createGithubTools } from './github-tools';
@@ -453,6 +464,9 @@ export function createAllMartinTools(config?: DefaultToolsConfig): AnyAgentTool[
   // Calendar tools (create, update, delete, list events)
   tools.push(...createCalendarTools());
 
+  // Email tools (list, search, read, send, reply)
+  tools.push(...createEmailTools());
+
   // Entity creation tools (create agents, workflows, automations)
   tools.push(...createEntityTools());
 
@@ -546,6 +560,9 @@ export function createManyToolsForContext(
 
   // Calendar tools: useful everywhere
   tools.push(...createCalendarTools());
+
+  // Email tools: useful everywhere
+  tools.push(...createEmailTools());
 
   // Studio, audio, deep research, graph: available in all contexts
   tools.push(...createStudioTools());

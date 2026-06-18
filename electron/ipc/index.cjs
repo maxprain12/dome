@@ -34,6 +34,7 @@ const mcpHandlers = require('./integrations/mcp.cjs');
 const indexingSyncHandlers = require('./sync/indexing-sync.cjs');
 const pdfRenderHandlers = require('./media/pdf-render.cjs');
 const calendarHandlers = require('./integrations/calendar.cjs');
+const emailHandlers = require('./integrations/email.cjs');
 const domeAuthHandlers = require('./integrations/dome-auth.cjs');
 const agentTeamHandlers = require('./agents/agent-team.cjs');
 const chatHandlers = require('./agents/chat.cjs');
@@ -135,6 +136,7 @@ function registerAll(deps) {
   indexingSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage, validateSender });
   pdfRenderHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   calendarHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
+  emailHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   domeAuthHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   agentTeamHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   chatHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });

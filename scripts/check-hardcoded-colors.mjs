@@ -22,6 +22,9 @@ const ALLOWED_FILES = new Set([
   'app/lib/ui/palettes.ts',
   // Hex appears only inside agent-tool description strings (prompt copy).
   'app/lib/ai/tools/resource-actions.ts',
+  // Email HTML is rendered inside a sandboxed iframe against a white canvas;
+  // CSS variables do not cross the iframe boundary, so literal colors are required.
+  'app/components/email/EmailBody.tsx',
 ]);
 
 const SCAN_DIRS = ['app/components', 'app/pages', 'app/workspace', 'app/lib'];

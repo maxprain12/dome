@@ -15,6 +15,7 @@ export type TabType =
   | 'chat'
   | 'calendar'
   | 'github'
+  | 'email'
   | 'studio'
   | 'flashcards'
   | 'tags'
@@ -53,6 +54,7 @@ export const PROJECTS_TAB_ID = 'projects';
 export const SETTINGS_TAB_ID = 'settings';
 export const CALENDAR_TAB_ID = 'calendar';
 export const GITHUB_TAB_ID = 'github';
+export const EMAIL_TAB_ID = 'email';
 export const CHAT_TAB_PREFIX = 'chat:';
 export const STUDIO_TAB_ID = 'studio';
 export const FLASHCARDS_TAB_ID = 'flashcards';
@@ -129,6 +131,7 @@ interface TabStore {
   openSettingsTab: () => void;
   openCalendarTab: () => void;
   openGitHubTab: () => void;
+  openEmailTab: () => void;
   openChatTab: (sessionId: string, title: string) => void;
   openStudioTab: () => void;
   openFlashcardsTab: () => void;
@@ -171,6 +174,8 @@ export const useTabStore = create<TabStore>((set, get) => {
       const singletonTypes: TabType[] = [
         'settings',
         'calendar',
+        'github',
+        'email',
         'studio',
         'flashcards',
         'tags',
@@ -457,6 +462,9 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
     openCalendarTab: () => {
       get().openTab({ id: CALENDAR_TAB_ID, type: 'calendar', title: i18n.t('tabs.calendar'), pinned: false });
+    },
+    openEmailTab: () => {
+      get().openTab({ id: EMAIL_TAB_ID, type: 'email', title: i18n.t('email.tab_title'), pinned: false });
     },
 
     openChatTab: (sessionId: string, title: string) => {

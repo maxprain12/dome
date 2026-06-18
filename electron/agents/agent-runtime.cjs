@@ -40,6 +40,8 @@ const HITL_TOOL_NAMES = new Set([
   'ppt_create',
   'notebook_run_cell',
   'shell_exec',
+  'email_send',
+  'email_reply',
 ]);
 
 /** Per-conversation caps for creation/mutation tools (count over history). */

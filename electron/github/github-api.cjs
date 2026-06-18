@@ -200,6 +200,21 @@ function listIssueComments(owner, repo, number) {
   return getAllPages(`/repos/${owner}/${repo}/issues/${number}/comments`);
 }
 
+/** Timeline events (closed/reopened, cross-referenced & connected PRs, mentions, labels…). */
+function listIssueTimeline(owner, repo, number) {
+  return getAllPages(`/repos/${owner}/${repo}/issues/${number}/timeline`);
+}
+
+/** Users that can be @mentioned/assigned in the repo (for comment autocomplete). */
+function listMentionableUsers(owner, repo) {
+  return getAllPages(`/repos/${owner}/${repo}/assignees`);
+}
+
+/** Repo collaborators (broader @mention pool than assignees alone). */
+function listCollaborators(owner, repo) {
+  return getAllPages(`/repos/${owner}/${repo}/collaborators?affiliation=all`);
+}
+
 function createIssueComment(owner, repo, number, body) {
   return mutate('POST', `/repos/${owner}/${repo}/issues/${number}/comments`, { body });
 }
@@ -225,6 +240,9 @@ module.exports = {
   updateIssue,
   listIssueComments,
   createIssueComment,
+  listIssueTimeline,
+  listMentionableUsers,
+  listCollaborators,
   listBranches,
   listReleases,
 };

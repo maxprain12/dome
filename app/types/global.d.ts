@@ -19,6 +19,14 @@ interface DBResponse<T> {
   error?: string;
 }
 
+// Email IPC result: success flag + normalized error code/help URL + payload fields
+type EmailResult<T = Record<string, never>> = {
+  success: boolean;
+  error?: string;
+  errorCode?: string;
+  helpUrl?: string | null;
+} & Partial<T>;
+
 interface ProviderModelsListResult {
   success: boolean;
   models?: Array<{
@@ -214,6 +222,29 @@ declare global {
     updated_at: number | null;
     html_url: string | null;
   }
+  interface GitHubTimelineEvent {
+    id: string | number;
+    event: string;
+    actor: string | null;
+    actor_avatar: string | null;
+    created_at: number | null;
+    label: string | null;
+    rename: { from: string; to: string } | null;
+    commit_id: string | null;
+    state_reason: string | null;
+    source: {
+      number: number;
+      title: string;
+      html_url: string;
+      state: string;
+      is_pull_request: boolean;
+      merged: boolean;
+    } | null;
+  }
+  interface GitHubMentionableUser {
+    login: string;
+    avatar_url: string | null;
+  }
   interface GitHubBranchRow {
     id: string;
     repo_id: string;
@@ -407,6 +438,53 @@ declare global {
         }) => Promise<{ success: boolean; error?: string }>;
       };
 
+      // Email API (himalaya)
+      email: {
+        listAccounts: () => Promise<EmailResult<{ accounts?: any[] }>>;
+        addAccount: (input: {
+          email: string;
+          display_name?: string;
+          imap_host: string;
+          imap_port?: number;
+          imap_encryption?: string;
+          smtp_host: string;
+          smtp_port?: number;
+          smtp_encryption?: string;
+          username?: string;
+          password?: string;
+          is_default?: boolean;
+        }) => Promise<EmailResult<{ accountId?: string; accounts?: any[] }>>;
+        removeAccount: (accountId: string) => Promise<EmailResult<{ accounts?: any[] }>>;
+        testConnection: (accountId?: string | null) => Promise<EmailResult>;
+        listFolders: (accountId?: string | null) => Promise<EmailResult<{ folders?: any[] }>>;
+        listEnvelopes: (params: {
+          accountId?: string | null;
+          folder?: string;
+          page?: number;
+          pageSize?: number;
+        }) => Promise<EmailResult<{ envelopes?: any[]; accountId?: string; folder?: string }>>;
+        read: (params: { accountId?: string | null; messageId: string; folder?: string }) => Promise<
+          EmailResult<{ message?: any; accountId?: string }>
+        >;
+        search: (params: { accountId?: string | null; query: string; folder?: string; pageSize?: number }) => Promise<
+          EmailResult<{ envelopes?: any[]; accountId?: string }>
+        >;
+        send: (params: {
+          accountId?: string | null;
+          to: string;
+          cc?: string;
+          bcc?: string;
+          subject?: string;
+          body?: string;
+        }) => Promise<EmailResult>;
+        reply: (params: {
+          accountId?: string | null;
+          messageId: string;
+          body?: string;
+          folder?: string;
+        }) => Promise<EmailResult>;
+      };
+
       // Calendar API
       calendar: {
         connectGoogle: () => Promise<{ success: boolean; accountId?: string; error?: string }>;
@@ -535,6 +613,8 @@ declare global {
           move: (id: string, target: { state?: 'open' | 'closed'; milestoneNumber?: number | null }) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
           listComments: (issueId: string) => Promise<{ success: boolean; comments?: GitHubIssueCommentRow[]; error?: string }>;
           createComment: (issueId: string, body: string) => Promise<{ success: boolean; comment?: GitHubIssueCommentRow; error?: string }>;
+          listTimeline: (issueId: string) => Promise<{ success: boolean; timeline?: GitHubTimelineEvent[]; error?: string }>;
+          listMentionables: (issueId: string) => Promise<{ success: boolean; users?: GitHubMentionableUser[]; error?: string }>;
         };
         branches: { list: (repoId: string) => Promise<{ success: boolean; branches?: GitHubBranchRow[]; error?: string }> };
         releases: { list: (repoId: string) => Promise<{ success: boolean; releases?: GitHubReleaseRow[]; error?: string }> };
