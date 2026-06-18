@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-18T23:47:46.583Z
+> Última generación: 2026-06-18T23:52:16.518Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -261,16 +261,16 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `domeauth:getSession` | `electron/ipc/integrations/dome-auth.cjs:19` |
 | `domeauth:openDashboard` | `electron/ipc/integrations/dome-auth.cjs:32` |
 | `domeauth:startOAuthFlow` | `electron/ipc/integrations/dome-auth.cjs:5` |
-| `email:addAccount` | `electron/ipc/integrations/email.cjs:29` |
-| `email:listAccounts` | `electron/ipc/integrations/email.cjs:19` |
-| `email:listEnvelopes` | `electron/ipc/integrations/email.cjs:73` |
-| `email:listFolders` | `electron/ipc/integrations/email.cjs:63` |
-| `email:read` | `electron/ipc/integrations/email.cjs:84` |
-| `email:removeAccount` | `electron/ipc/integrations/email.cjs:43` |
-| `email:reply` | `electron/ipc/integrations/email.cjs:118` |
-| `email:search` | `electron/ipc/integrations/email.cjs:96` |
-| `email:send` | `electron/ipc/integrations/email.cjs:107` |
-| `email:testConnection` | `electron/ipc/integrations/email.cjs:53` |
+| `email:addAccount` | `electron/ipc/integrations/email.cjs:83` |
+| `email:listAccounts` | `electron/ipc/integrations/email.cjs:73` |
+| `email:listEnvelopes` | `electron/ipc/integrations/email.cjs:131` |
+| `email:listFolders` | `electron/ipc/integrations/email.cjs:119` |
+| `email:read` | `electron/ipc/integrations/email.cjs:144` |
+| `email:removeAccount` | `electron/ipc/integrations/email.cjs:95` |
+| `email:reply` | `electron/ipc/integrations/email.cjs:183` |
+| `email:search` | `electron/ipc/integrations/email.cjs:157` |
+| `email:send` | `electron/ipc/integrations/email.cjs:170` |
+| `email:testConnection` | `electron/ipc/integrations/email.cjs:107` |
 | `embeddings:apply` | `electron/ipc/ai/embeddings.cjs:133` |
 | `embeddings:getStatus` | `electron/ipc/ai/embeddings.cjs:38` |
 | `embeddings:listModels` | `electron/ipc/ai/embeddings.cjs:107` |
