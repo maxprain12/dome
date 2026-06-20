@@ -662,7 +662,18 @@ function buildQueries(db) {
       WHERE interactions_fts MATCH ?
       ORDER BY rank
     `),
+    /** Indexing sweep — id+type only (never load content/thumbnail_data). */
+    listResourcesIdType: db.prepare(`
+      SELECT id, type FROM resources ORDER BY updated_at DESC LIMIT ?
+    `),
     getAllResources: db.prepare('SELECT * FROM resources ORDER BY updated_at DESC LIMIT ?'),
+    /** Sidebar/dashboard listings — omits `content` and `thumbnail_data` to keep IPC payloads small. */
+    listResourcesLight: db.prepare(`
+      SELECT id, project_id, type, title, folder_id, metadata,
+             internal_path, file_mime_type, file_size, file_hash, original_filename,
+             created_at, updated_at
+      FROM resources ORDER BY updated_at DESC LIMIT ?
+    `),
 
     // Search for mentions (quick search for autocomplete)
     searchForMention: db.prepare(`

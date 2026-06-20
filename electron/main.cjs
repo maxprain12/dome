@@ -345,11 +345,13 @@ function setupUserDataFolder() {
 }
 
 // Install development tools (React DevTools)
-// Set SKIP_DEVTOOLS=1 to skip if you get sandbox/renderer errors
+// Set OPEN_DEVTOOLS=1 to install the extension and open detached DevTools.
+// Set SKIP_DEVTOOLS=1 to skip entirely (e.g. sandbox/renderer errors).
 async function installExtensions() {
   if (app.isPackaged) return;
   if (!isDev) return;
   if (process.env.SKIP_DEVTOOLS === '1') return;
+  if (process.env.OPEN_DEVTOOLS !== '1') return;
 
   try {
     const { REACT_DEVELOPER_TOOLS } = require('electron-devtools-installer');
@@ -367,7 +369,7 @@ async function installExtensions() {
 
 // Create main window
 async function createWindow() {
-  if (isDev) {
+  if (isDev && process.env.OPEN_DEVTOOLS === '1' && process.env.SKIP_DEVTOOLS !== '1') {
     await installExtensions();
   }
 
@@ -399,7 +401,9 @@ async function createWindow() {
 
   // Show window when ready
   mainWindow.on('ready-to-show', () => {
-    if (isDev) {
+    // Detached DevTools + Vite source maps can trigger V8 Zone OOM on the main process (~45s in dev).
+    // Use OPEN_DEVTOOLS=1 to opt in; Cmd/Ctrl+Shift+I still toggles DevTools.
+    if (isDev && process.env.OPEN_DEVTOOLS === '1' && process.env.SKIP_DEVTOOLS !== '1') {
       mainWindow.webContents.openDevTools({ mode: 'detach' });
     }
   });
@@ -929,6 +933,7 @@ app
     // One-time background semantic chunk reindex; non-blocking (requires embeddings config)
     setTimeout(() => {
       try {
+        if (process.env.NODE_ENV === 'development') return;
         const q = database.getQueries();
         if (!embeddingsService.isConfigured(q)) return;
         const done = q.getSetting.get('semantic_initial_reindex_done_v2');

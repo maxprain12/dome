@@ -491,6 +491,7 @@ declare global {
         getGoogleAccounts: () => Promise<{ success: boolean; accounts?: { id: string; account_email: string; status: string }[]; error?: string }>;
         listCalendars: (accountId?: string | null) => Promise<{ success: boolean; calendars?: any[]; error?: string }>;
         listEvents: (params: { startMs: number; endMs: number; calendarIds?: string[] }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
+        getEvent: (eventId: string) => Promise<{ success: boolean; event?: any; error?: string }>;
         createEvent: (data: any) => Promise<{ success: boolean; event?: any; error?: string }>;
         updateEvent: (eventId: string, updates: any) => Promise<{ success: boolean; event?: any; error?: string }>;
         deleteEvent: (eventId: string) => Promise<{ success: boolean; deleted?: boolean; error?: string }>;
@@ -672,6 +673,7 @@ declare global {
           update: (resource: any) => Promise<DBResponse<Resource>>;
           search: (query: string) => Promise<DBResponse<Resource[]>>;
           getAll: (limit?: number) => Promise<DBResponse<Resource[]>>;
+          listLight: (limit?: number) => Promise<DBResponse<Resource[]>>;
           delete: (id: string) => Promise<DBResponse<void>>;
           bulkDelete: (resourceIds: string[]) => Promise<DBResponse<{ deletedIds: string[] }>>;
           // Folder containment

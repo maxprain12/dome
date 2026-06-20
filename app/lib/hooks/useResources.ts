@@ -102,7 +102,7 @@ export function useResources(filter?: ResourceFilter) {
 
         try {
             if (typeof window !== 'undefined' && window.electron?.db) {
-                const result = await window.electron.db.resources.getAll(100);
+                const result = await window.electron.db.resources.listLight(500);
                 if (result.success && result.data) {
                     startTransition(() => setResources((result.data as Resource[]).map(normalizeResource)));
                 } else if (result.error) {

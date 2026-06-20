@@ -145,13 +145,21 @@ export default function CalendarPage() {
         if (data.lastSync) setLastSyncAt(data.lastSync);
       }
     });
+    const reloadTimerRef = { current: null as ReturnType<typeof setTimeout> | null };
+    const scheduleReload = () => {
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = setTimeout(() => {
+        void loadEvents();
+        void loadUpcoming();
+      }, 300);
+    };
     const unsubEv = window.electron?.on?.('calendar:eventsUpdated', () => {
-      void loadEvents();
-      void loadUpcoming();
+      scheduleReload();
     });
     return () => {
       unsub?.();
       unsubEv?.();
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
     };
   }, [loadEvents, loadUpcoming, setLastSyncAt, setSyncStatus]);
 
@@ -245,8 +253,17 @@ export default function CalendarPage() {
     setShowModal(true);
   };
 
-  const handleEventClick = (event: CalendarEvent) => {
-    setSelectedEvent(event);
+  const handleEventClick = async (event: CalendarEvent) => {
+    let full: CalendarEvent = event;
+    if (window.electron?.calendar?.getEvent) {
+      try {
+        const r = await window.electron.calendar.getEvent(event.id);
+        if (r.success && r.event) full = r.event as CalendarEvent;
+      } catch {
+        /* use summary row */
+      }
+    }
+    setSelectedEvent(full);
     setInitialModalDate(undefined);
     setShowModal(true);
   };

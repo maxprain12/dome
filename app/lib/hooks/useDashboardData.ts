@@ -148,7 +148,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
     try {
       const scopedPid = projectId ?? 'default';
       const [resourcesResult, eventsResult, chatsResult, decksResult, runsResult] = await Promise.all([
-        window.electron?.db?.resources?.getAll?.(2000),
+        window.electron?.db?.resources?.listLight?.(2000),
         window.electron?.calendar?.getUpcoming?.({ windowMinutes: 60 * 24 * 7, limit: 50 }),
         db.getChatSessionsGlobal({ limit: 5000, projectId: scopedPid }),
         window.electron?.db?.flashcards?.getAllDecks?.(200),

@@ -403,8 +403,7 @@ function createIndexer(opts) {
   async function reindexAll(options = {}) {
     _reindexAllInFlight = true;
     const queries = getQueries();
-    // Fetch only id+type to avoid loading full content (SELECT * was ~500 MB for large libraries).
-    const rows = queries.getAllResources.all(500000);
+    const rows = queries.listResourcesIdType.all(500000);
     const targets = rows
       .filter((r) => shouldIndexResourceType(r.type))
       .map((r) => ({ id: r.id, type: r.type }));

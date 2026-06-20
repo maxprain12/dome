@@ -49,6 +49,8 @@ function getIntervalMs() {
 }
 
 async function tick() {
+  // Startup/periodic GitHub sync pulls large API payloads; skip in dev to avoid V8 Zone OOM on low-RAM machines.
+  if (process.env.NODE_ENV === 'development') return;
   if (!isAutoSyncEnabled() || !isConnected()) return;
 
   const now = Date.now();

@@ -16,7 +16,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "pnpm run build:packages && pnpm run build:prompt-assembler && concurrently \"pnpm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
+    "electron:dev": "pnpm run build:packages && pnpm run build:prompt-assembler && concurrently \"pnpm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=4096 electron .\"",
     "electron:build": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder",
     "electron:build:verbose": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder",
     "electron:pack": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run verify:workspace-deps && cross-env DEBUG= electron-builder",

@@ -369,7 +369,7 @@ async function listEvents(startMs, endMs, options = {}) {
     } else {
       rows = q.getCalendarEventsByRange.all(endMs, startMs);
     }
-    const events = rows.map(rowToEvent);
+    const events = rows.map(rowToEventSummary);
     return { success: true, events };
   } catch (err) {
     console.error('[Calendar] listEvents error:', err);
@@ -386,11 +386,20 @@ async function getUpcomingEvents(windowMinutes = 10080, limit = 20) {
     const endMs = now + windowMinutes * 60 * 1000;
     const q = database.getQueries();
     const rows = q.getUpcomingCalendarEvents.all(now, endMs, Math.min(limit, 50));
-    const events = rows.map(rowToEvent);
+    const events = rows.map(rowToEventSummary);
     return { success: true, events };
   } catch (err) {
     console.error('[Calendar] getUpcomingEvents error:', err);
     return { success: false, error: err.message, events: [] };
+  }
+}
+
+function safeJsonField(raw, fallback) {
+  if (raw == null || raw === '') return fallback;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
   }
 }
 
@@ -414,12 +423,56 @@ function rowToEvent(row) {
     timezone: row.timezone,
     all_day: !!row.all_day,
     status: row.status,
-    reminders: row.reminders ? JSON.parse(row.reminders) : [],
-    metadata: row.metadata ? JSON.parse(row.metadata) : null,
+    reminders: safeJsonField(row.reminders, []),
+    metadata: safeJsonField(row.metadata, null),
     source: row.source,
     created_at: row.created_at,
     updated_at: row.updated_at,
   };
+}
+
+/** Grid / sidebar listing — omits heavy fields (description, metadata, reminders). */
+function rowToEventSummary(row) {
+  const full = rowToEvent(row);
+  if (!full) return null;
+  return {
+    id: full.id,
+    calendar_id: full.calendar_id,
+    calendar_title: full.calendar_title,
+    calendar_color: full.calendar_color,
+    title: full.title,
+    location: full.location,
+    start_at: full.start_at,
+    end_at: full.end_at,
+    start_at_iso: full.start_at_iso,
+    end_at_iso: full.end_at_iso,
+    timezone: full.timezone,
+    all_day: full.all_day,
+    status: full.status,
+    source: full.source,
+  };
+}
+
+async function getEventById(eventId) {
+  try {
+    if (typeof eventId !== 'string' || !eventId) {
+      return { success: false, error: 'Invalid event id' };
+    }
+    const db = database.getDB();
+    const row = db
+      .prepare(
+        `SELECT e.*, c.title as calendar_title, c.color as calendar_color
+         FROM calendar_events e
+         JOIN calendar_calendars c ON e.calendar_id = c.id
+         WHERE e.id = ?`,
+      )
+      .get(eventId);
+    if (!row) return { success: false, error: 'Event not found' };
+    return { success: true, event: rowToEvent(row) };
+  } catch (err) {
+    console.error('[Calendar] getEventById error:', err);
+    return { success: false, error: err.message };
+  }
 }
 
 function getGoogleAccounts() {
@@ -566,6 +619,7 @@ module.exports = {
   deleteEvent,
   listEvents,
   getUpcomingEvents,
+  getEventById,
   getGoogleAccounts,
   listCalendars,
   syncNow,

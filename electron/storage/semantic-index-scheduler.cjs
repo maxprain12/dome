@@ -2,6 +2,7 @@
 'use strict';
 
 const { createIndexer, shouldIndexResourceType, reindexAllInFlight } = require('../services/indexing.pipeline.cjs');
+const { isConfigured: isEmbeddingsConfigured } = require('../services/embeddings.service.cjs');
 const lancedb = require('../services/lancedb-semantic.cjs');
 
 /** @type {import('../services/indexing.pipeline.cjs').createIndexer extends (a: any) => infer R ? R : never} */
@@ -88,6 +89,7 @@ function deleteSemanticIndexArtifacts(resourceId) {
 
 async function indexMissingResources() {
   if (!_database) return;
+  if (!isEmbeddingsConfigured()) return;
   // Don't schedule while a full reindex is running to avoid ONNX worker contention.
   if (reindexAllInFlight) {
     console.log('[AutoIndex] reindexAll in progress — skipping sweep');

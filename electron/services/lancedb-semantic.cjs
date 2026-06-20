@@ -578,14 +578,19 @@ async function bootstrapLexFromSqliteIfNeeded(sqlite) {
   assertReady();
   const lc = await _lex.countRows();
   if (lc > 0) return { rows: 0 };
-  const resources = sqlite
+  const ids = sqlite
     .prepare(
-      `SELECT id, title, type, project_id, content FROM resources
+      `SELECT id FROM resources
        WHERE type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')`,
     )
     .all();
+  const getRow = sqlite.prepare(
+    'SELECT id, title, type, project_id, content FROM resources WHERE id = ?',
+  );
   let n = 0;
-  for (const r of resources) {
+  for (const { id } of ids) {
+    const r = getRow.get(id);
+    if (!r) continue;
     await upsertLexForResource({
       resource_id: r.id,
       title: r.title,
