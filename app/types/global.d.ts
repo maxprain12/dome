@@ -659,6 +659,8 @@ declare global {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
           getById: (id: string) => Promise<DBResponse<Project>>;
+          setVaultRoot: (args: { projectId: string; vaultRoot: string | null }) => Promise<DBResponse<never> & { root?: string }>;
+          getVaultRoot: (projectId: string) => Promise<DBResponse<{ root: string; custom: boolean }>>;
           getDeletionImpact: (projectId: string) => Promise<DBResponse<Record<string, number>>>;
           deleteWithContent: (projectId: string) => Promise<DBResponse<void>>;
         };
@@ -974,6 +976,17 @@ declare global {
         getUsage: () => Promise<DBResponse<StorageUsage>>;
         cleanup: () => Promise<DBResponse<{ deleted: number; freedBytes: number }>>;
         getPath: () => Promise<DBResponse<string>>;
+      };
+
+      // Notes Markdown vault mirror API
+      notes: {
+        writeMirror: (args: { id: string; markdown: string }) => Promise<
+          DBResponse<never> & { vaultPath?: string }
+        >;
+        readMirror: (args: { id: string }) => Promise<
+          DBResponse<never> & { markdown?: string; vaultPath?: string }
+        >;
+        vaultDir: () => Promise<DBResponse<string>>;
       };
 
       // Migration API

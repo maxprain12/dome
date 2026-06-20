@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 
 export interface EditorialHeroStat {
   label: string;
@@ -14,6 +15,8 @@ export interface EditorialPageHeroProps {
   actions?: ReactNode;
   /** Legacy stat card (Learn, Tags, Marketplace). */
   stat?: EditorialHeroStat;
+  /** Opens the per-section guide modal from a `?` beside the title. */
+  sectionGuideKey?: string;
   className?: string;
 }
 
@@ -23,6 +26,7 @@ export function EditorialPageHero({
   eyebrowExtra,
   actions,
   stat,
+  sectionGuideKey,
   className = '',
 }: EditorialPageHeroProps) {
   const { i18n } = useTranslation();
@@ -44,7 +48,10 @@ export function EditorialPageHero({
             </>
           ) : null}
         </div>
-        <h1 className="h-page-title">{title}</h1>
+        <h1 className="h-page-title inline-flex items-center gap-2 min-w-0">
+          <span className="min-w-0">{title}</span>
+          {sectionGuideKey ? <SectionGuideHelp sectionKey={sectionGuideKey} /> : null}
+        </h1>
         {subtitle ? <p className="h-hero-sub">{subtitle}</p> : null}
         {actions ? <div className="h-hero-actions">{actions}</div> : null}
       </div>

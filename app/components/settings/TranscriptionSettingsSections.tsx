@@ -3,13 +3,17 @@ import { useTranslation } from 'react-i18next';
 import { ShieldCheck, ShieldAlert, ShieldOff, ShieldQuestion } from 'lucide-react';
 import { showToast } from '@/lib/store/useToastStore';
 import type { ModelDefinition } from '@/lib/ai/models';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
+import type { ReactNode } from 'react';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCheckbox from '@/components/ui/DomeCheckbox';
 import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
 import { DomeSelect } from '@/components/ui/DomeSelect';
 import ModelSelector from './ModelSelector';
+
+function SectionHeading({ children }: { children: ReactNode }) {
+  return <p className="mb-2 text-sm font-medium text-[var(--dome-text)]">{children}</p>;
+}
 
 type PermStatus = 'granted' | 'denied' | 'not-determined' | 'restricted' | 'unknown';
 
@@ -43,7 +47,7 @@ function PermissionRow({ label, status, onRequest, onOpenPrefs, loading, t }: Pe
   const cfg = statusConfig[status];
 
   return (
-    <div className="flex items-center justify-between gap-3">
+    <div className="settings-toggle-row">
       <div className="flex items-center gap-2 min-w-0">
         <span className="shrink-0" style={{ color: cfg.color }}>
           {cfg.icon}
@@ -250,11 +254,9 @@ const TranscriptionSettingsSections = forwardRef<
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_permissions')}
-        </DomeSectionLabel>
+        <SectionHeading>{t('settings.transcription.section_permissions')}</SectionHeading>
         <DomeCard>
           {!isMac ? (
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
@@ -308,14 +310,9 @@ const TranscriptionSettingsSections = forwardRef<
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_quick_start')}
-        </DomeSectionLabel>
-        <DomeCard>
-          <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.help')}
-          </p>
-          <div className="flex flex-wrap gap-2 mb-3">
+        <SectionHeading>{t('settings.transcription.section_quick_start')}</SectionHeading>
+        <DomeCard className="space-y-3">
+          <div className="flex flex-wrap gap-2">
             <DomeButton type="button" variant="outline" size="sm" onClick={applyGroqPreset}>
               {t('settings.transcription.preset_groq')}
             </DomeButton>
@@ -324,7 +321,7 @@ const TranscriptionSettingsSections = forwardRef<
             </DomeButton>
           </div>
           <DomeSelect
-            className="max-w-md mb-3"
+            className="max-w-md"
             label={t('settings.transcription.stt_provider')}
             value={sttProvider}
             onChange={(e) => setSttProvider(e.target.value as SttProvider)}
@@ -336,7 +333,6 @@ const TranscriptionSettingsSections = forwardRef<
 
           {sttProvider === 'groq' ? (
             <DomeSelect
-              className="mb-3"
               label={t('settings.transcription.model')}
               value={model}
               onChange={(e) => setModel(e.target.value)}
@@ -346,7 +342,6 @@ const TranscriptionSettingsSections = forwardRef<
             </DomeSelect>
           ) : (
             <DomeSelect
-              className="mb-3"
               label={t('settings.transcription.model')}
               value={model}
               onChange={(e) => setModel(e.target.value)}
@@ -366,32 +361,21 @@ const TranscriptionSettingsSections = forwardRef<
             placeholder={t('settings.transcription.language_placeholder')}
           />
           {sttProvider === 'groq' && !hasGroqKey ? (
-            <p className="text-[11px] mt-3" style={{ color: 'var(--dome-accent)' }}>
-              {t('settings.transcription.groq_key_hint_quick')}
-            </p>
+            <p className="text-[11px] text-[var(--dome-accent)]">{t('settings.transcription.groq_key_hint_quick')}</p>
           ) : null}
         </DomeCard>
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_shortcuts_global')}
-        </DomeSectionLabel>
-        <DomeCard>
-          <p className="text-xs mb-3" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.shortcut_opt_in_help')}
-          </p>
+        <SectionHeading>{t('settings.transcription.section_shortcuts_global')}</SectionHeading>
+        <DomeCard className="space-y-3">
           <DomeCheckbox
-            className="mb-2"
             label={t('settings.transcription.shortcut_enable_dictation')}
             checked={transcriptionShortcutEnabled}
             onChange={(e) => setTranscriptionShortcutEnabled(e.target.checked)}
           />
-          <p className="text-[10px] mb-2 text-[var(--dome-text-muted,var(--tertiary-text))]">
-            {t('settings.transcription.shortcut_dictation_hint')}
-          </p>
+          <p className="text-[10px] text-[var(--dome-text-muted)]">{t('settings.transcription.shortcut_dictation_hint')}</p>
           <DomeInput
-            className="mb-4"
             value={globalShortcut}
             onChange={(e) => setGlobalShortcut(e.target.value)}
             disabled={!transcriptionShortcutEnabled}
@@ -401,20 +385,11 @@ const TranscriptionSettingsSections = forwardRef<
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_meetings_output')}
-        </DomeSectionLabel>
-        <DomeCard>
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.pause_threshold')}
-          </label>
-          <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.pause_help')}
-          </p>
-          <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)', opacity: 0.9 }}>
-            {t('settings.transcription.future_diarization_note')}
-          </p>
+        <SectionHeading>{t('settings.transcription.section_meetings_output')}</SectionHeading>
+        <DomeCard className="space-y-3">
           <DomeInput
+            label={t('settings.transcription.pause_threshold')}
+            hint={t('settings.transcription.pause_help')}
             type="number"
             min={0.4}
             max={8}
@@ -423,32 +398,24 @@ const TranscriptionSettingsSections = forwardRef<
             value={pauseThresholdSec}
             onChange={(e) => setPauseThresholdSec(e.target.value)}
           />
-          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.transcription.capture_help')}
-            </p>
-          </div>
         </DomeCard>
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.transcription.section_calls_ai')}
-        </DomeSectionLabel>
-        <DomeCard>
+        <SectionHeading>{t('settings.transcription.section_calls_ai')}</SectionHeading>
+        <DomeCard className="space-y-3">
           <DomeCheckbox
-            className="mb-3"
             label={t('settings.transcription.call_live_transcript_default')}
             checked={liveTranscriptDefault}
             onChange={(e) => setLiveTranscriptDefault(e.target.checked)}
           />
-          <label className="block text-xs font-semibold mb-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.call_chunk_length')}
-          </label>
-          <p className="text-[10px] mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.transcription.call_chunk_help')}
-          </p>
-          <DomeSelect className="max-w-[200px] mb-4" value={chunkSec} onChange={(e) => setChunkSec(e.target.value)}>
+          <DomeSelect
+            className="max-w-[200px]"
+            label={t('settings.transcription.call_chunk_length')}
+            hint={t('settings.transcription.call_chunk_help')}
+            value={chunkSec}
+            onChange={(e) => setChunkSec(e.target.value)}
+          >
             <option value="2">2</option>
             <option value="4">4</option>
             <option value="8">8</option>
@@ -456,8 +423,8 @@ const TranscriptionSettingsSections = forwardRef<
             <option value="30">30</option>
           </DomeSelect>
 
-          <div className="mb-3">
-            <span className="block text-xs font-semibold mb-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+          <div>
+            <span className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
               {t('settings.transcription.call_summary_model')}
             </span>
             {summaryModels.length > 0 ? (
@@ -500,22 +467,18 @@ const TranscriptionSettingsSections = forwardRef<
           {showAdvanced ? t('settings.transcription.advanced_hide') : t('settings.transcription.advanced_show')}
         </DomeButton>
         {showAdvanced ? (
-          <div className="space-y-6 pl-0 border-l-2 border-[var(--dome-border)] pl-3">
+          <div className="space-y-4 border-l-2 border-[var(--dome-border)] pl-3">
             {sttProvider === 'groq' ? (
-              <DomeCard>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-                  {t('settings.transcription.section_groq_key')}
-                </p>
-                <p className="text-xs mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-                  {t('settings.transcription.groq_key_help')}
-                  {hasGroqKey ? ` (${t('settings.transcription.groq_key_saved')})` : ''}
-                </p>
+              <DomeCard className="space-y-2">
+                <SectionHeading>{t('settings.transcription.section_groq_key')}</SectionHeading>
                 <DomeInput
                   type="password"
+                  label={t('settings.transcription.groq_key_help')}
                   value={groqKey}
                   onChange={(e) => setGroqKey(e.target.value)}
                   placeholder={t('settings.transcription.groq_key_placeholder')}
                   autoComplete="off"
+                  hint={hasGroqKey ? t('settings.transcription.groq_key_saved') : undefined}
                 />
                 {hasGroqKey && (
                   <DomeButton
@@ -531,20 +494,16 @@ const TranscriptionSettingsSections = forwardRef<
               </DomeCard>
             ) : null}
 
-            <DomeCard>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-                {t('settings.transcription.section_key')}
-              </p>
-              <p className="text-xs mb-2" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.transcription.key_help')}
-                {hasDedicatedKey ? ` (${t('settings.transcription.key_saved')})` : ''}
-              </p>
+            <DomeCard className="space-y-2">
+              <SectionHeading>{t('settings.transcription.section_key')}</SectionHeading>
               <DomeInput
                 type="password"
+                label={t('settings.transcription.key_help')}
                 value={dedicatedKey}
                 onChange={(e) => setDedicatedKey(e.target.value)}
                 placeholder={t('settings.transcription.key_placeholder')}
                 autoComplete="off"
+                hint={hasDedicatedKey ? t('settings.transcription.key_saved') : undefined}
               />
               {hasDedicatedKey && (
                 <DomeButton
@@ -559,12 +518,9 @@ const TranscriptionSettingsSections = forwardRef<
               )}
             </DomeCard>
 
-            <DomeCard>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}>
-                {t('settings.transcription.section_api_prompt')}
-              </p>
+            <DomeCard className="space-y-3">
+              <SectionHeading>{t('settings.transcription.section_api_prompt')}</SectionHeading>
               <DomeInput
-                className="mb-3"
                 label={t('settings.transcription.api_base_url')}
                 hint={t('settings.transcription.api_base_url_help')}
                 value={apiBaseUrl}

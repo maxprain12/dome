@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import i18n from '@/lib/i18n';
+import { migrateFolderHistory, removeFolderHistory } from '@/lib/folder/folderNavigationHistory';
 
 export type TabType =
   | 'home'
@@ -147,6 +148,7 @@ interface TabStore {
   openRunsTab: () => void;
   openProjectsTab: () => void;
   openFolderTab: (folderId: string, title: string, color?: string) => void;
+  navigateFolderTab: (fromTabId: string, location: { id: string; title: string; color?: string }) => void;
   openTranscriptionsTab: () => void;
   openTranscriptionDetailTab: (noteId: string, title: string) => void;
   openSemanticGraphTab: (focusResourceId?: string) => void;
@@ -221,6 +223,10 @@ export const useTabStore = create<TabStore>((set, get) => {
     closeTab: (tabId) => {
       const { tabs, activeTabId } = get();
       if (tabs.find((t) => t.id === tabId)?.pinned) return;
+
+      if (tabId.startsWith(FOLDER_TAB_PREFIX)) {
+        removeFolderHistory(tabId);
+      }
 
       const filtered = tabs.filter((t) => t.id !== tabId);
       if (filtered.length === 0) {
@@ -527,6 +533,38 @@ export const useTabStore = create<TabStore>((set, get) => {
         return;
       }
       get().openTab({ id: tabId, type: 'folder', title, resourceId: folderId, color });
+    },
+
+    navigateFolderTab: (fromTabId, location) => {
+      const newTabId = FOLDER_TAB_PREFIX + location.id;
+      if (fromTabId === newTabId) return;
+
+      let { tabs, activeTabId } = get();
+      const fromIdx = tabs.findIndex((t) => t.id === fromTabId);
+      if (fromIdx === -1) return;
+
+      const existingIdx = tabs.findIndex((t) => t.id === newTabId);
+      if (existingIdx !== -1 && existingIdx !== fromIdx) {
+        tabs = tabs.filter((t) => t.id !== fromTabId);
+        migrateFolderHistory(fromTabId, newTabId);
+        set({ tabs, activeTabId: newTabId });
+        saveTabs(tabs, newTabId);
+        return;
+      }
+
+      const updatedTab: DomeTab = {
+        ...tabs[fromIdx],
+        id: newTabId,
+        resourceId: location.id,
+        title: location.title,
+        ...(location.color ? { color: location.color } : {}),
+      };
+      const newTabs = [...tabs];
+      newTabs[fromIdx] = updatedTab;
+      if (activeTabId === fromTabId) activeTabId = newTabId;
+      migrateFolderHistory(fromTabId, newTabId);
+      set({ tabs: newTabs, activeTabId });
+      saveTabs(newTabs, activeTabId);
     },
 
     openTranscriptionsTab: () => {

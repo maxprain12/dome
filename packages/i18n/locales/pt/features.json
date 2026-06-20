@@ -1,0 +1,29 @@
+{
+  "title": "Funcionalidades",
+  "subtitle": "Mostre ou oculte seções do Dome. As seções ocultas podem ser reativadas aqui a qualquer momento.",
+  "current_role": "Perfil",
+  "no_role": "Nenhum",
+  "reset_hint": "Restaure a visibilidade para os padrões do seu perfil.",
+  "reset_button": "Restaurar ao perfil",
+  "hidden_notice": "{{n}} ocultas · Configurações",
+  "hidden_notice_title": "Você tem seções ocultas. Gerencie-as em Configurações → Funcionalidades.",
+  "groups": {
+    "workspace": "Área de trabalho",
+    "automation": "Agentes e automação",
+    "study": "Aprendizagem",
+    "extensions": "Extensões"
+  },
+  "items": {
+    "projects": { "label": "Projetos", "desc": "Organize o trabalho em projetos." },
+    "calendar": { "label": "Calendário", "desc": "Eventos e agendamento." },
+    "email": { "label": "E-mail", "desc": "Leia e envie e-mails pelo Dome." },
+    "tags": { "label": "Tags", "desc": "Navegue pelos recursos por tag." },
+    "github": { "label": "GitHub", "desc": "Acompanhe marcos, issues e releases." },
+    "agents": { "label": "Agentes", "desc": "Agentes de IA que trabalham com seus recursos." },
+    "workflows": { "label": "Workflows", "desc": "Fluxos de agentes em várias etapas num canvas." },
+    "automations": { "label": "Automações", "desc": "Automações por evento ou agendadas." },
+    "runs": { "label": "Execuções", "desc": "Histórico de execuções de agentes e automações." },
+    "learn": { "label": "Aprender", "desc": "Flashcards, repetição espaçada e quizzes." },
+    "marketplace": { "label": "Marketplace", "desc": "Agentes, plugins e habilidades." }
+  }
+}

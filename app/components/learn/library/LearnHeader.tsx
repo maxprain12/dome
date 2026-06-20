@@ -1,5 +1,6 @@
 import { Settings2, Wand2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 
 export default function LearnHeader() {
@@ -17,7 +18,10 @@ export default function LearnHeader() {
       <div className="lr-hd-date">{dateLine}</div>
       <div className="lr-hd-row">
         <div>
-          <h1 className="lr-hd-title">{t('learn.page_title', 'Learn')}</h1>
+          <h1 className="lr-hd-title inline-flex items-center gap-2 min-w-0">
+            <span className="min-w-0">{t('learn.page_title', 'Learn')}</span>
+            <SectionGuideHelp sectionKey="learn" />
+          </h1>
           <p className="lr-hd-sub">
             {t('learn.page_subtitle', 'Flashcards, guides, mind maps, and AI-generated study content.')}
           </p>

@@ -246,7 +246,7 @@ function runMigrations(db) {
   // Migrations toggle PRAGMA foreign_keys (a no-op inside SQLite transactions),
   // so whole-run atomicity is provided by restoring the pre-migration backup on failure.
   try {
-    applyMigrations(db, version);
+    applyMigrations(db, version, invalidateQueries);
   } catch (err) {
     console.error(`[DB] Migration failed (upgrading from schema v${version}):`, err?.message);
     if (backupPath && db.name) {

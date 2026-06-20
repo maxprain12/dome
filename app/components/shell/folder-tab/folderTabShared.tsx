@@ -12,6 +12,40 @@ export function getFolderColor(folder: Resource): string {
   return meta?.color ?? 'var(--dome-text-muted)';
 }
 
+/**
+ * Project-root tabs use a project id as tab resourceId.
+ * Folder tabs use a folder resource id (`res_*` or legacy UUID from guide seed).
+ */
+export function isProjectRootFolderTab(
+  folderId: string,
+  folderResource?: Resource | null,
+): boolean {
+  if (folderId.startsWith('res_')) return false;
+  if (folderResource?.type === 'folder') return false;
+  return true;
+}
+
+export interface FolderTabViewContext {
+  isProjectRoot: boolean;
+  /** Folder whose children are listed (`null` = project root). */
+  listFolderId: string | null;
+  projectId: string;
+}
+
+export function resolveFolderTabView(
+  folderId: string,
+  folderResource?: Resource | null,
+): FolderTabViewContext {
+  if (isProjectRootFolderTab(folderId, folderResource)) {
+    return { isProjectRoot: true, listFolderId: null, projectId: folderId };
+  }
+  return {
+    isProjectRoot: false,
+    listFolderId: folderId,
+    projectId: folderResource?.project_id ?? '',
+  };
+}
+
 
 export function ResourceTypeIcon({ type, name, className }: { type: string; name?: string; className?: string }) {
   return (

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Plus, Circle, CheckCircle2, Calendar, ChevronRight } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { Plus, Circle, CheckCircle2, Calendar, ChevronRight, Inbox, Target, Hash, X, CheckCircle, Milestone, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { githubClient, parseLabels } from '@/lib/github/client';
@@ -15,9 +15,6 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
   const selectedRepoId = useGitHubStore((s) => s.selectedRepoId);
   const loadRepoData = useGitHubStore((s) => s.loadRepoData);
   const syncNow = useGitHubStore((s) => s.syncNow);
-
-  const [draft, setDraft] = useState('');
-  const [adding, setAdding] = useState(false);
 
   const q = query.trim().toLowerCase();
   const issues = useMemo(() => {
@@ -49,16 +46,6 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
     void syncNow();
   };
 
-  const quickAdd = async () => {
-    const title = draft.trim();
-    if (!title || !selectedRepoId) return;
-    setAdding(true);
-    await githubClient.issues.create(selectedRepoId, { title });
-    setDraft('');
-    setAdding(false);
-    await loadRepoData(selectedRepoId);
-  };
-
   if (!selectedRepoId) {
     return (
       <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--dome-text-muted)' }}>
@@ -67,92 +54,477 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
     );
   }
 
-  const IssueRow = ({ issue }: { issue: GitHubIssueRow }) => (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpenIssue(issue.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenIssue(issue.id); } }}
-      className="group flex items-center gap-2 w-full text-left px-2 py-1.5 rounded-md cursor-pointer"
-      style={{ color: 'var(--dome-text)' }}
-    >
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); void toggle(issue); }}
-        title={t('github.minimal_mark_done')}
-        style={{ color: 'var(--dome-text-muted)' }}
+  const QuickCreateIssue = () => {
+    const [title, setTitle] = useState('');
+    const [body, setBody] = useState('');
+    const [milestoneChoice, setMilestoneChoice] = useState<string>('none');
+    const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [success, setSuccess] = useState(false);
+    const [bodyOpen, setBodyOpen] = useState(false);
+    const titleRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+      titleRef.current?.focus();
+    }, []);
+
+    const reset = () => {
+      setTitle('');
+      setBody('');
+      setMilestoneChoice('none');
+      setNewMilestoneTitle('');
+      setBodyOpen(false);
+      setError(null);
+    };
+
+    const handleSubmit = async (e?: FormEvent) => {
+      e?.preventDefault();
+      const trimmed = title.trim();
+      if (!trimmed || !selectedRepoId) {
+        setError(t('github.minimal_quick_error_title'));
+        return;
+      }
+      setError(null);
+      setSubmitting(true);
+      try {
+        let milestoneNumber: number | null = null;
+        if (milestoneChoice === '__new__') {
+          const mTitle = newMilestoneTitle.trim();
+          if (mTitle) {
+            const created = await githubClient.milestones.create(selectedRepoId, { title: mTitle });
+            const num = (created as { number?: number } | null)?.number;
+            if (typeof num === 'number') milestoneNumber = num;
+          }
+        } else if (milestoneChoice !== 'none') {
+          milestoneNumber = Number(milestoneChoice);
+        }
+        await githubClient.issues.create(selectedRepoId, {
+          title: trimmed,
+          body: body.trim() || undefined,
+          ...(milestoneNumber !== null ? { milestoneNumber } : {}),
+        });
+        reset();
+        setSuccess(true);
+        setTimeout(() => setSuccess(false), 2000);
+        await loadRepoData(selectedRepoId);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    const onTitleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        void handleSubmit();
+      }
+    };
+
+    return (
+      <form
+        onSubmit={(e) => void handleSubmit(e)}
+        className="rounded-xl mb-5 p-2.5 flex flex-col gap-2"
+        style={{
+          background: 'var(--dome-surface)',
+          border: '1px solid var(--dome-border)',
+        }}
       >
-        <Circle size={16} />
-      </button>
-      <span className="text-sm flex-1 truncate">{issue.title}</span>
-      <ChevronRight size={14} className="opacity-0 group-hover:opacity-100" style={{ color: 'var(--dome-text-muted)' }} />
-    </div>
-  );
+        {/* Row 1: title + submit */}
+        <div
+          className="flex items-center gap-2 rounded-md px-2"
+          style={{
+            background: 'var(--dome-bg)',
+            border: `1px solid ${error ? 'var(--dome-error, var(--error))' : 'var(--dome-border)'}`,
+            height: 32,
+          }}
+        >
+          <Plus size={14} style={{ color: 'var(--dome-text-muted)' }} className="shrink-0" />
+          <input
+            id="quick-issue-title"
+            ref={titleRef}
+            type="text"
+            value={title}
+            onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
+            onKeyDown={onTitleKeyDown}
+            placeholder={t('github.minimal_quick_title_placeholder')}
+            className="flex-1 bg-transparent outline-none text-sm min-w-0"
+            style={{ color: 'var(--dome-text)' }}
+            autoComplete="off"
+            spellCheck={false}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? 'quick-issue-error' : undefined}
+            aria-label={t('github.minimal_quick_title_label')}
+          />
+          {success && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] shrink-0"
+              style={{ color: 'var(--dome-success)' }}
+              role="status"
+            >
+              <CheckCircle size={12} />
+              {t('github.minimal_quick_created')}
+            </span>
+          )}
+        </div>
+
+        {error && (
+          <p
+            id="quick-issue-error"
+            className="text-[11px] flex items-center gap-1 -mt-1"
+            style={{ color: 'var(--dome-error, var(--error))' }}
+            role="alert"
+          >
+            <X size={11} />
+            {error}
+          </p>
+        )}
+
+        {/* Row 2: milestone + body toggle + cancel/create */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <div
+            className="flex items-center gap-1.5 rounded-md px-2 shrink min-w-0"
+            style={{
+              background: 'var(--dome-bg)',
+              border: '1px solid var(--dome-border)',
+              height: 28,
+            }}
+          >
+            <Milestone size={12} style={{ color: 'var(--dome-text-muted)' }} className="shrink-0" />
+            <select
+              value={milestoneChoice}
+              onChange={(e) => setMilestoneChoice(e.target.value)}
+              aria-label={t('github.minimal_quick_milestone_label')}
+              className="bg-transparent outline-none text-xs min-w-0 max-w-[180px] truncate"
+              style={{ color: 'var(--dome-text)' }}
+            >
+              <option value="none">{t('github.minimal_quick_milestone_none')}</option>
+              {milestones
+                .filter((m) => m.state === 'open')
+                .map((m) => (
+                  <option key={m.id} value={String(m.number)}>{m.title}</option>
+                ))}
+              <option value="__new__">{t('github.minimal_quick_milestone_new')}</option>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setBodyOpen((v) => !v)}
+            aria-expanded={bodyOpen}
+            aria-controls="quick-issue-body"
+            title={t('github.minimal_quick_body_label')}
+            className="inline-flex items-center gap-1 text-xs px-2 h-7 rounded-md shrink-0"
+            style={{
+              background: bodyOpen ? 'var(--dome-bg-hover)' : 'transparent',
+              border: '1px solid var(--dome-border)',
+              color: bodyOpen ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+              cursor: 'pointer',
+            }}
+          >
+            <FileText size={12} />
+            {bodyOpen ? '−' : '+'}
+          </button>
+
+          <div className="ml-auto flex items-center gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={reset}
+              disabled={submitting}
+              className="text-xs px-2.5 h-7 rounded-md"
+              style={{
+                background: 'transparent',
+                border: '1px solid var(--dome-border)',
+                color: 'var(--dome-text-muted)',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              {t('github.minimal_quick_cancel')}
+            </button>
+            <button
+              type="submit"
+              disabled={submitting || !title.trim()}
+              className="text-xs px-3 h-7 rounded-md font-medium"
+              style={{
+                background: 'var(--dome-accent)',
+                color: 'var(--dome-on-accent)',
+                border: 'none',
+                cursor: submitting || !title.trim() ? 'not-allowed' : 'pointer',
+                opacity: submitting || !title.trim() ? 0.55 : 1,
+              }}
+            >
+              {submitting ? t('github.minimal_quick_creating') : t('github.minimal_quick_create')}
+            </button>
+          </div>
+        </div>
+
+        {milestoneChoice === '__new__' && (
+          <input
+            type="text"
+            value={newMilestoneTitle}
+            onChange={(e) => setNewMilestoneTitle(e.target.value)}
+            placeholder={t('github.minimal_quick_milestone_create_placeholder')}
+            aria-label={t('github.minimal_quick_milestone_create_label')}
+            className="rounded-md px-2 text-sm outline-none"
+            style={{
+              background: 'var(--dome-bg)',
+              border: '1px solid var(--dome-border)',
+              color: 'var(--dome-text)',
+              height: 28,
+            }}
+            autoComplete="off"
+          />
+        )}
+
+        {bodyOpen && (
+          <textarea
+            id="quick-issue-body"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder={t('github.minimal_quick_body_placeholder')}
+            rows={3}
+            className="w-full rounded-md px-2 py-1.5 text-sm outline-none resize-y"
+            style={{
+              background: 'var(--dome-bg)',
+              border: '1px solid var(--dome-border)',
+              color: 'var(--dome-text)',
+              minHeight: 60,
+            }}
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                e.preventDefault();
+                void handleSubmit();
+              }
+            }}
+          />
+        )}
+      </form>
+    );
+  };
+
+  const IssueRow = ({ issue }: { issue: GitHubIssueRow }) => {
+    const labels = parseLabels(issue.labels);
+    const visibleLabels = labels.slice(0, 3);
+    const hiddenCount = labels.length - visibleLabels.length;
+    return (
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onOpenIssue(issue.id)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenIssue(issue.id); } }}
+        className="group flex items-start gap-2 w-full text-left px-2 py-1.5 rounded-md cursor-pointer transition-colors"
+        style={{ color: 'var(--dome-text)' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--dome-bg-hover)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+      >
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); void toggle(issue); }}
+          title={t('github.minimal_mark_done')}
+          aria-label={t('github.minimal_mark_done')}
+          className="shrink-0 mt-0.5 inline-flex items-center justify-center rounded"
+          style={{
+            width: 18,
+            height: 18,
+            color: 'var(--dome-text-muted)',
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-success)'; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
+        >
+          <Circle size={15} />
+        </button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="inline-flex items-center gap-0.5 shrink-0 text-[11px] font-mono"
+              style={{ color: 'var(--dome-text-muted)' }}
+            >
+              <Hash size={11} />
+              {issue.number}
+            </span>
+            <span className="text-sm flex-1 truncate">{issue.title}</span>
+          </div>
+          {visibleLabels.length > 0 && (
+            <div className="flex items-center gap-1 mt-1 flex-wrap">
+              {visibleLabels.map((label) => (
+                <span
+                  key={label}
+                  className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                  style={{
+                    background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
+                    color: 'var(--dome-accent)',
+                    border: '1px solid color-mix(in srgb, var(--dome-accent) 22%, transparent)',
+                  }}
+                >
+                  {label}
+                </span>
+              ))}
+              {hiddenCount > 0 && (
+                <span className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                  +{hiddenCount}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        <ChevronRight
+          size={14}
+          className="opacity-0 group-hover:opacity-100 shrink-0 mt-1.5 transition-opacity"
+          style={{ color: 'var(--dome-text-muted)' }}
+        />
+      </div>
+    );
+  };
 
   return (
     <div className="h-full overflow-auto px-4 py-4 mx-auto w-full max-w-3xl">
-      {/* Quick add */}
-      <div className="flex items-center gap-2 mb-5 px-3 py-2 rounded-xl" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-        <Plus size={16} style={{ color: 'var(--dome-text-muted)' }} />
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') void quickAdd(); }}
-          placeholder={t('github.minimal_add_task_placeholder')}
-          className="flex-1 bg-transparent outline-none text-sm"
-          style={{ color: 'var(--dome-text)' }}
-        />
-        {draft.trim() && (
-          <button
-            type="button"
-            onClick={() => void quickAdd()}
-            disabled={adding}
-            className="text-xs px-2.5 py-1 rounded-md"
-            style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)', opacity: adding ? 0.6 : 1 }}
-          >
-            {t('github.minimal_add')}
-          </button>
-        )}
-      </div>
+      <QuickCreateIssue />
 
       {/* Milestone cards */}
-      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-3">
         {groups.cards.map(({ milestone: m, issues: list }) => {
           const total = m.open_issues + m.closed_issues;
           const pct = total > 0 ? Math.round((m.closed_issues / total) * 100) : 0;
+          const due = m.due_on ? new Date(m.due_on) : null;
+          const dueLabel = due
+            ? due.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })
+            : null;
           return (
-            <div key={m.id} className="rounded-xl p-4" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-semibold" style={{ color: 'var(--dome-text)' }}>{m.title}</span>
-                {m.due_on && (
-                  <span className="flex items-center gap-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    <Calendar size={12} /> {new Date(m.due_on).toLocaleDateString()}
-                  </span>
+            <div
+              key={m.id}
+              className="rounded-xl overflow-hidden"
+              style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+            >
+              {/* Card header */}
+              <div className="flex items-start gap-3 px-4 pt-3 pb-2.5">
+                <span
+                  className="shrink-0 mt-0.5 inline-flex items-center justify-center rounded-md"
+                  style={{
+                    width: 24,
+                    height: 24,
+                    background: 'color-mix(in srgb, var(--dome-accent) 12%, var(--dome-bg))',
+                    color: 'var(--dome-accent)',
+                  }}
+                >
+                  <Target size={13} strokeWidth={2} />
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-2 min-w-0">
+                    <span
+                      className="font-semibold truncate"
+                      style={{ color: 'var(--dome-text)' }}
+                      title={m.title}
+                    >
+                      {m.title}
+                    </span>
+                    <span className="text-[11px] shrink-0 font-mono" style={{ color: 'var(--dome-text-muted)' }}>
+                      {list.length === 1
+                        ? t('github.minimal_open_count_one', { count: list.length })
+                        : t('github.minimal_open_count_other', { count: list.length })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+                    {dueLabel && (
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar size={11} />
+                        {t('github.minimal_due', { date: dueLabel })}
+                      </span>
+                    )}
+                    {total > 0 && (
+                      <>
+                        {dueLabel && <span aria-hidden>·</span>}
+                        <span>
+                          {m.closed_issues}/{total} {pct}%
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="px-4">
+                <div
+                  className="h-1 rounded-full overflow-hidden"
+                  style={{ background: 'var(--dome-bg-hover)' }}
+                >
+                  <div
+                    className="h-full rounded-full transition-[width] duration-200"
+                    style={{ width: `${pct}%`, background: 'var(--dome-accent)' }}
+                  />
+                </div>
+              </div>
+
+              {/* Issue list */}
+              <div className="px-2 py-2 mt-1 flex flex-col gap-0.5">
+                {list.length === 0 ? (
+                  <div
+                    className="flex items-center justify-center gap-2 py-3 text-[12px]"
+                    style={{ color: 'var(--dome-text-muted)' }}
+                  >
+                    <CheckCircle2 size={13} />
+                    {t('github.minimal_no_open_tasks')}
+                  </div>
+                ) : (
+                  list.map((issue) => <IssueRow key={issue.id} issue={issue} />)
                 )}
               </div>
-              <div className="h-1.5 rounded-full mb-3 overflow-hidden" style={{ background: 'var(--dome-bg-hover)' }}>
-                <div className="h-full rounded-full" style={{ width: `${pct}%`, background: 'var(--dome-accent)' }} />
-              </div>
-              {list.length === 0 ? (
-                <span className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{t('github.minimal_no_open_tasks')}</span>
-              ) : (
-                list.map((issue) => <IssueRow key={issue.id} issue={issue} />)
-              )}
             </div>
           );
         })}
 
         {groups.orphan.length > 0 && (
-          <div className="rounded-xl p-4" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-            <span className="font-semibold block mb-2" style={{ color: 'var(--dome-text)' }}>{t('github.minimal_other_tasks')}</span>
-            {groups.orphan.map((issue) => <IssueRow key={issue.id} issue={issue} />)}
+          <div
+            className="rounded-xl"
+            style={{
+              background: 'color-mix(in srgb, var(--dome-bg-hover) 60%, var(--dome-surface))',
+              border: '1px dashed var(--dome-border)',
+            }}
+          >
+            <div className="flex items-center gap-2 px-4 pt-3 pb-2">
+              <span
+                className="shrink-0 inline-flex items-center justify-center rounded-md"
+                style={{
+                  width: 24,
+                  height: 24,
+                  background: 'var(--dome-bg-hover)',
+                  color: 'var(--dome-text-muted)',
+                }}
+              >
+                <Inbox size={13} strokeWidth={2} />
+              </span>
+              <span
+                className="font-semibold flex-1"
+                style={{ color: 'var(--dome-text-secondary)' }}
+              >
+                {t('github.minimal_other_tasks')}
+              </span>
+              <span className="text-[11px] font-mono" style={{ color: 'var(--dome-text-muted)' }}>
+                {groups.orphan.length}
+              </span>
+            </div>
+            <div className="px-2 py-2 flex flex-col gap-0.5">
+              {groups.orphan.map((issue) => <IssueRow key={issue.id} issue={issue} />)}
+            </div>
           </div>
         )}
 
         {groups.cards.length === 0 && groups.orphan.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-16 gap-2 text-center">
-            <CheckCircle2 size={28} style={{ color: 'var(--dome-text-muted)' }} />
-            <span className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('github.minimal_all_done')}</span>
+          <div
+            className="rounded-xl py-14 flex flex-col items-center justify-center gap-2 text-center"
+            style={{
+              background: 'var(--dome-surface)',
+              border: '1px dashed var(--dome-border)',
+            }}
+          >
+            <CheckCircle2 size={28} style={{ color: 'var(--dome-success)' }} />
+            <span className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('github.minimal_all_done')}
+            </span>
           </div>
         )}
       </div>

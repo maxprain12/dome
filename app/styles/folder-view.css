@@ -1,0 +1,764 @@
+/* Filesystem-style folder tab — minimal Finder / Linear aesthetic */
+
+.dome-folder-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--dome-bg);
+  container-type: inline-size;
+  container-name: folder-view;
+}
+
+/* ── Toolbar (single row) ── */
+
+.dome-folder-view__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 65%, transparent);
+  background: var(--dome-surface);
+  min-height: 44px;
+}
+
+.dome-folder-view__nav-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.dome-folder-view__nav-btn,
+.dome-folder-view__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, opacity 0.12s;
+}
+
+.dome-folder-view__nav-btn:hover:not(:disabled),
+.dome-folder-view__icon-btn:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.dome-folder-view__nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.dome-folder-view__icon-btn--active {
+  background: color-mix(in srgb, var(--dome-accent) 14%, transparent);
+  color: var(--dome-accent);
+}
+
+.dome-folder-view__breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--dome-text-muted);
+  overflow: hidden;
+}
+
+.dome-folder-view__breadcrumb button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 2px 4px;
+  border-radius: 4px;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  transition: color 0.12s, background 0.12s;
+}
+
+.dome-folder-view__breadcrumb button:hover {
+  color: var(--dome-text);
+  background: var(--dome-bg-hover);
+}
+
+.dome-folder-view__breadcrumb-current {
+  color: var(--dome-text);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  padding: 2px 4px;
+}
+
+.dome-folder-view__toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.dome-folder-view__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: min(240px, 42vw);
+  min-width: 140px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--dome-border);
+  background: var(--dome-bg);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+
+.dome-folder-view__search:focus-within {
+  border-color: color-mix(in srgb, var(--dome-accent) 40%, var(--dome-border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--dome-accent) 16%, transparent);
+}
+
+.dome-folder-view__search-icon {
+  flex-shrink: 0;
+  color: var(--dome-text-muted);
+}
+
+.dome-folder-view__search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--dome-text);
+  outline: none;
+  padding: 2px 0;
+}
+
+.dome-folder-view__search-input::placeholder {
+  color: var(--dome-text-muted);
+}
+
+.dome-folder-view__search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.dome-folder-view__search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.dome-folder-view__search-clear:hover {
+  color: var(--dome-text);
+  background: var(--dome-bg-hover);
+}
+
+.dome-folder-view__search-mark {
+  background: color-mix(in srgb, var(--dome-accent) 24%, transparent);
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.dome-folder-view__add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 7px;
+  border: none;
+  background: var(--dome-accent);
+  color: var(--dome-on-accent);
+  cursor: pointer;
+  transition: filter 0.12s, transform 0.12s;
+}
+
+.dome-folder-view__add-btn:hover {
+  filter: brightness(1.06);
+}
+
+.dome-folder-view__menu-dropdown {
+  background: var(--dome-surface) !important;
+  border: 1px solid var(--dome-border) !important;
+}
+
+.dome-folder-view__menu-item {
+  font-size: 12px !important;
+  color: var(--dome-text) !important;
+}
+
+.dome-folder-view__menu-item[data-hovered] {
+  background: var(--dome-bg-hover) !important;
+}
+
+/* ── View toggle (grid / list) ── */
+
+.dome-folder-view__view-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--dome-text-muted) 8%, transparent);
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.dome-folder-view__view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+
+.dome-folder-view__view-toggle-btn:hover {
+  color: var(--dome-text);
+}
+
+.dome-folder-view__view-toggle-btn--active {
+  background: var(--dome-surface);
+  color: var(--dome-accent);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--dome-text) 8%, transparent);
+}
+
+/* ── List ── */
+
+.dome-folder-view__list {
+  flex: 1;
+  overflow: auto;
+  min-width: 0;
+}
+
+.dome-folder-view__list-header,
+.dome-fs-tree-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 108px 36px;
+  gap: 12px;
+  align-items: center;
+}
+
+.dome-folder-view__list-header {
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--dome-text-muted);
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 55%, transparent);
+  background: color-mix(in srgb, var(--dome-surface) 80%, var(--dome-bg));
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.dome-folder-view__list-header-name {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dome-folder-view__list-header-count {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--dome-text-muted);
+  opacity: 0.8;
+  white-space: nowrap;
+}
+
+.dome-folder-view__list-header-labels {
+  display: contents;
+}
+
+.dome-folder-view__col-modified {
+  text-align: right;
+}
+
+.dome-fs-tree-row {
+  font-variant-numeric: tabular-nums;
+  padding: 0 12px 0 16px;
+  min-height: 38px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 45%, transparent);
+  transition: background 0.1s;
+}
+
+.dome-fs-tree-row:hover,
+.dome-fs-tree-row--focused {
+  background: var(--dome-bg-hover);
+}
+
+.dome-fs-tree-row--selected {
+  background: color-mix(in srgb, var(--dome-accent) 10%, var(--dome-bg-hover));
+  outline: 1px solid color-mix(in srgb, var(--dome-accent) 35%, transparent);
+  outline-offset: -1px;
+}
+
+.dome-fs-tree-row__name-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dome-fs-tree-row__icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dome-fs-tree-row__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dome-fs-tree-name {
+  color: var(--dome-text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: left;
+  min-width: 0;
+}
+
+.dome-fs-tree-name--folder {
+  font-weight: 500;
+}
+
+.dome-folder-view__type-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.01em;
+  background: color-mix(in srgb, var(--dome-text-muted) 10%, transparent);
+  color: var(--dome-text-muted);
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dome-fs-tree-row__modified {
+  font-size: 11px;
+  color: var(--dome-text-muted);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dome-fs-tree-row__actions {
+  display: flex;
+  justify-content: flex-end;
+  opacity: 0;
+  transition: opacity 0.1s;
+}
+
+.dome-fs-tree-row:hover .dome-fs-tree-row__actions,
+.dome-fs-tree-row--menu-open .dome-fs-tree-row__actions {
+  opacity: 1;
+}
+
+.dome-fs-tree-row__menu-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.dome-fs-tree-row__menu-btn:hover {
+  background: color-mix(in srgb, var(--dome-text-muted) 12%, transparent);
+  color: var(--dome-text);
+}
+
+.dome-fs-tree-row__rename-input {
+  flex: 1;
+  font-size: 13px;
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: none;
+  min-width: 0;
+  background: var(--dome-bg);
+  border: 1px solid var(--dome-accent);
+  color: var(--dome-text);
+}
+
+.dome-fs-tree-row__rename-btn {
+  display: inline-flex;
+  padding: 2px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.dome-fs-tree-row__rename-btn--confirm {
+  color: var(--dome-accent);
+}
+
+.dome-fs-tree-row__rename-btn--cancel {
+  color: var(--dome-text-muted);
+}
+
+.dome-fs-tree-row__checkbox {
+  flex-shrink: 0;
+  cursor: pointer;
+  accent-color: var(--dome-accent);
+  border-radius: 4px;
+}
+
+.dome-folder-view__row-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dome-text) 12%, transparent);
+  padding: 4px 0;
+  min-width: 156px;
+  background: var(--dome-surface);
+  border: 1px solid var(--dome-border);
+}
+
+.dome-folder-view__row-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 12px;
+  font-size: 12px;
+  text-align: left;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--dome-text);
+  transition: background 0.1s;
+}
+
+.dome-folder-view__row-menu-item:hover {
+  background: var(--dome-bg-hover);
+}
+
+.dome-folder-view__row-menu-item--danger {
+  color: var(--dome-error);
+}
+
+.dome-folder-view__row-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--dome-border);
+}
+
+.dome-folder-view__inline-create {
+  padding: 8px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 45%, transparent);
+}
+
+.dome-folder-view__empty {
+  padding: 32px 16px;
+  font-size: 13px;
+  color: var(--dome-text-muted);
+  text-align: center;
+}
+
+.dome-folder-view__empty--search {
+  font-style: italic;
+}
+
+/* ── Responsive (container queries) ── */
+
+@container folder-view (max-width: 720px) {
+  .dome-folder-view__breadcrumb button {
+    max-width: 80px;
+  }
+}
+
+@container folder-view (max-width: 560px) {
+  .dome-folder-view__search {
+    width: min(200px, 50vw);
+    min-width: 120px;
+  }
+
+  .dome-folder-view__list-header,
+  .dome-fs-tree-row {
+    grid-template-columns: minmax(0, 1fr) 36px;
+  }
+
+  .dome-folder-view__col-modified,
+  .dome-fs-tree-row__modified {
+    display: none;
+  }
+
+  .dome-folder-view__type-badge {
+    display: none;
+  }
+}
+
+@container folder-view (max-width: 400px) {
+  .dome-folder-view__toolbar {
+    padding-inline: 10px;
+    flex-wrap: wrap;
+  }
+
+  .dome-folder-view__breadcrumb {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .dome-folder-view__breadcrumb button {
+    max-width: 64px;
+  }
+}
+
+/* ── Grid view ── */
+
+.dome-folder-view__list--grid {
+  overflow: auto;
+}
+
+.dome-folder-view__grid-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 20px;
+  background: color-mix(in srgb, var(--dome-surface) 80%, var(--dome-bg));
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 55%, transparent);
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  font-size: 11px;
+  color: var(--dome-text-muted);
+}
+
+.dome-folder-view__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  padding: 20px;
+  align-items: stretch;
+}
+
+.dome-fs-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--dome-surface);
+  border: 1px solid color-mix(in srgb, var(--dome-border) 70%, transparent);
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 200px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  container-type: inline-size;
+  container-name: fs-card;
+}
+
+.dome-fs-card:hover {
+  border-color: color-mix(in srgb, var(--dome-accent) 40%, var(--dome-border));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--dome-text) 8%, transparent);
+}
+
+.dome-fs-card--focused,
+.dome-fs-card--selected {
+  border-color: color-mix(in srgb, var(--dome-accent) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dome-accent) 35%, transparent);
+}
+
+.dome-fs-card--selected {
+  background: color-mix(in srgb, var(--dome-accent) 6%, var(--dome-surface));
+}
+
+.dome-fs-card__cover {
+  position: relative;
+  height: 110px;
+  background-color: var(--dome-bg-secondary);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 55%, transparent);
+}
+
+.dome-fs-card__cover-icon {
+  width: 44px;
+  height: 44px;
+  opacity: 0.85;
+}
+
+.dome-fs-card__cover-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  opacity: 0.7;
+}
+
+.dome-fs-card__select {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: color-mix(in srgb, var(--dome-surface) 80%, transparent);
+  backdrop-filter: blur(2px);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dome-fs-card__menu-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--dome-surface) 80%, transparent);
+  backdrop-filter: blur(2px);
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  z-index: 1;
+}
+
+.dome-fs-card__menu-btn:hover {
+  background: var(--dome-surface);
+  color: var(--dome-text);
+}
+
+.dome-fs-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px 12px;
+  flex: 1;
+  min-height: 0;
+  outline: none;
+}
+
+.dome-fs-card__body:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--dome-accent) 50%, transparent);
+  outline-offset: -2px;
+  border-radius: 0 0 11px 11px;
+}
+
+.dome-fs-card__title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dome-fs-card__title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--dome-text);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.dome-fs-card__snippet {
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--dome-text-muted);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+  flex: 1;
+  min-height: 0;
+}
+
+.dome-fs-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 4px;
+  font-size: 10.5px;
+  color: var(--dome-text-muted);
+}
+
+.dome-fs-card__modified {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dome-fs-card__rename {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+@container fs-card (max-width: 180px) {
+  .dome-fs-card__cover {
+    height: 90px;
+  }
+  .dome-fs-card__snippet {
+    -webkit-line-clamp: 2;
+  }
+}

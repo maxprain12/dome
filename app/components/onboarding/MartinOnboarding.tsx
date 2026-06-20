@@ -3,8 +3,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import OnboardingStep from './OnboardingStep';
 import ProfileStep from './steps/ProfileStep';
+import RoleStep from './steps/RoleStep';
 import AISetupStep from './steps/AISetupStep';
 import ManyAvatar from '@/components/many/ManyAvatar';
+import type { RoleId } from '@/lib/onboarding/roles';
 
 interface MartinOnboardingProps {
   initialName?: string;
@@ -12,10 +14,12 @@ interface MartinOnboardingProps {
   onComplete: (data: {
     name: string;
     email: string;
+    roleId: RoleId;
+    freeText: string;
   }) => void;
 }
 
-type Step = 'welcome' | 'profile' | 'ai';
+type Step = 'welcome' | 'profile' | 'role' | 'ai';
 
 export default function MartinOnboarding({
   initialName,
@@ -28,7 +32,12 @@ export default function MartinOnboarding({
     name: string;
     email: string;
   } | null>(null);
+  const [roleData, setRoleData] = useState<{
+    roleId: RoleId;
+    freeText: string;
+  } | null>(null);
   const [canProceedProfile, setCanProceedProfile] = useState(false);
+  const [canProceedRole, setCanProceedRole] = useState(false);
   const [canProceedAI, setCanProceedAI] = useState(false);
 
   const handleWelcomeNext = () => {
@@ -37,20 +46,27 @@ export default function MartinOnboarding({
 
   const handleProfileComplete = (data: { name: string; email: string }) => {
     setProfileData(data);
+    setCurrentStep('role');
+  };
+
+  const handleRoleComplete = (data: { roleId: RoleId; freeText: string }) => {
+    setRoleData(data);
     setCurrentStep('ai');
   };
 
   const handleAIComplete = () => {
-    if (profileData) {
-      onComplete(profileData);
+    if (profileData && roleData) {
+      onComplete({ ...profileData, ...roleData });
     }
   };
 
   const handleBack = () => {
     if (currentStep === 'profile') {
       setCurrentStep('welcome');
-    } else if (currentStep === 'ai') {
+    } else if (currentStep === 'role') {
       setCurrentStep('profile');
+    } else if (currentStep === 'ai') {
+      setCurrentStep('role');
     }
   };
 
@@ -85,6 +101,25 @@ export default function MartinOnboarding({
           initialEmail={initialEmail || profileData?.email}
           onComplete={handleProfileComplete}
           onValidationChange={setCanProceedProfile}
+        />
+      </OnboardingStep>
+    );
+  }
+
+  if (currentStep === 'role') {
+    return (
+      <OnboardingStep
+        message={t('onboarding.role_message')}
+        onNext={() => window.dispatchEvent(new CustomEvent('onboarding:role-validate'))}
+        onBack={handleBack}
+        nextLabel={t('onboarding.continue')}
+        canProceed={canProceedRole}
+      >
+        <RoleStep
+          initialRoleId={roleData?.roleId}
+          initialFreeText={roleData?.freeText}
+          onComplete={handleRoleComplete}
+          onValidationChange={setCanProceedRole}
         />
       </OnboardingStep>
     );

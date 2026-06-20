@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import SettingsLayout, { type SettingsSection } from '@/components/settings/SettingsLayout';
 import GeneralSettings from '@/components/settings/GeneralSettings';
 import AppearanceSettings from '@/components/settings/AppearanceSettings';
+import FeaturesSettings from '@/components/settings/FeaturesSettings';
 import AISettingsPanel from '@/components/settings/AISettingsPanel';
 import MCPSettingsPanel from '@/components/settings/MCPSettingsPanel';
 import SkillsSettingsPanel from '@/components/settings/SkillsSettingsPanel';
@@ -22,6 +23,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 const VALID_SECTIONS = [
   'general',
   'appearance',
+  'features',
   'ai',
   'transcription',
   'mcp',
@@ -86,6 +88,8 @@ export default function SettingsPage() {
         return <GeneralSettings />;
       case 'appearance':
         return <AppearanceSettings />;
+      case 'features':
+        return <FeaturesSettings />;
       case 'ai':
       case 'transcription':
         return <AISettingsPanel />;

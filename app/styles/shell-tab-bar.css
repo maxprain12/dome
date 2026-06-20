@@ -1,36 +1,138 @@
-/* ─── Dome tab bar (prototype-aligned) ─── */
+/* ─── Dome tab bar (compact pills + scroll fade) ─── */
 
 .dome-tab-strip {
-  --dome-tab-max-width: 176px;
+  --dome-tab-max-width: 160px;
+  --dome-tab-active-max-width: 200px;
+  --dome-tab-pill-h: 28px;
   height: 100%;
+  min-width: 0;
   background: var(--dome-bg);
 }
 
-.dome-tab-item {
+.dome-tab-strip[data-compact='true'] {
+  --dome-tab-max-width: 120px;
+  --dome-tab-active-max-width: 180px;
+}
+
+.dome-tab-scroll-wrap {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  -webkit-app-region: drag;
+}
+
+.dome-tab-scroll {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 10px;
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.dome-tab-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.dome-tab-scroll[data-fade-left='true'] {
+  mask-image: linear-gradient(to right, transparent 0, black 16px, black 100%);
+}
+
+.dome-tab-scroll[data-fade-right='true'] {
+  mask-image: linear-gradient(to right, black 0, black calc(100% - 16px), transparent 100%);
+}
+
+.dome-tab-scroll[data-fade-left='true'][data-fade-right='true'] {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    black 16px,
+    black calc(100% - 16px),
+    transparent 100%
+  );
+}
+
+.dome-tab-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   flex: 0 0 auto;
   width: max-content;
   max-width: var(--dome-tab-max-width);
-  flex-shrink: 0;
+  height: var(--dome-tab-pill-h);
+  padding: 0 8px;
+  margin: auto 0;
   position: relative;
-  height: 100%;
-  font-size: 12px;
+  font-size: 11.5px;
   font-weight: 500;
-  border: none;
-  border-right: 1px solid var(--dome-border);
+  line-height: 1;
+  border: 1px solid transparent;
+  border-radius: 8px;
   cursor: pointer;
   user-select: none;
   -webkit-app-region: no-drag;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
 .dome-tab-item[data-active='true'] {
   color: var(--dome-text);
   background: var(--dome-surface);
-  box-shadow: inset 0 -2px 0 var(--dome-tab-accent, var(--dome-accent));
+  border-color: var(--dome-border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  max-width: var(--dome-tab-active-max-width);
+}
+
+/* Folder accent: tint the whole tab, not just a left-edge stripe. The active
+   state gets a stronger fill so the tab stands out against the strip; the
+   inactive state stays subtle until hover. */
+.dome-tab-item[data-has-accent='true'][data-active='true'] {
+  background: color-mix(in srgb, var(--dome-tab-accent) 18%, var(--dome-surface));
+  border-color: color-mix(in srgb, var(--dome-tab-accent) 45%, var(--dome-border));
+  color: var(--dome-text);
+}
+
+.dome-tab-item[data-has-accent='true'][data-active='false'] {
+  background: color-mix(in srgb, var(--dome-tab-accent) 8%, transparent);
+  border-color: transparent;
+}
+
+.dome-tab-item[data-has-accent='true'][data-active='false']:hover {
+  background: color-mix(in srgb, var(--dome-tab-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--dome-tab-accent) 35%, transparent);
+}
+
+.dome-tab-item[data-icon-only='true'] {
+  width: var(--dome-tab-pill-h);
+  max-width: var(--dome-tab-pill-h);
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.dome-tab-item[data-icon-only='true'] .dome-tab-item-title,
+.dome-tab-item[data-icon-only='true'] .dome-tab-close {
+  display: none;
+}
+
+/* Compact: inactive hub tabs stay icon-only (CSS backup for measure/layout race) */
+.dome-tab-strip[data-compact='true'] .dome-tab-item[data-hub='true'][data-active='false'] {
+  width: var(--dome-tab-pill-h);
+  max-width: var(--dome-tab-pill-h);
+  padding: 0;
+  justify-content: center;
+  gap: 0;
+}
+
+.dome-tab-strip[data-compact='true'] .dome-tab-item[data-hub='true'][data-active='false'] .dome-tab-item-title,
+.dome-tab-strip[data-compact='true'] .dome-tab-item[data-hub='true'][data-active='false'] .dome-tab-close {
+  display: none;
 }
 
 .dome-tab-item[data-active='false'] {
@@ -66,8 +168,9 @@
 }
 
 .dome-tab-item:hover .dome-tab-close,
-.dome-tab-item:focus-within .dome-tab-close {
-  opacity: 0.55;
+.dome-tab-item:focus-within .dome-tab-close,
+.dome-tab-item[data-active='true'] .dome-tab-close {
+  opacity: 0.5;
 }
 
 .dome-tab-close:hover {
@@ -78,24 +181,47 @@
 
 .dome-tab-overflow-btn {
   height: 100%;
-  width: 32px;
+  width: 28px;
   flex-shrink: 0;
   border: none;
-  border-right: 1px solid var(--dome-border);
-  background: var(--dome-bg);
+  border-left: 1px solid var(--dome-border);
+  background: transparent;
   color: var(--dome-text-muted);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   -webkit-app-region: no-drag;
-  transition: background 0.1s ease, color 0.1s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .dome-tab-overflow-btn:hover,
 .dome-tab-overflow-btn[aria-expanded='true'] {
   background: var(--dome-bg-hover);
   color: var(--dome-text);
+}
+
+.dome-tab-new-btn {
+  height: var(--dome-tab-pill-h);
+  width: 28px;
+  flex-shrink: 0;
+  margin: auto 4px auto 2px;
+  border: 1px dashed color-mix(in srgb, var(--dome-border) 80%, transparent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dome-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-app-region: no-drag;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.dome-tab-new-btn:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+  border-color: var(--dome-border);
 }
 
 .dome-tab-overflow-menu {
@@ -195,47 +321,6 @@
 
 .dome-tab-overflow-action--danger:hover {
   background: color-mix(in srgb, var(--dome-danger) 22%, var(--dome-surface));
-}
-
-.dome-tab-scroll {
-  display: flex;
-  align-items: stretch;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 100%;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.dome-tab-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.dome-tab-scroll-spacer {
-  flex: 0 0 8px;
-  min-width: 8px;
-  align-self: stretch;
-}
-
-.dome-tab-new-btn {
-  height: 100%;
-  width: 34px;
-  flex-shrink: 0;
-  border: none;
-  border-right: 1px solid var(--dome-border);
-  background: transparent;
-  color: var(--dome-text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-app-region: no-drag;
-  transition: background 0.1s ease, color 0.1s ease;
-}
-
-.dome-tab-new-btn:hover {
-  background: var(--dome-bg-hover);
-  color: var(--dome-text);
 }
 
 .dome-tab-ctx-menu {

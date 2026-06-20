@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const kbShared = require('../../agents/kb-llm-shared.cjs');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
+const vaultStore = require('../../storage/vault-store.cjs');
 const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer, isMaskedSecret } = require('../../core/settings-secrets.cjs');
@@ -237,6 +238,38 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  // Set (or clear) a project's custom Markdown vault root. Moves existing note
+  // .md files to the new location and (re)watches it for external edits.
+  ipcMain.handle('db:projects:setVaultRoot', (event, args) => {
+    try {
+      validateSender(event, windowManager);
+      const projectId = args?.projectId;
+      const vaultRoot = args?.vaultRoot;
+      if (!projectId) return { success: false, error: 'projectId required' };
+      const result = vaultStore.setProjectVaultRoot(projectId, vaultRoot, { database, fileStorage });
+      if (result.success) {
+        try { require('../../storage/vault-watcher.cjs').addRoot(result.root); } catch { /* non-fatal */ }
+        windowManager.broadcast('project:updated', { id: projectId });
+      }
+      return result;
+    } catch (error) {
+      console.error('[DB] Error setting project vault root:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Effective vault root (custom or default) for display.
+  ipcMain.handle('db:projects:getVaultRoot', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const root = vaultStore.getProjectVaultRoot(projectId, database.getQueries(), fileStorage);
+      const project = database.getQueries().getProjectById.get(projectId);
+      return { success: true, data: { root, custom: !!(project && project.vault_root) } };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('db:projects:getDeletionImpact', (event, projectId) => {
     try {
       validateSender(event, windowManager);
@@ -278,6 +311,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         resource.created_at,
         resource.updated_at
       );
+
+      // Seed the plain-text cache for notes created with content (e.g. by an
+      // AI tool) so FTS/preview/semantic search show readable text immediately.
+      // The .md mirror is written on first open/edit.
+      if (resource.type === 'note' && resource.content) {
+        try {
+          const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
+          const raw = String(resource.content || '');
+          let text = '';
+          if (raw.trim().startsWith('{')) {
+            try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
+          }
+          if (!text) text = stripTags(raw);
+          if (text) database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
+        } catch { /* non-fatal */ }
+      }
 
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:created', resource);
@@ -426,6 +475,36 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
 
       queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+
+      // Vault reconciliation: keep the on-disk Markdown tree + search caches in
+      // sync with this DB write (covers AI/tool edits as well as renderer saves).
+      try {
+        if (current.type === 'folder') {
+          if (resource.title !== undefined && resource.title !== current.title) {
+            vaultStore.relocateDescendants(resource.id, { database, fileStorage });
+          }
+        } else if (current.type === 'note') {
+          // Refresh the plain-text cache from the (possibly AI-updated) Tiptap
+          // JSON so FTS/semantic search stay current. The renderer additionally
+          // writes the .md via notes:writeMirror; AI edits rely on this refresh
+          // and the .md is regenerated on the next editor save.
+          if (resource.content !== undefined) {
+            try {
+              const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
+              const raw = String(mergedContent || '');
+              let text = '';
+              if (raw.trim().startsWith('{')) {
+                try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
+              }
+              if (!text) text = stripTags(raw);
+              database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
+            } catch { /* non-fatal */ }
+          }
+          if (resource.title !== undefined && resource.title !== current.title) {
+            vaultStore.relocateResource(resource.id, { database, fileStorage });
+          }
+        }
+      } catch (e) { console.warn('[DB] vault reconcile (update) failed:', e?.message); }
 
       // Broadcast evento a todas las ventanas (merged values)
       const mergedResource = {
@@ -1715,6 +1794,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Delete the internal file
         fileStorage.deleteFile(resource.internal_path);
       }
+      // Remove the Markdown mirror from the vault (no-op for non-notes).
+      try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
       // Delete from database
       queries.deleteResource.run(id);
 
@@ -1854,6 +1935,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       queries.moveResourceToFolder.run(folderId || null, Date.now(), resourceId);
 
+      // Keep the on-disk vault tree in sync: move the .md (and any descendants).
+      try {
+        const moved = queries.getResourceById.get(resourceId);
+        if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
+        else vaultStore.relocateResource(resourceId, { database, fileStorage });
+      } catch (e) { console.warn('[DB] vault relocate (move) failed:', e?.message); }
+
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:updated', {
         id: resourceId,
@@ -1874,6 +1962,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const queries = database.getQueries();
       const now = Date.now();
       queries.removeResourceFromFolder.run(now, resourceId);
+
+      try {
+        const moved = queries.getResourceById.get(resourceId);
+        if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
+        else vaultStore.relocateResource(resourceId, { database, fileStorage });
+      } catch (e) { console.warn('[DB] vault relocate (removeFromFolder) failed:', e?.message); }
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:updated', {
@@ -1926,6 +2020,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             console.warn('[DB] bulkDelete file:', e?.message);
           }
         }
+        try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
         queries.deleteResource.run(id);
         windowManager.broadcast('resource:deleted', { id });
       }

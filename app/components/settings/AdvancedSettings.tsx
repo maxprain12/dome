@@ -12,6 +12,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import DomeDivider from '@/components/ui/DomeDivider';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 type UpdaterStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'not-available' | 'error';
 
@@ -33,12 +34,12 @@ const citationStyles: { value: CitationStyle; label: string; description: string
 
 function ToggleRow({ label, description, checked, onChange }: { label: string; description: string; checked: boolean; onChange: (next: boolean) => void }) {
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3.5">
-      <div>
+    <div className="settings-toggle-row px-4 py-3.5">
+      <div className="settings-toggle-row__label">
         <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{label}</p>
         <p className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{description}</p>
       </div>
-      <DomeToggle checked={checked} onChange={onChange} size="sm" />
+      <DomeToggle checked={checked} onChange={onChange} size="sm" className="settings-toggle-row__control" />
     </div>
   );
 }
@@ -101,7 +102,7 @@ export default function AdvancedSettings() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title={t('settings.advanced.title')}
@@ -112,7 +113,7 @@ export default function AdvancedSettings() {
       <div>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.updates')}</DomeSectionLabel>
         <DomeCard className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="settings-split-row">
             <div>
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>Dome</p>
               <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
@@ -223,14 +224,16 @@ export default function AdvancedSettings() {
 
       {/* ── Citation style ── */}
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.advanced.citation_style')}</DomeSectionLabel>
-        <DomeSegmentedControl
-          className="w-full"
-          aria-label={t('settings.advanced.citation_style')}
-          options={citationStyles.map((s) => ({ value: s.value, label: s.label }))}
-          value={citationStyle}
-          onChange={(v) => updateCitationStyle(v as CitationStyle)}
-        />
+        <DomeSectionLabel className="settings-section-label">{t('settings.advanced.citation_style')}</DomeSectionLabel>
+        <div className="settings-segmented">
+          <DomeSegmentedControl
+            className="w-full"
+            aria-label={t('settings.advanced.citation_style')}
+            options={citationStyles.map((s) => ({ value: s.value, label: s.label }))}
+            value={citationStyle}
+            onChange={(v) => updateCitationStyle(v as CitationStyle)}
+          />
+        </div>
         <p className="text-[10px] text-[var(--dome-text-muted)] mt-2">
           {citationStyles.find((s) => s.value === citationStyle)?.description}
         </p>
@@ -316,6 +319,6 @@ export default function AdvancedSettings() {
           </DomeCard>
         </div>
       )}
-    </div>
+    </SettingsPanel>
   );
 }

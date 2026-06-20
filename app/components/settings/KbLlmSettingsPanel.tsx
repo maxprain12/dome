@@ -13,6 +13,7 @@ import DomeCheckbox from '@/components/ui/DomeCheckbox';
 import { DomeInput } from '@/components/ui/DomeInput';
 import { DomeSelect } from '@/components/ui/DomeSelect';
 import DomeButton from '@/components/ui/DomeButton';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 type KbLlmGlobal = {
   enabledGlobal: boolean;
@@ -142,7 +143,7 @@ export default function KbLlmSettingsPanel() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
+    <SettingsPanel className="!gap-6">
       <DomeSubpageHeader
         title={t('settings.kb_llm.title')}
         subtitle={t('settings.kb_llm.subtitle')}
@@ -194,7 +195,7 @@ export default function KbLlmSettingsPanel() {
           checked={config.enabledGlobal}
           onChange={(e) => setConfig({ ...config, enabledGlobal: e.target.checked })}
         />
-        <div className="grid gap-4 mt-4 sm:grid-cols-2">
+        <div className="settings-field-grid settings-field-grid--2 gap-4 mt-4">
           <DomeInput
             type="number"
             min={15}
@@ -278,7 +279,7 @@ export default function KbLlmSettingsPanel() {
           </div>
         )}
       </DomeCard>
-    </div>
+    </SettingsPanel>
   );
 }
 

@@ -10,6 +10,7 @@ import { DomeInput } from '@/components/ui/DomeInput';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeListState from '@/components/ui/DomeListState';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 export default function CalendarSettingsPanel() {
   const { t } = useTranslation();
@@ -103,7 +104,7 @@ export default function CalendarSettingsPanel() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+    <SettingsPanel>
       <DomeSubpageHeader
         title={t('settings.calendar.title')}
         subtitle={t('settings.calendar.subtitle')}
@@ -199,6 +200,6 @@ export default function CalendarSettingsPanel() {
       >
         {t('settings.calendar.save')}
       </DomeButton>
-    </div>
+    </SettingsPanel>
   );
 }

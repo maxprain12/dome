@@ -19,6 +19,7 @@ import {
   getDefaultNoteContent,
   loadNoteContent,
   serializeNoteContent,
+  serializeNoteToMarkdown,
   type LoadedNoteContent,
 } from '@/lib/tiptap/utils';
 import type { Resource } from '@/types';
@@ -34,6 +35,27 @@ import {
   notifyResourceRelationsChanged,
   syncNoteMentionRelations,
 } from '@/lib/utils/content-resources';
+import { markdownToHtml } from '@/lib/utils/markdown';
+
+/**
+ * Resolve the initial editor content for a note. The Markdown vault is the
+ * source of truth: when a mirror exists (`vault_path`), read the `.md` from
+ * disk and render it. Fall back to the legacy Tiptap JSON in `content` for
+ * notes not yet mirrored (or if the disk read fails).
+ */
+async function loadNoteEditorContent(resource: Resource): Promise<LoadedNoteContent> {
+  if (resource.vault_path && window.electron?.notes?.readMirror) {
+    try {
+      const mirror = await window.electron.notes.readMirror({ id: resource.id });
+      if (mirror?.success && typeof mirror.markdown === 'string') {
+        return markdownToHtml(mirror.markdown);
+      }
+    } catch (err) {
+      console.warn('Note mirror read failed, using DB content:', err);
+    }
+  }
+  return loadNoteContent(resource.content);
+}
 
 interface NoteWorkspaceClientProps {
   resourceId: string;
@@ -119,6 +141,7 @@ export default function NoteWorkspaceClient({
 
   const pendingContentRef = useRef<LoadedNoteContent | null>(null);
   const editorRef = useRef<Editor | null>(null);
+  const mirroredOnceRef = useRef(false);
   /** Skips marking dirty/autosaving right after Collaboration + TipTap bootstrap noise. */
   const ignoreStaleCollaborationDirtyUntilMsRef = useRef(0);
   const [editorReady, setEditorReady] = useState(false);
@@ -139,6 +162,7 @@ export default function NoteWorkspaceClient({
 
   useEffect(() => {
     editorRef.current = null;
+    mirroredOnceRef.current = false;
     ignoreStaleCollaborationDirtyUntilMsRef.current = 0;
     setEditorReady(false);
     setWordCount(0);
@@ -164,7 +188,7 @@ export default function NoteWorkspaceClient({
         if (result?.success && result.data) {
           setResource(result.data);
           setTitle(result.data.title || '');
-          pendingContentRef.current = loadNoteContent(result.data.content);
+          pendingContentRef.current = await loadNoteEditorContent(result.data);
           setSavePillSavedAt(result.data.updated_at ?? Date.now());
 
           void window.electron.db.projects.getById(result.data.project_id).then((p) => {
@@ -194,8 +218,25 @@ export default function NoteWorkspaceClient({
     if (!window.electron?.on) return undefined;
     const unsub = window.electron.on(
       'resource:updated',
-      (payload: { id?: string; updates?: Partial<Resource> }) => {
+      (payload: { id?: string; updates?: Partial<Resource>; fromVault?: boolean }) => {
         if (payload?.id !== resourceId) return;
+        // External edit to the .md (Obsidian/Finder): reload from the mirror so
+        // the open editor reflects disk (unless the user has unsaved changes).
+        if (payload.fromVault && !isDirty && window.electron?.notes?.readMirror && editorRef.current) {
+          void window.electron.notes.readMirror({ id: resourceId }).then((m) => {
+            if (!editorRef.current || isDirty) return;
+            if (m?.success && typeof m.markdown === 'string') {
+              const html = markdownToHtml(m.markdown);
+              pendingContentRef.current = html;
+              try {
+                editorRef.current.commands.setContent(html, { emitUpdate: false });
+              } catch (err) {
+                console.warn('[NoteWorkspaceClient] external reload failed:', err);
+              }
+            }
+          });
+          return;
+        }
         const updates = payload.updates;
         if (!updates) return;
         if (typeof updates.title === 'string') {
@@ -238,6 +279,19 @@ export default function NoteWorkspaceClient({
     [refreshBacklinkCount],
   );
 
+  // Best-effort: mirror the note to a Markdown file on disk (Phase 1 vault
+  // export). Conversion needs the live editor (Turndown DOM); failures must
+  // never block the primary DB save, so everything here is wrapped/guarded.
+  const mirrorNoteToDisk = useCallback(async () => {
+    if (!window.electron?.notes?.writeMirror || !editorRef.current) return;
+    try {
+      const markdown = serializeNoteToMarkdown(editorRef.current);
+      await window.electron.notes.writeMirror({ id: resourceId, markdown });
+    } catch (err) {
+      console.warn('Note markdown mirror failed:', err);
+    }
+  }, [resourceId]);
+
   const handleSave = useCallback(async () => {
     if (readOnly || !resource || !window.electron?.db?.resources || !editorRef.current) return;
     const serialized = serializeNoteContent(editorRef.current);
@@ -255,13 +309,14 @@ export default function NoteWorkspaceClient({
       setSavePillSavedAt(now);
       setResource((prev) => (prev ? { ...prev, content: serialized, updated_at: now } : prev));
       await syncMentionsAndNotify(resourceId, serialized);
+      void mirrorNoteToDisk();
     } catch (err) {
       console.error('Error saving note:', err);
       setSaveError(err instanceof Error ? err.message : 'save failed');
     } finally {
       setIsSaving(false);
     }
-  }, [readOnly, resource, resourceId, title, syncMentionsAndNotify]);
+  }, [readOnly, resource, resourceId, title, syncMentionsAndNotify, mirrorNoteToDisk]);
 
   useEffect(() => {
     const handle = (e: KeyboardEvent) => {
@@ -299,10 +354,11 @@ export default function NoteWorkspaceClient({
       setIsDirty(false);
       setSavePillSavedAt(now);
       if (serialized) await syncMentionsAndNotify(resourceId, serialized);
+      void mirrorNoteToDisk();
     } catch (err) {
       console.error('Error saving title:', err);
     }
-  }, [readOnly, resource, resourceId, title, isDirty, syncMentionsAndNotify]);
+  }, [readOnly, resource, resourceId, title, isDirty, syncMentionsAndNotify, mirrorNoteToDisk]);
 
   const handleContentUpdate = useCallback(
     (json: JSONContent) => {
@@ -345,6 +401,15 @@ export default function NoteWorkspaceClient({
     },
     [patchWordCountFromEditor, resourceId, syncMentionsAndNotify],
   );
+
+  // Lazy backfill: a note opened but never edited still gets its Markdown
+  // mirror written once, so the vault stays complete without requiring an edit.
+  useEffect(() => {
+    if (readOnly || !editorReady || !resource) return;
+    if (resource.vault_path || mirroredOnceRef.current) return;
+    mirroredOnceRef.current = true;
+    void mirrorNoteToDisk();
+  }, [readOnly, editorReady, resource, mirrorNoteToDisk]);
 
   const handleSaveMetadata = useCallback(
     async (updates: Partial<Resource>): Promise<boolean> => {

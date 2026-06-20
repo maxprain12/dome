@@ -1,0 +1,6 @@
+{
+  "developer": { "label": "Programming", "desc": "Track projects, automate work, ship code." },
+  "study": { "label": "Studying", "desc": "Learn, review with flashcards, plan study." },
+  "research": { "label": "Research", "desc": "Synthesize sources and write with citations." },
+  "generalist": { "label": "A bit of everything", "desc": "Keep all of Dome's features available." }
+}

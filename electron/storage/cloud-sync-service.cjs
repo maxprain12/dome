@@ -8,6 +8,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { getDomeProviderBaseUrl } = require('../ai/dome-provider-url.cjs');
 const domeOauth = require('../auth/dome-oauth.cjs');
+const vaultStore = require('./vault-store.cjs');
 
 const SYNC_SCHEMA_VERSION = 3;
 
@@ -278,6 +279,70 @@ async function downloadResourceFiles(db, fileStorage, database, oauthModule, pay
   }
 }
 
+/**
+ * Upload every vault file (notes `.md` AND binaries) as a blob at
+ * `vault/<vault_path>`. The row-sync carries vault_path + caches; this ships the
+ * actual bytes so every device has the portable vault on disk.
+ */
+async function uploadVaultFiles(db, fileStorage, database, oauthModule) {
+  const rows = db
+    .prepare(`SELECT id, project_id, vault_path, file_mime_type FROM resources WHERE type != 'folder' AND vault_path IS NOT NULL AND trim(vault_path) != ''`)
+    .all();
+  const queries = database.getQueries();
+  const base = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/sync/blob`;
+  for (const r of rows) {
+    const root = vaultStore.getProjectVaultRoot(r.project_id, queries, fileStorage);
+    const full = require('path').join(root, r.vault_path);
+    if (!fs.existsSync(full)) continue;
+    const buf = fs.readFileSync(full);
+    const body = JSON.stringify({
+      path: `vault/${r.vault_path}`,
+      contentBase64: buf.toString('base64'),
+      contentType: r.file_mime_type || (r.vault_path.endsWith('.md') ? 'text/markdown' : 'application/octet-stream'),
+    });
+    const res = await oauthModule.fetchWithDomeAuth(database, base, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+    });
+    if (!res.ok) {
+      const t = await res.text().catch(() => '');
+      console.warn('[cloud-sync] vault blob upload failed', r.id, res.status, t);
+    }
+  }
+}
+
+/** Download vault files (notes + binaries) referenced in a pulled payload. */
+async function downloadVaultFiles(db, fileStorage, database, oauthModule, payload) {
+  const resources = payload?.tables?.resources;
+  if (!Array.isArray(resources)) return;
+  const queries = database.getQueries();
+  const baseUrl = getDomeProviderBaseUrl().replace(/\/$/, '');
+  const pathMod = require('path');
+  for (const res of resources) {
+    if (res.type === 'folder' || !res.vault_path) continue;
+    const rel = `vault/${res.vault_path}`;
+    const signUrl = `${baseUrl}/api/v1/sync/blob?path=${encodeURIComponent(rel)}`;
+    const r = await oauthModule.fetchWithDomeAuth(database, signUrl, { method: 'GET' });
+    if (!r.ok) continue;
+    const j = await r.json().catch(() => null);
+    if (!j?.signedUrl) continue;
+    const fileRes = await fetch(j.signedUrl);
+    if (!fileRes.ok) continue;
+    const buf = Buffer.from(await fileRes.arrayBuffer());
+    const root = vaultStore.getProjectVaultRoot(res.project_id, queries, fileStorage);
+    const abs = pathMod.join(root, res.vault_path);
+    try {
+      if (!fs.existsSync(pathMod.dirname(abs))) fs.mkdirSync(pathMod.dirname(abs), { recursive: true });
+      vaultStore.markSelfWrite(abs, vaultStore.contentHash(buf));
+      fs.writeFileSync(abs, buf);
+      db.prepare('UPDATE resources SET content_hash = ? WHERE id = ?').run(vaultStore.contentHash(buf), res.id);
+    } catch (e) {
+      console.warn('[cloud-sync] vault file write failed', res.id, e.message);
+    }
+  }
+}
+
 async function runEmbeddingReindex(database, windowManager) {
   try {
     const semanticIndexScheduler = require('./semantic-index-scheduler.cjs');
@@ -336,6 +401,7 @@ async function pushFullSync(deps) {
   delta.deviceId = deviceId;
 
   await uploadResourceFiles(db, fileStorage, database, domeOauth);
+  await uploadVaultFiles(db, fileStorage, database, domeOauth);
 
   const body = JSON.stringify({
     deviceId,
@@ -425,6 +491,7 @@ async function pullAndApply(deps) {
       if (m.kind === 'bundle' && m.payload) {
         applyBundlePayload(db, m.payload);
         await downloadResourceFiles(db, fileStorage, database, domeOauth, m.payload);
+        await downloadVaultFiles(db, fileStorage, database, domeOauth, m.payload);
       }
     }
 

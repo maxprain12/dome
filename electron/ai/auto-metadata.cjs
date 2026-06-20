@@ -30,8 +30,9 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
 
         let imageDataUrl = null;
         let body = '';
-        if (row.type === 'image' && row.internal_path) {
-          const fullPath = fileStorage.getFullPath(row.internal_path);
+        if (row.type === 'image') {
+          const vaultStore = require('../storage/vault-store.cjs');
+          const fullPath = vaultStore.getResourceFilePath(row, q, fileStorage);
           if (fullPath && fs.existsSync(fullPath)) {
             const mime = row.file_mime_type || 'image/png';
             imageDataUrl = `data:${mime};base64,${fs.readFileSync(fullPath).toString('base64')}`;

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { RefreshCw, LayoutGrid, GanttChartSquare, GitBranch, Settings as SettingsIcon, ListTodo, Search, ExternalLink, Calendar, Leaf, Code2 } from 'lucide-react';
+import { RefreshCw, LayoutGrid, GanttChartSquare, GitBranch, Settings as SettingsIcon, ListTodo, Search, ExternalLink, Calendar, Leaf, Code2, Github } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import MinimalTracker from './MinimalTracker';
@@ -8,6 +8,13 @@ import KanbanBoard from './KanbanBoard';
 import GanttChart from './GanttChart';
 import IssueDetailPanel from './IssueDetailPanel';
 import GitHubSettings from './GitHubSettings';
+import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
+import DomeIconBox from '@/components/ui/DomeIconBox';
+import { DomeSelect } from '@/components/ui/DomeSelect';
+import { DomeInput } from '@/components/ui/DomeInput';
+import DomeButton from '@/components/ui/DomeButton';
+import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import '@/styles/github-view.css';
 
 type ViewMode = 'minimal' | 'developer';
 const MODE_KEY = 'dome:github:mode';
@@ -96,121 +103,171 @@ export default function GitHubView() {
   const selectedRepo = repos.find((r) => r.id === selectedRepoId) ?? null;
 
   return (
-    <div className="flex flex-col h-full" style={{ color: 'var(--dome-text)' }}>
-      <div className="flex items-center gap-3 px-4 py-2 border-b flex-wrap" style={{ borderColor: 'var(--dome-border)' }}>
-        <ListTodo size={18} style={{ color: 'var(--dome-accent)' }} />
-        <select
-          value={selectedRepoId ?? ''}
-          onChange={(e) => void selectRepo(e.target.value)}
-          className="text-sm rounded px-2 py-1 max-w-xs"
-          style={{ background: 'var(--dome-surface)', color: 'var(--dome-text)', border: '1px solid var(--dome-border)' }}
-        >
-          {selectedRepos.length === 0 && <option value="">{t('github.select_repos_in_settings')}</option>}
-          {selectedRepos.map((r) => (
-            <option key={r.id} value={r.id}>{r.full_name}</option>
-          ))}
-        </select>
+    <div className="dome-github-view" style={{ color: 'var(--dome-text)' }}>
+      <div className="dome-github-view__header">
+        {/* Row 1 — identity: app icon + title + repo selector + open-on-github */}
+        <div className="dome-github-view__row-identity">
+          <div className="dome-github-view__identity-leading">
+            <DomeIconBox size="sm">
+              <ListTodo size={16} strokeWidth={2} className="text-[var(--accent)]" />
+            </DomeIconBox>
+            <h1 className="dome-github-view__title" style={{ color: 'var(--dome-text)' }}>
+              <span className="dome-github-view__title-text">{t('github.tab_title')}</span>
+              <SectionGuideHelp sectionKey="github" />
+            </h1>
+            <span className="dome-github-view__divider" aria-hidden />
+            <div className="dome-github-view__repo-wrap">
+              <Github
+                size={13}
+                className="shrink-0 absolute top-1/2 -translate-y-1/2 text-[var(--tertiary-text)]"
+                style={{ left: 10 }}
+                aria-hidden
+              />
+              <DomeSelect
+                value={selectedRepoId ?? ''}
+                onChange={(e) => void selectRepo(e.target.value)}
+                aria-label={t('github.tab_title')}
+                className="min-w-0"
+                selectClassName="dome-github-view__repo-select pl-7 py-1 text-sm"
+              >
+                {selectedRepos.length === 0 && <option value="">{t('github.select_repos_in_settings')}</option>}
+                {selectedRepos.map((r) => (
+                  <option key={r.id} value={r.id}>{r.full_name}</option>
+                ))}
+              </DomeSelect>
+            </div>
+          </div>
 
-        {selectedRepo?.html_url && (
-          <a
-            href={selectedRepo.html_url}
-            target="_blank"
-            rel="noreferrer"
-            title={t('github.open_repo_on_github')}
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
-            <ExternalLink size={15} />
-          </a>
-        )}
+          <div className="dome-github-view__identity-trailing">
+            <DomeButton
+              className="dome-github-view__action-btn"
+              iconOnly
+              variant="outline"
+              size="sm"
+              aria-label={t('github.open_repo_on_github')}
+              disabled={!selectedRepo?.html_url}
+              onClick={() => {
+                if (selectedRepo?.html_url) window.open(selectedRepo.html_url, '_blank', 'noreferrer');
+              }}
+            >
+              <ExternalLink size={14} />
+            </DomeButton>
+          </div>
+        </div>
 
-        {!settingsOpen && (mode === 'minimal' || tab !== 'branches') && (
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-            <Search size={14} style={{ color: 'var(--dome-text-muted)' }} />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('github.search_issue_milestone')}
-              className="text-sm bg-transparent outline-none w-44"
-              style={{ color: 'var(--dome-text)' }}
+        {/* Row 2 — tools: search + mode + tabs + actions */}
+        <div className="dome-github-view__row-tools">
+          {!settingsOpen && (mode === 'minimal' || tab !== 'branches') && (
+            <div className="dome-github-view__search-wrap">
+              <Search
+                size={13}
+                className="shrink-0 absolute top-1/2 -translate-y-1/2 text-[var(--tertiary-text)]"
+                style={{ left: 10 }}
+                aria-hidden
+              />
+              <DomeInput
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('github.search_issue_milestone')}
+                inputClassName="dome-github-view__search-input pl-7 py-1 text-sm"
+                aria-label={t('github.search_issue_milestone')}
+              />
+            </div>
+          )}
+
+          <div className="dome-github-view__tools-group">
+            <DomeSegmentedControl
+              className="dome-github-view__segmented"
+              size="sm"
+              aria-label={t('github.mode_minimal_title')}
+              value={mode}
+              onChange={(v) => changeMode(v as ViewMode)}
+              options={[
+                { value: 'minimal', label: t('github.mode_minimal'), icon: <Leaf size={13} /> },
+                { value: 'developer', label: t('github.mode_developer'), icon: <Code2 size={13} /> },
+              ]}
             />
-          </div>
-        )}
 
-        <div className="flex items-center gap-1 ml-auto">
-          <div className="flex items-center rounded-md mr-1 overflow-hidden" style={{ border: '1px solid var(--dome-border)' }}>
-            <button
-              onClick={() => changeMode('minimal')}
-              title={t('github.mode_minimal_title')}
-              className="flex items-center gap-1 text-xs px-2 py-1.5"
-              style={{
-                background: mode === 'minimal' ? 'var(--dome-bg-hover)' : 'transparent',
-                color: mode === 'minimal' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              }}
-            >
-              <Leaf size={14} /> {t('github.mode_minimal')}
-            </button>
-            <button
-              onClick={() => changeMode('developer')}
-              title={t('github.mode_developer_title')}
-              className="flex items-center gap-1 text-xs px-2 py-1.5"
-              style={{
-                background: mode === 'developer' ? 'var(--dome-bg-hover)' : 'transparent',
-                color: mode === 'developer' ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              }}
-            >
-              <Code2 size={14} /> {t('github.mode_developer')}
-            </button>
-          </div>
+            {/*
+             * The dev-mode segmented control is always rendered so the row
+             * width stays stable when switching modes. When not in
+             * developer mode we render an inert placeholder with the same
+             * intrinsic width (visibility: hidden keeps layout space).
+             */}
+            {mode === 'developer' && !settingsOpen ? (
+              <DomeSegmentedControl
+                className="dome-github-view__segmented"
+                size="sm"
+                aria-label={t('github.mode_developer_title')}
+                value={tab}
+                onChange={(v) => setTab(v as GitHubTab)}
+                options={tabs.map(({ key, label, icon: Icon }) => ({
+                  value: key,
+                  label,
+                  icon: <Icon size={13} />,
+                }))}
+              />
+            ) : (
+              <div className="dome-github-view__segmented-placeholder" aria-hidden="true">
+                <DomeSegmentedControl
+                  className="dome-github-view__segmented"
+                  size="sm"
+                  value={tab}
+                  onChange={() => undefined}
+                  options={tabs.map(({ key, label, icon: Icon }) => ({
+                    value: key,
+                    label,
+                    icon: <Icon size={13} />,
+                  }))}
+                />
+              </div>
+            )}
 
-          {mode === 'developer' && !settingsOpen && tabs.map(({ key, label, icon: Icon }) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-md"
-              style={{
-                background: tab === key ? 'var(--dome-bg-hover)' : 'transparent',
-                color: tab === key ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              }}
+            <DomeButton
+              className="dome-github-view__action-btn"
+              iconOnly
+              variant={settingsOpen ? 'secondary' : 'outline'}
+              size="sm"
+              aria-label={t('github.settings_title')}
+              aria-pressed={settingsOpen}
+              onClick={() => setSettingsOpen((v) => !v)}
             >
-              <Icon size={15} /> {label}
-            </button>
-          ))}
-          <button
-            onClick={() => setSettingsOpen((v) => !v)}
-            title={t('github.settings_title')}
-            className="flex items-center text-sm px-2 py-1.5 rounded-md"
-            style={{
-              background: settingsOpen ? 'var(--dome-bg-hover)' : 'transparent',
-              border: '1px solid var(--dome-border)',
-              color: settingsOpen ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-            }}
-          >
-            <SettingsIcon size={15} />
-          </button>
-          <button
-            onClick={() => void syncNow()}
-            title={t('github.sync_now')}
-            className="flex items-center gap-1.5 text-sm px-2.5 py-1.5 rounded-md ml-1"
-            style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
-          >
-            <RefreshCw size={15} className={syncStatus === 'syncing' ? 'animate-spin' : ''} />
-          </button>
-          <button
-            onClick={() => openStandalone('seguimiento-popout', '/standalone/github', t('github.tab_title'))}
-            title={t('github.open_popout')}
-            className="flex items-center text-sm px-2 py-1.5 rounded-md"
-            style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
-          >
-            <ExternalLink size={15} />
-          </button>
-          <button
-            onClick={() => openStandalone('calendar-popout', '/standalone/calendar', t('tabs.calendar'))}
-            title={t('github.open_calendar_popout')}
-            className="flex items-center gap-1 text-sm px-2 py-1.5 rounded-md"
-            style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
-          >
-            <Calendar size={15} />
-          </button>
+              <SettingsIcon size={14} />
+            </DomeButton>
+            <DomeButton
+              className="dome-github-view__action-btn"
+              iconOnly
+              variant="outline"
+              size="sm"
+              aria-label={t('github.sync_now')}
+              onClick={() => void syncNow()}
+            >
+              <RefreshCw
+                size={14}
+                className={syncStatus === 'syncing' ? 'animate-spin text-[var(--accent)]' : undefined}
+              />
+            </DomeButton>
+            <DomeButton
+              className="dome-github-view__action-btn"
+              iconOnly
+              variant="outline"
+              size="sm"
+              aria-label={t('github.open_popout')}
+              onClick={() => openStandalone('seguimiento-popout', '/standalone/github', t('github.tab_title'))}
+            >
+              <ExternalLink size={14} />
+            </DomeButton>
+            <DomeButton
+              className="dome-github-view__action-btn"
+              iconOnly
+              variant="outline"
+              size="sm"
+              aria-label={t('github.open_calendar_popout')}
+              onClick={() => openStandalone('calendar-popout', '/standalone/calendar', t('tabs.calendar'))}
+            >
+              <Calendar size={14} />
+            </DomeButton>
+          </div>
         </div>
       </div>
 

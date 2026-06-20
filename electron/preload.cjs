@@ -95,6 +95,8 @@ const ALLOWED_CHANNELS = {
     'db:projects:create',
     'db:projects:getAll',
     'db:projects:getById',
+    'db:projects:setVaultRoot',
+    'db:projects:getVaultRoot',
     'db:projects:getDeletionImpact',
     'db:projects:deleteWithContent',
     // Database - Resources
@@ -262,6 +264,10 @@ const ALLOWED_CHANNELS = {
     'storage:getUsage',
     'storage:cleanup',
     'storage:getPath',
+    // Notes markdown vault mirror
+    'notes:writeMirror',
+    'notes:readMirror',
+    'notes:vaultDir',
     // Migration
     'migration:migrateResources',
     'migration:getStatus',
@@ -574,19 +580,19 @@ const ALLOWED_CHANNELS = {
     'github:repos:refresh',
     'github:repos:setSelected',
     'github:milestones:list',
+    'github:milestones:create',
+    'github:milestones:update',
     'github:issues:list',
     'github:issues:get',
+    'github:issues:create',
+    'github:issues:update',
+    'github:issues:move',
+    'github:issues:listComments',
+    'github:issues:createComment',
+    'github:issues:listTimeline',
+    'github:issues:listMentionables',
     'github:branches:list',
     'github:releases:list',
-    'github:issue:update',
-    'github:issue:move',
-    'github:issue:create',
-    'github:issue:comments:list',
-    'github:issue:comment:create',
-    'github:issue:timeline:list',
-    'github:issue:mentionables:list',
-    'github:milestone:update',
-    'github:milestone:create',
     'github:image:resolve',
     'github:sync:now',
   ],
@@ -1019,19 +1025,19 @@ const electronHandler = {
     },
     milestones: {
       list: (repoId) => ipcRenderer.invoke('github:milestones:list', repoId),
-      create: (repoId, data) => ipcRenderer.invoke('github:milestone:create', repoId, data),
-      update: (id, patch) => ipcRenderer.invoke('github:milestone:update', id, patch),
+      create: (repoId, data) => ipcRenderer.invoke('github:milestones:create', repoId, data),
+      update: (id, patch) => ipcRenderer.invoke('github:milestones:update', id, patch),
     },
     issues: {
       list: (repoId) => ipcRenderer.invoke('github:issues:list', repoId),
       get: (id) => ipcRenderer.invoke('github:issues:get', id),
-      create: (repoId, data) => ipcRenderer.invoke('github:issue:create', repoId, data),
-      update: (id, patch) => ipcRenderer.invoke('github:issue:update', id, patch),
-      move: (id, target) => ipcRenderer.invoke('github:issue:move', id, target),
-      listComments: (issueId) => ipcRenderer.invoke('github:issue:comments:list', issueId),
-      createComment: (issueId, body) => ipcRenderer.invoke('github:issue:comment:create', issueId, body),
-      listTimeline: (issueId) => ipcRenderer.invoke('github:issue:timeline:list', issueId),
-      listMentionables: (issueId) => ipcRenderer.invoke('github:issue:mentionables:list', issueId),
+      create: (repoId, data) => ipcRenderer.invoke('github:issues:create', repoId, data),
+      update: (id, patch) => ipcRenderer.invoke('github:issues:update', id, patch),
+      move: (id, target) => ipcRenderer.invoke('github:issues:move', id, target),
+      listComments: (issueId) => ipcRenderer.invoke('github:issues:listComments', issueId),
+      createComment: (issueId, body) => ipcRenderer.invoke('github:issues:createComment', issueId, body),
+      listTimeline: (issueId) => ipcRenderer.invoke('github:issues:listTimeline', issueId),
+      listMentionables: (issueId) => ipcRenderer.invoke('github:issues:listMentionables', issueId),
     },
     branches: { list: (repoId) => ipcRenderer.invoke('github:branches:list', repoId) },
     releases: { list: (repoId) => ipcRenderer.invoke('github:releases:list', repoId) },
@@ -1091,6 +1097,8 @@ const electronHandler = {
       create: (project) => ipcRenderer.invoke('db:projects:create', project),
       getAll: () => ipcRenderer.invoke('db:projects:getAll'),
       getById: (id) => ipcRenderer.invoke('db:projects:getById', id),
+      setVaultRoot: (args) => ipcRenderer.invoke('db:projects:setVaultRoot', args),
+      getVaultRoot: (projectId) => ipcRenderer.invoke('db:projects:getVaultRoot', projectId),
       getDeletionImpact: (projectId) => ipcRenderer.invoke('db:projects:getDeletionImpact', projectId),
       deleteWithContent: (projectId) => ipcRenderer.invoke('db:projects:deleteWithContent', projectId),
     },
@@ -1421,6 +1429,18 @@ const electronHandler = {
 
     // Get storage directory path
     getPath: () => ipcRenderer.invoke('storage:getPath'),
+  },
+
+  // ============================================
+  // NOTES MARKDOWN VAULT API
+  // ============================================
+  notes: {
+    // Write/update a note's Markdown mirror on disk
+    writeMirror: (args) => ipcRenderer.invoke('notes:writeMirror', args),
+    // Read a note's Markdown mirror (frontmatter stripped)
+    readMirror: (args) => ipcRenderer.invoke('notes:readMirror', args),
+    // Absolute path of the vault root
+    vaultDir: () => ipcRenderer.invoke('notes:vaultDir'),
   },
 
   // ============================================

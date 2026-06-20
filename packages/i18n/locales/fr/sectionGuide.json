@@ -1,0 +1,35 @@
+{
+  "got_it": "Compris",
+  "close": "Fermer",
+  "help_aria": "Comment utiliser cette section",
+  "learn": {
+    "title": "Apprendre · Comment faire",
+    "step1": "Créez un paquet à partir d'une ressource ou d'une note.",
+    "step2": "Étudiez avec la répétition espacée pour mémoriser durablement.",
+    "step3": "Suivez votre progression avec les KPI en haut."
+  },
+  "agents": {
+    "title": "Agents · Comment faire",
+    "step1": "Créez un agent et décrivez ce qu'il doit faire.",
+    "step2": "Donnez-lui accès à vos ressources et compétences.",
+    "step3": "Discutez avec lui ou déclenchez-le depuis une automatisation."
+  },
+  "automations": {
+    "title": "Automatisations · Comment faire",
+    "step1": "Choisissez un déclencheur : programmé, événement ou manuel.",
+    "step2": "Choisissez l'agent ou l'action à exécuter.",
+    "step3": "Consultez la section Exécutions pour voir les résultats."
+  },
+  "github": {
+    "title": "GitHub · Comment faire",
+    "step1": "Connectez un dépôt pour synchroniser issues et jalons.",
+    "step2": "Suivez le travail dans les vues Kanban et Gantt.",
+    "step3": "Les changements se resynchronisent vers GitHub automatiquement."
+  },
+  "calendar": {
+    "title": "Calendrier · Comment faire",
+    "step1": "Connectez un calendrier ou créez des événements directement.",
+    "step2": "Liez les événements aux projets et ressources.",
+    "step3": "Recevez des rappels pour ce qui arrive."
+  }
+}

@@ -12,6 +12,7 @@ import {
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeListState from '@/components/ui/DomeListState';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 export default function SkillsSettingsPanel() {
   const { t } = useTranslation();
@@ -42,13 +43,13 @@ export default function SkillsSettingsPanel() {
   }, [loadData]);
 
   return (
-    <div style={{ padding: '0 24px 32px' }}>
+    <SettingsPanel>
       <DomeSubpageHeader
         title={t('settings.skills.title', 'Skills')}
         subtitle={t('settings.skills.subtitle_file', 'Skills live as SKILL.md files in ~/.dome/skills. Each skill is automatically available to every AI agent.')}
       />
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+      <div className="settings-action-row mb-5">
         <DomeButton
           variant="secondary"
           size="sm"
@@ -75,7 +76,7 @@ export default function SkillsSettingsPanel() {
       )}
 
       {!loading && skills.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 20 }}>
+        <div className="settings-split-row mt-5 mb-2.5">
           <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
             {t('settings.skills.section_configured', 'Configured skills')}
           </span>
@@ -102,7 +103,7 @@ export default function SkillsSettingsPanel() {
           ))}
         </div>
       )}
-    </div>
+    </SettingsPanel>
   );
 }
 

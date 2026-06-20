@@ -1,7 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ExternalLink } from 'lucide-react';
+import {
+  ExternalLink, Tag, GitBranch, CircleDot, CheckCircle2,
+  Rocket, Milestone, Github,
+} from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +32,34 @@ function githubEventUrl(event: CalendarEvent): string | null {
   return typeof url === 'string' && url.startsWith('https://') ? url : null;
 }
 
+function githubEntityType(event: CalendarEvent): 'release' | 'milestone' | 'issue' | null {
+  const m = event.metadata;
+  if (m?.source !== 'github') return null;
+  const t = m.entityType;
+  if (t === 'release' || t === 'milestone' || t === 'issue') return t;
+  // Fallback: old events without entityType (pre-bridge-metadata). Infer from shape.
+  if (m?.tagName) return 'release';
+  if (m?.milestoneTitle || m?.milestoneState) return 'milestone';
+  if (m?.issueNumber != null) return 'issue';
+  return null;
+}
+
+function githubMeta(event: CalendarEvent) {
+  const m = event.metadata;
+  return {
+    repoFullName: typeof m?.repoFullName === 'string' ? m.repoFullName : null,
+    tagName: typeof m?.tagName === 'string' ? m.tagName : null,
+    releaseName: typeof m?.releaseName === 'string' ? m.releaseName : null,
+    publishedAt: typeof m?.publishedAt === 'number' ? m.publishedAt : null,
+    issueNumber: typeof m?.issueNumber === 'number' ? m.issueNumber : null,
+    issueTitle: typeof m?.issueTitle === 'string' ? m.issueTitle : null,
+    issueState: m?.issueState === 'closed' ? 'closed' as const : m?.issueState === 'open' ? 'open' as const : null,
+    milestoneTitle: typeof m?.milestoneTitle === 'string' ? m.milestoneTitle : null,
+    milestoneState: m?.milestoneState === 'closed' ? 'closed' as const : m?.milestoneState === 'open' ? 'open' as const : null,
+    dueOn: typeof m?.dueOn === 'number' ? m.dueOn : null,
+  };
+}
+
 /** Drop the auto-appended source footer so markdown body stays clean. */
 function markdownBodyFromDescription(description: string | undefined): string {
   if (!description) return '';
@@ -44,14 +75,232 @@ function formatEventWhen(event: CalendarEvent, locale: string): string {
   return start.toLocaleString(locale, { dateStyle: 'full', timeStyle: 'short' });
 }
 
-function githubMilestoneMeta(event: CalendarEvent) {
-  if (event.metadata?.entityType !== 'milestone') return null;
-  return {
-    repoFullName: typeof event.metadata.repoFullName === 'string' ? event.metadata.repoFullName : null,
-    milestoneTitle: typeof event.metadata.milestoneTitle === 'string' ? event.metadata.milestoneTitle : null,
-    dueOn: typeof event.metadata.dueOn === 'number' ? event.metadata.dueOn : null,
-    state: event.metadata.milestoneState === 'closed' ? 'closed' as const : 'open' as const,
-  };
+interface MetaRowProps {
+  label: string;
+  children: React.ReactNode;
+}
+function MetaRow({ label, children }: MetaRowProps) {
+  return (
+    <>
+      <dt
+        className="text-[11px] font-medium uppercase tracking-wide pt-1.5"
+        style={{ color: 'var(--dome-text-muted)' }}
+      >
+        {label}
+      </dt>
+      <dd className="text-sm pt-1.5 min-w-0" style={{ color: 'var(--dome-text)' }}>
+        {children}
+      </dd>
+    </>
+  );
+}
+
+interface GithubEventBodyProps {
+  event: CalendarEvent;
+  githubUrl: string | null;
+}
+
+function GithubEventBody({ event, githubUrl }: GithubEventBodyProps) {
+  const { t, i18n } = useTranslation();
+  const entityType = githubEntityType(event);
+  const meta = githubMeta(event);
+  const markdownBody = markdownBodyFromDescription(event.description);
+
+  const typeBadge = (() => {
+    if (!entityType) return null;
+    if (entityType === 'release') {
+      return { icon: <Rocket size={11} />, label: t('github.calendar_type_release'), tone: 'accent' as const };
+    }
+    if (entityType === 'milestone') {
+      return { icon: <Milestone size={11} />, label: t('github.calendar_type_milestone'), tone: 'neutral' as const };
+    }
+    return { icon: <CircleDot size={11} />, label: t('github.calendar_type_issue'), tone: 'neutral' as const };
+  })();
+
+  const dateLabel = formatEventWhen(event, i18n.language);
+  const showBody = entityType !== 'milestone'; // milestone already shows a rich dl below
+  const dlBg = 'var(--dome-bg)';
+  const dlBorder = '1px solid var(--dome-border)';
+
+  // Repo label fallback: when the metadata is from an older sync (no repoFullName)
+  // we still try to surface something useful so the header strip never collapses.
+  // We derive a hint from the html_url hostname (github.com) plus the URL path's
+  // owner/repo segments when available, otherwise we render a generic "GitHub".
+  const repoFallback = (() => {
+    if (meta.repoFullName) return null;
+    if (githubUrl) {
+      try {
+        const u = new URL(githubUrl);
+        const parts = u.pathname.replace(/^\/+/, '').split('/');
+        if (parts.length >= 2 && parts[0] && parts[1]) {
+          return `${parts[0]}/${parts[1]}`;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    return t('github.calendar_repo_unknown', { defaultValue: 'GitHub' });
+  })();
+
+  // For release events, when we don't yet have a body (legacy sync), show a tiny
+  // info row so the modal is not just a tag URL rendered as plain text.
+  const releaseMinimalRow =
+    entityType === 'release' && !markdownBody && (meta.tagName || meta.publishedAt != null);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Header strip: type badge + repo + date */}
+      <div
+        className="flex flex-col gap-2 rounded-lg px-3 py-3"
+        style={{ background: dlBg, border: dlBorder }}
+      >
+        <div className="flex items-center gap-2 flex-wrap">
+          {typeBadge && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full font-medium"
+              style={{
+                background: typeBadge.tone === 'accent'
+                  ? 'color-mix(in srgb, var(--dome-accent) 14%, transparent)'
+                  : 'var(--dome-bg-hover)',
+                color: typeBadge.tone === 'accent' ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
+                border: typeBadge.tone === 'accent'
+                  ? '1px solid color-mix(in srgb, var(--dome-accent) 28%, transparent)'
+                  : '1px solid var(--dome-border)',
+              }}
+            >
+              {typeBadge.icon}
+              {typeBadge.label}
+            </span>
+          )}
+          <span
+            className="inline-flex items-center gap-1 text-[12px]"
+            style={{ color: 'var(--dome-text)' }}
+            title={meta.repoFullName || repoFallback || undefined}
+          >
+            <Github size={12} style={{ color: 'var(--dome-text-muted)' }} />
+            <span className="font-medium">{meta.repoFullName || repoFallback}</span>
+          </span>
+        </div>
+        <span className="text-xs inline-flex items-center gap-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+          {dateLabel}
+          {event.all_day ? <span>· {t('calendarPage.all_day')}</span> : null}
+        </span>
+      </div>
+
+      {/* Entity-specific fields */}
+      {entityType === 'milestone' ? (
+        <dl
+          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg px-3 py-1"
+          style={{ background: dlBg, border: dlBorder }}
+        >
+          {meta.milestoneTitle ? (
+            <MetaRow label={t('github.calendar_milestone')}>{meta.milestoneTitle}</MetaRow>
+          ) : null}
+          <MetaRow label={t('github.calendar_state')}>
+            <span
+              className="inline-flex items-center gap-1"
+              style={{ color: meta.milestoneState === 'closed' ? 'var(--success)' : 'var(--dome-text)' }}
+            >
+              {meta.milestoneState === 'closed' ? <CheckCircle2 size={13} /> : <CircleDot size={13} />}
+              {meta.milestoneState === 'closed' ? t('github.calendar_completed') : t('github.calendar_pending')}
+            </span>
+          </MetaRow>
+        </dl>
+      ) : null}
+
+      {entityType === 'release' ? (
+        <dl
+          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg px-3 py-1"
+          style={{ background: dlBg, border: dlBorder }}
+        >
+          {meta.tagName ? (
+            <MetaRow label={t('github.calendar_release_tag')}>
+              <span className="inline-flex items-center gap-1 font-mono text-[13px]" style={{ color: 'var(--dome-accent)' }}>
+                <Tag size={12} /> {meta.tagName}
+              </span>
+            </MetaRow>
+          ) : null}
+          {meta.releaseName && meta.releaseName !== meta.tagName ? (
+            <MetaRow label={t('github.calendar_release_name')}>{meta.releaseName}</MetaRow>
+          ) : null}
+        </dl>
+      ) : null}
+
+      {entityType === 'issue' ? (
+        <dl
+          className="grid grid-cols-[max-content_1fr] gap-x-4 rounded-lg px-3 py-1"
+          style={{ background: dlBg, border: dlBorder }}
+        >
+          {meta.issueNumber != null ? (
+            <MetaRow label={t('github.calendar_issue_number')}>
+              <span className="font-mono text-[13px]">#{meta.issueNumber}</span>
+            </MetaRow>
+          ) : null}
+          {meta.issueTitle ? (
+            <MetaRow label={t('github.calendar_issue_title')}>{meta.issueTitle}</MetaRow>
+          ) : null}
+          {meta.issueState ? (
+            <MetaRow label={t('github.calendar_state')}>
+              <span
+                className="inline-flex items-center gap-1"
+                style={{
+                  color: meta.issueState === 'closed' ? 'var(--dome-text-muted)' : 'var(--success)',
+                }}
+              >
+                {meta.issueState === 'closed' ? <CheckCircle2 size={13} /> : <CircleDot size={13} />}
+                {meta.issueState === 'closed' ? t('github.calendar_issue_state_closed') : t('github.calendar_issue_state_open')}
+              </span>
+            </MetaRow>
+          ) : null}
+        </dl>
+      ) : null}
+
+      {/* Minimal info row for releases without a body (legacy sync).
+          Surfaces tag + published date as plain text so the modal is useful
+          even before the next sync overwrites the event with a full body. */}
+      {releaseMinimalRow ? (
+        <div
+          className="text-xs flex flex-col gap-1 rounded-lg px-3 py-2"
+          style={{ background: dlBg, border: dlBorder, color: 'var(--dome-text-muted)' }}
+        >
+          {meta.tagName ? (
+            <span className="inline-flex items-center gap-1">
+              <Tag size={11} />
+              <span className="font-mono" style={{ color: 'var(--dome-accent)' }}>{meta.tagName}</span>
+            </span>
+          ) : null}
+          {meta.publishedAt != null ? (
+            <span>
+              {t('github.calendar_release_published', {
+                defaultValue: 'Published',
+              })}
+              : {new Date(meta.publishedAt).toLocaleString(i18n.language)}
+            </span>
+          ) : null}
+          {githubUrl ? (
+            <a href={githubUrl} target="_blank" rel="noreferrer" className="underline inline-flex items-center gap-1">
+              <ExternalLink size={11} /> {githubUrl}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Source URL (legacy / non-classified events) */}
+      {showBody && !meta.repoFullName && githubUrl && entityType !== 'release' ? (
+        <p className="text-xs flex items-center gap-1" style={{ color: 'var(--dome-text-muted)' }}>
+          <GitBranch size={11} />
+          <a href={githubUrl} target="_blank" rel="noreferrer" className="underline">
+            {githubUrl}
+          </a>
+        </p>
+      ) : null}
+
+      {/* Description body */}
+      {markdownBody ? (
+        <GithubMarkdownBody content={markdownBody} className="text-sm max-h-[min(50vh,420px)] overflow-y-auto" />
+      ) : null}
+    </div>
+  );
 }
 
 interface EventModalProps {
@@ -76,11 +325,9 @@ export default function EventModal({
   onSave,
   onDelete,
 }: EventModalProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const githubEvent = isGithubCalendarEvent(event);
   const githubUrl = event ? githubEventUrl(event) : null;
-  const milestoneMeta = event ? githubMilestoneMeta(event) : null;
-  const markdownBody = markdownBodyFromDescription(event?.description);
 
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
@@ -150,79 +397,25 @@ export default function EventModal({
         }
         footer={
           <div className="flex items-center justify-end w-full">
+            {githubUrl ? (
+              <a
+                href={githubUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-sm inline-flex items-center gap-1.5 mr-auto"
+                style={{ color: 'var(--dome-accent)' }}
+              >
+                <ExternalLink size={14} />
+                {t('github.calendar_view_on_github')}
+              </a>
+            ) : null}
             <button type="button" onClick={onClose} className="h-pill-btn primary">
               {t('common.close', { defaultValue: 'Cerrar' })}
             </button>
           </div>
         }
       >
-        <div className="flex flex-col gap-4">
-          {milestoneMeta ? (
-            <dl
-              className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm rounded-lg px-3 py-3"
-              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-            >
-              {milestoneMeta.repoFullName ? (
-                <>
-                  <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_repo')}</dt>
-                  <dd style={{ color: 'var(--dome-text)' }}>{milestoneMeta.repoFullName}</dd>
-                </>
-              ) : null}
-              {milestoneMeta.milestoneTitle ? (
-                <>
-                  <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_milestone')}</dt>
-                  <dd style={{ color: 'var(--dome-text)' }}>{milestoneMeta.milestoneTitle}</dd>
-                </>
-              ) : null}
-              {milestoneMeta.dueOn ? (
-                <>
-                  <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_due_date')}</dt>
-                  <dd style={{ color: 'var(--dome-text)' }}>
-                    {new Date(milestoneMeta.dueOn).toLocaleDateString(i18n.language, {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </dd>
-                </>
-              ) : null}
-              <dt className="font-medium" style={{ color: 'var(--dome-text-muted)' }}>{t('github.calendar_state')}</dt>
-              <dd style={{ color: milestoneMeta.state === 'closed' ? 'var(--success)' : 'var(--dome-text)' }}>
-                {milestoneMeta.state === 'closed' ? t('github.calendar_completed') : t('github.calendar_pending')}
-              </dd>
-            </dl>
-          ) : (
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-              {formatEventWhen(event, i18n.language)}
-              {event.all_day ? ` · ${t('calendarPage.all_day')}` : null}
-            </p>
-          )}
-          {event.calendar_title && !milestoneMeta ? (
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {event.calendar_title}
-            </p>
-          ) : null}
-          {markdownBody ? (
-            <GithubMarkdownBody content={markdownBody} className="text-sm max-h-[min(60vh,520px)] overflow-y-auto" />
-          ) : (
-            <p className="text-sm italic" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('github.no_description')}
-            </p>
-          )}
-          {githubUrl ? (
-            <a
-              href={githubUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-sm inline-flex items-center gap-1.5 w-fit"
-              style={{ color: 'var(--dome-accent)' }}
-            >
-              <ExternalLink size={14} />
-              {t('github.calendar_view_on_github')}
-            </a>
-          ) : null}
-        </div>
+        <GithubEventBody event={event} githubUrl={githubUrl} />
       </DomeModal>
     );
   }

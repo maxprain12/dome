@@ -22,11 +22,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       }
       const queries = database.getQueries();
       const resource = queries.getResourceById.get(resourceId);
-      if (!resource || resource.type !== 'pdf' || !resource.internal_path) {
+      if (!resource || resource.type !== 'pdf') {
         return { success: false, error: 'not a PDF resource' };
       }
-      const fullPath = fileStorage.getFullPath(resource.internal_path);
-      if (!fullPath) {
+      const vaultStore = require('../../storage/vault-store.cjs');
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (!fullPath || !require('fs').existsSync(fullPath)) {
         return { success: false, error: 'file not found' };
       }
       const scale = Number(payload.scale) > 0 ? Number(payload.scale) : 1.25;

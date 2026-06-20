@@ -66,6 +66,30 @@ function navigateDate(date: Date, mode: CalendarViewMode, dir: 1 | -1): Date {
   }
 }
 
+/** Inclusive calendar days occupied by an event (month view). */
+function getEventSpanDays(ev: CalendarEvent): Date[] {
+  const start = startOfDay(new Date(ev.start_at));
+  let end = startOfDay(new Date(ev.end_at));
+
+  if (ev.all_day && end > start) {
+    const endRaw = new Date(ev.end_at);
+    const isExclusiveMidnight =
+      endRaw.getHours() === 0 &&
+      endRaw.getMinutes() === 0 &&
+      endRaw.getSeconds() === 0 &&
+      endRaw.getMilliseconds() === 0;
+    const isGoogleExclusiveEnd =
+      endRaw.getUTCHours() === 23 && endRaw.getUTCMinutes() === 59;
+
+    if (isExclusiveMidnight || isGoogleExclusiveEnd) {
+      end = subDays(end, 1);
+    }
+  }
+
+  if (end < start || isSameDay(start, end)) return [start];
+  return eachDayOfInterval({ start, end });
+}
+
 // ─── EventChip (month view) ───────────────────────────────────────────────────
 
 function EventChip({
@@ -130,18 +154,10 @@ function MonthView({
   const eventsByDay = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     for (const ev of events) {
-      const evStart = new Date(ev.start_at);
-      const evEnd = new Date(ev.end_at);
-      const key = format(evStart, 'yyyy-MM-dd');
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(ev);
-      if (!isSameDay(evStart, evEnd)) {
-        const span = eachDayOfInterval({ start: addDays(evStart, 1), end: evEnd });
-        for (const d of span) {
-          const dk = format(d, 'yyyy-MM-dd');
-          if (!map.has(dk)) map.set(dk, []);
-          map.get(dk)!.push(ev);
-        }
+      for (const d of getEventSpanDays(ev)) {
+        const dk = format(d, 'yyyy-MM-dd');
+        if (!map.has(dk)) map.set(dk, []);
+        map.get(dk)!.push(ev);
       }
     }
     return map;
