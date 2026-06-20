@@ -140,10 +140,11 @@ export default function HomePage() {
   if (!isInitialized) {
     return (
       <div
-        className="min-h-full flex items-center justify-center animate-in"
+        data-tab-loading
+        className="min-h-full flex items-center justify-center"
         style={{ background: 'var(--bg)' }}
       >
-        <div className="text-center animate-slide-up">
+        <div className="text-center">
           <div className="text-lg font-medium mb-2 font-display" style={{ color: 'var(--primary-text)' }}>
             {t('app.loading')}
           </div>

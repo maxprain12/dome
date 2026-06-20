@@ -36,6 +36,7 @@ function getIntervalMs() {
 }
 
 async function tick() {
+  if (process.env.NODE_ENV === 'development') return;
   if (!_windowManager || typeof _windowManager.broadcast !== 'function') return;
   if (!isAutoSyncEnabled()) return;
 

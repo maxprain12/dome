@@ -85,7 +85,7 @@ export default function ProjectsDashboard({
       const scopedProjectId = currentProject?.id ?? 'default';
       const [projectsResult, resourcesResult, eventsResult, chatsResult, decksResult] = await Promise.all([
         db.getProjects(),
-        window.electron?.db?.resources?.getAll?.(2000),
+        window.electron?.db?.resources?.listLight?.(2000),
         window.electron?.calendar?.getUpcoming?.({ windowMinutes: 60 * 24 * 7, limit: 50 }),
         db.getChatSessionsGlobal({ limit: 100, projectId: scopedProjectId }),
         window.electron?.db?.flashcards?.getAllDecks?.(200),

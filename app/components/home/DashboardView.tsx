@@ -88,8 +88,9 @@ export default function DashboardView() {
       'data-home-density': appearance.density,
       'data-home-hero': appearance.heroStyle,
       'data-home-edit': isEditing ? 'true' : 'false',
+      ...(loading ? { 'data-tab-loading': '' } : {}),
     }),
-    [appearance, isEditing],
+    [appearance, isEditing, loading],
   );
 
   const handleResourceSelect = useCallback(

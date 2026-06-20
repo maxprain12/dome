@@ -50,9 +50,6 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
         return { success: false, error: 'startMs and endMs must be numbers', events: [] };
       }
       const result = await calendarService.listEvents(startMs, endMs, { calendarIds });
-      if (result.success) {
-        windowManager.broadcast('calendar:eventsUpdated', {});
-      }
       return result;
     } catch (err) {
       console.error('[Calendar IPC] listEvents error:', err);
@@ -112,6 +109,7 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
           lastSync: Date.now(),
           manual: true,
         });
+        windowManager.broadcast('calendar:eventsUpdated', {});
       } else {
         windowManager.broadcast('calendar:syncStatus', {
           status: 'error',
@@ -214,6 +212,16 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
     } catch (err) {
       console.error('[Calendar IPC] getUpcoming error:', err);
       return { success: false, error: err.message, events: [] };
+    }
+  });
+
+  ipcMain.handle('calendar:getEvent', async (event, eventId) => {
+    try {
+      validateSender(event, windowManager);
+      return await calendarService.getEventById(eventId);
+    } catch (err) {
+      console.error('[Calendar IPC] getEvent error:', err);
+      return { success: false, error: err.message };
     }
   });
 }

@@ -217,9 +217,7 @@ export default function AppShell() {
     return () => window.removeEventListener('dome:many-sidebar-open', onOpenManySidebar);
   }, []);
 
-  const isChatCenterLayout = Boolean(isChatTab && !manyRightOverride);
   const showManyInSidebar = Boolean(rightSidebarOpen && (!isChatTab || manyRightOverride));
-  const needsHeadlessMany = isChatCenterLayout;
 
   const SIDEBAR_W = 260;
   /** Hueco mínimo para arrastrar la ventana entre pestañas y controles derechos. */
@@ -379,23 +377,6 @@ export default function AppShell() {
           </>
         ) : null}
 
-        {needsHeadlessMany && (
-          <div
-            aria-hidden
-            className="fixed top-0 left-0 size-px overflow-hidden opacity-0 pointer-events-none"
-            style={{ zIndex: -10 }}
-          >
-            <div style={{ width: manyWidth, minHeight: 1 }}>
-              <ManyPanelWithSuspense
-                width={manyWidth}
-                onClose={() => {}}
-                isVisible
-                isFullscreen={false}
-                mode="headless"
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Pet mascot overlay */}
