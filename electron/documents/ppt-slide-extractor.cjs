@@ -31,41 +31,39 @@ const MAX_SLIDES = 200;
 const INIT_TIMEOUT_MS = 120_000;
 const RENDER_TIMEOUT_MS = 30_000;
 
-/**
- * Returns true when running in development mode (Vite dev server).
- */
-function isDev() {
-  const distIndex = getDistIndexHtml();
-  return (
-    process.env.NODE_ENV === 'development' ||
-    !app.isPackaged ||
-    !fs.existsSync(distIndex)
-  );
-}
-
-/**
- * Build the URL the hidden window should load.
- */
-function buildCaptureUrl() {
-  return isDev()
-    ? 'http://localhost:5173/ppt-capture'
-    : 'app://dome/ppt-capture';
-}
+/** Serialize captures — shared IPC channels must not overlap. */
+let _extractChain = Promise.resolve();
 
 /**
  * Wait for a one-shot IPC message from a specific webContents id.
  */
 function waitForCaptureEvent(win, channel, timeoutMs) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    let settled = false;
+
+    const cleanup = () => {
+      clearTimeout(timer);
       ipcMain.removeListener(channel, handler);
+    };
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup();
       reject(new Error(`Timeout waiting for ${channel} after ${timeoutMs} ms`));
     }, timeoutMs);
 
     const handler = (event, payload) => {
-      if (win.isDestroyed() || event.sender.id !== win.webContents.id) return;
-      clearTimeout(timer);
-      ipcMain.removeListener(channel, handler);
+      if (settled) return;
+      if (win.isDestroyed()) {
+        settled = true;
+        cleanup();
+        reject(new Error(`Window destroyed while waiting for ${channel}`));
+        return;
+      }
+      if (event.sender.id !== win.webContents.id) return;
+      settled = true;
+      cleanup();
       resolve(payload);
     };
 
@@ -73,10 +71,7 @@ function waitForCaptureEvent(win, channel, timeoutMs) {
   });
 }
 
-/**
- * Extract one PNG image per slide from a PPTX file.
- */
-async function extractPptSlideImages(pptxPath) {
+async function extractPptSlideImagesInner(pptxPath) {
   if (!fs.existsSync(pptxPath)) {
     return { success: false, error: 'PPTX file not found' };
   }
@@ -169,6 +164,36 @@ async function extractPptSlideImages(pptxPath) {
       win.destroy();
     }
   }
+}
+
+/**
+ * Returns true when running in development mode (Vite dev server).
+ */
+function isDev() {
+  const distIndex = getDistIndexHtml();
+  return (
+    process.env.NODE_ENV === 'development' ||
+    !app.isPackaged ||
+    !fs.existsSync(distIndex)
+  );
+}
+
+/**
+ * Build the URL the hidden window should load.
+ */
+function buildCaptureUrl() {
+  return isDev()
+    ? 'http://localhost:5173/ppt-capture'
+    : 'app://dome/ppt-capture';
+}
+
+/**
+ * Extract one PNG image per slide from a PPTX file.
+ */
+async function extractPptSlideImages(pptxPath) {
+  const run = _extractChain.then(() => extractPptSlideImagesInner(pptxPath));
+  _extractChain = run.catch(() => {});
+  return run;
 }
 
 module.exports = { extractPptSlideImages };

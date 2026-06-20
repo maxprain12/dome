@@ -61,7 +61,11 @@ function getApprovalSenderId() {
 
 const OUTPUT_MODES = new Set(['chat_only', 'note', 'studio_output', 'mixed']);
 const RUN_RECOVERY_STALE_MS = 120 * 1000;
+const RUN_QUEUED_ORPHAN_MS = 5 * 60 * 1000;
+const RUN_WAITING_APPROVAL_STALE_MS = 7 * 24 * 60 * 60 * 1000;
 const RUN_RESTART_ERROR = 'Interrupted - the app was restarted while this run was active.';
+const RUN_QUEUED_ORPHAN_ERROR = 'Orphaned — the app was restarted before this run started.';
+const RUN_APPROVAL_STALE_ERROR = 'Cancelled — approval was not completed within 7 days.';
 
 /** Stream/MCP/AbortController cancellations often surface as "terminated", not "abort". */
 let _windowManager = null;
@@ -1241,11 +1245,12 @@ function recoverStuckRuns() {
   try {
     const db = _database.getDB();
     const ts = now();
-    const staleCutoff = ts - RUN_RECOVERY_STALE_MS;
-    // Only fail runs that were actively executing (running) and missed heartbeat.
-    // Leave waiting_approval runs intact — they have a valid checkpoint and can
-    // be resumed by the user even after a restart (resumeOpts is persisted in metadata).
-    db.prepare(`
+    const runningStaleCutoff = ts - RUN_RECOVERY_STALE_MS;
+    const queuedStaleCutoff = ts - RUN_QUEUED_ORPHAN_MS;
+    const approvalStaleCutoff = ts - RUN_WAITING_APPROVAL_STALE_MS;
+
+    // Fail runs that were actively executing (running) and missed heartbeat.
+    const runningResult = db.prepare(`
       UPDATE automation_runs
       SET status = 'failed',
           error = ?,
@@ -1253,7 +1258,36 @@ function recoverStuckRuns() {
           updated_at = ?
       WHERE status = 'running'
         AND COALESCE(last_heartbeat_at, updated_at, started_at) < ?
-    `).run(RUN_RESTART_ERROR, ts, ts, staleCutoff);
+    `).run(RUN_RESTART_ERROR, ts, ts, runningStaleCutoff);
+
+    // Queued runs left behind after a crash never start — unblock automations.
+    const queuedResult = db.prepare(`
+      UPDATE automation_runs
+      SET status = 'failed',
+          error = ?,
+          finished_at = ?,
+          updated_at = ?
+      WHERE status = 'queued'
+        AND COALESCE(started_at, updated_at) < ?
+    `).run(RUN_QUEUED_ORPHAN_ERROR, ts, ts, queuedStaleCutoff);
+
+    // Very old approval checkpoints are unlikely to be resumed.
+    const approvalResult = db.prepare(`
+      UPDATE automation_runs
+      SET status = 'cancelled',
+          error = ?,
+          finished_at = ?,
+          updated_at = ?
+      WHERE status = 'waiting_approval'
+        AND COALESCE(updated_at, started_at) < ?
+    `).run(RUN_APPROVAL_STALE_ERROR, ts, ts, approvalStaleCutoff);
+
+    const recovered = (runningResult?.changes ?? 0)
+      + (queuedResult?.changes ?? 0)
+      + (approvalResult?.changes ?? 0);
+    if (recovered > 0) {
+      console.log(`[RunEngine] recoverStuckRuns: cleared ${recovered} stale run(s)`);
+    }
   } catch (e) {
     console.warn('[RunEngine] recoverStuckRuns failed:', e?.message);
   }
@@ -1307,4 +1341,9 @@ module.exports = {
   resumeRun,
   abortRun,
   createNoteResource,
+  recoverStuckRuns,
+  RUN_QUEUED_ORPHAN_MS,
+  RUN_WAITING_APPROVAL_STALE_MS,
+  RUN_QUEUED_ORPHAN_ERROR,
+  RUN_APPROVAL_STALE_ERROR,
 };

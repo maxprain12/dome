@@ -12,7 +12,7 @@ const database = require('../core/database.cjs');
 const MIN_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_INTERVAL_MIN = 15;
-const STARTUP_DELAY_MS = 20 * 1000;
+const STARTUP_DELAY_MS = 120 * 1000;
 
 let _windowManager = null;
 let _intervalId = null;

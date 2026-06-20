@@ -31,6 +31,8 @@ try {
 //   os:   darwin | linux | windows
 const HIMALAYA_VERSION = 'v1.2.0';
 const RELEASE_BASE = `https://github.com/pimalaya/himalaya/releases/download/${HIMALAYA_VERSION}`;
+const DOWNLOAD_TIMEOUT_MS = 120_000;
+const EXTRACT_TIMEOUT_MS = 60_000;
 
 /** Map Node platform/arch → release asset descriptor. */
 function platformAsset() {
@@ -86,22 +88,39 @@ function resolveExistingBinary(settingPath) {
 function downloadTo(url, dest, redirects = 0) {
   return new Promise((resolve, reject) => {
     if (redirects > 6) return reject(new Error('Too many redirects'));
-    https
-      .get(url, { headers: { 'User-Agent': 'Dome' } }, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          res.resume();
-          return resolve(downloadTo(res.headers.location, dest, redirects + 1));
-        }
-        if (res.statusCode !== 200) {
-          res.resume();
-          return reject(new Error(`Download failed (${res.statusCode}) for ${url}`));
-        }
-        const out = fs.createWriteStream(dest);
-        res.pipe(out);
-        out.on('finish', () => out.close(resolve));
-        out.on('error', reject);
-      })
-      .on('error', reject);
+    const req = https.get(url, { headers: { 'User-Agent': 'Dome' } }, (res) => {
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        res.resume();
+        return resolve(downloadTo(res.headers.location, dest, redirects + 1));
+      }
+      if (res.statusCode !== 200) {
+        res.resume();
+        return reject(new Error(`Download failed (${res.statusCode}) for ${url}`));
+      }
+      const out = fs.createWriteStream(dest);
+      res.pipe(out);
+      out.on('finish', () => out.close(resolve));
+      out.on('error', reject);
+    });
+    req.on('error', reject);
+    req.setTimeout(DOWNLOAD_TIMEOUT_MS, () => {
+      req.destroy(new Error(`Download timed out after ${DOWNLOAD_TIMEOUT_MS}ms`));
+    });
+  });
+}
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      );
+    }),
+  ]).finally(() => {
+    if (timer) clearTimeout(timer);
   });
 }
 
@@ -129,8 +148,8 @@ async function ensureHimalaya(opts = {}) {
   const tmp = path.join(binDir(), `.${asset.assetName}.download`);
 
   console.log(`[himalaya] downloading ${asset.url}`);
-  await downloadTo(asset.url, tmp);
-  await extractArchive(tmp, binDir());
+  await withTimeout(downloadTo(asset.url, tmp), DOWNLOAD_TIMEOUT_MS, 'himalaya download');
+  await withTimeout(extractArchive(tmp, binDir()), EXTRACT_TIMEOUT_MS, 'himalaya extract');
   try { fs.unlinkSync(tmp); } catch { /* ignore */ }
 
   const finalPath = downloadedBinaryPath();
@@ -150,4 +169,8 @@ module.exports = {
   resolveExistingBinary,
   ensureHimalaya,
   downloadedBinaryPath,
+  downloadTo,
+  withTimeout,
+  DOWNLOAD_TIMEOUT_MS,
+  EXTRACT_TIMEOUT_MS,
 };

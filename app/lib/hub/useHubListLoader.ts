@@ -1,10 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { invokeWithTimeout } from '@/lib/utils/ipcTimeout';
 
 interface UseHubListLoaderOptions {
   /** Window event name that triggers a silent reload (e.g. dome:agents-changed). */
   eventName?: string;
+  /** IPC/list load timeout in ms (default 30s). */
+  timeoutMs?: number;
 }
 
 /**
@@ -25,12 +28,13 @@ export function useHubListLoader(
     const showSkeleton = opts?.forceSkeleton ?? !silent;
     if (showSkeleton) setInitialLoading(true);
     try {
-      await loadFnRef.current();
+      const timeoutMs = options?.timeoutMs ?? 30_000;
+      await invokeWithTimeout(() => loadFnRef.current(), timeoutMs);
       hasLoadedRef.current = true;
     } finally {
       if (showSkeleton) setInitialLoading(false);
     }
-  }, []);
+  }, [options?.timeoutMs]);
 
   useEffect(() => {
     hasLoadedRef.current = false;

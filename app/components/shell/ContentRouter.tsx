@@ -1,8 +1,9 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import HubListState from '@/components/ui/HubListState';
-import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
+import DomeButton from '@/components/ui/DomeButton';
+import { useTabStore, HOME_TAB_ID, type DomeTab } from '@/lib/store/useTabStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import WorkspaceSplitView from '@/components/workspace/WorkspaceSplitView';
@@ -39,6 +40,48 @@ function Loading() {
     <div className="flex flex-1 items-center justify-center h-full min-h-[120px]" style={{ background: 'var(--dome-bg)' }}>
       <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
     </div>
+  );
+}
+
+const SUSPENSE_TIMEOUT_MS = 15_000;
+
+function LoadingWithTimeout() {
+  const { t } = useTranslation();
+  const [timedOut, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    const id = setTimeout(() => setTimedOut(true), SUSPENSE_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, []);
+
+  if (timedOut) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3 h-full min-h-[120px] px-6 text-center" style={{ background: 'var(--dome-bg)' }}>
+        <HubListState
+          variant="empty"
+          title={t('common.loading_timeout_title')}
+          description={t('common.loading_timeout_message')}
+          compact
+        />
+        <DomeButton
+          variant="secondary"
+          size="sm"
+          onClick={() => useTabStore.getState().activateTab(HOME_TAB_ID)}
+        >
+          {t('common.go_home')}
+        </DomeButton>
+      </div>
+    );
+  }
+
+  return <Loading />;
+}
+
+function SuspenseWithTimeout({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<LoadingWithTimeout />}>
+      {children}
+    </Suspense>
   );
 }
 
@@ -225,11 +268,11 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
     case 'email':
       return (
         <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
+          <SuspenseWithTimeout>
             <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <EmailView />
             </div>
-          </Suspense>
+          </SuspenseWithTimeout>
         </ErrorBoundary>
       );
 
@@ -331,11 +374,11 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
     case 'runs':
       return (
         <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
+          <SuspenseWithTimeout>
             <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <AgentsPage shellHubTab="runs" />
             </div>
-          </Suspense>
+          </SuspenseWithTimeout>
         </ErrorBoundary>
       );
 
@@ -460,14 +503,17 @@ export default function ContentRouter() {
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
   // Defensive: activeTabId is orphaned (e.g. stale localStorage after a tab was removed).
-  // Immediately reset to home so the app doesn't show an endless loading spinner.
-  useEffect(() => {
-    if (!activeTab && tabs.length > 0) {
-      const { activateTab } = useTabStore.getState();
-      const fallback = tabs.find((t) => t.id === 'home') ?? tabs[0];
-      if (fallback) activateTab(fallback.id);
+  useLayoutEffect(() => {
+    if (!activeTab) {
+      const state = useTabStore.getState();
+      if (state.tabs.length === 0) {
+        state.closeAllTabsToHome();
+        return;
+      }
+      const fallback = state.tabs.find((t) => t.id === HOME_TAB_ID) ?? state.tabs[0];
+      if (fallback) state.activateTab(fallback.id);
     }
-  }, [activeTab, tabs]);
+  }, [activeTab]);
 
   if (!activeTab) return <Loading />;
 

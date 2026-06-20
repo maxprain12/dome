@@ -16,7 +16,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "electron": "electron .",
-    "electron:dev": "pnpm run build:prompt-assembler && concurrently \"pnpm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
+    "electron:dev": "pnpm run build:packages && pnpm run build:prompt-assembler && concurrently \"pnpm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development NODE_OPTIONS=--max-old-space-size=8192 electron .\"",
     "electron:build": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG= electron-builder",
     "electron:build:verbose": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run build && pnpm run rebuild:natives && pnpm run verify:workspace-deps && pnpm run verify:natives && node scripts/embed-env.cjs && cross-env DEBUG=electron-builder electron-builder",
     "electron:pack": "pnpm run build:packages && pnpm run materialize:workspace-deps && pnpm run verify:workspace-deps && cross-env DEBUG= electron-builder",
@@ -25,7 +25,7 @@
     "verify:natives": "node scripts/verify-natives.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
     "patch:pptx-preview": "node scripts/patch-pptx-preview.mjs",
-    "postinstall": "electron-builder install-app-deps && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
+    "postinstall": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/",
     "depcruise": "depcruise app --config .dependency-cruiser.cjs",
@@ -38,7 +38,7 @@
     "test:filesystem-tools": "node --test scripts/test-filesystem-tools.mjs",
     "test:feeders": "node --test scripts/test-feeders.mjs",
     "test:web-search": "node --test scripts/test-web-search.mjs",
-    "test:security": "node --test electron/__tests__/shell-policy.test.mjs electron/__tests__/url-guard.test.mjs electron/__tests__/migration-backup.test.mjs electron/__tests__/settings-secrets.test.mjs electron/__tests__/security-path.test.mjs electron/__tests__/logger.test.mjs electron/__tests__/tool-call-policy.test.mjs electron/__tests__/run-retention.test.mjs electron/__tests__/error-notify.test.mjs electron/__tests__/workflow-dag.test.mjs electron/__tests__/provider-keys.test.mjs electron/__tests__/run-helpers.test.mjs",
+    "test:security": "node --test electron/__tests__/shell-policy.test.mjs electron/__tests__/url-guard.test.mjs electron/__tests__/migration-backup.test.mjs electron/__tests__/db-backup.test.mjs electron/__tests__/settings-secrets.test.mjs electron/__tests__/security-path.test.mjs electron/__tests__/logger.test.mjs electron/__tests__/tool-call-policy.test.mjs electron/__tests__/run-retention.test.mjs electron/__tests__/run-recovery.test.mjs electron/__tests__/himalaya-binary.test.mjs electron/__tests__/error-notify.test.mjs electron/__tests__/workflow-dag.test.mjs electron/__tests__/provider-keys.test.mjs electron/__tests__/run-helpers.test.mjs",
     "test": "pnpm run test:security && pnpm --filter @dome/agent-core run test",
     "test:studio": "node scripts/test-studio-validators.mjs",
     "test:studio:tools": "node scripts/test-studio-tools.mjs",
@@ -62,7 +62,9 @@
     "bench:run:minimax": "node scripts/bench/run.mjs -- --provider minimax --mode direct --concurrency 1",
     "bench:run:openrouter": "node scripts/bench/run.mjs -- --provider openrouter --model anthropic/claude-3.5-sonnet --mode direct --concurrency 1",
     "clean": "bash scripts/clean.sh",
-    "generate-icons": "tsx scripts/generate-icons.ts"
+    "generate-icons": "tsx scripts/generate-icons.ts",
+    "windows:startup-diag": "node scripts/windows-startup-diag.mjs",
+    "restore:db": "node scripts/restore-db-backup.mjs"
   },
   "dependencies": {
     "@dome/agent-core": "workspace:*",

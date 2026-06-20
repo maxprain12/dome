@@ -9,6 +9,9 @@ const require = createRequire(import.meta.url);
 const {
   backupDatabaseBeforeMigrations,
   restoreDatabaseFromBackup,
+  removeWalSidecars,
+  findLatestPreMigrationBackup,
+  isSqliteIoError,
   LATEST_SCHEMA_VERSION,
 } = require('../core/migration-backup.cjs');
 
@@ -58,5 +61,36 @@ describe('migration-backup', () => {
   it('returns false when backup file is missing', () => {
     const restored = restoreDatabaseFromBackup('/tmp/nonexistent-db', '/tmp/nonexistent-backup');
     assert.equal(restored, false);
+  });
+
+  it('removeWalSidecars deletes wal and shm sidecars', () => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const dbPath = path.join(tmpDir, 'dome.db');
+    fs.writeFileSync(dbPath, 'db');
+    fs.writeFileSync(`${dbPath}-wal`, 'wal');
+    fs.writeFileSync(`${dbPath}-shm`, 'shm');
+    assert.equal(removeWalSidecars(dbPath), 2);
+    assert.equal(fs.existsSync(`${dbPath}-wal`), false);
+    assert.equal(fs.existsSync(`${dbPath}-shm`), false);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('findLatestPreMigrationBackup returns newest backup file', () => {
+    fs.mkdirSync(tmpDir, { recursive: true });
+    const older = path.join(tmpDir, 'dome.db.backup-v1-old');
+    const newer = path.join(tmpDir, 'dome.db.backup-v2-new');
+    fs.writeFileSync(older, 'old');
+    fs.writeFileSync(newer, 'new');
+    const now = Date.now();
+    fs.utimesSync(older, now / 1000, (now - 10_000) / 1000);
+    fs.utimesSync(newer, now / 1000, now / 1000);
+    assert.equal(findLatestPreMigrationBackup(tmpDir), newer);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('isSqliteIoError detects SQLITE_IOERR codes', () => {
+    assert.equal(isSqliteIoError({ code: 'SQLITE_IOERR_TRUNCATE' }), true);
+    assert.equal(isSqliteIoError({ message: 'disk I/O error' }), true);
+    assert.equal(isSqliteIoError({ code: 'SQLITE_BUSY' }), false);
   });
 });

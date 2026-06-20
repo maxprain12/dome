@@ -12,11 +12,33 @@ const { app } = require('electron');
 const { buildQueries } = require('./db/queries.cjs');
 const { applyMigrations } = require('./db/migrations.cjs');
 const { createBaseSchema } = require('./db/schema.cjs');
+const {
+  removeWalSidecars,
+  findLatestBackup,
+  restoreDatabaseFromBackup,
+  restoreFromLatestBackup,
+  preflightRestoreIfCorrupt,
+  isSqliteIoError,
+  isCorruptionError,
+  createAutomaticBackup,
+} = require('./db-backup.cjs');
 
 let _db = null;
 let _queries = null;
 /** Avoid duplicate migration/schema work when initDatabase runs from main + init module */
 let _schemaInitialized = false;
+
+function getDbPath() {
+  const userDataPath = app.getPath('userData');
+  return path.join(userDataPath, 'dome.db');
+}
+
+function openDatabaseAt(dbPath) {
+  const Database = require('better-sqlite3');
+  const db = new Database(dbPath);
+  db.pragma('busy_timeout = 5000');
+  return db;
+}
 
 /**
  * Get database instance (lazy initialization)
@@ -24,32 +46,41 @@ let _schemaInitialized = false;
 function getDB() {
   if (_db) return _db;
 
-  const userDataPath = app.getPath('userData');
-  const dbPath = path.join(userDataPath, 'dome.db');
+  const dbPath = getDbPath();
+  const userDataPath = path.dirname(dbPath);
 
   // Ensure directory exists
   if (!fs.existsSync(userDataPath)) {
     fs.mkdirSync(userDataPath, { recursive: true });
   }
 
-  // Initialize database
-  // Use better-sqlite3 for Electron (Node.js runtime)
-  // bun:sqlite is only available in Bun runtime, not in Electron
-  const Database = require('better-sqlite3');
-  _db = new Database(dbPath);
+  try {
+    _db = openDatabaseAt(dbPath);
+  } catch (err) {
+    if (!isSqliteIoError(err)) throw err;
+    console.warn('[DB] Open failed with I/O error, clearing WAL sidecars and retrying:', err?.message || err);
+    removeWalSidecars(dbPath);
+    _db = openDatabaseAt(dbPath);
+  }
 
   console.log('✅ SQLite database initialized at:', dbPath);
   return _db;
 }
 
-/**
- * Initialize database schema
- */
-function initDatabase() {
-  if (_schemaInitialized) {
-    return;
-  }
+function recoverDatabaseFromIoError(attempt) {
+  const dbPath = getDbPath();
+  closeDB();
+  removeWalSidecars(dbPath);
 
+  if (attempt >= 1) {
+    const { restored, backupPath } = restoreFromLatestBackup(dbPath);
+    if (restored) {
+      console.warn('[DB] Restored database from latest backup after I/O error:', backupPath);
+    }
+  }
+}
+
+function doInitDatabaseSchema() {
   const db = getDB();
 
   // Base schema (PRAGMAs + tables/indexes/FTS/triggers) — idempotent.
@@ -77,9 +108,51 @@ function initDatabase() {
 
   // Create default project if it doesn't exist
   createDefaultProject(db);
+}
 
-  console.log('✅ Database schema initialized');
-  _schemaInitialized = true;
+/**
+ * Initialize database schema
+ */
+function initDatabase() {
+  if (_schemaInitialized) {
+    return;
+  }
+
+  const dbPath = getDbPath();
+  preflightRestoreIfCorrupt(dbPath);
+
+  const MAX_ATTEMPTS = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      doInitDatabaseSchema();
+
+      const integrity = checkIntegrity(true);
+      if (!integrity.ok) {
+        throw Object.assign(new Error(`Database quick_check failed: ${integrity.errors.join('; ')}`), {
+          code: 'SQLITE_CORRUPT',
+        });
+      }
+
+      console.log('✅ Database schema initialized');
+      _schemaInitialized = true;
+      return;
+    } catch (err) {
+      lastError = err;
+      const recoverable = isSqliteIoError(err) || isCorruptionError(err);
+      if (!recoverable || attempt === MAX_ATTEMPTS) {
+        break;
+      }
+      console.warn(
+        `[DB] Schema init failed (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+        err?.message || err,
+      );
+      recoverDatabaseFromIoError(attempt);
+    }
+  }
+
+  throw lastError;
 }
 
 /**
@@ -146,7 +219,7 @@ function createDefaultProject(db) {
  * Run database migrations: backup, apply ordered migrations, restore on failure.
  */
 function runMigrations(db) {
-  const { backupDatabaseBeforeMigrations, restoreDatabaseFromBackup } = require('./migration-backup.cjs');
+  const { backupDatabaseBeforeMigrations, restoreDatabaseFromBackup } = require('./db-backup.cjs');
 
   // Get current schema version
   let version = 0;
@@ -495,14 +568,44 @@ function handleCorruptionError(error) {
       if (fullRepaired) {
         console.log('[DB] ✅ Full database repair completed');
         return true;
-      } else {
-        console.error('[DB] ❌ Failed to repair database corruption with all methods');
-        return false;
       }
+
+      console.warn('[DB] All repair methods failed, restoring from latest backup...');
+      const restored = restoreFromLatestBackupAndReinit();
+      if (restored.restored) {
+        console.log('[DB] ✅ Database restored from backup:', restored.backupPath);
+        return true;
+      }
+
+      console.error('[DB] ❌ Failed to repair database corruption with all methods');
+      return false;
     }
   }
   
   return false;
+}
+
+/**
+ * Close connection, restore dome.db from the newest backup, and re-run schema init.
+ * @returns {{ restored: boolean, backupPath: string|null, reason?: string }}
+ */
+function restoreFromLatestBackupAndReinit() {
+  const dbPath = getDbPath();
+  closeDB();
+  removeWalSidecars(dbPath);
+  const result = restoreFromLatestBackup(dbPath);
+  if (!result.restored) {
+    return result;
+  }
+  _schemaInitialized = false;
+  invalidateQueries();
+  try {
+    initDatabase();
+  } catch (err) {
+    console.error('[DB] Re-init after backup restore failed:', err?.message || err);
+    return { ...result, restored: false, reason: 'reinit_failed' };
+  }
+  return result;
 }
 
 /**
@@ -642,6 +745,7 @@ function closeDB() {
 
 module.exports = {
   getDB,
+  getDbPath,
   initDatabase,
   getQueries,
   closeDB,
@@ -654,4 +758,7 @@ module.exports = {
   deleteWorkflowFolderCascade,
   getProjectDeletionImpact,
   deleteProjectWithContent,
+  removeWalSidecars,
+  isSqliteIoError,
+  restoreFromLatestBackupAndReinit,
 };

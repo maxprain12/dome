@@ -94,6 +94,9 @@ function loadStoredTabs(): { tabs: DomeTab[]; activeTabId: string } {
           : HOME_TAB_ID;
         return { tabs, activeTabId };
       }
+      if (Array.isArray(parsed.tabs) && parsed.tabs.length === 0) {
+        return { tabs: [HOME_TAB], activeTabId: HOME_TAB_ID };
+      }
     }
   } catch {
     // ignore

@@ -44,5 +44,8 @@
   "max_file_size": "Maximum {{size}}Mo par fichier",
   "file_count_limit": "{{count}} fichier(s) maximum",
   "uploading_files": "Téléchargement de {{count}} fichiers",
-  "clear_all": "Tout effacer"
+  "clear_all": "Tout effacer",
+  "loading_timeout_title": "Le chargement prend trop de temps",
+  "loading_timeout_message": "Dome est encore occupé au démarrage. Revenez à l'accueil et réessayez.",
+  "go_home": "Aller à l'accueil"
 }

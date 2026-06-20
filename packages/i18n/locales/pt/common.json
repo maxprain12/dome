@@ -44,5 +44,8 @@
   "max_file_size": "Máximo {{size}}MB por arquivo",
   "file_count_limit": "{{count}} arquivo(s) máximo",
   "uploading_files": "A enviar {{count}} arquivos",
-  "clear_all": "Limpar tudo"
+  "clear_all": "Limpar tudo",
+  "loading_timeout_title": "O carregamento está demorando demais",
+  "loading_timeout_message": "O Dome ainda está ocupado ao iniciar. Volte ao Início e tente novamente.",
+  "go_home": "Ir ao Início"
 }
