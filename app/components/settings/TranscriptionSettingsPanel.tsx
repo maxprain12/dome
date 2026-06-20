@@ -25,7 +25,7 @@ export default function TranscriptionSettingsPanel() {
     });
   }, []);
 
-  const { models, loading } = useProviderModels({ provider, apiKey });
+  const { models, loading } = useProviderModels({ provider, apiKey, applyVisibleFilter: false });
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">

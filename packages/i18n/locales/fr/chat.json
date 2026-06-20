@@ -91,6 +91,7 @@
   "slash_keep_active": "Garder actif pour ce chat",
   "remove_skill_context": "Retirer la compétence du contexte",
   "model_switcher_title": "Modèle",
+  "open_provider_settings": "Réglages du fournisseur…",
   "add_custom_model": "Ajouter un modèle personnalisé…",
   "custom_model_placeholder": "Id du modèle (ex. gpt-4.1)",
   "plus_skills": "Compétences",

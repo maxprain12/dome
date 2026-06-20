@@ -6,7 +6,14 @@
 
 const CURATED_IDS = {
   opencode: new Set(['claude-sonnet-4-5', 'claude-haiku-4-5', 'gpt-5.2', 'gemini-3-flash', 'big-pickle']),
-  'opencode-go': new Set(['deepseek-v4-flash', 'deepseek-v4-pro', 'kimi-k2.6', 'minimax-m3', 'qwen3.7-plus']),
+  'opencode-go': new Set([
+    'deepseek-v4-flash',
+    'deepseek-v4-pro',
+    'kimi-k2.6',
+    'minimax-m3',
+    'qwen3.7-plus',
+    'glm-5.2',
+  ]),
 };
 
 /**

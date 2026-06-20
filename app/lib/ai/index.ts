@@ -226,7 +226,7 @@ export {
   saveCustomModelsByProvider,
   appendCustomModelId,
   saveChatModelForProvider,
-  
+
   // Chat functions
   checkChatProviderReady,
   chat,
@@ -250,4 +250,22 @@ export {
   chunkText,
 } from './client';
 
+export {
+  getVisibleModelIds,
+  getVisibleModelsByProvider,
+  saveVisibleModelsByProvider,
+  setVisibleModelIds,
+  getDefaultVisibleModelIds,
+  filterModelsByVisibleIds,
+  isVisibleModelsConfigurable,
+  resolveVisibleModelAfterSave,
+  addCustomModelToProvider,
+  VISIBLE_MODELS_CONFIGURABLE_PROVIDERS,
+  DEFAULT_VISIBLE_MODEL_IDS,
+} from './visible-models';
+
+export { openAIProviderSettings } from './open-provider-settings';
+export type { OpenAIProviderSettingsDetail } from './open-provider-settings';
+
 export type { AIConfig, AIProvider, ChatProviderReadyResult, CustomModelsByProvider } from './client';
+export type { VisibleModelsByProvider } from './visible-models';

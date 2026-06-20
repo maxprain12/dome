@@ -41,20 +41,27 @@ export function useManyConversationSettings(): ManyConversationSettings {
   // Active provider info (+ context-window cap), refreshed on config change.
   useEffect(() => {
     const loadProviderInfo = async () => {
-      const config = await getAIConfig();
-      if (config?.provider) {
-        const model =
-          config.provider === 'ollama'
-            ? (config.ollamaModel || 'default')
-            : (config.model || 'default');
-        const displayInfo = model.startsWith(`${config.provider}/`) ? config.provider : `${config.provider} / ${model}`;
-        setProviderId(String(config.provider));
-        setProviderInfo(displayInfo);
-        setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
-        const modelId = config.provider === 'ollama' ? config.ollamaModel : config.model;
-        const found = modelId ? findModelById(modelId) : undefined;
-        setBudgetCapApprox(found?.model.contextWindow ?? 200_000);
-      } else {
+      try {
+        const config = await getAIConfig();
+        if (config?.provider) {
+          const model =
+            config.provider === 'ollama'
+              ? (config.ollamaModel || 'default')
+              : (config.model || 'default');
+          const displayInfo = model.startsWith(`${config.provider}/`) ? config.provider : `${config.provider} / ${model}`;
+          setProviderId(String(config.provider));
+          setProviderInfo(displayInfo);
+          setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
+          const modelId = config.provider === 'ollama' ? config.ollamaModel : config.model;
+          const found = modelId ? findModelById(modelId) : undefined;
+          setBudgetCapApprox(found?.model.contextWindow ?? 200_000);
+        } else {
+          setProviderInfo(t('chat.not_configured'));
+          setProviderId('');
+          setSupportsTools(false);
+          setBudgetCapApprox(200_000);
+        }
+      } catch {
         setProviderInfo(t('chat.not_configured'));
         setProviderId('');
         setSupportsTools(false);

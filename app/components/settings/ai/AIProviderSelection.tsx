@@ -1,7 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, HardDrive, KeyRound, Lock, Zap } from 'lucide-react';
+import { CheckCircle2, HardDrive, KeyRound, Lock, Settings2, Zap } from 'lucide-react';
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
+import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
 import { accentMix, ACCENT_END } from '@/lib/ui/accent';
 import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 import DomeBadge from '@/components/ui/DomeBadge';
@@ -34,6 +35,8 @@ export interface AIProviderSelectionProps {
   highlightSelection?: boolean;
   /** provider → tiene API key guardada (badge + orden: configurados primero) */
   configuredProviders?: Record<string, boolean>;
+  /** Opens the visible-models modal for a provider (gear icon). */
+  onConfigureModels?: (provider: AIProviderType) => void;
 }
 
 export default function AIProviderSelection({
@@ -42,6 +45,7 @@ export default function AIProviderSelection({
   showSectionLabel = true,
   highlightSelection = true,
   configuredProviders = {},
+  onConfigureModels,
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
   const activeProvider = highlightSelection ? provider : null;
@@ -169,6 +173,19 @@ export default function AIProviderSelection({
                         </span>
                       ) : null}
                       <ProviderCardCheck selected={isSelected} />
+                      {isVisibleModelsConfigurable(option.value) && onConfigureModels ? (
+                        <button
+                          type="button"
+                          className="absolute bottom-2 right-2 flex size-6 items-center justify-center rounded-md border border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text-muted)] transition-colors hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-accent)]"
+                          aria-label={t('settings.ai.visible_models.gear_label', { provider: option.label })}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onConfigureModels(option.value);
+                          }}
+                        >
+                          <Settings2 className="size-3.5" aria-hidden />
+                        </button>
+                      ) : null}
                       <div className="flex w-full min-w-0 items-start justify-start gap-2.5">
                         <DomeIconBox
                           size="sm"

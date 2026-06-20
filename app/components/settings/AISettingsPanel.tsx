@@ -11,14 +11,17 @@ import {
   getDefaultModelId,
   type AIProviderType,
 } from '@/lib/ai/models';
+import { resolveVisibleModelAfterSave, isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
+import { saveChatModelForProvider } from '@/lib/ai/client';
+import type { OpenAIProviderSettingsDetail } from '@/lib/ai/open-provider-settings';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { useProviderModels } from '@/lib/ai/useProviderModels';
 import { accentMix } from '@/lib/ui/accent';
 import AIProviderSelection, { isCloudAIProvider } from './ai/AIProviderSelection';
+import ProviderModelsConfigModal from './ai/ProviderModelsConfigModal';
 import AICloudProviderConfig from './ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from './ai/AIOllamaProviderConfig';
 import ModelSelector from './ModelSelector';
-import { getCopilotModels } from '@/lib/ai/catalogs/copilot';
 import TranscriptionSettingsSections, {
   type TranscriptionSettingsSectionsHandle,
 } from './TranscriptionSettingsSections';
@@ -67,12 +70,17 @@ export default function AISettingsPanel() {
   const [copilotUserCode, setCopilotUserCode] = useState<string | null>(null);
   const transcriptionRef = useRef<TranscriptionSettingsSectionsHandle>(null);
   const [activeTab, setActiveTab] = useState<AISettingsTab>('chat');
-  const copilotModels = useMemo(() => getCopilotModels(), []);
+  const [modelsConfigProvider, setModelsConfigProvider] = useState<AIProviderType | null>(null);
 
   const {
     models: currentProviderModels,
     loading: providerModelsLoading,
   } = useProviderModels({ provider, apiKey });
+
+  const { models: copilotVisibleModels } = useProviderModels({
+    provider: 'copilot',
+    applyVisibleFilter: true,
+  });
 
   useEffect(() => {
     const loadConfig = async () => {
@@ -211,6 +219,31 @@ export default function AISettingsPanel() {
   useEffect(() => {
     void refreshProviderKeyStatus();
   }, [refreshProviderKeyStatus]);
+
+  useEffect(() => {
+    const onOpenProviderSettings = (e: Event) => {
+      const detail = (e as CustomEvent<OpenAIProviderSettingsDetail>).detail;
+      if (!detail?.provider) return;
+      setActiveTab('chat');
+      setProvider(detail.provider);
+      if (isCloudAIProvider(detail.provider)) {
+        void (async () => {
+          try {
+            const { db } = await import('@/lib/db/client');
+            const res = await db.getSetting(`ai_api_key_${detail.provider}`);
+            setApiKey(res.data || '');
+          } catch {
+            setApiKey('');
+          }
+        })();
+      }
+      if (detail.openModelsModal && isVisibleModelsConfigurable(detail.provider)) {
+        setModelsConfigProvider(detail.provider);
+      }
+    };
+    window.addEventListener('dome:open-ai-provider-settings', onOpenProviderSettings);
+    return () => window.removeEventListener('dome:open-ai-provider-settings', onOpenProviderSettings);
+  }, []);
 
   const handleProviderChange = (newProvider: AIProviderType) => {
     setProvider(newProvider);
@@ -375,6 +408,23 @@ export default function AISettingsPanel() {
         provider={provider}
         onProviderChange={handleProviderChange}
         configuredProviders={providerKeyStatus}
+        onConfigureModels={setModelsConfigProvider}
+      />
+
+      <ProviderModelsConfigModal
+        open={modelsConfigProvider != null}
+        provider={modelsConfigProvider}
+        onClose={() => setModelsConfigProvider(null)}
+        onSaved={(savedProvider, visibleIds) => {
+          if (savedProvider === provider && !customModel) {
+            const next = resolveVisibleModelAfterSave(savedProvider, model, visibleIds);
+            if (next !== model) {
+              setModel(next);
+              void saveChatModelForProvider(savedProvider, next);
+              window.dispatchEvent(new Event('dome:ai-config-changed'));
+            }
+          }
+        }}
       />
 
       <div>
@@ -543,17 +593,17 @@ export default function AISettingsPanel() {
               </span>
             </div>
 
-            {copilotConnected && copilotModels.length > 0 ? (
+            {copilotConnected && copilotVisibleModels.length > 0 ? (
               <div>
                 <span className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
                   {t('settings.ai.model')}
                 </span>
                 <ModelSelector
-                  models={copilotModels}
+                  models={copilotVisibleModels}
                   selectedModelId={model}
                   onChange={setModel}
                   showBadges
-                  searchable={copilotModels.length > 5}
+                  searchable={copilotVisibleModels.length > 5}
                   placeholder={t('settings.ai.model')}
                   providerType="cloud"
                   providerId="copilot"

@@ -242,7 +242,27 @@
     "no_models": "No models found",
     "providers_configured": "Configured",
     "providers_available": "Available",
-    "key_saved": "API key saved"
+    "key_saved": "API key saved",
+    "visible_models": {
+      "title": "Models in selector",
+      "subtitle": "Choose which {{provider}} models appear in model pickers (chat, settings, agents).",
+      "search": "Search models…",
+      "in_selector": "In selector",
+      "in_selector_hint": "{{count}} model(s) visible",
+      "catalog": "Catalog",
+      "catalog_hint": "Add models to the selector",
+      "empty_visible": "No models selected — add at least one from the catalog.",
+      "empty_catalog": "All catalog models are already in the selector.",
+      "add": "Add to selector",
+      "remove": "Remove from selector",
+      "reset": "Reset to defaults",
+      "save": "Save",
+      "gear_label": "Configure visible models for {{provider}}",
+      "add_by_id": "Add model by ID",
+      "add_by_id_hint": "For models not listed in the catalog. The ID is added to the selector immediately.",
+      "add_by_id_placeholder": "Model id (e.g. gpt-4.1)",
+      "custom_model_badge": "Custom model"
+    }
   },
   "transcription": {
     "title": "Voice transcription",
