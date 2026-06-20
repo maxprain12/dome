@@ -329,7 +329,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
     if (typeof window === 'undefined' || !window.electron?.db?.resources) return;
     try {
       setLoading(true);
-      const result = await window.electron.db.resources.getAll(500);
+      const result = await window.electron.db.resources.listLight(500);
       if (result?.success && result.data) {
         setResources(result.data as Resource[]);
       }

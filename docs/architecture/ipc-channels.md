@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-20T20:13:26.033Z
+> Última generación: 2026-06-20T21:35:10.726Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -101,20 +101,21 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `automations:upsert` | `electron/ipc/agents/runs.cjs:108` |
 | `browser:get-active-tab-macos` | `electron/ipc/integrations/browser-context.cjs:5` |
 | `calendar:connectGoogle` | `electron/ipc/integrations/calendar.cjs:11` |
-| `calendar:createEvent` | `electron/ipc/integrations/calendar.cjs:63` |
-| `calendar:deleteEvent` | `electron/ipc/integrations/calendar.cjs:91` |
-| `calendar:disconnectGoogle` | `electron/ipc/integrations/calendar.cjs:164` |
+| `calendar:createEvent` | `electron/ipc/integrations/calendar.cjs:60` |
+| `calendar:deleteEvent` | `electron/ipc/integrations/calendar.cjs:88` |
+| `calendar:disconnectGoogle` | `electron/ipc/integrations/calendar.cjs:162` |
+| `calendar:getEvent` | `electron/ipc/integrations/calendar.cjs:218` |
 | `calendar:getGoogleAccounts` | `electron/ipc/integrations/calendar.cjs:22` |
-| `calendar:getSettings` | `electron/ipc/integrations/calendar.cjs:134` |
-| `calendar:getUpcoming` | `electron/ipc/integrations/calendar.cjs:207` |
-| `calendar:importIcs` | `electron/ipc/integrations/calendar.cjs:190` |
+| `calendar:getSettings` | `electron/ipc/integrations/calendar.cjs:132` |
+| `calendar:getUpcoming` | `electron/ipc/integrations/calendar.cjs:205` |
+| `calendar:importIcs` | `electron/ipc/integrations/calendar.cjs:188` |
 | `calendar:listCalendars` | `electron/ipc/integrations/calendar.cjs:32` |
 | `calendar:listEvents` | `electron/ipc/integrations/calendar.cjs:42` |
-| `calendar:previewIcs` | `electron/ipc/integrations/calendar.cjs:174` |
-| `calendar:setCalendarSelected` | `electron/ipc/integrations/calendar.cjs:154` |
-| `calendar:setSettings` | `electron/ipc/integrations/calendar.cjs:144` |
-| `calendar:syncNow` | `electron/ipc/integrations/calendar.cjs:105` |
-| `calendar:updateEvent` | `electron/ipc/integrations/calendar.cjs:77` |
+| `calendar:previewIcs` | `electron/ipc/integrations/calendar.cjs:172` |
+| `calendar:setCalendarSelected` | `electron/ipc/integrations/calendar.cjs:152` |
+| `calendar:setSettings` | `electron/ipc/integrations/calendar.cjs:142` |
+| `calendar:syncNow` | `electron/ipc/integrations/calendar.cjs:102` |
+| `calendar:updateEvent` | `electron/ipc/integrations/calendar.cjs:74` |
 | `cloud:auth-google` | `electron/ipc/sync/cloud-storage.cjs:273` |
 | `cloud:disconnect` | `electron/ipc/sync/cloud-storage.cjs:378` |
 | `cloud:get-accounts` | `electron/ipc/sync/cloud-storage.cjs:254` |
@@ -172,48 +173,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:interactions:getByResource` | `electron/ipc/data/interactions.cjs:29` |
 | `db:interactions:getByType` | `electron/ipc/data/interactions.cjs:42` |
 | `db:interactions:update` | `electron/ipc/data/interactions.cjs:55` |
-| `db:manyAgents:create` | `electron/ipc/data/database.cjs:818` |
-| `db:manyAgents:delete` | `electron/ipc/data/database.cjs:1011` |
-| `db:manyAgents:get` | `electron/ipc/data/database.cjs:807` |
-| `db:manyAgents:list` | `electron/ipc/data/database.cjs:795` |
-| `db:manyAgents:listVersions` | `electron/ipc/data/database.cjs:932` |
-| `db:manyAgents:restoreVersion` | `electron/ipc/data/database.cjs:957` |
-| `db:manyAgents:update` | `electron/ipc/data/database.cjs:851` |
-| `db:marketplace:getAgentInstalls` | `electron/ipc/data/database.cjs:1457` |
-| `db:marketplace:getTemplateMappings` | `electron/ipc/data/database.cjs:1549` |
-| `db:marketplace:getWorkflowInstalls` | `electron/ipc/data/database.cjs:1503` |
-| `db:marketplace:replaceAgentInstalls` | `electron/ipc/data/database.cjs:1474` |
-| `db:marketplace:replaceTemplateMappings` | `electron/ipc/data/database.cjs:1565` |
-| `db:marketplace:replaceWorkflowInstalls` | `electron/ipc/data/database.cjs:1520` |
-| `db:mcp:getGlobalEnabled` | `electron/ipc/data/database.cjs:1393` |
-| `db:mcp:list` | `electron/ipc/data/database.cjs:1346` |
-| `db:mcp:replaceAll` | `electron/ipc/data/database.cjs:1357` |
-| `db:mcp:setGlobalEnabled` | `electron/ipc/data/database.cjs:1405` |
-| `db:projects:create` | `electron/ipc/data/database.cjs:194` |
-| `db:projects:deleteWithContent` | `electron/ipc/data/database.cjs:283` |
-| `db:projects:getAll` | `electron/ipc/data/database.cjs:217` |
-| `db:projects:getById` | `electron/ipc/data/database.cjs:229` |
-| `db:projects:getDeletionImpact` | `electron/ipc/data/database.cjs:273` |
-| `db:projects:getVaultRoot` | `electron/ipc/data/database.cjs:262` |
-| `db:projects:setVaultRoot` | `electron/ipc/data/database.cjs:243` |
-| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:1986` |
-| `db:resources:create` | `electron/ipc/data/database.cjs:298` |
-| `db:resources:delete` | `electron/ipc/data/database.cjs:1787` |
-| `db:resources:ensureUrl` | `electron/ipc/data/database.cjs:372` |
-| `db:resources:getAll` | `electron/ipc/data/database.cjs:1774` |
-| `db:resources:getBacklinks` | `electron/ipc/data/database.cjs:680` |
-| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1817` |
-| `db:resources:getById` | `electron/ipc/data/database.cjs:357` |
-| `db:resources:getByProject` | `electron/ipc/data/database.cjs:345` |
-| `db:resources:getRoot` | `electron/ipc/data/database.cjs:1830` |
-| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:1916` |
-| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1858` |
-| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:1959` |
-| `db:resources:search` | `electron/ipc/data/database.cjs:607` |
-| `db:resources:searchForMention` | `electron/ipc/data/database.cjs:659` |
-| `db:resources:update` | `electron/ipc/data/database.cjs:454` |
-| `db:resources:uploadFile` | `electron/ipc/data/database.cjs:693` |
-| `db:search:unified` | `electron/ipc/data/database.cjs:1585` |
+
 | `db:semantic:confirm` | `electron/ipc/ai/semantic.cjs:92` |
 | `db:semantic:createManual` | `electron/ipc/ai/semantic.cjs:131` |
 | `db:semantic:delete` | `electron/ipc/ai/semantic.cjs:105` |

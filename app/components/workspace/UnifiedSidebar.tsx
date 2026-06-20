@@ -186,7 +186,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     if (typeof window === 'undefined' || !window.electron?.db?.resources) return;
     try {
       if (!silent) setLoading(true);
-      const result = await window.electron.db.resources.getAll(500);
+      const result = await window.electron.db.resources.listLight(500);
       if (result?.success && result.data) setResources(result.data as Resource[]);
     } catch { /* ignore */ }
     finally {

@@ -1783,6 +1783,19 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  // Lightweight resource list (no content / thumbnail_data) for sidebar and dashboard
+  ipcMain.handle('db:resources:listLight', (event, limit = 500) => {
+    try {
+      validateSender(event, windowManager);
+      const queries = database.getQueries();
+      const resources = queries.listResourcesLight.all(limit);
+      return { success: true, data: resources };
+    } catch (error) {
+      console.error('[DB] Error listing resources (light):', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Delete resource
   ipcMain.handle('db:resources:delete', async (event, id) => {
     try {

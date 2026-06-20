@@ -63,7 +63,7 @@ export default function MoveToProjectModal({
     let cancelled = false;
     (async () => {
       try {
-        const r = await window.electron?.db?.resources?.getAll(500);
+        const r = await window.electron?.db?.resources?.listLight(500);
         if (cancelled || !r?.success || !r.data) return;
         setLocalById(new Map((r.data as Resource[]).map((res) => [res.id, res])));
       } catch {

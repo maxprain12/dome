@@ -7,6 +7,7 @@ import { useTabStore, HOME_TAB_ID, type DomeTab } from '@/lib/store/useTabStore'
 import { useManyStore } from '@/lib/store/useManyStore';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import WorkspaceSplitView from '@/components/workspace/WorkspaceSplitView';
+import TabPaneShell, { TabContentReadyNotifier } from '@/components/shell/TabPaneShell';
 
 // Lazy-load heavy workspace components
 const WorkspaceClient = lazy(() => import('@/workspace/[[...params]]/client'));
@@ -37,7 +38,11 @@ const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/Artifa
 function Loading() {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-1 items-center justify-center h-full min-h-[120px]" style={{ background: 'var(--dome-bg)' }}>
+    <div
+      className="flex flex-1 items-center justify-center h-full min-h-[120px]"
+      style={{ background: 'var(--dome-bg)' }}
+      data-tab-loading
+    >
       <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
     </div>
   );
@@ -454,7 +459,14 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
 
 function TabContentWithSplit({ tab }: { tab: DomeTab }) {
   const splitResource = tab.splitOpen ? tab.splitResource : undefined;
-  if (!splitResource) return <TabContent tab={tab} />;
+  if (!splitResource) {
+    return (
+      <>
+        <TabContent tab={tab} />
+        <TabContentReadyNotifier />
+      </>
+    );
+  }
 
   const referenceTab: DomeTab = {
     id: `${tab.id}:split`,
@@ -464,37 +476,23 @@ function TabContentWithSplit({ tab }: { tab: DomeTab }) {
   };
 
   return (
-    <WorkspaceSplitView
-      tab={tab}
-      primary={<TabContent tab={tab} />}
-      reference={<TabContent tab={referenceTab} referenceMode />}
-    />
+    <>
+      <WorkspaceSplitView
+        tab={tab}
+        primary={<TabContent tab={tab} />}
+        reference={<TabContent tab={referenceTab} referenceMode />}
+      />
+      <TabContentReadyNotifier />
+    </>
   );
 }
 
 /**
- * Tab types that keep their component mounted even when not active (hidden behind CSS).
- * These tabs have expensive stateful UI (chat streams, live feeds) that must survive
- * switching away. All other tabs ("content tabs") are unmounted when inactive and
- * remounted fresh on activation — exactly like DenchClaw's workspace model.
+ * Tab types that keep mounted when inactive (hidden via CSS).
+ * Only chat needs keep-alive (active agent run / streaming). Other hub tabs remount on
+ * activation — same pattern as resource tabs — to avoid N heavy trees in memory.
  */
-const PERSISTENT_TAB_TYPES = new Set([
-  'home',
-  'projects',
-  'chat',
-  'learn',
-  'studio',
-  'flashcards',
-  'tags',
-  'marketplace',
-  'agents',
-  'workflows',
-  'automations',
-  'runs',
-  'settings',
-  'calendar',
-  'transcriptions',
-]);
+const PERSISTENT_TAB_TYPES = new Set(['chat']);
 
 export default function ContentRouter() {
   const { tabs, activeTabId } = useTabStore(
@@ -519,25 +517,25 @@ export default function ContentRouter() {
 
   return (
     <div
-      className="flex flex-col flex-1 min-h-0 overflow-hidden"
+      className="relative flex flex-col flex-1 min-h-0 overflow-hidden"
       style={{ background: 'var(--dome-surface)' }}
     >
       {tabs.map((tab) => {
         const isActive = tab.id === activeTabId;
         const isPersistent = PERSISTENT_TAB_TYPES.has(tab.type);
+        if (!isActive && !isPersistent) return null;
+
         return (
-          <div
+          <TabPaneShell
             key={tab.id}
-            className={isActive ? 'flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden' : 'hidden'}
-            aria-hidden={!isActive}
+            tabId={tab.id}
+            isActive={isActive}
+            isPersistent={isPersistent}
           >
-            {/* Content tabs (notes, files, folders) unmount when inactive so every
-                activation gets a fresh load from the DB — the DenchClaw pattern.
-                Persistent tabs (chat, home, …) stay mounted to preserve streaming state. */}
-            {(isActive || isPersistent) && (
-              isActive ? <TabContentWithSplit tab={tab} /> : <TabContent tab={tab} />
-            )}
-          </div>
+            <ErrorBoundary>
+              <TabContentWithSplit tab={tab} />
+            </ErrorBoundary>
+          </TabPaneShell>
         );
       })}
     </div>

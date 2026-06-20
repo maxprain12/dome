@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import ThemeProvider from '@/components/ui/ThemeProvider';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useUserStore } from '@/lib/store/useUserStore';
 import type { StudioOutput } from '@/types';
 import PromptModal from '@/components/ui/PromptModal';
 import ToastContainer from '@/components/ui/Toast';
@@ -56,10 +57,19 @@ function MainApp() {
   const setHomeSidebarSection = useAppStore((s) => s.setHomeSidebarSection);
   const setCurrentProject = useAppStore((s) => s.setCurrentProject);
   const loadCurrentProject = useAppStore((s) => s.loadCurrentProject);
+  const loadPreferences = useAppStore((s) => s.loadPreferences);
+  const loadUserProfile = useUserStore((s) => s.loadUserProfile);
 
   useEffect(() => {
     void loadCurrentProject();
   }, [loadCurrentProject]);
+
+  // Theme + prefs must load at shell boot — not only when Home/Settings tabs mount
+  // (hub tabs unmount when inactive to save RAM).
+  useEffect(() => {
+    void loadPreferences();
+    void loadUserProfile();
+  }, [loadPreferences, loadUserProfile]);
 
   // Handle dome://studio/ID deep links
   useEffect(() => {
