@@ -241,7 +241,27 @@
     "no_models": "Nenhum modelo encontrado",
     "providers_configured": "Configurados",
     "providers_available": "Disponíveis",
-    "key_saved": "Chave salva"
+    "key_saved": "Chave salva",
+    "visible_models": {
+      "title": "Modelos no seletor",
+      "subtitle": "Escolha quais modelos {{provider}} aparecem nos seletores (chat, definições, agentes).",
+      "search": "Pesquisar modelos…",
+      "in_selector": "No seletor",
+      "in_selector_hint": "{{count}} modelo(s) visível(eis)",
+      "catalog": "Catálogo",
+      "catalog_hint": "Adicionar modelos ao seletor",
+      "empty_visible": "Nenhum modelo selecionado — adicione pelo menos um do catálogo.",
+      "empty_catalog": "Todos os modelos do catálogo já estão no seletor.",
+      "add": "Adicionar ao seletor",
+      "remove": "Remover do seletor",
+      "reset": "Restaurar predefinições",
+      "save": "Guardar",
+      "gear_label": "Configurar modelos visíveis de {{provider}}",
+      "add_by_id": "Adicionar modelo por ID",
+      "add_by_id_hint": "Para modelos que não aparecem no catálogo. O ID é adicionado ao seletor de imediato.",
+      "add_by_id_placeholder": "Id do modelo (ex. gpt-4.1)",
+      "custom_model_badge": "Modelo personalizado"
+    }
   },
   "transcription": {
     "title": "Transcrição de voz",

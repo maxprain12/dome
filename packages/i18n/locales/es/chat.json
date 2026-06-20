@@ -89,6 +89,7 @@
   "slash_keep_active": "Mantener activa en este chat",
   "remove_skill_context": "Quitar skill del contexto",
   "model_switcher_title": "Modelo",
+  "open_provider_settings": "Ajustes del proveedor…",
   "add_custom_model": "Añadir modelo personalizado…",
   "custom_model_placeholder": "Id del modelo (ej. gpt-4.1)",
   "plus_skills": "Skills",

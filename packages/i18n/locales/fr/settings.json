@@ -242,7 +242,27 @@
     "no_models": "Aucun modèle trouvé",
     "providers_configured": "Configurés",
     "providers_available": "Disponibles",
-    "key_saved": "Clé API enregistrée"
+    "key_saved": "Clé API enregistrée",
+    "visible_models": {
+      "title": "Modèles dans le sélecteur",
+      "subtitle": "Choisissez quels modèles {{provider}} apparaissent dans les sélecteurs (chat, réglages, agents).",
+      "search": "Rechercher des modèles…",
+      "in_selector": "Dans le sélecteur",
+      "in_selector_hint": "{{count}} modèle(s) visible(s)",
+      "catalog": "Catalogue",
+      "catalog_hint": "Ajouter des modèles au sélecteur",
+      "empty_visible": "Aucun modèle sélectionné — ajoutez-en au moins un depuis le catalogue.",
+      "empty_catalog": "Tous les modèles du catalogue sont déjà dans le sélecteur.",
+      "add": "Ajouter au sélecteur",
+      "remove": "Retirer du sélecteur",
+      "reset": "Réinitialiser par défaut",
+      "save": "Enregistrer",
+      "gear_label": "Configurer les modèles visibles pour {{provider}}",
+      "add_by_id": "Ajouter un modèle par ID",
+      "add_by_id_hint": "Pour les modèles absents du catalogue. L'ID est ajouté au sélecteur immédiatement.",
+      "add_by_id_placeholder": "Id du modèle (ex. gpt-4.1)",
+      "custom_model_badge": "Modèle personnalisé"
+    }
   },
   "transcription": {
     "title": "Transcription vocale",

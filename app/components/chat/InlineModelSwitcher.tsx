@@ -1,14 +1,39 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Settings2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { fetchProviderModels, getAIConfig, getCustomModelsByProvider, saveChatModelForProvider, appendCustomModelId } from '@/lib/ai';
+import {
+  fetchProviderModels,
+  getAIConfig,
+  getCustomModelsByProvider,
+  saveChatModelForProvider,
+} from '@/lib/ai';
+import { openAIProviderSettings } from '@/lib/ai/open-provider-settings';
 import type { AIProviderType } from '@/lib/ai/models';
 import { PROVIDERS } from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED, isProviderWithBrandLogo } from '@/lib/ai/provider-options';
+import {
+  filterModelsByVisibleIds,
+  getDefaultVisibleModelIds,
+  getVisibleModelIds,
+  isVisibleModelsConfigurable,
+} from '@/lib/ai/visible-models';
+import type { ModelInputType } from '@/lib/ai/types';
 import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 
 type ModelOption = { id: string; label: string };
+
+const DYNAMIC_FETCH_PROVIDERS: AIProviderType[] = [
+  'openai',
+  'anthropic',
+  'google',
+  'minimax',
+  'openrouter',
+  'opencode',
+  'opencode-go',
+];
+
+const CATALOG_PROVIDERS: AIProviderType[] = ['opencode', 'opencode-go'];
 
 function normalizeProvider(p: string): AIProviderType {
   if (p === 'local') return 'ollama';
@@ -29,10 +54,9 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   const [configProvider, setConfigProvider] = useState<AIProviderType | null>(null);
   const [currentModelId, setCurrentModelId] = useState<string>('');
   const [customMap, setCustomMap] = useState<Partial<Record<AIProviderType, string[]>>>({});
+  const [visibleIds, setVisibleIds] = useState<string[]>([]);
   const [ollamaIds, setOllamaIds] = useState<string[]>([]);
   const [dynamicOpts, setDynamicOpts] = useState<ModelOption[]>([]);
-  const [addingCustom, setAddingCustom] = useState(false);
-  const [customDraft, setCustomDraft] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const portalDropdownRef = useRef<HTMLDivElement>(null);
   const [portalAnchor, setPortalAnchor] = useState<DOMRect | null>(null);
@@ -52,6 +76,8 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
     setCurrentModelId(mid);
     const cm = await getCustomModelsByProvider();
     setCustomMap(cm);
+    const visible = await getVisibleModelIds(p);
+    setVisibleIds(visible);
     if (p === 'ollama' && window.electron?.ollama?.listModels) {
       try {
         const res = await window.electron.ollama.listModels();
@@ -67,11 +93,9 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       setOllamaIds([]);
     }
 
-    const catalogProviders: AIProviderType[] = ['opencode', 'opencode-go'];
-    const dynamicProviders: AIProviderType[] = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', ...catalogProviders];
-    // key trimmeada (hardening de secretos); los catalog providers no la requieren
     const key = cfg.apiKey?.trim();
-    const canFetchModels = dynamicProviders.includes(p) && (catalogProviders.includes(p) || Boolean(key));
+    const canFetchModels =
+      DYNAMIC_FETCH_PROVIDERS.includes(p) && (CATALOG_PROVIDERS.includes(p) || Boolean(key));
     if (canFetchModels) {
       try {
         const res = await fetchProviderModels(p, key);
@@ -95,7 +119,11 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   useEffect(() => {
     const onCfg = () => { void refresh(); };
     window.addEventListener('dome:ai-config-changed', onCfg);
-    return () => window.removeEventListener('dome:ai-config-changed', onCfg);
+    window.addEventListener('dome:ai-visible-models-changed', onCfg);
+    return () => {
+      window.removeEventListener('dome:ai-config-changed', onCfg);
+      window.removeEventListener('dome:ai-visible-models-changed', onCfg);
+    };
   }, [refresh]);
 
   useLayoutEffect(() => {
@@ -123,8 +151,6 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       const t = e.target as Node;
       if (containerRef.current?.contains(t) || portalDropdownRef.current?.contains(t)) return;
       setOpen(false);
-      setAddingCustom(false);
-      setCustomDraft('');
     };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
@@ -152,14 +178,25 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
     if (provider === 'ollama') {
       for (const o of ollamaIds) push(o, o);
     }
-    if (provider === 'openai' || provider === 'anthropic' || provider === 'google' || provider === 'minimax' || provider === 'openrouter') {
+    if (DYNAMIC_FETCH_PROVIDERS.includes(provider)) {
       for (const o of dynamicOpts) push(o.id, o.label);
     }
     if (currentModelId) push(currentModelId, currentModelId);
-    return out;
-  }, [provider, catalog, customMap, ollamaIds, dynamicOpts, currentModelId]);
 
-  const allowCustom = provider != null && provider !== 'dome';
+    const defs = out.map((o) => ({
+      id: o.id,
+      name: o.label,
+      reasoning: false,
+      input: ['text'] as ModelInputType[],
+      contextWindow: 0,
+      maxTokens: 0,
+    }));
+    const filtered = filterModelsByVisibleIds(defs, visibleIds.length ? visibleIds : getDefaultVisibleModelIds(provider));
+    const allowed = new Set(filtered.map((m) => m.id));
+    return out.filter((o) => allowed.has(o.id));
+  }, [provider, catalog, customMap, ollamaIds, dynamicOpts, currentModelId, visibleIds]);
+
+  const allowProviderSettings = provider != null && provider !== 'dome';
   const visible = useMemo(() => {
     if (!enabled || !provider) return false;
     if (provider === 'dome') {
@@ -180,23 +217,18 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       setCurrentModelId(id);
       window.dispatchEvent(new Event('dome:ai-config-changed'));
       setOpen(false);
-      setAddingCustom(false);
     },
     [provider],
   );
 
-  const submitCustom = useCallback(async () => {
-    const id = customDraft.trim();
-    if (!id || !provider) return;
-    await appendCustomModelId(provider, id);
-    setCustomMap((prev) => ({
-      ...prev,
-      [provider]: [...(prev[provider] ?? []).filter((x) => x !== id), id],
-    }));
-    await pickModel(id);
-    setCustomDraft('');
-    setAddingCustom(false);
-  }, [customDraft, provider, pickModel]);
+  const goToProviderSettings = useCallback(() => {
+    if (!provider) return;
+    setOpen(false);
+    openAIProviderSettings({
+      provider,
+      openModelsModal: isVisibleModelsConfigurable(provider),
+    });
+  }, [provider]);
 
   if (!visible) return null;
 
@@ -248,40 +280,16 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
                   </button>
                 );
               })}
-              {allowCustom ? (
+              {allowProviderSettings ? (
                 <div className="border-t border-[var(--border)] p-2">
-                  {addingCustom ? (
-                    <div className="flex flex-col gap-1.5">
-                      <input
-                        type="text"
-                        value={customDraft}
-                        onChange={(e) => setCustomDraft(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void submitCustom();
-                          }
-                        }}
-                        placeholder={t('chat.custom_model_placeholder')}
-                        className="w-full rounded-md border border-[var(--border)] bg-[var(--bg-secondary)] px-2 py-1 text-[11px] text-[var(--primary-text)]"
-                      />
-                      <button
-                        type="button"
-                        className="rounded-md bg-[var(--bg-tertiary)] px-2 py-1 text-[11px] font-medium text-[var(--primary-text)] hover:bg-[var(--bg-hover)]"
-                        onClick={() => void submitCustom()}
-                      >
-                        {t('common.add')}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--bg-hover)]"
-                      onClick={() => setAddingCustom(true)}
-                    >
-                      {t('chat.add_custom_model')}
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--bg-hover)]"
+                    onClick={goToProviderSettings}
+                  >
+                    <Settings2 className="size-3.5 shrink-0" aria-hidden />
+                    <span>{t('chat.open_provider_settings')}</span>
+                  </button>
                 </div>
               ) : null}
             </div>,
