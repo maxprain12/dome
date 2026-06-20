@@ -4,6 +4,14 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **Windows: arranque colgado y alto consumo de RAM (v2.5.x).** Diferido el scheduler de automatizaciones (60–120 s), recuperación de runs `queued` huérfanos, timeout en descarga de himalaya, cierre de clientes MCP stdio, `busy_timeout` en SQLite, límite de caché web search, serialización de extracción PPT, y fallbacks de UI cuando la carga supera 15 s. Script de diagnóstico: `node scripts/windows-startup-diag.mjs`.
+- **Windows: `SQLITE_IOERR_TRUNCATE` al arrancar.** Recuperación automática: elimina sidecars `-wal`/`-shm` corruptos, reintenta schema init y restaura desde backup pre-migración si persiste; fallback a journal `DELETE` si WAL falla.
+- **Backups automáticos de `dome.db`.** Snapshots periódicos (cada 6 h), al arrancar (30 s) y al cerrar; hasta 5 copias `dome.db.auto-*`. Si la DB está corrupta al abrir, se detecta con `quick_check` y se restaura el backup más reciente (auto o pre-migración). No se crean snapshots si la DB supera 250 MB; script `pnpm run restore:db` para restaurar en Windows (renombra en lugar de sobrescribir).
+- **`recoverStuckRuns` en arranque.** Corregida columna inexistente `created_at` → `started_at` en `automation_runs`.
+- **Dev: `@dome/agent-core` sin compilar.** `build:packages` en `postinstall` y `electron:dev`.
+
 ## [2.4.0](https://github.com/maxprain12/dome/releases/tag/v2.4.0) - 2026-06-15
 
 Versión grande: una nueva forma de gestionar las claves de IA, la auditoría de seguridad P0–P2 completa, un arreglo de Windows y una modernización interna profunda.

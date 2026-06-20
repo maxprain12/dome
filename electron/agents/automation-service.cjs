@@ -5,8 +5,13 @@ const database = require('../core/database.cjs');
 const { notifyError } = require('../core/error-notify.cjs');
 
 const TICK_INTERVAL_MS = 60 * 1000;
+/** Grace period before the scheduler starts (lets UI + IPC settle). */
+const STARTUP_GRACE_MS = 60 * 1000;
+/** Extra grace on Windows when startup automations are disabled. */
+const STARTUP_GRACE_MS_WINDOWS_DEFERRED = 120 * 1000;
 
 let _intervalId = null;
+let _startupTimeoutId = null;
 
 function startOfDay(ts) {
   const d = new Date(ts);
@@ -18,6 +23,24 @@ function startOfWeek(ts) {
   const day = d.getDay();
   const diff = (day + 6) % 7;
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff).getTime();
+}
+
+function isAutomationRunOnStartupEnabled() {
+  try {
+    const row = database.getQueries().getSetting.get('automation_run_on_startup');
+    if (row?.value != null && row.value !== '') {
+      return row.value === '1' || row.value === 'true';
+    }
+  } catch {
+    /* ignore */
+  }
+  // Windows hotfix default: do not rush scheduled automations on cold start.
+  return process.platform !== 'win32';
+}
+
+function getStartupGraceMs() {
+  if (isAutomationRunOnStartupEnabled()) return STARTUP_GRACE_MS;
+  return process.platform === 'win32' ? STARTUP_GRACE_MS_WINDOWS_DEFERRED : STARTUP_GRACE_MS;
 }
 
 function isDue(automation, timestamp) {
@@ -88,7 +111,7 @@ async function tick() {
   }
 }
 
-function init() {
+function startSchedulerAfterGrace() {
   if (_intervalId) {
     clearInterval(_intervalId);
   }
@@ -98,7 +121,25 @@ function init() {
   void tick();
 }
 
+function init() {
+  stop();
+  const graceMs = getStartupGraceMs();
+  console.log(
+    `[Automation] Scheduler deferred for ${Math.round(graceMs / 1000)}s `
+    + `(automation_run_on_startup=${isAutomationRunOnStartupEnabled() ? 'on' : 'off'})`,
+  );
+  _startupTimeoutId = setTimeout(() => {
+    _startupTimeoutId = null;
+    console.log('[Automation] Starting scheduler after startup grace period');
+    startSchedulerAfterGrace();
+  }, graceMs);
+}
+
 function stop() {
+  if (_startupTimeoutId) {
+    clearTimeout(_startupTimeoutId);
+    _startupTimeoutId = null;
+  }
   if (_intervalId) {
     clearInterval(_intervalId);
     _intervalId = null;
@@ -108,4 +149,7 @@ function stop() {
 module.exports = {
   init,
   stop,
+  tick,
+  isAutomationRunOnStartupEnabled,
+  getStartupGraceMs,
 };

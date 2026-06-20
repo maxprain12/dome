@@ -44,5 +44,8 @@
   "max_file_size": "Maximum {{size}}MB per file",
   "file_count_limit": "{{count}} files maximum",
   "uploading_files": "Uploading {{count}} files",
-  "clear_all": "Clear all"
+  "clear_all": "Clear all",
+  "loading_timeout_title": "Loading is taking too long",
+  "loading_timeout_message": "Dome is still busy starting up. You can go back to Home and try again.",
+  "go_home": "Go to Home"
 }

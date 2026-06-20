@@ -212,7 +212,13 @@ async function doInitialize(startTime) {
       if (repaired) {
         console.log('[DB] ✅ Database repaired successfully');
       } else {
-        console.error('[DB] ❌ Failed to repair database');
+        console.warn('[DB] FTS repair failed, restoring from latest backup...');
+        const restored = database.restoreFromLatestBackupAndReinit();
+        if (restored.restored) {
+          console.log('[DB] ✅ Database restored from backup:', restored.backupPath);
+        } else {
+          console.error('[DB] ❌ Failed to repair database and no backup could be restored');
+        }
       }
     } else {
       console.log('[DB] ✅ Database integrity check passed');

@@ -4,7 +4,9 @@ import { Mail, RefreshCw, Search, PenSquare, Send, Reply, Loader2, Inbox } from 
 import { useTabStore } from '@/lib/store/useTabStore';
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import EmailBody from '@/components/email/EmailBody';
+import HubListState from '@/components/ui/HubListState';
 import { emailFolderLabel, type EmailFolderRow } from '@/lib/email/folder-label';
+import { invokeWithTimeout } from '@/lib/utils/ipcTimeout';
 
 interface Envelope {
   id: string;
@@ -65,17 +67,30 @@ export default function EmailView() {
 
   useEffect(() => {
     (async () => {
-      const res = await window.electron.email.listAccounts();
-      const ok = res.success && (res.accounts?.length ?? 0) > 0;
-      setHasAccount(ok);
-      if (!ok) return;
-      refresh('INBOX');
-      const f = await window.electron.email.listFolders();
-      if (f.success) {
-        const parsed = parseFolders(f.folders);
-        setFolders(parsed.length > 0 ? parsed : [{ name: 'INBOX' }]);
-      } else {
-        setFolders([{ name: 'INBOX' }]);
+      try {
+        const res = await invokeWithTimeout(
+          () => window.electron.email.listAccounts(),
+          30_000,
+        );
+        const ok = res.success && (res.accounts?.length ?? 0) > 0;
+        setHasAccount(ok);
+        if (!ok) return;
+        refresh('INBOX');
+        const f = await invokeWithTimeout(
+          () => window.electron.email.listFolders(),
+          30_000,
+        );
+        if (f.success) {
+          const parsed = parseFolders(f.folders);
+          setFolders(parsed.length > 0 ? parsed : [{ name: 'INBOX' }]);
+        } else {
+          setFolders([{ name: 'INBOX' }]);
+        }
+      } catch (err) {
+        setHasAccount(false);
+        setError({
+          error: err instanceof Error ? err.message : String(err),
+        });
       }
     })();
   }, [refresh]);
@@ -119,6 +134,14 @@ export default function EmailView() {
       setReadingId(null);
     }
   };
+
+  if (hasAccount === null) {
+    return (
+      <div className="flex flex-1 items-center justify-center h-full min-h-[120px]" style={{ background: 'var(--dome-bg)' }}>
+        <HubListState variant="loading" loadingLabel={t('common.loading')} compact />
+      </div>
+    );
+  }
 
   if (hasAccount === false) {
     return (

@@ -377,9 +377,15 @@ function invalidateMcpToolsCache() {
   mcpToolsCache = null;
 }
 
+/** Best-effort: drop cached tool handles (stdio clients are closed per discovery load). */
+function closeAllMcpClients() {
+  invalidateMcpToolsCache();
+}
+
 async function loadToolsForServer(server) {
+  let client = null;
   const loadPromise = (async () => {
-    const client = await createClientForServers([server]);
+    client = await createClientForServers([server]);
     if (!client) {
       return { tools: [], manifest: [] };
     }
@@ -406,6 +412,13 @@ async function loadToolsForServer(server) {
     return await Promise.race([loadPromise, timeoutPromise]);
   } finally {
     clearTimeout(timeoutId);
+    if (client && typeof client.close === 'function') {
+      try {
+        await client.close();
+      } catch (err) {
+        console.warn(`[MCP] Failed to close client for ${server?.name || 'server'}:`, err?.message || err);
+      }
+    }
   }
 }
 
@@ -502,6 +515,7 @@ async function testSingleMcpServer(server) {
 module.exports = {
   getMCPTools,
   invalidateMcpToolsCache,
+  closeAllMcpClients,
   parseMcpServersConfig,
   buildMcpServersObject,
   testSingleMcpServer,

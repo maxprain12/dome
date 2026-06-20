@@ -2223,7 +2223,16 @@ async function webFetch(args) {
 // =============================================================================
 
 const WEB_SEARCH_CACHE_TTL_MS = 10 * 60 * 1000;
+const WEB_SEARCH_CACHE_MAX_ENTRIES = 200;
 const WEB_SEARCH_CACHE = new Map();
+
+function purgeExpiredWebSearchCache(now = Date.now()) {
+  for (const [key, entry] of WEB_SEARCH_CACHE.entries()) {
+    if (now - entry.createdAt > WEB_SEARCH_CACHE_TTL_MS) {
+      WEB_SEARCH_CACHE.delete(key);
+    }
+  }
+}
 
 function getCachedWebSearchResult(key) {
   const cached = WEB_SEARCH_CACHE.get(key);
@@ -2236,6 +2245,11 @@ function getCachedWebSearchResult(key) {
 }
 
 function setCachedWebSearchResult(key, value) {
+  purgeExpiredWebSearchCache();
+  if (WEB_SEARCH_CACHE.size >= WEB_SEARCH_CACHE_MAX_ENTRIES) {
+    const oldestKey = WEB_SEARCH_CACHE.keys().next().value;
+    if (oldestKey != null) WEB_SEARCH_CACHE.delete(oldestKey);
+  }
   WEB_SEARCH_CACHE.set(key, { createdAt: Date.now(), value });
 }
 

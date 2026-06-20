@@ -17,7 +17,7 @@ const HANDLE_RE = /ipcMain\.handle\s*\(\s*['"]([^'"]+)['"]/g;
 const ON_RE = /ipcMain\.on\s*\(\s*['"]([^'"]+)['"]/g;
 
 function parseFile(filePath) {
-  const rel = path.relative(ROOT, filePath);
+  const rel = path.relative(ROOT, filePath).replace(/\\/g, '/');
   const text = fs.readFileSync(filePath, 'utf8');
   const out = [];
   for (const re of [HANDLE_RE, ON_RE]) {
@@ -83,6 +83,7 @@ Canales detectados vía \`ipcMain.handle\` / \`ipcMain.on\` en \`electron/ipc/**
 function normalizeForCompare(s) {
   return s
     .replace(/> [ÚU]ltima generaci(ó|o)n: .*\r?\n/gi, '')
+    .replace(/\\/g, '/')
     .replace(/\r\n/g, '\n')
     .trim();
 }

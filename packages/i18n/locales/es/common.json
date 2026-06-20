@@ -44,5 +44,8 @@
   "max_file_size": "Máximo {{size}}MB por archivo",
   "file_count_limit": "{{count}} archivo(s) máximo",
   "uploading_files": "Subiendo {{count}} archivos",
-  "clear_all": "Limpiar todo"
+  "clear_all": "Limpiar todo",
+  "loading_timeout_title": "La carga está tardando demasiado",
+  "loading_timeout_message": "Dome sigue ocupado al arrancar. Puedes volver a Inicio e intentarlo de nuevo.",
+  "go_home": "Ir a Inicio"
 }

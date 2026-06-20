@@ -817,6 +817,13 @@ app
     // but we still need to ensure it's ready
     database.initDatabase();
 
+    try {
+      const dbBackupScheduler = require('./core/db-backup-scheduler.cjs');
+      dbBackupScheduler.init(database);
+    } catch (e) {
+      console.warn('[Main] db backup scheduler:', e?.message || e);
+    }
+
     // Seed bundled SKILL.md packs to ~/.dome/skills/ on first boot (idempotent)
     try {
       const { seedBundledSkills } = require('./marketplace/skills-bootstrap.cjs');
@@ -950,7 +957,7 @@ app
       } catch (e) {
         console.warn('[Main] semantic initial reindex:', e?.message || e);
       }
-    }, 5000);
+    }, 90_000);
 
     // Modern Electron display-media handler for system/meeting audio capture.
     // The renderer calls window.electron.transcription.setDisplayMediaSource(id)
@@ -1107,6 +1114,16 @@ app.on('before-quit', async () => {
   runRetention.stop();
   runEngine.stop();
   try {
+    windowManager.closeAll();
+  } catch (e) {
+    console.warn('[Main] windowManager.closeAll failed:', e?.message);
+  }
+  try {
+    require('./mcp/mcp-client.cjs').closeAllMcpClients?.();
+  } catch (e) {
+    console.warn('[Main] MCP client cleanup failed:', e?.message);
+  }
+  try {
     require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();
   } catch (e) { /* non-fatal */ }
   semanticIndexScheduler.stopAutoIndexing?.();
@@ -1125,6 +1142,13 @@ app.on('before-quit', async () => {
     }
   } catch (e) {
     console.warn('[Main] semantic indexer idle wait skipped:', e?.message);
+  }
+  try {
+    const dbBackupScheduler = require('./core/db-backup-scheduler.cjs');
+    dbBackupScheduler.backupOnQuit();
+    dbBackupScheduler.stop();
+  } catch (e) {
+    console.warn('[Main] db backup on quit failed:', e?.message);
   }
   database.closeDB();
 });

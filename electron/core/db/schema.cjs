@@ -11,10 +11,26 @@
  * existing installs converge — this file only helps brand-new databases.
  */
 
+function applyJournalMode(db) {
+  try {
+    const mode = db.pragma('journal_mode = WAL', { simple: true });
+    if (String(mode || '').toLowerCase() !== 'wal') {
+      console.warn('[DB] Requested WAL journal_mode but SQLite returned:', mode);
+    }
+  } catch (err) {
+    const code = String(err?.code || '');
+    const message = String(err?.message || '');
+    const isIo = code.startsWith('SQLITE_IOERR') || message.includes('disk I/O error');
+    if (!isIo) throw err;
+    console.warn('[DB] WAL journal_mode I/O error, falling back to DELETE:', message);
+    db.pragma('journal_mode = DELETE');
+  }
+}
+
 function createBaseSchema(db) {
   // Enable optimizations
   db.exec('PRAGMA foreign_keys = ON');
-  db.exec('PRAGMA journal_mode = WAL');
+  applyJournalMode(db);
   db.exec('PRAGMA synchronous = NORMAL');
   db.exec('PRAGMA temp_store = MEMORY');
   db.exec('PRAGMA mmap_size = 30000000000');
