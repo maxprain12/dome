@@ -286,11 +286,11 @@ function upsertRelease(rId, rel) {
   const ts = now();
   db()
     .prepare(
-      `INSERT INTO github_releases (id, repo_id, remote_id, tag_name, name, published_at, html_url, updated_at)
-       VALUES (@id, @repo_id, @remote_id, @tag_name, @name, @published_at, @html_url, @ts)
+      `INSERT INTO github_releases (id, repo_id, remote_id, tag_name, name, body, published_at, html_url, updated_at)
+       VALUES (@id, @repo_id, @remote_id, @tag_name, @name, @body, @published_at, @html_url, @ts)
        ON CONFLICT(repo_id, remote_id) DO UPDATE SET
-         tag_name = excluded.tag_name, name = excluded.name, published_at = excluded.published_at,
-         html_url = excluded.html_url, updated_at = excluded.updated_at`,
+         tag_name = excluded.tag_name, name = excluded.name, body = excluded.body,
+         published_at = excluded.published_at, html_url = excluded.html_url, updated_at = excluded.updated_at`,
     )
     .run({
       id: `ghrel-${rId}-${rel.id}`,
@@ -298,6 +298,7 @@ function upsertRelease(rId, rel) {
       remote_id: rel.id,
       tag_name: rel.tag_name,
       name: rel.name || null,
+      body: rel.body || null,
       published_at: rel.published_at ? Date.parse(rel.published_at) : null,
       html_url: rel.html_url || null,
       ts,

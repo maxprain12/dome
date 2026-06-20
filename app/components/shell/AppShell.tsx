@@ -10,12 +10,12 @@ import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
 import ResizeHandle from '@/components/workspace/ResizeHandle';
 import WindowControls from '@/components/ui/WindowControls';
-import DomeButton from '@/components/ui/DomeButton';
 import ManyVoiceBridge from '@/components/many/ManyVoiceBridge';
 import SystemErrorNotifier from '@/components/shell/SystemErrorNotifier';
 import TranscriptionPill from '@/components/transcription/TranscriptionPill';
 import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore';
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
+import CommandPalette from '@/components/search/CommandPalette';
 import { installDomeUiActionBridge } from '@/lib/shell/domeUiActionBridge';
 
 const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
@@ -92,9 +92,10 @@ export default function AppShell() {
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isChatTab = activeTab?.type === 'chat';
 
-  const isMac = typeof window !== 'undefined' && window.electron?.isMac;
-  const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
-  const isLinux = typeof window !== 'undefined' && window.electron?.isLinux;
+  const isElectron = typeof window !== 'undefined' && Boolean(window.electron);
+  const isMac = isElectron && window.electron!.isMac;
+  const isWindows = isElectron && window.electron!.isWindows;
+  const isLinux = isElectron && window.electron!.isLinux;
   /** Windows overlay + controles dibujados en Linux (no usar titleBarOverlay de Win). */
   const needsRightTitleInset = Boolean(isWindows || isLinux);
 
@@ -135,21 +136,6 @@ export default function AppShell() {
     if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
     if (!rightSidebarOpen) setRightSidebarOpen(true);
   }, [openChatTab, rightSidebarOpen, t]);
-
-  /** ⌘K enfoca el buscador del Inicio (si el widget de búsqueda está visible). */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        const { tabs: tabList, activeTabId: aid } = useTabStore.getState();
-        const tab = tabList.find((x) => x.id === aid);
-        if (tab?.type !== 'home') return;
-        e.preventDefault();
-        window.dispatchEvent(new CustomEvent('dome:focus-inline-search'));
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -221,133 +207,80 @@ export default function AppShell() {
   const showManyInSidebar = Boolean(rightSidebarOpen && (!isChatTab || manyRightOverride));
   const needsHeadlessMany = isChatCenterLayout;
 
-  const SIDEBAR_W = 260;
-  /** Hueco mínimo para arrastrar la ventana entre pestañas y controles derechos. */
-  const HEADER_DRAG_GAP_MIN_PX = 28;
-
+  const headerPlatform = !isElectron
+    ? 'web'
+    : isMac
+      ? 'mac'
+      : isWindows
+        ? 'win'
+        : 'linux';
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+    <div
+      className="flex flex-col h-screen overflow-hidden"
+      data-platform={headerPlatform}
+      data-sidebar-collapsed={leftSidebarCollapsed ? 'true' : 'false'}
+      style={{ background: 'var(--dome-bg)' }}
+    >
 
-      {/* ── Unified top bar (full window width) ── */}
-      <div
-        className="flex shrink-0 items-stretch relative"
-        style={{
-          height: 40,
-          background: 'var(--dome-bg)',
-          borderBottom: '1px solid var(--dome-border)',
-          WebkitAppRegion: 'drag',
-          zIndex: 10,
-        } as React.CSSProperties}
+      {/* ── Unified top bar (CSS grid: left chrome | tabs | actions) ── */}
+      <header
+        className="dome-shell-header shrink-0"
+        data-platform={headerPlatform}
+        data-sidebar-collapsed={leftSidebarCollapsed ? 'true' : 'false'}
+        data-many-panel-open={showManyInSidebar ? 'true' : 'false'}
       >
-        {/* Left section: alineado al ancho del sidebar; arrastrable salvo el botón de colapsar */}
-        <div
-          className="flex items-center shrink-0 min-w-0"
-          style={{
-            width: leftSidebarCollapsed ? (isMac ? 116 : 48) : SIDEBAR_W,
-            minWidth: leftSidebarCollapsed ? (isMac ? 116 : 48) : SIDEBAR_W,
-            paddingLeft: isMac ? 80 : 8,
-            paddingRight: 8,
-            borderRight: '1px solid var(--dome-border)',
-            transition: 'width 200ms ease, min-width 200ms ease',
-            overflow: 'hidden',
-          } as React.CSSProperties}
+        <div className="dome-shell-header-left" aria-hidden="true" />
+
+        <button
+          type="button"
+          className="dome-chrome-icon-btn dome-chrome-icon-btn--strip-edge dome-shell-sidebar-toggle"
+          data-active={!leftSidebarCollapsed ? 'true' : 'false'}
+          onClick={toggleLeftSidebar}
+          title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
+          aria-label={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
         >
-          <div className="flex flex-1 min-w-0 items-center justify-end gap-1.5 h-full">
-            {/* Hueco arrastrable (mover ventana); la marca Dome está en el sidebar */}
-            <div className="flex-1 min-w-0 h-full self-stretch" aria-hidden />
-            <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-              <DomeButton
-                type="button"
-                variant="ghost"
-                size="sm"
-                iconOnly
-                onClick={toggleLeftSidebar}
-                className="!p-1 w-[22px] h-[22px] min-w-0 text-[var(--dome-text-muted)] hover:text-[var(--dome-text)]"
-                title={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
-                aria-label={leftSidebarCollapsed ? t('shell.open_sidebar') : t('shell.close_sidebar')}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <line x1="9" y1="3" x2="9" y2="21" />
-                </svg>
-              </DomeButton>
-            </div>
-          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+            <line x1="9" y1="3" x2="9" y2="21" />
+          </svg>
+        </button>
+
+        <div className="dome-shell-header-tabs">
+          <DomeTabBar onNewChat={handleNewChat} />
+
+          <button
+            type="button"
+            className="dome-chrome-icon-btn dome-chrome-icon-btn--strip-edge"
+            data-active={rightSidebarOpen ? 'true' : 'false'}
+            onClick={handleToggleRightSidebar}
+            title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
+            aria-label={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="15" y1="3" x2="15" y2="21" />
+            </svg>
+          </button>
         </div>
 
-        {/* Right section: tab bar + right panel toggle */}
-        <div
-          className="flex flex-1 min-w-0 items-stretch"
-          style={{
-            paddingLeft: 6,
-            // Hueco derecho para titleBarOverlay (Win) / WindowControls absolutos (Linux)
-            paddingRight: needsRightTitleInset ? 140 : 0,
-          } as React.CSSProperties}
-        >
-          <div
-            className="flex flex-1 min-w-0 min-h-0 items-stretch"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <DomeTabBar onNewChat={handleNewChat} />
-          </div>
+        <div className="dome-shell-header-actions">
+          <div className="dome-header-drag-zone" aria-hidden />
 
-          {/* Heredero de drag del padre: NO puede estar dentro del wrapper no-drag de DomeTabBar (rompe clics en tabs en Electron). */}
-          <div
-            aria-hidden
-            className="shrink-0 self-stretch select-none"
-            style={{
-              flex: '0 1 48px',
-              minWidth: HEADER_DRAG_GAP_MIN_PX,
-              maxWidth: 96,
-              WebkitAppRegion: 'drag',
-            } as React.CSSProperties}
-          />
-
-          {/* Transcription pill — single entry point for recording */}
-          <div
-            className="flex shrink-0 items-stretch gap-0.5 pr-1"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
+          <div className="dome-header-actions-inner no-drag">
             <TranscriptionPill />
           </div>
 
-          {/* Right sidebar toggle */}
-          <div
-            className="flex shrink-0 items-stretch"
-            style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-          >
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              iconOnly
-              onClick={handleToggleRightSidebar}
-              className="!rounded-none w-9 h-full min-h-0 shrink-0 rounded-none border-0 border-l border-solid border-[var(--dome-border)] !px-0"
-              style={{
-                color: rightSidebarOpen ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              }}
-              title={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
-              aria-label={rightSidebarOpen ? t('shell.close_right_panel') : t('shell.open_right_panel')}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                <line x1="15" y1="3" x2="15" y2="21" />
-              </svg>
-            </DomeButton>
-          </div>
+          {needsRightTitleInset ? <div className="dome-titlebar-inset-spacer" aria-hidden /> : null}
         </div>
 
-        {/* Linux window controls (no-op on Mac/Windows) */}
         <WindowControls />
-      </div>
+      </header>
 
       {/* ── Body row ── */}
       <div className="dome-app-body flex flex-1 min-h-0 overflow-hidden">
         {/* Left sidebar */}
-        {!leftSidebarCollapsed && (
-          <UnifiedSidebar collapsed={false} onCollapse={toggleLeftSidebar} />
-        )}
+        <UnifiedSidebar collapsed={leftSidebarCollapsed} onCollapse={toggleLeftSidebar} />
 
         {/* Main content */}
         <main
@@ -407,6 +340,9 @@ export default function AppShell() {
 
       {/* In-app HITL approval modals */}
       <ApprovalProvider />
+
+      {/* Global Spotlight-style command palette (⌘K / Ctrl+K) */}
+      <CommandPalette />
     </div>
   );
 }

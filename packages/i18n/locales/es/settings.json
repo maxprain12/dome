@@ -3,6 +3,7 @@
   "tabs": {
     "general": "General",
     "appearance": "Apariencia",
+    "features": "Funciones",
     "ai": "IA",
     "transcription": "Transcripción",
     "skills": "Skills",
@@ -26,6 +27,10 @@
     "knowledge": "Conocimiento",
     "extensions": "Extensiones",
     "system": "Sistema"
+  },
+  "nav": {
+    "select_section": "Ir a sección",
+    "sidebar": "Navegación de ajustes"
   },
   "general": {
     "title": "General",
@@ -98,6 +103,8 @@
     "subtitle": "Elige tu idioma preferido para la interfaz.",
     "select_label": "Idioma de la interfaz",
     "select_desc": "El idioma seleccionado se aplicará de inmediato.",
+    "selected_badge": "Activo",
+    "aria_selected": "{{name}} — seleccionado",
     "languages": {
       "en": "English",
       "es": "Español",
@@ -137,6 +144,13 @@
     "models_loading": "Cargando modelos…",
     "models_error": "No se pudieron cargar los modelos. Revisa tu API key y la red.",
     "provider": "Proveedor",
+    "active_provider": "Activo",
+    "dome_card_hint": "Nube gestionada — sin API key propia",
+    "provider_status_configured": "Clave API guardada",
+    "provider_status_needs_key": "Requiere clave API",
+    "provider_legend_active": "Activo",
+    "provider_legend_configured": "Clave guardada",
+    "provider_legend_needs_key": "Falta clave",
     "configuration": "Configuración",
     "web_search_section": "Búsqueda web",
     "recommended": "RECOMENDADO",
@@ -204,6 +218,8 @@
     "test_brave": "Probar búsqueda web",
     "web_search": {
       "zero_config_banner": "Sin API keys, Dome usa SearXNG + DuckDuckGo para buscar y Jina Reader para leer páginas.",
+      "optional_keys": "Claves API opcionales",
+      "keys_hint": "Tavily y Brave mejoran la calidad si las configuras. Tienen planes gratuitos.",
       "search_provider": "Proveedor de búsqueda",
       "fetch_provider": "Proveedor de lectura",
       "tavily_key": "Tavily API Key",

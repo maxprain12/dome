@@ -52,18 +52,22 @@ export default function IssueTimeline({ events }: { events: GitHubTimelineEvent[
   if (events.length === 0) return null;
 
   return (
-    <section className="flex flex-col gap-2 pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-      <div className="flex items-center gap-2">
-        <History size={16} style={{ color: 'var(--dome-text-muted)' }} />
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2 px-1">
+        <History size={15} style={{ color: 'var(--dome-text-muted)' }} />
         <h3 className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
           {t('github.timeline.title')}
         </h3>
       </div>
-      <ol className="flex flex-col gap-1.5">
+      <ol className="flex flex-col gap-2 px-1">
         {events.map((ev) => (
-          <li key={ev.id} className="flex items-start gap-2 text-[13px]" style={{ color: 'var(--dome-text-secondary, var(--dome-text-muted))' }}>
-            <span className="mt-0.5">{eventIcon(ev.event)}</span>
-            <span className="flex-1 min-w-0">
+          <li
+            key={ev.id}
+            className="flex items-start gap-2.5 text-[13px] py-1.5 rounded-md"
+            style={{ color: 'var(--dome-text-secondary, var(--dome-text-muted))' }}
+          >
+            <span className="mt-0.5 shrink-0">{eventIcon(ev.event)}</span>
+            <span className="flex-1 min-w-0 leading-relaxed">
               {eventText(ev, t)}
               {ev.source && (
                 <a

@@ -44,6 +44,7 @@ export function HubTabHero({
       title={config.title}
       subtitle={config.subtitle}
       eyebrowExtra={projectName}
+      sectionGuideKey={tab === 'agents' || tab === 'automations' ? tab : undefined}
       className={`hub-tab-hero hub-tab-hero-${tab}`}
     />
   );

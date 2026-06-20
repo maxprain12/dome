@@ -12,12 +12,17 @@
 
 const { randomUUID } = require('crypto');
 
-const SEED_FLAG = 'guide_seeded_v2';
+// v3: guide regenerated in English. Bumping re-seeds existing installs,
+// replacing the older Spanish guide (cleanup matches its titles too).
+const SEED_FLAG = 'guide_seeded_v3';
 /** Bump when repair heuristics change (forces one more SQLite pass). */
-const GUIDE_REPAIR_FLAG = 'guide_body_repaired_v2';
+const GUIDE_REPAIR_FLAG = 'guide_body_repaired_v3';
 const PROJECT_ID = 'default';
-/** Sidebar may truncate emoji; recognize both seeded title and alias. */
-const GUIDE_FOLDER_TITLES = ['📚 Guía de Dome', 'Guía de Dome'];
+/** Sidebar may truncate emoji; recognize current + legacy (Spanish) titles so
+ * re-seeding cleans up the old guide instead of duplicating it. */
+const GUIDE_FOLDER_TITLES = ['📚 Dome Guide', 'Dome Guide', '📚 Guía de Dome', 'Guía de Dome'];
+/** Sections sub-folder: current + legacy title (for cleanup/repair lookups). */
+const SECTIONS_FOLDER_TITLES = ['Sections', 'Apartados'];
 
 /** @returns {Array<{ id: string }>} */
 function listGuideRootFolders(db) {
@@ -127,375 +132,375 @@ function sep() {
 
 function buildMainNote() {
   return doc(
-    h(1, text('👋 Bienvenido a Dome')),
+    h(1, text('👋 Welcome to Dome')),
     callout('olive',
       p(
         bold('Dome'),
-        text(' es tu espacio de conocimiento personal — un editor potente, un asistente IA integrado y un sistema de recursos interconectados.'),
+        text(' is your personal knowledge space — a powerful editor, a built-in AI assistant, and a system of interconnected resources.'),
       ),
     ),
     sep(),
-    h(2, text('📚 Esta guía')),
-    p(text('Explora la carpeta '), bold('Apartados'), text(' en el sidebar para descubrir todo lo que puedes hacer:')),
+    h(2, text('📚 This guide')),
+    p(text('Explore the '), bold('Sections'), text(' folder in the sidebar to discover everything you can do:')),
     ul(
-      [p(text('✍️  '), bold('El editor de notas'), text(' — Bloques, slash commands, formatos y más'))],
-      [p(text('🤖  '), bold('Asistente Many (IA)'), text(' — Tu copiloto de escritura e investigación'))],
-      [p(text('🔗  '), bold('Backlinks y menciones'), text(' — Conecta ideas con @menciones'))],
-      [p(text('📁  '), bold('Gestión de recursos'), text(' — PDFs, imágenes, URLs y notas'))],
-      [p(text('⚡  '), bold('Agentes y automatizaciones'), text(' — Flujos de trabajo con IA'))],
-      [p(text('🔍  '), bold('Búsqueda semántica'), text(' — Encuentra cualquier cosa al instante'))],
+      [p(text('✍️  '), bold('The note editor'), text(' — Blocks, slash commands, formatting and more'))],
+      [p(text('🤖  '), bold('Many Assistant (AI)'), text(' — Your writing and research copilot'))],
+      [p(text('🔗  '), bold('Backlinks & mentions'), text(' — Connect ideas with @mentions'))],
+      [p(text('📁  '), bold('Resource management'), text(' — PDFs, images, URLs and notes'))],
+      [p(text('⚡  '), bold('Agents & automations'), text(' — AI-powered workflows'))],
+      [p(text('🔍  '), bold('Semantic search'), text(' — Find anything instantly'))],
     ),
     sep(),
-    h(2, text('💡 Cómo usar las @menciones')),
-    p(text('Cuando estés en cualquier nota, escribe '), code('@'), text(' seguido del nombre de una nota para crear un enlace bidireccional. Por ejemplo, escribe '), code('@El editor'), text(' para vincular a la nota del editor.')),
+    h(2, text('💡 How to use @mentions')),
+    p(text('While in any note, type '), code('@'), text(' followed by a note name to create a bidirectional link. For example, type '), code('@The note editor'), text(' to link to the editor note.')),
     sep(),
-    h(2, text('🚀 Primeros pasos')),
+    h(2, text('🚀 Getting started')),
     tasks(
-      [false, text('Abre el panel '), bold('Many'), text(' (botón ✦ en la barra superior) y hazle una pregunta')],
-      [false, text('Escribe '), code('/'), text(' en cualquier nota para abrir el menú de bloques')],
-      [false, text('Escribe '), code('@'), text(' para mencionar una nota o recurso')],
-      [false, text('Selecciona texto y usa el menú de burbuja para aplicar formato con IA')],
-      [false, text('Arrastra un PDF al sidebar para importarlo y chatear con él')],
+      [false, text('Open the '), bold('Many'), text(' panel (✦ button in the top bar) and ask it a question')],
+      [false, text('Type '), code('/'), text(' in any note to open the block menu')],
+      [false, text('Type '), code('@'), text(' to mention a note or resource')],
+      [false, text('Select text and use the bubble menu to apply AI formatting')],
+      [false, text('Drag a PDF into the sidebar to import it and chat with it')],
     ),
     sep(),
-    h(2, text('⌨️ Atajos esenciales')),
+    h(2, text('⌨️ Essential shortcuts')),
     ul(
-      [p(code('⌘S'), text(' — Guardar manualmente (o guarda automático cada 1.5s)'))],
-      [p(code('⌘J'), text(' — Insertar bloque IA en el cursor'))],
-      [p(code('/'), text(' — Menú de bloques (slash command)'))],
-      [p(code('@'), text(' — Mencionar recurso del workspace'))],
-      [p(code('⌘K'), text(' — Crear/editar enlace'))],
-      [p(code('⌘\\'), text(' — Modo enfocado (Focus mode)'))],
+      [p(code('⌘S'), text(' — Save manually (autosaves every 1.5s anyway)'))],
+      [p(code('⌘J'), text(' — Insert AI block at the cursor'))],
+      [p(code('/'), text(' — Block menu (slash command)'))],
+      [p(code('@'), text(' — Mention a workspace resource'))],
+      [p(code('⌘K'), text(' — Create/edit a link'))],
+      [p(code('⌘\\'), text(' — Focus mode'))],
     ),
     sep(),
     callout('info',
-      p(text('💡 '), bold('Tip:'), text(' Prueba el '), bold('modo enfocado'), text(' (icono 👁 en la barra) para escribir sin distracciones en tipografía serif.')),
+      p(text('💡 '), bold('Tip:'), text(' Try '), bold('focus mode'), text(' (👁 icon in the bar) to write distraction-free in serif typography.')),
     ),
   );
 }
 
 function buildEditorNote() {
   return doc(
-    h(1, text('✍️ El editor de notas')),
-    p(text('Dome usa un editor de bloques moderno basado en TipTap. Todo está diseñado para ser rápido y potente.')),
+    h(1, text('✍️ The note editor')),
+    p(text('Dome uses a modern, TipTap-based block editor. Everything is designed to be fast and powerful.')),
     sep(),
     h(2, text('⚡ Slash commands ( / )')),
-    p(text('Escribe '), code('/'), text(' en cualquier línea vacía para abrir el menú de bloques. Puedes buscar escribiendo el nombre del bloque.')),
+    p(text('Type '), code('/'), text(' on any empty line to open the block menu. You can search by typing the block name.')),
     callout('olive',
-      p(bold('Categorías disponibles:')),
+      p(bold('Available categories:')),
       ul(
-        [p(bold('Texto'), text(' — Párrafo, H1, H2, H3, Cita'))],
-        [p(bold('Listas'), text(' — Viñetas, Numerada, To-do (checkboxes)'))],
-        [p(bold('Bloques Dome'), text(' — Callout, Toggle, Código, Divisor, Columnas, Tabla'))],
-        [p(bold('AI'), text(' — Pedir a Many, Continuar escribiendo, Resumen'))],
-        [p(bold('Embebidos'), text(' — Imagen, Mención @, YouTube/iframe'))],
+        [p(bold('Text'), text(' — Paragraph, H1, H2, H3, Quote'))],
+        [p(bold('Lists'), text(' — Bullet, Numbered, To-do (checkboxes)'))],
+        [p(bold('Dome blocks'), text(' — Callout, Toggle, Code, Divider, Columns, Table'))],
+        [p(bold('AI'), text(' — Ask Many, Continue writing, Summary'))],
+        [p(bold('Embeds'), text(' — Image, @ mention, YouTube/iframe'))],
       ),
     ),
     sep(),
-    h(2, text('📦 Bloques especiales')),
-    toggle('Callout — notas destacadas',
-      p(text('Los callouts resaltan información importante. Hay 5 variantes: '), bold('info'), text(', '), bold('warning'), text(', '), bold('error'), text(', '), bold('success'), text(', '), bold('olive'), text(' (acento Dome).')),
-      callout('info', p(text('ℹ️ Esto es un callout de tipo '), bold('info'), text('.'))),
-      callout('warning', p(text('⚠️ Esto es un callout de tipo '), bold('warning'), text('.'))),
-      callout('olive', p(text('✦ Esto es un callout de tipo '), bold('olive'), text(' — ideal para tips de IA.'))),
+    h(2, text('📦 Special blocks')),
+    toggle('Callout — highlighted notes',
+      p(text('Callouts highlight important information. There are 5 variants: '), bold('info'), text(', '), bold('warning'), text(', '), bold('error'), text(', '), bold('success'), text(', '), bold('olive'), text(' (Dome accent).')),
+      callout('info', p(text('ℹ️ This is an '), bold('info'), text(' callout.'))),
+      callout('warning', p(text('⚠️ This is a '), bold('warning'), text(' callout.'))),
+      callout('olive', p(text('✦ This is an '), bold('olive'), text(' callout — great for AI tips.'))),
     ),
-    toggle('Toggle — bloques colapsables',
-      p(text('Los toggles permiten ocultar contenido hasta que el lector lo expanda. Haz clic en el triángulo para colapsar/expandir.')),
-      toggle('Ejemplo de toggle anidado',
-        p(text('Los toggles pueden anidarse dentro de otros toggles para jerarquías complejas.')),
+    toggle('Toggle — collapsible blocks',
+      p(text('Toggles let you hide content until the reader expands it. Click the triangle to collapse/expand.')),
+      toggle('Nested toggle example',
+        p(text('Toggles can be nested inside other toggles for complex hierarchies.')),
       ),
     ),
-    toggle('Bloques de código',
-      codeblock('javascript', `// Ejemplo de código con syntax highlighting
+    toggle('Code blocks',
+      codeblock('javascript', `// Code example with syntax highlighting
 function greet(name) {
-  return \`Hola, \${name}! Bienvenido a Dome.\`;
+  return \`Hello, \${name}! Welcome to Dome.\`;
 }
 
-console.log(greet('Mundo'));`),
-      p(text('Los bloques de código soportan syntax highlighting para '), bold('JavaScript'), text(', Python, TypeScript, Bash, SQL, y más.')),
+console.log(greet('World'));`),
+      p(text('Code blocks support syntax highlighting for '), bold('JavaScript'), text(', Python, TypeScript, Bash, SQL, and more.')),
     ),
-    toggle('Bloques AI (Many)',
-      p(text('Los bloques AI permiten hacer preguntas a Many '), bold('directamente dentro del documento'), text('. El resultado se inserta como contenido del editor.')),
-      p(text('Inserta uno con '), code('/'), text(' → '), bold('Pedir a Many'), text(' o con '), code('⌘J'), text('.')),
+    toggle('AI blocks (Many)',
+      p(text('AI blocks let you ask Many '), bold('right inside the document'), text('. The result is inserted as editor content.')),
+      p(text('Insert one with '), code('/'), text(' → '), bold('Ask Many'), text(' or with '), code('⌘J'), text('.')),
     ),
     sep(),
-    h(2, text('✨ Formatos de texto')),
+    h(2, text('✨ Text formatting')),
     p(
-      text('Selecciona texto para ver el '),
-      bold('menú de burbuja'),
-      text('. Tienes: '),
-      bold('Negrita'),
+      text('Select text to reveal the '),
+      bold('bubble menu'),
+      text('. You get: '),
+      bold('Bold'),
       text(', '),
-      italic('Cursiva'),
+      italic('Italic'),
       text(', '),
-      text('Subrayado', [{ type: 'underline' }]),
+      text('Underline', [{ type: 'underline' }]),
       text(', '),
-      text('Tachado', [{ type: 'strike' }]),
+      text('Strikethrough', [{ type: 'strike' }]),
       text(', '),
-      code('Código inline'),
-      text(' y Enlace ('),
+      code('Inline code'),
+      text(' and Link ('),
       code('⌘K'),
       text(').'),
     ),
     sep(),
-    h(2, text('🗂️ Tablas y columnas')),
-    p(text('Crea tablas con '), code('/tabla'), text(' y columnas con '), code('/columnas'), text('. Soportan drag & drop de filas/columnas y redimensionado.')),
+    h(2, text('🗂️ Tables and columns')),
+    p(text('Create tables with '), code('/table'), text(' and columns with '), code('/columns'), text('. They support drag & drop of rows/columns and resizing.')),
     sep(),
-    h(2, text('💾 Guardado automático')),
+    h(2, text('💾 Autosave')),
     callout('info',
-      p(text('Dome guarda automáticamente '), bold('1.5 segundos'), text(' después del último cambio y al perder el foco. También puedes usar '), code('⌘S'), text(' para guardar manualmente.')),
-      p(text('El indicador de estado en la barra superior muestra: '), bold('Guardado'), text(' · '), bold('Sin guardar'), text(' · '), bold('Guardando…'), text(' · '), bold('Error')),
+      p(text('Dome saves automatically '), bold('1.5 seconds'), text(' after the last change and on blur. You can also use '), code('⌘S'), text(' to save manually.')),
+      p(text('The status indicator in the top bar shows: '), bold('Saved'), text(' · '), bold('Unsaved'), text(' · '), bold('Saving…'), text(' · '), bold('Error')),
     ),
   );
 }
 
 function buildManyNote() {
   return doc(
-    h(1, text('🤖 Asistente Many (IA)')),
-    p(text('Many es el asistente de IA integrado en Dome. Está presente en todas partes: panel lateral, editor, barra de burbuja y búsqueda.')),
+    h(1, text('🤖 Many Assistant (AI)')),
+    p(text('Many is the AI assistant built into Dome. It is everywhere: side panel, editor, bubble bar and search.')),
     sep(),
-    h(2, text('📍 Dónde está Many')),
+    h(2, text('📍 Where Many lives')),
     ul(
-      [p(bold('Botón ✦ Many'), text(' en la barra de acción de cualquier nota — abre el panel lateral de chat'))],
-      [p(bold('Menú de burbuja'), text(' — selecciona texto y usa la píldora '), bold('Many ▾'), text(' para acciones IA sobre la selección'))],
-      [p(bold('Bloque IA'), text(' — '), code('/pedir a many'), text(' para insertar un prompt directamente en el documento'))],
-      [p(bold('Búsqueda'), text(' — Many puede responder preguntas sobre tus recursos'))],
+      [p(bold('✦ Many button'), text(' in the action bar of any note — opens the chat side panel'))],
+      [p(bold('Bubble menu'), text(' — select text and use the '), bold('Many ▾'), text(' pill for AI actions on the selection'))],
+      [p(bold('AI block'), text(' — '), code('/ask many'), text(' to insert a prompt directly in the document'))],
+      [p(bold('Search'), text(' — Many can answer questions about your resources'))],
     ),
     sep(),
-    h(2, text('💬 Cómo chatear con Many')),
+    h(2, text('💬 How to chat with Many')),
     ol(
-      [p(text('Abre el panel Many con el botón '), bold('✦ Many'), text(' o ', ), code('⌘J'))],
-      [p(text('Escribe tu pregunta o instrucción en el campo de texto'))],
-      [p(text('Many tiene acceso automático al '), bold('contexto de la nota abierta'), text(' y a tus fuentes'))],
-      [p(text('Puedes adjuntar archivos, mencionar recursos con '), code('@'), text(', o pegar imágenes'))],
+      [p(text('Open the Many panel with the '), bold('✦ Many'), text(' button or '), code('⌘J'))],
+      [p(text('Type your question or instruction in the text field'))],
+      [p(text('Many automatically has access to the '), bold('open note context'), text(' and your sources'))],
+      [p(text('You can attach files, mention resources with '), code('@'), text(', or paste images'))],
     ),
     sep(),
-    h(2, text('🎯 Acciones IA sobre selección')),
-    p(text('Selecciona cualquier texto en el editor y usa la píldora '), bold('Many ▾'), text(' para:')),
+    h(2, text('🎯 AI actions on a selection')),
+    p(text('Select any text in the editor and use the '), bold('Many ▾'), text(' pill to:')),
     ul(
-      [p(bold('Mejorar redacción'), text(' — mejora claridad y fluidez'))],
-      [p(bold('Hacer más corto'), text(' — condensa el texto manteniendo el significado'))],
-      [p(bold('Expandir'), text(' — añade más detalle y profundidad'))],
-      [p(bold('Resumir'), text(' — genera un resumen ejecutivo'))],
-      [p(bold('Continuar'), text(' — Many continúa el texto desde donde lo dejaste'))],
-      [p(bold('Traducir'), text(' — traduce a cualquier idioma'))],
-      [p(bold('Convertir en tareas'), text(' — extrae acciones accionables en lista to-do'))],
-      [p(bold('Explicar'), text(' — explica el contenido de forma accesible'))],
+      [p(bold('Improve writing'), text(' — improve clarity and flow'))],
+      [p(bold('Make shorter'), text(' — condense the text while keeping its meaning'))],
+      [p(bold('Expand'), text(' — add more detail and depth'))],
+      [p(bold('Summarize'), text(' — generate an executive summary'))],
+      [p(bold('Continue'), text(' — Many continues the text from where you left off'))],
+      [p(bold('Translate'), text(' — translate to any language'))],
+      [p(bold('Turn into tasks'), text(' — extract actionable items into a to-do list'))],
+      [p(bold('Explain'), text(' — explain the content in accessible terms'))],
     ),
     sep(),
-    h(2, text('📎 Contexto y fuentes')),
+    h(2, text('📎 Context and sources')),
     callout('olive',
-      p(text('Many puede leer tus PDFs, notas y recursos automáticamente. Abre el panel '), bold('Fuentes'), text(' (botón 📋 en la barra) para controlar qué documentos tiene disponibles.')),
+      p(text('Many can read your PDFs, notes and resources automatically. Open the '), bold('Sources'), text(' panel (📋 button in the bar) to control which documents it has available.')),
     ),
     sep(),
-    h(2, text('🔧 Configuración')),
-    p(text('Ve a '), bold('Ajustes → IA'), text(' para:')),
+    h(2, text('🔧 Settings')),
+    p(text('Go to '), bold('Settings → AI'), text(' to:')),
     ul(
-      [p(text('Elegir proveedor: '), bold('OpenAI, Anthropic, Google, Ollama (local)'))],
-      [p(text('Configurar el modelo principal y el modelo de embeddings'))],
-      [p(text('Ajustar el presupuesto de tokens'))],
+      [p(text('Choose a provider: '), bold('OpenAI, Anthropic, Google, Ollama (local)'))],
+      [p(text('Configure the main model and the embeddings model'))],
+      [p(text('Adjust the token budget'))],
     ),
     callout('info',
-      p(text('💡 Para privacidad total, usa '), bold('Ollama'), text(' para ejecutar modelos locales sin enviar datos a servidores externos.')),
+      p(text('💡 For full privacy, use '), bold('Ollama'), text(' to run local models without sending data to external servers.')),
     ),
   );
 }
 
 function buildBacklinksNote() {
   return doc(
-    h(1, text('🔗 Backlinks y menciones')),
-    p(text('Dome conecta tus ideas automáticamente. Cada vez que mencionas una nota, se crea un '), bold('backlink'), text(' bidireccional.')),
+    h(1, text('🔗 Backlinks & mentions')),
+    p(text('Dome connects your ideas automatically. Every time you mention a note, a bidirectional '), bold('backlink'), text(' is created.')),
     sep(),
-    h(2, text('@ Menciones')),
-    p(text('Escribe '), code('@'), text(' en el editor seguido del nombre del recurso para crear una mención:')),
-    codeblock('', '@ + nombre de nota/PDF/recurso → selecciona del menú emergente'),
-    p(text('Las menciones se muestran como chips interactivos: haz '), bold('clic'), text(' en uno para abrir ese recurso.')),
+    h(2, text('@ Mentions')),
+    p(text('Type '), code('@'), text(' in the editor followed by a resource name to create a mention:')),
+    codeblock('', '@ + note/PDF/resource name → pick from the pop-up menu'),
+    p(text('Mentions show up as interactive chips: '), bold('click'), text(' one to open that resource.')),
     sep(),
     callout('olive',
-      p(bold('Ejemplo:'), text(' En esta misma nota puedes ver cómo funciona. Las menciones en la nota principal de esta guía son backlinks reales hacia cada apartado.')),
+      p(bold('Example:'), text(' You can see how it works in this very note. The mentions in this guide’s main note are real backlinks to each section.')),
     ),
     sep(),
-    h(2, text('🔍 Ver backlinks de una nota')),
-    p(text('El panel lateral derecho (botón 📖 en la barra) muestra:')),
+    h(2, text('🔍 View a note’s backlinks')),
+    p(text('The right side panel (📖 button in the bar) shows:')),
     ul(
-      [p(bold('Backlinks'), text(' — qué notas mencionan la nota actual'))],
-      [p(bold('Menciones salientes'), text(' — qué recursos menciona esta nota'))],
-      [p(bold('Resumen IA'), text(' — Many puede generar un resumen de la nota'))],
+      [p(bold('Backlinks'), text(' — which notes mention the current note'))],
+      [p(bold('Outgoing mentions'), text(' — which resources this note mentions'))],
+      [p(bold('AI summary'), text(' — Many can generate a summary of the note'))],
     ),
     sep(),
-    h(2, text('📊 Metadatos de nota')),
-    p(text('La barra de metadatos debajo del título muestra:')),
+    h(2, text('📊 Note metadata')),
+    p(text('The metadata bar below the title shows:')),
     ul(
-      [p(bold('Palabras'), text(' y tiempo de lectura estimado'))],
-      [p(bold('Última edición'), text(' relativa (hace X minutos)'))],
-      [p(bold('Etiquetas'), text(' — haz clic en '), code('+'), text(' para añadir tags'))],
-      [p(bold('Backlinks'), text(' — número de notas que apuntan aquí'))],
-      [p(bold('AI ready'), text(' — indica si la nota ha sido indexada para búsqueda semántica'))],
+      [p(bold('Words'), text(' and estimated reading time'))],
+      [p(bold('Last edited'), text(' relative time (X minutes ago)'))],
+      [p(bold('Tags'), text(' — click '), code('+'), text(' to add tags'))],
+      [p(bold('Backlinks'), text(' — number of notes pointing here'))],
+      [p(bold('AI ready'), text(' — indicates whether the note has been indexed for semantic search'))],
     ),
     sep(),
-    h(2, text('🏷️ Etiquetas (tags)')),
-    p(text('Añade etiquetas a tus notas para organizarlas temáticamente. Las etiquetas se pueden usar como filtros en el sidebar y en la búsqueda.')),
+    h(2, text('🏷️ Tags')),
+    p(text('Add tags to your notes to organize them by topic. Tags can be used as filters in the sidebar and in search.')),
     tasks(
-      [false, text('Prueba: escribe '), code('@'), text(' y busca esta nota desde otra')],
-      [false, text('Abre el panel lateral (📖) para ver los backlinks de esta nota')],
-      [false, text('Añade una etiqueta usando el '), code('+'), text(' en la barra de metadatos')],
+      [false, text('Try it: type '), code('@'), text(' and look up this note from another one')],
+      [false, text('Open the side panel (📖) to see this note’s backlinks')],
+      [false, text('Add a tag using the '), code('+'), text(' in the metadata bar')],
     ),
   );
 }
 
 function buildRecursosNote() {
   return doc(
-    h(1, text('📁 Gestión de recursos')),
-    p(text('Dome no es solo un editor de notas: es un workspace completo para tu conocimiento. Puedes importar y trabajar con múltiples tipos de recursos.')),
+    h(1, text('📁 Resource management')),
+    p(text('Dome is not just a note editor: it is a complete workspace for your knowledge. You can import and work with many resource types.')),
     sep(),
-    h(2, text('📄 Tipos de recursos')),
+    h(2, text('📄 Resource types')),
     ul(
-      [p(bold('📝 Notas'), text(' — documentos de texto con el editor de bloques'))],
-      [p(bold('📄 PDFs'), text(' — arrastra o importa PDFs; Many los puede leer y responder preguntas'))],
-      [p(bold('🖼️ Imágenes'), text(' — importa y referencia imágenes en tus notas'))],
-      [p(bold('🎵 Audio / Video'), text(' — archivos multimedia con transcripción automática'))],
-      [p(bold('🌐 URLs'), text(' — guarda páginas web con extracción de contenido'))],
-      [p(bold('📊 Excel/CSV'), text(' — hojas de cálculo con análisis IA'))],
-      [p(bold('📑 PowerPoint'), text(' — presenta y extrae slides como imágenes'))],
+      [p(bold('📝 Notes'), text(' — text documents in the block editor'))],
+      [p(bold('📄 PDFs'), text(' — drag or import PDFs; Many can read them and answer questions'))],
+      [p(bold('🖼️ Images'), text(' — import and reference images in your notes'))],
+      [p(bold('🎵 Audio / Video'), text(' — media files with automatic transcription'))],
+      [p(bold('🌐 URLs'), text(' — save web pages with content extraction'))],
+      [p(bold('📊 Excel/CSV'), text(' — spreadsheets with AI analysis'))],
+      [p(bold('📑 PowerPoint'), text(' — present and extract slides as images'))],
     ),
     sep(),
-    h(2, text('🗂️ Organización con carpetas')),
-    p(text('Usa el sidebar para organizar recursos en carpetas (proyectos). Arrastra recursos entre carpetas para reorganizarlos.')),
+    h(2, text('🗂️ Organizing with folders')),
+    p(text('Use the sidebar to organize resources into folders (projects). Drag resources between folders to reorganize them.')),
     callout('info',
-      p(text('Las carpetas en Dome son '), bold('proyectos'), text('. Cada proyecto tiene sus propias notas, PDFs y recursos, aunque puedes mencionar recursos entre proyectos.')),
+      p(text('Folders in Dome are '), bold('projects'), text('. Each project has its own notes, PDFs and resources, though you can mention resources across projects.')),
     ),
     sep(),
-    h(2, text('📥 Importar recursos')),
+    h(2, text('📥 Importing resources')),
     ol(
-      [p(bold('Drag & drop'), text(' — arrastra archivos directamente al sidebar o al editor'))],
-      [p(bold('Botón +'), text(' — usa el botón de nuevo recurso en el sidebar'))],
-      [p(bold('Portapapeles'), text(' — '), code('/imagen'), text(' pega una imagen desde el portapapeles'))],
-      [p(bold('URL'), text(' — pega una URL en el chat de Many para importar la página'))],
+      [p(bold('Drag & drop'), text(' — drag files straight into the sidebar or the editor'))],
+      [p(bold('+ button'), text(' — use the new-resource button in the sidebar'))],
+      [p(bold('Clipboard'), text(' — '), code('/image'), text(' pastes an image from the clipboard'))],
+      [p(bold('URL'), text(' — paste a URL into the Many chat to import the page'))],
     ),
     sep(),
-    h(2, text('🔍 Panel de fuentes')),
-    p(text('El panel '), bold('Fuentes'), text(' (botón 📋 en la barra de acción) permite:')),
+    h(2, text('🔍 Sources panel')),
+    p(text('The '), bold('Sources'), text(' panel (📋 button in the action bar) lets you:')),
     ul(
-      [p(text('Ver todos los recursos relacionados con la nota actual'))],
-      [p(text('Seleccionar qué recursos puede usar Many como contexto'))],
-      [p(text('Buscar dentro de los recursos del proyecto'))],
+      [p(text('See all resources related to the current note'))],
+      [p(text('Choose which resources Many can use as context'))],
+      [p(text('Search within the project’s resources'))],
     ),
     sep(),
-    h(2, text('🖥️ Visor de recursos')),
-    p(text('Abre cualquier recurso (PDF, vídeo, etc.) haciendo clic en él. El visor se abre en un '), bold('panel dividido'), text(' junto a tu nota, o en '), bold('pestaña separada'), text('.')),
+    h(2, text('🖥️ Resource viewer')),
+    p(text('Open any resource (PDF, video, etc.) by clicking it. The viewer opens in a '), bold('split panel'), text(' next to your note, or in a '), bold('separate tab'), text('.')),
     tasks(
-      [false, text('Importa un PDF y abre el chat con Many en ese documento')],
-      [false, text('Arrastra una imagen al editor para insertarla como bloque')],
-      [false, text('Prueba el modo dividido: botón ⊞ en la barra de acción')],
+      [false, text('Import a PDF and open the Many chat on that document')],
+      [false, text('Drag an image into the editor to insert it as a block')],
+      [false, text('Try split mode: ⊞ button in the action bar')],
     ),
   );
 }
 
 function buildAgentsNote() {
   return doc(
-    h(1, text('⚡ Agentes y automatizaciones')),
-    p(text('Dome incluye un sistema de agentes IA que pueden realizar tareas complejas de forma autónoma o semi-autónoma.')),
+    h(1, text('⚡ Agents & automations')),
+    p(text('Dome includes an AI agent system that can carry out complex tasks autonomously or semi-autonomously.')),
     sep(),
-    h(2, text('🤖 ¿Qué es un agente?')),
-    p(text('Un agente es un asistente IA especializado con:')),
+    h(2, text('🤖 What is an agent?')),
+    p(text('An agent is a specialized AI assistant with:')),
     ul(
-      [p(bold('Instrucciones personalizadas'), text(' — define su personalidad, rol y capacidades'))],
-      [p(bold('Herramientas'), text(' — acceso a búsqueda web, gestión de archivos, creación de notas, etc.'))],
-      [p(bold('Skills'), text(' — habilidades especializadas que amplían sus capacidades (SKILL.md)'))],
-      [p(bold('Memoria'), text(' — puede recordar contexto entre conversaciones'))],
+      [p(bold('Custom instructions'), text(' — define its personality, role and capabilities'))],
+      [p(bold('Tools'), text(' — access to web search, file management, note creation, etc.'))],
+      [p(bold('Skills'), text(' — specialized abilities that extend its capabilities (SKILL.md)'))],
+      [p(bold('Memory'), text(' — it can remember context across conversations'))],
     ),
     sep(),
-    h(2, text('🏗️ Crear un agente')),
+    h(2, text('🏗️ Create an agent')),
     ol(
-      [p(text('Ve a la sección '), bold('Agentes'), text(' en el sidebar'))],
-      [p(text('Haz clic en '), bold('+ Nuevo agente'))],
-      [p(text('Define nombre, descripción e instrucciones del sistema'))],
-      [p(text('Selecciona las herramientas que tendrá disponibles'))],
-      [p(text('¡Empieza a chatear!'))],
+      [p(text('Go to the '), bold('Agents'), text(' section in the sidebar'))],
+      [p(text('Click '), bold('+ New agent'))],
+      [p(text('Define a name, description and system instructions'))],
+      [p(text('Select the tools it will have available'))],
+      [p(text('Start chatting!'))],
     ),
     callout('olive',
-      p(text('✦ '), bold('Tip:'), text(' Puedes usar Many directamente sin crear un agente. Los agentes son útiles cuando quieres una IA '), bold('especializada'), text(' para tareas concretas (investigación, código, análisis de datos…).')),
+      p(text('✦ '), bold('Tip:'), text(' You can use Many directly without creating an agent. Agents are useful when you want a '), bold('specialized'), text(' AI for specific tasks (research, code, data analysis…).')),
     ),
     sep(),
-    h(2, text('🔄 Automatizaciones')),
-    p(text('Las automatizaciones ejecutan flujos de trabajo de forma programada o ante eventos:')),
+    h(2, text('🔄 Automations')),
+    p(text('Automations run workflows on a schedule or in response to events:')),
     ul(
-      [p(bold('Disparadores'), text(' — tiempo programado, nuevo recurso, cambio en nota…'))],
-      [p(bold('Acciones'), text(' — ejecutar un agente, crear nota, enviar resumen, actualizar etiquetas…'))],
-      [p(bold('Flujos visuales'), text(' — editor de nodos para flujos complejos multi-paso'))],
+      [p(bold('Triggers'), text(' — scheduled time, new resource, note change…'))],
+      [p(bold('Actions'), text(' — run an agent, create a note, send a summary, update tags…'))],
+      [p(bold('Visual flows'), text(' — node editor for complex multi-step flows'))],
     ),
     sep(),
-    h(2, text('🎯 Skills (habilidades)')),
-    p(text('Las Skills son archivos '), code('SKILL.md'), text(' que añaden capacidades especializadas a todos los agentes. Se guardan en '), code('~/.dome/skills/')),
-    codeblock('markdown', `# Mi Skill personalizada
+    h(2, text('🎯 Skills')),
+    p(text('Skills are '), code('SKILL.md'), text(' files that add specialized capabilities to all agents. They live in '), code('~/.dome/skills/')),
+    codeblock('markdown', `# My custom skill
 
-## Descripción
-Esta skill hace que los agentes sean expertos en análisis financiero.
+## Description
+This skill makes agents experts in financial analysis.
 
-## Instrucciones
-Cuando el usuario mencione datos financieros, aplica estos pasos:
-1. Identifica métricas clave (ROI, EBITDA, margen bruto...)
-2. Compara con benchmarks del sector
-3. Genera insights accionables`),
+## Instructions
+When the user mentions financial data, apply these steps:
+1. Identify key metrics (ROI, EBITDA, gross margin...)
+2. Compare against industry benchmarks
+3. Generate actionable insights`),
     sep(),
-    h(2, text('📋 Runs y logs')),
-    p(text('Cada ejecución de agente queda registrada en la sección '), bold('Actividad'), text('. Puedes revisar qué herramientas usó, el razonamiento paso a paso y el resultado final.')),
+    h(2, text('📋 Runs and logs')),
+    p(text('Every agent run is recorded in the '), bold('Activity'), text(' section. You can review which tools it used, the step-by-step reasoning and the final result.')),
     tasks(
-      [false, text('Crea tu primer agente personalizado')],
-      [false, text('Prueba una automatización de resumen diario')],
-      [false, text('Explora las Skills disponibles en la sección de Marketplace')],
+      [false, text('Create your first custom agent')],
+      [false, text('Try a daily-summary automation')],
+      [false, text('Explore the Skills available in the Marketplace section')],
     ),
   );
 }
 
 function buildSearchNote() {
   return doc(
-    h(1, text('🔍 Búsqueda semántica')),
-    p(text('Dome combina búsqueda por palabras clave con búsqueda semántica (IA) para que puedas encontrar cualquier cosa, incluso si no recuerdas las palabras exactas.')),
+    h(1, text('🔍 Semantic search')),
+    p(text('Dome combines keyword search with semantic (AI) search so you can find anything, even when you don’t remember the exact words.')),
     sep(),
-    h(2, text('🧠 ¿Cómo funciona?')),
+    h(2, text('🧠 How does it work?')),
     callout('info',
-      p(text('Dome usa un sistema de búsqueda '), bold('híbrido'), text(':')),
+      p(text('Dome uses a '), bold('hybrid'), text(' search system:')),
       ul(
-        [p(bold('FTS (Full-Text Search)'), text(' — búsqueda exacta por palabras clave, muy rápida'))],
-        [p(bold('Embeddings semánticos'), text(' — entiende el '), italic('significado'), text(', no solo las palabras'))],
-        [p(bold('Grafo de conocimiento'), text(' — tiene en cuenta los backlinks y relaciones entre notas'))],
+        [p(bold('FTS (Full-Text Search)'), text(' — exact keyword search, very fast'))],
+        [p(bold('Semantic embeddings'), text(' — understands '), italic('meaning'), text(', not just words'))],
+        [p(bold('Knowledge graph'), text(' — takes backlinks and relationships between notes into account'))],
       ),
     ),
     sep(),
-    h(2, text('🔎 Cómo buscar')),
+    h(2, text('🔎 How to search')),
     ol(
-      [p(text('Abre la búsqueda con '), code('⌘F'), text(' o el icono de lupa en el sidebar'))],
-      [p(text('Escribe tu consulta en lenguaje natural: '), italic('"ideas sobre machine learning de la semana pasada"'))],
-      [p(text('Usa filtros: tipo de recurso, proyecto, fecha, etiqueta'))],
-      [p(text('Los resultados muestran el fragmento relevante dentro del documento'))],
+      [p(text('Open search with '), code('⌘F'), text(' or the magnifier icon in the sidebar'))],
+      [p(text('Type your query in natural language: '), italic('"machine learning ideas from last week"'))],
+      [p(text('Use filters: resource type, project, date, tag'))],
+      [p(text('Results show the relevant snippet inside the document'))],
     ),
     sep(),
-    h(2, text('⚡ Búsqueda vs. pregunta a Many')),
-    toggle('¿Cuándo usar búsqueda?',
-      p(text('Usa la búsqueda cuando quieras '), bold('encontrar un documento específico'), text(' o recordar '), bold('dónde guardaste algo'), text('. Es instantánea y muestra los fragmentos relevantes.')),
+    h(2, text('⚡ Search vs. asking Many')),
+    toggle('When to use search?',
+      p(text('Use search when you want to '), bold('find a specific document'), text(' or recall '), bold('where you saved something'), text('. It is instant and shows the relevant snippets.')),
     ),
-    toggle('¿Cuándo preguntar a Many?',
-      p(text('Usa Many cuando quieras '), bold('sintetizar información'), text(' de varios documentos, obtener una '), bold('respuesta elaborada'), text(' o analizar el contenido de tus recursos.')),
+    toggle('When to ask Many?',
+      p(text('Use Many when you want to '), bold('synthesize information'), text(' from several documents, get an '), bold('elaborate answer'), text(', or analyze the content of your resources.')),
     ),
     sep(),
-    h(2, text('🗄️ Indexación')),
-    p(text('Dome indexa automáticamente todos tus recursos en segundo plano. El indicador '), bold('AI ready'), text(' en la barra de metadatos de una nota confirma que está lista para búsqueda semántica.')),
+    h(2, text('🗄️ Indexing')),
+    p(text('Dome indexes all your resources automatically in the background. The '), bold('AI ready'), text(' indicator in a note’s metadata bar confirms it is ready for semantic search.')),
     callout('olive',
-      p(text('💡 La indexación semántica puede tardar unos segundos después de crear o editar un recurso. Dome usa embeddings locales '), bold('(Nomic Embed)'), text(' que funcionan sin internet y con privacidad total.')),
+      p(text('💡 Semantic indexing can take a few seconds after creating or editing a resource. Dome uses local embeddings '), bold('(Nomic Embed)'), text(' that work offline with full privacy.')),
     ),
     sep(),
-    h(2, text('🏷️ Filtros avanzados')),
+    h(2, text('🏷️ Advanced filters')),
     ul(
-      [p(code('tipo:pdf'), text(' — filtra solo PDFs'))],
-      [p(code('proyecto:investigación'), text(' — limita al proyecto especificado'))],
-      [p(code('etiqueta:importante'), text(' — filtra por tag'))],
-      [p(code('hace:7d'), text(' — recursos modificados en los últimos 7 días'))],
+      [p(code('type:pdf'), text(' — filter PDFs only'))],
+      [p(code('project:research'), text(' — limit to the specified project'))],
+      [p(code('tag:important'), text(' — filter by tag'))],
+      [p(code('since:7d'), text(' — resources modified in the last 7 days'))],
     ),
     tasks(
-      [false, text('Busca algo con lenguaje natural: "mis notas de reuniones del mes pasado"')],
-      [false, text('Prueba filtrar por tipo de archivo')],
-      [false, text('Verifica el indicador "AI ready" en una nota')],
+      [false, text('Search with natural language: "my meeting notes from last month"')],
+      [false, text('Try filtering by file type')],
+      [false, text('Check the "AI ready" indicator on a note')],
     ),
   );
 }
@@ -533,19 +538,19 @@ function guideContentLooksEmpty(raw) {
  */
 function resolveGuideBodyBuilder(noteTitle) {
   switch (noteTitle) {
-    case 'Bienvenido a Dome 👋':
+    case 'Welcome to Dome 👋':
       return buildMainNote;
-    case '✍️ El editor de notas':
+    case '✍️ The note editor':
       return buildEditorNote;
-    case '🤖 Asistente Many (IA)':
+    case '🤖 Many Assistant (AI)':
       return buildManyNote;
-    case '🔗 Backlinks y menciones':
+    case '🔗 Backlinks & mentions':
       return buildBacklinksNote;
-    case '📁 Gestión de recursos':
+    case '📁 Resource management':
       return buildRecursosNote;
-    case '⚡ Agentes y automatizaciones':
+    case '⚡ Agents & automations':
       return buildAgentsNote;
-    case '🔍 Búsqueda semántica':
+    case '🔍 Semantic search':
       return buildSearchNote;
     default:
       return null;
@@ -570,7 +575,7 @@ function listGuideNotebookRows(db) {
       if (row.type === 'note') {
         notes.push(row);
       }
-      if (row.type === 'folder' && row.title === 'Apartados') {
+      if (row.type === 'folder' && SECTIONS_FOLDER_TITLES.includes(row.title)) {
         const subs = db.prepare(
           "SELECT id, title, content, type FROM resources WHERE folder_id = ? AND type = 'note'",
         ).all(row.id);
@@ -614,10 +619,10 @@ function repairGuideBodiesIfNeeded(db) {
     })();
 
     if (updatedCount > 0) {
-      console.log(`[Guide] 🔧 Restauradas ${updatedCount} notas de la guía (cuerpo vacío).`);
+      console.log(`[Guide] 🔧 Restored ${updatedCount} guide notes (empty body).`);
     }
   } catch (err) {
-    console.warn('[Guide] ⚠️ Reparación de guía omitida:', err?.message || err);
+    console.warn('[Guide] ⚠️ Guide repair skipped:', err?.message || err);
   }
 }
 
@@ -636,6 +641,25 @@ function seedGuide(db) {
     }
 
     const now = Date.now();
+
+    // Remove old guide mirror files from disk BEFORE deleting their rows, so the
+    // vault watcher's scan does not later re-import them as orphan notes.
+    try {
+      const vaultStore = require('../storage/vault-store.cjs');
+      const fileStorage = require('../storage/file-storage.cjs');
+      const databaseMod = require('./database.cjs');
+      const collectFileIds = (folderId, acc) => {
+        for (const child of db.prepare('SELECT id, type FROM resources WHERE folder_id = ?').all(folderId)) {
+          if (child.type === 'folder') collectFileIds(child.id, acc);
+          else acc.push(child.id);
+        }
+      };
+      const fileIds = [];
+      for (const folder of listGuideRootFolders(db)) collectFileIds(folder.id, fileIds);
+      for (const id of fileIds) vaultStore.removeMirrorForResource(id, { database: databaseMod, fileStorage });
+    } catch (e) {
+      console.warn('[Guide] old mirror cleanup skipped:', e?.message || e);
+    }
 
     // Clean up any previous guide attempts (v1 may have left empty notes)
     const deleteOldGuide = db.transaction(() => {
@@ -675,33 +699,33 @@ function seedGuide(db) {
     `);
 
     const insertMany = db.transaction(() => {
-      // 1. Guía root folder
+      // 1. Guide root folder
       insertResource.run(
-        ids.guideFolder, PROJECT_ID, 'folder', '📚 Guía de Dome',
+        ids.guideFolder, PROJECT_ID, 'folder', '📚 Dome Guide',
         null, null, null, JSON.stringify({ dome_note_icon: '📚', color: '#7b76d0' }), now - 9000, now - 9000,
       );
 
-      // 2. Apartados sub-folder
+      // 2. Sections sub-folder
       insertResource.run(
-        ids.apartadosFolder, PROJECT_ID, 'folder', 'Apartados',
+        ids.apartadosFolder, PROJECT_ID, 'folder', 'Sections',
         null, null, ids.guideFolder, JSON.stringify({ color: '#596037' }), now - 8000, now - 8000,
       );
 
       // 3. Main note (inside guide folder)
       insertResource.run(
-        ids.main, PROJECT_ID, 'note', 'Bienvenido a Dome 👋',
+        ids.main, PROJECT_ID, 'note', 'Welcome to Dome 👋',
         buildMainNote(), null, ids.guideFolder,
         JSON.stringify({ dome_note_icon: '🏠' }), now - 7000, now - 7000,
       );
 
-      // 4. Sub-notes (inside Apartados folder)
+      // 4. Sub-notes (inside Sections folder)
       const subNotes = [
-        { id: ids.editor,    title: '✍️ El editor de notas',       content: buildEditorNote(),    offset: 6000 },
-        { id: ids.many,      title: '🤖 Asistente Many (IA)',       content: buildManyNote(),      offset: 5000 },
-        { id: ids.backlinks, title: '🔗 Backlinks y menciones',     content: buildBacklinksNote(), offset: 4000 },
-        { id: ids.recursos,  title: '📁 Gestión de recursos',       content: buildRecursosNote(),  offset: 3000 },
-        { id: ids.agents,    title: '⚡ Agentes y automatizaciones', content: buildAgentsNote(),    offset: 2000 },
-        { id: ids.search,    title: '🔍 Búsqueda semántica',        content: buildSearchNote(),    offset: 1000 },
+        { id: ids.editor,    title: '✍️ The note editor',      content: buildEditorNote(),    offset: 6000 },
+        { id: ids.many,      title: '🤖 Many Assistant (AI)',  content: buildManyNote(),      offset: 5000 },
+        { id: ids.backlinks, title: '🔗 Backlinks & mentions', content: buildBacklinksNote(), offset: 4000 },
+        { id: ids.recursos,  title: '📁 Resource management',  content: buildRecursosNote(),  offset: 3000 },
+        { id: ids.agents,    title: '⚡ Agents & automations',  content: buildAgentsNote(),    offset: 2000 },
+        { id: ids.search,    title: '🔍 Semantic search',      content: buildSearchNote(),    offset: 1000 },
       ];
 
       for (const note of subNotes) {
@@ -715,6 +739,33 @@ function seedGuide(db) {
 
     insertMany();
 
+    // Seed the plain-text cache (content_text) so FTS, card previews and the
+    // semantic index show readable text immediately. The Markdown mirror (.md)
+    // is written lazily on first open (renderer owns the conversion).
+    try {
+      const { extractPlainTextFromProseMirror } = require('../services/resource-text.cjs');
+      const setContentText = db.prepare('UPDATE resources SET content_text = ? WHERE id = ?');
+      const seededBodies = [
+        { id: ids.main, content: buildMainNote() },
+        { id: ids.editor, content: buildEditorNote() },
+        { id: ids.many, content: buildManyNote() },
+        { id: ids.backlinks, content: buildBacklinksNote() },
+        { id: ids.recursos, content: buildRecursosNote() },
+        { id: ids.agents, content: buildAgentsNote() },
+        { id: ids.search, content: buildSearchNote() },
+      ];
+      db.transaction(() => {
+        for (const n of seededBodies) {
+          try {
+            const txt = extractPlainTextFromProseMirror(JSON.parse(n.content));
+            if (txt) setContentText.run(txt, n.id);
+          } catch { /* skip a single note on parse failure */ }
+        }
+      })();
+    } catch (e) {
+      console.warn('[Guide] content_text seed skipped:', e?.message || e);
+    }
+
     // Mark as seeded (+ skip future repair scans — bodies are fresh from builders)
     db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
       SEED_FLAG, '1', now,
@@ -723,9 +774,9 @@ function seedGuide(db) {
       GUIDE_REPAIR_FLAG, '1', now,
     );
 
-    console.log('[Guide] ✅ Guía de Dome creada correctamente (' + Object.keys(ids).length + ' recursos)');
+    console.log('[Guide] ✅ Dome Guide created successfully (' + Object.keys(ids).length + ' resources)');
   } catch (err) {
-    console.warn('[Guide] ⚠️ No se pudo crear la guía (non-fatal):', err?.message);
+    console.warn('[Guide] ⚠️ Could not create the guide (non-fatal):', err?.message);
   }
 }
 

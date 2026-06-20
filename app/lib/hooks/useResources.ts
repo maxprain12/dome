@@ -11,6 +11,10 @@ export interface Resource {
     type: ResourceType;
     title: string;
     content?: string;
+    /** Plain-text cache derived from the note's Markdown (feeds previews + search) */
+    content_text?: string | null;
+    /** Relative path of the note's Markdown mirror inside dome-files/vault/ */
+    vault_path?: string | null;
     file_path?: string;
     // Internal file storage
     internal_path?: string;

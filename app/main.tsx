@@ -9,8 +9,11 @@ import './styles/_variables.scss';
 import './styles/_keyframe-animations.scss';
 import './styles/_tiptap-dome-bridge.scss';
 import App from './App';
+import { installBrowserIpcShim } from './lib/dev/browserIpcShim';
 import './globals.css';
 import './styles/notes-editor.css';
+import './styles/mention-textarea.css';
+import './styles/shell-header.css';
 import './styles/shell-tab-bar.css';
 import './styles/home-dashboard.css';
 import './styles/projects-dashboard.css';
@@ -43,6 +46,13 @@ function DomeMantineProvider({ children }: { children: React.ReactNode }) {
       {children}
     </MantineProvider>
   );
+}
+
+// Dev-only: when running in a plain browser tab (no Electron preload), back
+// window.electron with the HTTP IPC bridge so design tooling gets real data.
+// No-op in Electron and in production builds.
+if (import.meta.env.DEV) {
+  installBrowserIpcShim();
 }
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

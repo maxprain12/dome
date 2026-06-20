@@ -7,6 +7,7 @@ import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeCallout from '@/components/ui/DomeCallout';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 const DOME_GREEN = 'var(--dome-accent)';
 
@@ -150,7 +151,7 @@ export default function IndexingSettings() {
   const libraryBusy = fullSyncBusy || embedReindexBusy;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title={t('settings.indexing.title')}
@@ -275,7 +276,7 @@ export default function IndexingSettings() {
               </DomeCallout>
             ) : (
               <>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <div className="settings-stat-grid settings-stat-grid--4">
                   {[
                     { label: t('settings.embeddings.total'), value: embedStatus.indexableTotal, color: DOME_GREEN },
                     {
@@ -368,6 +369,6 @@ export default function IndexingSettings() {
       </div>
 
       {lastError ? <DomeCallout tone="error">{lastError}</DomeCallout> : null}
-    </div>
+    </SettingsPanel>
   );
 }

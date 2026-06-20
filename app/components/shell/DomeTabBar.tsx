@@ -44,13 +44,53 @@ import {
   useTabStore,
   type DomeTab,
   HOME_TAB_ID,
+  SETTINGS_TAB_ID,
+  CALENDAR_TAB_ID,
+  GITHUB_TAB_ID,
+  EMAIL_TAB_ID,
+  STUDIO_TAB_ID,
+  FLASHCARDS_TAB_ID,
+  LEARN_TAB_ID,
+  TAGS_TAB_ID,
+  MARKETPLACE_TAB_ID,
+  AGENTS_TAB_ID,
+  WORKFLOWS_TAB_ID,
+  AUTOMATIONS_TAB_ID,
+  RUNS_TAB_ID,
+  PROJECTS_TAB_ID,
+  TRANSCRIPTIONS_TAB_ID,
 } from '@/lib/store/useTabStore';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { FOLDER_COLOR_SWATCHES } from '@/components/home/FolderColorPicker';
 import DomeDivider from '@/components/ui/DomeDivider';
 
-const TAB_OVERFLOW_MIN_COUNT = 5;
+/** Fixed-id hub tabs — icon-only when inactive in compact mode */
+const HUB_TAB_IDS = new Set([
+  HOME_TAB_ID,
+  SETTINGS_TAB_ID,
+  CALENDAR_TAB_ID,
+  GITHUB_TAB_ID,
+  EMAIL_TAB_ID,
+  STUDIO_TAB_ID,
+  FLASHCARDS_TAB_ID,
+  LEARN_TAB_ID,
+  TAGS_TAB_ID,
+  MARKETPLACE_TAB_ID,
+  AGENTS_TAB_ID,
+  WORKFLOWS_TAB_ID,
+  AUTOMATIONS_TAB_ID,
+  RUNS_TAB_ID,
+  PROJECTS_TAB_ID,
+  TRANSCRIPTIONS_TAB_ID,
+]);
+
+/** Extra width (px) each open tab adds to the compact threshold */
+const COMPACT_WIDTH_PER_TAB = 76;
+/** Total strip width (px) at/below which the hub collapses to icons (≤3 tabs) */
+const COMPACT_STRIP_WIDTH = 640;
+/** Dead-band (px) so the compact decision never flip-flops around the threshold */
+const COMPACT_HYSTERESIS = 60;
 
 function TabIcon({ tab }: { tab: DomeTab }) {
   const cls = 'size-3.5 shrink-0';
@@ -126,17 +166,19 @@ type TabCtxState = {
 interface TabItemProps {
   tab: DomeTab;
   isActive: boolean;
+  iconOnly: boolean;
   onActivate: () => void;
   onClose: () => void;
   onContextMenu: (e: ReactMouseEvent, tab: DomeTab) => void;
 }
 
-function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemProps) {
+function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }: TabItemProps) {
   const { t } = useTranslation();
   const btnRef = useRef<HTMLButtonElement>(null);
   const displayTitle = getDomeTabDisplayTitle(tab, t);
   const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
   const accentColor = folderColor ?? 'var(--dome-accent)';
+  const isHubTab = HUB_TAB_IDS.has(tab.id);
   useEffect(() => {
     if (isActive) {
       btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
@@ -148,18 +190,18 @@ function TabItem({ tab, isActive, onActivate, onClose, onContextMenu }: TabItemP
       type="button"
       role="tab"
       aria-selected={isActive}
+      aria-label={displayTitle}
       tabIndex={isActive ? 0 : -1}
       onClick={onActivate}
       onContextMenu={(e) => onContextMenu(e, tab)}
       data-ui-target={`tab-${tab.type}`}
       className="dome-tab-item"
       data-active={isActive ? 'true' : 'false'}
-      style={{
-        ['--dome-tab-accent' as string]: accentColor,
-        ...(folderColor && isActive
-          ? { background: `${folderColor}12` }
-          : undefined),
-      }}
+      data-hub={isHubTab ? 'true' : 'false'}
+      data-icon-only={iconOnly ? 'true' : 'false'}
+      data-has-accent={folderColor ? 'true' : 'false'}
+      title={iconOnly ? displayTitle : undefined}
+      style={{ ['--dome-tab-accent' as string]: accentColor }}
     >
       <TabIcon tab={tab} />
       <span className="dome-tab-item-title">{displayTitle}</span>
@@ -211,10 +253,13 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     })),
   );
 
+  const stripRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   useHorizontalScroll(scrollRef);
 
   const [hasHorizontalOverflow, setHasHorizontalOverflow] = useState(false);
+  const [needsCompactLayout, setNeedsCompactLayout] = useState(false);
+  const [scrollFade, setScrollFade] = useState({ left: false, right: false });
   const [ctxMenu, setCtxMenu] = useState<TabCtxState | null>(null);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
   const [overflowAnchor, setOverflowAnchor] = useState<{ top: number; left: number } | null>(null);
@@ -223,15 +268,51 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
 
   useEffect(() => {
     const el = scrollRef.current;
+    const strip = stripRef.current;
     if (!el) return;
+
+    let raf2 = 0;
+
     const measure = () => {
-      setHasHorizontalOverflow(el.scrollWidth > el.clientWidth + 1);
+      const scrollClient = el.clientWidth;
+
+      // Compact decision uses ONLY the stable total strip width (set by the
+      // parent flex, independent of whether hub tabs show labels) plus the tab
+      // count, with hysteresis. It must NOT use the inner scroll width or any
+      // content-derived signal (overflow/truncation), because those change when
+      // compact mode is applied and would feed back into a size oscillation.
+      const stripW = strip?.clientWidth ?? scrollClient;
+      const compactThreshold =
+        COMPACT_STRIP_WIDTH + Math.max(0, tabs.length - 3) * COMPACT_WIDTH_PER_TAB;
+      setNeedsCompactLayout((prev) =>
+        prev ? stripW < compactThreshold + COMPACT_HYSTERESIS : stripW < compactThreshold,
+      );
+
+      // Overflow + scroll fades concern the scrollable tab strip only and never
+      // influence compactness.
+      setHasHorizontalOverflow(el.scrollWidth > scrollClient + 1);
+      setScrollFade({
+        left: el.scrollLeft > 1,
+        right: el.scrollLeft + scrollClient < el.scrollWidth - 1,
+      });
     };
-    measure();
-    const ro = new ResizeObserver(measure);
+
+    const scheduleMeasure = () => {
+      measure();
+      raf2 = window.requestAnimationFrame(measure);
+    };
+
+    scheduleMeasure();
+    const ro = new ResizeObserver(scheduleMeasure);
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [tabs.length]);
+    if (strip) ro.observe(strip);
+    el.addEventListener('scroll', measure, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(raf2);
+      ro.disconnect();
+      el.removeEventListener('scroll', measure);
+    };
+  }, [tabs, activeTabId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -293,8 +374,24 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     tabButtons[nextIdx]?.focus();
   }, []);
 
-  const showOverflowList =
-    hasHorizontalOverflow || tabs.length >= TAB_OVERFLOW_MIN_COUNT;
+  const isCompact = needsCompactLayout;
+
+  const tabIconOnly = useCallback(
+    (tab: DomeTab, isActive: boolean) => {
+      if (isActive) return false;
+      if (tab.pinned) return true;
+      if (isCompact && HUB_TAB_IDS.has(tab.id)) return true;
+      return false;
+    },
+    [isCompact],
+  );
+
+  useEffect(() => {
+    if (!hasHorizontalOverflow && overflowMenuOpen) {
+      setOverflowMenuOpen(false);
+      setOverflowAnchor(null);
+    }
+  }, [hasHorizontalOverflow, overflowMenuOpen]);
 
   useEffect(() => {
     if (!overflowMenuOpen) return;
@@ -373,28 +470,11 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
   return (
     <>
       {ctxPortal}
-      <div className="dome-tab-strip flex items-stretch flex-1 min-w-0">
-        {showOverflowList && (
-          <div
-            ref={overflowWrapRef}
-            className="relative shrink-0 self-stretch"
-            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          >
-            <button
-              ref={overflowBtnRef}
-              type="button"
-              className="dome-tab-overflow-btn"
-              onClick={toggleOverflowMenu}
-              aria-expanded={overflowMenuOpen}
-              aria-haspopup="menu"
-              title={t('workspace.tab_menu_all_tabs')}
-              aria-label={t('workspace.tab_menu_all_tabs')}
-            >
-              <MoreHorizontal className="size-4" strokeWidth={2} />
-            </button>
-          </div>
-        )}
-
+      <div
+        ref={stripRef}
+        className="dome-tab-strip flex items-stretch flex-1 min-w-0"
+        data-compact={isCompact ? 'true' : 'false'}
+      >
         {overflowMenuOpen && overflowAnchor
           ? ReactDOM.createPortal(
               <div
@@ -452,37 +532,61 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             )
           : null}
 
-        <div
-          ref={scrollRef}
-          className="dome-tab-scroll"
-          tabIndex={-1}
-          role="tablist"
-          aria-label={t('workspace.tabs', { defaultValue: 'Tabs' })}
-          onKeyDown={onTablistKeyDown}
-        >
-          {tabs.map((tab) => (
-            <TabItem
-              key={tab.id}
-              tab={tab}
-              isActive={tab.id === activeTabId}
-              onActivate={() => activateTab(tab.id)}
-              onClose={() => closeTab(tab.id)}
-              onContextMenu={openTabContext}
-            />
-          ))}
-
-          <button
-            type="button"
-            className="dome-tab-new-btn"
-            onClick={onNewChat}
-            title={t('workspace.new_conversation')}
-            aria-label={t('workspace.new_conversation')}
+        <div className="dome-tab-scroll-wrap">
+          <div
+            ref={scrollRef}
+            className="dome-tab-scroll"
+            tabIndex={-1}
+            role="tablist"
+            aria-label={t('workspace.tabs', { defaultValue: 'Tabs' })}
+            onKeyDown={onTablistKeyDown}
+            data-fade-left={scrollFade.left ? 'true' : 'false'}
+            data-fade-right={scrollFade.right ? 'true' : 'false'}
           >
-            <Plus className="size-3.5" strokeWidth={2} />
-          </button>
-
-          <div className="dome-tab-scroll-spacer" aria-hidden />
+            {tabs.map((tab) => (
+              <TabItem
+                key={tab.id}
+                tab={tab}
+                isActive={tab.id === activeTabId}
+                iconOnly={tabIconOnly(tab, tab.id === activeTabId)}
+                onActivate={() => activateTab(tab.id)}
+                onClose={() => closeTab(tab.id)}
+                onContextMenu={openTabContext}
+              />
+            ))}
+          </div>
         </div>
+
+        {hasHorizontalOverflow ? (
+          <div
+            ref={overflowWrapRef}
+            className="relative shrink-0 self-stretch"
+            style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+          >
+            <button
+              ref={overflowBtnRef}
+              type="button"
+              className="dome-tab-overflow-btn"
+              onClick={toggleOverflowMenu}
+              aria-expanded={overflowMenuOpen}
+              aria-haspopup="menu"
+              title={t('workspace.tab_menu_all_tabs')}
+              aria-label={t('workspace.tab_menu_all_tabs')}
+            >
+              <MoreHorizontal className="size-4" strokeWidth={2} />
+            </button>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          className="dome-tab-new-btn"
+          onClick={onNewChat}
+          title={t('workspace.new_conversation')}
+          aria-label={t('workspace.new_conversation')}
+        >
+          <Plus className="size-3.5" strokeWidth={2} />
+        </button>
       </div>
     </>
   );

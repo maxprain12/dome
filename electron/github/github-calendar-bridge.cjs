@@ -63,6 +63,14 @@ function formatDateEs(ms) {
   }
 }
 
+/** Build a markdown body for release calendar events. Falls back to the URL when
+ *  no `body` was stored (older syncs / releases with no notes on GitHub). */
+function buildReleaseDescription(rel) {
+  const raw = typeof rel.body === 'string' ? rel.body.trim() : '';
+  if (!raw) return rel.html_url || rel.tag_name;
+  return raw;
+}
+
 /** Rich markdown body for milestone calendar events. */
 function buildMilestoneDescription(m, repo, { completed = false } = {}) {
   const parts = [];
@@ -93,8 +101,15 @@ function completedMilestoneLinkId(milestoneId) {
 
 async function upsertEvent(entityType, entityId, { title, description, dateMs, url, extraMetadata = {} }) {
   const link = store.getCalendarLink(entityType, entityId);
-  const startAt = dateMs;
-  const endAt = dateMs + 24 * 60 * 60 * 1000;
+  // Snap to the start of the local day so all-day events render in exactly one
+  // cell. GitHub's `published_at` / `due_on` come with arbitrary hours (UTC),
+  // and `endAt = startAt + 24h` would otherwise land mid-day and the renderer
+  // (which only collapses `end == startOfNextDay` back to a single day) would
+  // paint the event across two columns.
+  const dayStart = new Date(dateMs);
+  dayStart.setHours(0, 0, 0, 0);
+  const startAt = dayStart.getTime();
+  const endAt = startAt + 24 * 60 * 60 * 1000;
   const body = withSourceFooter(description, url);
   const metadata = { source: 'github', entityType, entityId, url: url || null, ...extraMetadata };
 
@@ -185,6 +200,12 @@ async function syncCalendar() {
           description: issue.body,
           dateMs: issue.due_date,
           url: issue.html_url,
+          extraMetadata: {
+            repoFullName: repo.full_name,
+            issueNumber: issue.number,
+            issueTitle: issue.title,
+            issueState: issue.state,
+          },
         });
       } else {
         await removeEvent('issue', issue.id);
@@ -197,9 +218,15 @@ async function syncCalendar() {
       if (releasesOn && rel.published_at && rel.published_at >= oneYearAgo) {
         await upsertEvent('release', rel.id, {
           title: `🚀 ${rel.name || rel.tag_name}`,
-          description: rel.tag_name,
+          description: buildReleaseDescription(rel),
           dateMs: rel.published_at,
           url: rel.html_url,
+          extraMetadata: {
+            repoFullName: repo.full_name,
+            tagName: rel.tag_name,
+            releaseName: rel.name || null,
+            publishedAt: rel.published_at,
+          },
         });
       } else {
         await removeEvent('release', rel.id);

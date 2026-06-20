@@ -3,6 +3,7 @@
   "tabs": {
     "general": "Général",
     "appearance": "Apparence",
+    "features": "Fonctionnalités",
     "ai": "IA",
     "transcription": "Transcription",
     "skills": "Compétences",
@@ -26,6 +27,10 @@
     "knowledge": "Connaissance",
     "extensions": "Extensions",
     "system": "Système"
+  },
+  "nav": {
+    "select_section": "Aller à la section",
+    "sidebar": "Navigation des paramètres"
   },
   "general": {
     "title": "Général",
@@ -98,6 +103,8 @@
     "subtitle": "Choisissez votre langue préférée pour l'interface.",
     "select_label": "Langue de l'interface",
     "select_desc": "La langue sélectionnée sera appliquée immédiatement.",
+    "selected_badge": "Actif",
+    "aria_selected": "{{name}} — sélectionné",
     "languages": {
       "en": "English",
       "es": "Español",
@@ -137,6 +144,13 @@
     "models_loading": "Chargement des modèles…",
     "models_error": "Impossible de charger les modèles. Vérifiez votre clé API et le réseau.",
     "provider": "Fournisseur",
+    "active_provider": "Actif",
+    "dome_card_hint": "Cloud géré — pas de clé API requise",
+    "provider_status_configured": "Clé API enregistrée",
+    "provider_status_needs_key": "Clé API requise",
+    "provider_legend_active": "Actif",
+    "provider_legend_configured": "Clé enregistrée",
+    "provider_legend_needs_key": "Clé manquante",
     "configuration": "Configuration",
     "web_search_section": "Recherche web",
     "recommended": "RECOMMANDÉ",
@@ -204,6 +218,8 @@
     "test_brave": "Tester la recherche web",
     "web_search": {
       "zero_config_banner": "Sans clés API, Dome utilise SearXNG + DuckDuckGo pour la recherche et Jina Reader pour lire les pages.",
+      "optional_keys": "Clés API optionnelles",
+      "keys_hint": "Tavily et Brave améliorent la qualité une fois configurés. Offres gratuites disponibles.",
       "search_provider": "Fournisseur de recherche",
       "fetch_provider": "Fournisseur de lecture",
       "tavily_key": "Clé API Tavily",

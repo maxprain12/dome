@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Search, Folder, X, MoreHorizontal, Trash2, Check } from 'lucide-react';
+import { ChevronDown, Search, Folder, FolderOpen, X, MoreHorizontal, Trash2, Check } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
 
@@ -82,7 +82,7 @@ export function TreeNode({
       <div
         className="flex items-center w-full relative rounded transition-colors"
         style={{
-          paddingLeft: 8 + depth * 14,
+          paddingLeft: 6 + depth * 16,
           paddingRight: 4,
           height: 28,
           background: rowBg,
@@ -135,10 +135,14 @@ export function TreeNode({
               : null}
           </span>
 
-          {/* Folder icon with color swatch */}
+          {/* Folder icon: closed when collapsed (or empty), open when expanded */}
           {isFolder ? (
             <span className="shrink-0 relative flex items-center justify-center">
-              <Folder className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
+              {isExpanded && hasChildren ? (
+                <FolderOpen className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
+              ) : (
+                <Folder className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
+              )}
             </span>
           ) : (
             <span className="shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
@@ -159,7 +163,7 @@ export function TreeNode({
               style={{ fontSize: 12, background: 'var(--dome-surface)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)', minWidth: 0 }}
             />
           ) : (
-            <span className="truncate flex-1" style={{ fontSize: 12, fontWeight: isFolder ? 500 : 400, color: isFolder ? folderColor : undefined }}>{node.name}</span>
+            <span className="truncate flex-1 dome-fs-tree-name" style={{ fontSize: 12, fontWeight: isFolder ? 500 : 400 }}>{node.name}</span>
           )}
         </button>
 
@@ -184,7 +188,7 @@ export function TreeNode({
       </div>
 
       {isExpanded && hasChildren && (
-        <div style={{ borderLeft: `1.5px solid ${folderColor}44`, marginLeft: 8 + depth * 14 + 7 }}>
+        <div style={{ borderLeft: '1px solid var(--dome-border)', marginLeft: 6 + depth * 16 + 7 }}>
           {node.children!.map((child) => (
             <TreeNode
               key={child.id}

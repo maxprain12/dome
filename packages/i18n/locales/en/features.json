@@ -1,0 +1,29 @@
+{
+  "title": "Features",
+  "subtitle": "Show or hide sections of Dome. Hidden sections can be turned back on here anytime.",
+  "current_role": "Profile",
+  "no_role": "None",
+  "reset_hint": "Reset visibility to your role's defaults.",
+  "reset_button": "Reset to role defaults",
+  "hidden_notice": "{{n}} hidden · Settings",
+  "hidden_notice_title": "You have hidden sections. Manage them in Settings → Features.",
+  "groups": {
+    "workspace": "Workspace",
+    "automation": "Agents & automation",
+    "study": "Learning",
+    "extensions": "Extensions"
+  },
+  "items": {
+    "projects": { "label": "Projects", "desc": "Organize work into projects." },
+    "calendar": { "label": "Calendar", "desc": "Events and scheduling." },
+    "email": { "label": "Email", "desc": "Read and send email from Dome." },
+    "tags": { "label": "Tags", "desc": "Browse resources by tag." },
+    "github": { "label": "GitHub", "desc": "Track milestones, issues and releases." },
+    "agents": { "label": "Agents", "desc": "AI agents that work with your resources." },
+    "workflows": { "label": "Workflows", "desc": "Multi-step agent workflows on a canvas." },
+    "automations": { "label": "Automations", "desc": "Triggered and scheduled automations." },
+    "runs": { "label": "Runs", "desc": "History of agent and automation runs." },
+    "learn": { "label": "Learn", "desc": "Flashcards, spaced repetition and quizzes." },
+    "marketplace": { "label": "Marketplace", "desc": "Agents, plugins and skills." }
+  }
+}

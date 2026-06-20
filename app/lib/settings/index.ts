@@ -76,6 +76,53 @@ export async function setOnboardingCompleted(completed: boolean): Promise<void> 
 }
 
 // ===========================
+// Role & Feature Visibility
+// ===========================
+
+/** Robustly parse a JSON object setting, returning {} on any failure. */
+function parseJsonRecord(raw: string | null | undefined): Record<string, boolean> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {};
+  } catch {
+    return {};
+  }
+}
+
+export async function getUserRole(): Promise<string | null> {
+  if (!db.isAvailable()) return null;
+  const result = await db.getSetting('user_role');
+  return result.data || null;
+}
+
+export async function setUserRole(roleId: string): Promise<void> {
+  await db.setSetting('user_role', roleId);
+}
+
+/** Map of featureKey → visible. A missing key means "visible" (default). */
+export async function getFeatureVisibility(): Promise<Record<string, boolean>> {
+  if (!db.isAvailable()) return {};
+  const result = await db.getSetting('feature_visibility');
+  return parseJsonRecord(result.data);
+}
+
+export async function setFeatureVisibility(map: Record<string, boolean>): Promise<void> {
+  await db.setSetting('feature_visibility', JSON.stringify(map));
+}
+
+/** Map of sectionKey → seen. Used by the per-section "How to use" cards. */
+export async function getDismissedTours(): Promise<Record<string, boolean>> {
+  if (!db.isAvailable()) return {};
+  const result = await db.getSetting('section_tours_dismissed');
+  return parseJsonRecord(result.data);
+}
+
+export async function setDismissedTours(map: Record<string, boolean>): Promise<void> {
+  await db.setSetting('section_tours_dismissed', JSON.stringify(map));
+}
+
+// ===========================
 // App Preferences Functions
 // ===========================
 

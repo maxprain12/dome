@@ -55,9 +55,9 @@ function isPptResource(resource) {
 }
 
 function getFullPathForResource(resource) {
-  if (!resource?.internal_path) return null;
-  const fullPath = fileStorage.getFullPath(resource.internal_path);
-  return fs.existsSync(fullPath) ? fullPath : null;
+  const vaultStore = require('../storage/vault-store.cjs');
+  const resolved = vaultStore.getResourceFilePath(resource, database.getQueries(), fileStorage);
+  return resolved && fs.existsSync(resolved) ? resolved : null;
 }
 
 function looksLikePythonPptScript(script) {

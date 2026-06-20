@@ -1,0 +1,29 @@
+{
+  "title": "Fonctionnalités",
+  "subtitle": "Affichez ou masquez des sections de Dome. Les sections masquées peuvent être réactivées ici à tout moment.",
+  "current_role": "Profil",
+  "no_role": "Aucun",
+  "reset_hint": "Réinitialiser la visibilité aux valeurs par défaut de votre profil.",
+  "reset_button": "Réinitialiser au profil",
+  "hidden_notice": "{{n}} masquées · Paramètres",
+  "hidden_notice_title": "Vous avez des sections masquées. Gérez-les dans Paramètres → Fonctionnalités.",
+  "groups": {
+    "workspace": "Espace de travail",
+    "automation": "Agents et automatisation",
+    "study": "Apprentissage",
+    "extensions": "Extensions"
+  },
+  "items": {
+    "projects": { "label": "Projets", "desc": "Organisez le travail en projets." },
+    "calendar": { "label": "Calendrier", "desc": "Événements et planification." },
+    "email": { "label": "E-mail", "desc": "Lisez et envoyez des e-mails depuis Dome." },
+    "tags": { "label": "Étiquettes", "desc": "Parcourez les ressources par étiquette." },
+    "github": { "label": "GitHub", "desc": "Suivez jalons, issues et releases." },
+    "agents": { "label": "Agents", "desc": "Agents IA qui travaillent avec vos ressources." },
+    "workflows": { "label": "Workflows", "desc": "Flux d'agents multi-étapes sur un canevas." },
+    "automations": { "label": "Automatisations", "desc": "Automatisations déclenchées ou programmées." },
+    "runs": { "label": "Exécutions", "desc": "Historique des exécutions d'agents et d'automatisations." },
+    "learn": { "label": "Apprendre", "desc": "Flashcards, répétition espacée et quiz." },
+    "marketplace": { "label": "Marketplace", "desc": "Agents, plugins et compétences." }
+  }
+}

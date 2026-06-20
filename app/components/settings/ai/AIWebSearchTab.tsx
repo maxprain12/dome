@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Search } from 'lucide-react';
+import { ChevronDown, Eye, EyeOff, Search } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCallout from '@/components/ui/DomeCallout';
-import DomeIconBox from '@/components/ui/DomeIconBox';
 import { DomeInput } from '@/components/ui/DomeInput';
+import { DomeSelect } from '@/components/ui/DomeSelect';
+import { cn } from '@/lib/utils';
 
 type WebSearchProvider = NonNullable<AISettings['web_search_provider']>;
 type WebFetchProvider = NonNullable<AISettings['web_fetch_provider']>;
@@ -23,6 +24,7 @@ export default function AIWebSearchTab() {
   const [braveKey, setBraveKey] = useState('');
   const [showTavilyKey, setShowTavilyKey] = useState(false);
   const [showBraveKey, setShowBraveKey] = useState(false);
+  const [showOptionalKeys, setShowOptionalKeys] = useState(false);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -34,6 +36,7 @@ export default function AIWebSearchTab() {
     setFetchProvider((config.web_fetch_provider as WebFetchProvider) || 'auto');
     setTavilyKey(config.web_search_tavily_key || '');
     setBraveKey(config.web_search_brave_key || '');
+    setShowOptionalKeys(Boolean(config.web_search_tavily_key || config.web_search_brave_key));
   }, []);
 
   useEffect(() => {
@@ -96,145 +99,129 @@ export default function AIWebSearchTab() {
   };
 
   return (
-    <div className="space-y-6">
-      <DomeCallout tone="info">{t('settings.ai.web_search.zero_config_banner')}</DomeCallout>
-
-      <div className="flex items-start gap-3">
-        <DomeIconBox size="md" background="var(--dome-accent-bg)">
-          <Search className="size-4" style={{ color: 'var(--dome-accent)' }} />
-        </DomeIconBox>
-        <div>
-          <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--dome-text)' }}>
-            {t('settings.ai.brave_search_title')}
-          </p>
-          <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.ai.brave_search_desc')}
-          </p>
-        </div>
-      </div>
+    <div className="min-w-0 w-full space-y-5">
+      <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
+        {t('settings.ai.web_search.zero_config_banner')}
+      </p>
 
       <DomeCard className="space-y-4">
-        <div>
-          <label
-            htmlFor="web-search-provider"
-            className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]"
-          >
-            {t('settings.ai.web_search.search_provider')}
-          </label>
-          <select
-            id="web-search-provider"
+        <div className="settings-field-grid settings-field-grid--2">
+          <DomeSelect
+            label={t('settings.ai.web_search.search_provider')}
             value={searchProvider}
             onChange={(e) => setSearchProvider(e.target.value as WebSearchProvider)}
-            className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--dome-surface)] text-[var(--dome-text)] border-[var(--dome-border)]"
           >
             {SEARCH_PROVIDERS.map((id) => (
               <option key={id} value={id}>
                 {t(`settings.ai.web_search.providers.${id}`)}
               </option>
             ))}
-          </select>
-        </div>
+          </DomeSelect>
 
-        <div>
-          <label
-            htmlFor="web-fetch-provider"
-            className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]"
-          >
-            {t('settings.ai.web_search.fetch_provider')}
-          </label>
-          <select
-            id="web-fetch-provider"
+          <DomeSelect
+            label={t('settings.ai.web_search.fetch_provider')}
             value={fetchProvider}
             onChange={(e) => setFetchProvider(e.target.value as WebFetchProvider)}
-            className="w-full rounded-lg border px-3 py-2 text-sm bg-[var(--dome-surface)] text-[var(--dome-text)] border-[var(--dome-border)]"
           >
             {FETCH_PROVIDERS.map((id) => (
               <option key={id} value={id}>
                 {t(`settings.ai.web_search.fetch_providers.${id}`)}
               </option>
             ))}
-          </select>
+          </DomeSelect>
         </div>
 
         <div>
-          <label
-            htmlFor="web-tavily-key"
-            className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]"
+          <DomeButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="!px-0 !text-[var(--dome-text-muted)] hover:!text-[var(--dome-text)]"
+            onClick={() => setShowOptionalKeys((v) => !v)}
+            rightIcon={
+              <ChevronDown
+                className={cn('size-3.5 transition-transform', showOptionalKeys && 'rotate-180')}
+                aria-hidden
+              />
+            }
           >
-            {t('settings.ai.web_search.tavily_key')}
-          </label>
-          <div className="relative w-full">
-            <DomeInput
-              id="web-tavily-key"
-              type={showTavilyKey ? 'text' : 'password'}
-              value={tavilyKey}
-              onChange={(e) => setTavilyKey(e.target.value)}
-              placeholder="tvly-..."
-              inputClassName="pr-10"
-              className="w-full [&_input]:pr-10"
-            />
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="xs"
-              iconOnly
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => setShowTavilyKey((v) => !v)}
-              aria-label={showTavilyKey ? 'Hide' : 'Show'}
-            >
-              {showTavilyKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-            </DomeButton>
-          </div>
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.ai.free_key_at')}{' '}
-            <a href="https://tavily.com" target="_blank" rel="noreferrer" className="underline">
-              tavily.com
-            </a>
-          </p>
+            {t('settings.ai.web_search.optional_keys')}
+          </DomeButton>
+
+          {showOptionalKeys ? (
+            <div className="mt-3 space-y-4 border-t border-[var(--dome-border)] pt-4">
+              <div>
+                <label htmlFor="web-tavily-key" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
+                  {t('settings.ai.web_search.tavily_key')}
+                </label>
+                <div className="relative w-full">
+                  <DomeInput
+                    id="web-tavily-key"
+                    type={showTavilyKey ? 'text' : 'password'}
+                    value={tavilyKey}
+                    onChange={(e) => setTavilyKey(e.target.value)}
+                    placeholder="tvly-..."
+                    inputClassName="pr-10"
+                    className="w-full [&_input]:pr-10"
+                  />
+                  <DomeButton
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    iconOnly
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                    onClick={() => setShowTavilyKey((v) => !v)}
+                    aria-label={showTavilyKey ? 'Hide' : 'Show'}
+                  >
+                    {showTavilyKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </DomeButton>
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="web-brave-key" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
+                  {t('settings.ai.brave_search_key_label')}
+                </label>
+                <div className="relative w-full">
+                  <DomeInput
+                    id="web-brave-key"
+                    type={showBraveKey ? 'text' : 'password'}
+                    value={braveKey}
+                    onChange={(e) => setBraveKey(e.target.value)}
+                    placeholder="BSA..."
+                    inputClassName="pr-10"
+                    className="w-full [&_input]:pr-10"
+                  />
+                  <DomeButton
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    iconOnly
+                    className="absolute right-1 top-1/2 -translate-y-1/2"
+                    onClick={() => setShowBraveKey((v) => !v)}
+                    aria-label={showBraveKey ? 'Hide' : 'Show'}
+                  >
+                    {showBraveKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  </DomeButton>
+                </div>
+              </div>
+              <p className="text-[11px] text-[var(--dome-text-muted)]">{t('settings.ai.web_search.keys_hint')}</p>
+            </div>
+          ) : null}
         </div>
 
-        <div>
-          <label
-            htmlFor="web-brave-key"
-            className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]"
-          >
-            {t('settings.ai.brave_search_key_label')}
-          </label>
-          <div className="relative w-full">
-            <DomeInput
-              id="web-brave-key"
-              type={showBraveKey ? 'text' : 'password'}
-              value={braveKey}
-              onChange={(e) => setBraveKey(e.target.value)}
-              placeholder="BSA..."
-              inputClassName="pr-10"
-              className="w-full [&_input]:pr-10"
-            />
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="xs"
-              iconOnly
-              className="absolute right-1 top-1/2 -translate-y-1/2"
-              onClick={() => setShowBraveKey((v) => !v)}
-              aria-label={showBraveKey ? 'Hide' : 'Show'}
-            >
-              {showBraveKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-            </DomeButton>
-          </div>
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.ai.free_key_at')}{' '}
-            <a href="https://brave.com/search/api/" target="_blank" rel="noreferrer" className="underline">
-              brave.com/search/api
-            </a>
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3 flex-wrap pt-1">
-          <DomeButton type="button" variant="primary" size="sm" onClick={() => void handleSave()} loading={saving}>
+        <div className="flex flex-wrap gap-2 pt-1">
+          <DomeButton type="button" variant="primary" size="md" onClick={() => void handleSave()} loading={saving}>
             {saved ? t('settings.ai.saved_config') : t('settings.ai.save_config')}
           </DomeButton>
-          <DomeButton type="button" variant="outline" size="sm" onClick={() => void handleTest()} loading={testing}>
+          <DomeButton
+            type="button"
+            variant="outline"
+            size="md"
+            onClick={() => void handleTest()}
+            loading={testing}
+            leftIcon={<Search className="size-4" aria-hidden />}
+          >
             {testing ? t('settings.ai.testing') : t('settings.ai.test_brave')}
           </DomeButton>
         </div>

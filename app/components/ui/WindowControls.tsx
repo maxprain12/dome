@@ -46,14 +46,14 @@ export default function WindowControls() {
 
   return (
     <div
-      className="absolute top-0 right-0 h-11 flex items-center no-drag"
-      style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
+      className="absolute top-0 right-0 flex items-center no-drag"
+      style={{ height: 'var(--dome-header-h, 40px)', WebkitAppRegion: 'no-drag' } as React.CSSProperties}
     >
       <button
         type="button"
         onClick={handleMinimize}
-        className="h-11 w-12 flex items-center justify-center transition-colors window-control-btn"
-        style={{ color: 'var(--dome-text)' }}
+        className="flex items-center justify-center transition-colors window-control-btn"
+        style={{ width: 46, height: 'var(--dome-header-h, 40px)', color: 'var(--dome-text)' }}
         aria-label="Minimizar"
       >
         <Minus className="size-4" strokeWidth={2.5} />
@@ -61,8 +61,8 @@ export default function WindowControls() {
       <button
         type="button"
         onClick={handleMaximizeToggle}
-        className="h-11 w-12 flex items-center justify-center transition-colors window-control-btn"
-        style={{ color: 'var(--dome-text)' }}
+        className="flex items-center justify-center transition-colors window-control-btn"
+        style={{ width: 46, height: 'var(--dome-header-h, 40px)', color: 'var(--dome-text)' }}
         aria-label="Maximizar"
       >
         <Square className="size-3.5" strokeWidth={2} fill="none" />
@@ -70,8 +70,8 @@ export default function WindowControls() {
       <button
         type="button"
         onClick={handleClose}
-        className="h-11 w-12 flex items-center justify-center transition-colors window-control-close"
-        style={{ color: 'var(--dome-text)' }}
+        className="flex items-center justify-center transition-colors window-control-close"
+        style={{ width: 46, height: 'var(--dome-header-h, 40px)', color: 'var(--dome-text)' }}
         aria-label="Cerrar"
       >
         <X className="size-4" strokeWidth={2.5} />

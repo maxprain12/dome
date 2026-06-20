@@ -1,0 +1,35 @@
+{
+  "got_it": "Got it",
+  "close": "Close",
+  "help_aria": "How to use this section",
+  "learn": {
+    "title": "Learn · How to use",
+    "step1": "Create a deck from any resource or note.",
+    "step2": "Study with spaced repetition to remember long-term.",
+    "step3": "Track your progress with the KPIs at the top."
+  },
+  "agents": {
+    "title": "Agents · How to use",
+    "step1": "Create an agent and describe what it should do.",
+    "step2": "Give it access to your resources and skills.",
+    "step3": "Chat with it or trigger it from an automation."
+  },
+  "automations": {
+    "title": "Automations · How to use",
+    "step1": "Pick a trigger: schedule, event or manual.",
+    "step2": "Choose the agent or action to run.",
+    "step3": "Check the Runs section to see results."
+  },
+  "github": {
+    "title": "GitHub · How to use",
+    "step1": "Connect a repository to sync issues and milestones.",
+    "step2": "Track work on the Kanban and Gantt views.",
+    "step3": "Changes sync back to GitHub automatically."
+  },
+  "calendar": {
+    "title": "Calendar · How to use",
+    "step1": "Connect a calendar or create events directly.",
+    "step2": "Link events to projects and resources.",
+    "step3": "Get reminders for what's coming up."
+  }
+}

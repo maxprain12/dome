@@ -22,7 +22,6 @@ import { getCopilotModels } from '@/lib/ai/catalogs/copilot';
 import TranscriptionSettingsSections, {
   type TranscriptionSettingsSectionsHandle,
 } from './TranscriptionSettingsSections';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
@@ -30,6 +29,7 @@ import DomeCallout from '@/components/ui/DomeCallout';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools';
 
@@ -348,26 +348,28 @@ export default function AISettingsPanel() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title={t('settings.ai.title')}
         subtitle={t('settings.ai.subtitle')}
       />
 
-      <DomeSegmentedControl
-        className="w-full !flex"
-        size="sm"
-        aria-label={t('settings.ai.title')}
-        value={activeTab}
-        onChange={(v) => setActiveTab(v as AISettingsTab)}
-        options={[
-          { value: 'chat', label: t('settings.ai.tab_chat'), icon: <MessageSquare className="size-3.5" /> },
-          { value: 'embeddings', label: t('settings.ai.tab_embeddings'), icon: <Layers className="size-3.5" /> },
-          { value: 'transcription', label: t('settings.ai.tab_transcription'), icon: <Mic className="size-3.5" /> },
-          { value: 'tools', label: t('settings.ai.tab_tools'), icon: <Search className="size-3.5" /> },
-        ]}
-      />
+      <div className="settings-segmented min-w-0 w-full">
+        <DomeSegmentedControl
+          className="w-full !flex"
+          size="sm"
+          aria-label={t('settings.ai.title')}
+          value={activeTab}
+          onChange={(v) => setActiveTab(v as AISettingsTab)}
+          options={[
+            { value: 'chat', label: t('settings.ai.tab_chat'), icon: <MessageSquare className="size-3.5" /> },
+            { value: 'embeddings', label: t('settings.ai.tab_embeddings'), icon: <Layers className="size-3.5" /> },
+            { value: 'transcription', label: t('settings.ai.tab_transcription'), icon: <Mic className="size-3.5" /> },
+            { value: 'tools', label: t('settings.ai.tab_tools'), icon: <Search className="size-3.5" /> },
+          ]}
+        />
+      </div>
 
       {activeTab === 'chat' ? (
       <>
@@ -378,7 +380,7 @@ export default function AISettingsPanel() {
       />
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.configuration')}</DomeSectionLabel>
+        <p className="mb-3 text-sm font-medium text-[var(--dome-text)]">{t('settings.ai.configuration')}</p>
 
         {isCloudAIProvider(provider) && (
           <AICloudProviderConfig
@@ -603,6 +605,6 @@ export default function AISettingsPanel() {
           ) : null}
         </>
       ) : null}
-    </div>
+    </SettingsPanel>
   );
 }

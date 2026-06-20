@@ -57,6 +57,7 @@ export default function ProjectsDashboard({
   const [creating, setCreating] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDescription, setNewProjectDescription] = useState('');
+  const [newProjectVaultRoot, setNewProjectVaultRoot] = useState('');
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Single delete
@@ -256,8 +257,15 @@ export default function ProjectsDashboard({
     try {
       const result = await db.createProject({ name, description: newProjectDescription.trim() || undefined });
       if (!result.success || !result.data) throw new Error(result.error || t('projects.create_error'));
+      // Optional: point the new project at a custom Markdown vault folder.
+      if (newProjectVaultRoot.trim()) {
+        try {
+          await window.electron?.db?.projects?.setVaultRoot?.({ projectId: result.data.id, vaultRoot: newProjectVaultRoot.trim() });
+        } catch { /* non-fatal */ }
+      }
       setNewProjectName('');
       setNewProjectDescription('');
+      setNewProjectVaultRoot('');
       setShowCreateForm(false);
       onSelectProject(result.data);
       showToast('success', t('projects.created'));
@@ -267,7 +275,7 @@ export default function ProjectsDashboard({
     } finally {
       setCreating(false);
     }
-  }, [loadProjects, newProjectDescription, newProjectName, onSelectProject, t]);
+  }, [loadProjects, newProjectDescription, newProjectName, newProjectVaultRoot, onSelectProject, t]);
 
   // ── Selection helpers ──────────────────────────────────────────────────────
   const toggleSelect = useCallback((id: string) => {
@@ -383,6 +391,34 @@ export default function ProjectsDashboard({
                   className="p-projects-field p-projects-field-area"
                   style={{ marginTop: 10 }}
                 />
+                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="h-pill-btn"
+                    onClick={async () => {
+                      const dir = await window.electron?.selectFolder?.();
+                      if (dir) setNewProjectVaultRoot(dir);
+                    }}
+                  >
+                    {t('projects.choose_vault_folder', 'Vault folder…')}
+                  </button>
+                  <span
+                    style={{ fontSize: 12, color: 'var(--tertiary-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                    title={newProjectVaultRoot || undefined}
+                  >
+                    {newProjectVaultRoot || t('projects.vault_default_hint', 'Default (inside Dome)')}
+                  </span>
+                  {newProjectVaultRoot ? (
+                    <button
+                      type="button"
+                      className="h-pill-btn"
+                      onClick={() => setNewProjectVaultRoot('')}
+                      title={t('common.clear', 'Clear')}
+                    >
+                      ×
+                    </button>
+                  ) : null}
+                </div>
                 <div className="p-projects-create-actions">
                   <button
                     type="button"

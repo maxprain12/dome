@@ -11,6 +11,7 @@ import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeListState from '@/components/ui/DomeListState';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 import DomeBadge from '@/components/ui/DomeBadge';
 
 export default function PluginsSettings() {
@@ -69,7 +70,7 @@ export default function PluginsSettings() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title="Plugins"
@@ -98,7 +99,7 @@ export default function PluginsSettings() {
           <div className="space-y-2">
             {plugins.map((p) => (
               <DomeCard key={p.id} className="px-4 py-3">
-                <div className="flex items-center justify-between gap-4">
+                <div className="settings-split-row gap-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 mb-0.5">
                       <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>{p.name}</span>
@@ -169,6 +170,6 @@ export default function PluginsSettings() {
           onClose={() => setRuntimePlugin(null)}
         />
       )}
-    </div>
+    </SettingsPanel>
   );
 }

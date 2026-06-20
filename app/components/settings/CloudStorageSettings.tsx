@@ -10,6 +10,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeBadge from '@/components/ui/DomeBadge';
 import DomeListState from '@/components/ui/DomeListState';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 const DOME_GREEN = 'var(--dome-accent)';
 const DOME_GREEN_LIGHT = 'color-mix(in srgb, var(--success) 20%, transparent)';
@@ -108,7 +109,7 @@ export default function CloudStorageSettings() {
   const googleConnected = accounts.some((a) => a.provider === 'google');
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title="Cloud Storage"
@@ -186,6 +187,6 @@ export default function CloudStorageSettings() {
           </div>
         </DomeButton>
       </div>
-    </div>
+    </SettingsPanel>
   );
 }
