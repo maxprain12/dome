@@ -5,7 +5,7 @@
 
 ## Problema
 
-Todas las credenciales se guardan en **plaintext** en la tabla `settings` de SQLite (`dome.db` en userData):
+Todas las credenciales se guardan en **plaintext** en la tabla `settings` de DuckDB (`dome.duckdb` en userData):
 
 - `electron/ai/openai-key.cjs:16-46` — `openai_api_key`, `transcription_openai_api_key`
 - `electron/ai/ai-settings.cjs:29-69` — `ai_api_key` (clave del proveedor activo: OpenAI/Anthropic/Google), `ollama_api_key`
@@ -25,7 +25,7 @@ Cualquier proceso o malware con acceso de lectura al perfil del usuario obtiene 
 
 ## Criterios de aceptación
 
-- [ ] `sqlite3 dome.db "SELECT value FROM settings WHERE key LIKE '%api_key%'"` muestra valores `enc:v1:…`, no claves legibles.
+- [ ] `duckdb dome.duckdb "SELECT value FROM settings WHERE key LIKE '%api_key%'"` muestra valores `enc:v1:…`, no claves legibles.
 - [ ] El refresh token de Dome OAuth se guarda cifrado.
 - [ ] Tras actualizar desde una instalación con claves legacy, todo sigue funcionando y los valores quedan re-cifrados al primer uso.
 - [ ] Ningún canal IPC expone la clave completa al renderer.

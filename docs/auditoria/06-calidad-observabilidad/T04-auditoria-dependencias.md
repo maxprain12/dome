@@ -11,7 +11,7 @@ No hay ningún mecanismo automático de detección de vulnerabilidades en depend
 - `pptx-preview@^1.0.7` — parser de PPTX, poco mantenido
 - `linkedom@^0.18.12` — DOM en Node para HTML scrapeado (posible sink XSS)
 
-(Las versiones core están razonables: Electron 41, electron-updater 6.7, better-sqlite3 12.6.)
+(Las versiones core están razonables: Electron 41, electron-updater 6.7, `@duckdb/node-api` 1.5.4-r.1 + bindings nativos.)
 
 ## Qué hay que hacer
 

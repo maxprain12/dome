@@ -14,14 +14,14 @@ Auditoría de consistencia de componentes, accesibilidad, navegación del shell 
 
 | Tarea | Prioridad | Esfuerzo | Estado |
 |-------|-----------|----------|--------|
-| [T01 — Consolidar modales en DomeModal](T01-consolidar-modales.md) | P1 | L | ⬜ Pendiente |
-| [T02 — Refactor de componentes gigantes](T02-refactor-componentes-gigantes.md) | P1 | L | ⬜ Pendiente |
-| [T03 — Accesibilidad (aria, roles, focus)](T03-accesibilidad.md) | P2 | M | ⬜ Pendiente |
+| [T01 — Consolidar modales en DomeModal](T01-consolidar-modales.md) | P1 | L | ✅ Implementado |
+| [T02 — Refactor de componentes gigantes](T02-refactor-componentes-gigantes.md) | P1 | L | ✅ Implementado |
+| [T03 — Accesibilidad (aria, roles, focus)](T03-accesibilidad.md) | P2 | M | ✅ Implementado |
 | [T04 — Navegación por teclado en el shell](T04-navegacion-teclado-shell.md) | P2 | M | ✅ Implementada |
-| [T05 — Unificar botones (Mantine → DomeButton)](T05-unificar-botones.md) | P2 | M | ⬜ Pendiente |
-| [T06 — Responsive y ventanas pequeñas](T06-responsive.md) | P3 | M | ⬜ Pendiente |
+| [T05 — Unificar botones (Mantine → DomeButton)](T05-unificar-botones.md) | P2 | M | ✅ Implementado |
+| [T06 — Responsive y ventanas pequeñas](T06-responsive.md) | P3 | M | ✅ Implementado |
 
-> **Validación 2026-06-10**: T04 implementada — tablist WAI-ARIA con roving tabindex y flechas, Ctrl+Tab, Cmd/Ctrl+W (cierra tab), Cmd/Ctrl+1..9, scrollIntoView de la tab activa; en Win/Linux el cierre de ventana pasó a Ctrl+Shift+W. T01/T02 (modales y componentes gigantes) son refactors multi-PR pendientes — hacerlos por feature con los tests ya disponibles.
+> **Validación 2026-06-10**: T01 implementada en 3 fases (DomeModal base + ad-hoc + los 6 Mantine → 0 `Modal` de Mantine). T02 — 5 gigantes troceados (ChatToolCard, FolderTabView, RunsWorkspaceView, AutomationsWorkspaceView, UnifiedSidebar) + ManyPanel Fase A. T03 — `eslint-plugin-jsx-a11y` en error, 0 hallazgos. T04 — tablist WAI-ARIA con roving tabindex y flechas, Ctrl+Tab, Cmd/Ctrl+W (cierra tab), Cmd/Ctrl+1..9. T05 — 6 Mantine `Button` → `DomeButton` + regla ESLint. T06 — suelo 800×600, sidebar cede ancho bajo 980px.
 
 ## Lo que ya está bien
 

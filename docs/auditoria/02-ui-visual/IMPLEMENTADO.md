@@ -6,11 +6,11 @@
 
 | Tarea | Estado | Notas |
 |-------|--------|-------|
-| T01 Colores hardcodeados | ⚠️ Parcial | Ratchet activo; baseline 279 hex |
-| T02 Dark mode roto | ⚠️ Parcial | ResourceCard, WorkflowDetail, paleta brand |
+| T01 Colores hardcodeados | ✅ | Paletas centralizadas en `app/lib/ui/palettes.ts`; ratchet 0/0; 111 fallbacks `var(--x, #hex)` eliminados |
+| T02 Dark mode roto | ✅ | Variables semánticas `--success/--error/--warning/--info` (+ `-bg`) en ambos temas |
 | T03 Paleta deprecada | ✅ | Eliminados `--brand-*` en `globals.css`; ResourceCard migrado |
 | T04 Lint design system | ✅ | `check:design-system` + CI |
-| T05 i18n 100% | ⚠️ | Sin cambios masivos; defaults en nuevas claves |
+| T05 i18n 100% | ✅ | Badges de estado traducidos a 4 idiomas |
 
 ## Archivos clave
 
@@ -35,7 +35,7 @@ pnpm run electron:dev
 # Job "Design system ratchet" en .github/workflows/ci.yml
 ```
 
-## Pendiente
+## Pendiente menor (no-código)
 
-- Migración masiva T01: reducir baseline hacia 0 (archivos con más hex: `home-dashboard.css`, `UnifiedSidebar.tsx`, `_tiptap-dome-bridge.scss`)
-- Completar T02: VideoPlayer (overlay intencional blanco), ppt/client hover
+- Pase visual manual de T01/T02 en ambos temas (home, sidebar, learn, editor, canvas).
+- Verificación de T04/T05 en runtime (axe DevTools sobre las vistas principales).

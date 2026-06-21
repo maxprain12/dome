@@ -7,7 +7,7 @@
 
 `electron/core/database.cjs` tiene **4.978 líneas** mezclando tres cosas:
 
-1. Creación de schema (tablas, índices, FTS5, triggers).
+1. Creación de schema (tablas, índices, triggers, índices FTS vía `PRAGMA create_fts_index`).
 2. 23+ migraciones inline (la mayor parte del archivo).
 3. Prepared statements / queries (`getQueries()`).
 

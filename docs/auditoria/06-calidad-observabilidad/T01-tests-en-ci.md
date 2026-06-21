@@ -13,7 +13,7 @@
 2. **Job de CI**: añadir `test` al workflow (mismo setup de pnpm/node que los jobs existentes), bloqueante para merge. Cachear como los demás jobs.
 3. **Contenido inicial del gate** (mínimo viable, crece con las otras áreas):
    - Suite de `@dome/agent-core` ([04/T01](../04-harness-agentes/T01-tests-agent-core.md)).
-   - Tests de migraciones DB ([05/T01](../05-datos-rendimiento/T01-migraciones-transaccionales.md)) — corren con better-sqlite3 en Node, sin Electron.
+   - Tests de migraciones DB ([05/T01](../05-datos-rendimiento/T01-migraciones-transaccionales.md)) — corren con DuckDB en Node, sin Electron.
    - Funciones puras ya testeables: `topologicalLevels`, `sanitizePath`, policy de shell ([01/T06](../01-seguridad/T06-shell-exec-hardening.md)), guard de URLs ([01/T07](../01-seguridad/T07-ssrf-bloqueo-ips.md)).
 4. **Renderer** (segunda fase): vitest + @testing-library/react para hooks/stores extraídos en los refactors de [03/T02](../03-ux-componentes/T02-refactor-componentes-gigantes.md). No intentar testear componentes gigantes antes de trocearlos.
 5. **E2E** (tercera fase, opcional): un smoke con Playwright + electron (`_electron.launch`) que arranque la app, cree una nota y la lea — detecta roturas de empaquetado/preload que nada más detecta. Correrlo en CI solo en release branches si es lento.

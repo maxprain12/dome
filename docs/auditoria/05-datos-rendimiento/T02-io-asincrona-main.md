@@ -32,4 +32,4 @@ Con un PPTX/Excel de >50MB o un árbol de directorios grande, el lag es percepti
 ## Riesgos / notas
 
 - Cambiar sync→async puede alterar el orden de ejecución dentro de un handler: revisar que no haya estado compartido entre llamadas que dependiera de la atomicidad implícita del sync.
-- better-sqlite3 es síncrono por diseño y está bien así (queries locales son µs); esta tarea es de filesystem, no de DB.
+- el motor principal de DB (DuckDB) es async; la justificación de I/O no-DB sigue aplicando (queries locales son µs); esta tarea es de filesystem, no de DB.

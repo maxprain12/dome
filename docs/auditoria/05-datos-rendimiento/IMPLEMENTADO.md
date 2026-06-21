@@ -8,7 +8,7 @@
 |-------|--------|-------|
 | T01 Migraciones + backup | ✅ | Backup con checkpoint WAL + restore automático si falla una migración (transacciones por migración descartadas: los toggles de `PRAGMA foreign_keys` son no-op dentro de transacciones) |
 | T02 I/O async main | ✅ | `buildFileTree`, PPT y Excel export migrados a `fs.promises` |
-| T03 Modularizar database.cjs | ⏳ Pendiente | Refactor L, hacer post-merge |
+| T03 Modularizar database.cjs | ✅ | 3 fases: `db/queries.cjs` + `db/migrations.cjs` + `db/schema.cjs`; `database.cjs` ~5.000→657 líneas |
 | T04 Queries startup + retención | ✅ | LIMITs auditados; caché TTL 30s del id-set de workflow runs; retención en `run-retention.cjs` |
 
 ## Archivos clave
@@ -25,7 +25,7 @@
 pnpm run test:security   # incluye migration-backup (4) y run-retention (5)
 
 # Backup real: usar DB con schema viejo → arrancar app
-ls ~/Library/Application\ Support/dome/dome.db.backup-*
+ls ~/Library/Application\ Support/dome/dome.duckdb.backup-*
 
 # Retención: setear runs_retention_days=1 en settings, crear runs antiguos → arrancar app
 # Los runs terminales >1 día desaparecen de la Runs UI; los workflow JSONL no reaparecen en Many

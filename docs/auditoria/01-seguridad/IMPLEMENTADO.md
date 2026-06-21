@@ -39,7 +39,7 @@ grep -n "executeJavaScript" electron/documents/ppt-slide-extractor.cjs  # → 0
 pnpm run test:security
 
 # Secretos cifrados (tras usar la app y guardar una API key)
-sqlite3 ~/Library/Application\ Support/dome/dome.db \
+duckdb ~/Library/Application\ Support/dome/dome.duckdb \
   "SELECT key, substr(value,1,12) FROM settings WHERE key LIKE '%api_key%';"
 # Esperado: valores empiezan por enc:v1:
 

@@ -22,7 +22,7 @@ Riesgos detectados:
 | [T02 — Timeout configurable por tool](T02-timeout-global-tools.md) | P1 | S | ✅ Implementada |
 | [T03 — Ampliar HITL y caps de tools](T03-ampliar-hitl-y-caps.md) | P1 | M | ✅ Implementada |
 | [T04 — Cleanup de activeRunContexts](T04-cleanup-run-contexts.md) | P2 | S | ✅ Implementada |
-| [T05 — Modularizar run-engine.cjs](T05-modularizar-run-engine.md) | P2 | L | ⬜ Pendiente |
+| [T05 — Modularizar run-engine.cjs](T05-modularizar-run-engine.md) | P2 | L | ✅ Implementado |
 
 > **Validación 2026-06-10**: T01 — suite real con mock de modelo: 20 tests del agent loop + 8 de compaction + 7 de skills (41 en total, en CI). T02 (timeout 120s + overrides), T03 (cap global 200/run, cap default 50/tool, umbral HITL para `resource_update`, con 8 tests de policy) y T04 (`releaseRunContext`) implementadas. Solo queda T05, el refactor multi-PR del run-engine — ahora con red de tests.
 >

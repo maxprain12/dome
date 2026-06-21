@@ -8,7 +8,7 @@
 |-------|--------|-------|
 | T01 Tests en CI | ✅ | `pnpm run test` + jobs CI |
 | T02 Logging estructurado | ✅ | `electron/core/logger.cjs` JSON con archivo+rotación+masking (4 tests) |
-| T03 Errores visibles usuario | ⏳ Pendiente | |
+| T03 Errores visibles usuario | ✅ | `electron/core/error-notify.cjs` (log + broadcast `system:error-notification`, throttle 1/min/scope); clasificador con i18n 4 idiomas; conectado a `run-engine.cjs` y `automation-service.cjs` (4 tests) |
 | T04 Auditoría dependencias | ✅ | `pnpm audit --prod` en CI + `renovate.json` + política Electron en `.claude/sops/release.md` |
 
 ## Archivos clave

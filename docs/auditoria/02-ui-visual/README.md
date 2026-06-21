@@ -14,13 +14,13 @@ Auditoría de consistencia visual: cumplimiento del design system (`.claude/rule
 
 | Tarea | Prioridad | Esfuerzo | Estado |
 |-------|-----------|----------|--------|
-| [T01 — Migrar colores hardcodeados a variables CSS](T01-colores-hardcodeados.md) | P1 | L | ⬜ Pendiente |
+| [T01 — Migrar colores hardcodeados a variables CSS](T01-colores-hardcodeados.md) | P1 | L | ✅ Implementado |
 | [T02 — Arreglar dark mode roto](T02-dark-mode-roto.md) | P1 | S | ✅ Implementada |
 | [T03 — Eliminar paleta deprecada y alinear docs](T03-paleta-deprecada.md) | P2 | S | ✅ Implementada |
 | [T04 — Regla de lint del design system](T04-lint-design-system.md) | P2 | S | ✅ Implementada |
 | [T05 — Cobertura i18n al 100%](T05-i18n-restante.md) | P3 | S | ✅ Implementada |
 
-> **Validación 2026-06-10**: T02–T05 implementadas (dark mode con variables semánticas, `--brand-*` eliminado + docs alineadas, ratchet de colores en CI, badges de estado traducidos a 4 idiomas). Solo queda T01 — la migración por lotes de los 279 hex del baseline.
+> **Validación 2026-06-10**: T01–T05 implementadas (paletas centralizadas en `app/lib/ui/palettes.ts`, dark mode con variables semánticas, `--brand-*` eliminado + docs alineadas, ratchet de colores en CI, badges de estado traducidos a 4 idiomas).
 
 ## Lo que ya está bien
 

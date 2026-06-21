@@ -6,11 +6,11 @@
 
 | Tarea | Estado | Notas |
 |-------|--------|-------|
-| T01 Tests agent-core | ⚠️ Parcial | Vitest + exports/types (6 tests) |
+| T01 Tests agent-core | ✅ | Vitest con mock de modelo: 18 loop + 8 compaction + 7 skills = **39 tests** en `packages/agent-core/test/` |
 | T02 Timeout por tool | ✅ | `tool-dispatcher.cjs` Promise.race, default 120s |
-| T03 Ampliar HITL/caps | ⏳ Pendiente | Sin cambios en caps |
+| T03 Ampliar HITL/caps | ✅ | Cap global 200/run + cap default 50/tool + umbral HITL para `resource_update`/`artifact_merge_data` (8 tests) |
 | T04 Cleanup run contexts | ✅ | `releaseRunContext()` + scrub apiKey |
-| T05 Modularizar run-engine | ⏳ Pendiente | Monolito intacto |
+| T05 Modularizar run-engine | ✅ | Fase 2: `workflow-dag`/`store`/`executor`/`lifecycle`/`helpers`; 2.317→1.310 líneas (13 tests) |
 
 ## Archivos clave
 

@@ -31,18 +31,18 @@ Smoke manual recomendado (requiere entorno gráfico; no automatizable en CI head
 | [02 UI Visual](02-ui-visual/IMPLEMENTADO.md) | T01–T05 ✅ | 100% |
 | [03 UX Componentes](03-ux-componentes/IMPLEMENTADO.md) | T01–T06 ✅ | 100% |
 | [04 Harness](04-harness-agentes/IMPLEMENTADO.md) | T01–T05 ✅ | 100% |
-| [05 Datos/Rendimiento](05-datos-rendimiento/IMPLEMENTADO.md) | T01–T04 ✅ | 100% |
-| [06 Calidad/Obs](06-calidad-observabilidad/IMPLEMENTADO.md) | T01–T02, T04 ✅, T03 ✅ | 100% |
+| [05 Datos/Rendimiento](05-datos-rendimiento/IMPLEMENTADO.md) | T01–T05 ✅ | 100% |
+| [06 Calidad/Obs](06-calidad-observabilidad/IMPLEMENTADO.md) | T01–T04 ✅ | 100% |
 
 ## Leyenda
 
 - ✅ Implementado según criterios de aceptación
 - ⚠️ Parcial — base lista, falta migración/refactor grande
-- ⏳ Pendiente — no abordado en esta rama
+- ⬜ Pendiente — no abordado en esta rama
 
 ## Estado final (2026-06-13)
 
-**33/34 tareas en `main`.** Lo único pendiente (no abordable sin ejecutar la app / acción del owner):
+**34/34 tareas en `main`.** Lo único pendiente (no abordable sin ejecutar la app / acción del owner):
 
 1. **Smoke tests manuales** — checklists por PR (`pnpm run electron:dev`): provider keys, modales, refactors de hub/sidebar, DB nueva/HEAD/vieja migrando.
 3. **Renovate** — `renovate.json` ya en la raíz; habilitar la app en GitHub (Settings → Integrations) es acción del owner.

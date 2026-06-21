@@ -19,7 +19,7 @@ Tras v2.5.x, en Windows Dome puede quedar en "Cargando..." con ~6–7 GB RAM al 
 
 ```bash
 node scripts/windows-startup-diag.mjs
-node scripts/windows-startup-diag.mjs --db "%APPDATA%\dome\dome.db"
+node scripts/windows-startup-diag.mjs --db "%APPDATA%\dome\dome.duckdb"
 ```
 
 Consultas útiles:
@@ -35,7 +35,7 @@ SELECT id, title, schedule_json FROM automation_definitions WHERE enabled = 1;
 
 - Backups automáticos: [`electron/core/db-backup.cjs`](electron/core/db-backup.cjs) + scheduler cada 6 h / startup / quit.
 - Detección: `preflightRestoreIfCorrupt()` + `quick_check` tras init.
-- Restauración: `restoreFromLatestBackup()` unifica `dome.db.auto-*` y `dome.db.backup-v*`.
+- Restauración: `restoreFromLatestBackup()` unifica `dome.duckdb.auto-*` y `dome.duckdb.backup-v*`.
 
 Ver CHANGELOG unreleased.
 

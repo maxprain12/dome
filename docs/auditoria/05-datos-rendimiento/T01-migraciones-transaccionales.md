@@ -13,12 +13,12 @@ db.exec('ALTER TABLE resources_new RENAME TO resources');
 // si el proceso muere entre estas dos líneas → tabla resources perdida
 ```
 
-Un crash, un cierre forzado o un error de SQL a mitad de migración deja `dome.db` en estado inconsistente con el `schema_version` desfasado, y **no hay backup automático** previo. Es la base de datos con todas las notas del usuario.
+Un crash, un cierre forzado o un error de SQL a mitad de migración deja `dome.duckdb` en estado inconsistente con el `schema_version` desfasado, y **no hay backup automático** previo. Es la base de datos con todas las notas del usuario.
 
 ## Qué hay que hacer
 
-1. **Backup antes de migrar**: si `schema_version` actual < objetivo, copiar `dome.db` a `dome.db.backup-v{N}-{timestamp}` con `db.backup()` de better-sqlite3 (consistente incluso con WAL) antes de tocar nada. Conservar los últimos 3 backups, borrar los anteriores.
-2. **Envolver cada migración en transacción**: better-sqlite3 ofrece `db.transaction(fn)`. Refactor del runner:
+1. **Backup antes de migrar**: si `schema_version` actual < objetivo, copiar `dome.duckdb` a `dome.duckdb.backup-v{N}-{timestamp}` vía `electron/core/db-backup.cjs` antes de tocar nada. Conservar los últimos 3 backups, borrar los anteriores.
+2. **Envolver cada migración en transacción**: DuckDB expone `await db.transaction(async (tx) => …)` en `electron/core/db/duckdb.cjs`. Refactor del runner:
    ```js
    const runMigration = db.transaction((migration) => {
      migration.up(db);
@@ -39,6 +39,6 @@ Un crash, un cierre forzado o un error de SQL a mitad de migración deja `dome.d
 
 ## Riesgos / notas
 
-- Migraciones que recrean tablas con FTS5 pueden tener matices transaccionales — probar con una copia de DB real grande.
+- Migraciones que recrean índices FTS (vía `PRAGMA create_fts_index` con `overwrite=1`) pueden tener matices transaccionales — probar con una copia de DB real grande.
 - El backup añade latencia de arranque solo cuando hay migración pendiente (aceptable).
 - Coordinar con [T03](T03-modularizar-database.md): primero esto, luego mover archivos.
