@@ -64,7 +64,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -86,11 +86,11 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
       // Update resource with thumbnail
       if (thumbnailData) {
-        queries.updateResourceThumbnail.run(thumbnailData, Date.now(), resourceId);
+        await queries.updateResourceThumbnail.run(thumbnailData, Date.now(), resourceId);
 
         // Update internal_path if needed
         if (finalInternalPath && !resource.internal_path) {
-          queries.updateResourceFile.run(
+          await queries.updateResourceFile.run(
             finalInternalPath,
             'image/png',
             Buffer.from(screenshotBase64 || '', 'base64').length,
@@ -120,7 +120,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -139,7 +139,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
       // Update processing status
       metadata.processing_status = 'processing';
-      queries.updateResource.run(
+      await queries.updateResource.run(
         resource.title,
         resource.content,
         JSON.stringify(metadata),
@@ -170,9 +170,9 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
           );
 
           const now = Date.now();
-          queries.updateResourceThumbnail.run(thumbnailResult.thumbnail.dataUrl, now, resourceId);
+          await queries.updateResourceThumbnail.run(thumbnailResult.thumbnail.dataUrl, now, resourceId);
           // Register internal_path so orphan cleanup keeps the screenshot
-          queries.updateResourceFile.run(
+          await queries.updateResourceFile.run(
             saved.internalPath,
             'image/jpeg',
             screenshotBuffer.length,
@@ -210,9 +210,9 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
             const dataUrl = `data:${mime};base64,${scrapeResult.screenshot}`;
             const now = Date.now();
-            queries.updateResourceThumbnail.run(dataUrl, now, resourceId);
+            await queries.updateResourceThumbnail.run(dataUrl, now, resourceId);
             // Register internal_path so orphan cleanup keeps the screenshot
-            queries.updateResourceFile.run(
+            await queries.updateResourceFile.run(
               saved.internalPath,
               mime,
               screenshotBuffer.length,
@@ -231,7 +231,7 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
 
           // Update title and content (broadcast without thumbnail_data - viewer will re-fetch)
           if (scrapeResult.title) {
-            queries.updateResource.run(
+            await queries.updateResource.run(
               scrapeResult.title,
               resource.content,
               JSON.stringify(metadata),
@@ -266,8 +266,8 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
       metadata.processing_status = processingFailed ? 'failed' : 'completed';
       metadata.processed_at = Date.now();
 
-      const currentResource = queries.getResourceById.get(resourceId);
-      queries.updateResource.run(
+      const currentResource = await queries.getResourceById.get(resourceId);
+      await queries.updateResource.run(
         currentResource?.title ?? resource.title,
         resource.content,
         JSON.stringify(metadata),
@@ -292,11 +292,11 @@ function register({ ipcMain, windowManager, database, fileStorage, webScraper, y
       // Update status to failed
       try {
         const queries = database.getQueries();
-        const resource = queries.getResourceById.get(resourceId);
+        const resource = await queries.getResourceById.get(resourceId);
         if (resource) {
           const metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
           metadata.processing_status = 'failed';
-          queries.updateResource.run(
+          await queries.updateResource.run(
             resource.title,
             resource.content,
             JSON.stringify(metadata),

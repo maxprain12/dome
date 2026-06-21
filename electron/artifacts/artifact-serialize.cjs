@@ -21,10 +21,10 @@ function parseJsonState(raw) {
 /**
  * Merge persisted JSON state + default runtime slot (iframe / automation payload).
  */
-function mergeRuntimeIntoState(queries, artifactRow, baseState) {
+async function mergeRuntimeIntoState(queries, artifactRow, baseState) {
   const merged = /** @type {Record<string, unknown>} */ ({ ...baseState });
   if (!queries?.getArtifactRuntimeDataByArtifactSlot?.get || !artifactRow?.id) return merged;
-  const rt = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
+  const rt = await queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
   if (!rt?.data_json) return merged;
   let runtimeData = {};
   try {
@@ -49,17 +49,17 @@ function mergeRuntimeIntoState(queries, artifactRow, baseState) {
 /**
  * Canonical merged state blob for FTS / indexing.
  */
-function getResolvedStateForArtifactRow(queries, artifactRow) {
+async function getResolvedStateForArtifactRow(queries, artifactRow) {
   const base = parseJsonState(artifactRow?.state ?? '{}');
   return mergeRuntimeIntoState(queries, artifactRow, base);
 }
 
 /**
- * Map SQLite rows → renderer ArtifactRecord ({@link ArtifactRecord} in app/types/index.ts`).
+ * Map rows → renderer ArtifactRecord ({@link ArtifactRecord} in app/types/index.ts`).
  */
-function serializeArtifactRecord(artifactRow, resourceRow, queries) {
+async function serializeArtifactRecord(artifactRow, resourceRow, queries) {
   if (!artifactRow || !resourceRow) return null;
-  const state = queries ? mergeRuntimeIntoState(queries, artifactRow, parseJsonState(artifactRow.state)) : parseJsonState(artifactRow.state);
+  const state = queries ? await mergeRuntimeIntoState(queries, artifactRow, parseJsonState(artifactRow.state)) : parseJsonState(artifactRow.state);
   return {
     id: artifactRow.id,
     resourceId: artifactRow.resource_id,

@@ -152,11 +152,11 @@ function loadAccounts(database) {
   }
 }
 
-function saveAccounts(database, accounts) {
+async function saveAccounts(database, accounts) {
   try {
     const queries = database.getQueries();
     const json = JSON.stringify(accounts);
-    queries.setSetting.run('cloud_accounts', json, Date.now());
+    await queries.setSetting.run('cloud_accounts', json, Date.now());
     console.log('[CloudStorage] Accounts saved to DB:', accounts.length);
   } catch (err) {
     console.error('[CloudStorage] Failed to save accounts:', err.message);
@@ -200,7 +200,7 @@ async function getValidToken(database, account) {
   const idx = accounts.findIndex((a) => a.accountId === account.accountId);
   if (idx >= 0) {
     accounts[idx] = { ...accounts[idx], ...refreshed };
-    saveAccounts(database, accounts);
+    await saveAccounts(database, accounts);
     return refreshed.accessToken;
   }
   return null;
@@ -359,7 +359,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         } else {
           accounts.push(account);
         }
-        saveAccounts(database, accounts);
+        await saveAccounts(database, accounts);
         console.log('[CloudStorage] Google account saved, broadcasting success for', email);
         windowManager.broadcast('cloud:auth-result', { success: true, provider: 'google', email, accountId });
       })
@@ -379,7 +379,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
       const accounts = loadAccounts(database).filter((a) => a.accountId !== accountId);
-      saveAccounts(database, accounts);
+      await saveAccounts(database, accounts);
       return { success: true };
     } catch (err) {
       return { success: false, error: err.message };
@@ -471,7 +471,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         const resourceId = `res_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
         const now = Date.now();
 
-        queries.createResourceWithFile.run(
+        await queries.createResourceWithFile.run(
           resourceId,
           projectId || null,
           effectiveType,
@@ -490,10 +490,10 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         );
 
         if (targetFolderId && queries.moveResourceToFolder) {
-          queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
+          await queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
         }
 
-        const resource = queries.getResourceById.get(resourceId);
+        const resource = await queries.getResourceById.get(resourceId);
         windowManager.broadcast('resource:created', resource);
 
         const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');

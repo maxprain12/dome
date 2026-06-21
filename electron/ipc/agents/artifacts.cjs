@@ -76,7 +76,7 @@ function register({ ipcMain, windowManager, database }) {
       const queries2 = database.getQueries();
       const resource = await queries2.getResourceById.get(resourceId);
       const artifact = await queries2.getArtifactByResourceId.get(resourceId);
-      const serialized = serializeArtifactRecord(artifact, resource, queries2);
+      const serialized = await serializeArtifactRecord(artifact, resource, queries2);
 
       windowManager.broadcast('resource:created', resource);
       windowManager.broadcast('artifact:created', serialized);
@@ -99,7 +99,7 @@ function register({ ipcMain, windowManager, database }) {
       const artifact = await queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
       const resource = await queries.getResourceById.get(resourceId);
-      return { success: true, data: serializeArtifactRecord(artifact, resource, queries) };
+      return { success: true, data: await serializeArtifactRecord(artifact, resource, queries) };
     } catch (error) {
       console.error('[Artifact] Error getting:', error);
       return { success: false, error: error.message };
@@ -168,7 +168,7 @@ function register({ ipcMain, windowManager, database }) {
 
       const updated = await queries.getArtifactByResourceId.get(resourceId);
       const resource = await queries.getResourceById.get(resourceId);
-      const serialized = serializeArtifactRecord(updated, resource, queries);
+      const serialized = await serializeArtifactRecord(updated, resource, queries);
       windowManager.broadcast('artifact:updated', serialized);
 
       afterArtifactMutation(database, resourceId);
@@ -204,7 +204,7 @@ function register({ ipcMain, windowManager, database }) {
       const rows = await queries.listArtifactsByProject.all(projectId || 'default');
       const results = await Promise.all(rows.map(async (row) => {
         const resource = await queries.getResourceById.get(row.resource_id);
-        return serializeArtifactRecord(row, resource, queries);
+        return await serializeArtifactRecord(row, resource, queries);
       }));
       return { success: true, data: results };
     } catch (error) {
@@ -222,7 +222,7 @@ function register({ ipcMain, windowManager, database }) {
       const artifact = await queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
       const resource = await queries.getResourceById.get(resourceId);
-      const mergedState = serializeArtifactRecord(artifact, resource, queries)?.state ?? parseJsonState(artifact.state);
+      const mergedState = ((await serializeArtifactRecord(artifact, resource, queries))?.state) ?? parseJsonState(artifact.state);
 
       const bundle = {
         version: 1,
@@ -307,7 +307,7 @@ function register({ ipcMain, windowManager, database }) {
       const queries2 = database.getQueries();
       const resource = await queries2.getResourceById.get(resourceId);
       const artifact = await queries2.getArtifactByResourceId.get(resourceId);
-      const serialized = serializeArtifactRecord(artifact, resource, queries2);
+      const serialized = await serializeArtifactRecord(artifact, resource, queries2);
 
       windowManager.broadcast('resource:created', resource);
       windowManager.broadcast('artifact:created', serialized);
@@ -342,7 +342,7 @@ function register({ ipcMain, windowManager, database }) {
 
       const updated = await queries.getArtifactByResourceId.get(resourceId);
       const resource = await queries.getResourceById.get(resourceId);
-      const serialized = serializeArtifactRecord(updated, resource, queries);
+      const serialized = await serializeArtifactRecord(updated, resource, queries);
       windowManager.broadcast('artifact:updated', serialized);
 
       // Immediately sync Excel data into the artifact if a resource is being linked

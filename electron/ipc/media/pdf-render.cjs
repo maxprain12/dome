@@ -21,7 +21,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         return { success: false, error: 'resourceId and pageNumber (>=1) required' };
       }
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       if (!resource || resource.type !== 'pdf') {
         return { success: false, error: 'not a PDF resource' };
       }

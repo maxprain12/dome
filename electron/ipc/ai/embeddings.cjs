@@ -39,7 +39,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const cfg = embeddingsService.readEmbeddingsSettings(queries);
+      const cfg = await embeddingsService.readEmbeddingsSettings(queries);
       const configured = embeddingsService.isConfigured(queries);
       let chunksTotal = 0;
       let indexedResourceCount = 0;
@@ -85,7 +85,7 @@ function register({ ipcMain, windowManager, validateSender }) {
           baseUrl: String(parsed.data.base_url ?? parsed.data.baseUrl ?? 'http://127.0.0.1:11434'),
         };
       } else {
-        const saved = embeddingsService.readEmbeddingsSettings(queries);
+        const saved = await embeddingsService.readEmbeddingsSettings(queries);
         cfg = {
           provider: saved.provider,
           model: saved.model,

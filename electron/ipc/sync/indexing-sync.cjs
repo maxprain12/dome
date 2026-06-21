@@ -34,13 +34,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     semanticIndexScheduler.init(database);
 
     const placeholders = INDEXABLE_TYPES.map(() => '?').join(',');
-    const resources = db
-      .prepare(
-        `SELECT id, type, title FROM resources
-         WHERE type IN (${placeholders})
-         ORDER BY updated_at DESC`,
-      )
-      .all(...INDEXABLE_TYPES);
+    const resources = await db.all(
+      `SELECT id, type, title FROM resources
+       WHERE type IN (${placeholders})
+       ORDER BY updated_at DESC`,
+      INDEXABLE_TYPES,
+    );
 
     const total = resources.length;
     let embeddingFailed = 0;

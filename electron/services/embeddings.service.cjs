@@ -43,12 +43,12 @@ function defaultGetQueries() {
 /**
  * @param {ReturnType<typeof defaultGetQueries>} queries
  */
-function readEmbeddingsSettings(queries) {
-  const provider = String(queries.getSetting.get('embeddings_provider')?.value || '').toLowerCase();
-  const model = String(queries.getSetting.get('embeddings_model')?.value || '').trim();
+async function readEmbeddingsSettings(queries) {
+  const provider = String((await queries.getSetting.get('embeddings_provider'))?.value || '').toLowerCase();
+  const model = String((await queries.getSetting.get('embeddings_model'))?.value || '').trim();
   const apiKey = readSettingSecret(queries, 'embeddings_api_key') || '';
   const baseUrl = String(
-    queries.getSetting.get('embeddings_base_url')?.value || 'http://127.0.0.1:11434',
+    (await queries.getSetting.get('embeddings_base_url'))?.value || 'http://127.0.0.1:11434',
   ).replace(/\/$/, '');
   return { provider, model, apiKey, baseUrl };
 }

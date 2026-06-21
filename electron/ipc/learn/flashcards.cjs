@@ -14,14 +14,14 @@ function requireText(value, field) {
   return text;
 }
 
-function resolveProjectId(queries, rawProjectId) {
+async function resolveProjectId(queries, rawProjectId) {
   let projectId = typeof rawProjectId === 'string' ? rawProjectId.trim() : '';
   if (!projectId) projectId = 'default';
 
-  const projectExists = queries.getProjectById.get(projectId);
+  const projectExists = await queries.getProjectById.get(projectId);
   if (!projectExists) {
     projectId = 'default';
-    const defaultExists = queries.getProjectById.get('default');
+    const defaultExists = await queries.getProjectById.get('default');
     if (!defaultExists) {
       throw new Error('No valid project found. Create a project first.');
     }
@@ -29,10 +29,10 @@ function resolveProjectId(queries, rawProjectId) {
   return projectId;
 }
 
-function resolveResourceId(queries, rawResourceId) {
+async function resolveResourceId(queries, rawResourceId) {
   let resourceId = rawResourceId || null;
   if (resourceId) {
-    const resourceExists = queries.getResourceById.get(resourceId);
+    const resourceExists = await queries.getResourceById.get(resourceId);
     if (!resourceExists) resourceId = null;
   }
   return resourceId;
@@ -40,15 +40,15 @@ function resolveResourceId(queries, rawResourceId) {
 
 function register({ ipcMain, windowManager, database, validateSender }) {
   // Create flashcard deck
-  ipcMain.handle('db:flashcards:createDeck', (event, deck) => {
+  ipcMain.handle('db:flashcards:createDeck', async (event, deck) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
       const id = deck.id || generateId();
-      const projectId = resolveProjectId(queries, deck.project_id);
-      const resourceId = resolveResourceId(queries, deck.resource_id);
-      queries.createFlashcardDeck.run(
+      const projectId = await resolveProjectId(queries, deck.project_id);
+      const resourceId = await resolveResourceId(queries, deck.resource_id);
+      await queries.createFlashcardDeck.run(
         id,
         resourceId,
         projectId,
@@ -60,8 +60,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         deck.created_at || now,
         deck.updated_at || now
       );
-      const created = queries.getFlashcardDeckById.get(id);
-      invalidateLearnKpisCache(database.getDB());
+      const created = await queries.getFlashcardDeckById.get(id);
+      await invalidateLearnKpisCache(database.getDB());
       windowManager.broadcast('flashcard:deckCreated', created);
       return { success: true, data: created };
     } catch (error) {
@@ -71,11 +71,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get deck by ID
-  ipcMain.handle('db:flashcards:getDeck', (event, id) => {
+  ipcMain.handle('db:flashcards:getDeck', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const deck = queries.getFlashcardDeckById.get(id);
+      const deck = await queries.getFlashcardDeckById.get(id);
       return { success: true, data: deck || null };
     } catch (error) {
       console.error('[DB] Error getting flashcard deck:', error);
@@ -84,11 +84,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get decks by project
-  ipcMain.handle('db:flashcards:getDecksByProject', (event, projectId) => {
+  ipcMain.handle('db:flashcards:getDecksByProject', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const decks = queries.getFlashcardDecksByProject.all(projectId);
+      const decks = await queries.getFlashcardDecksByProject.all(projectId);
       return { success: true, data: decks };
     } catch (error) {
       console.error('[DB] Error getting flashcard decks by project:', error);
@@ -97,11 +97,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get all decks
-  ipcMain.handle('db:flashcards:getAllDecks', (event, limit) => {
+  ipcMain.handle('db:flashcards:getAllDecks', async (event, limit) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const decks = queries.getAllFlashcardDecks.all(limit || 100);
+      const decks = await queries.getAllFlashcardDecks.all(limit || 100);
       return { success: true, data: decks };
     } catch (error) {
       console.error('[DB] Error getting all flashcard decks:', error);
@@ -110,12 +110,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Update deck
-  ipcMain.handle('db:flashcards:updateDeck', (event, deck) => {
+  ipcMain.handle('db:flashcards:updateDeck', async (event, deck) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      queries.updateFlashcardDeck.run(
+      await queries.updateFlashcardDeck.run(
         deck.title,
         deck.description || null,
         deck.card_count || 0,
@@ -124,7 +124,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         now,
         deck.id
       );
-      const updated = queries.getFlashcardDeckById.get(deck.id);
+      const updated = await queries.getFlashcardDeckById.get(deck.id);
       windowManager.broadcast('flashcard:deckUpdated', updated);
       return { success: true, data: updated };
     } catch (error) {
@@ -134,12 +134,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Delete deck
-  ipcMain.handle('db:flashcards:deleteDeck', (event, id) => {
+  ipcMain.handle('db:flashcards:deleteDeck', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.deleteFlashcardDeck.run(id);
-      invalidateLearnKpisCache(database.getDB());
+      await queries.deleteFlashcardDeck.run(id);
+      await invalidateLearnKpisCache(database.getDB());
       windowManager.broadcast('flashcard:deckDeleted', { id });
       return { success: true };
     } catch (error) {
@@ -149,7 +149,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Create single card
-  ipcMain.handle('db:flashcards:createCard', (event, card) => {
+  ipcMain.handle('db:flashcards:createCard', async (event, card) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -157,7 +157,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const id = card.id || generateId();
       const question = requireText(card.question, 'question');
       const answer = requireText(card.answer, 'answer');
-      queries.createFlashcard.run(
+      await queries.createFlashcard.run(
         id,
         card.deck_id,
         question,
@@ -173,7 +173,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         card.created_at || now,
         card.updated_at || now
       );
-      const created = queries.getFlashcardById.get(id);
+      const created = await queries.getFlashcardById.get(id);
       return { success: true, data: created };
     } catch (error) {
       console.error('[DB] Error creating flashcard:', error);
@@ -182,7 +182,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Bulk create cards (for AI-generated decks). card_count is kept in sync by triggers.
-  ipcMain.handle('db:flashcards:createCards', (event, { deckId, cards }) => {
+  ipcMain.handle('db:flashcards:createCards', async (event, { deckId, cards }) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
@@ -199,9 +199,9 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         }))
         .filter((card) => card.question && card.answer);
 
-      const insertMany = db.transaction((cardsToInsert) => {
-        for (const card of cardsToInsert) {
-          queries.createFlashcard.run(
+      await db.transaction(async (_tx) => {
+        for (const card of rows) {
+          await queries.createFlashcard.run(
             generateId(),
             deckId,
             card.question,
@@ -213,10 +213,9 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           );
         }
       });
-      insertMany(rows);
 
-      const allCards = queries.getFlashcardsByDeck.all(deckId);
-      const updated = queries.getFlashcardDeckById.get(deckId);
+      const allCards = await queries.getFlashcardsByDeck.all(deckId);
+      const updated = await queries.getFlashcardDeckById.get(deckId);
       if (updated) windowManager.broadcast('flashcard:deckUpdated', updated);
       return { success: true, data: { count: allCards.length, cards: allCards } };
     } catch (error) {
@@ -226,11 +225,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get cards in a deck
-  ipcMain.handle('db:flashcards:getCards', (event, deckId) => {
+  ipcMain.handle('db:flashcards:getCards', async (event, deckId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const cards = queries.getFlashcardsByDeck.all(deckId);
+      const cards = await queries.getFlashcardsByDeck.all(deckId);
       return { success: true, data: cards };
     } catch (error) {
       console.error('[DB] Error getting flashcards:', error);
@@ -239,12 +238,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get due cards for study
-  ipcMain.handle('db:flashcards:getDueCards', (event, { deckId, limit }) => {
+  ipcMain.handle('db:flashcards:getDueCards', async (event, { deckId, limit }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      const cards = queries.getDueFlashcards.all(deckId, now, limit || 50);
+      const cards = await queries.getDueFlashcards.all(deckId, now, limit || 50);
       return { success: true, data: cards };
     } catch (error) {
       console.error('[DB] Error getting due flashcards:', error);
@@ -253,12 +252,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Review a card (FSRS scheduling). quality: 1=Again, 2=Hard, 3=Good, 4=Easy
-  ipcMain.handle('db:flashcards:reviewCard', (event, { cardId, quality }) => {
+  ipcMain.handle('db:flashcards:reviewCard', async (event, { cardId, quality }) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
       const queries = database.getQueries();
-      const card = queries.getFlashcardById.get(cardId);
+      const card = await queries.getFlashcardById.get(cardId);
       if (!card) {
         return { success: false, error: 'Card not found' };
       }
@@ -266,7 +265,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const now = Date.now();
       const next = schedule(card, quality, now);
 
-      queries.reviewFlashcardFsrs.run(
+      await queries.reviewFlashcardFsrs.run(
         next.stability,
         next.fsrs_difficulty,
         next.fsrs_state,
@@ -281,9 +280,9 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         now,
         cardId,
       );
-      invalidateLearnKpisCache(db);
+      await invalidateLearnKpisCache(db);
 
-      const updated = queries.getFlashcardById.get(cardId);
+      const updated = await queries.getFlashcardById.get(cardId);
       return { success: true, data: updated };
     } catch (error) {
       console.error('[DB] Error reviewing flashcard:', error);
@@ -292,12 +291,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Update card content
-  ipcMain.handle('db:flashcards:updateCard', (event, card) => {
+  ipcMain.handle('db:flashcards:updateCard', async (event, card) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      queries.updateFlashcard.run(
+      await queries.updateFlashcard.run(
         requireText(card.question, 'question'),
         requireText(card.answer, 'answer'),
         card.difficulty || 'medium',
@@ -306,7 +305,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         now,
         card.id
       );
-      const updated = queries.getFlashcardById.get(card.id);
+      const updated = await queries.getFlashcardById.get(card.id);
       return { success: true, data: updated };
     } catch (error) {
       console.error('[DB] Error updating flashcard:', error);
@@ -315,14 +314,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Delete card (card_count kept in sync by trigger; broadcast updated deck)
-  ipcMain.handle('db:flashcards:deleteCard', (event, id) => {
+  ipcMain.handle('db:flashcards:deleteCard', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const card = queries.getFlashcardById.get(id);
-      queries.deleteFlashcard.run(id);
+      const card = await queries.getFlashcardById.get(id);
+      await queries.deleteFlashcard.run(id);
       if (card?.deck_id) {
-        const deck = queries.getFlashcardDeckById.get(card.deck_id);
+        const deck = await queries.getFlashcardDeckById.get(card.deck_id);
         if (deck) windowManager.broadcast('flashcard:deckUpdated', deck);
       }
       return { success: true };
@@ -333,12 +332,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get deck stats
-  ipcMain.handle('db:flashcards:getStats', (event, deckId) => {
+  ipcMain.handle('db:flashcards:getStats', async (event, deckId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      const stats = queries.getFlashcardStats.get(now, deckId);
+      const stats = await queries.getFlashcardStats.get(now, deckId);
       return { success: true, data: stats };
     } catch (error) {
       console.error('[DB] Error getting flashcard stats:', error);
@@ -347,18 +346,18 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Create study session (writes legacy flashcard_sessions + unified study_events)
-  ipcMain.handle('db:flashcards:createSession', (event, session) => {
+  ipcMain.handle('db:flashcards:createSession', async (event, session) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
       const queries = database.getQueries();
       const id = session.id || generateId();
-      const deck = session.deck_id ? queries.getFlashcardDeckById.get(session.deck_id) : null;
+      const deck = session.deck_id ? await queries.getFlashcardDeckById.get(session.deck_id) : null;
       const startedAt = session.started_at || Date.now();
       const completedAt = session.completed_at || Date.now();
 
-      const persist = db.transaction(() => {
-        queries.createFlashcardSession.run(
+      await db.transaction(async (_tx) => {
+        await queries.createFlashcardSession.run(
           id,
           session.deck_id,
           session.cards_studied || 0,
@@ -368,7 +367,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           startedAt,
           completedAt,
         );
-        queries.createStudyEvent.run(
+        await queries.createStudyEvent.run(
           id,
           deck?.project_id || null,
           session.deck_id || null,
@@ -382,8 +381,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           completedAt,
         );
       });
-      persist();
-      invalidateLearnKpisCache(db);
+      await invalidateLearnKpisCache(db);
 
       windowManager.broadcast('flashcard:sessionEnded', {
         type: 'flashcard',
@@ -398,11 +396,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get sessions by deck
-  ipcMain.handle('db:flashcards:getSessions', (event, { deckId, limit }) => {
+  ipcMain.handle('db:flashcards:getSessions', async (event, { deckId, limit }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const sessions = queries.getSessionsByDeck.all(deckId, limit || 20);
+      const sessions = await queries.getSessionsByDeck.all(deckId, limit || 20);
       return { success: true, data: sessions };
     } catch (error) {
       console.error('[DB] Error getting flashcard sessions:', error);

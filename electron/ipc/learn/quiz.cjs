@@ -22,7 +22,7 @@ function generateId() {
 }
 
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('quiz:createRun', (event, data) => {
+  ipcMain.handle('quiz:createRun', async (event, data) => {
     try {
       validateSender(event, windowManager);
       const parsed = QuizCreateRunSchema.safeParse(data);
@@ -31,6 +31,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       }
       const payload = parsed.data;
       const db = database.getDB();
+      const queries = database.getQueries();
       const id = payload.id || generateId();
       const now = Date.now();
       const perQuestion =
@@ -40,30 +41,29 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const startedAt = payload.started_at ?? now;
       const completedAt = payload.completed_at ?? now;
 
-      // Resolve project for the unified study event via the studio output
-      const projectRow = db
-        .prepare('SELECT project_id FROM studio_outputs WHERE id = ?')
-        .get(payload.studio_output_id);
+      const projectRow = await db.get('SELECT project_id FROM studio_outputs WHERE id = ?', [
+        payload.studio_output_id,
+      ]);
 
-      const persist = db.transaction(() => {
-        db.prepare(
+      await db.transaction(async (tx) => {
+        await tx.run(
           `INSERT INTO quiz_runs (
             id, studio_output_id, deck_id, total, correct, duration_ms,
             per_question, started_at, completed_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        ).run(
-          id,
-          payload.studio_output_id,
-          payload.deck_id ?? null,
-          payload.total,
-          payload.correct,
-          payload.duration_ms,
-          perQuestion,
-          startedAt,
-          completedAt,
+          [
+            id,
+            payload.studio_output_id,
+            payload.deck_id ?? null,
+            payload.total,
+            payload.correct,
+            payload.duration_ms,
+            perQuestion,
+            startedAt,
+            completedAt,
+          ],
         );
-        // Mirror into unified study_events so quizzes count toward streak/time
-        database.getQueries().createStudyEvent.run(
+        await queries.createStudyEvent.run(
           id,
           projectRow?.project_id || null,
           payload.deck_id ?? null,
@@ -77,10 +77,9 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           completedAt,
         );
       });
-      persist();
-      invalidateLearnKpisCache(db);
+      await invalidateLearnKpisCache(db);
 
-      const created = db.prepare('SELECT * FROM quiz_runs WHERE id = ?').get(id);
+      const created = await db.get('SELECT * FROM quiz_runs WHERE id = ?', [id]);
       windowManager.broadcast('flashcard:sessionEnded', { type: 'quiz', runId: id });
       return { success: true, data: created };
     } catch (error) {
@@ -89,7 +88,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('quiz:listRuns', (event, studioOutputId) => {
+  ipcMain.handle('quiz:listRuns', async (event, studioOutputId) => {
     try {
       validateSender(event, windowManager);
       const parsed = IdSchema.safeParse(studioOutputId);
@@ -97,9 +96,10 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         return { success: false, error: parsed.error.message };
       }
       const db = database.getDB();
-      const rows = db
-        .prepare('SELECT * FROM quiz_runs WHERE studio_output_id = ? ORDER BY completed_at DESC LIMIT 50')
-        .all(parsed.data);
+      const rows = await db.all(
+        'SELECT * FROM quiz_runs WHERE studio_output_id = ? ORDER BY completed_at DESC LIMIT 50',
+        [parsed.data],
+      );
       return { success: true, data: rows };
     } catch (error) {
       console.error('[Quiz] listRuns error:', error);
@@ -107,7 +107,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('quiz:getRun', (event, runId) => {
+  ipcMain.handle('quiz:getRun', async (event, runId) => {
     try {
       validateSender(event, windowManager);
       const parsed = IdSchema.safeParse(runId);
@@ -115,7 +115,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         return { success: false, error: parsed.error.message };
       }
       const db = database.getDB();
-      const row = db.prepare('SELECT * FROM quiz_runs WHERE id = ?').get(parsed.data);
+      const row = await db.get('SELECT * FROM quiz_runs WHERE id = ?', [parsed.data]);
       if (!row) return { success: false, error: 'Run not found' };
       return { success: true, data: row };
     } catch (error) {

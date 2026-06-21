@@ -124,7 +124,7 @@ function finalizeArtifactSearchSurface(queries, resource) {
   const rid = resource?.id;
   if (!rid || String(resource?.type) !== 'artifact') return;
   try {
-    syncArtifactFtsContent(queries, rid);
+    await syncArtifactFtsContent(queries, rid);
   } catch (e) {
     console.warn('[indexing.pipeline] artifact fts sync', e?.message || e);
   }
@@ -213,7 +213,7 @@ function createIndexer(opts) {
       return { ok: true, skipped: true, reason: 'embeddings_not_configured' };
     }
 
-    let { text, source } = getIndexableText(resource, queries);
+    let { text, source } = await getIndexableText(resource, queries);
 
     if (resource.type === 'pdf' && resource.internal_path) {
       try {

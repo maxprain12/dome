@@ -65,41 +65,35 @@ function computeLongestStreak(activityDays) {
 }
 
 /** Days (local) with any study activity (flashcard OR quiz) in the last ~year. */
-function collectActivityDays(db) {
+async function collectActivityDays(db) {
   const activityDays = new Set();
   const since = Date.now() - 366 * 86400000;
-  const rows = db
-    .prepare('SELECT started_at FROM study_events WHERE started_at >= ?')
-    .all(since);
+  const rows = await db.all('SELECT started_at FROM study_events WHERE started_at >= ?', [since]);
   for (const row of rows) {
     if (row.started_at) activityDays.add(localDayKey(row.started_at));
   }
   return activityDays;
 }
 
-function getLearnKpis(db) {
+async function getLearnKpis(db) {
   const now = Date.now();
   const todayStart = startOfLocalDayMs(now);
   const yesterdayStart = todayStart - 86400000;
 
   const dueToday =
-    db
-      .prepare(
-        'SELECT COUNT(*) as n FROM flashcards WHERE next_review_at IS NULL OR next_review_at <= ?',
-      )
-      .get(now)?.n ?? 0;
+    (await db.get(
+      'SELECT COUNT(*) as n FROM flashcards WHERE next_review_at IS NULL OR next_review_at <= ?',
+      [now],
+    ))?.n ?? 0;
 
   const dueYesterday =
-    db
-      .prepare(
-        'SELECT COUNT(*) as n FROM flashcards WHERE (next_review_at IS NULL OR next_review_at <= ?) AND created_at < ?',
-      )
-      .get(yesterdayStart, todayStart)?.n ?? 0;
+    (await db.get(
+      'SELECT COUNT(*) as n FROM flashcards WHERE (next_review_at IS NULL OR next_review_at <= ?) AND created_at < ?',
+      [yesterdayStart, todayStart],
+    ))?.n ?? 0;
 
   // FSRS mastery: a card is "mastered" once its memory stability (days) is high.
-  const masteryRow = db
-    .prepare(
-      `
+  const masteryRow = await db.get(`
       SELECT AVG(CASE WHEN total > 0 THEN CAST(mastered AS REAL) / total ELSE 0 END) * 100 as pct
       FROM (
         SELECT deck_id,
@@ -107,17 +101,16 @@ function getLearnKpis(db) {
           COUNT(*) as total
         FROM flashcards GROUP BY deck_id
       )
-    `,
-    )
-    .get();
+    `);
   const masteryGlobal = Math.round(masteryRow?.pct ?? 0);
 
   // Time studied today: flashcards + quizzes
   const timeTodayMs =
-    db.prepare('SELECT COALESCE(SUM(duration_ms), 0) as ms FROM study_events WHERE started_at >= ?').get(todayStart)
-      ?.ms ?? 0;
+    (await db.get('SELECT COALESCE(SUM(duration_ms), 0) as ms FROM study_events WHERE started_at >= ?', [
+      todayStart,
+    ]))?.ms ?? 0;
 
-  const activityDays = collectActivityDays(db);
+  const activityDays = await collectActivityDays(db);
   const streakDays = computeStreak(activityDays);
   const longestStreak = computeLongestStreak(activityDays);
 
@@ -133,16 +126,15 @@ function getLearnKpis(db) {
   };
 }
 
-function getLearnStreak(db) {
+async function getLearnStreak(db) {
   const now = Date.now();
-  const activityDays = collectActivityDays(db);
+  const activityDays = await collectActivityDays(db);
   const streakDays = computeStreak(activityDays);
   const dueToday =
-    db
-      .prepare(
-        'SELECT COUNT(*) as n FROM flashcards WHERE next_review_at IS NULL OR next_review_at <= ?',
-      )
-      .get(now)?.n ?? 0;
+    (await db.get(
+      'SELECT COUNT(*) as n FROM flashcards WHERE next_review_at IS NULL OR next_review_at <= ?',
+      [now],
+    ))?.n ?? 0;
 
   const dayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const today = new Date();
@@ -167,9 +159,9 @@ function getLearnStreak(db) {
 // ---- Same-day cache (table: learn_kpis_cache) -----------------------------
 
 /** Return cached payload only if it was computed during the current local day. */
-function readFreshCache(db, scope) {
+async function readFreshCache(db, scope) {
   try {
-    const row = db.prepare('SELECT payload, computed_at FROM learn_kpis_cache WHERE scope = ?').get(scope);
+    const row = await db.get('SELECT payload, computed_at FROM learn_kpis_cache WHERE scope = ?', [scope]);
     if (!row) return null;
     if (localDayKey(row.computed_at) !== localDayKey(Date.now())) return null;
     return JSON.parse(row.payload);
@@ -178,37 +170,38 @@ function readFreshCache(db, scope) {
   }
 }
 
-function writeCache(db, scope, payload) {
+async function writeCache(db, scope, payload) {
   try {
-    db.prepare(
+    await db.run(
       `INSERT INTO learn_kpis_cache (scope, payload, computed_at) VALUES (?, ?, ?)
        ON CONFLICT(scope) DO UPDATE SET payload = excluded.payload, computed_at = excluded.computed_at`,
-    ).run(scope, JSON.stringify(payload), Date.now());
+      [scope, JSON.stringify(payload), Date.now()],
+    );
   } catch {
     /* cache table may not exist on very old schema — ignore */
   }
 }
 
-function getLearnKpisCached(db) {
-  const cached = readFreshCache(db, 'kpis');
+async function getLearnKpisCached(db) {
+  const cached = await readFreshCache(db, 'kpis');
   if (cached) return cached;
-  const data = getLearnKpis(db);
-  writeCache(db, 'kpis', data);
+  const data = await getLearnKpis(db);
+  await writeCache(db, 'kpis', data);
   return data;
 }
 
-function getLearnStreakCached(db) {
-  const cached = readFreshCache(db, 'streak');
+async function getLearnStreakCached(db) {
+  const cached = await readFreshCache(db, 'streak');
   if (cached) return cached;
-  const data = getLearnStreak(db);
-  writeCache(db, 'streak', data);
+  const data = await getLearnStreak(db);
+  await writeCache(db, 'streak', data);
   return data;
 }
 
 /** Drop cached KPIs/streak — call after any study event or card mutation. */
-function invalidateLearnKpisCache(db) {
+async function invalidateLearnKpisCache(db) {
   try {
-    db.prepare('DELETE FROM learn_kpis_cache').run();
+    await db.run('DELETE FROM learn_kpis_cache');
   } catch {
     /* ignore */
   }

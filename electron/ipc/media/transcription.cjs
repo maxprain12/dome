@@ -39,9 +39,9 @@ function deriveTitle(text) {
   return slice + (cleaned.length > 60 ? '…' : '');
 }
 
-function readDefaultSources(database) {
+async function readDefaultSources(database) {
   try {
-    const row = database.getQueries().getSetting.get('transcription_default_sources');
+    const row = await database.getQueries().getSetting.get('transcription_default_sources');
     const raw = row?.value && String(row.value).trim();
     if (!raw) return ['mic'];
     const parsed = JSON.parse(raw);
@@ -54,9 +54,9 @@ function readDefaultSources(database) {
   }
 }
 
-function readBoolSetting(database, key, fallback) {
+async function readBoolSetting(database, key, fallback) {
   try {
-    const row = database.getQueries().getSetting.get(key);
+    const row = await database.getQueries().getSetting.get(key);
     if (!row || row.value == null) return fallback;
     const v = String(row.value).trim().toLowerCase();
     if (v === '0' || v === 'false' || v === 'off') return false;
@@ -67,7 +67,7 @@ function readBoolSetting(database, key, fallback) {
   }
 }
 
-function getSettingsPayload(database) {
+async function getSettingsPayload(database) {
   const queries = database.getQueries();
 
   let sttProvider = transcriptionService.getTranscriptionSttProvider(database);
@@ -75,17 +75,17 @@ function getSettingsPayload(database) {
     sttProvider = 'openai';
   }
 
-  const modelRow = queries.getSetting.get('transcription_model');
-  const langRow = queries.getSetting.get('transcription_language');
-  const baseRow = queries.getSetting.get('transcription_api_base_url');
-  const promptRow = queries.getSetting.get('transcription_prompt');
-  const pauseRow = queries.getSetting.get('transcription_pause_threshold_sec');
-  const keyRow = queries.getSetting.get('transcription_openai_api_key');
-  const groqKeyRow = queries.getSetting.get('transcription_groq_api_key');
-  const shortcutRow = queries.getSetting.get('transcription_global_shortcut');
-  const shortcutEnRow = queries.getSetting.get('transcription_global_shortcut_enabled');
-  const chunkSecRow = queries.getSetting.get('transcription_chunk_sec');
-  const summaryModelRow = queries.getSetting.get('transcription_summary_model');
+  const modelRow = await queries.getSetting.get('transcription_model');
+  const langRow = await queries.getSetting.get('transcription_language');
+  const baseRow = await queries.getSetting.get('transcription_api_base_url');
+  const promptRow = await queries.getSetting.get('transcription_prompt');
+  const pauseRow = await queries.getSetting.get('transcription_pause_threshold_sec');
+  const keyRow = await queries.getSetting.get('transcription_openai_api_key');
+  const groqKeyRow = await queries.getSetting.get('transcription_groq_api_key');
+  const shortcutRow = await queries.getSetting.get('transcription_global_shortcut');
+  const shortcutEnRow = await queries.getSetting.get('transcription_global_shortcut_enabled');
+  const chunkSecRow = await queries.getSetting.get('transcription_chunk_sec');
+  const summaryModelRow = await queries.getSetting.get('transcription_summary_model');
 
   const model = (modelRow?.value && String(modelRow.value).trim())
     || (sttProvider === 'groq' ? transcriptionService.DEFAULT_GROQ_MODEL : 'whisper-1');
@@ -117,9 +117,9 @@ function getSettingsPayload(database) {
     hasGroqKey: Boolean(groqKeyRow?.value && String(groqKeyRow.value).trim()),
     globalShortcut,
     globalShortcutEnabled,
-    defaultSources: readDefaultSources(database),
-    liveTranscriptDefault: readBoolSetting(database, 'transcription_live_transcript_default', true),
-    autoSummary: readBoolSetting(database, 'transcription_auto_summary', false),
+    defaultSources: await readDefaultSources(database),
+    liveTranscriptDefault: await readBoolSetting(database, 'transcription_live_transcript_default', true),
+    autoSummary: await readBoolSetting(database, 'transcription_auto_summary', false),
     chunkSec,
     summaryModel: (summaryModelRow?.value && String(summaryModelRow.value).trim()) || 'gpt-4o-mini',
   };
@@ -144,7 +144,7 @@ function register({
   ipcMain.handle('transcription:get-settings', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      return { success: true, data: getSettingsPayload(database) };
+      return { success: true, data: await getSettingsPayload(database) };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -160,15 +160,15 @@ function register({
         let p = String(payload.sttProvider).trim().toLowerCase();
         if (p === 'local-gemma') p = 'openai';
         if (p === 'groq' || p === 'openai' || p === 'custom') {
-          queries.setSetting.run('transcription_stt_provider', p, now);
+          await queries.setSetting.run('transcription_stt_provider', p, now);
         }
       }
       if (payload.model != null) {
         const m = String(payload.model).trim() || 'whisper-1';
-        queries.setSetting.run('transcription_model', m, now);
+        await queries.setSetting.run('transcription_model', m, now);
       }
       if (payload.language !== undefined) {
-        queries.setSetting.run('transcription_language', payload.language ? String(payload.language).trim() : '', now);
+        await queries.setSetting.run('transcription_language', payload.language ? String(payload.language).trim() : '', now);
       }
       if (payload.dedicatedOpenaiKey !== undefined) {
         writeSettingSecret(queries, 'transcription_openai_api_key', payload.dedicatedOpenaiKey);
@@ -177,52 +177,52 @@ function register({
         writeSettingSecret(queries, 'transcription_groq_api_key', payload.groqApiKey);
       }
       if (payload.globalShortcut !== undefined) {
-        queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut || '').trim(), now);
+        await queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut || '').trim(), now);
       }
       if (payload.globalShortcutEnabled !== undefined) {
         const on = payload.globalShortcutEnabled === true || payload.globalShortcutEnabled === '1';
-        queries.setSetting.run('transcription_global_shortcut_enabled', on ? '1' : '0', now);
+        await queries.setSetting.run('transcription_global_shortcut_enabled', on ? '1' : '0', now);
       }
       if (payload.apiBaseUrl !== undefined) {
         const u = payload.apiBaseUrl == null ? '' : String(payload.apiBaseUrl).trim();
-        queries.setSetting.run('transcription_api_base_url', u, now);
+        await queries.setSetting.run('transcription_api_base_url', u, now);
       }
       if (payload.prompt !== undefined) {
         const p = payload.prompt == null ? '' : String(payload.prompt).trim();
-        queries.setSetting.run('transcription_prompt', p, now);
+        await queries.setSetting.run('transcription_prompt', p, now);
       }
       if (payload.pauseThresholdSec !== undefined) {
         const raw = payload.pauseThresholdSec;
         if (raw === '' || raw === null) {
-          queries.setSetting.run('transcription_pause_threshold_sec', '', now);
+          await queries.setSetting.run('transcription_pause_threshold_sec', '', now);
         } else {
           const num = Number(raw);
           const clamped = Number.isFinite(num) ? Math.min(8, Math.max(0.4, num)) : 1.35;
-          queries.setSetting.run('transcription_pause_threshold_sec', String(clamped), now);
+          await queries.setSetting.run('transcription_pause_threshold_sec', String(clamped), now);
         }
       }
       if (payload.defaultSources !== undefined) {
         const valid = Array.isArray(payload.defaultSources)
           ? payload.defaultSources.filter((s) => s === 'mic' || s === 'system')
           : [];
-        queries.setSetting.run('transcription_default_sources', JSON.stringify(valid.length ? valid : ['mic']), now);
+        await queries.setSetting.run('transcription_default_sources', JSON.stringify(valid.length ? valid : ['mic']), now);
       }
       if (payload.liveTranscriptDefault !== undefined) {
         const on = payload.liveTranscriptDefault === true || payload.liveTranscriptDefault === '1';
-        queries.setSetting.run('transcription_live_transcript_default', on ? '1' : '0', now);
+        await queries.setSetting.run('transcription_live_transcript_default', on ? '1' : '0', now);
       }
       if (payload.autoSummary !== undefined) {
         const on = payload.autoSummary === true || payload.autoSummary === '1';
-        queries.setSetting.run('transcription_auto_summary', on ? '1' : '0', now);
+        await queries.setSetting.run('transcription_auto_summary', on ? '1' : '0', now);
       }
       if (payload.chunkSec !== undefined) {
         const n = Number(payload.chunkSec);
         const sec = Number.isFinite(n) ? Math.min(60, Math.max(2, Math.round(n))) : 4;
-        queries.setSetting.run('transcription_chunk_sec', String(sec), now);
+        await queries.setSetting.run('transcription_chunk_sec', String(sec), now);
       }
       if (payload.summaryModel !== undefined) {
         const m = payload.summaryModel == null ? '' : String(payload.summaryModel).trim();
-        queries.setSetting.run('transcription_summary_model', m || 'gpt-4o-mini', now);
+        await queries.setSetting.run('transcription_summary_model', m || 'gpt-4o-mini', now);
       }
 
       try {
@@ -230,7 +230,7 @@ function register({
       } catch (regErr) {
         console.warn('[Transcription] shortcut refresh:', regErr?.message);
       }
-      return { success: true, data: getSettingsPayload(database) };
+      return { success: true, data: await getSettingsPayload(database) };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -415,7 +415,7 @@ function register({
       if (!resourceId) return { success: false, error: 'resourceId is required' };
 
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       if (!resource) return { success: false, error: 'Resource not found' };
 
       const meta = parseMetadata(resource.metadata);
@@ -424,7 +424,7 @@ function register({
 
       // If the user has already linked a note, return that.
       if (meta.transcription_note_id) {
-        const existing = queries.getResourceById.get(meta.transcription_note_id);
+        const existing = await queries.getResourceById.get(meta.transcription_note_id);
         if (existing) return { success: true, note: existing };
       }
 
@@ -442,7 +442,7 @@ function register({
         transcribed_at: meta.transcribed_at || now,
       };
 
-      queries.createResource.run(
+      await queries.createResource.run(
         noteId,
         resource.project_id,
         'note',
@@ -454,12 +454,12 @@ function register({
         now,
         now,
       );
-      const noteResource = queries.getResourceById.get(noteId);
+      const noteResource = await queries.getResourceById.get(noteId);
       windowManager.broadcast('resource:created', noteResource);
 
       // Back-link from audio resource for idempotence.
       meta.transcription_note_id = noteId;
-      queries.updateResource.run(resource.title, resource.content, JSON.stringify(meta), now, resource.id);
+      await queries.updateResource.run(resource.title, resource.content, JSON.stringify(meta), now, resource.id);
       windowManager.broadcast('resource:updated', { id: resource.id, metadata: meta });
 
       return { success: true, note: noteResource };

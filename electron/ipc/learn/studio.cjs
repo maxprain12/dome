@@ -32,7 +32,7 @@ function validateStudioContentForPersist(type, content) {
 
 function register({ ipcMain, windowManager, database, validateSender }) {
   // Create studio output
-  ipcMain.handle('db:studio:create', (event, data) => {
+  ipcMain.handle('db:studio:create', async (event, data) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
@@ -48,27 +48,28 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         };
       }
 
-      const stmt = db.prepare(`
+      await db.run(
+        `
         INSERT INTO studio_outputs (id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
-      stmt.run(
-        id,
-        data.project_id,
-        data.type,
-        data.title,
-        contentValidation.content,
-        data.source_ids ? (typeof data.source_ids === 'string' ? data.source_ids : JSON.stringify(data.source_ids)) : null,
-        data.file_path || null,
-        data.metadata ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata)) : null,
-        data.deck_id || null,
-        data.resource_id || null,
-        now,
-        now
+      `,
+        [
+          id,
+          data.project_id,
+          data.type,
+          data.title,
+          contentValidation.content,
+          data.source_ids ? (typeof data.source_ids === 'string' ? data.source_ids : JSON.stringify(data.source_ids)) : null,
+          data.file_path || null,
+          data.metadata ? (typeof data.metadata === 'string' ? data.metadata : JSON.stringify(data.metadata)) : null,
+          data.deck_id || null,
+          data.resource_id || null,
+          now,
+          now,
+        ],
       );
 
-      const created = db.prepare('SELECT * FROM studio_outputs WHERE id = ?').get(id);
+      const created = await db.get('SELECT * FROM studio_outputs WHERE id = ?', [id]);
       return { success: true, data: created };
     } catch (error) {
       console.error('[DB] Error creating studio output:', error);
@@ -77,18 +78,20 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get all studio outputs across all projects
-  ipcMain.handle('db:studio:getAll', (event, limit = 500) => {
+  ipcMain.handle('db:studio:getAll', async (event, limit = 500) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const stmt = db.prepare(`
+      const results = await db.all(
+        `
         SELECT s.*, d.card_count as deck_card_count
         FROM studio_outputs s
         LEFT JOIN flashcard_decks d ON s.deck_id = d.id
         ORDER BY s.updated_at DESC
         LIMIT ?
-      `);
-      const results = stmt.all(limit);
+      `,
+        [limit],
+      );
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error getting all studio outputs:', error);
@@ -97,18 +100,20 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get studio outputs by project (with flashcard deck stats for type=flashcards)
-  ipcMain.handle('db:studio:getByProject', (event, projectId) => {
+  ipcMain.handle('db:studio:getByProject', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const stmt = db.prepare(`
+      const results = await db.all(
+        `
         SELECT s.*, d.card_count as deck_card_count
         FROM studio_outputs s
         LEFT JOIN flashcard_decks d ON s.deck_id = d.id
         WHERE s.project_id = ?
         ORDER BY s.updated_at DESC
-      `);
-      const results = stmt.all(projectId);
+      `,
+        [projectId],
+      );
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error getting studio outputs by project:', error);
@@ -117,12 +122,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get studio output by id
-  ipcMain.handle('db:studio:getById', (event, id) => {
+  ipcMain.handle('db:studio:getById', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const stmt = db.prepare('SELECT * FROM studio_outputs WHERE id = ?');
-      const result = stmt.get(id);
+      const result = await db.get('SELECT * FROM studio_outputs WHERE id = ?', [id]);
       return { success: true, data: result || null };
     } catch (error) {
       console.error('[DB] Error getting studio output:', error);
@@ -133,12 +137,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   // Update studio output
   const ALLOWED_UPDATE_FIELDS = ['title', 'content', 'source_ids', 'file_path', 'metadata', 'deck_id', 'resource_id'];
 
-  ipcMain.handle('db:studio:update', (event, id, updates) => {
+  ipcMain.handle('db:studio:update', async (event, id, updates) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
 
-      const existing = db.prepare('SELECT type FROM studio_outputs WHERE id = ?').get(id);
+      const existing = await db.get('SELECT type FROM studio_outputs WHERE id = ?', [id]);
       if (!existing) {
         return { success: false, error: 'Studio output not found' };
       }
@@ -175,9 +179,9 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       values.push(Date.now());
       values.push(id);
 
-      db.prepare(`UPDATE studio_outputs SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+      await db.run(`UPDATE studio_outputs SET ${fields.join(', ')} WHERE id = ?`, values);
 
-      const updated = db.prepare('SELECT * FROM studio_outputs WHERE id = ?').get(id);
+      const updated = await db.get('SELECT * FROM studio_outputs WHERE id = ?', [id]);
       return { success: true, data: updated };
     } catch (error) {
       console.error('[DB] Error updating studio output:', error);
@@ -186,22 +190,21 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Delete studio output (and linked flashcard deck if type=flashcards) atomically
-  ipcMain.handle('db:studio:delete', (event, id) => {
+  ipcMain.handle('db:studio:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const row = db.prepare('SELECT deck_id FROM studio_outputs WHERE id = ?').get(id);
-      const remove = db.transaction(() => {
+      const row = await db.get('SELECT deck_id FROM studio_outputs WHERE id = ?', [id]);
+      await db.transaction(async (tx) => {
         if (row?.deck_id) {
-          db.prepare('DELETE FROM flashcard_decks WHERE id = ?').run(row.deck_id);
+          await tx.run('DELETE FROM flashcard_decks WHERE id = ?', [row.deck_id]);
         }
-        db.prepare('DELETE FROM studio_outputs WHERE id = ?').run(id);
+        await tx.run('DELETE FROM studio_outputs WHERE id = ?', [id]);
       });
-      remove();
       if (row?.deck_id) {
         windowManager.broadcast('flashcard:deckDeleted', { id: row.deck_id });
       }
-      invalidateLearnKpisCache(db);
+      await invalidateLearnKpisCache(db);
       windowManager.broadcast('studio:outputDeleted', { id });
       return { success: true };
     } catch (error) {

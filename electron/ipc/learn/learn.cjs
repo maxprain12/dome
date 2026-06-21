@@ -2,11 +2,11 @@
 const { getLearnKpisCached, getLearnStreakCached } = require('../../services/learn-kpis.cjs');
 
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('learn:getKpis', (event) => {
+  ipcMain.handle('learn:getKpis', async (event) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const data = getLearnKpisCached(db);
+      const data = await getLearnKpisCached(db);
       return { success: true, data };
     } catch (error) {
       console.error('[Learn] getKpis error:', error);
@@ -14,11 +14,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('learn:getStreak', (event) => {
+  ipcMain.handle('learn:getStreak', async (event) => {
     try {
       validateSender(event, windowManager);
       const db = database.getDB();
-      const data = getLearnStreakCached(db);
+      const data = await getLearnStreakCached(db);
       return { success: true, data };
     } catch (error) {
       console.error('[Learn] getStreak error:', error);

@@ -90,17 +90,17 @@ function stripTags(html) {
  * @param {unknown} queries database.getQueries() or null
  * @returns {IndexableText}
  */
-function buildArtifactIndexPayload(row, queries) {
+async function buildArtifactIndexPayload(row, queries) {
   const title = String(row.title || '').trim();
   const id = String(row.id || '');
   if (!queries || typeof queries.getArtifactByResourceId?.get !== 'function' || !id) {
     return title ? { text: title, source: 'content' } : { text: '', source: 'empty' };
   }
-  const art = queries.getArtifactByResourceId.get(id);
+  const art = await queries.getArtifactByResourceId.get(id);
   if (!art) {
     return title ? { text: title, source: 'content' } : { text: '', source: 'empty' };
   }
-  const state = getResolvedStateForArtifactRow(queries, art);
+  const state = await getResolvedStateForArtifactRow(queries, art);
   const html = typeof state.html === 'string' ? state.html : '';
   const htmlText = stripTags(html);
   let dataStr = '';
@@ -135,17 +135,17 @@ function buildArtifactIndexPayload(row, queries) {
  * @param {Record<string, import('better-sqlite3').Statement>} queries
  * @param {string} resourceId
  */
-function syncArtifactFtsContent(queries, resourceId) {
+async function syncArtifactFtsContent(queries, resourceId) {
   if (!resourceId || !queries?.getResourceById?.get || !queries.updateResourceContent?.run) return;
-  const row = queries.getResourceById.get(resourceId);
+  const row = await queries.getResourceById.get(resourceId);
   if (!row || String(row.type) !== 'artifact') return;
-  const { text } = buildArtifactIndexPayload(row, queries);
+  const { text } = await buildArtifactIndexPayload(row, queries);
   const payload =
     text.length > ARTIFACT_FTS_CONTENT_CAP ? text.slice(0, ARTIFACT_FTS_CONTENT_CAP) : text;
-  queries.updateResourceContent.run(payload, Date.now(), resourceId);
+  await queries.updateResourceContent.run(payload, Date.now(), resourceId);
 }
 
-function getIndexableText(row, queries) {
+async function getIndexableText(row, queries) {
   const type = String(row.type || '');
   const title = String(row.title || '').trim();
 
