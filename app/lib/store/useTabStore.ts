@@ -48,6 +48,40 @@ export interface DomeTab {
   artifactPayload?: string;
   pinned?: boolean;
   color?: string;
+  /**
+   * Owning project id for project-scoped tabs (resource, note, folder, etc.).
+   * When the active project changes, tabs with a different projectId are
+   * auto-closed by `closeProjectTabs` so documents generated in one project
+   * do not leak into the tab bar of another project. Global tabs (settings,
+   * calendar, email, etc.) intentionally omit this field.
+   */
+  projectId?: string;
+}
+
+/**
+ * Tabs that belong to a specific project. They must be closed when the
+ * user switches to a different project, and must not be restored from
+ * `localStorage` if their project no longer matches the active one.
+ *
+ * Global tabs (home, settings, calendar, chat, agents hub, etc.) are NOT
+ * in this set and survive project switches.
+ */
+const PROJECT_SCOPED_TAB_TYPES: ReadonlySet<TabType> = new Set<TabType>([
+  'resource',
+  'note',
+  'notebook',
+  'url',
+  'youtube',
+  'docx',
+  'ppt',
+  'folder',
+  'transcription-detail',
+  'semantic-graph',
+  'artifact',
+]);
+
+export function isProjectScopedTab(tab: DomeTab): boolean {
+  return tab.projectId != null && PROJECT_SCOPED_TAB_TYPES.has(tab.type);
 }
 
 export const HOME_TAB_ID = 'home';
@@ -77,13 +111,21 @@ function generateTabId() {
 
 const STORAGE_KEY = 'dome:tabs-v1';
 
-function loadStoredTabs(): { tabs: DomeTab[]; activeTabId: string } {
+function loadStoredTabs(activeProjectId?: string | null): { tabs: DomeTab[]; activeTabId: string } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed.tabs) && parsed.tabs.length > 0) {
-        const storedTabs = parsed.tabs as DomeTab[];
+        let storedTabs = parsed.tabs as DomeTab[];
+        // Drop project-scoped tabs from a different project so documents
+        // generated in project A never resurface when the user reopens
+        // Dome in project B. Unscoped tabs (settings, calendar, …) survive.
+        if (activeProjectId != null) {
+          storedTabs = storedTabs.filter(
+            (t) => !isProjectScopedTab(t) || t.projectId === activeProjectId,
+          );
+        }
         // Ensure the home tab is always present (pinned, must survive any cleanup)
         const hasHome = storedTabs.some((t) => t.id === HOME_TAB_ID);
         const tabs = hasHome ? storedTabs : [HOME_TAB, ...storedTabs];
@@ -107,7 +149,14 @@ function loadStoredTabs(): { tabs: DomeTab[]; activeTabId: string } {
 
 function saveTabs(tabs: DomeTab[], activeTabId: string) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs, activeTabId }));
+    // Persist only the activeTabId and global tabs. Project-scoped tabs
+    // are intentionally excluded so they cannot be restored in a different
+    // project after a hard reload.
+    const persistable = tabs.filter((t) => !isProjectScopedTab(t));
+    const persistableActive = persistable.some((t) => t.id === activeTabId)
+      ? activeTabId
+      : persistable[0]?.id ?? HOME_TAB_ID;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ tabs: persistable, activeTabId: persistableActive }));
   } catch {
     // ignore
   }
@@ -122,16 +171,30 @@ interface TabStore {
   closeTabsToTheRight: (tabId: string) => void;
   closeAllUnpinnedTabs: () => void;
   closeAllTabsToHome: () => void;
+  /**
+   * Close every project-scoped tab that belongs to `projectId`. Called when
+   * the user switches projects so documents generated in the previous project
+   * do not remain visible in the tab bar. Global tabs (home, settings, …) and
+   * tabs owned by other projects are preserved.
+   */
+  closeProjectTabs: (projectId: string) => void;
+  /**
+   * Close every project-scoped tab that does NOT belong to `activeProjectId`.
+   * Unlike `closeProjectTabs` (which targets a single owner), this enforces that
+   * only the active project's documents remain open — used on project switch and
+   * on mount so foreign-vault tabs never linger.
+   */
+  closeForeignProjectTabs: (activeProjectId: string) => void;
   togglePinTab: (tabId: string) => void;
   duplicateTab: (tabId: string) => void;
   activateTab: (tabId: string) => void;
   replaceTabType: (tabId: string, newType: TabType) => void;
-  openResourceTab: (resourceId: string, resourceType: string, title: string) => void;
-  openResourceInSplit: (resourceId: string, resourceType: string, title: string, tabId?: string) => void;
+  openResourceTab: (resourceId: string, resourceType: string, title: string, projectId?: string) => void;
+  openResourceInSplit: (resourceId: string, resourceType: string, title: string, tabId?: string, projectId?: string) => void;
   closeSplit: (tabId?: string) => void;
   resizeSplit: (width: number, tabId?: string) => void;
   swapSplit: (tabId?: string) => void;
-  openNoteTab: (resourceId: string, title: string) => void;
+  openNoteTab: (resourceId: string, title: string, projectId?: string) => void;
   openSettingsTab: () => void;
   openCalendarTab: () => void;
   openGitHubTab: () => void;
@@ -147,12 +210,12 @@ interface TabStore {
   openAutomationsTab: () => void;
   openRunsTab: () => void;
   openProjectsTab: () => void;
-  openFolderTab: (folderId: string, title: string, color?: string) => void;
-  navigateFolderTab: (fromTabId: string, location: { id: string; title: string; color?: string }) => void;
+  openFolderTab: (folderId: string, title: string, color?: string, projectId?: string) => void;
+  navigateFolderTab: (fromTabId: string, location: { id: string; title: string; color?: string }, projectId?: string) => void;
   openTranscriptionsTab: () => void;
-  openTranscriptionDetailTab: (noteId: string, title: string) => void;
-  openSemanticGraphTab: (focusResourceId?: string) => void;
-  openArtifactTab: (title: string, artifactJson: string) => void;
+  openTranscriptionDetailTab: (noteId: string, title: string, projectId?: string) => void;
+  openSemanticGraphTab: (focusResourceId?: string, projectId?: string) => void;
+  openArtifactTab: (title: string, artifactJson: string, projectId?: string) => void;
   updateTab: (tabId: string, updates: Partial<Pick<DomeTab, 'title' | 'color'>>) => void;
 }
 
@@ -304,6 +367,62 @@ export const useTabStore = create<TabStore>((set, get) => {
       saveTabs(newTabs, HOME_TAB_ID);
     },
 
+    closeProjectTabs: (projectId) => {
+      const { tabs, activeTabId } = get();
+      // Drop only project-scoped tabs owned by `projectId`. Tabs without a
+      // projectId (global) and tabs owned by other projects are kept.
+      const remaining = tabs.filter(
+        (t) => !(isProjectScopedTab(t) && t.projectId === projectId),
+      );
+      if (remaining.length === tabs.length) return;
+
+      let newActiveId = activeTabId;
+      if (!remaining.some((t) => t.id === newActiveId)) {
+        // The active tab was just closed; pick a sensible fallback.
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        newActiveId = remaining[Math.min(idx >= 0 ? idx : 0, remaining.length - 1)]?.id ?? HOME_TAB_ID;
+      }
+
+      if (remaining.length === 0) {
+        const fallback = [HOME_TAB];
+        set({ tabs: fallback, activeTabId: HOME_TAB_ID });
+        saveTabs(fallback, HOME_TAB_ID);
+        return;
+      }
+
+      set({ tabs: remaining, activeTabId: newActiveId });
+      saveTabs(remaining, newActiveId);
+    },
+
+    closeForeignProjectTabs: (activeProjectId) => {
+      const { tabs, activeTabId } = get();
+      // A project-scoped *type* must be owned by the active project to stay.
+      // Tabs of a scoped type with a different projectId — or with no projectId
+      // at all (legacy/untagged) — can't be confirmed as the active project's,
+      // so they are closed. Global tab types are always kept.
+      const remaining = tabs.filter((t) => {
+        if (!PROJECT_SCOPED_TAB_TYPES.has(t.type)) return true;
+        return t.projectId === activeProjectId;
+      });
+      if (remaining.length === tabs.length) return;
+
+      let newActiveId = activeTabId;
+      if (!remaining.some((t) => t.id === newActiveId)) {
+        const idx = tabs.findIndex((t) => t.id === activeTabId);
+        newActiveId = remaining[Math.min(idx >= 0 ? idx : 0, remaining.length - 1)]?.id ?? HOME_TAB_ID;
+      }
+
+      if (remaining.length === 0) {
+        const fallback = [HOME_TAB];
+        set({ tabs: fallback, activeTabId: HOME_TAB_ID });
+        saveTabs(fallback, HOME_TAB_ID);
+        return;
+      }
+
+      set({ tabs: remaining, activeTabId: newActiveId });
+      saveTabs(remaining, newActiveId);
+    },
+
     togglePinTab: (tabId) => {
       if (tabId === HOME_TAB_ID) return;
       const { tabs, activeTabId } = get();
@@ -345,7 +464,7 @@ export const useTabStore = create<TabStore>((set, get) => {
       saveTabs(newTabs, activeTabId);
     },
 
-    openResourceTab: (resourceId, resourceType, title) => {
+    openResourceTab: (resourceId, resourceType, title, projectId) => {
       const typeMap: Record<string, TabType> = {
         note: 'note',
         notebook: 'notebook',
@@ -363,7 +482,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         default: 'resource',
       };
       const tabType: TabType = typeMap[resourceType] ?? 'resource';
-      get().openTab({ type: tabType, title, resourceId });
+      get().openTab({ type: tabType, title, resourceId, ...(projectId ? { projectId } : {}) });
       try {
         void window.electron?.invoke?.('automations:notifyContext', {
           tag: 'resource_opened',
@@ -375,7 +494,7 @@ export const useTabStore = create<TabStore>((set, get) => {
       }
     },
 
-    openResourceInSplit: (resourceId, resourceType, title, tabId) => {
+    openResourceInSplit: (resourceId, resourceType, title, tabId, _projectId) => {
       const { tabs, activeTabId } = get();
       const targetTabId = tabId ?? activeTabId;
       const newTabs = tabs.map((tab) => {
@@ -458,8 +577,8 @@ export const useTabStore = create<TabStore>((set, get) => {
       saveTabs(newTabs, activeTabId);
     },
 
-    openNoteTab: (resourceId, title) => {
-      get().openTab({ type: 'note', title, resourceId });
+    openNoteTab: (resourceId, title, projectId) => {
+      get().openTab({ type: 'note', title, resourceId, ...(projectId ? { projectId } : {}) });
     },
 
     openSettingsTab: () => {
@@ -525,17 +644,24 @@ export const useTabStore = create<TabStore>((set, get) => {
       });
     },
 
-    openFolderTab: (folderId, title, color) => {
+    openFolderTab: (folderId, title, color, projectId) => {
       const tabId = FOLDER_TAB_PREFIX + folderId;
       const existing = get().tabs.find((t) => t.id === tabId);
       if (existing) {
         get().activateTab(tabId);
         return;
       }
-      get().openTab({ id: tabId, type: 'folder', title, resourceId: folderId, color });
+      get().openTab({
+        id: tabId,
+        type: 'folder',
+        title,
+        resourceId: folderId,
+        color,
+        ...(projectId ? { projectId } : {}),
+      });
     },
 
-    navigateFolderTab: (fromTabId, location) => {
+    navigateFolderTab: (fromTabId, location, projectId) => {
       const newTabId = FOLDER_TAB_PREFIX + location.id;
       if (fromTabId === newTabId) return;
 
@@ -558,6 +684,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         resourceId: location.id,
         title: location.title,
         ...(location.color ? { color: location.color } : {}),
+        ...(projectId ? { projectId } : (tabs[fromIdx].projectId ? {} : {})),
       };
       const newTabs = [...tabs];
       newTabs[fromIdx] = updatedTab;
@@ -576,16 +703,17 @@ export const useTabStore = create<TabStore>((set, get) => {
       });
     },
 
-    openTranscriptionDetailTab: (noteId, title) => {
+    openTranscriptionDetailTab: (noteId, title, projectId) => {
       get().openTab({
         type: 'transcription-detail',
         title: title.trim() || i18n.t('transcriptions.tab_title'),
         resourceId: noteId,
         pinned: false,
+        ...(projectId ? { projectId } : {}),
       });
     },
 
-    openSemanticGraphTab: (focusResourceId) => {
+    openSemanticGraphTab: (focusResourceId, projectId) => {
       get().openTab({
         type: 'semantic-graph',
         title: focusResourceId
@@ -593,15 +721,17 @@ export const useTabStore = create<TabStore>((set, get) => {
           : i18n.t('semantic_graph.tab_title'),
         resourceId: focusResourceId,
         pinned: false,
+        ...(projectId ? { projectId } : {}),
       });
     },
 
-    openArtifactTab: (title, artifactJson) => {
+    openArtifactTab: (title, artifactJson, projectId) => {
       get().openTab({
         type: 'artifact',
         title: title.trim() || i18n.t('chat.artifact_tab'),
         artifactPayload: artifactJson,
         pinned: false,
+        ...(projectId ? { projectId } : {}),
       });
     },
 

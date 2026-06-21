@@ -656,7 +656,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Search for mentions (quick autocomplete)
-  ipcMain.handle('db:resources:searchForMention', (event, query) => {
+  ipcMain.handle('db:resources:searchForMention', (event, query, projectId) => {
     try {
       validateSender(event, windowManager);
       // Validar query
@@ -668,7 +668,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
       const queries = database.getQueries();
       const searchTerm = `%${query}%`;
-      const results = queries.searchForMention.all(searchTerm, searchTerm);
+      // Mentions are hard-scoped to the active project when provided.
+      const results =
+        typeof projectId === 'string' && projectId
+          ? queries.searchForMentionByProject.all(searchTerm, searchTerm, projectId)
+          : queries.searchForMention.all(searchTerm, searchTerm);
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error searching for mentions:', error);
@@ -1582,12 +1586,26 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Unified search
-  ipcMain.handle('db:search:unified', async (event, query) => {
+  //
+  // Hard-scoped to a single project: when `projectId` is provided, resources,
+  // interactions and studio outputs from other projects are dropped so search
+  // never leaks across projects. `projectId` omitted = global (meta) search.
+  const scopeUnifiedData = (data, projectId) => {
+    if (typeof projectId !== 'string' || !projectId) return data;
+    return {
+      resources: (data.resources || []).filter((r) => r.project_id === projectId),
+      interactions: (data.interactions || []).filter((i) => i.project_id === projectId),
+      studioOutputs: (data.studioOutputs || []).filter((s) => s.project_id === projectId),
+    };
+  };
+
+  ipcMain.handle('db:search:unified', async (event, query, projectId) => {
     // Validate and sanitize query BEFORE the try block so retry catch blocks can use it
     validateSender(event, windowManager);
     if (typeof query !== 'string') {
       return { success: false, error: 'Query must be a string' };
     }
+    const scopeProjectId = typeof projectId === 'string' && projectId ? projectId : undefined;
     if (query.length > 1000) {
       return { success: false, error: 'Query too long. Maximum 1000 characters' };
     }
@@ -1621,7 +1639,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       let resourceResults = [];
       if (lanceQuery) {
         try {
-          const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, {});
+          const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, scopeProjectId ? { project_id: scopeProjectId } : {});
           for (const h of lexHits) {
             const r = queries.getResourceById.get(h.id);
             if (r) resourceResults.push(r);
@@ -1669,11 +1687,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       return {
         success: true,
-        data: {
-          resources: resourceResults,
-          interactions: interactionResults,
-          studioOutputs: studioResults,
-        },
+        data: scopeUnifiedData(
+          {
+            resources: resourceResults,
+            interactions: interactionResults,
+            studioOutputs: studioResults,
+          },
+          scopeProjectId,
+        ),
       };
     } catch (error) {
       console.error('[DB] Error in unified search:', error);
@@ -1718,11 +1739,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
           return {
             success: true,
-            data: {
-              resources: resourceResults,
-              interactions: interactionResults,
-              studioOutputs: studioResults,
-            },
+            data: scopeUnifiedData(
+              {
+                resources: resourceResults,
+                interactions: interactionResults,
+                studioOutputs: studioResults,
+              },
+              scopeProjectId,
+            ),
           };
         } catch (retryError) {
           console.error('[DB] Error retrying unified search after repair:', retryError);
@@ -1751,10 +1775,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
                 return {
                   success: true,
-                  data: {
-                    resources: resourceResults,
-                    interactions: interactionResults,
-                  },
+                  data: scopeUnifiedData(
+                    {
+                      resources: resourceResults,
+                      interactions: interactionResults,
+                    },
+                    scopeProjectId,
+                  ),
                 };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);
@@ -1784,11 +1811,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Lightweight resource list (no content / thumbnail_data) for sidebar and dashboard
-  ipcMain.handle('db:resources:listLight', (event, limit = 500) => {
+  ipcMain.handle('db:resources:listLight', (event, limit = 500, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resources = queries.listResourcesLight.all(limit);
+      // Project-scoped when a projectId is provided (filters in SQL before LIMIT
+      // to avoid the global-truncation leak). Omit projectId only for meta views
+      // that intentionally span all projects (e.g. the Projects dashboard).
+      const resources =
+        typeof projectId === 'string' && projectId
+          ? queries.listResourcesLightByProject.all(projectId, limit)
+          : queries.listResourcesLight.all(limit);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error listing resources (light):', error);

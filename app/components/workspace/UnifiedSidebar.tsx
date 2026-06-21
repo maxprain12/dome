@@ -186,13 +186,15 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     if (typeof window === 'undefined' || !window.electron?.db?.resources) return;
     try {
       if (!silent) setLoading(true);
-      const result = await window.electron.db.resources.listLight(500);
+      // Scope to the active project in SQL so files never leak across projects
+      // and a project never loses its own files to the global LIMIT.
+      const result = await window.electron.db.resources.listLight(500, hubProjectId);
       if (result?.success && result.data) setResources(result.data as Resource[]);
     } catch { /* ignore */ }
     finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [hubProjectId]);
 
   const fetchProjects = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.db?.projects) return;
@@ -241,7 +243,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note');
+      useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note', getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources]);
 
@@ -261,7 +263,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook');
+      useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook', getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources]);
 
@@ -280,7 +282,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success && result.data) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(result.data.resourceId, 'artifact', result.data.title);
+      useTabStore.getState().openResourceTab(result.data.resourceId, 'artifact', result.data.title, getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources, t]);
 
@@ -300,7 +302,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'url', title ?? url);
+      useTabStore.getState().openResourceTab(id, 'url', title ?? url, getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources]);
 
@@ -534,7 +536,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   }, [t, openLearnTab, openTagsTab, openMarketplaceTab]);
 
   const handleOpenProjectRootFolder = useCallback(() => {
-    openFolderTab(hubProjectId, activeProjectLabel);
+    openFolderTab(hubProjectId, activeProjectLabel, undefined, hubProjectId);
     setWorkspaceOpen(true);
   }, [openFolderTab, hubProjectId, activeProjectLabel]);
 

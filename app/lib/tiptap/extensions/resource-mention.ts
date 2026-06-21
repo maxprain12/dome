@@ -59,7 +59,8 @@ export function buildDomeResourceMention(
         const projectId = bridge?.projectId ?? '';
         const api = window.electron?.db?.resources;
         if (!api?.searchForMention) return [];
-        const res = await api.searchForMention(query ?? '');
+        // Hard-scope mentions to the note's project (IPC filters in SQL).
+        const res = await api.searchForMention(query ?? '', projectId || undefined);
         if (!res?.success || !Array.isArray(res.data)) return [];
         const rows = res.data as Array<{
           id: string;
@@ -67,11 +68,7 @@ export function buildDomeResourceMention(
           type: string;
           project_id?: string;
         }>;
-        const mapped = rows.map((r) => ({ id: r.id, label: r.title, type: r.type, project_id: r.project_id }));
-        if (!projectId) return mapped.map(({ id, label, type }) => ({ id, label, type }));
-        const inProject = mapped.filter((r) => r.project_id === projectId);
-        const rest = mapped.filter((r) => r.project_id !== projectId);
-        return [...inProject, ...rest].map(({ id, label, type }) => ({ id, label, type }));
+        return rows.map((r) => ({ id: r.id, label: r.title, type: r.type }));
       },
       command: ({ editor, range, props }) => {
         const item = props as DomeMentionItem;

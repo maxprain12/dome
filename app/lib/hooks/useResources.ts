@@ -106,7 +106,9 @@ export function useResources(filter?: ResourceFilter) {
 
         try {
             if (typeof window !== 'undefined' && window.electron?.db) {
-                const result = await window.electron.db.resources.listLight(500);
+                // Scope to the requested project in SQL so a project never loses
+                // its own files to the global LIMIT and never sees cross-project data.
+                const result = await window.electron.db.resources.listLight(500, filter?.projectId);
                 if (result.success && result.data) {
                     startTransition(() => setResources((result.data as Resource[]).map(normalizeResource)));
                 } else if (result.error) {
@@ -119,7 +121,7 @@ export function useResources(filter?: ResourceFilter) {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [filter?.projectId]);
 
     // Initial fetch
     useEffect(() => {

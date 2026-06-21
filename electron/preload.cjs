@@ -1115,7 +1115,7 @@ const electronHandler = {
       update: (resource) => ipcRenderer.invoke('db:resources:update', resource),
       search: (query) => ipcRenderer.invoke('db:resources:search', query),
       getAll: (limit) => ipcRenderer.invoke('db:resources:getAll', limit),
-      listLight: (limit) => ipcRenderer.invoke('db:resources:listLight', limit),
+      listLight: (limit, projectId) => ipcRenderer.invoke('db:resources:listLight', limit, projectId),
       delete: (id) => ipcRenderer.invoke('db:resources:delete', id),
       bulkDelete: (resourceIds) => ipcRenderer.invoke('db:resources:bulkDelete', resourceIds),
       // Folder containment
@@ -1127,8 +1127,8 @@ const electronHandler = {
         ipcRenderer.invoke('db:resources:moveToProject', { resourceId, projectId }),
       removeFromFolder: (resourceId) =>
         ipcRenderer.invoke('db:resources:removeFromFolder', resourceId),
-      searchForMention: (query) =>
-        ipcRenderer.invoke('db:resources:searchForMention', query),
+      searchForMention: (query, projectId) =>
+        ipcRenderer.invoke('db:resources:searchForMention', query, projectId),
       getBacklinks: (id) =>
         ipcRenderer.invoke('db:resources:getBacklinks', id),
       uploadFile: (filePath, projectId, type, title) =>
@@ -1160,8 +1160,8 @@ const electronHandler = {
     // Tags
     tags: {
       getByResource: (resourceId) => ipcRenderer.invoke('db:tags:getByResource', resourceId),
-      getAll: () => ipcRenderer.invoke('db:tags:getAll'),
-      getResources: (tagId) => ipcRenderer.invoke('db:tags:getResources', tagId),
+      getAll: (projectId) => ipcRenderer.invoke('db:tags:getAll', projectId),
+      getResources: (tagId, projectId) => ipcRenderer.invoke('db:tags:getResources', tagId, projectId),
       create: (tag) => ipcRenderer.invoke('db:tags:create', tag),
       addToResource: (resourceId, tagId) =>
         ipcRenderer.invoke('db:tags:addToResource', resourceId, tagId),
@@ -1216,7 +1216,7 @@ const electronHandler = {
 
     // Unified Search
     search: {
-      unified: (query) => ipcRenderer.invoke('db:search:unified', query),
+      unified: (query, projectId) => ipcRenderer.invoke('db:search:unified', query, projectId),
     },
 
     // Flashcards

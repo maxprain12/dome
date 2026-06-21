@@ -5,6 +5,7 @@ import DomeTabBar from './DomeTabBar';
 import ContentRouter from './ContentRouter';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { useResizeStore } from '@/lib/store/useResizeStore';
 import UnifiedSidebar from '@/components/workspace/UnifiedSidebar';
 import PetPluginSlot from '@/components/plugins/PetPluginSlot';
@@ -156,6 +157,18 @@ export default function AppShell() {
     });
     return () => unsub?.();
   }, []);
+
+  // Project switch: close every project-scoped tab from the previous project
+  // so documents generated in one project do not leak into the tab bar of
+  // another. Global tabs (home, settings, calendar, chat, …) are preserved.
+  const currentProjectId = useAppStore((s) => s.currentProject?.id ?? null);
+  useEffect(() => {
+    if (currentProjectId == null) return;
+    // Enforce isolation: only the active project's document tabs stay open.
+    // Runs on mount and on every switch, so tabs from another vault (including
+    // ones reached via cross-project navigation) never linger.
+    useTabStore.getState().closeForeignProjectTabs(currentProjectId);
+  }, [currentProjectId]);
 
   // Auto-open the right Many panel when leaving chat; chat fullscreen keeps historial inside Many.
   const prevActiveTabIdRef = useRef<string | null>(null);

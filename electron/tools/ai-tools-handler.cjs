@@ -56,15 +56,34 @@ function generateId() {
 // =============================================================================
 
 /**
+ * Resolve the active project id (last used, else 'default'). Used to hard-scope
+ * agent discovery tools so Many only sees the active project unless the model
+ * explicitly passes another project_id.
+ * @returns {string}
+ */
+function getActiveProjectId() {
+  try {
+    const queries = database.getQueries();
+    const last = queries.getSetting.get('last_project_id');
+    if (last?.value && queries.getProjectById.get(last.value)) return last.value;
+  } catch (err) {
+    console.warn('[AI Tools] getActiveProjectId:', err?.message || err);
+  }
+  return 'default';
+}
+
+/**
  * Search resources using full-text search
  * @param {string} query - Search query
  * @param {Object} options - Search options
- * @param {string} [options.project_id] - Filter by project
+ * @param {string} [options.project_id] - Filter by project (defaults to active project)
  * @param {string} [options.type] - Filter by resource type
  * @param {number} [options.limit=10] - Max results
  * @returns {Promise<Object>}
  */
 async function resourceSearch(query, options = {}) {
+  // Hard-scope to the active project unless the caller explicitly set one.
+  if (!options.project_id) options.project_id = getActiveProjectId();
   try {
     const db = database.getDB();
     const limit = Math.min(options.limit || 10, 50); // Cap at 50
@@ -463,6 +482,8 @@ async function resourceGetSection(resourceId, chunkId) {
  * @returns {Promise<Object>}
  */
 async function resourceList(options = {}) {
+  // Hard-scope to the active project unless the caller explicitly set one.
+  if (!options.project_id) options.project_id = getActiveProjectId();
   try {
     const db = database.getDB();
     const limit = Math.min(options.limit || 20, 100); // Cap at 100
@@ -644,6 +665,8 @@ function buildFolderPath(folderId, folderMap) {
  * @returns {Promise<Object>}
  */
 async function resourceSemanticSearch(query, options = {}) {
+  // Hard-scope to the active project unless the caller explicitly set one.
+  if (!options.project_id) options.project_id = getActiveProjectId();
   try {
     const limit = Math.min(options.limit || 10, 50);
     const queries = database.getQueries();
@@ -726,6 +749,8 @@ async function resourceSemanticSearch(query, options = {}) {
  * @returns {Promise<Object>}
  */
 async function resourceHybridSearch(query, options = {}) {
+  // Hard-scope to the active project unless the caller explicitly set one.
+  if (!options.project_id) options.project_id = getActiveProjectId();
   try {
     const limit = Math.min(options.limit || 10, 50);
     const semanticThreshold = options.semantic_min_score ?? 0.3;

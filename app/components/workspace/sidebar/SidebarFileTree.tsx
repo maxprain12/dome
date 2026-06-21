@@ -17,7 +17,7 @@ export interface TreeNodeProps {
   expandedIds: Set<string>;
   onToggle: (id: string) => void;
   onSelect: (node: TreeNodeData) => void;
-  onOpenFolder: (folderId: string, title: string) => void;
+  onOpenFolder: (folderId: string, title: string, projectId?: string) => void;
   renameId: string | null;
   dragOverId: string | null;
   onContextMenu: (e: React.MouseEvent, r: Resource) => void;
@@ -56,7 +56,7 @@ export function TreeNode({
     if (isRenaming) return;
     if (isFolder) {
       onToggle(node.id);
-      onOpenFolder(node.id, node.name);
+      onOpenFolder(node.id, node.name, node.resource?.project_id);
     } else {
       onSelect(node);
     }
@@ -327,11 +327,11 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
   }, []);
 
   const handleSelect = useCallback((node: TreeNodeData) => {
-    if (node.resource) openResourceTab(node.id, node.type, node.name);
+    if (node.resource) openResourceTab(node.id, node.type, node.name, node.resource.project_id);
   }, [openResourceTab]);
 
-  const handleOpenFolder = useCallback((folderId: string, title: string) => {
-    openFolderTab(folderId, title);
+  const handleOpenFolder = useCallback((folderId: string, title: string, projectId?: string) => {
+    openFolderTab(folderId, title, undefined, projectId);
   }, [openFolderTab]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, r: Resource) => {

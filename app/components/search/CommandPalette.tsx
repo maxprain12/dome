@@ -184,7 +184,7 @@ export default function CommandPalette() {
   }, [activateTab, setSection]);
 
   const openResource = useCallback(
-    (resource: { id: string; type: string; title: string }, rank1Indexed: number, category: string) => {
+    (resource: { id: string; type: string; title: string; project_id?: string }, rank1Indexed: number, category: string) => {
       recordSearchResultSelected({
         surface: 'cmdk_modal',
         query: query.trim(),
@@ -192,10 +192,11 @@ export default function CommandPalette() {
         rank1Indexed,
         category,
       });
+      const projectId = resource.project_id;
       if (resource.type === 'folder') {
-        openFolderTab(resource.id, resource.title);
+        openFolderTab(resource.id, resource.title, undefined, projectId);
       } else {
-        openResourceTab(resource.id, resource.type, resource.title);
+        openResourceTab(resource.id, resource.type, resource.title, projectId);
       }
       close();
     },
@@ -392,7 +393,7 @@ export default function CommandPalette() {
           };
           const result = await window.electron.db.resources.create(res);
           if (result.success && result.data) {
-            openResourceTab(result.data.id, 'note', result.data.title);
+            openResourceTab(result.data.id, 'note', result.data.title, projectId);
           }
         },
       ),
@@ -450,7 +451,7 @@ export default function CommandPalette() {
       setIsSearching(true);
       try {
         if (!window.electron?.db?.search?.unified) return;
-        const result = await window.electron.db.search.unified(trimmedQuery);
+        const result = await window.electron.db.search.unified(trimmedQuery, currentProject?.id ?? 'default');
         if (ignore || !result.success || !result.data) return;
 
         if (Array.isArray(result.data.resources) && result.data.resources.length > 0) {
@@ -503,7 +504,7 @@ export default function CommandPalette() {
       ignore = true;
       window.clearTimeout(timer);
     };
-  }, [isOpen, trimmedQuery, t]);
+  }, [isOpen, trimmedQuery, currentProject?.id, t]);
 
   const flatRows = useMemo((): PaletteRow[] => {
     const rows: PaletteRow[] = [];

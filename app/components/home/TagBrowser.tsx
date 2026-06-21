@@ -4,6 +4,7 @@ import { Tag, ChevronLeft, FileText, Video, Music, FileImage, Globe, Folder } fr
 import { EditorialShell } from '@/components/home/editorial/EditorialShell';
 import { EditorialPageHero } from '@/components/home/editorial/EditorialPageHero';
 import { TAG_COLOR_PALETTE, TAG_COLOR_DEFAULT } from '@/lib/ui/palettes';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 interface TagWithCount {
   id: string;
@@ -55,11 +56,12 @@ export default function TagBrowser() {
   const [selectedTag, setSelectedTag] = useState<TagWithCount | null>(null);
   const [tagResources, setTagResources] = useState<TagResource[]>([]);
   const [loadingResources, setLoadingResources] = useState(false);
+  const activeProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   useEffect(() => {
     async function load() {
       try {
-        const result = await window.electron.db.tags.getAll();
+        const result = await window.electron.db.tags.getAll(activeProjectId);
         if (result.success) {
           setTags(result.data || []);
         }
@@ -70,13 +72,13 @@ export default function TagBrowser() {
       }
     }
     load();
-  }, []);
+  }, [activeProjectId]);
 
   const handleTagClick = async (tag: TagWithCount) => {
     setSelectedTag(tag);
     setLoadingResources(true);
     try {
-      const result = await window.electron.db.tags.getResources(tag.id);
+      const result = await window.electron.db.tags.getResources(tag.id, activeProjectId);
       if (result.success) {
         setTagResources(result.data || []);
       }

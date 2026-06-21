@@ -18,6 +18,7 @@ import {
   isNestedManyThreadId,
   listManyThreadSummariesResult,
 } from '@/lib/chat/manyThreadBridge';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
@@ -364,7 +365,28 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const localById = new Map(localSessions.map((s) => [s.id, s]));
     const byId = new Map<string, ManyChatSession>();
 
-    for (const summary of summaries) {
+    // Hard-scope history to the active project: each persisted Many thread has a
+    // chat_sessions row (id === threadId) carrying its project_id, so keep only
+    // summaries whose id belongs to the active project. Threads with no DB row
+    // (pure local drafts) are re-added from localSessions below.
+    let allowedThreadIds: Set<string> | null = null;
+    try {
+      const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
+      const res = await db.getChatSessionsGlobal({ projectId: activeProjectId, limit: 5000 });
+      if (res.success && Array.isArray(res.data)) {
+        allowedThreadIds = new Set(
+          (res.data as Array<{ id: string }>).map((s) => s.id),
+        );
+      }
+    } catch (err) {
+      console.warn('[ManyStore] Could not scope history by project:', err);
+    }
+
+    const scopedSummaries = allowedThreadIds
+      ? summaries.filter((s) => allowedThreadIds!.has(s.id))
+      : summaries;
+
+    for (const summary of scopedSummaries) {
       const local = localById.get(summary.id);
       const meta = uiMeta[summary.id];
       byId.set(summary.id, {

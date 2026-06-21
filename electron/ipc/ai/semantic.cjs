@@ -20,6 +20,20 @@ function register({ ipcMain, windowManager, validateSender }) {
       const db = database.getDB();
       const queries = database.getQueries();
 
+      // Hard-scope the graph to the center resource's project so semantic
+      // relations never surface nodes/edges from other projects.
+      const centerResource = queries.getResourceById.get(center);
+      const projectId = centerResource?.project_id || null;
+      // Only in-project resources are eligible as graph endpoints.
+      const inProjectPredicate = projectId
+        ? `AND r.project_id = @projectId`
+        : '';
+      const inProjectEdgePredicate = projectId
+        ? `AND source_id IN (SELECT id FROM resources WHERE project_id = @projectId)
+           AND target_id IN (SELECT id FROM resources WHERE project_id = @projectId)`
+        : '';
+      const bind = projectId ? { th, center, projectId } : { th, center };
+
       const nodes = db
         .prepare(
           `
@@ -38,9 +52,10 @@ function register({ ipcMain, windowManager, validateSender }) {
           WHERE source_id = @center AND similarity >= @th AND relation_type != 'rejected'
           UNION SELECT @center
         )
+        ${inProjectPredicate}
       `,
         )
-        .all({ th, center });
+        .all(bind);
 
       const edges = db
         .prepare(
@@ -55,11 +70,12 @@ function register({ ipcMain, windowManager, validateSender }) {
         WHERE (source_id = @center OR target_id = @center)
           AND similarity >= @th
           AND relation_type != 'rejected'
+          ${inProjectEdgePredicate}
         ORDER BY similarity DESC
         LIMIT 60
       `,
         )
-        .all({ center, th });
+        .all(bind);
 
       for (const e of edges) {
         const s = queries.getResourceById.get(e.source);
