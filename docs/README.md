@@ -70,7 +70,7 @@ Documentación del proyecto Dome (v2.6.1). Además de este índice:
 
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
-| **Database** | [database.md](features/database.md) | SQLite, FTS5 |
+| **Database** | [database.md](features/database.md) | DuckDB, async, FTS extension, legacy import |
 | **IPC** | [ipc.md](features/ipc.md) | Whitelist, preload (canal canónico: [architecture/ipc-channels.md](architecture/ipc-channels.md)) |
 | **File storage** | [file-storage.md](features/file-storage.md) | dome-files |
 | **Settings** | [settings.md](features/settings.md) | Preferencias |
