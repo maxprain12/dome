@@ -9,7 +9,7 @@ function register({ ipcMain, windowManager, database, fileStorage, thumbnail }) 
 
     try {
       const queries = database.getQueries();
-      const legacyResources = queries.getResourcesWithLegacyPath.all();
+      const legacyResources = await queries.getResourcesWithLegacyPath.all();
 
       if (legacyResources.length === 0) {
         return { success: true, data: { migrated: 0, failed: 0 } };
@@ -43,7 +43,7 @@ function register({ ipcMain, windowManager, database, fileStorage, thumbnail }) 
           );
 
           // Update resource
-          queries.updateResourceFile.run(
+          await queries.updateResourceFile.run(
             importResult.internalPath,
             importResult.mimeType,
             importResult.size,
@@ -80,14 +80,14 @@ function register({ ipcMain, windowManager, database, fileStorage, thumbnail }) 
   /**
    * Get migration status (legacy file paths)
    */
-  ipcMain.handle('migration:getStatus', (event) => {
+  ipcMain.handle('migration:getStatus', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
       const queries = database.getQueries();
-      const legacyResources = queries.getResourcesWithLegacyPath.all();
+      const legacyResources = await queries.getResourcesWithLegacyPath.all();
 
       return {
         success: true,

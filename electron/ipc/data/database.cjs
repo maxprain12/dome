@@ -25,16 +25,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
    * the project and autoReindexWikiOnSave is true in global settings.
    * See docs/indexing.md and docs/kb-llm-wiki-model.md.
    */
-  function maybeScheduleKbReindex(resourceId, mergedResource, current) {
+  async function maybeScheduleKbReindex(resourceId, mergedResource, current) {
     try {
       const queries = database.getQueries();
       const meta = parseJson(mergedResource.metadata, {});
       const candidate = { ...current, ...mergedResource, type: current.type };
       if (!semanticIndexScheduler.shouldIndex(candidate)) return;
 
-      const global = { ...kbShared.defaultGlobalConfig(), ...parseJson(queries.getSetting.get(kbShared.KB_GLOBAL_KEY)?.value, {}) };
+      const global = { ...kbShared.defaultGlobalConfig(), ...parseJson((await queries.getSetting.get(kbShared.KB_GLOBAL_KEY))?.value, {}) };
       const projectId = current.project_id;
-      const ov = parseJson(queries.getSetting.get(kbShared.projectKey(projectId))?.value, {});
+      const ov = parseJson((await queries.getSetting.get(kbShared.projectKey(projectId)))?.value, {});
       const kbActive = kbShared.effectiveKbEnabled(global, ov);
       const autoAll = kbActive && global.autoReindexWikiOnSave === true;
       const explicit = meta.dome_kb?.reindexOnSave === true;
@@ -191,11 +191,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   }
 
   // Projects
-  ipcMain.handle('db:projects:create', (event, project) => {
+  ipcMain.handle('db:projects:create', async (event, project) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.createProject.run(
+      await queries.createProject.run(
         project.id,
         project.name,
         project.description || null,
@@ -214,11 +214,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:projects:getAll', (event) => {
+  ipcMain.handle('db:projects:getAll', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const projects = queries.getProjects.all();
+      const projects = await queries.getProjects.all();
       return { success: true, data: projects };
     } catch (error) {
       console.error('[DB] Error getting projects:', error);
@@ -226,11 +226,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:projects:getById', (event, id) => {
+  ipcMain.handle('db:projects:getById', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const project = queries.getProjectById.get(id);
+      const project = await queries.getProjectById.get(id);
       return { success: true, data: project };
     } catch (error) {
       console.error('[DB] Error getting project:', error);
@@ -240,7 +240,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
   // Set (or clear) a project's custom Markdown vault root. Moves existing note
   // .md files to the new location and (re)watches it for external edits.
-  ipcMain.handle('db:projects:setVaultRoot', (event, args) => {
+  ipcMain.handle('db:projects:setVaultRoot', async (event, args) => {
     try {
       validateSender(event, windowManager);
       const projectId = args?.projectId;
@@ -259,18 +259,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Effective vault root (custom or default) for display.
-  ipcMain.handle('db:projects:getVaultRoot', (event, projectId) => {
+  ipcMain.handle('db:projects:getVaultRoot', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const root = vaultStore.getProjectVaultRoot(projectId, database.getQueries(), fileStorage);
-      const project = database.getQueries().getProjectById.get(projectId);
+      const project = await database.getQueries().getProjectById.get(projectId);
       return { success: true, data: { root, custom: !!(project && project.vault_root) } };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:projects:getDeletionImpact', (event, projectId) => {
+  ipcMain.handle('db:projects:getDeletionImpact', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       return database.getProjectDeletionImpact(projectId);
@@ -280,7 +280,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:projects:deleteWithContent', (event, projectId) => {
+  ipcMain.handle('db:projects:deleteWithContent', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const result = database.deleteProjectWithContent(projectId);
@@ -295,11 +295,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Resources
-  ipcMain.handle('db:resources:create', (event, resource) => {
+  ipcMain.handle('db:resources:create', async (event, resource) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.createResource.run(
+      await queries.createResource.run(
         resource.id,
         resource.project_id,
         resource.type,
@@ -324,7 +324,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
           }
           if (!text) text = stripTags(raw);
-          if (text) database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
+          if (text) await database.getDB().run('UPDATE resources SET content_text = ? WHERE id = ?', [text, resource.id]);
         } catch { /* non-fatal */ }
       }
 
@@ -342,11 +342,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:resources:getByProject', (event, projectId) => {
+  ipcMain.handle('db:resources:getByProject', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resources = queries.getResourcesByProject.all(projectId);
+      const resources = await queries.getResourcesByProject.all(projectId);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error getting resources:', error);
@@ -354,11 +354,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:resources:getById', (event, id) => {
+  ipcMain.handle('db:resources:getById', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(id);
+      const resource = await queries.getResourceById.get(id);
       return { success: true, data: resource };
     } catch (error) {
       console.error('[DB] Error getting resource:', error);
@@ -369,7 +369,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   /**
    * Find or create a minimal `url` resource for a canonical HTTP(S) URL (same project as source).
    */
-  ipcMain.handle('db:resources:ensureUrl', (event, payload) => {
+  ipcMain.handle('db:resources:ensureUrl', async (event, payload) => {
     try {
       validateSender(event, windowManager);
       const urlRaw = typeof payload === 'string' ? payload : payload?.url;
@@ -396,7 +396,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         return { success: false, error: 'URL lookup not available' };
       }
 
-      const existing = queries.findUrlResourceByCanonicalUrl.get(canonical, canonical);
+      const existing = await queries.findUrlResourceByCanonicalUrl.get(canonical, canonical);
       if (existing) {
         return { success: true, data: existing };
       }
@@ -405,7 +405,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         return { success: false, error: 'sourceResourceId required to create URL resource' };
       }
 
-      const source = queries.getResourceById.get(sourceResourceId);
+      const source = await queries.getResourceById.get(sourceResourceId);
       if (!source) {
         return { success: false, error: 'Source resource not found' };
       }
@@ -425,7 +425,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
 
       const metadata = JSON.stringify({ url: canonical });
-      queries.createResource.run(
+      await queries.createResource.run(
         id,
         source.project_id,
         'url',
@@ -438,7 +438,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         now
       );
 
-      const created = queries.getResourceById.get(id);
+      const created = await queries.getResourceById.get(id);
       if (created) {
         windowManager.broadcast('resource:created', created);
         semanticIndexScheduler.scheduleSemanticReindex(id);
@@ -451,11 +451,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:resources:update', (event, resource) => {
+  ipcMain.handle('db:resources:update', async (event, resource) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const current = queries.getResourceById.get(resource.id);
+      const current = await queries.getResourceById.get(resource.id);
       if (!current) {
         return { success: false, error: 'Resource not found' };
       }
@@ -474,7 +474,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
       const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
 
-      queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+      await queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
 
       // Vault reconciliation: keep the on-disk Markdown tree + search caches in
       // sync with this DB write (covers AI/tool edits as well as renderer saves).
@@ -497,7 +497,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                 try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
               }
               if (!text) text = stripTags(raw);
-              database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
+              await database.getDB().run('UPDATE resources SET content_text = ? WHERE id = ?', [text, resource.id]);
             } catch { /* non-fatal */ }
           }
           if (resource.title !== undefined && resource.title !== current.title) {
@@ -519,7 +519,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         updates: mergedResource,
       });
 
-      maybeScheduleKbReindex(resource.id, mergedResource, current);
+      await maybeScheduleKbReindex(resource.id, mergedResource, current);
       semanticIndexScheduler.scheduleSemanticReindex(resource.id);
 
       return { success: true, data: mergedResource };
@@ -532,7 +532,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Retry the operation after repair (merged values from above scope)
         try {
           const queries = database.getQueries();
-          const current = queries.getResourceById.get(resource.id);
+          const current = await queries.getResourceById.get(resource.id);
           if (!current) return { success: false, error: 'Resource not found' };
           const mergedTitle = (resource.title !== undefined ? resource.title : current.title) ?? 'Untitled';
           const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
@@ -544,7 +544,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             mergedMetadata = current.metadata;
           }
           const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
-          queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+          await queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
           const mergedResource = {
             ...current,
             title: mergedTitle,
@@ -553,7 +553,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             updated_at: mergedUpdatedAt,
           };
           windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
-          maybeScheduleKbReindex(resource.id, mergedResource, current);
+          await maybeScheduleKbReindex(resource.id, mergedResource, current);
           semanticIndexScheduler.scheduleSemanticReindex(resource.id);
           return { success: true, data: mergedResource };
         } catch (retryError) {
@@ -565,7 +565,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             if (repairedAgain) {
               try {
                 const queries = database.getQueries();
-                const current = queries.getResourceById.get(resource.id);
+                const current = await queries.getResourceById.get(resource.id);
                 if (!current) return { success: false, error: 'Resource not found' };
                 const mergedTitle = resource.title !== undefined ? resource.title : current.title;
                 const mergedContent = resource.content !== undefined ? (resource.content || null) : (current.content || null);
@@ -577,7 +577,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                   mergedMetadata = current.metadata;
                 }
                 const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
-                queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+                await queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
                 const mergedResource = {
                   ...current,
                   title: mergedTitle,
@@ -586,7 +586,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
                   updated_at: mergedUpdatedAt,
                 };
                 windowManager.broadcast('resource:updated', { id: resource.id, updates: mergedResource });
-                maybeScheduleKbReindex(resource.id, mergedResource, current);
+                await maybeScheduleKbReindex(resource.id, mergedResource, current);
                 semanticIndexScheduler.scheduleSemanticReindex(resource.id);
                 return { success: true, data: mergedResource };
               } catch (finalError) {
@@ -604,7 +604,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Search
-  ipcMain.handle('db:resources:search', (event, query) => {
+  ipcMain.handle('db:resources:search', async (event, query) => {
     try {
       validateSender(event, windowManager);
       // Validar query
@@ -615,7 +615,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         throw new Error('Query too long. Maximum 1000 characters');
       }
       const queries = database.getQueries();
-      const results = queries.searchResources.all(query);
+      const results = await queries.searchResources.all(query);
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error searching resources:', error);
@@ -627,7 +627,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Queries are automatically invalidated by handleCorruptionError
         try {
           const queries = database.getQueries();
-          const results = queries.searchResources.all(query);
+          const results = await queries.searchResources.all(query);
           return { success: true, data: results };
         } catch (retryError) {
           console.error('[DB] Error retrying search after repair:', retryError);
@@ -639,7 +639,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             if (repairedAgain) {
               try {
                 const queries = database.getQueries();
-                const results = queries.searchResources.all(query);
+                const results = await queries.searchResources.all(query);
                 return { success: true, data: results };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);
@@ -656,7 +656,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Search for mentions (quick autocomplete)
-  ipcMain.handle('db:resources:searchForMention', (event, query, projectId) => {
+  ipcMain.handle('db:resources:searchForMention', async (event, query, projectId) => {
     try {
       validateSender(event, windowManager);
       // Validar query
@@ -671,8 +671,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Mentions are hard-scoped to the active project when provided.
       const results =
         typeof projectId === 'string' && projectId
-          ? queries.searchForMentionByProject.all(searchTerm, searchTerm, projectId)
-          : queries.searchForMention.all(searchTerm, searchTerm);
+          ? await queries.searchForMentionByProject.all(searchTerm, searchTerm, projectId)
+          : await queries.searchForMention.all(searchTerm, searchTerm);
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error searching for mentions:', error);
@@ -681,11 +681,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Get backlinks (resources that link to this resource)
-  ipcMain.handle('db:resources:getBacklinks', (event, resourceId) => {
+  ipcMain.handle('db:resources:getBacklinks', async (event, resourceId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const results = queries.getBacklinks.all(resourceId);
+      const results = await queries.getBacklinks.all(resourceId);
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error getting backlinks:', error);
@@ -717,7 +717,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Settings
-  ipcMain.handle('db:settings:get', (event, key) => {
+  ipcMain.handle('db:settings:get', async (event, key) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -725,7 +725,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         const masked = maskSettingForRenderer(queries, key);
         return { success: true, data: masked, hasSecret: Boolean(masked) };
       }
-      const result = queries.getSetting.get(key);
+      const result = await queries.getSetting.get(key);
       return { success: true, data: result ? result.value : null };
     } catch (error) {
       console.error('[DB] Error getting setting:', error);
@@ -733,7 +733,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:settings:set', (event, key, value) => {
+  ipcMain.handle('db:settings:set', async (event, key, value) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -742,7 +742,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // would destroy the stored secret.
         if (!isMaskedSecret(value)) writeSettingSecret(queries, key, value);
       } else {
-        queries.setSetting.run(key, value, Date.now());
+        await queries.setSetting.run(key, value, Date.now());
       }
       return { success: true };
     } catch (error) {
@@ -752,7 +752,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Which AI providers have a stored API key (for the provider picker UI).
-  ipcMain.handle('db:settings:aiProviderKeyStatus', (event) => {
+  ipcMain.handle('db:settings:aiProviderKeyStatus', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -767,7 +767,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:settings:saveAI', (event, config) => {
+  ipcMain.handle('db:settings:saveAI', async (event, config) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -775,18 +775,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const { provider, apiKey, model, embeddingModel, baseURL } = config;
       const { writeProviderApiKey, writeProviderBaseUrl, KEYLESS_PROVIDERS } = require('../../ai/provider-keys.cjs');
 
-      if (provider) queries.setSetting.run('ai_provider', provider, Date.now());
-      const targetProvider = provider || queries.getSetting.get('ai_provider')?.value;
+      if (provider) await queries.setSetting.run('ai_provider', provider, Date.now());
+      const targetProvider = provider || (await queries.getSetting.get('ai_provider'))?.value;
       if (apiKey && !isMaskedSecret(apiKey) && targetProvider && !KEYLESS_PROVIDERS.has(targetProvider)) {
         // Per-provider slot (cambiar de provider conserva cada clave); la
         // ai_api_key legacy compartida se mantiene para lectores antiguos.
         writeProviderApiKey(queries, targetProvider, apiKey);
         writeSettingSecret(queries, 'ai_api_key', apiKey);
       }
-      if (model) queries.setSetting.run('ai_model', model, Date.now());
-      if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+      if (model) await queries.setSetting.run('ai_model', model, Date.now());
+      if (embeddingModel) await queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
       if (baseURL && targetProvider) writeProviderBaseUrl(queries, targetProvider, baseURL);
-      if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());
+      if (baseURL) await queries.setSetting.run('ai_base_url', baseURL, Date.now());
 
       return { success: true };
     } catch (error) {
@@ -796,36 +796,36 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Many agents
-  ipcMain.handle('db:manyAgents:list', (event, projectId) => {
+  ipcMain.handle('db:manyAgents:list', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
-      return { success: true, data: queries.listManyAgents.all(pid).map(serializeManyAgent) };
+      return { success: true, data: (await queries.listManyAgents.all(pid)).map(serializeManyAgent) };
     } catch (error) {
       console.error('[DB] Error listing many agents:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:manyAgents:get', (event, id) => {
+  ipcMain.handle('db:manyAgents:get', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(id)) };
+      return { success: true, data: serializeManyAgent(await queries.getManyAgentById.get(id)) };
     } catch (error) {
       console.error('[DB] Error getting many agent:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:manyAgents:create', (event, agent) => {
+  ipcMain.handle('db:manyAgents:create', async (event, agent) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const favorite = agent.favorite === true ? 1 : 0;
       const projectId = agent.projectId && String(agent.projectId).trim() ? String(agent.projectId).trim() : 'default';
-      queries.createManyAgent.run(
+      await queries.createManyAgent.run(
         agent.id,
         projectId,
         agent.name,
@@ -844,7 +844,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       windowManager.broadcast('dome:agents-changed');
       return {
         success: true,
-        data: serializeManyAgent(queries.getManyAgentById.get(agent.id)),
+        data: serializeManyAgent(await queries.getManyAgentById.get(agent.id)),
       };
     } catch (error) {
       console.error('[DB] Error creating many agent:', error);
@@ -852,11 +852,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:manyAgents:update', (event, id, updates) => {
+  ipcMain.handle('db:manyAgents:update', async (event, id, updates) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const current = queries.getManyAgentById.get(id);
+      const current = await queries.getManyAgentById.get(id);
       if (!current) return { success: false, error: 'Agent not found' };
 
       // Snapshot current state as a new version before applying the update.
@@ -868,9 +868,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           JSON.stringify(updates.mcpServerIds) !== (current.mcp_server_ids ?? '[]'));
       if (snapshotChanged) {
         try {
-          const latestRow = queries.getLatestAgentVersion.get(id);
+          const latestRow = await queries.getLatestAgentVersion.get(id);
           const nextVersion = (latestRow?.max_version ?? 0) + 1;
-          queries.createAgentVersion.run(
+          await queries.createAgentVersion.run(
             crypto.randomUUID(),
             id,
             nextVersion,
@@ -909,7 +909,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         next.projectId !== undefined && String(next.projectId || '').trim()
           ? String(next.projectId).trim()
           : current.project_id ?? 'default';
-      queries.updateManyAgent.run(
+      await queries.updateManyAgent.run(
         projectId,
         next.name,
         next.description || '',
@@ -925,7 +925,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         id,
       );
       windowManager.broadcast('dome:agents-changed');
-      return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(id)) };
+      return { success: true, data: serializeManyAgent(await queries.getManyAgentById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating many agent:', error);
       return { success: false, error: error.message };
@@ -933,11 +933,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Agent version history
-  ipcMain.handle('db:manyAgents:listVersions', (event, agentId) => {
+  ipcMain.handle('db:manyAgents:listVersions', async (event, agentId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const rows = queries.listAgentVersions.all(agentId);
+      const rows = await queries.listAgentVersions.all(agentId);
       return { success: true, data: rows.map((r) => ({
         id: r.id,
         agentId: r.agent_id,
@@ -958,19 +958,19 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:manyAgents:restoreVersion', (event, agentId, versionId) => {
+  ipcMain.handle('db:manyAgents:restoreVersion', async (event, agentId, versionId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const ver = queries.getAgentVersionById.get(versionId);
+      const ver = await queries.getAgentVersionById.get(versionId);
       if (!ver || ver.agent_id !== agentId) return { success: false, error: 'Version not found' };
-      const current = queries.getManyAgentById.get(agentId);
+      const current = await queries.getManyAgentById.get(agentId);
       if (!current) return { success: false, error: 'Agent not found' };
 
       // Snapshot current state before restoring
-      const latestRow = queries.getLatestAgentVersion.get(agentId);
+      const latestRow = await queries.getLatestAgentVersion.get(agentId);
       const nextVersion = (latestRow?.max_version ?? 0) + 1;
-      queries.createAgentVersion.run(
+      await queries.createAgentVersion.run(
         crypto.randomUUID(),
         agentId,
         nextVersion,
@@ -989,7 +989,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const folderId = current.folder_id ?? null;
       const favorite = current.favorite ?? 0;
       const projectId = current.project_id ?? 'default';
-      queries.updateManyAgent.run(
+      await queries.updateManyAgent.run(
         projectId,
         ver.name,
         ver.description ?? '',
@@ -1005,18 +1005,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         agentId,
       );
       windowManager.broadcast('dome:agents-changed');
-      return { success: true, data: serializeManyAgent(queries.getManyAgentById.get(agentId)) };
+      return { success: true, data: serializeManyAgent(await queries.getManyAgentById.get(agentId)) };
     } catch (error) {
       console.error('[DB] Error restoring agent version:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:manyAgents:delete', (event, id) => {
+  ipcMain.handle('db:manyAgents:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const result = queries.deleteManyAgent.run(id);
+      const result = await queries.deleteManyAgent.run(id);
       if (result.changes === 0) return { success: false, error: 'Agent not found' };
       windowManager.broadcast('dome:agents-changed');
       return { success: true };
@@ -1027,25 +1027,25 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Agent folders
-  ipcMain.handle('db:agentFolders:list', (event, projectId) => {
+  ipcMain.handle('db:agentFolders:list', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
-      return { success: true, data: queries.listAgentFolders.all(pid).map(serializeAgentFolderRow) };
+      return { success: true, data: (await queries.listAgentFolders.all(pid)).map(serializeAgentFolderRow) };
     } catch (error) {
       console.error('[DB] Error listing agent folders:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:agentFolders:create', (event, folder) => {
+  ipcMain.handle('db:agentFolders:create', async (event, folder) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
       const pid = folder.projectId && String(folder.projectId).trim() ? String(folder.projectId).trim() : 'default';
-      queries.createAgentFolder.run(
+      await queries.createAgentFolder.run(
         folder.id,
         pid,
         folder.parentId != null && folder.parentId !== '' ? folder.parentId : null,
@@ -1055,18 +1055,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         folder.updatedAt ?? now,
       );
       windowManager.broadcast('dome:agents-changed');
-      return { success: true, data: serializeAgentFolderRow(queries.getAgentFolderById.get(folder.id)) };
+      return { success: true, data: serializeAgentFolderRow(await queries.getAgentFolderById.get(folder.id)) };
     } catch (error) {
       console.error('[DB] Error creating agent folder:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:agentFolders:update', (event, id, updates) => {
+  ipcMain.handle('db:agentFolders:update', async (event, id, updates) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const current = queries.getAgentFolderById.get(id);
+      const current = await queries.getAgentFolderById.get(id);
       if (!current) return { success: false, error: 'Folder not found' };
       const parentId =
         updates.parentId !== undefined
@@ -1081,16 +1081,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const sortOrder =
         updates.sortOrder !== undefined ? updates.sortOrder : current.sort_order ?? 0;
       const now = Date.now();
-      queries.updateAgentFolder.run(parentId, name, sortOrder, now, id);
+      await queries.updateAgentFolder.run(parentId, name, sortOrder, now, id);
       windowManager.broadcast('dome:agents-changed');
-      return { success: true, data: serializeAgentFolderRow(queries.getAgentFolderById.get(id)) };
+      return { success: true, data: serializeAgentFolderRow(await queries.getAgentFolderById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating agent folder:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:agentFolders:delete', (event, id) => {
+  ipcMain.handle('db:agentFolders:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const result = database.deleteAgentFolderCascade(id);
@@ -1104,35 +1104,35 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Workflows
-  ipcMain.handle('db:workflows:list', (event, projectId) => {
+  ipcMain.handle('db:workflows:list', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
-      return { success: true, data: queries.listCanvasWorkflows.all(pid).map(serializeWorkflow) };
+      return { success: true, data: (await queries.listCanvasWorkflows.all(pid)).map(serializeWorkflow) };
     } catch (error) {
       console.error('[DB] Error listing workflows:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:workflows:get', (event, id) => {
+  ipcMain.handle('db:workflows:get', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: serializeWorkflow(queries.getCanvasWorkflowById.get(id)) };
+      return { success: true, data: serializeWorkflow(await queries.getCanvasWorkflowById.get(id)) };
     } catch (error) {
       console.error('[DB] Error getting workflow:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:workflows:create', (event, workflow) => {
+  ipcMain.handle('db:workflows:create', async (event, workflow) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const pid = workflow.projectId && String(workflow.projectId).trim() ? String(workflow.projectId).trim() : 'default';
-      queries.createCanvasWorkflow.run(
+      await queries.createCanvasWorkflow.run(
         workflow.id,
         pid,
         workflow.name,
@@ -1147,7 +1147,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       windowManager.broadcast('dome:workflows-changed');
       return {
         success: true,
-        data: serializeWorkflow(queries.getCanvasWorkflowById.get(workflow.id)),
+        data: serializeWorkflow(await queries.getCanvasWorkflowById.get(workflow.id)),
       };
     } catch (error) {
       console.error('[DB] Error creating workflow:', error);
@@ -1155,11 +1155,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:workflows:update', (event, id, updates) => {
+  ipcMain.handle('db:workflows:update', async (event, id, updates) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const current = queries.getCanvasWorkflowById.get(id);
+      const current = await queries.getCanvasWorkflowById.get(id);
       if (!current) return { success: false, error: 'Workflow not found' };
       const next = {
         ...serializeWorkflow(current),
@@ -1179,7 +1179,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         next.projectId !== undefined && String(next.projectId || '').trim()
           ? String(next.projectId).trim()
           : current.project_id ?? 'default';
-      queries.updateCanvasWorkflow.run(
+      await queries.updateCanvasWorkflow.run(
         wfProjectId,
         next.name,
         next.description || '',
@@ -1191,18 +1191,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         id,
       );
       windowManager.broadcast('dome:workflows-changed');
-      return { success: true, data: serializeWorkflow(queries.getCanvasWorkflowById.get(id)) };
+      return { success: true, data: serializeWorkflow(await queries.getCanvasWorkflowById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating workflow:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:workflows:delete', (event, id) => {
+  ipcMain.handle('db:workflows:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const result = queries.deleteCanvasWorkflow.run(id);
+      const result = await queries.deleteCanvasWorkflow.run(id);
       if (result.changes === 0) return { success: false, error: 'Workflow not found' };
       windowManager.broadcast('dome:workflows-changed');
       return { success: true };
@@ -1212,25 +1212,25 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:workflowFolders:list', (event, projectId) => {
+  ipcMain.handle('db:workflowFolders:list', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
-      return { success: true, data: queries.listWorkflowFolders.all(pid).map(serializeWorkflowFolderRow) };
+      return { success: true, data: (await queries.listWorkflowFolders.all(pid)).map(serializeWorkflowFolderRow) };
     } catch (error) {
       console.error('[DB] Error listing workflow folders:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:workflowFolders:create', (event, folder) => {
+  ipcMain.handle('db:workflowFolders:create', async (event, folder) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
       const pid = folder.projectId && String(folder.projectId).trim() ? String(folder.projectId).trim() : 'default';
-      queries.createWorkflowFolder.run(
+      await queries.createWorkflowFolder.run(
         folder.id,
         pid,
         folder.parentId != null && folder.parentId !== '' ? folder.parentId : null,
@@ -1242,7 +1242,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       windowManager.broadcast('dome:workflows-changed');
       return {
         success: true,
-        data: serializeWorkflowFolderRow(queries.getWorkflowFolderById.get(folder.id)),
+        data: serializeWorkflowFolderRow(await queries.getWorkflowFolderById.get(folder.id)),
       };
     } catch (error) {
       console.error('[DB] Error creating workflow folder:', error);
@@ -1250,11 +1250,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:workflowFolders:update', (event, id, updates) => {
+  ipcMain.handle('db:workflowFolders:update', async (event, id, updates) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const current = queries.getWorkflowFolderById.get(id);
+      const current = await queries.getWorkflowFolderById.get(id);
       if (!current) return { success: false, error: 'Folder not found' };
       const parentId =
         updates.parentId !== undefined
@@ -1269,16 +1269,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const sortOrder =
         updates.sortOrder !== undefined ? updates.sortOrder : current.sort_order ?? 0;
       const now = Date.now();
-      queries.updateWorkflowFolder.run(parentId, name, sortOrder, now, id);
+      await queries.updateWorkflowFolder.run(parentId, name, sortOrder, now, id);
       windowManager.broadcast('dome:workflows-changed');
-      return { success: true, data: serializeWorkflowFolderRow(queries.getWorkflowFolderById.get(id)) };
+      return { success: true, data: serializeWorkflowFolderRow(await queries.getWorkflowFolderById.get(id)) };
     } catch (error) {
       console.error('[DB] Error updating workflow folder:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:workflowFolders:delete', (event, id) => {
+  ipcMain.handle('db:workflowFolders:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const result = database.deleteWorkflowFolderCascade(id);
@@ -1291,17 +1291,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:workflowExecutions:save', (event, execution) => {
+  ipcMain.handle('db:workflowExecutions:save', async (event, execution) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const updatedAt = execution.finishedAt || execution.startedAt || Date.now();
       let projectId = execution.projectId ?? execution.project_id ?? 'default';
       if ((!execution.projectId && !execution.project_id) && execution.workflowId) {
-        const wf = queries.getCanvasWorkflowById.get(execution.workflowId);
+        const wf = await queries.getCanvasWorkflowById.get(execution.workflowId);
         projectId = wf?.project_id ?? 'default';
       }
-      queries.upsertWorkflowExecution.run(
+      await queries.upsertWorkflowExecution.run(
         execution.id,
         execution.workflowId,
         projectId,
@@ -1313,7 +1313,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         execution.nodeOutputs ? JSON.stringify(execution.nodeOutputs) : null,
         updatedAt,
       );
-      queries.trimWorkflowExecutions.run(execution.workflowId, execution.workflowId, 50);
+      await queries.trimWorkflowExecutions.run(execution.workflowId, execution.workflowId, 50);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error saving workflow execution:', error);
@@ -1321,13 +1321,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:workflowExecutions:listByWorkflow', (event, workflowId) => {
+  ipcMain.handle('db:workflowExecutions:listByWorkflow', async (event, workflowId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       return {
         success: true,
-        data: queries.listWorkflowExecutionsByWorkflow.all(workflowId).map(serializeWorkflowExecution),
+        data: (await queries.listWorkflowExecutionsByWorkflow.all(workflowId)).map(serializeWorkflowExecution),
       };
     } catch (error) {
       console.error('[DB] Error listing workflow executions:', error);
@@ -1335,11 +1335,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:workflowExecutions:get', (event, id) => {
+  ipcMain.handle('db:workflowExecutions:get', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: serializeWorkflowExecution(queries.getWorkflowExecutionById.get(id)) };
+      return { success: true, data: serializeWorkflowExecution(await queries.getWorkflowExecutionById.get(id)) };
     } catch (error) {
       console.error('[DB] Error getting workflow execution:', error);
       return { success: false, error: error.message };
@@ -1347,27 +1347,27 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // MCP
-  ipcMain.handle('db:mcp:list', (event) => {
+  ipcMain.handle('db:mcp:list', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: queries.listMcpServers.all().map(serializeMcpServer) };
+      return { success: true, data: (await queries.listMcpServers.all()).map(serializeMcpServer) };
     } catch (error) {
       console.error('[DB] Error listing MCP servers:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:mcp:replaceAll', (event, servers) => {
+  ipcMain.handle('db:mcp:replaceAll', async (event, servers) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      const tx = database.getDB().transaction((items) => {
-        queries.deleteAllMcpServers.run();
+await database.getDB().transaction(async (items) => {
+        await queries.deleteAllMcpServers.run();
         for (const server of items) {
           const serverId = normalizeServerId(server.name) || crypto.randomUUID();
-          queries.createMcpServer.run(
+          await queries.createMcpServer.run(
             serverId,
             server.name,
             server.type === 'http' || server.type === 'sse' ? server.type : 'stdio',
@@ -1385,8 +1385,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             now,
           );
         }
-      });
-      tx(Array.isArray(servers) ? servers : []);
+      })(Array.isArray(servers) ? servers : []);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error replacing MCP servers:', error);
@@ -1394,11 +1393,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:mcp:getGlobalEnabled', (event) => {
+  ipcMain.handle('db:mcp:getGlobalEnabled', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const row = queries.getMcpGlobalSettings.get();
+      const row = await queries.getMcpGlobalSettings.get();
       return { success: true, data: row ? row.enabled !== 0 : true };
     } catch (error) {
       console.error('[DB] Error reading MCP global settings:', error);
@@ -1406,11 +1405,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:mcp:setGlobalEnabled', (event, enabled) => {
+  ipcMain.handle('db:mcp:setGlobalEnabled', async (event, enabled) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.upsertMcpGlobalSettings.run(enabled ? 1 : 0, Date.now());
+      await queries.upsertMcpGlobalSettings.run(enabled ? 1 : 0, Date.now());
       return { success: true };
     } catch (error) {
       console.error('[DB] Error updating MCP global settings:', error);
@@ -1419,26 +1418,26 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Skills
-  ipcMain.handle('db:skills:list', (event) => {
+  ipcMain.handle('db:skills:list', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      return { success: true, data: queries.listAiSkills.all().map(serializeSkill) };
+      return { success: true, data: (await queries.listAiSkills.all()).map(serializeSkill) };
     } catch (error) {
       console.error('[DB] Error listing skills:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('db:skills:replaceAll', (event, skills) => {
+  ipcMain.handle('db:skills:replaceAll', async (event, skills) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      const tx = database.getDB().transaction((items) => {
-        queries.deleteAllAiSkills.run();
+      await database.getDB().transaction(async (items) => {
+        await queries.deleteAllAiSkills.run();
         for (const skill of items) {
-          queries.createAiSkill.run(
+          await queries.createAiSkill.run(
             skill.id,
             skill.name,
             skill.description || '',
@@ -1448,8 +1447,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             now,
           );
         }
-      });
-      tx(Array.isArray(skills) ? skills : []);
+      })(Array.isArray(skills) ? skills : []);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error replacing skills:', error);
@@ -1458,11 +1456,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Marketplace persistence
-  ipcMain.handle('db:marketplace:getAgentInstalls', (event) => {
+  ipcMain.handle('db:marketplace:getAgentInstalls', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const rows = queries.listMarketplaceAgentInstalls.all();
+      const rows = await queries.listMarketplaceAgentInstalls.all();
       const data = {};
       for (const row of rows) {
         const record = serializeMarketplaceAgentInstall(row);
@@ -1475,15 +1473,15 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:marketplace:replaceAgentInstalls', (event, records) => {
+  ipcMain.handle('db:marketplace:replaceAgentInstalls', async (event, records) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const tx = database.getDB().transaction((nextRecords) => {
-        queries.deleteAllMarketplaceAgentInstalls.run();
+      await database.getDB().transaction(async (nextRecords) => {
+        await queries.deleteAllMarketplaceAgentInstalls.run();
         for (const [marketplaceId, record] of Object.entries(nextRecords || {})) {
           if (!record || typeof record.localAgentId !== 'string') continue;
-          queries.upsertMarketplaceAgentInstall.run(
+          await queries.upsertMarketplaceAgentInstall.run(
             marketplaceId,
             record.localAgentId,
             record.version || null,
@@ -1495,8 +1493,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             JSON.stringify(Array.isArray(record.resourceAffinity) ? record.resourceAffinity : []),
           );
         }
-      });
-      tx(records || {});
+      })(records || {});
       return { success: true };
     } catch (error) {
       console.error('[DB] Error replacing marketplace agent installs:', error);
@@ -1504,11 +1501,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:marketplace:getWorkflowInstalls', (event) => {
+  ipcMain.handle('db:marketplace:getWorkflowInstalls', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const rows = queries.listMarketplaceWorkflowInstalls.all();
+      const rows = await queries.listMarketplaceWorkflowInstalls.all();
       const data = {};
       for (const row of rows) {
         const record = serializeMarketplaceWorkflowInstall(row);
@@ -1521,15 +1518,15 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:marketplace:replaceWorkflowInstalls', (event, records) => {
+  ipcMain.handle('db:marketplace:replaceWorkflowInstalls', async (event, records) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const tx = database.getDB().transaction((nextRecords) => {
-        queries.deleteAllMarketplaceWorkflowInstalls.run();
+      await database.getDB().transaction(async (nextRecords) => {
+        await queries.deleteAllMarketplaceWorkflowInstalls.run();
         for (const [templateId, record] of Object.entries(nextRecords || {})) {
           if (!record || typeof record.localWorkflowId !== 'string') continue;
-          queries.upsertMarketplaceWorkflowInstall.run(
+          await queries.upsertMarketplaceWorkflowInstall.run(
             templateId,
             record.localWorkflowId,
             record.version || null,
@@ -1541,8 +1538,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             JSON.stringify(Array.isArray(record.resourceAffinity) ? record.resourceAffinity : []),
           );
         }
-      });
-      tx(records || {});
+      })(records || {});
       return { success: true };
     } catch (error) {
       console.error('[DB] Error replacing marketplace workflow installs:', error);
@@ -1550,11 +1546,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:marketplace:getTemplateMappings', (event) => {
+  ipcMain.handle('db:marketplace:getTemplateMappings', async (event) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const rows = queries.listMarketplaceTemplateMappings.all();
+      const rows = await queries.listMarketplaceTemplateMappings.all();
       const data = {};
       for (const row of rows) {
         data[row.template_id] = row.workflow_id;
@@ -1566,18 +1562,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  ipcMain.handle('db:marketplace:replaceTemplateMappings', (event, mapping) => {
+  ipcMain.handle('db:marketplace:replaceTemplateMappings', async (event, mapping) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const tx = database.getDB().transaction((nextMapping) => {
-        queries.deleteAllMarketplaceTemplateMappings.run();
+      await database.getDB().transaction(async (nextMapping) => {
+        await queries.deleteAllMarketplaceTemplateMappings.run();
         for (const [templateId, workflowId] of Object.entries(nextMapping || {})) {
           if (typeof workflowId !== 'string') continue;
-          queries.upsertMarketplaceTemplateMapping.run(templateId, workflowId, Date.now());
+          await queries.upsertMarketplaceTemplateMapping.run(templateId, workflowId, Date.now());
         }
-      });
-      tx(mapping || {});
+      })(mapping || {});
       return { success: true };
     } catch (error) {
       console.error('[DB] Error replacing marketplace template mappings:', error);
@@ -1641,7 +1636,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         try {
           const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, scopeProjectId ? { project_id: scopeProjectId } : {});
           for (const h of lexHits) {
-            const r = queries.getResourceById.get(h.id);
+            const r = await queries.getResourceById.get(h.id);
             if (r) resourceResults.push(r);
           }
         } catch (le) {
@@ -1649,11 +1644,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         }
       }
       if (!resourceResults.length) {
-        resourceResults = queries.searchResources.all(sanitizedQuery);
+        resourceResults = await queries.searchResources.all(sanitizedQuery);
       }
 
       // Search interactions
-      const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+      const interactionResults = await queries.searchInteractions.all(sanitizedQuery);
 
       // Enrich resources: add parent resources for interactions that matched
       // but whose resource did not match in FTS (e.g. match only in annotation)
@@ -1661,7 +1656,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       for (const interaction of interactionResults) {
         const rid = interaction.resource_id;
         if (rid && !resourceIds.has(rid)) {
-          const resource = queries.getResourceById.get(rid);
+          const resource = await queries.getResourceById.get(rid);
           if (resource) {
             resourceResults.push(resource);
             resourceIds.add(rid);
@@ -1673,13 +1668,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       let studioResults = [];
       if (rawTerms.length > 0) {
         try {
-          const db = database.getDB();
           const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
           const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
-          const stmt = db.prepare(
-            `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
-          );
-          studioResults = stmt.all(...params) || [];
+          studioResults = await database.getDB().all(
+            `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`,
+            params
+          ) || [];
         } catch (studioErr) {
           console.warn('[DB] Studio search failed:', studioErr);
         }
@@ -1706,14 +1700,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Queries are automatically invalidated by handleCorruptionError
         try {
           const queries = database.getQueries();
-          const resourceResults = queries.searchResources.all(sanitizedQuery);
-          const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+          const resourceResults = await queries.searchResources.all(sanitizedQuery);
+          const interactionResults = await queries.searchInteractions.all(sanitizedQuery);
 
           const resourceIds = new Set(resourceResults.map((r) => r.id));
           for (const interaction of interactionResults) {
             const rid = interaction.resource_id;
             if (rid && !resourceIds.has(rid)) {
-              const resource = queries.getResourceById.get(rid);
+              const resource = await queries.getResourceById.get(rid);
               if (resource) {
                 resourceResults.push(resource);
                 resourceIds.add(rid);
@@ -1725,13 +1719,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           let studioResults = [];
           if (rawTerms.length > 0) {
             try {
-              const db = database.getDB();
               const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
               const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
-              const stmt = db.prepare(
-                `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
-              );
-              studioResults = stmt.all(...params) || [];
+              studioResults = await database.getDB().all(
+                `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`,
+                params
+              ) || [];
             } catch {
               /* ignore */
             }
@@ -1758,14 +1751,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             if (repairedAgain) {
               try {
                 const queries = database.getQueries();
-                const resourceResults = queries.searchResources.all(sanitizedQuery);
-                const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+                const resourceResults = await queries.searchResources.all(sanitizedQuery);
+                const interactionResults = await queries.searchInteractions.all(sanitizedQuery);
 
                 const resourceIds = new Set(resourceResults.map((r) => r.id));
                 for (const interaction of interactionResults) {
                   const rid = interaction.resource_id;
                   if (rid && !resourceIds.has(rid)) {
-                    const resource = queries.getResourceById.get(rid);
+                    const resource = await queries.getResourceById.get(rid);
                     if (resource) {
                       resourceResults.push(resource);
                       resourceIds.add(rid);
@@ -1798,11 +1791,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Get all resources (for Command Center)
-  ipcMain.handle('db:resources:getAll', (event, limit = 100) => {
+  ipcMain.handle('db:resources:getAll', async (event, limit = 100) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resources = queries.getAllResources.all(limit);
+      const resources = await queries.getAllResources.all(limit);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error getting all resources:', error);
@@ -1811,7 +1804,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Lightweight resource list (no content / thumbnail_data) for sidebar and dashboard
-  ipcMain.handle('db:resources:listLight', (event, limit = 500, projectId) => {
+  ipcMain.handle('db:resources:listLight', async (event, limit = 500, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -1820,8 +1813,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // that intentionally span all projects (e.g. the Projects dashboard).
       const resources =
         typeof projectId === 'string' && projectId
-          ? queries.listResourcesLightByProject.all(projectId, limit)
-          : queries.listResourcesLight.all(limit);
+          ? await queries.listResourcesLightByProject.all(projectId, limit)
+          : await queries.listResourcesLight.all(limit);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error listing resources (light):', error);
@@ -1835,7 +1828,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
       // Get resource to find internal_path
-      const resource = queries.getResourceById.get(id);
+      const resource = await queries.getResourceById.get(id);
       if (resource && resource.internal_path) {
         // Delete the internal file
         fileStorage.deleteFile(resource.internal_path);
@@ -1843,7 +1836,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Remove the Markdown mirror from the vault (no-op for non-notes).
       try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
       // Delete from database
-      queries.deleteResource.run(id);
+      await queries.deleteResource.run(id);
 
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:deleted', { id });
@@ -1860,11 +1853,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   // ============================================
 
   // Get resources in a folder
-  ipcMain.handle('db:resources:getByFolder', (event, folderId) => {
+  ipcMain.handle('db:resources:getByFolder', async (event, folderId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resources = queries.getResourcesByFolder.all(folderId);
+      const resources = await queries.getResourcesByFolder.all(folderId);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error getting resources by folder:', error);
@@ -1873,11 +1866,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Get root resources (not in any folder)
-  ipcMain.handle('db:resources:getRoot', (event, projectId = 'default') => {
+  ipcMain.handle('db:resources:getRoot', async (event, projectId = 'default') => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resources = queries.getRootResources.all(projectId);
+      const resources = await queries.getRootResources.all(projectId);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error getting root resources:', error);
@@ -1886,13 +1879,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   /** Collect resource id and all descendants (folder tree) for move/delete operations */
-  function collectResourceSubtreeIds(queries, rootId) {
+  async function collectResourceSubtreeIds(queries, rootId) {
     const ids = [];
     const queue = [rootId];
     while (queue.length) {
       const id = queue.shift();
       ids.push(id);
-      const children = queries.getResourcesByFolder.all(id);
+      const children = await queries.getResourcesByFolder.all(id);
       for (const child of children) {
         queue.push(child.id);
       }
@@ -1901,18 +1894,18 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   }
 
   // Move resource (and folder subtree) to another project root (clears folder_id on root only)
-  ipcMain.handle('db:resources:moveToProject', (event, { resourceId, projectId: targetProjectId }) => {
+  ipcMain.handle('db:resources:moveToProject', async (event, { resourceId, projectId: targetProjectId }) => {
     try {
       validateSender(event, windowManager);
       if (!resourceId || !targetProjectId) {
         return { success: false, error: 'resourceId and projectId are required' };
       }
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       if (!resource) {
         return { success: false, error: 'Resource not found' };
       }
-      const project = queries.getProjectById.get(targetProjectId);
+      const project = await queries.getProjectById.get(targetProjectId);
       if (!project) {
         return { success: false, error: 'Target project not found' };
       }
@@ -1920,23 +1913,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         return { success: true, data: { movedIds: [resourceId] } };
       }
 
-      const subtreeIds = collectResourceSubtreeIds(queries, resourceId);
+      const subtreeIds = await collectResourceSubtreeIds(queries, resourceId);
       const snapshot = new Map();
       for (const id of subtreeIds) {
-        const row = queries.getResourceById.get(id);
+        const row = await queries.getResourceById.get(id);
         if (row) snapshot.set(id, row);
       }
       const now = Date.now();
 
-      const tx = database.getDB().transaction(() => {
+      await database.getDB().transaction(async () => {
         for (const id of subtreeIds) {
           const prev = snapshot.get(id);
           if (!prev) continue;
           const newFolderId = id === resourceId ? null : prev.folder_id;
-          queries.moveResourceToProject.run(targetProjectId, newFolderId, now, id);
+          await queries.moveResourceToProject.run(targetProjectId, newFolderId, now, id);
         }
-      });
-      tx();
+      })();
 
       for (const id of subtreeIds) {
         const prev = snapshot.get(id);
@@ -1959,14 +1951,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Move resource to a folder
-  ipcMain.handle('db:resources:moveToFolder', (event, { resourceId, folderId }) => {
+  ipcMain.handle('db:resources:moveToFolder', async (event, { resourceId, folderId }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
 
       // Verify the folder exists and is actually a folder
       if (folderId) {
-        const folder = queries.getResourceById.get(folderId);
+        const folder = await queries.getResourceById.get(folderId);
         if (!folder) {
           return { success: false, error: 'Folder not found' };
         }
@@ -1979,11 +1971,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         }
       }
 
-      queries.moveResourceToFolder.run(folderId || null, Date.now(), resourceId);
+      await queries.moveResourceToFolder.run(folderId || null, Date.now(), resourceId);
 
       // Keep the on-disk vault tree in sync: move the .md (and any descendants).
       try {
-        const moved = queries.getResourceById.get(resourceId);
+        const moved = await queries.getResourceById.get(resourceId);
         if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
         else vaultStore.relocateResource(resourceId, { database, fileStorage });
       } catch (e) { console.warn('[DB] vault relocate (move) failed:', e?.message); }
@@ -2002,15 +1994,15 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Remove resource from folder (move to root)
-  ipcMain.handle('db:resources:removeFromFolder', (event, resourceId) => {
+  ipcMain.handle('db:resources:removeFromFolder', async (event, resourceId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      queries.removeResourceFromFolder.run(now, resourceId);
+      await queries.removeResourceFromFolder.run(now, resourceId);
 
       try {
-        const moved = queries.getResourceById.get(resourceId);
+        const moved = await queries.getResourceById.get(resourceId);
         if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
         else vaultStore.relocateResource(resourceId, { database, fileStorage });
       } catch (e) { console.warn('[DB] vault relocate (removeFromFolder) failed:', e?.message); }
@@ -2039,26 +2031,29 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const deleteSet = new Set();
       for (const rid of resourceIds) {
         if (typeof rid !== 'string' || !rid) continue;
-        for (const id of collectResourceSubtreeIds(queries, rid)) {
+        for (const id of await collectResourceSubtreeIds(queries, rid)) {
           deleteSet.add(id);
         }
       }
       const memo = new Map();
-      function depthInDeleteSet(id) {
+      async function depthInDeleteSet(id) {
         if (memo.has(id)) return memo.get(id);
-        const row = queries.getResourceById.get(id);
+        const row = await queries.getResourceById.get(id);
         if (!row?.folder_id || !deleteSet.has(row.folder_id)) {
           memo.set(id, 0);
           return 0;
         }
-        const v = depthInDeleteSet(row.folder_id) + 1;
+        const v = (await depthInDeleteSet(row.folder_id)) + 1;
         memo.set(id, v);
         return v;
       }
-      const ordered = [...deleteSet].sort((a, b) => depthInDeleteSet(b) - depthInDeleteSet(a));
+      for (const id of deleteSet) {
+        await depthInDeleteSet(id);
+      }
+      const ordered = [...deleteSet].sort((a, b) => memo.get(b) - memo.get(a));
 
       for (const id of ordered) {
-        const resource = queries.getResourceById.get(id);
+        const resource = await queries.getResourceById.get(id);
         if (resource?.internal_path) {
           try {
             fileStorage.deleteFile(resource.internal_path);
@@ -2067,7 +2062,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           }
         }
         try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
-        queries.deleteResource.run(id);
+        await queries.deleteResource.run(id);
         windowManager.broadcast('resource:deleted', { id });
       }
 

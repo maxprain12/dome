@@ -17,7 +17,7 @@ const { BrowserWindow } = require('electron');
  */
 async function openFolderForFolder(folderId, { database, windowManager, nativeTheme }) {
   const queries = database.getQueries();
-  const folder = queries.getResourceById.get(folderId);
+  const folder = await queries.getResourceById.get(folderId);
 
   if (!folder || folder.type !== 'folder') {
     return { success: false, error: 'Folder not found' };
@@ -57,7 +57,7 @@ async function openFolderForFolder(folderId, { database, windowManager, nativeTh
 async function openWorkspaceForResource(resourceId, resourceType, options = {}, { database, windowManager, nativeTheme }) {
   const { page } = options;
   const queries = database.getQueries();
-  const resource = queries.getResourceById.get(resourceId);
+  const resource = await queries.getResourceById.get(resourceId);
 
   if (!resource) {
     return { success: false, error: 'Resource not found' };

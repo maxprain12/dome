@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('db:interactions:create', (event, interaction) => {
+  ipcMain.handle('db:interactions:create', async (event, interaction) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.createInteraction.run(
+      await queries.createInteraction.run(
         interaction.id,
         interaction.resource_id,
         interaction.type,
@@ -26,11 +26,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get interactions by resource
-  ipcMain.handle('db:interactions:getByResource', (event, resourceId) => {
+  ipcMain.handle('db:interactions:getByResource', async (event, resourceId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const interactions = queries.getInteractionsByResource.all(resourceId);
+      const interactions = await queries.getInteractionsByResource.all(resourceId);
       return { success: true, data: interactions };
     } catch (error) {
       console.error('[DB] Error getting interactions:', error);
@@ -39,11 +39,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get interactions by type
-  ipcMain.handle('db:interactions:getByType', (event, { resourceId, type }) => {
+  ipcMain.handle('db:interactions:getByType', async (event, { resourceId, type }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const interactions = queries.getInteractionsByType.all(resourceId, type);
+      const interactions = await queries.getInteractionsByType.all(resourceId, type);
       return { success: true, data: interactions };
     } catch (error) {
       console.error('[DB] Error getting interactions by type:', error);
@@ -52,11 +52,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Update interaction
-  ipcMain.handle('db:interactions:update', (event, interaction) => {
+  ipcMain.handle('db:interactions:update', async (event, interaction) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.updateInteraction.run(
+      await queries.updateInteraction.run(
         interaction.content,
         interaction.position_data ? JSON.stringify(interaction.position_data) : null,
         interaction.metadata ? JSON.stringify(interaction.metadata) : null,
@@ -78,11 +78,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Delete interaction
-  ipcMain.handle('db:interactions:delete', (event, id) => {
+  ipcMain.handle('db:interactions:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.deleteInteraction.run(id);
+      await queries.deleteInteraction.run(id);
 
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('interaction:deleted', { id });

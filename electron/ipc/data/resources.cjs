@@ -83,7 +83,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       const now = Date.now();
       const resourceTitle = title || originalName || 'Untitled';
 
-      queries.createResourceWithFile.run(
+      await queries.createResourceWithFile.run(
         resourceId,
         projectId,
         effectiveType,
@@ -100,11 +100,13 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         now,
         now
       );
-      database.getDB().prepare('UPDATE resources SET vault_path = ?, content_hash = ? WHERE id = ?')
-        .run(importResult.vaultPath, importResult.contentHash, resourceId);
+      await database.getDB().run(
+        'UPDATE resources SET vault_path = ?, content_hash = ? WHERE id = ?',
+        [importResult.vaultPath, importResult.contentHash, resourceId]
+      );
 
       // Get the created resource
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:created', resource);
@@ -141,7 +143,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       if (!resource) {
         return { success: false, error: 'Resource not found' };
       }
@@ -183,7 +185,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
         // Check for duplicate
         const queries = database.getQueries();
-        const existingResource = queries.findByHash.get(importResult.hash);
+        const existingResource = await queries.findByHash.get(importResult.hash);
         if (existingResource) {
           errors.push({
             filePath,
@@ -223,7 +225,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         const resourceId = generateId();
         const now = Date.now();
 
-        queries.createResourceWithFile.run(
+        await queries.createResourceWithFile.run(
           resourceId,
           projectId,
           fileType,
@@ -241,7 +243,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
           now
         );
 
-        const resource = queries.getResourceById.get(resourceId);
+        const resource = await queries.getResourceById.get(resourceId);
 
         // Broadcast so Home and other windows update immediately
         windowManager.broadcast('resource:created', resource);
@@ -268,14 +270,14 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   /**
    * Get full path for a resource (to open in native app)
    */
-  ipcMain.handle('resource:getFilePath', (event, resourceId) => {
+  ipcMain.handle('resource:getFilePath', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -300,14 +302,14 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   /**
    * Read raw file bytes for renderer-side Blob URLs (avoids file:// loads from http/app origins).
    */
-  ipcMain.handle('resource:readFileBuffer', (event, resourceId) => {
+  ipcMain.handle('resource:readFileBuffer', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -345,7 +347,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -399,7 +401,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -425,14 +427,14 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   /**
    * Read document content as base64 for renderer-side parsing (DOCX, XLSX, CSV)
    */
-  ipcMain.handle('resource:readDocumentContent', (event, resourceId) => {
+  ipcMain.handle('resource:readDocumentContent', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -477,7 +479,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -499,7 +501,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       const now = Date.now();
-      queries.updateResource.run(
+      await queries.updateResource.run(
         resource.title,
         contentText ?? resource.content,
         resource.metadata,
@@ -534,7 +536,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -570,7 +572,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
         fullPath = fileStorage.getFullPath(importResult.internalPath);
 
-        queries.updateResourceFile.run(
+        await queries.updateResourceFile.run(
           importResult.internalPath,
           importResult.mimeType,
           importResult.size,
@@ -589,7 +591,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         console.warn('[Resource] DOCX text extraction failed:', e?.message);
       }
 
-      queries.updateResource.run(
+      await queries.updateResource.run(
         resource.title,
         contentText || resource.content || '',
         resource.metadata,
@@ -597,7 +599,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         resourceId
       );
 
-      const updated = queries.getResourceById.get(resourceId);
+      const updated = await queries.getResourceById.get(resourceId);
       windowManager.broadcast('resource:updated', { id: resourceId, updates: updated });
 
       return { success: true, data: updated };
@@ -617,7 +619,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -661,14 +663,14 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   /**
    * Delete resource and its internal file
    */
-  ipcMain.handle('resource:delete', (event, resourceId) => {
+  ipcMain.handle('resource:delete', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -680,7 +682,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       }
 
       // Delete from database
-      queries.deleteResource.run(resourceId);
+      await queries.deleteResource.run(resourceId);
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:deleted', { id: resourceId });
@@ -702,7 +704,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       if (!resource) {
         return { success: false, error: 'Resource not found' };
@@ -720,7 +722,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       );
 
       if (thumbnailData) {
-        queries.updateResourceThumbnail.run(thumbnailData, Date.now(), resourceId);
+        await queries.updateResourceThumbnail.run(thumbnailData, Date.now(), resourceId);
         return { success: true, data: thumbnailData };
       }
 
@@ -745,12 +747,12 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
     try {
       const queries = database.getQueries();
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       if (!resource) {
         return { success: false, error: 'Resource not found' };
       }
 
-      queries.updateResourceThumbnail.run(thumbnailDataUrl, Date.now(), resourceId);
+      await queries.updateResourceThumbnail.run(thumbnailDataUrl, Date.now(), resourceId);
       windowManager.broadcast('resource:updated', {
         id: resourceId,
         updates: { thumbnail_data: thumbnailDataUrl, updated_at: Date.now() },
@@ -824,7 +826,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       // Check duplicate
       const queries = database.getQueries();
-      const existing = queries.findByHash?.get(importResult.hash);
+      const existing = await queries.findByHash?.get(importResult.hash);
       if (existing) {
         return {
           success: false,
@@ -854,7 +856,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       const resourceTitle = title.trim() || filename || 'Imported File';
       const effectiveProjectId = project_id || null;
 
-      queries.createResourceWithFile.run(
+      await queries.createResourceWithFile.run(
         resourceId,
         effectiveProjectId,
         effectiveType,
@@ -874,10 +876,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       // Set folder if provided
       if (folder_id && queries.moveResourceToFolder) {
-        queries.moveResourceToFolder?.run(folder_id, now, resourceId);
+        await queries.moveResourceToFolder?.run(folder_id, now, resourceId);
       }
 
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       windowManager.broadcast('resource:created', resource);
 
       if (semanticIndexScheduler.shouldIndex(resource)) {

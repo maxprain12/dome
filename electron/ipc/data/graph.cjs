@@ -1,10 +1,10 @@
 /* eslint-disable no-console */
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('db:graph:createNode', (event, node) => {
+  ipcMain.handle('db:graph:createNode', async (event, node) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.createGraphNode.run(
+      await queries.createGraphNode.run(
         node.id,
         node.resource_id || null,
         node.label,
@@ -21,11 +21,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get graph node by ID
-  ipcMain.handle('db:graph:getNode', (event, nodeId) => {
+  ipcMain.handle('db:graph:getNode', async (event, nodeId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const node = queries.getGraphNodeById.get(nodeId);
+      const node = await queries.getGraphNodeById.get(nodeId);
       if (node && node.properties) {
         node.properties = JSON.parse(node.properties);
       }
@@ -37,11 +37,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get nodes by type
-  ipcMain.handle('db:graph:getNodesByType', (event, type) => {
+  ipcMain.handle('db:graph:getNodesByType', async (event, type) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const nodes = queries.getGraphNodesByType.all(type);
+      const nodes = await queries.getGraphNodesByType.all(type);
       nodes.forEach(node => {
         if (node.properties) {
           node.properties = JSON.parse(node.properties);
@@ -55,11 +55,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Create graph edge
-  ipcMain.handle('db:graph:createEdge', (event, edge) => {
+  ipcMain.handle('db:graph:createEdge', async (event, edge) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.createGraphEdge.run(
+      await queries.createGraphEdge.run(
         edge.id,
         edge.source_id,
         edge.target_id,
@@ -77,11 +77,11 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Get node neighbors (1-hop traversal)
-  ipcMain.handle('db:graph:getNeighbors', (event, nodeId) => {
+  ipcMain.handle('db:graph:getNeighbors', async (event, nodeId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const neighbors = queries.getNodeNeighbors.all(nodeId, nodeId, nodeId);
+      const neighbors = await queries.getNodeNeighbors.all(nodeId, nodeId, nodeId);
       neighbors.forEach(node => {
         if (node.properties) {
           node.properties = JSON.parse(node.properties);
@@ -95,12 +95,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
   });
 
   // Search graph nodes
-  ipcMain.handle('db:graph:searchNodes', (event, query) => {
+  ipcMain.handle('db:graph:searchNodes', async (event, query) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const searchPattern = `%${query}%`;
-      const nodes = queries.searchGraphNodes.all(searchPattern, searchPattern);
+      const nodes = await queries.searchGraphNodes.all(searchPattern, searchPattern);
       nodes.forEach(node => {
         if (node.properties) {
           node.properties = JSON.parse(node.properties);

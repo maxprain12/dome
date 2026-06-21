@@ -17,7 +17,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   /**
    * Clean up orphaned files (files not referenced in database)
    */
-  ipcMain.handle('storage:cleanup', (event) => {
+  ipcMain.handle('storage:cleanup', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -26,12 +26,12 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const queries = database.getQueries();
 
       // Get all valid file paths from database (resources + resource_images / thumbnails)
-      const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
-      const imagePaths = (queries.getResourceImageInternalPaths?.all?.() ?? []).map((r) => r.internal_path);
+      const resourcePaths = (await queries.getAllInternalPaths.all()).map((r) => r.internal_path);
+      const imagePaths = (await queries.getResourceImageInternalPaths?.all?.() ?? []).map((r) => r.internal_path);
       const internalPaths = [...resourcePaths, ...imagePaths];
 
       // Get current avatar path from settings
-      const avatarSetting = queries.getSetting.get('user_avatar_path');
+      const avatarSetting = await queries.getSetting.get('user_avatar_path');
       const currentAvatarPath = avatarSetting?.value || null;
 
       // Clean up orphaned files including avatars

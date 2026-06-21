@@ -2,14 +2,14 @@
 const crypto = require('crypto');
 
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('db:tags:getByResource', (event, resourceId) => {
+  ipcMain.handle('db:tags:getByResource', async (event, resourceId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       if (!queries.getTagsByResource) {
         return { success: false, error: 'Tags not available', data: [] };
       }
-      const tags = queries.getTagsByResource.all(resourceId);
+      const tags = await queries.getTagsByResource.all(resourceId);
       return { success: true, data: tags };
     } catch (error) {
       console.error('[DB] Error getting tags by resource:', error);
@@ -17,7 +17,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:tags:getAll', (event, projectId) => {
+  ipcMain.handle('db:tags:getAll', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -27,8 +27,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       // Hard-scope to the active project so tags never leak across projects.
       const tags =
         typeof projectId === 'string' && projectId
-          ? queries.getAllTagsWithCountByProject.all(projectId)
-          : queries.getAllTagsWithCount.all();
+          ? await queries.getAllTagsWithCountByProject.all(projectId)
+          : await queries.getAllTagsWithCount.all();
       return { success: true, data: tags };
     } catch (error) {
       console.error('[DB] Error getting all tags:', error);
@@ -36,7 +36,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:tags:getResources', (event, tagId, projectId) => {
+  ipcMain.handle('db:tags:getResources', async (event, tagId, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -45,8 +45,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       }
       const resources =
         typeof projectId === 'string' && projectId
-          ? queries.getResourcesByTagInProject.all(tagId, projectId)
-          : queries.getResourcesByTag.all(tagId);
+          ? await queries.getResourcesByTagInProject.all(tagId, projectId)
+          : await queries.getResourcesByTag.all(tagId);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error getting resources by tag:', error);
@@ -54,7 +54,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:tags:create', (event, tag) => {
+  ipcMain.handle('db:tags:create', async (event, tag) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -66,15 +66,15 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       if (!raw) {
         return { success: false, error: 'Invalid tag name' };
       }
-      const existing = queries.findTagByNameInsensitive.get(raw);
+      const existing = await queries.findTagByNameInsensitive.get(raw);
       if (existing) {
         return { success: true, data: existing };
       }
       const id = crypto.randomUUID();
       const now = Date.now();
       const color = typeof tag?.color === 'string' ? tag.color : null;
-      queries.insertTag.run(id, raw, color, now);
-      const created = queries.getTagById.get(id);
+      await queries.insertTag.run(id, raw, color, now);
+      const created = await queries.getTagById.get(id);
       return { success: true, data: created };
     } catch (error) {
       console.error('[DB] Error creating tag:', error);
@@ -82,14 +82,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:tags:addToResource', (event, resourceId, tagId) => {
+  ipcMain.handle('db:tags:addToResource', async (event, resourceId, tagId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       if (!queries.attachTagToResource) {
         return { success: false, error: 'Tag attach not available' };
       }
-      queries.attachTagToResource.run(resourceId, tagId);
+      await queries.attachTagToResource.run(resourceId, tagId);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error attaching tag:', error);
@@ -97,14 +97,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:tags:removeFromResource', (event, resourceId, tagId) => {
+  ipcMain.handle('db:tags:removeFromResource', async (event, resourceId, tagId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       if (!queries.detachTagFromResource) {
         return { success: false, error: 'Tag detach not available' };
       }
-      queries.detachTagFromResource.run(resourceId, tagId);
+      await queries.detachTagFromResource.run(resourceId, tagId);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error detaching tag:', error);
