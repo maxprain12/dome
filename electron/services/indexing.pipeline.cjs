@@ -225,7 +225,7 @@ function createIndexer(opts) {
       }
     }
 
-    if (resource.type === 'image' && cloudLlm.isCloudLlmAvailable(() => queries) && resource.internal_path) {
+    if (resource.type === 'image' && await cloudLlm.isCloudLlmAvailable(() => queries) && resource.internal_path) {
       try {
         const fullPath = fileStorage.getFullPath(resource.internal_path);
         if (fullPath && fs.existsSync(fullPath)) {

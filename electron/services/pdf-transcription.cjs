@@ -65,8 +65,8 @@ function getModelVersionLabel() {
 }
 
 function resolveVisionOcrAvailable(queries) {
-  if (!cloudLlm.isCloudLlmAvailable(() => queries)) return false;
-  const cfg = cloudLlm.resolveConfig(() => queries);
+  if (!await await cloudLlm.isCloudLlmAvailable(() => queries)) return false;
+  const cfg = await cloudLlm.resolveConfig(() => queries);
   return cloudLlm.isVisionSupportedProviderId(cfg.provider);
 }
 

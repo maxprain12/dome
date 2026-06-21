@@ -340,7 +340,7 @@ function ensureSessionsRoot() {
  * @param {Object} deps
  * @param {{ projectId?: string, folderId?: string|null, sources: Array<'mic'|'system'>, livePreview?: boolean, saveAudio?: boolean }} opts
  */
-function startSession(deps, opts) {
+async function startSession(deps, opts) {
   if (!opts || !Array.isArray(opts.sources) || opts.sources.length === 0) {
     throw new Error('sources is required (mic and/or system)');
   }
@@ -350,7 +350,7 @@ function startSession(deps, opts) {
   const projectId = opts.projectId || 'default';
   const folderId = opts.folderId != null && opts.folderId !== '' ? String(opts.folderId) : null;
   const queries = deps.database.getQueries();
-  if (!queries.getProjectById.get(projectId)) {
+  if (!(await queries.getProjectById.get(projectId))) {
     throw new Error('Project not found');
   }
 
@@ -359,7 +359,7 @@ function startSession(deps, opts) {
   fs.mkdirSync(sessionDir, { recursive: true });
 
   const now = Date.now();
-  queries.insertTranscriptionSession.run(
+  await queries.insertTranscriptionSession.run(
     id,
     projectId,
     folderId,
@@ -417,7 +417,7 @@ async function appendChunk(deps, payload) {
   fs.writeFileSync(filePath, buf);
 
   const queries = deps.database.getQueries();
-  queries.insertTranscriptionChunk.run(sessionId, Number(seq), track, Number(startMs) || 0, null, filePath, null);
+  await queries.insertTranscriptionChunk.run(sessionId, Number(seq), track, Number(startMs) || 0, null, filePath, null);
 
   // Live preview: transcribe this chunk now (best-effort, non-fatal)
   if (session.livePreview) {
@@ -437,7 +437,7 @@ async function transcribeChunkBestEffort(deps, session, chunk) {
     // Solution: concatenate all saved chunks for this track (ffmpeg's concat demuxer reads
     // the first file's header and treats the rest as continuation clusters).
     const queries = deps.database.getQueries();
-    const savedFiles = queries.listSessionChunks.all(session.id)
+    const savedFiles = (await queries.listSessionChunks.all(session.id))
       .filter((c) => c.track === chunk.track && c.file_path && fs.existsSync(c.file_path))
       .sort((a, b) => a.seq - b.seq)
       .map((c) => c.file_path);
@@ -475,25 +475,25 @@ async function transcribeChunkBestEffort(deps, session, chunk) {
     // Replace the whole partial text with the full running transcript so far.
     // finalizeSession will always do its own full STT pass on the merged file.
     session.partialText = text;
-    queries.appendTranscriptionPartial.run(text, Date.now(), session.id);
+    await queries.appendTranscriptionPartial.run(text, Date.now(), session.id);
     broadcastState(session);
   } catch (err) {
     console.warn('[TranscriptionSession] partial STT failed:', err?.message);
   }
 }
 
-function pauseSession(deps, sessionId) {
+async function pauseSession(deps, sessionId) {
   const s = sessions.get(sessionId);
   if (!s) throw new Error('Session not active');
   if (s.phase !== 'recording') return;
   s.phase = 'paused';
   s.pausedAt = Date.now();
   const now = Date.now();
-  deps.database.getQueries().updateTranscriptionSessionStatus.run('paused', now, null, sessionId);
+  await deps.database.getQueries().updateTranscriptionSessionStatus.run('paused', now, null, sessionId);
   broadcastState(s);
 }
 
-function resumeSession(deps, sessionId) {
+async function resumeSession(deps, sessionId) {
   const s = sessions.get(sessionId);
   if (!s) throw new Error('Session not active');
   if (s.phase !== 'paused') return;
@@ -503,16 +503,16 @@ function resumeSession(deps, sessionId) {
   }
   s.phase = 'recording';
   const now = Date.now();
-  deps.database.getQueries().updateTranscriptionSessionStatus.run('recording', now, null, sessionId);
+  await deps.database.getQueries().updateTranscriptionSessionStatus.run('recording', now, null, sessionId);
   broadcastState(s);
 }
 
-function cancelSession(deps, sessionId) {
+async function cancelSession(deps, sessionId) {
   const s = sessions.get(sessionId);
   if (!s) {
     // Session might have already been removed; still mark cancelled in DB.
     const now = Date.now();
-    try { deps.database.getQueries().updateTranscriptionSessionStatus.run('cancelled', now, null, sessionId); } catch { /* */ }
+    try { await deps.database.getQueries().updateTranscriptionSessionStatus.run('cancelled', now, null, sessionId); } catch { /* */ }
     broadcastIdle();
     return;
   }
@@ -520,7 +520,7 @@ function cancelSession(deps, sessionId) {
   sessions.delete(sessionId);
   safeRmdir(s.sessionDir);
   const now = Date.now();
-  deps.database.getQueries().updateTranscriptionSessionStatus.run('cancelled', now, null, sessionId);
+  await deps.database.getQueries().updateTranscriptionSessionStatus.run('cancelled', now, null, sessionId);
   broadcastIdle();
 }
 
@@ -530,7 +530,7 @@ function cancelSession(deps, sessionId) {
  */
 async function finalizeSession(deps, sessionId) {
   const queries = deps.database.getQueries();
-  const row = queries.getTranscriptionSession.get(sessionId);
+  const row = await queries.getTranscriptionSession.get(sessionId);
   if (!row) throw new Error('Session not found');
 
   const sources = (() => {
@@ -546,10 +546,10 @@ async function finalizeSession(deps, sessionId) {
     stopTicker(memSession);
     broadcastState(memSession);
   }
-  queries.updateTranscriptionSessionStatus.run('transcribing', Date.now(), null, sessionId);
+  await queries.updateTranscriptionSessionStatus.run('transcribing', Date.now(), null, sessionId);
 
   // Bucket chunks by track
-  const allChunks = queries.listSessionChunks.all(sessionId);
+  const allChunks = await queries.listSessionChunks.all(sessionId);
   /** @type {Record<string, Array<any>>} */
   const byTrack = { mic: [], system: [] };
   for (const c of allChunks) {
@@ -637,7 +637,7 @@ async function finalizeSession(deps, sessionId) {
   const title = deriveTitle(plainText);
 
   const importResult = await deps.fileStorage.importFile(mergedMp3, 'audio');
-  const dup = queries.findByHash.get(importResult.hash);
+  const dup = await queries.findByHash.get(importResult.hash);
   let finalResourceId = resourceId;
   let finalInternalPath = importResult.internalPath;
   let finalMimeType = importResult.mimeType;
@@ -665,10 +665,10 @@ async function finalizeSession(deps, sessionId) {
 
   if (dup) {
     finalResourceId = dup.id;
-    const existing = queries.getResourceById.get(dup.id);
+    const existing = await queries.getResourceById.get(dup.id);
     const existingMeta = parseMetadata(existing?.metadata);
     const mergedMeta = { ...existingMeta, ...baseMetadata };
-    queries.updateResource.run(existing.title || title, existing.content || null, JSON.stringify(mergedMeta), now, dup.id);
+    await queries.updateResource.run(existing.title || title, existing.content || null, JSON.stringify(mergedMeta), now, dup.id);
     _windowManager?.broadcast('resource:updated', { id: dup.id, metadata: mergedMeta });
   } else {
     const thumb = deps.thumbnail
@@ -676,7 +676,7 @@ async function finalizeSession(deps, sessionId) {
           .generateThumbnail(deps.fileStorage.getFullPath(finalInternalPath), 'audio', finalMimeType)
           .catch(() => null)
       : null;
-    queries.createResourceWithFile.run(
+    await queries.createResourceWithFile.run(
       finalResourceId,
       row.project_id,
       'audio',
@@ -695,9 +695,9 @@ async function finalizeSession(deps, sessionId) {
     );
     createdNewResource = true;
     if (row.folder_id) {
-      try { queries.moveResourceToFolder.run(row.folder_id, now, finalResourceId); } catch { /* */ }
+      try { await queries.moveResourceToFolder.run(row.folder_id, now, finalResourceId); } catch { /* */ }
     }
-    const created = queries.getResourceById.get(finalResourceId);
+    const created = await queries.getResourceById.get(finalResourceId);
     if (created) _windowManager?.broadcast('resource:created', created);
     try {
       semanticIndexScheduler.init(deps.database);
@@ -710,7 +710,7 @@ async function finalizeSession(deps, sessionId) {
   }
 
   // 5) Mark DB session done
-  queries.finalizeTranscriptionSession.run(finalResourceId, now, now, sessionId);
+  await queries.finalizeTranscriptionSession.run(finalResourceId, now, now, sessionId);
 
   // 6) Cleanup staging dir
   safeRmdir(sessionDir);
@@ -738,7 +738,7 @@ async function stopSession(deps, sessionId) {
     console.error('[TranscriptionSession] stop failed:', err);
     const now = Date.now();
     try {
-      deps.database.getQueries().updateTranscriptionSessionStatus.run('error', now, String(err.message || err), sessionId);
+      await deps.database.getQueries().updateTranscriptionSessionStatus.run('error', now, String(err.message || err), sessionId);
     } catch { /* */ }
     const memSession = sessions.get(sessionId);
     if (memSession) {
@@ -783,13 +783,13 @@ function getActiveState() {
 async function controlSession(deps, sessionId, action) {
   switch (action) {
     case 'pause':
-      pauseSession(deps, sessionId);
+      await pauseSession(deps, sessionId);
       return {};
     case 'resume':
-      resumeSession(deps, sessionId);
+      await resumeSession(deps, sessionId);
       return {};
     case 'cancel':
-      cancelSession(deps, sessionId);
+      await cancelSession(deps, sessionId);
       return {};
     case 'stop':
       return stopSession(deps, sessionId);

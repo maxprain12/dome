@@ -24,14 +24,14 @@ function isSecretSettingKey(key) {
   );
 }
 
-function readSettingSecret(queries, key) {
-  const row = queries.getSetting.get(key);
+async function readSettingSecret(queries, key) {
+  const row = await queries.getSetting.get(key);
   if (!row?.value) return null;
   const stored = String(row.value);
   const plain = decryptSecret(stored);
   if (plain && !isEncryptedSecret(stored)) {
     try {
-      queries.setSetting.run(key, encryptSecret(plain), Date.now());
+      await queries.setSetting.run(key, encryptSecret(plain), Date.now());
     } catch {
       /* non-fatal */
     }
@@ -39,13 +39,13 @@ function readSettingSecret(queries, key) {
   return plain && plain.trim() ? plain.trim() : null;
 }
 
-function writeSettingSecret(queries, key, plain) {
+async function writeSettingSecret(queries, key, plain) {
   const ts = Date.now();
   if (plain == null || String(plain).trim() === '') {
-    queries.setSetting.run(key, '', ts);
+    await queries.setSetting.run(key, '', ts);
     return;
   }
-  queries.setSetting.run(key, encryptSecret(String(plain).trim()), ts);
+  await queries.setSetting.run(key, encryptSecret(String(plain).trim()), ts);
 }
 
 function maskSettingForRenderer(queries, key) {

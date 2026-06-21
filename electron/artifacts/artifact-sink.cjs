@@ -12,13 +12,13 @@ const { extractJsonFromOutput, applyUpdatePolicy } = require('../services/artifa
  * @param {{ broadcast?: Function }} windowManager
  * @param {{ automationId?: string|null, runId?: string|null, outputText?: string|null }} opts
  */
-function applyArtifactSinksForCompletedRun(database, windowManager, opts) {
+async function applyArtifactSinksForCompletedRun(database, windowManager, opts) {
   if (!database || !opts?.automationId) return;
   const outputText = typeof opts.outputText === 'string' ? opts.outputText : '';
   if (!outputText.trim()) return;
 
   const queries = database.getQueries();
-  const bindings = queries.listAutomationArtifactBindings.all(opts.automationId);
+  const bindings = await queries.listAutomationArtifactBindings.all(opts.automationId);
   const now = Date.now();
 
   for (const row of bindings) {
@@ -28,7 +28,7 @@ function applyArtifactSinksForCompletedRun(database, windowManager, opts) {
     const policy = row.update_policy || 'replace';
     const mode = row.extract_mode || 'json_fence';
 
-    const art = queries.getArtifactByResourceId.get(artifactResourceId);
+    const art = await queries.getArtifactByResourceId.get(artifactResourceId);
     if (!art) continue;
 
     const extracted = extractJsonFromOutput(outputText, mode);
@@ -43,15 +43,15 @@ function applyArtifactSinksForCompletedRun(database, windowManager, opts) {
     state = { ...state, data: nextData };
 
     try {
-      queries.updateArtifactState.run(JSON.stringify(state), now, artifactResourceId);
+      await queries.updateArtifactState.run(JSON.stringify(state), now, artifactResourceId);
     } catch (e) {
       console.warn('[artifact-sink] updateArtifactState', e?.message || e);
       continue;
     }
 
-    const rtExisting = queries.getArtifactRuntimeDataByArtifactSlot.get(art.id, slot);
+    const rtExisting = await queries.getArtifactRuntimeDataByArtifactSlot.get(art.id, slot);
     const rtId = rtExisting?.id || crypto.randomUUID();
-    queries.upsertArtifactRuntimeData.run(
+    await queries.upsertArtifactRuntimeData.run(
       rtId,
       art.id,
       slot,
@@ -62,9 +62,9 @@ function applyArtifactSinksForCompletedRun(database, windowManager, opts) {
       now,
     );
 
-    const resource = queries.getResourceById.get(artifactResourceId);
-    const updatedArt = queries.getArtifactByResourceId.get(artifactResourceId);
-    const serialized = serializeArtifactRecord(updatedArt, resource, queries);
+    const resource = await queries.getResourceById.get(artifactResourceId);
+    const updatedArt = await queries.getArtifactByResourceId.get(artifactResourceId);
+    const serialized = await serializeArtifactRecord(updatedArt, resource, queries);
     if (serialized && windowManager?.broadcast) {
       windowManager.broadcast('artifact:updated', serialized);
     }

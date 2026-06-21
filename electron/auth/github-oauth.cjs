@@ -147,7 +147,7 @@ async function pollForAccessToken({ deviceCode, interval = 5, expiresIn = 900 } 
     }
 
     if (raw && typeof raw.access_token === 'string') {
-      writeSettingSecret(getQueries(), TOKEN_SETTING, raw.access_token);
+      await writeSettingSecret(getQueries(), TOKEN_SETTING, raw.access_token);
       const login = await fetchLogin(raw.access_token).catch(() => null);
       if (login) setSetting(LOGIN_SETTING, login);
       return { success: true, login };
@@ -188,8 +188,8 @@ function getStatus() {
   };
 }
 
-function disconnect() {
-  writeSettingSecret(getQueries(), TOKEN_SETTING, '');
+async function disconnect() {
+  await writeSettingSecret(getQueries(), TOKEN_SETTING, '');
   setSetting(LOGIN_SETTING, '');
   return { success: true };
 }

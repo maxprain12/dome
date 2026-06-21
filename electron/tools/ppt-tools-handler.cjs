@@ -19,16 +19,16 @@ function setWindowManager(wm) {
   windowManagerRef = wm;
 }
 
-function resolveProjectId(projectId) {
+async function resolveProjectId(projectId) {
   if (projectId) return projectId;
   try {
     const queries = database.getQueries();
-    const lastSetting = queries.getSetting.get('last_project_id');
+    const lastSetting = await queries.getSetting.get('last_project_id');
     if (lastSetting?.value) {
-      const proj = queries.getProjectById.get(lastSetting.value);
+      const proj = await queries.getProjectById.get(lastSetting.value);
       if (proj) return proj.id;
     }
-    const first = database.getDB().prepare('SELECT id FROM projects LIMIT 1').get();
+    const first = await database.getDB().get('SELECT id FROM projects LIMIT 1', []);
     if (first) return first.id;
   } catch (_) {}
   return null;
@@ -174,7 +174,7 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
     }
     const importResult = documentStaging.promoteToLibrary(staged.stagingId, 'ppt');
 
-    const resolvedProjectId = resolveProjectId(projectId);
+    const resolvedProjectId = await resolveProjectId(projectId);
     if (!resolvedProjectId) {
       fileStorage.deleteFile(importResult.internalPath);
       return { success: false, error: 'No active project found. Please open a project before creating a presentation.' };
@@ -186,7 +186,7 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
 
     const queries = database.getQueries();
     try {
-      queries.createResourceWithFile.run(
+      await queries.createResourceWithFile.run(
         resourceId,
         resolvedProjectId,
         'ppt',
@@ -209,11 +209,11 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
     }
 
     if (options.folder_id) {
-      const folder = queries.getResourceById.get(options.folder_id);
+      const folder = await queries.getResourceById.get(options.folder_id);
       const isValidFolder = folder && folder.type === 'folder';
       if (isValidFolder) {
         try {
-          queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
+          await queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
         } catch (moveErr) {
           console.warn('[PptTools] moveResourceToFolder failed (resource created with internal_path):', moveErr?.message);
         }
@@ -222,7 +222,7 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
       }
     }
 
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     broadcastResourceCreated(resource);
 
     return {
@@ -248,7 +248,7 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
 async function pptGetFilePath(resourceId) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -295,7 +295,7 @@ async function pptGetSlideImages(resourceId) {
 async function pptExport(resourceId, options = {}) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }

@@ -9,8 +9,8 @@ const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 
-function resolveApiKeyProviderBaseUrl(queries, provider) {
-  const custom = readProviderBaseUrl(queries, provider);
+async function resolveApiKeyProviderBaseUrl(queries, provider) {
+  const custom = await readProviderBaseUrl(queries, provider);
   if (custom) return custom;
   if (provider === 'openrouter') return OPENROUTER_DEFAULT;
   if (provider === 'minimax') return MINIMAX_ANTHROPIC_BASE_URL;
@@ -25,14 +25,14 @@ function resolveApiKeyProviderBaseUrl(queries, provider) {
  */
 async function getAISettings(database) {
   const queries = database.getQueries();
-  const provider = queries.getSetting.get('ai_provider')?.value || 'ollama';
+  const provider = (await queries.getSetting.get('ai_provider'))?.value || 'ollama';
 
   if (provider === 'ollama') {
     return {
       provider,
-      apiKey: readSettingSecret(queries, 'ollama_api_key') || undefined,
-      model: queries.getSetting.get('ollama_model')?.value || 'llama3.2',
-      baseUrl: queries.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434',
+      apiKey: await readSettingSecret(queries, 'ollama_api_key') || undefined,
+      model: (await queries.getSetting.get('ollama_model'))?.value || 'llama3.2',
+      baseUrl: (await queries.getSetting.get('ollama_base_url'))?.value || 'http://127.0.0.1:11434',
     };
   }
 
@@ -41,7 +41,7 @@ async function getAISettings(database) {
     return {
       provider: 'dome',
       apiKey: session?.accessToken,
-      model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
+      model: (await queries.getSetting.get('ai_model'))?.value || 'dome/auto',
       baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
     };
   }
@@ -52,16 +52,16 @@ async function getAISettings(database) {
     return {
       provider: 'copilot',
       apiKey: token,
-      model: queries.getSetting.get('ai_model')?.value || 'gpt-4.1',
+      model: (await queries.getSetting.get('ai_model'))?.value || 'gpt-4.1',
       baseUrl,
     };
   }
 
   return {
     provider,
-    apiKey: readProviderApiKey(queries, provider),
-    model: queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
-    baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
+    apiKey: await readProviderApiKey(queries, provider),
+    model: (await queries.getSetting.get('ai_model'))?.value || DEFAULT_MODELS[provider],
+    baseUrl: await resolveApiKeyProviderBaseUrl(queries, provider),
   };
 }
 

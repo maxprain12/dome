@@ -85,7 +85,7 @@ function normalizeSetValue(value) {
 async function excelGet(resourceId, options = {}) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -138,7 +138,7 @@ async function excelGet(resourceId, options = {}) {
 async function excelGetFilePath(resourceId) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -166,7 +166,7 @@ async function excelGetFilePath(resourceId) {
 async function excelSetCell(resourceId, sheetName, cellRef, value) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -219,7 +219,7 @@ async function excelSetCell(resourceId, sheetName, cellRef, value) {
 async function excelSetRange(resourceId, sheetName, rangeRef, values) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -281,7 +281,7 @@ async function excelSetRange(resourceId, sheetName, rangeRef, values) {
 async function excelAddRow(resourceId, sheetName, values, afterRow) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -337,7 +337,7 @@ async function excelAddRow(resourceId, sheetName, values, afterRow) {
 async function excelAddSheet(resourceId, sheetName, data) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -380,7 +380,7 @@ async function excelAddSheet(resourceId, sheetName, data) {
 async function excelCreate(projectId, title, options = {}) {
   try {
     const queries = database.getQueries();
-    const project = queries.getProjectById.get(projectId);
+    const project = await queries.getProjectById.get(projectId);
     if (!project) {
       return { success: false, error: 'Project not found' };
     }
@@ -413,7 +413,7 @@ async function excelCreate(projectId, title, options = {}) {
     const contentText = worksheetToCsv(ws).trim().substring(0, 500);
 
     try {
-      queries.createResourceWithFile.run(
+      await queries.createResourceWithFile.run(
         resourceId,
         projectId,
         'excel',
@@ -435,7 +435,7 @@ async function excelCreate(projectId, title, options = {}) {
       throw dbErr;
     }
 
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     broadcastResourceCreated(resource);
     return {
       success: true,
@@ -456,7 +456,7 @@ async function excelCreate(projectId, title, options = {}) {
 async function excelExport(resourceId, options = {}) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }

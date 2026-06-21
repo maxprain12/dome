@@ -19,7 +19,7 @@ async function runOnStartup(deps) {
   const queries = deps.database.getQueries();
   let stale;
   try {
-    stale = queries.getStaleTranscriptionSessions.all();
+    stale = await queries.getStaleTranscriptionSessions.all();
   } catch (e) {
     console.warn('[TranscriptionRecovery] query failed:', e?.message);
     return;
@@ -32,9 +32,9 @@ async function runOnStartup(deps) {
     const now = Date.now();
     try {
       const dirExists = row.session_dir && fs.existsSync(row.session_dir);
-      const chunkCount = queries.listSessionChunks.all(sessionId).length;
+      const chunkCount = (await queries.listSessionChunks.all(sessionId)).length;
       if (!dirExists || chunkCount === 0) {
-        queries.updateTranscriptionSessionStatus.run('cancelled', now, 'no audio recovered', sessionId);
+        await queries.updateTranscriptionSessionStatus.run('cancelled', now, 'no audio recovered', sessionId);
         console.log(`[TranscriptionRecovery] ${sessionId} -> cancelled (empty)`);
         continue;
       }
@@ -44,7 +44,7 @@ async function runOnStartup(deps) {
     } catch (err) {
       console.error(`[TranscriptionRecovery] ${sessionId} failed:`, err?.message);
       try {
-        queries.updateTranscriptionSessionStatus.run('error', Date.now(), String(err?.message || err), sessionId);
+        await queries.updateTranscriptionSessionStatus.run('error', Date.now(), String(err?.message || err), sessionId);
       } catch { /* ignore */ }
     }
   }

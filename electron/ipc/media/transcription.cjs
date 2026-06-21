@@ -171,10 +171,10 @@ function register({
         await queries.setSetting.run('transcription_language', payload.language ? String(payload.language).trim() : '', now);
       }
       if (payload.dedicatedOpenaiKey !== undefined) {
-        writeSettingSecret(queries, 'transcription_openai_api_key', payload.dedicatedOpenaiKey);
+        await writeSettingSecret(queries, 'transcription_openai_api_key', payload.dedicatedOpenaiKey);
       }
       if (payload.groqApiKey !== undefined) {
-        writeSettingSecret(queries, 'transcription_groq_api_key', payload.groqApiKey);
+        await writeSettingSecret(queries, 'transcription_groq_api_key', payload.groqApiKey);
       }
       if (payload.globalShortcut !== undefined) {
         await queries.setSetting.run('transcription_global_shortcut', String(payload.globalShortcut || '').trim(), now);

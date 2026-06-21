@@ -9,7 +9,7 @@ const PROVIDER_DEFAULTS = {
 /**
  * Apply bench provider credentials to isolated SQLite settings.
  */
-function applyProviderSettings(provider, model) {
+async function applyProviderSettings(provider, model) {
   const queries = database.getQueries();
   if (!queries) throw new Error('Database not initialized');
 
@@ -25,9 +25,9 @@ function applyProviderSettings(provider, model) {
 
   const ts = Date.now();
   const resolvedModel = model || def.model;
-  queries.setSetting.run('ai_provider', provider, ts);
-  writeSettingSecret(queries, 'ai_api_key', apiKey);
-  queries.setSetting.run('ai_model', resolvedModel, ts);
+  await queries.setSetting.run('ai_provider', provider, ts);
+  await writeSettingSecret(queries, 'ai_api_key', apiKey);
+  await queries.setSetting.run('ai_model', resolvedModel, ts);
 
   return { provider, model: resolvedModel, apiKey };
 }
@@ -37,10 +37,10 @@ function applyProviderSettings(provider, model) {
  */
 async function getBenchProviderConfig(providerArg, modelArg) {
   const queries = database.getQueries();
-  const provider = providerArg || queries.getSetting.get('ai_provider')?.value || 'minimax';
-  const apiKey = readSettingSecret(queries, 'ai_api_key');
+  const provider = providerArg || (await queries.getSetting.get('ai_provider'))?.value || 'minimax';
+  const apiKey = await readSettingSecret(queries, 'ai_api_key');
   if (!apiKey) throw new Error(`API key not configured for ${provider}`);
-  const model = modelArg || queries.getSetting.get('ai_model')?.value;
+  const model = modelArg || (await queries.getSetting.get('ai_model'))?.value;
   return { provider, apiKey, baseUrl: undefined, model };
 }
 

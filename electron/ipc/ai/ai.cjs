@@ -111,7 +111,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           const tempResult = await queries.getSetting.get('ollama_temperature');
           const topPResult = await queries.getSetting.get('ollama_top_p');
           const numPredictResult = await queries.getSetting.get('ollama_num_predict');
-          const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
+          const ollamaApiKey = await readSettingSecret(queries, 'ollama_api_key') || '';
 
           const ollamaMessages = messages.map((m) => ({
             role: m.role === 'assistant' ? 'assistant' : m.role === 'system' ? 'system' : 'user',
@@ -561,8 +561,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const { readProviderApiKey } = require('../../ai/provider-keys.cjs');
       const apiKey = provider === 'dome'
         ? ''
-        : (resolveSettingSecretForApi(queries, `ai_api_key_${provider}`, candidate)
-          || readProviderApiKey(queries, provider)
+        : (await resolveSettingSecretForApi(queries, `ai_api_key_${provider}`, candidate)
+          || await readProviderApiKey(queries, provider)
           || '');
       return await fetchProviderModels(provider, { apiKey });
     } catch (error) {

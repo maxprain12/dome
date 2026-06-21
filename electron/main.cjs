@@ -935,7 +935,7 @@ app
     }
 
     try {
-      transcriptionShortcut.registerFromDatabase(database, windowManager);
+      await transcriptionShortcut.registerFromDatabase(database, windowManager);
     } catch (shortcutErr) {
       console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
     }

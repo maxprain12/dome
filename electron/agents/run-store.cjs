@@ -205,7 +205,7 @@ async function patchRun(runId, patch) {
   if (becameCompleted && _database && _windowManager) {
     try {
       const { applyArtifactSinksForCompletedRun } = require('../artifacts/artifact-sink.cjs');
-      applyArtifactSinksForCompletedRun(_database, _windowManager, {
+      await applyArtifactSinksForCompletedRun(_database, _windowManager, {
         automationId: next.automationId,
         runId,
         outputText: next.outputText,

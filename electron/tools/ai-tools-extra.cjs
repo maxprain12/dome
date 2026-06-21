@@ -87,10 +87,10 @@ async function loadAllCatalogWorkflows() {
   return Array.from(byId.values());
 }
 
-function agentInstalledMap() {
+async function agentInstalledMap() {
   const q = database.getQueries();
   const projectId = 'default';
-  const rows = q.listManyAgents.all(projectId) || [];
+  const rows = (await q.listManyAgents.all(projectId)) || [];
   /** @type {Record<string, boolean>} */
   const byMp = {};
   for (const row of rows) {
@@ -99,9 +99,9 @@ function agentInstalledMap() {
   return byMp;
 }
 
-function workflowInstalledMap() {
+async function workflowInstalledMap() {
   const q = database.getQueries();
-  const rows = q.listCanvasWorkflows.all('default') || [];
+  const rows = (await q.listCanvasWorkflows.all('default')) || [];
   /** @type {Record<string, boolean>} */
   const byTpl = {};
   for (const row of rows) {
@@ -131,8 +131,8 @@ async function marketplaceSearch(args = {}) {
       return t.includes(query);
     });
 
-  const agInst = agentInstalledMap();
-  const wfInst = workflowInstalledMap();
+  const agInst = await agentInstalledMap();
+  const wfInst = await workflowInstalledMap();
 
   return {
     status: 'success',
@@ -187,14 +187,14 @@ async function marketplaceInstall(args = {}) {
     const author = String(template.author || 'Unknown');
     const source = template.source === 'community' ? 'community' : 'official';
 
-    const existingRows = queries.listManyAgents.all(projectId) || [];
+    const existingRows = (await queries.listManyAgents.all(projectId)) || [];
     const existingByMp = existingRows.find((r) => r.marketplace_id === marketplaceId);
     const existingByName = existingRows.find((r) => !r.marketplace_id && r.name === name);
 
     let agentId;
     if (existingByMp) {
       agentId = existingByMp.id;
-      queries.updateManyAgent.run(
+      await queries.updateManyAgent.run(
         projectId,
         name,
         description,
@@ -211,7 +211,7 @@ async function marketplaceInstall(args = {}) {
       );
     } else if (existingByName) {
       agentId = existingByName.id;
-      queries.updateManyAgent.run(
+      await queries.updateManyAgent.run(
         projectId,
         name,
         description,
@@ -228,7 +228,7 @@ async function marketplaceInstall(args = {}) {
       );
     } else {
       agentId = generateId();
-      queries.createManyAgent.run(
+      await queries.createManyAgent.run(
         agentId,
         projectId,
         name,
@@ -246,7 +246,7 @@ async function marketplaceInstall(args = {}) {
       );
     }
 
-    queries.upsertMarketplaceAgentInstall.run(
+    await queries.upsertMarketplaceAgentInstall.run(
       marketplaceId,
       agentId,
       version,
@@ -285,7 +285,7 @@ async function marketplaceInstall(args = {}) {
     resourceAffinity: [],
   });
 
-  const rows = queries.listCanvasWorkflows.all(projectId) || [];
+  const rows = (await queries.listCanvasWorkflows.all(projectId)) || [];
   let wfRow = rows.find((r) => {
     if (!r.marketplace_json) return false;
     try {
@@ -298,7 +298,7 @@ async function marketplaceInstall(args = {}) {
   let workflowId;
   if (wfRow) {
     workflowId = wfRow.id;
-    queries.updateCanvasWorkflow.run(
+    await queries.updateCanvasWorkflow.run(
       projectId,
       wfName,
       wfDescription,
@@ -311,7 +311,7 @@ async function marketplaceInstall(args = {}) {
     );
   } else {
     workflowId = generateId();
-    queries.createCanvasWorkflow.run(
+    await queries.createCanvasWorkflow.run(
       workflowId,
       projectId,
       wfName,
@@ -325,7 +325,7 @@ async function marketplaceInstall(args = {}) {
     );
   }
 
-  queries.upsertMarketplaceWorkflowInstall.run(
+  await queries.upsertMarketplaceWorkflowInstall.run(
     marketplaceId,
     workflowId,
     String(template.version || '1.0.0'),
@@ -363,7 +363,7 @@ async function workflowCreate(args = {}, windowManagerRef) {
     : 'default';
   const now = Date.now();
   const workflowId = generateId();
-  queries.createCanvasWorkflow.run(
+  await queries.createCanvasWorkflow.run(
     workflowId,
     projectId,
     name,

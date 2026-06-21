@@ -32,7 +32,7 @@ function isExcelLinkedResource(resource) {
  * @param {string} linkedResourceId
  * @param {{ sheetName?: string } | null | undefined} syncHints
  */
-function buildExcelGetOpts(queries, linkedResourceId, syncHints) {
+async function buildExcelGetOpts(queries, linkedResourceId, syncHints) {
   const getOpts = /** @type {Record<string, unknown>} */ ({});
   const hint = syncHints && typeof syncHints.sheetName === 'string' ? syncHints.sheetName.trim() : '';
   if (hint) {
@@ -40,7 +40,7 @@ function buildExcelGetOpts(queries, linkedResourceId, syncHints) {
     return getOpts;
   }
   try {
-    const rowsPeek = queries.getArtifactsLinkedToResource.all(linkedResourceId);
+    const rowsPeek = await queries.getArtifactsLinkedToResource.all(linkedResourceId);
     for (const art of rowsPeek) {
       const st = parseJsonState(art.state);
       const ld = st.linkedData;
@@ -63,7 +63,7 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
   if (!database || !linkedResourceId) return;
   const queries = database.getQueries();
 
-  const linkedRes = queries.getResourceById.get(linkedResourceId);
+  const linkedRes = await queries.getResourceById.get(linkedResourceId);
   if (!linkedRes || !isExcelLinkedResource(linkedRes)) return;
 
   if (!_excelGet || typeof _excelGet !== 'function') {
@@ -71,7 +71,7 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
     return;
   }
 
-  const getOpts = buildExcelGetOpts(queries, linkedResourceId, syncHints);
+  const getOpts = await buildExcelGetOpts(queries, linkedResourceId, syncHints);
   /** @type {{ success?: boolean } & Record<string, unknown>} */
   const xl = await _excelGet(linkedResourceId, getOpts);
   if (!xl || xl.success !== true) return;
@@ -95,7 +95,7 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
     synced_at: Date.now(),
   };
 
-  const rows = queries.getArtifactsLinkedToResource.all(linkedResourceId);
+  const rows = await queries.getArtifactsLinkedToResource.all(linkedResourceId);
   const now = Date.now();
 
   for (const art of rows) {
@@ -103,10 +103,10 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
       const rid = art.resource_id;
       const state = parseJsonState(art.state);
       state.linkedData = linkedData;
-      queries.updateArtifactState.run(JSON.stringify(state), now, rid);
-      const resource = queries.getResourceById.get(rid);
-      const updated = queries.getArtifactByResourceId.get(rid);
-      const serialized = serializeArtifactRecord(updated, resource, queries);
+      await queries.updateArtifactState.run(JSON.stringify(state), now, rid);
+      const resource = await queries.getResourceById.get(rid);
+      const updated = await queries.getArtifactByResourceId.get(rid);
+      const serialized = await serializeArtifactRecord(updated, resource, queries);
       if (serialized && windowManager?.broadcast) {
         windowManager.broadcast('artifact:updated', serialized);
       }

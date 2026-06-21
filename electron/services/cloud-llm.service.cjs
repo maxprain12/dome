@@ -27,24 +27,24 @@ const VISION_PROVIDERS = new Set([
 /**
  * @param {() => any} getQueries
  */
-function resolveConfig(getQueries) {
+async function resolveConfig(getQueries) {
   const q = getQueries();
-  const provider = String(q.getSetting.get('ai_provider')?.value || 'openai').toLowerCase();
+  const provider = String((await q.getSetting.get('ai_provider'))?.value || 'openai').toLowerCase();
 
   if (provider === 'ollama') {
     return {
       provider: 'ollama',
-      apiKey: readSettingSecret(q, 'ollama_api_key') || '',
-      model: q.getSetting.get('ollama_model')?.value || 'llama3.2',
-      ollamaBase: String(q.getSetting.get('ollama_base_url')?.value || 'http://127.0.0.1:11434').replace(/\/$/, ''),
+      apiKey: (await readSettingSecret(q, 'ollama_api_key')) || '',
+      model: (await q.getSetting.get('ollama_model'))?.value || 'llama3.2',
+      ollamaBase: String((await q.getSetting.get('ollama_base_url'))?.value || 'http://127.0.0.1:11434').replace(/\/$/, ''),
     };
   }
 
   if (provider === 'dome') {
-    const row = q.getDomeProviderSessionWithRefresh?.get?.();
+    const row = await q.getDomeProviderSessionWithRefresh?.get?.();
     return {
       provider: 'dome',
-      model: q.getSetting.get('ai_model')?.value || 'dome/auto',
+      model: (await q.getSetting.get('ai_model'))?.value || 'dome/auto',
       apiKey: row?.access_token || '',
       openaiBase: `${getDomeProviderBaseUrl()}/api/v1`,
     };
@@ -53,8 +53,8 @@ function resolveConfig(getQueries) {
   if (provider === 'copilot') {
     return {
       provider: 'copilot',
-      apiKey: readSettingSecret(q, 'copilot_github_token') || '',
-      model: q.getSetting.get('ai_model')?.value || 'gpt-4.1',
+      apiKey: (await readSettingSecret(q, 'copilot_github_token')) || '',
+      model: (await q.getSetting.get('ai_model'))?.value || 'gpt-4.1',
       openaiBase: 'https://api.individual.githubcopilot.com',
     };
   }
@@ -62,7 +62,7 @@ function resolveConfig(getQueries) {
   const { DEFAULT_BASE_URLS } = require('../ai/model-factory.cjs');
   const { MINIMAX_ANTHROPIC_BASE_URL } = require('../ai/minimax-config.cjs');
   const { readProviderBaseUrl } = require('../ai/provider-keys.cjs');
-  const customBase = readProviderBaseUrl(q, provider);
+  const customBase = await readProviderBaseUrl(q, provider);
 
   const supported = [
     'openai',
@@ -83,8 +83,8 @@ function resolveConfig(getQueries) {
 
   return {
     provider: resolvedProvider,
-    apiKey: require('../ai/provider-keys.cjs').readProviderApiKey(q, resolvedProvider),
-    model: q.getSetting.get('ai_model')?.value,
+    apiKey: await require('../ai/provider-keys.cjs').readProviderApiKey(q, resolvedProvider),
+    model: (await q.getSetting.get('ai_model'))?.value,
     openaiBase,
   };
 }
@@ -93,16 +93,16 @@ function resolveConfig(getQueries) {
  * True if we can run a cloud call (key or ollama / dome session).
  * @param {() => any} getQueries
  */
-function isCloudLlmAvailable(getQueries) {
+async function isCloudLlmAvailable(getQueries) {
   try {
-    const cfg = resolveConfig(getQueries);
+    const cfg = await resolveConfig(getQueries);
     if (cfg.provider === 'ollama') return true;
     if (cfg.provider === 'dome') {
-      const row = getQueries().getDomeProviderSessionWithRefresh?.get?.();
+      const row = await getQueries().getDomeProviderSessionWithRefresh?.get?.();
       return Boolean(row?.access_token);
     }
     if (cfg.provider === 'copilot') {
-      return Boolean(readSettingSecret(getQueries(), 'copilot_github_token'));
+      return Boolean(await readSettingSecret(getQueries(), 'copilot_github_token'));
     }
     return Boolean(cfg.apiKey && String(cfg.apiKey).trim());
   } catch {
@@ -187,14 +187,14 @@ function buildAnthropicStyleMessages(system, userText, imageDataUrls, provider, 
 async function generateText(opts) {
   const { getQueries, system, user, imageDataUrls = [], json, maxTokens, task = 'vision', windowManager } = opts;
   const t0 = Date.now();
-  const cfg = resolveConfig(getQueries);
+  const cfg = await resolveConfig(getQueries);
   const hasImages = (imageDataUrls || []).length > 0;
   if (hasImages && !isVisionSupportedProviderId(cfg.provider)) {
     throw new Error(
       `Provider "${cfg.provider}" no admite imágenes con la API actual. Usa OpenAI, Anthropic, Google, MiniMax, Dome u Ollama.`
     );
   }
-  if (!isCloudLlmAvailable(getQueries)) {
+  if (!await isCloudLlmAvailable(getQueries)) {
     throw new Error('Configura un proveedor de IA en Ajustes (clave API, Ollama o sesión Dome).');
   }
   const openOpts = { maxTokens: maxTokens || (json ? 1024 : 4096) };
@@ -294,12 +294,12 @@ async function generateText(opts) {
 async function streamGenerate(opts) {
   const { getQueries, system, user, imageDataUrls = [], onChunk, maxTokens, task = 'stream', windowManager } = opts;
   const t0 = Date.now();
-  const cfg = resolveConfig(getQueries);
+  const cfg = await resolveConfig(getQueries);
   const hasImages = (imageDataUrls || []).length > 0;
   if (hasImages && !isVisionSupportedProviderId(cfg.provider)) {
     throw new Error(`Provider "${cfg.provider}" no admite imágenes.`);
   }
-  if (!isCloudLlmAvailable(getQueries)) {
+  if (!await isCloudLlmAvailable(getQueries)) {
     throw new Error('Configura un proveedor de IA en Ajustes.');
   }
   const streamOpts = { maxTokens: maxTokens || 1024 };

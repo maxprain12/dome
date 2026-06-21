@@ -33,8 +33,8 @@ function assertChatProvider(provider) {
   }
 }
 
-function resolveApiKeyProviderBaseUrl(queries, provider) {
-  const custom = readProviderBaseUrl(queries, provider);
+async function resolveApiKeyProviderBaseUrl(queries, provider) {
+  const custom = await readProviderBaseUrl(queries, provider);
   if (custom) return custom;
   if (provider === 'openrouter') return OPENROUTER_DEFAULT;
   if (provider === 'minimax') return MINIMAX_ANTHROPIC_BASE_URL;
@@ -79,9 +79,9 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
   if (provider === 'ollama') {
     return {
       provider,
-      apiKey: readSettingSecret(queries, 'ollama_api_key') || undefined,
-      baseUrl: queries.getSetting.get('ollama_base_url')?.value || DEFAULT_BASE_URLS.ollama,
-      model: model || queries.getSetting.get('ollama_model')?.value || DEFAULT_MODELS.ollama,
+      apiKey: await readSettingSecret(queries, 'ollama_api_key') || undefined,
+      baseUrl: (await queries.getSetting.get('ollama_base_url'))?.value || DEFAULT_BASE_URLS.ollama,
+      model: model || (await queries.getSetting.get('ollama_model'))?.value || DEFAULT_MODELS.ollama,
     };
   }
 
@@ -109,14 +109,14 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
     return { provider, apiKey: token, baseUrl, model: model || DEFAULT_MODELS.copilot };
   }
 
-  const apiKey = readProviderApiKey(queries, provider);
+  const apiKey = await readProviderApiKey(queries, provider);
   if (!apiKey) throw new Error(`API key not configured for ${provider}`);
 
   return {
     provider,
     apiKey,
-    baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
-    model: model || queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
+    baseUrl: await resolveApiKeyProviderBaseUrl(queries, provider),
+    model: model || (await queries.getSetting.get('ai_model'))?.value || DEFAULT_MODELS[provider],
   };
 }
 

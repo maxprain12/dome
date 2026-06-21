@@ -204,10 +204,10 @@ async function buildDocxBufferFromOptions(options) {
   return buildStructuredDocxBuffer(options);
 }
 
-function scheduleReindex(resourceId) {
+async function scheduleReindex(resourceId) {
   try {
     semanticIndexScheduler.init(database);
-    const resource = database.getQueries().getResourceById.get(resourceId);
+    const resource = await database.getQueries().getResourceById.get(resourceId);
     if (resource && semanticIndexScheduler.shouldIndex(resource)) {
       semanticIndexScheduler.scheduleSemanticReindex(resourceId);
     }
@@ -219,7 +219,7 @@ function scheduleReindex(resourceId) {
 async function docxGet(resourceId, options = {}) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -266,7 +266,7 @@ async function docxGet(resourceId, options = {}) {
 async function docxGetFilePath(resourceId) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -292,7 +292,7 @@ async function docxGetFilePath(resourceId) {
 async function docxCreate(projectId, title, options = {}) {
   try {
     const queries = database.getQueries();
-    const project = queries.getProjectById.get(projectId);
+    const project = await queries.getProjectById.get(projectId);
     if (!project) {
       return { success: false, error: 'Project not found' };
     }
@@ -325,7 +325,7 @@ async function docxCreate(projectId, title, options = {}) {
     }
 
     try {
-      queries.createResourceWithFile.run(
+      await queries.createResourceWithFile.run(
         resourceId,
         projectId,
         'document',
@@ -348,19 +348,19 @@ async function docxCreate(projectId, title, options = {}) {
     }
 
     if (options.folder_id) {
-      const folder = queries.getResourceById.get(options.folder_id);
+      const folder = await queries.getResourceById.get(options.folder_id);
       if (folder && folder.type === 'folder') {
         try {
-          queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
+          await queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
         } catch (moveErr) {
           console.warn('[DocxTools] moveResourceToFolder failed:', moveErr?.message);
         }
       }
     }
 
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     broadcastResourceCreated(resource);
-    scheduleReindex(resourceId);
+    await scheduleReindex(resourceId);
 
     return {
       success: true,
@@ -380,7 +380,7 @@ async function docxCreate(projectId, title, options = {}) {
 async function docxUpdate(resourceId, options = {}) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -409,9 +409,9 @@ async function docxUpdate(resourceId, options = {}) {
       if (options.title == null || !String(options.title).trim()) {
         return { success: false, error: 'Provide markdown, html, body, blocks, or title to update' };
       }
-      queries.updateResource.run(newTitle, resource.content, resource.metadata, now, resourceId);
+      await queries.updateResource.run(newTitle, resource.content, resource.metadata, now, resourceId);
       broadcastResourceUpdated(resourceId, { title: newTitle, updated_at: now });
-      scheduleReindex(resourceId);
+      await scheduleReindex(resourceId);
       return { success: true, resource_id: resourceId, title: newTitle, updated: 'metadata' };
     }
 
@@ -429,13 +429,13 @@ async function docxUpdate(resourceId, options = {}) {
       /* keep */
     }
 
-    queries.updateResource.run(newTitle, contentText, resource.metadata, now, resourceId);
+    await queries.updateResource.run(newTitle, contentText, resource.metadata, now, resourceId);
     broadcastResourceUpdated(resourceId, {
       title: newTitle,
       content: contentText,
       updated_at: now,
     });
-    scheduleReindex(resourceId);
+    await scheduleReindex(resourceId);
 
     return { success: true, resource_id: resourceId, title: newTitle };
   } catch (error) {
@@ -455,7 +455,7 @@ async function docxDelete(resourceId, options = {}) {
     }
 
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
@@ -471,7 +471,7 @@ async function docxDelete(resourceId, options = {}) {
       }
     }
 
-    queries.deleteResource.run(resourceId);
+    await queries.deleteResource.run(resourceId);
     broadcastResourceDeleted(resourceId);
 
     return {

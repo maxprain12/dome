@@ -17,9 +17,9 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
     }
 
     try {
-      const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
+      const baseUrlResult = await database.getQueries().getSetting.get('ollama_base_url');
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
-      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
+      const apiKey = await readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const isAvailable = await ollamaService.checkAvailability(baseUrl, apiKey);
       return { success: true, available: isAvailable };
     } catch (error) {
@@ -37,8 +37,8 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
     }
 
     try {
-      const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
-      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
+      const baseUrlResult = await database.getQueries().getSetting.get('ollama_base_url');
+      const apiKey = await readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const models = await ollamaService.listModels(baseUrl, apiKey);
       return { success: true, models };
     } catch (error) {
@@ -66,12 +66,12 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       if (text.length > 100000) {
         throw new Error('Text too long. Maximum 100000 characters');
       }
-      const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
-      const embeddingModelResult = database.getQueries().getSetting.get('ollama_embedding_model');
+      const baseUrlResult = await database.getQueries().getSetting.get('ollama_base_url');
+      const embeddingModelResult = await database.getQueries().getSetting.get('ollama_embedding_model');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const model = embeddingModelResult?.value || ollamaService.DEFAULT_EMBEDDING_MODEL;
-      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
+      const apiKey = await readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
 
       const embedding = await ollamaService.generateEmbedding(text, model, baseUrl, apiKey);
       return { success: true, embedding };

@@ -56,7 +56,7 @@ async function main() {
   }
 
   if (!args.dryRun) {
-    applyProviderSettings(args.provider, args.model);
+    await applyProviderSettings(args.provider, args.model);
   } else {
     console.log('[Bench] Dry run — skipping provider settings (no API calls)');
   }

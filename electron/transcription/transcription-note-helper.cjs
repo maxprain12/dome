@@ -62,17 +62,17 @@ function getCaptureSourcesForDiarization(resource) {
   return undefined;
 }
 
-function getDefaults(database) {
+async function getDefaults(database) {
   const transcriptionService = require('./transcription-service.cjs');
   const queries = database.getQueries();
-  const providerRow = queries.getSetting.get('transcription_stt_provider');
+  const providerRow = await queries.getSetting.get('transcription_stt_provider');
   let sttProvider = providerRow?.value && String(providerRow.value).trim().toLowerCase();
   if (sttProvider === 'local-gemma') sttProvider = 'openai';
   if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
     sttProvider = transcriptionService.getTranscriptionSttProvider(database);
   }
-  const modelRow = queries.getSetting.get('transcription_model');
-  const langRow = queries.getSetting.get('transcription_language');
+  const modelRow = await queries.getSetting.get('transcription_model');
+  const langRow = await queries.getSetting.get('transcription_language');
   let model = modelRow?.value && String(modelRow.value).trim();
   if (!model) {
     model = sttProvider === 'groq' ? transcriptionService.DEFAULT_GROQ_MODEL : 'whisper-1';
@@ -84,12 +84,12 @@ function getDefaults(database) {
 /**
  * Regenera el contenido TipTap de la nota vinculada desde `transcription_structured`.
  */
-function regenerateLinkedNoteFromStructured(ctx) {
+async function regenerateLinkedNoteFromStructured(ctx) {
   const { resourceId, database, windowManager, aiToolsHandler } = ctx;
 
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) return { success: false, error: 'Resource not found' };
 
     const meta = parseMetadata(resource.metadata);
@@ -99,7 +99,7 @@ function regenerateLinkedNoteFromStructured(ctx) {
       return { success: false, error: 'No structured transcript or linked note' };
     }
 
-    const note = queries.getResourceById.get(noteId);
+    const note = await queries.getResourceById.get(noteId);
     if (!note || note.type !== 'note') {
       return { success: false, error: 'Linked note not found' };
     }
@@ -108,7 +108,7 @@ function regenerateLinkedNoteFromStructured(ctx) {
     const tipTap = aiToolsHandler.markdownToTipTapJSON(md || meta.transcription || '');
     const noteMeta = parseMetadata(note.metadata);
     const now = Date.now();
-    queries.updateResource.run(note.title, tipTap, JSON.stringify(noteMeta), now, noteId);
+    await queries.updateResource.run(note.title, tipTap, JSON.stringify(noteMeta), now, noteId);
     windowManager.broadcast('resource:updated', {
       id: noteId,
       updates: { content: tipTap, metadata: noteMeta, updated_at: now },
@@ -155,7 +155,7 @@ async function transcribeResourceToNote(ctx) {
 
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) return { success: false, error: 'Resource not found' };
     if (resource.type !== 'audio' && resource.type !== 'video') {
       return { success: false, error: 'Not an audio/video resource' };
@@ -172,7 +172,7 @@ async function transcribeResourceToNote(ctx) {
     const apiKey = transcriptionService.getTranscriptionApiKey(database);
     if (!apiKey) return { success: false, error: 'No STT API key for transcription' };
 
-    const defaults = getDefaults(database);
+    const defaults = await getDefaults(database);
     const model =
       modelArg != null && String(modelArg).trim() ? String(modelArg).trim() : defaults.model;
     const language =
@@ -213,7 +213,7 @@ async function transcribeResourceToNote(ctx) {
       transcribed_at: now,
       transcription_diarization: structuredPayload.diarization || 'heuristic',
     };
-    queries.createResource.run(
+    await queries.createResource.run(
       noteId,
       resource.project_id,
       'note',
@@ -225,7 +225,7 @@ async function transcribeResourceToNote(ctx) {
       now,
       now
     );
-    const noteResource = queries.getResourceById.get(noteId);
+    const noteResource = await queries.getResourceById.get(noteId);
     windowManager.broadcast('resource:created', noteResource);
     semanticIndexScheduler.init(database);
     if (semanticIndexScheduler.shouldIndex(noteResource)) {
@@ -241,7 +241,7 @@ async function transcribeResourceToNote(ctx) {
       meta.transcribed_at = now;
       meta.processing_status = 'completed';
       meta.transcription_note_id = noteId;
-      queries.updateResource.run(resource.title, resource.content, JSON.stringify(meta), now, resource.id);
+      await queries.updateResource.run(resource.title, resource.content, JSON.stringify(meta), now, resource.id);
       windowManager.broadcast('resource:updated', { id: resource.id, metadata: meta });
     }
 

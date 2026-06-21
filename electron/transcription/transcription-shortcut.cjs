@@ -12,11 +12,11 @@ let registeredAccelerator = null;
  * Global shortcut is opt-in via `transcription_global_shortcut_enabled`.
  * Legacy: if the flag row is missing but a non-empty accelerator is stored, register (migration).
  */
-function isShortcutRegistrationEnabled(database) {
+async function isShortcutRegistrationEnabled(database) {
   try {
     const queries = database.getQueries();
-    const enabledRow = queries.getSetting.get('transcription_global_shortcut_enabled');
-    const accelRow = queries.getSetting.get('transcription_global_shortcut');
+    const enabledRow = await queries.getSetting.get('transcription_global_shortcut_enabled');
+    const accelRow = await queries.getSetting.get('transcription_global_shortcut');
     const accel = accelRow?.value && String(accelRow.value).trim();
     const v = enabledRow?.value != null ? String(enabledRow.value).trim().toLowerCase() : '';
     if (v === '0' || v === 'false' || v === 'off') return false;
@@ -52,11 +52,11 @@ function sendToggleToMain(windowManager) {
  * @param {Object} database
  * @param {Object} windowManager
  */
-function registerFromDatabase(database, windowManager) {
+async function registerFromDatabase(database, windowManager) {
   unregisterAll();
   try {
-    if (!isShortcutRegistrationEnabled(database)) return;
-    const row = database.getQueries().getSetting.get('transcription_global_shortcut');
+    if (!(await isShortcutRegistrationEnabled(database))) return;
+    const row = await database.getQueries().getSetting.get('transcription_global_shortcut');
     const accel = row?.value && String(row.value).trim();
     if (!accel) return;
 

@@ -138,14 +138,14 @@ function ensureBenchSandbox() {
   return { sandboxDir, markerPath, readmePath };
 }
 
-function upsertResource(queries, row) {
-  const existing = queries.getResourceById.get(row.id);
+async function upsertResource(queries, row) {
+  const existing = await queries.getResourceById.get(row.id);
   const ts = Date.now();
   if (existing) {
-    queries.updateResource.run(row.title, row.content, row.metadata, ts, row.id);
+    await queries.updateResource.run(row.title, row.content, row.metadata, ts, row.id);
     return row.id;
   }
-  queries.createResource.run(
+  await queries.createResource.run(
     row.id,
     row.project_id,
     row.type,
@@ -164,20 +164,20 @@ function feederScriptHash(script) {
   return crypto.createHash('sha256').update(String(script || ''), 'utf8').digest('hex');
 }
 
-function upsertArtifact(queries, { artifactRowId, resourceId, artifactType, stateStr, now }) {
-  const existing = queries.getArtifactByResourceId.get(resourceId);
+async function upsertArtifact(queries, { artifactRowId, resourceId, artifactType, stateStr, now }) {
+  const existing = await queries.getArtifactByResourceId.get(resourceId);
   if (existing) {
-    queries.updateArtifact.run(artifactType, null, stateStr, null, now, resourceId);
+    await queries.updateArtifact.run(artifactType, null, stateStr, null, now, resourceId);
     return existing.id;
   }
-  queries.createArtifact.run(artifactRowId, resourceId, artifactType, null, stateStr, null, now, now);
+  await queries.createArtifact.run(artifactRowId, resourceId, artifactType, null, stateStr, null, now, now);
   return artifactRowId;
 }
 
-function upsertFeeder(queries, row) {
-  const existing = queries.getFeederById.get(row.id);
+async function upsertFeeder(queries, row) {
+  const existing = await queries.getFeederById.get(row.id);
   if (existing) {
-    queries.updateFeederScript.run(
+    await queries.updateFeederScript.run(
       row.script,
       row.script_hash,
       row.approved,
@@ -187,7 +187,7 @@ function upsertFeeder(queries, row) {
     );
     return row.id;
   }
-  queries.createFeeder.run(
+  await queries.createFeeder.run(
     row.id,
     row.artifact_resource_id,
     row.slot,
@@ -213,9 +213,9 @@ function upsertFeeder(queries, row) {
   return row.id;
 }
 
-function upsertResourceChunk(queries, row) {
-  queries.deleteChunksByResource.run(row.resource_id);
-  queries.insertResourceChunk.run(
+async function upsertResourceChunk(queries, row) {
+  await queries.deleteChunksByResource.run(row.resource_id);
+  await queries.insertResourceChunk.run(
     row.id,
     row.resource_id,
     row.chunk_index,
@@ -232,16 +232,16 @@ function upsertResourceChunk(queries, row) {
 async function seedFixtures({ force = false } = {}) {
   database.initDatabase();
   const queries = database.getQueries();
-  const flagV2 = queries.getSetting.get(SEED_FLAG)?.value;
+  const flagV2 = (await queries.getSetting.get(SEED_FLAG))?.value;
   if (flagV2 === '1' && !force) {
     console.log('[Bench:Fixtures] Already seeded (v2)');
     return FIXTURE_IDS;
   }
 
   const now = Date.now();
-  const existingProject = queries.getProjectById.get(BENCH_PROJECT_ID);
+  const existingProject = await queries.getProjectById.get(BENCH_PROJECT_ID);
   if (!existingProject) {
-    queries.createProject.run(
+    await queries.createProject.run(
       BENCH_PROJECT_ID,
       'Bench Project',
       'Isolated fixtures for agent benchmark',
@@ -254,7 +254,7 @@ async function seedFixtures({ force = false } = {}) {
   const assets = await ensureAssetFiles();
   const sandbox = ensureBenchSandbox();
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.folder,
     project_id: BENCH_PROJECT_ID,
     type: 'folder',
@@ -265,7 +265,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: JSON.stringify({ color: '#4a5568' }),
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.noteThermo,
     project_id: BENCH_PROJECT_ID,
     type: 'note',
@@ -277,7 +277,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: null,
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.note1,
     project_id: BENCH_PROJECT_ID,
     type: 'note',
@@ -288,7 +288,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: null,
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.note2,
     project_id: BENCH_PROJECT_ID,
     type: 'note',
@@ -299,7 +299,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: null,
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.pdf,
     project_id: BENCH_PROJECT_ID,
     type: 'pdf',
@@ -310,7 +310,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: JSON.stringify({ pages: 1 }),
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.xlsx,
     project_id: BENCH_PROJECT_ID,
     type: 'excel',
@@ -321,7 +321,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: null,
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.docx,
     project_id: BENCH_PROJECT_ID,
     type: 'document',
@@ -332,7 +332,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: JSON.stringify({ original_filename: 'sample.docx' }),
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.ppt,
     project_id: BENCH_PROJECT_ID,
     type: 'ppt',
@@ -343,7 +343,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: null,
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.notebook,
     project_id: BENCH_PROJECT_ID,
     type: 'notebook',
@@ -354,7 +354,7 @@ async function seedFixtures({ force = false } = {}) {
     metadata: null,
   });
 
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.image,
     project_id: BENCH_PROJECT_ID,
     type: 'image',
@@ -367,7 +367,7 @@ async function seedFixtures({ force = false } = {}) {
 
   const artifactHtml = '<!DOCTYPE html><html><head><title>Bench Counter</title></head><body></body></html>';
   const artifactStateStr = JSON.stringify({ html: artifactHtml, data: { count: 0 } });
-  upsertResource(queries, {
+  await upsertResource(queries, {
     id: FIXTURE_IDS.artifact,
     project_id: BENCH_PROJECT_ID,
     type: 'artifact',
@@ -377,7 +377,7 @@ async function seedFixtures({ force = false } = {}) {
     folder_id: FIXTURE_IDS.folder,
     metadata: null,
   });
-  upsertArtifact(queries, {
+  await upsertArtifact(queries, {
     artifactRowId: 'bench-artifact-row-1',
     resourceId: FIXTURE_IDS.artifact,
     artifactType: 'task-tracker',
@@ -387,7 +387,7 @@ async function seedFixtures({ force = false } = {}) {
 
   const feederScript = 'import json\nprint(json.dumps({"ok": True}))\n';
   const feederHash = feederScriptHash(feederScript);
-  upsertFeeder(queries, {
+  await upsertFeeder(queries, {
     id: FIXTURE_IDS.feeder,
     artifact_resource_id: FIXTURE_IDS.artifact,
     slot: 'default',
@@ -414,7 +414,7 @@ async function seedFixtures({ force = false } = {}) {
   const thermoChunkText =
     'La entropía mide el desorden de un sistema termodinámico. En procesos reversibles, el cambio de entropía está ligado al calor transferido.';
   const dummyEmbedding = Buffer.alloc(768 * 4);
-  upsertResourceChunk(queries, {
+  await upsertResourceChunk(queries, {
     id: FIXTURE_IDS.thermoChunkId,
     resource_id: FIXTURE_IDS.noteThermo,
     chunk_index: 0,
@@ -432,13 +432,13 @@ async function seedFixtures({ force = false } = {}) {
     fs.copyFileSync(assets.pngPath, sandboxPngPath);
   }
 
-  queries.setSetting.run('bench_default_project_id', BENCH_PROJECT_ID, now);
-  queries.setSetting.run('current_project_id', BENCH_PROJECT_ID, now);
-  queries.setSetting.run('bench_sandbox_dir', sandbox.sandboxDir, now);
-  queries.setSetting.run('bench_sample_png_path', sandboxPngPath, now);
-  queries.setSetting.run(SEED_FLAG, '1', now);
-  if (queries.getSetting.get(LEGACY_SEED_FLAG)) {
-    queries.setSetting.run(LEGACY_SEED_FLAG, '0', now);
+  await queries.setSetting.run('bench_default_project_id', BENCH_PROJECT_ID, now);
+  await queries.setSetting.run('current_project_id', BENCH_PROJECT_ID, now);
+  await queries.setSetting.run('bench_sandbox_dir', sandbox.sandboxDir, now);
+  await queries.setSetting.run('bench_sample_png_path', sandboxPngPath, now);
+  await queries.setSetting.run(SEED_FLAG, '1', now);
+  if (await queries.getSetting.get(LEGACY_SEED_FLAG)) {
+    await queries.setSetting.run(LEGACY_SEED_FLAG, '0', now);
   }
 
   console.log('[Bench:Fixtures] Seeded project + resources:', FIXTURE_IDS);

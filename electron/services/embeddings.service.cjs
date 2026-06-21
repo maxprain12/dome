@@ -46,7 +46,7 @@ function defaultGetQueries() {
 async function readEmbeddingsSettings(queries) {
   const provider = String((await queries.getSetting.get('embeddings_provider'))?.value || '').toLowerCase();
   const model = String((await queries.getSetting.get('embeddings_model'))?.value || '').trim();
-  const apiKey = readSettingSecret(queries, 'embeddings_api_key') || '';
+  const apiKey = await readSettingSecret(queries, 'embeddings_api_key') || '';
   const baseUrl = String(
     (await queries.getSetting.get('embeddings_base_url'))?.value || 'http://127.0.0.1:11434',
   ).replace(/\/$/, '');

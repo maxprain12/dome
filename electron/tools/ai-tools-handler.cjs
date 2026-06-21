@@ -61,11 +61,11 @@ function generateId() {
  * explicitly passes another project_id.
  * @returns {string}
  */
-function getActiveProjectId() {
+async function getActiveProjectId() {
   try {
     const queries = database.getQueries();
-    const last = queries.getSetting.get('last_project_id');
-    if (last?.value && queries.getProjectById.get(last.value)) return last.value;
+    const last = await queries.getSetting.get('last_project_id');
+    if (last?.value && (await queries.getProjectById.get(last.value))) return last.value;
   } catch (err) {
     console.warn('[AI Tools] getActiveProjectId:', err?.message || err);
   }
@@ -83,7 +83,7 @@ function getActiveProjectId() {
  */
 async function resourceSearch(query, options = {}) {
   // Hard-scope to the active project unless the caller explicitly set one.
-  if (!options.project_id) options.project_id = getActiveProjectId();
+  if (!options.project_id) options.project_id = await getActiveProjectId();
   try {
     const db = database.getDB();
     const limit = Math.min(options.limit || 10, 50); // Cap at 50
@@ -123,7 +123,7 @@ async function resourceSearch(query, options = {}) {
     let results = [];
     if (lexHits.length) {
       for (const h of lexHits) {
-        const r = queries.getResourceById.get(h.id);
+        const r = await queries.getResourceById.get(h.id);
         if (!r) continue;
         if (options.project_id && r.project_id !== options.project_id) continue;
         if (options.type && r.type !== options.type) continue;
@@ -143,7 +143,7 @@ async function resourceSearch(query, options = {}) {
     } else {
       let stmtResults;
       if (options.project_id && options.type) {
-        const stmt = db.prepare(`
+        stmtResults = await db.all(`
         SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
                r.thumbnail_data, r.metadata,
                snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
@@ -154,10 +154,9 @@ async function resourceSearch(query, options = {}) {
           AND r.type = ?
         ORDER BY rank
         LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, options.project_id, options.type, limit);
+      `, [ftsQuery, options.project_id, options.type, limit]);
       } else if (options.project_id) {
-        const stmt = db.prepare(`
+        stmtResults = await db.all(`
         SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
                r.thumbnail_data, r.metadata,
                snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
@@ -167,10 +166,9 @@ async function resourceSearch(query, options = {}) {
           AND r.project_id = ?
         ORDER BY rank
         LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, options.project_id, limit);
+      `, [ftsQuery, options.project_id, limit]);
       } else if (options.type) {
-        const stmt = db.prepare(`
+        stmtResults = await db.all(`
         SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
                r.thumbnail_data, r.metadata,
                snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
@@ -180,10 +178,9 @@ async function resourceSearch(query, options = {}) {
           AND r.type = ?
         ORDER BY rank
         LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, options.type, limit);
+      `, [ftsQuery, options.type, limit]);
       } else {
-        const stmt = db.prepare(`
+        stmtResults = await db.all(`
         SELECT r.id, r.title, r.type, r.content, r.project_id, r.created_at, r.updated_at,
                r.thumbnail_data, r.metadata,
                snippet(resources_fts, 2, '<mark>', '</mark>', '...', 50) as snippet
@@ -192,8 +189,7 @@ async function resourceSearch(query, options = {}) {
         WHERE resources_fts MATCH ?
         ORDER BY rank
         LIMIT ?
-      `);
-        stmtResults = stmt.all(ftsQuery, limit);
+      `, [ftsQuery, limit]);
       }
       results = stmtResults;
     }
@@ -261,7 +257,7 @@ async function resourceGet(resourceId, options = {}) {
     }
 
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
 
     if (!resource) {
       return { success: false, error: 'Resource not found' };
@@ -425,12 +421,12 @@ async function resourceGetSection(resourceId, chunkId) {
     }
 
     const q = database.getQueries();
-    const resource = q.getResourceById?.get(resourceId);
+    const resource = await q.getResourceById?.get(resourceId);
     if (!resource) {
       return { success: false, error: 'Resource not found' };
     }
 
-    const rows = q.getChunksBatchByIds.all(JSON.stringify([String(chunkId)]));
+    const rows = await q.getChunksBatchByIds.all(JSON.stringify([String(chunkId)]));
     const row = rows && rows[0];
     let chunkRow = row;
     if (!chunkRow || chunkRow.resource_id !== resourceId) {
@@ -520,8 +516,7 @@ async function resourceList(options = {}) {
     sql += ` ORDER BY ${sortField} DESC LIMIT ?`;
     params.push(limit);
 
-    const stmt = db.prepare(sql);
-    const results = stmt.all(...params);
+    const results = await db.all(sql, params);
 
     // Parse metadata
     const processedResults = results.map(r => ({
@@ -565,18 +560,18 @@ async function getLibraryOverview(options = {}) {
     }
 
     const queries = database.getQueries();
-    const project = queries.getProjectById.get(projectId);
+    const project = await queries.getProjectById.get(projectId);
     if (!project) {
       return { success: false, error: 'Project not found', project_id: projectId };
     }
 
     const db = database.getDB();
-    const allResources = db.prepare(`
+    const allResources = await db.all(`
       SELECT id, title, type, folder_id, metadata
       FROM resources
       WHERE project_id = ?
       ORDER BY type = 'folder' DESC, title ASC
-    `).all(projectId);
+    `, [projectId]);
 
     const folders = allResources.filter(r => r.type === 'folder');
     const nonFolders = allResources.filter(r => r.type !== 'folder');
@@ -666,7 +661,7 @@ function buildFolderPath(folderId, folderMap) {
  */
 async function resourceSemanticSearch(query, options = {}) {
   // Hard-scope to the active project unless the caller explicitly set one.
-  if (!options.project_id) options.project_id = getActiveProjectId();
+  if (!options.project_id) options.project_id = await getActiveProjectId();
   try {
     const limit = Math.min(options.limit || 10, 50);
     const queries = database.getQueries();
@@ -683,15 +678,15 @@ async function resourceSemanticSearch(query, options = {}) {
       const db = database.getDB ? database.getDB() : null;
       const inProject = new Set(
         (db
-          ? db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id)
+          ? await db.all('SELECT id FROM resources WHERE project_id = ?', [options.project_id])
           : []
         ).map((r) => r.id),
       );
       filtered = hits.filter((h) => inProject.has(h.resource_id));
     }
 
-    const results = filtered.slice(0, limit).map((h) => {
-      const resource = queries.getResourceById.get(h.resource_id);
+    const results = (await Promise.all(filtered.slice(0, limit).map(async (h) => {
+      const resource = await queries.getResourceById.get(h.resource_id);
       if (!resource) return null;
       let metadata = null;
       try {
@@ -717,7 +712,7 @@ async function resourceSemanticSearch(query, options = {}) {
         updated_at: resource.updated_at,
         metadata,
       };
-    }).filter(Boolean);
+    }))).filter(Boolean);
 
     return {
       success: true,
@@ -750,7 +745,7 @@ async function resourceSemanticSearch(query, options = {}) {
  */
 async function resourceHybridSearch(query, options = {}) {
   // Hard-scope to the active project unless the caller explicitly set one.
-  if (!options.project_id) options.project_id = getActiveProjectId();
+  if (!options.project_id) options.project_id = await getActiveProjectId();
   try {
     const limit = Math.min(options.limit || 10, 50);
     const semanticThreshold = options.semantic_min_score ?? 0.3;
@@ -765,7 +760,7 @@ async function resourceHybridSearch(query, options = {}) {
     let inProject = null;
     if (options.project_id) {
       inProject = new Set(
-        db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id).map((r) => r.id),
+        (await db.all('SELECT id FROM resources WHERE project_id = ?', [options.project_id])).map((r) => r.id),
       );
     }
 
@@ -777,7 +772,7 @@ async function resourceHybridSearch(query, options = {}) {
       let filtered = (hits || []).filter((h) => (h.score ?? 0) >= semanticThreshold);
       if (inProject) filtered = filtered.filter((h) => inProject.has(h.resource_id));
       for (const h of filtered.slice(0, maxCandidates)) {
-        const res = queries.getResourceById.get(h.resource_id);
+        const res = await queries.getResourceById.get(h.resource_id);
         if (!res) continue;
         if (options.type && res.type !== options.type) continue;
         semanticItems.push({
@@ -799,9 +794,9 @@ async function resourceHybridSearch(query, options = {}) {
     let graphItems = [];
     try {
       const pattern = `%${String(query || '').slice(0, 200)}%`;
-      const nodes = queries.searchGraphNodes.all(pattern, pattern) || [];
+      const nodes = (await queries.searchGraphNodes.all(pattern, pattern)) || [];
       const seenGraphResources = new Set();
-      const addGraphNode = (node) => {
+      const addGraphNode = async (node) => {
         let props = node.properties;
         if (typeof props === 'string') {
           try {
@@ -812,7 +807,7 @@ async function resourceHybridSearch(query, options = {}) {
         }
         const rid = node.resource_id || (props && props.resource_id);
         if (!rid) return;
-        const res = queries.getResourceById.get(rid);
+        const res = await queries.getResourceById.get(rid);
         if (!res) return;
         if (inProject && !inProject.has(rid)) return;
         if (options.type && res.type !== options.type) return;
@@ -826,13 +821,13 @@ async function resourceHybridSearch(query, options = {}) {
         });
       };
       for (const node of nodes) {
-        addGraphNode(node);
+        await addGraphNode(node);
       }
       if (includeBacklinks && nodes.length > 0) {
         for (const node of nodes.slice(0, 5)) {
-          const neighbors = queries.getNodeNeighbors.all(node.id, node.id, node.id) || [];
+          const neighbors = (await queries.getNodeNeighbors.all(node.id, node.id, node.id)) || [];
           for (const neighbor of neighbors) {
-            addGraphNode(neighbor);
+            await addGraphNode(neighbor);
           }
         }
       }
@@ -868,7 +863,7 @@ async function resourceHybridSearch(query, options = {}) {
 
     const results = [];
     for (const m of merged) {
-      const resource = queries.getResourceById.get(m.id);
+      const resource = await queries.getResourceById.get(m.id);
       if (!resource) continue;
       if (options.project_id && resource.project_id !== options.project_id) continue;
       if (options.type && resource.type !== options.type) continue;
@@ -940,7 +935,7 @@ async function pdfRenderPage(params = {}) {
       return { success: false, error: 'resource_id required' };
     }
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource || resource.type !== 'pdf') {
       return { success: false, error: 'Not a PDF resource with a file' };
     }
@@ -979,7 +974,7 @@ async function pdfRenderPage(params = {}) {
 async function projectList() {
   try {
     const queries = database.getQueries();
-    const projects = queries.getProjects.all();
+    const projects = await queries.getProjects.all();
 
     const processedProjects = projects.map(p => ({
       id: p.id,
@@ -1017,7 +1012,7 @@ async function projectGet(projectId) {
     }
 
     const queries = database.getQueries();
-    const project = queries.getProjectById.get(projectId);
+    const project = await queries.getProjectById.get(projectId);
 
     if (!project) {
       return { success: false, error: 'Project not found' };
@@ -1025,8 +1020,7 @@ async function projectGet(projectId) {
 
     // Count resources in this project
     const db = database.getDB();
-    const countStmt = db.prepare('SELECT COUNT(*) as count FROM resources WHERE project_id = ?');
-    const countResult = countStmt.get(projectId);
+    const countResult = await db.get('SELECT COUNT(*) as count FROM resources WHERE project_id = ?', [projectId]);
 
     return {
       success: true,
@@ -1072,9 +1066,9 @@ async function interactionList(resourceId, options = {}) {
 
     let interactions;
     if (options.type) {
-      interactions = queries.getInteractionsByType.all(resourceId, options.type);
+      interactions = await queries.getInteractionsByType.all(resourceId, options.type);
     } else {
-      interactions = queries.getInteractionsByResource.all(resourceId);
+      interactions = await queries.getInteractionsByResource.all(resourceId);
     }
 
     // Limit results
@@ -1132,7 +1126,7 @@ async function getRecentResources(limit = 5, automationProjectId = null) {
     const queries = database.getQueries();
     const cap = Math.min(Math.max(1, limit || 5), 50);
     const fetchN = automationProjectId ? Math.min(500, cap * 30) : cap;
-    const resources = queries.getAllResources.all(fetchN);
+    const resources = await queries.getAllResources.all(fetchN);
 
     let mapped = resources.map(r => ({
       id: r.id,
@@ -1160,7 +1154,7 @@ async function getCurrentProject(automationProjectId = null) {
     const queries = database.getQueries();
 
     if (automationProjectId) {
-      const scoped = queries.getProjectById.get(automationProjectId);
+      const scoped = await queries.getProjectById.get(automationProjectId);
       if (scoped) {
         return {
           id: scoped.id,
@@ -1171,9 +1165,9 @@ async function getCurrentProject(automationProjectId = null) {
     }
 
     // Try to get the last used project from settings
-    const lastProjectSetting = queries.getSetting.get('last_project_id');
+    const lastProjectSetting = await queries.getSetting.get('last_project_id');
     if (lastProjectSetting?.value) {
-      const project = queries.getProjectById.get(lastProjectSetting.value);
+      const project = await queries.getProjectById.get(lastProjectSetting.value);
       if (project) {
         return {
           id: project.id,
@@ -1184,7 +1178,7 @@ async function getCurrentProject(automationProjectId = null) {
     }
 
     // Fall back to default project
-    const defaultProject = queries.getProjectById.get('default');
+    const defaultProject = await queries.getProjectById.get('default');
     if (defaultProject) {
       return {
         id: defaultProject.id,
@@ -1219,7 +1213,7 @@ async function getCurrentProject(automationProjectId = null) {
  * Handles headings, bold, italic, code, bullet/ordered lists,
  * horizontal rules, code blocks, and paragraphs.
  */
-function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
+async function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
   const linkedResourceIds = new Set();
   let text = String(markdown || '').replace(/\r\n/g, '\n').trim();
   if (!text) return { markdown: '', linkedResourceIds: [] };
@@ -1231,8 +1225,8 @@ function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
     metadata.origin_resource_id,
   ].filter((value) => typeof value === 'string' && value.trim());
 
-  const resolveResourceMention = (resourceId) => {
-    const resource = queries.getResourceById?.get(resourceId);
+  const resolveResourceMention = async (resourceId) => {
+    const resource = await queries.getResourceById?.get(resourceId);
     if (!resource) return null;
     linkedResourceIds.add(resource.id);
     const label = String(resource.title || resource.id).replace(/[\]]/g, '');
@@ -1241,17 +1235,18 @@ function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
 
   text = text
     .split('\n')
-    .map((line) => {
+    .map(async (line) => {
       const origin = line.match(/^\s*(?:[-*]\s*)?(?:\*\*)?(nota origen|source note|original note)(?:\*\*)?\s*[:|]\s*([A-Za-z0-9_-]{8,})\s*$/i);
       if (!origin) return line;
-      const mention = resolveResourceMention(origin[2]);
+      const mention = await resolveResourceMention(origin[2]);
       return mention ? `> **Nota origen:** ${mention}` : line;
-    })
-    .join('\n');
+    });
+  text = await Promise.all(text);
+  text = text.join('\n');
 
   for (const sourceId of explicitSourceIds) {
     if (text.includes(String(sourceId))) continue;
-    const mention = resolveResourceMention(String(sourceId));
+    const mention = await resolveResourceMention(String(sourceId));
     if (mention) {
       text = `> **Nota origen:** ${mention}\n\n${text}`;
     }
@@ -1280,23 +1275,23 @@ function normalizeAiNoteMarkdown(markdown, title, queries, metadata = {}) {
   };
 }
 
-function createManualResourceRelation(queries, sourceId, targetId, label = 'source_note') {
+async function createManualResourceRelation(queries, sourceId, targetId, label = 'source_note') {
   if (!sourceId || !targetId || sourceId === targetId) return;
   const now = Date.now();
   const id = `${sourceId}__${targetId}`;
-  const existing = queries.getSemanticRelationByPair?.get(sourceId, targetId);
+  const existing = await queries.getSemanticRelationByPair?.get(sourceId, targetId);
   if (existing) {
     if (existing.relation_type === 'auto' || existing.relation_type === 'rejected') {
-      database.getDB().prepare(`
+      await database.getDB().run(`
         UPDATE semantic_relations
         SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
         WHERE id = ?
-      `).run(now, label, existing.id);
+      `, [now, label, existing.id]);
     }
     return;
   }
   try {
-    queries.insertSemanticRelation?.run(id, sourceId, targetId, 1.0, 'manual', label, now, null);
+    await queries.insertSemanticRelation?.run(id, sourceId, targetId, 1.0, 'manual', label, now, null);
   } catch (error) {
     if (!String(error.message || error).includes('UNIQUE')) throw error;
   }
@@ -1547,7 +1542,7 @@ async function resourceCreate(data) {
         metadataForCreate = { ...(metadataForCreate || {}), color: autoColor };
       }
     } else if (type === 'note') {
-      const normalized = normalizeAiNoteMarkdown(content, data.title, queries, metadataForCreate || {});
+      const normalized = await normalizeAiNoteMarkdown(content, data.title, queries, metadataForCreate || {});
       content = markdownToTipTapJSON(normalized.markdown);
       normalizedNoteLinks = normalized.linkedResourceIds;
       if (normalizedNoteLinks.length > 0) {
@@ -1578,11 +1573,11 @@ async function resourceCreate(data) {
       const currentProject = await getCurrentProject();
       projectId = currentProject?.id || 'default';
     }
-    const projectExists = queries.getProjectById.get(projectId);
+    const projectExists = await queries.getProjectById.get(projectId);
     if (!projectExists) {
-      const projects = queries.getProjects.all();
+      const projects = await queries.getProjects.all();
       projectId = projects[0]?.id || 'default';
-      const defaultExists = queries.getProjectById.get('default');
+      const defaultExists = await queries.getProjectById.get('default');
       if (!defaultExists && !projects.length) {
         return { success: false, error: 'No valid project found. Create a project first.' };
       }
@@ -1591,7 +1586,7 @@ async function resourceCreate(data) {
     // Validate folder_id exists and is type folder (avoid FOREIGN KEY)
     let resolvedFolderId = null;
     if (data.folder_id != null && data.folder_id !== '') {
-      const folder = queries.getResourceById.get(data.folder_id);
+      const folder = await queries.getResourceById.get(data.folder_id);
       if (folder && folder.type === 'folder') {
         resolvedFolderId = data.folder_id;
       } else {
@@ -1602,7 +1597,7 @@ async function resourceCreate(data) {
     const now = Date.now();
     const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
 
-    queries.createResource.run(
+    await queries.createResource.run(
       id,
       projectId,
       type,
@@ -1617,7 +1612,7 @@ async function resourceCreate(data) {
 
     if (type === 'note' && normalizedNoteLinks.length > 0) {
       for (const targetId of normalizedNoteLinks) {
-        createManualResourceRelation(queries, id, targetId, 'source_note');
+        await createManualResourceRelation(queries, id, targetId, 'source_note');
       }
     }
 
@@ -1658,7 +1653,7 @@ async function resourceUpdate(resourceId, updates) {
     }
 
     const queries = database.getQueries();
-    const existing = queries.getResourceById.get(resourceId);
+    const existing = await queries.getResourceById.get(resourceId);
 
     if (!existing) {
       return { success: false, error: `Resource not found: "${resourceId}". Call get_library_overview or resource_search first and use the exact id field from those results — never construct or guess IDs.` };
@@ -1672,7 +1667,7 @@ async function resourceUpdate(resourceId, updates) {
     if (existing.type === 'note' && updates.content !== undefined) {
       let existingMetaForNormalize = {};
       try { existingMetaForNormalize = existing.metadata ? JSON.parse(existing.metadata) : {}; } catch { existingMetaForNormalize = {}; }
-      const normalized = normalizeAiNoteMarkdown(content, title, queries, {
+      const normalized = await normalizeAiNoteMarkdown(content, title, queries, {
         ...existingMetaForNormalize,
         ...(updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {}),
       });
@@ -1743,18 +1738,18 @@ async function resourceUpdate(resourceId, updates) {
             console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
           }
           content = contentText || content;
-          queries.updateResourceFile.run(importResult.internalPath, importResult.mimeType, importResult.size, importResult.hash, existing.thumbnail_data, importResult.originalName, now, resourceId);
+          await queries.updateResourceFile.run(importResult.internalPath, importResult.mimeType, importResult.size, importResult.hash, existing.thumbnail_data, importResult.originalName, now, resourceId);
         }
       } catch (docxErr) {
         console.warn('[AI Tools] DOCX update failed:', docxErr?.message);
       }
     }
 
-    queries.updateResource.run(title, content, metadata, now, resourceId);
+    await queries.updateResource.run(title, content, metadata, now, resourceId);
 
     if (existing.type === 'note' && normalizedNoteLinks.length > 0) {
       for (const targetId of normalizedNoteLinks) {
-        createManualResourceRelation(queries, resourceId, targetId, 'source_note');
+        await createManualResourceRelation(queries, resourceId, targetId, 'source_note');
       }
     }
 
@@ -1912,7 +1907,7 @@ async function resourceDelete(resourceId) {
     }
 
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
 
     if (!resource) {
       return { success: false, error: `Resource not found: "${resourceId}". Use the exact id from get_library_overview or a search result — never invent IDs.` };
@@ -1929,7 +1924,7 @@ async function resourceDelete(resourceId) {
     }
 
     // Delete from database
-    queries.deleteResource.run(resourceId);
+    await queries.deleteResource.run(resourceId);
 
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
       windowManagerRef.broadcast('resource:deleted', { id: resourceId });
@@ -1963,14 +1958,14 @@ async function resourceMoveToFolder(resourceId, folderId) {
     }
 
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
 
     if (!resource) {
       return { success: false, error: `Resource not found: "${resourceId}". Use the exact id from get_library_overview or a search result.` };
     }
 
     if (folderId != null && folderId !== '') {
-      const folder = queries.getResourceById.get(folderId);
+      const folder = await queries.getResourceById.get(folderId);
       if (!folder) {
         return { success: false, error: `Folder not found: "${folderId}". Use the exact id from get_library_overview.` };
       }
@@ -1987,7 +1982,7 @@ async function resourceMoveToFolder(resourceId, folderId) {
           if (current.folder_id === resourceId) {
             return { success: false, error: 'Cannot move folder into its own descendant (would create a cycle)' };
           }
-          current = queries.getResourceById.get(current.folder_id);
+          current = await queries.getResourceById.get(current.folder_id);
         }
       }
     }
@@ -1996,9 +1991,9 @@ async function resourceMoveToFolder(resourceId, folderId) {
     const targetFolderId = folderId == null || folderId === '' ? null : folderId;
 
     if (targetFolderId) {
-      queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
+      await queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
     } else {
-      queries.removeResourceFromFolder.run(now, resourceId);
+      await queries.removeResourceFromFolder.run(now, resourceId);
     }
 
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
@@ -2044,10 +2039,10 @@ async function flashcardCreate(data) {
       const currentProject = await getCurrentProject();
       projectId = currentProject?.id || 'default';
     }
-    const projectExists = queries.getProjectById.get(projectId);
+    const projectExists = await queries.getProjectById.get(projectId);
     if (!projectExists) {
       projectId = 'default';
-      const defaultExists = queries.getProjectById.get('default');
+      const defaultExists = await queries.getProjectById.get('default');
       if (!defaultExists) {
         const out = { success: false, error: 'No valid project found. Create a project first.' };
         traceLog('flashcardCreate', { title: data?.title }, out);
@@ -2058,7 +2053,7 @@ async function flashcardCreate(data) {
     // Validate resource_id exists (FK constraint); use null if invalid
     let resourceId = data.resource_id || null;
     if (resourceId) {
-      const resourceExists = queries.getResourceById.get(resourceId);
+      const resourceExists = await queries.getResourceById.get(resourceId);
       if (!resourceExists) {
         resourceId = null;
       }
@@ -2068,7 +2063,7 @@ async function flashcardCreate(data) {
     const deckId = crypto.randomUUID();
 
     // Create deck
-    queries.createFlashcardDeck.run(
+    await queries.createFlashcardDeck.run(
       deckId,
       resourceId,
       projectId,
@@ -2090,43 +2085,45 @@ async function flashcardCreate(data) {
     }
 
     // Bulk create cards in a transaction
-    const insertCards = db.transaction((cards) => {
-      for (const card of cards) {
-        if (!card.question || !card.answer) continue;
-        const cardId = crypto.randomUUID();
-        const difficulty = ['easy', 'medium', 'hard'].includes(card.difficulty) ? card.difficulty : 'medium';
-        const tags = sanitizeCardValue(card.tags);
-        queries.createFlashcard.run(
-          cardId,
-          deckId,
-          String(card.question).trim(),
-          String(card.answer).trim(),
-          difficulty,
-          tags,
-          null, // metadata
-          2.5, // ease_factor
-          0,   // interval
-          0,   // repetitions
-          null, // next_review_at
-          null, // last_reviewed_at
-          now,
-          now
-        );
-      }
-    });
+    const insertCards = async (cards) => {
+      await db.transaction(async () => {
+        for (const card of cards) {
+          if (!card.question || !card.answer) continue;
+          const cardId = crypto.randomUUID();
+          const difficulty = ['easy', 'medium', 'hard'].includes(card.difficulty) ? card.difficulty : 'medium';
+          const tags = sanitizeCardValue(card.tags);
+          await queries.createFlashcard.run(
+            cardId,
+            deckId,
+            String(card.question).trim(),
+            String(card.answer).trim(),
+            difficulty,
+            tags,
+            null, // metadata
+            2.5, // ease_factor
+            0,   // interval
+            0,   // repetitions
+            null, // next_review_at
+            null, // last_reviewed_at
+            now,
+            now
+          );
+        }
+      });
+    };
 
-    insertCards(data.cards);
+    await insertCards(data.cards);
 
     // Get final card count
-    const allCards = queries.getFlashcardsByDeck.all(deckId);
+    const allCards = await queries.getFlashcardsByDeck.all(deckId);
 
     // Create studio_output for unified Studio list (type=flashcards)
     const studioOutputId = crypto.randomUUID();
     const now2 = Date.now();
-    db.prepare(`
+    await db.run(`
       INSERT INTO studio_outputs (id, project_id, type, title, content, source_ids, file_path, metadata, deck_id, resource_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       studioOutputId,
       projectId,
       'flashcards',
@@ -2139,9 +2136,9 @@ async function flashcardCreate(data) {
       resourceId,
       now2,
       now2
-    );
+    ]);
 
-    const studioOutput = db.prepare('SELECT * FROM studio_outputs WHERE id = ?').get(studioOutputId);
+    const studioOutput = await db.get('SELECT * FROM studio_outputs WHERE id = ?', [studioOutputId]);
 
     const out = {
       success: true,
@@ -2490,7 +2487,7 @@ async function getDocumentStructure({ resource_id } = {}) {
     if (!resource_id) return { success: false, error: 'resource_id is required' };
 
     const q = database.getQueries();
-    const resource = q.getResourceById?.get(resource_id);
+    const resource = await q.getResourceById?.get(resource_id);
     if (!resource) return { success: false, error: 'Resource not found' };
     const raw = String(resource.content || '');
     if (!raw.trim()) {
@@ -2540,42 +2537,42 @@ async function linkResources({ source_id, target_id, relation = 'related', descr
     if (source_id === target_id) return { success: false, error: 'Cannot link a resource to itself' };
 
     const q = database.getQueries();
-    const source = q.getResourceById?.get(source_id);
-    const target = q.getResourceById?.get(target_id);
+    const source = await q.getResourceById?.get(source_id);
+    const target = await q.getResourceById?.get(target_id);
     if (!source) return { success: false, error: `Resource ${source_id} not found` };
     if (!target) return { success: false, error: `Resource ${target_id} not found` };
 
     const now = Date.now();
     const label = description || (relation && relation !== 'related' ? relation : null);
     const id = `${source_id}__${target_id}`;
-    const existing = q.getSemanticRelationByPair?.get(source_id, target_id);
+    const existing = await q.getSemanticRelationByPair?.get(source_id, target_id);
     if (existing) {
       if (existing.relation_type === 'rejected') {
-        database
+        await database
           .getDB()
-          .prepare(
+          .run(
             `
           UPDATE semantic_relations
           SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
           WHERE id = ?
         `,
-          )
-          .run(now, label, existing.id);
+            [now, label, existing.id],
+          );
       } else if (existing.relation_type === 'auto') {
-        database
+        await database
           .getDB()
-          .prepare(
+          .run(
             `
           UPDATE semantic_relations
           SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label)
           WHERE id = ?
         `,
-          )
-          .run(now, label, existing.id);
+            [now, label, existing.id],
+          );
       }
     } else {
       try {
-        q.insertSemanticRelation?.run(id, source_id, target_id, 1.0, 'manual', label, now, null);
+        await q.insertSemanticRelation?.run(id, source_id, target_id, 1.0, 'manual', label, now, null);
       } catch (e) {
         if (!e.message?.includes('UNIQUE')) throw e;
       }
@@ -2583,7 +2580,7 @@ async function linkResources({ source_id, target_id, relation = 'related', descr
 
     const edgeId = `edge-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
     try {
-      q.createGraphEdge?.run(edgeId, `node-${source_id}`, `node-${target_id}`, relation, 1.0, description || null, now, now);
+      await q.createGraphEdge?.run(edgeId, `node-${source_id}`, `node-${target_id}`, relation, 1.0, description || null, now, now);
     } catch { /* non-fatal if graph nodes missing */ }
 
     return {
@@ -2609,33 +2606,33 @@ async function getRelatedResources({ resource_id } = {}) {
     if (!resource_id) return { success: false, error: 'resource_id is required' };
 
     const q = database.getQueries();
-    const resource = q.getResourceById?.get(resource_id);
+    const resource = await q.getResourceById?.get(resource_id);
     if (!resource) return { success: false, error: `Resource ${resource_id} not found` };
 
     const seen = new Set([resource_id]);
     const related = [];
 
-    const addResource = (rid, relation, direction) => {
+    const addResource = async (rid, relation, direction) => {
       if (seen.has(rid)) return;
       seen.add(rid);
-      const r = q.getResourceById?.get(rid);
+      const r = await q.getResourceById?.get(rid);
       if (r) related.push({ id: r.id, title: r.title, type: r.type, relation, direction });
     };
 
-    for (const lnk of q.getSemanticOutgoing?.all(resource_id) || []) {
+    for (const lnk of (await q.getSemanticOutgoing?.all(resource_id)) || []) {
       const rel = lnk.label || lnk.relation_type || 'related';
-      addResource(lnk.target_id, rel, 'outgoing');
+      await addResource(lnk.target_id, rel, 'outgoing');
     }
-    for (const lnk of q.getSemanticIncoming?.all(resource_id) || []) {
+    for (const lnk of (await q.getSemanticIncoming?.all(resource_id)) || []) {
       const rel = lnk.label || lnk.relation_type || 'related';
-      addResource(lnk.source_id, rel, 'incoming');
+      await addResource(lnk.source_id, rel, 'incoming');
     }
 
     // Also pull graph neighbors
     try {
       const nodeId = `node-${resource_id}`;
-      for (const n of q.getNodeNeighbors?.all(nodeId, nodeId, nodeId) || []) {
-        if (n.resource_id) addResource(n.resource_id, n.relation, 'graph');
+      for (const n of (await q.getNodeNeighbors?.all(nodeId, nodeId, nodeId)) || []) {
+        if (n.resource_id) await addResource(n.resource_id, n.relation, 'graph');
       }
     } catch { /* graph neighbors non-critical */ }
 
@@ -2668,31 +2665,29 @@ async function generateKnowledgeGraph({ focus_resource_id, min_weight } = {}) {
     const center = focus_resource_id;
     const db = database.getDB();
 
-    const nodes = db
-      .prepare(
+    const nodes = await db.all(
         `
         SELECT r.id, r.title AS label, r.type AS resourceType,
           (SELECT COUNT(*) FROM semantic_relations sr
            WHERE (sr.source_id = r.id OR sr.target_id = r.id)
-           AND sr.similarity >= @th
+           AND sr.similarity >= ?
            AND sr.relation_type != 'rejected') AS connectionCount,
-          CASE WHEN r.id = @center THEN 1 ELSE 0 END AS isCurrentNote
+          CASE WHEN r.id = ? THEN 1 ELSE 0 END AS isCurrentNote
         FROM resources r
         WHERE r.id IN (
           SELECT source_id FROM semantic_relations
-          WHERE target_id = @center AND similarity >= @th AND relation_type != 'rejected'
+          WHERE target_id = ? AND similarity >= ? AND relation_type != 'rejected'
           UNION
           SELECT target_id FROM semantic_relations
-          WHERE source_id = @center AND similarity >= @th AND relation_type != 'rejected'
-          UNION SELECT @center
+          WHERE source_id = ? AND similarity >= ? AND relation_type != 'rejected'
+          UNION SELECT ?
         )
       `,
-      )
-      .all({ th, center });
+      [th, center, center, th, center, th, center],
+    );
 
-    const edges = db
-      .prepare(
-        `
+    const edges = await db.all(
+      `
         SELECT id,
                source_id AS source,
                target_id AS target,
@@ -2700,14 +2695,14 @@ async function generateKnowledgeGraph({ focus_resource_id, min_weight } = {}) {
                relation_type,
                label
         FROM semantic_relations
-        WHERE (source_id = @center OR target_id = @center)
-          AND similarity >= @th
+        WHERE (source_id = ? OR target_id = ?)
+          AND similarity >= ?
           AND relation_type != 'rejected'
         ORDER BY similarity DESC
         LIMIT 60
       `,
-      )
-      .all({ center, th });
+      [center, center, th],
+    );
 
     return {
       success: true,
@@ -3198,7 +3193,7 @@ async function importFileToLibrary(args = {}) {
 
       // Check duplicate
       const queries = database.getQueries();
-      const existing = queries.findByHash?.get(importResult.hash);
+      const existing = await queries.findByHash?.get(importResult.hash);
       if (existing) {
         return {
           success: false,
@@ -3226,7 +3221,7 @@ async function importFileToLibrary(args = {}) {
       const db = database.getDB();
       const effectiveProjectId = project_id || null;
 
-      queries.createResourceWithFile.run(
+      await queries.createResourceWithFile.run(
         resourceId,
         effectiveProjectId,
         effectiveType,
@@ -3245,10 +3240,10 @@ async function importFileToLibrary(args = {}) {
       );
 
       if (folder_id && queries.moveResourceToFolder) {
-        queries.moveResourceToFolder.run(folder_id, now, resourceId);
+        await queries.moveResourceToFolder.run(folder_id, now, resourceId);
       }
 
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
 
       // Schedule indexing
       semanticIndexScheduler.init(database);
@@ -3300,7 +3295,7 @@ async function agentCreate(args = {}) {
       createdAt: now,
       updatedAt: now,
     };
-    queries.createManyAgent.run(
+    await queries.createManyAgent.run(
       agent.id,
       projectId,
       agent.name,
@@ -3430,12 +3425,12 @@ async function gemmaImageDescribe(args) {
   const cloudLlm = require('../services/cloud-llm.service.cjs');
   const cloudLlmTasks = require('../services/cloud-llm-tasks.cjs');
   const fileStorage = require('../storage/file-storage.cjs');
-  if (!cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
+  if (!await cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
     return { success: false, error: 'Configure an AI provider in Settings (API key, Ollama, or Dome).' };
   }
   const resourceId = args.resource_id || args.resourceId;
   if (!resourceId) return { success: false, error: 'resource_id required' };
-  const row = database.getQueries().getResourceById.get(resourceId);
+  const row = await database.getQueries().getResourceById.get(resourceId);
   if (!row || row.type !== 'image') {
     return { success: false, error: 'Resource is not an image' };
   }
@@ -3455,7 +3450,7 @@ async function gemmaImageDescribe(args) {
 async function gemmaScreenUnderstand(args) {
   const cloudLlm = require('../services/cloud-llm.service.cjs');
   const cloudLlmTasks = require('../services/cloud-llm-tasks.cjs');
-  if (!cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
+  if (!await cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
     return { success: false, error: 'Configure an AI provider in Settings (API key, Ollama, or Dome).' };
   }
   const imageBase64 = args.image_base64 || args.imageBase64;
@@ -3871,12 +3866,12 @@ function _isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function _syncArtifactRuntimeFromState(queries, artifactRow, stateObj, now) {
+async function _syncArtifactRuntimeFromState(queries, artifactRow, stateObj, now) {
   if (!artifactRow || !_isPlainObject(stateObj?.data)) return;
   const cryptoMod = require('crypto');
   const dataStr = JSON.stringify(stateObj.data);
-  const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
-  queries.upsertArtifactRuntimeData.run(
+  const existing = await queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
+  await queries.upsertArtifactRuntimeData.run(
     existing?.id || cryptoMod.randomUUID(),
     artifactRow.id,
     'default',
@@ -3896,11 +3891,11 @@ async function artifactList(args) {
       const cur = await getCurrentProject();
       projectId = cur?.id || 'default';
     }
-    const rows = queries.listArtifactsByProject.all(projectId);
-    const results = rows.map((row) => {
-      const resource = queries.getResourceById.get(row.resource_id);
-      return serializeArtifactRecord(row, resource, queries);
-    });
+    const rows = await queries.listArtifactsByProject.all(projectId);
+    const results = await Promise.all(rows.map(async (row) => {
+      const resource = await queries.getResourceById.get(row.resource_id);
+      return await serializeArtifactRecord(row, resource, queries);
+    }));
     return { success: true, data: results };
   } catch (error) {
     console.error('[AI Tools] artifactList error:', error);
@@ -3913,10 +3908,10 @@ async function artifactGet(args) {
     const resourceId = args?.resource_id ?? args?.resourceId;
     if (!resourceId) return { success: false, error: 'resource_id is required' };
     const queries = database.getQueries();
-    const artifact = queries.getArtifactByResourceId.get(resourceId);
+    const artifact = await queries.getArtifactByResourceId.get(resourceId);
     if (!artifact) return { success: false, error: 'Artifact not found' };
-    const resource = queries.getResourceById.get(resourceId);
-    return { success: true, data: serializeArtifactRecord(artifact, resource, queries) };
+    const resource = await queries.getResourceById.get(resourceId);
+    return { success: true, data: await serializeArtifactRecord(artifact, resource, queries) };
   } catch (error) {
     console.error('[AI Tools] artifactGet error:', error);
     return { success: false, error: error.message };
@@ -3959,19 +3954,18 @@ async function artifactCreate(args) {
     const state = { html, data };
     const stateStr = JSON.stringify(state);
 
-    const tx = db.transaction(() => {
-      queries.createResource.run(resourceId, projectId, 'artifact', title, null, null, null, null, now, now);
-      queries.createArtifact.run(artifactId, resourceId, artifactType, null, stateStr, null, now, now);
-      const art = queries.getArtifactByResourceId.get(resourceId);
+    await db.transaction(async () => {
+      await queries.createResource.run(resourceId, projectId, 'artifact', title, null, null, null, null, now, now);
+      await queries.createArtifact.run(artifactId, resourceId, artifactType, null, stateStr, null, now, now);
+      const art = await queries.getArtifactByResourceId.get(resourceId);
       if (art) {
-        _syncArtifactRuntimeFromState(queries, art, parseJsonState(stateStr), now);
+        await _syncArtifactRuntimeFromState(queries, art, parseJsonState(stateStr), now);
       }
     });
-    tx();
 
-    const resource = queries.getResourceById.get(resourceId);
-    const artifact = queries.getArtifactByResourceId.get(resourceId);
-    const serialized = serializeArtifactRecord(artifact, resource, queries);
+    const resource = await queries.getResourceById.get(resourceId);
+    const artifact = await queries.getArtifactByResourceId.get(resourceId);
+    const serialized = await serializeArtifactRecord(artifact, resource, queries);
 
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
       windowManagerRef.broadcast('resource:created', resource);
@@ -4003,7 +3997,7 @@ async function artifactUpdateState(args) {
 
     const queries = database.getQueries();
     const db = database.getDB();
-    const existing = queries.getArtifactByResourceId.get(resourceId);
+    const existing = await queries.getArtifactByResourceId.get(resourceId);
     if (!existing) return { success: false, error: 'Artifact not found' };
 
     const prevState = parseJsonState(existing.state);
@@ -4013,18 +4007,17 @@ async function artifactUpdateState(args) {
 
     const now = Date.now();
     const stateStr = JSON.stringify(mergedState);
-    const tx = db.transaction(() => {
-      queries.updateArtifactState.run(stateStr, now, resourceId);
-      const updated = queries.getArtifactByResourceId.get(resourceId);
+    await db.transaction(async () => {
+      await queries.updateArtifactState.run(stateStr, now, resourceId);
+      const updated = await queries.getArtifactByResourceId.get(resourceId);
       if (updated) {
-        _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
+        await _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
       }
     });
-    tx();
 
-    const updated = queries.getArtifactByResourceId.get(resourceId);
-    const resource = queries.getResourceById.get(resourceId);
-    const serialized = serializeArtifactRecord(updated, resource, queries);
+    const updated = await queries.getArtifactByResourceId.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
+    const serialized = await serializeArtifactRecord(updated, resource, queries);
 
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
       windowManagerRef.broadcast('artifact:updated', serialized);
@@ -4050,7 +4043,7 @@ async function artifactMergeData(args) {
 
     const queries = database.getQueries();
     const db = database.getDB();
-    const existing = queries.getArtifactByResourceId.get(resourceId);
+    const existing = await queries.getArtifactByResourceId.get(resourceId);
     if (!existing) return { success: false, error: 'Artifact not found' };
 
     const prevState = parseJsonState(existing.state);
@@ -4068,18 +4061,17 @@ async function artifactMergeData(args) {
 
     const now = Date.now();
     const stateStr = JSON.stringify(mergedState);
-    const tx = db.transaction(() => {
-      queries.updateArtifactState.run(stateStr, now, resourceId);
-      const updated = queries.getArtifactByResourceId.get(resourceId);
+    await db.transaction(async () => {
+      await queries.updateArtifactState.run(stateStr, now, resourceId);
+      const updated = await queries.getArtifactByResourceId.get(resourceId);
       if (updated) {
-        _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
+        await _syncArtifactRuntimeFromState(queries, updated, parseJsonState(stateStr), now);
       }
     });
-    tx();
 
-    const updated = queries.getArtifactByResourceId.get(resourceId);
-    const resource = queries.getResourceById.get(resourceId);
-    const serialized = serializeArtifactRecord(updated, resource, queries);
+    const updated = await queries.getArtifactByResourceId.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
+    const serialized = await serializeArtifactRecord(updated, resource, queries);
 
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
       windowManagerRef.broadcast('artifact:updated', serialized);
@@ -4100,7 +4092,7 @@ async function artifactDelete(args) {
     if (!resourceId) return { success: false, error: 'resource_id is required' };
 
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) return { success: false, error: 'Resource not found' };
     if (resource.type !== 'artifact') {
       return { success: false, error: 'Resource is not an artifact' };
@@ -4114,7 +4106,7 @@ async function artifactDelete(args) {
       }
     }
 
-    queries.deleteResource.run(resourceId);
+    await queries.deleteResource.run(resourceId);
 
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
       windowManagerRef.broadcast('artifact:deleted', { resourceId });
@@ -4144,16 +4136,17 @@ async function artifactLinkResource(args) {
     const db = database.getDB();
     const now = Date.now();
 
-    const existing = queries.getArtifactByResourceId.get(resourceId);
+    const existing = await queries.getArtifactByResourceId.get(resourceId);
     if (!existing) return { success: false, error: 'Artifact not found' };
 
-    db.prepare(
+    await db.run(
       'UPDATE artifacts SET linked_resource_id = ?, version = version + 1, updated_at = ? WHERE resource_id = ?',
-    ).run(linkedResourceId, now, resourceId);
+      [linkedResourceId, now, resourceId],
+    );
 
-    const updated = queries.getArtifactByResourceId.get(resourceId);
-    const resource = queries.getResourceById.get(resourceId);
-    const serialized = serializeArtifactRecord(updated, resource, queries);
+    const updated = await queries.getArtifactByResourceId.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
+    const serialized = await serializeArtifactRecord(updated, resource, queries);
 
     if (windowManagerRef?.broadcast) {
       windowManagerRef.broadcast('artifact:updated', serialized);
@@ -4255,7 +4248,7 @@ async function feederList(args) {
   try {
     const artifactResourceId = args?.artifact_resource_id ?? args?.artifactResourceId;
     if (!artifactResourceId) return { success: false, error: 'artifact_resource_id is required' };
-    const rows = database.getQueries().listFeedersByArtifact.all(artifactResourceId);
+    const rows = await database.getQueries().listFeedersByArtifact.all(artifactResourceId);
     return { success: true, data: rows.map(serializeFeederRow) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -4293,7 +4286,7 @@ async function feederDelete(args) {
   try {
     const feederId = args?.feeder_id ?? args?.feederId;
     if (!feederId) return { success: false, error: 'feeder_id is required' };
-    database.getQueries().deleteFeeder.run(feederId);
+    await database.getQueries().deleteFeeder.run(feederId);
     if (windowManagerRef?.broadcast) {
       windowManagerRef.broadcast('feeder:deleted', { feederId });
     }
@@ -4308,7 +4301,7 @@ async function feederHistory(args) {
     const feederId = args?.feeder_id ?? args?.feederId;
     if (!feederId) return { success: false, error: 'feeder_id is required' };
     const limit = Math.min(Number(args?.limit) || 20, 100);
-    const rows = database.getQueries().listFeederRuns.all(feederId, limit);
+    const rows = await database.getQueries().listFeederRuns.all(feederId, limit);
     return { success: true, data: rows.map(serializeFeederRunRow) };
   } catch (error) {
     return { success: false, error: error.message };

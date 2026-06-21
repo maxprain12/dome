@@ -740,7 +740,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       if (isSecretSettingKey(key)) {
         // A masked display value (sk-…abc4) means "unchanged" — writing it
         // would destroy the stored secret.
-        if (!isMaskedSecret(value)) writeSettingSecret(queries, key, value);
+        if (!isMaskedSecret(value)) await writeSettingSecret(queries, key, value);
       } else {
         await queries.setSetting.run(key, value, Date.now());
       }
@@ -759,7 +759,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const { hasProviderApiKey } = require('../../ai/provider-keys.cjs');
       const providers = ['openai', 'anthropic', 'google', 'minimax', 'openrouter', 'deepseek', 'moonshot', 'qwen', 'opencode', 'opencode-go'];
       const status = {};
-      for (const p of providers) status[p] = hasProviderApiKey(queries, p);
+      for (const p of providers) status[p] = await hasProviderApiKey(queries, p);
       return { success: true, data: status };
     } catch (error) {
       console.error('[DB] Error getting provider key status:', error);
@@ -780,12 +780,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       if (apiKey && !isMaskedSecret(apiKey) && targetProvider && !KEYLESS_PROVIDERS.has(targetProvider)) {
         // Per-provider slot (cambiar de provider conserva cada clave); la
         // ai_api_key legacy compartida se mantiene para lectores antiguos.
-        writeProviderApiKey(queries, targetProvider, apiKey);
-        writeSettingSecret(queries, 'ai_api_key', apiKey);
+        await writeProviderApiKey(queries, targetProvider, apiKey);
+        await writeSettingSecret(queries, 'ai_api_key', apiKey);
       }
       if (model) await queries.setSetting.run('ai_model', model, Date.now());
       if (embeddingModel) await queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
-      if (baseURL && targetProvider) writeProviderBaseUrl(queries, targetProvider, baseURL);
+      if (baseURL && targetProvider) await writeProviderBaseUrl(queries, targetProvider, baseURL);
       if (baseURL) await queries.setSetting.run('ai_base_url', baseURL, Date.now());
 
       return { success: true };

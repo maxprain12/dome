@@ -13,9 +13,9 @@ function decodeSessionRow(row) {
   };
 }
 
-function persistSession(queries, userId, accessToken, refreshToken, expiresAt) {
+async function persistSession(queries, userId, accessToken, refreshToken, expiresAt) {
   const now = Date.now();
-  queries.upsertDomeProviderSession.run(
+  await queries.upsertDomeProviderSession.run(
     userId,
     encryptSessionField(accessToken),
     refreshToken ? encryptSessionField(refreshToken) : null,
@@ -34,11 +34,11 @@ function generatePKCE() {
   return { codeVerifier, codeChallenge };
 }
 
-function getUserIdentifier(database) {
+async function getUserIdentifier(database) {
   try {
     const queries = database.getQueries();
-    const email = queries.getSetting.get('user_email')?.value;
-    const name = queries.getSetting.get('user_name')?.value;
+    const email = (await queries.getSetting.get('user_email'))?.value;
+    const name = (await queries.getSetting.get('user_name'))?.value;
     if (email && email.trim()) return email.trim();
     if (name && name.trim()) return name.trim();
   } catch {
@@ -72,7 +72,7 @@ async function refreshAccessToken(database, refreshToken) {
 async function getOrRefreshSession(database) {
   try {
     const queries = database.getQueries();
-    const row = decodeSessionRow(queries.getDomeProviderSessionWithRefresh.get());
+    const row = decodeSessionRow(await queries.getDomeProviderSessionWithRefresh.get());
     if (!row) return { connected: false };
 
     const now = Date.now();
@@ -93,7 +93,7 @@ async function getOrRefreshSession(database) {
         const tokenResponse = await refreshAccessToken(database, row.refresh_token);
         const newExpiresInSec = Number(tokenResponse.expires_in || 3600);
         const newExpiresAt = now + newExpiresInSec * 1000;
-        persistSession(
+        await persistSession(
           queries,
           row.user_id,
           tokenResponse.access_token,
@@ -109,7 +109,7 @@ async function getOrRefreshSession(database) {
       } catch (err) {
         console.warn('[Dome OAuth] Refresh failed:', err?.message);
         if (expiresAt <= now) {
-          queries.clearDomeProviderSessions.run();
+          await queries.clearDomeProviderSessions.run();
           return { connected: false };
         }
         return {
@@ -142,13 +142,13 @@ async function fetchWithDomeAuth(database, url, options = {}) {
   const doFetch = (token) => fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${token}` } });
   let response = await doFetch(session.accessToken);
   if (response.status === 401) {
-    const row = decodeSessionRow(database.getQueries().getDomeProviderSessionWithRefresh.get());
+    const row = decodeSessionRow(await database.getQueries().getDomeProviderSessionWithRefresh.get());
     if (row?.refresh_token) {
       try {
         const tokenResponse = await refreshAccessToken(database, row.refresh_token);
         const now = Date.now();
         const newExpiresAt = now + Number(tokenResponse.expires_in || 3600) * 1000;
-        persistSession(
+        await persistSession(
           database.getQueries(),
           row.user_id,
           tokenResponse.access_token,
@@ -164,10 +164,10 @@ async function fetchWithDomeAuth(database, url, options = {}) {
   return response;
 }
 
-function getSession(database) {
+async function getSession(database) {
   try {
     const queries = database.getQueries();
-    const row = decodeSessionRow(queries.getActiveDomeProviderSession.get(Date.now()));
+    const row = decodeSessionRow(await queries.getActiveDomeProviderSession.get(Date.now()));
     if (!row) return { connected: false };
     return {
       connected: true,
@@ -183,7 +183,7 @@ function getSession(database) {
 
 async function disconnect(database) {
   const queries = database.getQueries();
-  const row = queries.getDomeProviderSessionWithRefresh.get();
+  const row = await queries.getDomeProviderSessionWithRefresh.get();
   if (row?.refresh_token) {
     try {
       await fetch(`${getDomeProviderBaseUrl()}/api/oauth/revoke`, {
@@ -195,7 +195,7 @@ async function disconnect(database) {
       console.warn('[Dome OAuth] Revoke failed:', err?.message);
     }
   }
-  queries.clearDomeProviderSessions.run();
+  await queries.clearDomeProviderSessions.run();
 }
 
 function openDashboard() {
@@ -248,22 +248,23 @@ function consumeOAuthPending(pendingMap, key) {
   return flow;
 }
 
-function startOAuthFlow(database) {
+async function startOAuthFlow(database) {
+  const { codeVerifier, codeChallenge } = generatePKCE();
+  const state = crypto.randomBytes(24).toString('base64url');
+  const userId = await getUserIdentifier(database);
+
+  const authUrl = new URL(`${getDomeProviderBaseUrl()}/api/oauth/authorize`);
+  authUrl.searchParams.set('response_type', 'code');
+  authUrl.searchParams.set('client_id', CLIENT_ID);
+  authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
+  authUrl.searchParams.set('code_challenge', codeChallenge);
+  authUrl.searchParams.set('code_challenge_method', 'S256');
+  authUrl.searchParams.set('state', state);
+  authUrl.searchParams.set('user_id', userId);
+
+  const pending = global.__domeOAuthPending || (global.__domeOAuthPending = new Map());
+
   return new Promise((resolve, reject) => {
-    const { codeVerifier, codeChallenge } = generatePKCE();
-    const state = crypto.randomBytes(24).toString('base64url');
-    const userId = getUserIdentifier(database);
-
-    const authUrl = new URL(`${getDomeProviderBaseUrl()}/api/oauth/authorize`);
-    authUrl.searchParams.set('response_type', 'code');
-    authUrl.searchParams.set('client_id', CLIENT_ID);
-    authUrl.searchParams.set('redirect_uri', REDIRECT_URI);
-    authUrl.searchParams.set('code_challenge', codeChallenge);
-    authUrl.searchParams.set('code_challenge_method', 'S256');
-    authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('user_id', userId);
-
-    const pending = global.__domeOAuthPending || (global.__domeOAuthPending = new Map());
     registerOAuthPending(pending, state, { resolve, reject, codeVerifier, userId });
 
     shell.openExternal(authUrl.toString());
@@ -306,7 +307,7 @@ async function handleConnectCallback(url, database) {
     const queries = database.getQueries();
     const now = Date.now();
     const expiresInSec = Number(tokenResponse.expires_in || 3600);
-    persistSession(
+    await persistSession(
       queries,
       tokenResponse.user_id,
       tokenResponse.access_token,
@@ -351,11 +352,11 @@ function handleOAuthCallback(url, database) {
     }
 
     exchangeCodeForToken(code, flow.codeVerifier)
-      .then((tokenResponse) => {
+      .then(async (tokenResponse) => {
         const queries = database.getQueries();
         const now = Date.now();
         const expiresInSec = Number(tokenResponse.expires_in || 3600);
-        persistSession(
+        await persistSession(
           queries,
           flow.userId,
           tokenResponse.access_token,

@@ -67,7 +67,7 @@ async function handleDomeUrl(url, deps) {
     let resourceType = 'note';
 
     if (UUID_REGEX.test(slug)) {
-      const r = queries.getResourceById.get(slug);
+      const r = await queries.getResourceById.get(slug);
       if (r) {
         resourceId = r.id;
         resourceType = r.type || 'note';
@@ -78,10 +78,10 @@ async function handleDomeUrl(url, deps) {
       const searchSlug = altSlug || slug;
       const searchTerm = `%${searchSlug}%`;
       // Resolve titles only within the active project (never cross-project).
-      const activeProjectId = queries.getSetting.get('last_project_id')?.value;
+      const activeProjectId = (await queries.getSetting.get('last_project_id'))?.value;
       const results = activeProjectId
-        ? queries.searchForMentionByProject.all(searchTerm, searchTerm, activeProjectId)
-        : queries.searchForMention.all(searchTerm, searchTerm);
+        ? await queries.searchForMentionByProject.all(searchTerm, searchTerm, activeProjectId)
+        : await queries.searchForMention.all(searchTerm, searchTerm);
       const match =
         results.find((x) => (x.title || '').toLowerCase() === searchSlug.toLowerCase()) ??
         results.find((x) => (x.title || '').toLowerCase() === slug.toLowerCase()) ??
