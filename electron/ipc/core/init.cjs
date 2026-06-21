@@ -15,12 +15,12 @@ function register({ ipcMain, windowManager, initModule, validateSender }) {
   });
 
   // Check onboarding status
-  ipcMain.handle('init:check-onboarding', (event) => {
+  ipcMain.handle('init:check-onboarding', async (event) => {
     try {
       validateSender(event, windowManager);
       return {
         success: true,
-        needsOnboarding: initModule.checkOnboardingStatus(),
+        needsOnboarding: await initModule.checkOnboardingStatus(),
       };
     } catch (error) {
       console.error('[INIT] Error checking onboarding:', error);

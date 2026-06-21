@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 /**
  * Skills bootstrap: ensure ~/.dome/skills exists and migrate legacy userData/skills.
+ *
+ * DuckDB migration: all DB access is async (`await db.get/all/run`).
  */
 const fs = require('fs');
 const path = require('path');
@@ -32,17 +34,16 @@ function copyDirRecursive(src, dest) {
   }
 }
 
-function migrateLegacySkills(db) {
+async function migrateLegacySkills(db) {
   try {
-    const flagRow = db.prepare('SELECT value FROM settings WHERE key = ?').get(MIGRATED_FLAG);
+    const flagRow = await db.get('SELECT value FROM settings WHERE key = ?', [MIGRATED_FLAG]);
     if (flagRow?.value === '1') return;
 
     const legacyDir = getLegacySkillsDir();
     if (!legacyDir || !fs.existsSync(legacyDir)) {
-      db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
-        MIGRATED_FLAG,
-        '1',
-        Date.now(),
+      await db.run(
+        'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)',
+        [MIGRATED_FLAG, '1', Date.now()],
       );
       return;
     }
@@ -60,10 +61,9 @@ function migrateLegacySkills(db) {
       console.log(`[Skills] Migrated legacy skill: ${entry.name}`);
     }
 
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
-      MIGRATED_FLAG,
-      '1',
-      Date.now(),
+    await db.run(
+      'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)',
+      [MIGRATED_FLAG, '1', Date.now()],
     );
   } catch (err) {
     console.warn('[Skills] Legacy migration failed (non-fatal):', err?.message);
@@ -71,33 +71,35 @@ function migrateLegacySkills(db) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {import('./db/duckdb.cjs').DuckDbConnection} db
  */
-function repairSkillDirectoriesOnce(db) {
+function repairSkillDirectoriesOnce() {
   try {
     const { repairSkillDirectoryNames } = require('../skills/install.cjs');
     repairSkillDirectoryNames();
   } catch (err) {
-    console.warn('[Skills] Directory repair failed (non-fatal):', err?.message);
+    console.warn('[Skills] Directory repair failed (non-fatal):', err?.message || err);
   }
 }
 
-function seedBundledSkills(db) {
+/**
+ * @param {import('./db/duckdb.cjs').DuckDbConnection} db
+ */
+async function seedBundledSkills(db) {
   try {
-    migrateLegacySkills(db);
-    repairSkillDirectoriesOnce(db);
+    await migrateLegacySkills(db);
+    repairSkillDirectoriesOnce();
 
-    const flagRow = db.prepare('SELECT value FROM settings WHERE key = ?').get(SEEDED_FLAG);
+    const flagRow = await db.get('SELECT value FROM settings WHERE key = ?', [SEEDED_FLAG]);
     if (flagRow?.value === '1') return;
 
     if (!fs.existsSync(USER_SKILLS_DIR)) {
       fs.mkdirSync(USER_SKILLS_DIR, { recursive: true });
     }
 
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
-      SEEDED_FLAG,
-      '1',
-      Date.now(),
+    await db.run(
+      'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)',
+      [SEEDED_FLAG, '1', Date.now()],
     );
   } catch (err) {
     console.warn('[Skills] Bootstrap failed (non-fatal):', err?.message);

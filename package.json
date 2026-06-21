@@ -73,6 +73,7 @@
     "@dome/i18n": "workspace:*",
     "@dome/prompts": "workspace:*",
     "@dome/tools": "workspace:*",
+    "@duckdb/node-api": "1.5.4-r.1",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
@@ -261,7 +262,9 @@
       "node_modules/zip-stream/**/*",
       "node_modules/yauzl/**/*",
       "node_modules/@lancedb/lancedb/**/*",
-      "node_modules/@lancedb/lancedb-*/**/*"
+      "node_modules/@lancedb/lancedb-*/**/*",
+      "node_modules/@duckdb/**/*",
+      "node_modules/@duckdb/node-bindings-*/**/*"
     ],
     "afterPack": "./scripts/after-pack.cjs",
     "directories": {

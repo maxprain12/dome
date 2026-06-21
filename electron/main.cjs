@@ -436,7 +436,7 @@ async function createWindow() {
   }
 
   try {
-    const row = database.getQueries().getSetting.get('ai_provider');
+    const row = await database.getQueries().getSetting.get('ai_provider');
     const provider = String(row?.value || '').toLowerCase();
     if (provider === 'ollama') {
       getOllamaManager().ensureInitialized(mainWindow);
@@ -826,9 +826,8 @@ app
     setupUserDataFolder();
     // Initialize file storage
     fileStorage.initStorage();
-    // Database initialization is now handled by initModule
-    // but we still need to ensure it's ready
-    database.initDatabase();
+    // Database initialization (DuckDB, async — must be awaited before any DB use).
+    await database.initDatabase();
 
     try {
       const dbBackupScheduler = require('./core/db-backup-scheduler.cjs');
@@ -840,7 +839,7 @@ app
     // Seed bundled SKILL.md packs to ~/.dome/skills/ on first boot (idempotent)
     try {
       const { seedBundledSkills } = require('./marketplace/skills-bootstrap.cjs');
-      seedBundledSkills(database.getDB());
+      await seedBundledSkills(database.getDB());
     } catch (e) {
       console.warn('[Main] skills bootstrap:', e?.message || e);
     }
@@ -848,7 +847,7 @@ app
     // Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
     try {
       const { seedGuide } = require('./core/guide-bootstrap.cjs');
-      seedGuide(database.getDB());
+      await seedGuide(database.getDB());
     } catch (e) {
       console.warn('[Main] guide bootstrap:', e?.message || e);
     }
@@ -865,7 +864,7 @@ app
 
     try {
       const q = database.getQueries();
-      const guard = q.getSetting.get('embeddings_refactor_v1');
+      const guard = await q.getSetting.get('embeddings_refactor_v1');
       if (guard?.value !== '1') {
         const fs = require('fs');
         const path = require('path');
@@ -876,7 +875,7 @@ app
         } catch {
           /* ignore */
         }
-        q.setSetting.run('embeddings_refactor_v1', '1', Date.now());
+        await q.setSetting.run('embeddings_refactor_v1', '1', Date.now());
       }
     } catch (e) {
       console.warn('[Main] embeddings refactor guard:', e?.message || e);
@@ -1113,13 +1112,13 @@ app
     }
 
     // Schedule orphan file cleanup after app is ready (non-blocking)
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         console.log('[App] Running automatic orphan file cleanup...');
         const queries = database.getQueries();
-        const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+        const resourcePaths = (await queries.getAllInternalPaths.all()).map((r) => r.internal_path);
         const internalPaths = [...resourcePaths];
-        const avatarSetting = queries.getSetting.get('user_avatar_path');
+        const avatarSetting = await queries.getSetting.get('user_avatar_path');
         const currentAvatarPath = avatarSetting?.value || null;
 
         const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
@@ -1135,9 +1134,9 @@ app
 
       // DB-level orphan cleanup
       try {
-        database.getDB().prepare(
-          `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`
-        ).run();
+        await database.getDB().run(
+          `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`,
+        );
       } catch (e) { /* non-fatal */ }
     }, 30_000); // 30 seconds delay to let app stabilize
   })

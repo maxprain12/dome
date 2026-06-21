@@ -24,11 +24,12 @@ const GUIDE_FOLDER_TITLES = ['📚 Dome Guide', 'Dome Guide', '📚 Guía de Dom
 /** Sections sub-folder: current + legacy title (for cleanup/repair lookups). */
 const SECTIONS_FOLDER_TITLES = ['Sections', 'Apartados'];
 
-/** @returns {Array<{ id: string }>} */
-function listGuideRootFolders(db) {
+/** @returns {Promise<Array<{ id: string }>>} */
+async function listGuideRootFolders(db) {
   const placeholders = GUIDE_FOLDER_TITLES.map(() => '?').join(',');
-  return db.prepare(`SELECT id FROM resources WHERE type = 'folder' AND title IN (${placeholders})`).all(
-    ...GUIDE_FOLDER_TITLES,
+  return db.all(
+    `SELECT id FROM resources WHERE type = 'folder' AND title IN (${placeholders})`,
+    GUIDE_FOLDER_TITLES,
   );
 }
 
@@ -558,27 +559,29 @@ function resolveGuideBodyBuilder(noteTitle) {
 }
 
 /**
- * @param {import('better-sqlite3').Database} db
- * @returns {Array<{ id: string, title: string, content: string | null, type: string }>}
+ * @param {import('./db/duckdb.cjs').DuckDbConnection} db
+ * @returns {Promise<Array<{ id: string, title: string, content: string | null, type: string }>>}
  */
-function listGuideNotebookRows(db) {
+async function listGuideNotebookRows(db) {
   /** @type {Array<{ id: string, title: string, content: string | null, type: string }>} */
   const notes = [];
-  const roots = listGuideRootFolders(db);
+  const roots = await listGuideRootFolders(db);
   for (const root of roots) {
     /** @type {string} */
     const folderId = root.id;
-    const children = db
-      .prepare('SELECT id, title, content, type FROM resources WHERE folder_id = ?')
-      .all(folderId);
+    const children = await db.all(
+      'SELECT id, title, content, type FROM resources WHERE folder_id = ?',
+      [folderId],
+    );
     for (const row of children) {
       if (row.type === 'note') {
         notes.push(row);
       }
       if (row.type === 'folder' && SECTIONS_FOLDER_TITLES.includes(row.title)) {
-        const subs = db.prepare(
+        const subs = await db.all(
           "SELECT id, title, content, type FROM resources WHERE folder_id = ? AND type = 'note'",
-        ).all(row.id);
+          [row.id],
+        );
         notes.push(...subs);
       }
     }
@@ -589,34 +592,33 @@ function listGuideNotebookRows(db) {
 /**
  * Rehydrate guide chapter bodies once on machines that seeded structure but persisted empty TipTap docs.
  *
- * @param {import('better-sqlite3').Database} db
+ * @param {import('./db/duckdb.cjs').DuckDbConnection} db
  */
-function repairGuideBodiesIfNeeded(db) {
+async function repairGuideBodiesIfNeeded(db) {
   try {
-    const done = db.prepare('SELECT value FROM settings WHERE key = ?').get(GUIDE_REPAIR_FLAG);
+    const done = await db.get('SELECT value FROM settings WHERE key = ?', [GUIDE_REPAIR_FLAG]);
     if (done?.value === '1') return;
 
-    const noteRows = listGuideNotebookRows(db);
+    const noteRows = await listGuideNotebookRows(db);
     if (noteRows.length === 0) return;
 
     const now = Date.now();
     /** @type {number} */
     let updatedCount = 0;
-    db.transaction(() => {
-      const upd = db.prepare('UPDATE resources SET content = ?, updated_at = ? WHERE id = ?');
+    await db.transaction(async (tx) => {
       for (const row of noteRows) {
         if (!guideContentLooksEmpty(row.content)) continue;
         const build = resolveGuideBodyBuilder(row.title);
         if (!build) continue;
-        upd.run(build(), now, row.id);
+        await tx.run('UPDATE resources SET content = ?, updated_at = ? WHERE id = ?', [build(), now, row.id]);
         updatedCount += 1;
       }
-      db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
+      await tx.run('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)', [
         GUIDE_REPAIR_FLAG,
         '1',
         now,
-      );
-    })();
+      ]);
+    });
 
     if (updatedCount > 0) {
       console.log(`[Guide] 🔧 Restored ${updatedCount} guide notes (empty body).`);
@@ -629,14 +631,14 @@ function repairGuideBodiesIfNeeded(db) {
 // ─── Main seeder ─────────────────────────────────────────────────────────────
 
 /**
- * @param {import('better-sqlite3').Database} db
+ * @param {import('./db/duckdb.cjs').DuckDbConnection} db
  */
-function seedGuide(db) {
+async function seedGuide(db) {
   try {
     // Guard: only run full INSERT once — then optionally repair truncated bodies from older builds
-    const flagRow = db.prepare('SELECT value FROM settings WHERE key = ?').get(SEED_FLAG);
+    const flagRow = await db.get('SELECT value FROM settings WHERE key = ?', [SEED_FLAG]);
     if (flagRow?.value === '1') {
-      repairGuideBodiesIfNeeded(db);
+      await repairGuideBodiesIfNeeded(db);
       return;
     }
 
@@ -648,37 +650,37 @@ function seedGuide(db) {
       const vaultStore = require('../storage/vault-store.cjs');
       const fileStorage = require('../storage/file-storage.cjs');
       const databaseMod = require('./database.cjs');
-      const collectFileIds = (folderId, acc) => {
-        for (const child of db.prepare('SELECT id, type FROM resources WHERE folder_id = ?').all(folderId)) {
-          if (child.type === 'folder') collectFileIds(child.id, acc);
+      const collectFileIds = async (folderId, acc) => {
+        for (const child of await db.all('SELECT id, type FROM resources WHERE folder_id = ?', [folderId])) {
+          if (child.type === 'folder') await collectFileIds(child.id, acc);
           else acc.push(child.id);
         }
       };
       const fileIds = [];
-      for (const folder of listGuideRootFolders(db)) collectFileIds(folder.id, fileIds);
+      for (const folder of await listGuideRootFolders(db)) await collectFileIds(folder.id, fileIds);
       for (const id of fileIds) vaultStore.removeMirrorForResource(id, { database: databaseMod, fileStorage });
     } catch (e) {
       console.warn('[Guide] old mirror cleanup skipped:', e?.message || e);
     }
 
     // Clean up any previous guide attempts (v1 may have left empty notes)
-    const deleteOldGuide = db.transaction(() => {
-      const oldFolders = listGuideRootFolders(db);
+    await db.transaction(async (tx) => {
+      const oldFolders = await listGuideRootFolders(tx);
       for (const folder of oldFolders) {
         // Delete resources in sub-folders
-        const subFolders = db.prepare(
-          'SELECT id FROM resources WHERE folder_id = ? AND type = ?'
-        ).all(folder.id, 'folder');
+        const subFolders = await tx.all(
+          'SELECT id FROM resources WHERE folder_id = ? AND type = ?',
+          [folder.id, 'folder'],
+        );
         for (const sub of subFolders) {
-          db.prepare('DELETE FROM resources WHERE folder_id = ?').run(sub.id);
+          await tx.run('DELETE FROM resources WHERE folder_id = ?', [sub.id]);
         }
         // Delete sub-folders themselves
-        db.prepare('DELETE FROM resources WHERE folder_id = ?').run(folder.id);
+        await tx.run('DELETE FROM resources WHERE folder_id = ?', [folder.id]);
         // Delete the root guide folder and its direct children
-        db.prepare('DELETE FROM resources WHERE id = ? OR folder_id = ?').run(folder.id, folder.id);
+        await tx.run('DELETE FROM resources WHERE id = ? OR folder_id = ?', [folder.id, folder.id]);
       }
     });
-    deleteOldGuide();
 
     // Pre-generate all IDs so we can cross-reference in content
     const ids = {
@@ -693,30 +695,30 @@ function seedGuide(db) {
       search:          randomUUID(),
     };
 
-    const insertResource = db.prepare(`
+    const insertResourceSql = `
       INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, metadata, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    `;
 
-    const insertMany = db.transaction(() => {
+    await db.transaction(async (tx) => {
       // 1. Guide root folder
-      insertResource.run(
+      await tx.run(insertResourceSql, [
         ids.guideFolder, PROJECT_ID, 'folder', '📚 Dome Guide',
         null, null, null, JSON.stringify({ dome_note_icon: '📚', color: '#7b76d0' }), now - 9000, now - 9000,
-      );
+      ]);
 
       // 2. Sections sub-folder
-      insertResource.run(
+      await tx.run(insertResourceSql, [
         ids.apartadosFolder, PROJECT_ID, 'folder', 'Sections',
         null, null, ids.guideFolder, JSON.stringify({ color: '#596037' }), now - 8000, now - 8000,
-      );
+      ]);
 
       // 3. Main note (inside guide folder)
-      insertResource.run(
+      await tx.run(insertResourceSql, [
         ids.main, PROJECT_ID, 'note', 'Welcome to Dome 👋',
         buildMainNote(), null, ids.guideFolder,
         JSON.stringify({ dome_note_icon: '🏠' }), now - 7000, now - 7000,
-      );
+      ]);
 
       // 4. Sub-notes (inside Sections folder)
       const subNotes = [
@@ -729,22 +731,19 @@ function seedGuide(db) {
       ];
 
       for (const note of subNotes) {
-        insertResource.run(
+        await tx.run(insertResourceSql, [
           note.id, PROJECT_ID, 'note', note.title,
           note.content, null, ids.apartadosFolder,
           null, now - note.offset, now - note.offset,
-        );
+        ]);
       }
     });
-
-    insertMany();
 
     // Seed the plain-text cache (content_text) so FTS, card previews and the
     // semantic index show readable text immediately. The Markdown mirror (.md)
     // is written lazily on first open (renderer owns the conversion).
     try {
       const { extractPlainTextFromProseMirror } = require('../services/resource-text.cjs');
-      const setContentText = db.prepare('UPDATE resources SET content_text = ? WHERE id = ?');
       const seededBodies = [
         { id: ids.main, content: buildMainNote() },
         { id: ids.editor, content: buildEditorNote() },
@@ -754,25 +753,25 @@ function seedGuide(db) {
         { id: ids.agents, content: buildAgentsNote() },
         { id: ids.search, content: buildSearchNote() },
       ];
-      db.transaction(() => {
+      await db.transaction(async (tx) => {
         for (const n of seededBodies) {
           try {
             const txt = extractPlainTextFromProseMirror(JSON.parse(n.content));
-            if (txt) setContentText.run(txt, n.id);
+            if (txt) await tx.run('UPDATE resources SET content_text = ? WHERE id = ?', [txt, n.id]);
           } catch { /* skip a single note on parse failure */ }
         }
-      })();
+      });
     } catch (e) {
       console.warn('[Guide] content_text seed skipped:', e?.message || e);
     }
 
     // Mark as seeded (+ skip future repair scans — bodies are fresh from builders)
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
+    await db.run('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)', [
       SEED_FLAG, '1', now,
-    );
-    db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)').run(
+    ]);
+    await db.run('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)', [
       GUIDE_REPAIR_FLAG, '1', now,
-    );
+    ]);
 
     console.log('[Guide] ✅ Dome Guide created successfully (' + Object.keys(ids).length + ' resources)');
   } catch (err) {

@@ -143,6 +143,7 @@ exports.default = async function afterPack(context) {
       'node_modules/@ffmpeg-installer',
       'node_modules/@napi-rs/canvas',
       'node_modules/@lancedb/lancedb',
+      'node_modules/@duckdb',
     ];
 
     for (const modulePath of criticalModules) {

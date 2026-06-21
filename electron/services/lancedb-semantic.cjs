@@ -513,23 +513,23 @@ async function migrateChunksFromSqliteIfNeeded(sqlite) {
   assertReady();
   const cnt = await _chunks.countRows();
   if (cnt > 0) return { migrated: 0 };
-  const total = sqlite
-    .prepare('SELECT COUNT(*) AS c FROM resource_chunks WHERE model_version = ?')
-    .get(LEGACY_NOMIC_MODEL_VERSION);
+  const total = await sqlite.get(
+    'SELECT COUNT(*) AS c FROM resource_chunks WHERE model_version = ?',
+    [LEGACY_NOMIC_MODEL_VERSION],
+  );
   const n = Number(total?.c ?? 0) || 0;
   if (n === 0) return { migrated: 0 };
   if (!embeddingsSvc().isConfigured()) return { migrated: 0 };
 
-  console.log('[LanceDB] migrando', n, 'chunks legacy Nomic desde SQLite…');
-  const rows = sqlite
-    .prepare(
-      `SELECT c.id, c.resource_id, c.chunk_index, c.text, c.embedding, c.model_version,
-              c.char_start, c.char_end, c.page_number, r.title AS res_title, r.type AS res_type, r.project_id
-       FROM resource_chunks c
-       INNER JOIN resources r ON r.id = c.resource_id
-       WHERE c.model_version = ?`,
-    )
-    .all(LEGACY_NOMIC_MODEL_VERSION);
+  console.log('[LanceDB] migrando', n, 'chunks legacy Nomic desde DuckDB…');
+  const rows = await sqlite.all(
+    `SELECT c.id, c.resource_id, c.chunk_index, c.text, c.embedding, c.model_version,
+            c.char_start, c.char_end, c.page_number, r.title AS res_title, r.type AS res_type, r.project_id
+     FROM resource_chunks c
+     INNER JOIN resources r ON r.id = c.resource_id
+     WHERE c.model_version = ?`,
+    [LEGACY_NOMIC_MODEL_VERSION],
+  );
   const { blobToFloats } = require('./embeddings.service.cjs');
   /** @type {Map<string, any[]>} */
   const byRes = new Map();
@@ -562,7 +562,7 @@ async function migrateChunksFromSqliteIfNeeded(sqlite) {
     migrated += list.length;
   }
   try {
-    sqlite.prepare('DELETE FROM resource_chunks WHERE model_version = ?').run(LEGACY_NOMIC_MODEL_VERSION);
+    await sqlite.run('DELETE FROM resource_chunks WHERE model_version = ?', [LEGACY_NOMIC_MODEL_VERSION]);
   } catch (e) {
     console.warn('[LanceDB] no se pudo vaciar resource_chunks tras migración:', e?.message || e);
   }
@@ -571,25 +571,23 @@ async function migrateChunksFromSqliteIfNeeded(sqlite) {
 }
 
 /**
- * Rellena `resource_lex` desde SQLite si está vacío.
- * @param {import('better-sqlite3').Database} sqlite
+ * Rellena `resource_lex` desde DuckDB si está vacío.
+ * @param {import('../core/db/duckdb.cjs').DuckDbConnection} sqlite
  */
 async function bootstrapLexFromSqliteIfNeeded(sqlite) {
   assertReady();
   const lc = await _lex.countRows();
   if (lc > 0) return { rows: 0 };
-  const ids = sqlite
-    .prepare(
-      `SELECT id FROM resources
-       WHERE type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')`,
-    )
-    .all();
-  const getRow = sqlite.prepare(
-    'SELECT id, title, type, project_id, content FROM resources WHERE id = ?',
+  const ids = await sqlite.all(
+    `SELECT id FROM resources
+     WHERE type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')`,
   );
   let n = 0;
   for (const { id } of ids) {
-    const r = getRow.get(id);
+    const r = await sqlite.get(
+      'SELECT id, title, type, project_id, content FROM resources WHERE id = ?',
+      [id],
+    );
     if (!r) continue;
     await upsertLexForResource({
       resource_id: r.id,

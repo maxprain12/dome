@@ -1,10 +1,14 @@
 /* eslint-disable no-console */
 /**
- * Automatic SQLite backups + unified restore for dome.db.
+ * Automatic DuckDB backups + unified restore for dome.duckdb.
  *
  * Backup types:
- *   - dome.db.auto-{reason}-{iso}  — periodic / startup / quit snapshots
- *   - dome.db.backup-v{N}-{iso}    — pre-migration (legacy name kept)
+ *   - dome.duckdb.auto-{reason}-{iso}  — periodic / startup / quit snapshots
+ *   - dome.duckdb.backup-v{N}-{iso}    — pre-migration (legacy name kept)
+ *
+ * DuckDB has no WAL sidecars to clean up (single file + optional .wal which is
+ * safe to drop after a CHECKPOINT). Verification opens the file read-only via
+ * the DuckDB binding instead of better-sqlite3's PRAGMA quick_check.
  */
 const fs = require('fs');
 const path = require('path');
@@ -18,38 +22,43 @@ const MAX_AUTO_BACKUP_SOURCE_BYTES = 250 * 1024 * 1024;
 const MAX_PREFERRED_RESTORE_BYTES = 400 * 1024 * 1024;
 /** Do not create another auto backup within this window (startup + quit). */
 const MIN_BACKUP_INTERVAL_MS = 60 * 60 * 1000;
-const AUTO_BACKUP_PREFIX = 'dome.db.auto-';
-const MIGRATION_BACKUP_PREFIX = 'dome.db.backup-v';
+const AUTO_BACKUP_PREFIX = 'dome.duckdb.auto-';
+const MIGRATION_BACKUP_PREFIX = 'dome.duckdb.backup-v';
+/** Legacy prefixes from the SQLite era — still recognised for restore discovery
+ *  so users upgrading from better-sqlite3 don't lose their old backups. */
+const LEGACY_AUTO_BACKUP_PREFIX = 'dome.db.auto-';
+const LEGACY_MIGRATION_BACKUP_PREFIX = 'dome.db.backup-v';
 
 let _lastAutoBackupAt = 0;
 
 function isSqliteIoError(err) {
+  // Kept for API compatibility with callers (handleCorruptionError etc.).
+  // DuckDB I/O errors don't use the SQLITE_* codes, but the heuristic message
+  // match catches the equivalent "disk I/O error" / "could not open file" cases.
   const code = String(err?.code || '');
   const message = String(err?.message || '');
-  return code.startsWith('SQLITE_IOERR') || message.includes('disk I/O error');
+  return code.startsWith('SQLITE_IOERR') || /disk I\/O error|IO Error|could not (open|read|write)/i.test(message);
 }
 
 function isCorruptionError(err) {
   const code = String(err?.code || '');
-  return code === 'SQLITE_CORRUPT'
-    || code === 'SQLITE_CORRUPT_VTAB'
-    || code === 'SQLITE_NOTADB'
-    || code === 'SQLITE_IOERR';
+  const message = String(err?.message || '');
+  return /CORRUPT/i.test(code) || /corrupt|malformed|not a database/i.test(message);
 }
 
-/** Remove stale WAL/SHM sidecars (common after Task Manager kill on Windows). */
+/** Remove stale DuckDB WAL sidecar (common after Task Manager kill on Windows). */
 function removeWalSidecars(dbPath) {
   if (!dbPath) return 0;
   let removed = 0;
-  for (const suffix of ['-wal', '-shm']) {
+  for (const suffix of ['.wal']) {
     const sidecar = dbPath + suffix;
     if (!fs.existsSync(sidecar)) continue;
     try {
       fs.unlinkSync(sidecar);
       removed += 1;
-      console.warn('[DB] Removed stale SQLite sidecar:', sidecar);
+      console.warn('[DB] Removed stale DuckDB WAL sidecar:', sidecar);
     } catch (err) {
-      console.warn('[DB] Could not remove SQLite sidecar:', sidecar, err?.message || err);
+      console.warn('[DB] Could not remove DuckDB WAL sidecar:', sidecar, err?.message || err);
     }
   }
   return removed;
@@ -60,7 +69,12 @@ function listAllBackups(dir) {
   try {
     return fs
       .readdirSync(dir)
-      .filter((f) => f.startsWith(AUTO_BACKUP_PREFIX) || f.startsWith(MIGRATION_BACKUP_PREFIX))
+      .filter((f) =>
+        f.startsWith(AUTO_BACKUP_PREFIX) ||
+        f.startsWith(MIGRATION_BACKUP_PREFIX) ||
+        f.startsWith(LEGACY_AUTO_BACKUP_PREFIX) ||
+        f.startsWith(LEGACY_MIGRATION_BACKUP_PREFIX),
+      )
       .map((f) => {
         const full = path.join(dir, f);
         return { path: full, name: f, mtime: fs.statSync(full).mtimeMs };
@@ -71,19 +85,20 @@ function listAllBackups(dir) {
   }
 }
 
-function looksLikeSqliteFile(filePath) {
+function looksLikeDuckDbFile(filePath) {
+  // DuckDB files start with the magic bytes "DUCK" (0x44 0x55 0x43 0x4B).
   try {
     const fd = fs.openSync(filePath, 'r');
-    const buf = Buffer.alloc(16);
-    fs.readSync(fd, buf, 0, 16, 0);
+    const buf = Buffer.alloc(8);
+    fs.readSync(fd, buf, 0, 8, 0);
     fs.closeSync(fd);
-    return buf.toString('utf8', 0, 15) === 'SQLite format 3';
+    return buf.toString('utf8', 0, 4) === 'DUCK';
   } catch {
     return false;
   }
 }
 
-function findLatestBackup(dir, opts = {}) {
+async function findLatestBackup(dir, opts = {}) {
   const backups = listAllBackups(dir);
   const allowOversized = opts.allowOversized === true;
 
@@ -96,17 +111,17 @@ function findLatestBackup(dir, opts = {}) {
         continue;
       }
       if (!passOversized && size > MAX_PREFERRED_RESTORE_BYTES) continue;
-      const check = verifyDatabaseFile(backup.path);
+      const check = await verifyDatabaseFile(backup.path);
       if (check.ok) return backup.path;
     }
     if (allowOversized) break;
   }
 
-  // Fallback: newest reasonably-sized file with a SQLite header (e.g. when better-sqlite3 ABI mismatches in tests).
+  // Fallback: newest reasonably-sized file with a DuckDB header.
   for (const backup of backups) {
     const size = fs.statSync(backup.path).size;
     if (size > MAX_PREFERRED_RESTORE_BYTES) continue;
-    if (looksLikeSqliteFile(backup.path)) return backup.path;
+    if (looksLikeDuckDbFile(backup.path)) return backup.path;
   }
   return null;
 }
@@ -117,7 +132,7 @@ function findLatestPreMigrationBackup(dir) {
   try {
     const backups = fs
       .readdirSync(dir)
-      .filter((f) => f.startsWith(MIGRATION_BACKUP_PREFIX))
+      .filter((f) => f.startsWith(MIGRATION_BACKUP_PREFIX) || f.startsWith(LEGACY_MIGRATION_BACKUP_PREFIX))
       .map((f) => ({ f, mtime: fs.statSync(path.join(dir, f)).mtimeMs }))
       .sort((a, b) => b.mtime - a.mtime);
     return backups.length > 0 ? path.join(dir, backups[0].f) : null;
@@ -141,10 +156,14 @@ function pruneBackupsByPrefix(dir, prefix, maxKeep) {
   }
 }
 
-function checkpointWal(db) {
+/**
+ * Checkpoint the DuckDB WAL into the main file before a file-copy backup.
+ * @param {import('./db/duckdb.cjs').DuckDbConnection|null} db
+ */
+async function checkpointWal(db) {
   if (!db) return;
   try {
-    db.pragma('wal_checkpoint(TRUNCATE)');
+    await db.exec('CHECKPOINT');
   } catch {
     /* best-effort */
   }
@@ -167,9 +186,9 @@ function restoreDatabaseFromBackup(dbPath, backupPath) {
   }
 }
 
-function restoreFromLatestBackup(dbPath) {
+async function restoreFromLatestBackup(dbPath) {
   const dir = path.dirname(dbPath);
-  const backupPath = findLatestBackup(dir);
+  const backupPath = await findLatestBackup(dir);
   if (!backupPath) {
     return { restored: false, backupPath: null, reason: 'no_backup' };
   }
@@ -179,12 +198,12 @@ function restoreFromLatestBackup(dbPath) {
 
 /**
  * Create a consistent snapshot (WAL checkpoint + file copy).
- * @param {import('better-sqlite3').Database|null} db
+ * @param {import('./db/duckdb.cjs').DuckDbConnection|null} db
  * @param {string} dbPath
  * @param {string} reason
  * @param {{ force?: boolean }} [opts]
  */
-function createAutomaticBackup(db, dbPath, reason = 'scheduled', opts = {}) {
+async function createAutomaticBackup(db, dbPath, reason = 'scheduled', opts = {}) {
   if (!dbPath || !fs.existsSync(dbPath)) return null;
 
   let sourceBytes = 0;
@@ -211,7 +230,7 @@ function createAutomaticBackup(db, dbPath, reason = 'scheduled', opts = {}) {
   const backupPath = path.join(dir, `${AUTO_BACKUP_PREFIX}${reason}-${stamp}`);
 
   try {
-    checkpointWal(db);
+    await checkpointWal(db);
     copyDatabaseFile(dbPath, backupPath);
     pruneBackupsByPrefix(dir, AUTO_BACKUP_PREFIX, MAX_AUTO_BACKUPS);
     _lastAutoBackupAt = now;
@@ -243,27 +262,29 @@ function backupDatabaseBeforeMigrations(dbPath, currentVersion) {
 }
 
 /**
- * Open dbPath read-only and run quick_check. Returns { ok, errors }.
+ * Open dbPath read-only via the DuckDB binding and probe the catalog. Replaces
+ * the old better-sqlite3 `PRAGMA quick_check` probe. Returns { ok, errors }.
+ *
+ * This function is synchronous-friendly (used by the preflight restore path
+ * before the main DB is open) but performs async I/O internally — callers must
+ * `await` it.
  */
-function verifyDatabaseFile(dbPath) {
+async function verifyDatabaseFile(dbPath) {
   if (!dbPath || !fs.existsSync(dbPath)) {
     return { ok: false, errors: ['database file missing'] };
   }
-  let db = null;
+  let conn = null;
   try {
-    const Database = require('better-sqlite3');
-    db = new Database(dbPath, { readonly: true, fileMustExist: true });
-    db.pragma('busy_timeout = 5000');
-    const rows = db.prepare('PRAGMA quick_check').all();
-    const errors = rows
-      .map((r) => r.integrity_check || r.quick_check)
-      .filter((v) => v && v !== 'ok');
-    return { ok: errors.length === 0, errors };
+    const { openDuckDb } = require('./db/duckdb.cjs');
+    conn = await openDuckDb(dbPath);
+    // Trivial catalog probe: a corrupt/empty file will throw here.
+    await conn.get('SELECT COUNT(*) AS c FROM information_schema.tables');
+    return { ok: true, errors: [] };
   } catch (err) {
     return { ok: false, errors: [err?.message || String(err)] };
   } finally {
     try {
-      db?.close();
+      if (conn) await conn.close();
     } catch {
       /* ignore */
     }
@@ -271,14 +292,14 @@ function verifyDatabaseFile(dbPath) {
 }
 
 /**
- * If dome.db fails quick_check or cannot open, restore from latest backup.
- * @returns {boolean} true if a restore was performed
+ * If dome.duckdb fails the catalog probe or cannot open, restore from latest
+ * backup. Async (DuckDB probe is async). Returns true if a restore was performed.
  */
-function preflightRestoreIfCorrupt(dbPath) {
+async function preflightRestoreIfCorrupt(dbPath) {
   if (!dbPath || !fs.existsSync(dbPath)) return false;
 
   removeWalSidecars(dbPath);
-  const check = verifyDatabaseFile(dbPath);
+  const check = await verifyDatabaseFile(dbPath);
   if (check.ok) return false;
 
   console.warn('[DB] Preflight check failed:', check.errors.join('; '));

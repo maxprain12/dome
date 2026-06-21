@@ -15,57 +15,57 @@ let isInitializing = false;
 let initializationPromise = null;
 
 /**
- * Initialize SQLite database
+ * Initialize database (DuckDB). Async — awaits `database.initDatabase()`.
  */
-function initSQLite() {
-  console.log('📦 Inicializando base de datos SQLite...');
-  database.initDatabase();
-  console.log('✅ Base de datos SQLite inicializada');
+async function initSQLite() {
+  console.log('📦 Inicializando base de datos DuckDB...');
+  await database.initDatabase();
+  console.log('✅ Base de datos DuckDB inicializada');
 }
 
 /**
  * Initialize default settings
  */
-function initializeDefaultSettings() {
+async function initializeDefaultSettings() {
   console.log('⚙️ Inicializando configuración...');
   const timestamp = Date.now();
   const queries = database.getQueries();
 
   // Check if onboarding_completed exists, if not, initialize it
-  const onboardingRow = queries.getSetting.get('onboarding_completed');
+  const onboardingRow = await queries.getSetting.get('onboarding_completed');
   if (!onboardingRow) {
-    queries.setSetting.run('onboarding_completed', 'false', timestamp);
+    await queries.setSetting.run('onboarding_completed', 'false', timestamp);
   }
 
   // Initialize default preferences if they don't exist
-  const themeRow = queries.getSetting.get('app_theme');
+  const themeRow = await queries.getSetting.get('app_theme');
   if (!themeRow) {
-    queries.setSetting.run('app_theme', 'light', timestamp);
+    await queries.setSetting.run('app_theme', 'light', timestamp);
   }
 
-  const autoSaveRow = queries.getSetting.get('app_auto_save');
+  const autoSaveRow = await queries.getSetting.get('app_auto_save');
   if (!autoSaveRow) {
-    queries.setSetting.run('app_auto_save', 'true', timestamp);
+    await queries.setSetting.run('app_auto_save', 'true', timestamp);
   }
 
-  const autoBackupRow = queries.getSetting.get('app_auto_backup');
+  const autoBackupRow = await queries.getSetting.get('app_auto_backup');
   if (!autoBackupRow) {
-    queries.setSetting.run('app_auto_backup', 'true', timestamp);
+    await queries.setSetting.run('app_auto_backup', 'true', timestamp);
   }
 
-  const citationStyleRow = queries.getSetting.get('app_citation_style');
+  const citationStyleRow = await queries.getSetting.get('app_citation_style');
   if (!citationStyleRow) {
-    queries.setSetting.run('app_citation_style', 'apa', timestamp);
+    await queries.setSetting.run('app_citation_style', 'apa', timestamp);
   }
 
-  const analyticsRow = queries.getSetting.get('analytics_enabled');
+  const analyticsRow = await queries.getSetting.get('analytics_enabled');
   if (!analyticsRow) {
-    queries.setSetting.run('analytics_enabled', 'true', timestamp);
+    await queries.setSetting.run('analytics_enabled', 'true', timestamp);
   }
 
-  const mcpGlobalRow = queries.getMcpGlobalSettings?.get?.();
+  const mcpGlobalRow = await queries.getMcpGlobalSettings?.get?.();
   if (!mcpGlobalRow) {
-    queries.upsertMcpGlobalSettings.run(1, timestamp);
+    await queries.upsertMcpGlobalSettings.run(1, timestamp);
   }
 
   console.log('✅ Configuración inicializada');
@@ -114,10 +114,10 @@ function createAvatarsDirectory() {
 /**
  * Check onboarding status
  */
-function checkOnboardingStatus() {
+async function checkOnboardingStatus() {
   try {
     const queries = database.getQueries();
-    const row = queries.getSetting.get('onboarding_completed');
+    const row = await queries.getSetting.get('onboarding_completed');
     const completed = row?.value === 'true';
     return !completed;
   } catch (error) {
@@ -188,32 +188,26 @@ async function doInitialize(startTime) {
   console.log('🚀 Inicializando Dome...');
 
   try {
-    // 1. Initialize SQLite database (critical - must succeed)
-    console.log('[Init] Step 1: SQLite database...');
-    initSQLite();
+    // 1. Initialize DuckDB database (critical - must succeed)
+    console.log('[Init] Step 1: DuckDB database...');
+    await initSQLite();
     console.log('[Init] Step 1 completed in', Date.now() - startTime, 'ms');
 
     // 1.1. Check database integrity and repair if needed.
-    // Use quick_check (skips FTS virtual tables) to avoid false positives that
-    // trigger a full repairFTSTables on every startup. A full integrity_check
-    // can flag FTS inconsistencies that are cosmetic and self-heal; quick_check
-    // catches real structural corruption.
+    // DuckDB has no PRAGMA quick_check/integrity_check; `database.checkIntegrity()`
+    // runs a trivial catalog probe (`SELECT COUNT(*) FROM projects`). On failure
+    // it tries FTS reindex, then backup restore.
     console.log('[Init] Step 1.1: Database integrity check...');
-    const integrity = database.checkIntegrity(true /* quick */);
+    const integrity = await database.checkIntegrity();
     if (!integrity.ok) {
-      console.warn('[DB] ⚠️ Database quick_check failed:', integrity.errors.join('; '));
-      console.log('[DB] Running full integrity_check for details...');
-      const fullIntegrity = database.checkIntegrity(false);
-      if (!fullIntegrity.ok) {
-        console.warn('[DB] Full integrity_check errors:', fullIntegrity.errors.join('; '));
-      }
+      console.warn('[DB] ⚠️ Database integrity probe failed:', integrity.errors.join('; '));
       console.log('[DB] Attempting to repair FTS tables...');
-      const repaired = database.repairFTSTables();
+      const repaired = await database.repairFTSTables();
       if (repaired) {
         console.log('[DB] ✅ Database repaired successfully');
       } else {
         console.warn('[DB] FTS repair failed, restoring from latest backup...');
-        const restored = database.restoreFromLatestBackupAndReinit();
+        const restored = await database.restoreFromLatestBackupAndReinit();
         if (restored.restored) {
           console.log('[DB] ✅ Database restored from backup:', restored.backupPath);
         } else {
@@ -226,7 +220,7 @@ async function doInitialize(startTime) {
 
     // 2. Initialize default settings (critical - must succeed)
     console.log('[Init] Step 2: Default settings...');
-    initializeDefaultSettings();
+    await initializeDefaultSettings();
     console.log('[Init] Step 2 completed in', Date.now() - startTime, 'ms');
 
     // 3. Initialize file system (critical - must succeed)
@@ -241,7 +235,7 @@ async function doInitialize(startTime) {
 
     // 5. Check onboarding status
     console.log('[Init] Step 5: Onboarding status...');
-    const needsOnboarding = checkOnboardingStatus();
+    const needsOnboarding = await checkOnboardingStatus();
     console.log('[Init] Step 5 completed in', Date.now() - startTime, 'ms');
 
     isInitialized = true;
