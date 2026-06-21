@@ -316,7 +316,7 @@ export default memo(function ResourceCard({
           className="absolute inset-0 bg-contain bg-center bg-no-repeat"
           style={{
             backgroundImage: `url(${visualPreview.pdfDataUrl})`,
-            backgroundColor: '#fff',
+            backgroundColor: 'var(--dome-surface)',
           }}
           aria-label={t('home.preview.pdf_thumb')}
         />

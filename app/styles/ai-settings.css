@@ -244,7 +244,7 @@
 }
 
 .ai-provider-card__status--ok {
-  color: var(--success, #16a34a);
+  color: var(--success);
 }
 
 .ai-provider-card__chip {

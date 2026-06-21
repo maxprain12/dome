@@ -335,7 +335,7 @@
   height: 32px;
   border-radius: 50%;
   background: var(--dome-accent);
-  color: var(--dome-on-accent, #fff);
+  color: var(--dome-on-accent, white);
   font-weight: 600;
   font-size: 12px;
   display: inline-flex;
@@ -554,7 +554,7 @@
   height: 36px;
   border-radius: 50%;
   background: var(--dome-accent);
-  color: var(--dome-on-accent, #fff);
+  color: var(--dome-on-accent, white);
   font-weight: 600;
   font-size: 14px;
   display: inline-flex;

@@ -649,7 +649,7 @@
   transform: scale(0.5);
   transform-origin: top left;
   pointer-events: none;
-  background: #fff;
+  background: var(--dome-surface);
 }
 
 /* Text excerpt shown as the cover preview for content-bearing resources
@@ -673,8 +673,8 @@
   -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
   /* Fade the bottom so the clamped text reads as a preview, not a hard cut. */
-  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
-  mask-image: linear-gradient(180deg, #000 60%, transparent);
+  -webkit-mask-image: linear-gradient(180deg, black 60%, transparent);
+  mask-image: linear-gradient(180deg, black 60%, transparent);
 }
 
 .dome-fs-card__select {

@@ -303,7 +303,7 @@ function FolderCardImpl({
           : coverImage
             ? {
                 backgroundImage: `url(${coverImage})`,
-                ...(isPdfCover ? { backgroundSize: 'contain', backgroundColor: '#fff' } : {}),
+                ...(isPdfCover ? { backgroundSize: 'contain', backgroundColor: 'var(--dome-surface)' } : {}),
               }
             : undefined}
       >
