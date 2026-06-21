@@ -1,15 +1,51 @@
 /** Grid card for a folder or resource inside FolderTabView. Shows thumbnail + content snippet. */
 
-import { memo, useEffect, useRef, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, FileText, Folder, FolderInput, MoreVertical, Palette, Pencil, Trash2, X } from 'lucide-react';
+import { Check, FileText, Folder, FolderInput, FolderOpen, MoreVertical, Palette, Pencil, Trash2, X } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
+import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
 import { getFolderColor, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ColorPickerPopover from './ColorPickerPopover';
 
 const SNIPPET_MAX = 180;
+
+/**
+ * Build the srcdoc for an artifact preview thumbnail: inject the storage shim
+ * and the artifact's `DOME_DATA` so the template renders its real content, then
+ * the template HTML. Rendered in a sandboxed, non-interactive scaled iframe.
+ */
+function buildArtifactThumbSrcDoc(template: string, data: Record<string, unknown> | null): string {
+  const dataJson = JSON.stringify(data ?? {}).replace(/</g, '\\u003c');
+  const inject =
+    `<script>${DOME_IFRAME_STORAGE_SHIM_SCRIPT};` +
+    `window.DOME_DATA=${dataJson};` +
+    `window.__dome_updateState=function(){};` +
+    `window.__dome_collectState=function(){return window.DOME_DATA;};</script>`;
+  if (/<head[^>]*>/i.test(template)) return template.replace(/<head[^>]*>/i, (m) => m + inject);
+  if (/<html[^>]*>/i.test(template)) return template.replace(/<html[^>]*>/i, (m) => m + inject);
+  return inject + template;
+}
+
+/** Non-interactive, scaled-down live render of a persisted artifact. */
+function ArtifactThumb({ template, data }: { template: string; data: Record<string, unknown> | null }) {
+  const srcDoc = useMemo(() => buildArtifactThumbSrcDoc(template, data), [template, data]);
+  return (
+    <iframe
+      title="artifact-preview"
+      className="dome-fs-card__artifact-thumb"
+      sandbox="allow-scripts"
+      scrolling="no"
+      srcDoc={srcDoc}
+      tabIndex={-1}
+      aria-hidden
+    />
+  );
+}
 
 function stripHtml(input: string): string {
   if (!input) return '';
@@ -111,6 +147,7 @@ function FolderCardImpl({
   onRename,
   onChangeColor,
   onMoveToProject,
+  onMoveToFolder,
   onToggleSelect,
   selected,
   showSelectionChrome,
@@ -126,6 +163,7 @@ function FolderCardImpl({
   onRename: (newTitle: string) => void;
   onChangeColor?: (color: string) => void;
   onMoveToProject: () => void;
+  onMoveToFolder?: () => void;
   onToggleSelect: (e: React.MouseEvent) => void;
   selected: boolean;
   showSelectionChrome: boolean;
@@ -161,8 +199,33 @@ function FolderCardImpl({
     ? formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })
     : '—';
 
-  const thumbnail = isFolder ? null : pickThumbnail(item);
-  const snippet = isFolder ? '' : pickSnippet(item);
+  // Lazy content preview (PDF first page, artifact mini-visual, image thumbnail
+  // or text snippet) — the lightweight list payload omits content/thumbnails,
+  // so they are fetched per-card on demand via this hook.
+  const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
+
+  const eagerThumbnail = isFolder ? null : pickThumbnail(item);
+  const lazyImage = !isFolder
+    ? (visual.imageUrl || (visual.kind === 'pdf' ? visual.pdfDataUrl : null))
+    : null;
+  const coverImage = eagerThumbnail || lazyImage;
+  const isPdfCover = !eagerThumbnail && visual.kind === 'pdf' && !!visual.pdfDataUrl;
+
+  // Artifacts render a real visual thumbnail (the template in a scaled iframe)
+  // rather than a code/text excerpt.
+  const artifactTemplate = !isFolder && visual.kind === 'artifact' && !visual.failed
+    ? (visual.artifact?.template ?? null)
+    : null;
+
+  const eagerSnippet = isFolder ? '' : pickSnippet(item);
+  const lazySnippet = isFolder
+    ? ''
+    : (visual.snippet ?? (visual.kind === 'artifact' ? visual.artifact?.snippet ?? '' : ''));
+  const snippet = eagerSnippet || lazySnippet;
+  // When there is no cover image and no artifact thumbnail, a text excerpt
+  // becomes the cover preview; avoid duplicating it in the body in that case.
+  const coverShowsSnippet = !isFolder && !coverImage && !artifactTemplate && !!snippet;
+
   const displayTitle = item.title || t('folder.untitled');
   const isFolderCard = isFolder;
 
@@ -220,7 +283,7 @@ function FolderCardImpl({
       ref={cardRef}
       className={cardClass}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); if (!colorPickerPos) setMenuOpen(false); }}
+      onMouseLeave={() => setHovered(false)}
       onContextMenu={(e) => {
         if (renaming) return;
         e.preventDefault();
@@ -232,12 +295,16 @@ function FolderCardImpl({
           keyboard-accessible button (role=button + tabIndex + onKeyDown). */}
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
+        ref={previewRef as unknown as React.Ref<HTMLDivElement>}
         className="dome-fs-card__cover cursor-pointer"
         onClick={handleCardActivate}
         style={isFolderCard
           ? { background: `color-mix(in srgb, ${typeColor} 12%, var(--dome-surface))` }
-          : thumbnail
-            ? { backgroundImage: `url(${thumbnail})` }
+          : coverImage
+            ? {
+                backgroundImage: `url(${coverImage})`,
+                ...(isPdfCover ? { backgroundSize: 'contain', backgroundColor: '#fff' } : {}),
+              }
             : undefined}
       >
         {showSelectionChrome ? (
@@ -259,7 +326,17 @@ function FolderCardImpl({
             style={{ color: typeColor }}
             strokeWidth={1.25}
           />
-        ) : thumbnail ? null : (
+        ) : artifactTemplate ? (
+          <ArtifactThumb template={artifactTemplate} data={visual.artifact?.data ?? null} />
+        ) : coverImage ? null : coverShowsSnippet ? (
+          <p className="dome-fs-card__cover-snippet">
+            {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
+          </p>
+        ) : visual.loading ? (
+          <div className="dome-fs-card__cover-fallback" style={{ color: typeColor }} aria-hidden>
+            <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
+          </div>
+        ) : (
           <div className="dome-fs-card__cover-fallback" style={{ color: typeColor }}>
             {item.type === 'note' || item.type === 'notebook' ? (
               <FileText className="size-7" strokeWidth={1.25} />
@@ -336,7 +413,7 @@ function FolderCardImpl({
           )}
         </div>
 
-        {!isFolderCard && snippet ? (
+        {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
           <p className="dome-fs-card__snippet">
             {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
           </p>
@@ -347,24 +424,32 @@ function FolderCardImpl({
         </div>
       </div>
 
-      {menuOpen && menuPos ? (
-        <div
-          role="menu"
-          tabIndex={-1}
-          className="dome-folder-view__row-menu"
-          style={{ top: menuPos.top, right: menuPos.right }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
-          {isFolderCard && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
-            setMenuOpen(false);
-            openColorPicker();
-          }) : null}
-          {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
-          <div className="dome-folder-view__row-menu-divider" />
-          {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
-        </div>
-      ) : null}
+      {/* Rendered via portal to `document.body`: the card is a containing block
+          for fixed-position descendants (it has `container-type` + `overflow:
+          hidden` + a hover `transform`), which would otherwise clip and
+          mis-position this menu. */}
+      {menuOpen && menuPos && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="menu"
+              tabIndex={-1}
+              className="dome-folder-view__row-menu"
+              style={{ top: menuPos.top, right: menuPos.right }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
+              {isFolderCard && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
+                setMenuOpen(false);
+                openColorPicker();
+              }) : null}
+              {onMoveToFolder ? menuItem(<FolderOpen className="size-3" />, t('selection.move_to_folder'), onMoveToFolder) : null}
+              {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
+              <div className="dome-folder-view__row-menu-divider" />
+              {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {colorPickerPos && onChangeColor ? (
         <ColorPickerPopover

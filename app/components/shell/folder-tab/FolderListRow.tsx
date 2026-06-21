@@ -1,9 +1,10 @@
 /** Unified filesystem list row for folders and files in FolderTabView. */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Folder, FolderInput, MoreVertical, Palette, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Folder, FolderInput, FolderOpen, MoreVertical, Palette, Pencil, Trash2, X } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import ColorPickerPopover from './ColorPickerPopover';
 import { getFolderColor, ResourceTypeIcon, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
@@ -38,6 +39,7 @@ export default function FolderListRow({
   onRename,
   onChangeColor,
   onMoveToProject,
+  onMoveToFolder,
   selected,
   showSelectionChrome,
   onToggleSelect,
@@ -53,6 +55,7 @@ export default function FolderListRow({
   onRename: (newTitle: string) => void;
   onChangeColor?: (color: string) => void;
   onMoveToProject: () => void;
+  onMoveToFolder?: () => void;
   selected: boolean;
   showSelectionChrome: boolean;
   onToggleSelect: (e: React.MouseEvent) => void;
@@ -131,7 +134,7 @@ export default function FolderListRow({
       className={rowClass}
       style={isLast ? { borderBottom: 'none' } : undefined}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => { setHovered(false); if (!colorPickerPos) setMenuOpen(false); }}
+      onMouseLeave={() => setHovered(false)}
       onContextMenu={(e) => {
         if (renaming) return;
         e.preventDefault();
@@ -229,24 +232,28 @@ export default function FolderListRow({
         )}
       </div>
 
-      {menuOpen && menuPos ? (
-        <div
-          role="menu"
-          tabIndex={-1}
-          className="dome-folder-view__row-menu"
-          style={{ top: menuPos.top, right: menuPos.right }}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
-          {isFolder && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
-            setMenuOpen(false);
-            openColorPicker();
-          }) : null}
-          {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
-          <div className="dome-folder-view__row-menu-divider" />
-          {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
-        </div>
-      ) : null}
+      {menuOpen && menuPos && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="menu"
+              tabIndex={-1}
+              className="dome-folder-view__row-menu"
+              style={{ top: menuPos.top, right: menuPos.right }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
+              {isFolder && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
+                setMenuOpen(false);
+                openColorPicker();
+              }) : null}
+              {onMoveToFolder ? menuItem(<FolderOpen className="size-3" />, t('selection.move_to_folder'), onMoveToFolder) : null}
+              {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
+              <div className="dome-folder-view__row-menu-divider" />
+              {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {colorPickerPos && onChangeColor ? (
         <ColorPickerPopover

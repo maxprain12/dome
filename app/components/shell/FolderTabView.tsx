@@ -3,7 +3,7 @@ import { Menu, ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import {
-  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List,
+  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Folder,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -47,6 +47,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const [moveProjectIds, setMoveProjectIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [folderPickOpen, setFolderPickOpen] = useState(false);
+  // When set, the folder picker moves just these ids (single-card "Move to
+  // folder"); when null it falls back to the current multi-selection.
+  const [folderMoveIds, setFolderMoveIds] = useState<string[] | null>(null);
   const [viewMode, setViewMode] = useState<FolderViewMode>(() => readFolderViewMode());
   const showSelectionChrome = selectedIds.size > 0;
 
@@ -140,17 +143,25 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
   const handleBulkMoveToFolder = useCallback(
     async (targetFolderId: string | null) => {
-      const roots = filterMoveProjectRoots(selectedIds, resourceMapForSelection);
+      // Single-card move targets `folderMoveIds`; otherwise move the selection.
+      const roots = folderMoveIds ?? filterMoveProjectRoots(selectedIds, resourceMapForSelection);
       for (const rid of roots) {
         const ok = await moveToFolder(rid, targetFolderId);
         if (!ok) break;
       }
-      setSelectedIds(new Set());
+      if (!folderMoveIds) setSelectedIds(new Set());
+      setFolderMoveIds(null);
       setFolderPickOpen(false);
       await refetch();
     },
-    [selectedIds, resourceMapForSelection, moveToFolder, refetch],
+    [folderMoveIds, selectedIds, resourceMapForSelection, moveToFolder, refetch],
   );
+
+  // Open the folder picker for a single resource (per-card menu action).
+  const openFolderPickerFor = useCallback((id: string) => {
+    setFolderMoveIds([id]);
+    setFolderPickOpen(true);
+  }, []);
 
   const handleBulkDelete = useCallback(async () => {
     const n = selectedIds.size;
@@ -175,8 +186,14 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     () => ({ id: folderId, title: folderTitle }),
     [folderId, folderTitle],
   );
+  const navigateFolderTabWithProject = useCallback(
+    (fromId: string, loc: { id: string; title: string; color?: string }) =>
+      navigateFolderTab(fromId, loc, effectiveProjectId),
+    [navigateFolderTab, effectiveProjectId],
+  );
+
   const { canGoBack, canGoForward, navigate: navigateToFolder, goBack, goForward } =
-    useFolderNavigationHistory(tabId, navLocation, navigateFolderTab);
+    useFolderNavigationHistory(tabId, navLocation, navigateFolderTabWithProject);
 
   const handleNavigateToFolder = useCallback(
     (id: string, title: string, color?: string) => {
@@ -210,16 +227,47 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     return () => { setCurrentFolderId(null); };
   }, [listFolderId, setCurrentFolderId]);
 
-  const folderTargetsForMove = useMemo(
-    () =>
-      allFolders.filter(
-        (f) =>
-          f.project_id === effectiveProjectId &&
-          f.id !== folderId &&
-          !selectedIds.has(f.id),
-      ),
-    [allFolders, effectiveProjectId, folderId, selectedIds],
-  );
+  // Folders available as move targets, flattened into a depth-indented tree so
+  // the picker mirrors the real folder hierarchy instead of a flat list.
+  const moveFolderRows = useMemo(() => {
+    const moving = new Set(folderMoveIds ?? [...selectedIds]);
+    const projectFolders = allFolders.filter((f) => f.project_id === effectiveProjectId);
+    const byId = new Map(projectFolders.map((f) => [f.id, f] as const));
+
+    // Exclude the folders being moved and their descendants (a folder can't move
+    // into its own subtree) plus the current folder (the items already live here).
+    const excluded = new Set<string>();
+    const markSubtree = (id: string) => {
+      if (excluded.has(id)) return;
+      excluded.add(id);
+      for (const f of projectFolders) if (f.folder_id === id) markSubtree(f.id);
+    };
+    for (const id of moving) markSubtree(id);
+    if (folderId) excluded.add(folderId);
+
+    const childrenOf = new Map<string | null, typeof projectFolders>();
+    for (const f of projectFolders) {
+      if (excluded.has(f.id)) continue;
+      const parentId =
+        f.folder_id && byId.has(f.folder_id) && !excluded.has(f.folder_id) ? f.folder_id : null;
+      const arr = childrenOf.get(parentId) ?? [];
+      arr.push(f);
+      childrenOf.set(parentId, arr);
+    }
+    for (const arr of childrenOf.values()) {
+      arr.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
+    }
+
+    const rows: Array<{ folder: (typeof projectFolders)[number]; depth: number }> = [];
+    const walk = (parentId: string | null, depth: number) => {
+      for (const f of childrenOf.get(parentId) ?? []) {
+        rows.push({ folder: f, depth });
+        walk(f.id, depth + 1);
+      }
+    };
+    walk(null, 0);
+    return rows;
+  }, [allFolders, effectiveProjectId, folderId, folderMoveIds, selectedIds]);
 
   const breadcrumb = useMemo(
     () => (viewCtx.isProjectRoot ? [] : getBreadcrumbPath(folderId).filter((f) => f.id !== folderId)),
@@ -269,7 +317,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     };
     const result = await window.electron.db.resources.create(res);
     if (result.success && result.data) {
-      openResourceTab(result.data.id, 'note', result.data.title);
+      openResourceTab(result.data.id, 'note', result.data.title, effectiveProjectId);
     }
   }, [effectiveProjectId, listFolderId, t, openResourceTab]);
 
@@ -360,9 +408,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const openListItem = useCallback(
     ({ item, isFolder }: { item: Resource; isFolder: boolean }) => {
       if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
-      else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'));
+      else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'), effectiveProjectId);
     },
-    [handleNavigateToFolder, openResourceTab, t],
+    [handleNavigateToFolder, openResourceTab, t, effectiveProjectId],
   );
 
   useEffect(() => {
@@ -662,7 +710,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
       <SelectionActionBar
         count={selectedIds.size}
-        onMoveToFolder={() => setFolderPickOpen(true)}
+        onMoveToFolder={() => { setFolderMoveIds(null); setFolderPickOpen(true); }}
         onMoveToProject={() =>
           setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourceMapForSelection)])
         }
@@ -711,12 +759,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   }}
                   onOpen={() => {
                     if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
-                    else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'));
+                    else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'), effectiveProjectId);
                   }}
                   onDelete={() => void (isFolder ? handleSubfolderDelete(item.id) : handleDeleteFile(item.id))}
                   onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
                   onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                   onMoveToProject={() => setMoveProjectIds([item.id])}
+                  onMoveToFolder={isFolder ? undefined : () => openFolderPickerFor(item.id)}
                   selected={selectedIds.has(item.id)}
                   showSelectionChrome={showSelectionChrome}
                   onToggleSelect={(e) => {
@@ -752,12 +801,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     }}
                     onOpen={() => {
                       if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
-                      else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'));
+                      else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'), effectiveProjectId);
                     }}
                     onDelete={() => void (isFolder ? handleSubfolderDelete(item.id) : handleDeleteFile(item.id))}
                     onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
                     onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                     onMoveToProject={() => setMoveProjectIds([item.id])}
+                    onMoveToFolder={isFolder ? undefined : () => openFolderPickerFor(item.id)}
                     selected={selectedIds.has(item.id)}
                     showSelectionChrome={showSelectionChrome}
                     onToggleSelect={(e) => {
@@ -788,18 +838,18 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
       <DomeModal
         open={folderPickOpen}
-        onClose={() => setFolderPickOpen(false)}
+        onClose={() => { setFolderPickOpen(false); setFolderMoveIds(null); }}
         title={t('selection.move_to_folder')}
         size="sm"
         footer={
-          <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
+          <DomeButton variant="secondary" onClick={() => { setFolderPickOpen(false); setFolderMoveIds(null); }}>
             {t('common.cancel')}
           </DomeButton>
         }
       >
         <Stack gap="xs">
           <Text size="xs" c="dimmed">
-            {t('selection.items_selected_other', { count: selectedIds.size })}
+            {t('selection.items_selected_other', { count: folderMoveIds?.length ?? selectedIds.size })}
           </Text>
           <ScrollArea.Autosize mah={280}>
             <Stack gap={4}>
@@ -818,7 +868,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   {t('selection.move_to_root')}
                 </Text>
               </UnstyledButton>
-              {folderTargetsForMove.map((f) => (
+              {moveFolderRows.map(({ folder: f, depth }) => (
                 <UnstyledButton
                   key={f.id}
                   type="button"
@@ -831,9 +881,33 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     background: 'var(--dome-surface)',
                   }}
                 >
-                  <Text size="sm" fw={500} truncate>
-                    {f.title}
-                  </Text>
+                  {/* Indent via marginLeft on the content (Mantine `p` would
+                      otherwise override an inline paddingLeft). */}
+                  <span
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      minWidth: 0,
+                      marginLeft: depth * 20,
+                    }}
+                  >
+                    {depth > 0 ? (
+                      <ChevronRight
+                        className="size-3 shrink-0"
+                        style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}
+                        aria-hidden
+                      />
+                    ) : null}
+                    <Folder
+                      className="size-4 shrink-0"
+                      style={{ color: getFolderColor(f) ?? 'var(--dome-accent)' }}
+                      strokeWidth={1.75}
+                    />
+                    <Text size="sm" fw={500} truncate>
+                      {f.title}
+                    </Text>
+                  </span>
                 </UnstyledButton>
               ))}
             </Stack>

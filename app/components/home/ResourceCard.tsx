@@ -5,6 +5,7 @@ import type { Resource } from '@/types';
 import { File, Trash2, FolderOpen, Loader2, AlertCircle, Play, MoreHorizontal } from 'lucide-react';
 import { formatDistanceToNow, formatShortDistance, formatFileSize, getResourceTypeLabel } from '@/lib/utils';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
 
 interface ResourceCardProps {
   resource: Resource;
@@ -20,6 +21,60 @@ interface ResourceCardProps {
   selectedResourceIds?: Set<string>;
   /** Context menu callback (right-click) */
   onContextMenu?: (e: React.MouseEvent, resource: Resource) => void;
+}
+
+interface ArtifactMiniVisualProps {
+  artifact: { artifactType: string; snippet: string; title: string | null } | null;
+  fallbackColor: string;
+}
+
+function ArtifactMiniVisual({ artifact, fallbackColor }: ArtifactMiniVisualProps) {
+  const snippet = artifact?.snippet?.trim() ?? '';
+  const artifactType = artifact?.artifactType ?? 'custom';
+  const miniLines = snippet
+    ? snippet
+        .split(/\n+|(?<=\.)\s+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+
+  return (
+    <div
+      className="absolute inset-0 p-3 flex flex-col gap-1.5 overflow-hidden"
+      style={{
+        background: `linear-gradient(135deg, ${fallbackColor}18, ${fallbackColor}06)`,
+        color: 'var(--dome-text)',
+      }}
+    >
+      <div className="flex items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider opacity-70" style={{ color: fallbackColor }}>
+        <File size={11} strokeWidth={2} aria-hidden />
+        <span>{artifactType}</span>
+      </div>
+      {miniLines.length > 0 ? (
+        <div className="flex flex-col gap-1 min-h-0">
+          {miniLines.map((line, idx) => (
+            <div
+              key={idx}
+              className="h-1.5 rounded-sm opacity-70"
+              style={{
+                width: `${Math.min(100, 50 + ((line.length * 7) % 50))}%`,
+                background: fallbackColor,
+                opacity: 0.18 + (idx === 0 ? 0.22 : 0),
+              }}
+            />
+          ))}
+          <div className="mt-1 text-[11px] leading-snug line-clamp-2 opacity-90" style={{ color: 'var(--dome-text)' }}>
+            {snippet.length > 90 ? `${snippet.slice(0, 87)}…` : snippet}
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center opacity-30" style={{ color: fallbackColor }}>
+          <File size={48} strokeWidth={1} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ProcessingStatusBadge({ status }: { status?: string }) {
@@ -63,6 +118,7 @@ export default memo(function ResourceCard({
   selectedResourceIds,
   onContextMenu,
 }: ResourceCardProps) {
+  const { t } = useTranslation();
   // Detect excel sub-type for type-specific icons and colors
   const getExcelSubType = (): 'xlsx' | 'csv' | 'generic' => {
     if (resource.type === 'excel') return 'xlsx';
@@ -111,6 +167,9 @@ export default memo(function ResourceCard({
 
   const thumbnail = getPreviewThumbnail();
   const hasThumbnail = !!thumbnail;
+  const { preview: visualPreview, ref: previewRef } = useResourceVisualPreview(
+    resource,
+  );
 
   const handleCardKeyDown = (e: React.KeyboardEvent) => {
     if (onClick && (e.key === 'Enter' || e.key === ' ')) {
@@ -243,12 +302,30 @@ export default memo(function ResourceCard({
 
   // Grid view
   const previewBlock = (
-    <div className="relative flex-1 w-full bg-[var(--dome-bg-secondary)] overflow-hidden min-h-0">
+    <div
+      ref={previewRef as unknown as React.RefObject<HTMLDivElement>}
+      className="relative flex-1 w-full bg-[var(--dome-bg-secondary)] overflow-hidden min-h-0"
+    >
       {hasThumbnail ? (
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-500 group-hover:scale-105"
           style={{ backgroundImage: thumbnail! }}
         />
+      ) : visualPreview.kind === 'pdf' && visualPreview.pdfDataUrl ? (
+        <div
+          className="absolute inset-0 bg-contain bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url(${visualPreview.pdfDataUrl})`,
+            backgroundColor: '#fff',
+          }}
+          aria-label={t('home.preview.pdf_thumb')}
+        />
+      ) : visualPreview.kind === 'artifact' && !visualPreview.failed ? (
+        <ArtifactMiniVisual artifact={visualPreview.artifact} fallbackColor={getTypeColor()} />
+      ) : visualPreview.loading ? (
+        <div className="absolute inset-0 flex items-center justify-center opacity-60" style={{ color: getTypeColor() }}>
+          <Loader2 size={28} strokeWidth={1.5} className="animate-spin" />
+        </div>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center opacity-10 group-hover:opacity-15 transition-opacity" style={{ color: getTypeColor() }}>
           {resource.type === 'folder'

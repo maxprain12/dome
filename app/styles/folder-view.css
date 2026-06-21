@@ -637,6 +637,46 @@
   opacity: 0.7;
 }
 
+/* Live, non-interactive thumbnail of a persisted artifact: the template is
+   rendered in a sandboxed iframe at 2× and scaled to 50% so the cover shows a
+   zoomed-out visual preview instead of code. */
+.dome-fs-card__artifact-thumb {
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  height: 200%;
+  border: 0;
+  transform: scale(0.5);
+  transform-origin: top left;
+  pointer-events: none;
+  background: #fff;
+}
+
+/* Text excerpt shown as the cover preview for content-bearing resources
+   (notes, documents, transcriptions…) that have no thumbnail/image. */
+.dome-fs-card__cover-snippet {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+  color: var(--dome-text-muted);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--dome-surface) 92%, transparent),
+    var(--dome-bg-secondary)
+  );
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  /* Fade the bottom so the clamped text reads as a preview, not a hard cut. */
+  -webkit-mask-image: linear-gradient(180deg, #000 60%, transparent);
+  mask-image: linear-gradient(180deg, #000 60%, transparent);
+}
+
 .dome-fs-card__select {
   position: absolute;
   top: 8px;
