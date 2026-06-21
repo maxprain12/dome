@@ -99,7 +99,7 @@ export default function AIWebSearchTab() {
   };
 
   return (
-    <div className="min-w-0 w-full space-y-5">
+    <div className="min-w-0 w-full space-y-4">
       <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
         {t('settings.ai.web_search.zero_config_banner')}
       </p>

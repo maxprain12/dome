@@ -230,18 +230,18 @@ export default function AIEmbeddingsTab() {
   const hasApiKey = provider !== 'ollama' && apiKey.trim().length > 0;
 
   return (
-    <div className="min-w-0 w-full space-y-5">
+    <div className="min-w-0 w-full space-y-4">
       <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
         {t('settings.ai.embeddings.description')}
       </p>
 
       <div>
-        <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-          <p className="text-sm font-medium text-[var(--dome-text)]">{t('settings.ai.embeddings.provider')}</p>
-          <p className="text-xs text-[var(--dome-text-muted)]">
+        <div className="ai-settings__section-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span>{t('settings.ai.embeddings.provider')}</span>
+          <span className="text-[11px] font-normal normal-case tracking-normal opacity-80">
             {t('settings.ai.active_provider')}:{' '}
             <span className="font-medium text-[var(--dome-text)]">{PROVIDERS[provider].name}</span>
-          </p>
+          </span>
         </div>
         <div
           role="radiogroup"
