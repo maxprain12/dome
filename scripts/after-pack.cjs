@@ -134,6 +134,7 @@ exports.default = async function afterPack(context) {
     const criticalModules = [
       'node_modules/better-sqlite3',
       'node_modules/sharp',
+      'node_modules/@ffmpeg-installer',
     ];
 
     for (const modulePath of criticalModules) {

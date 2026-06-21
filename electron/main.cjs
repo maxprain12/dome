@@ -87,6 +87,15 @@ if (app.isPackaged) {
   if (!mod.globalPaths.includes(unpacked)) {
     mod.globalPaths.unshift(unpacked);
   }
+  try {
+    const { getFfmpegInstallerPaths } = require('./media/ffmpeg-paths.cjs');
+    const ff = getFfmpegInstallerPaths();
+    if (ff?.ffmpegPath?.includes('app.asar/') && !ff.ffmpegPath.includes('app.asar.unpacked/')) {
+      console.warn('[Main] ffmpeg path still inside app.asar — video/audio may fail:', ff.ffmpegPath);
+    }
+  } catch {
+    /* non-fatal */
+  }
 }
 
 // Fix PATH on macOS/Linux when launched from Finder (GUI apps don't inherit shell PATH).
@@ -1130,7 +1139,7 @@ app
           `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`
         ).run();
       } catch (e) { /* non-fatal */ }
-    }, 30000); // 30 seconds delay to let app stabilize
+    }, 30_000); // 30 seconds delay to let app stabilize
   })
   .catch(console.error);
 

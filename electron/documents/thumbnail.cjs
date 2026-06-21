@@ -28,9 +28,13 @@ let ffmpeg = null;
 let ffmpegPath = null;
 try {
   ffmpeg = require('fluent-ffmpeg');
-  const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-  ffmpegPath = ffmpegInstaller.path;
-  ffmpeg.setFfmpegPath(ffmpegPath);
+  const { configureFluentFfmpeg, getFfmpegInstallerPaths } = require('../media/ffmpeg-paths.cjs');
+  if (configureFluentFfmpeg(ffmpeg)) {
+    ffmpegPath = getFfmpegInstallerPaths()?.ffmpegPath ?? null;
+  } else {
+    ffmpeg = null;
+    console.warn('[Thumbnail] ffmpeg binary not found, video thumbnails will use placeholders');
+  }
 } catch (error) {
   console.warn('[Thumbnail] fluent-ffmpeg not available, video thumbnails will use placeholders');
 }
