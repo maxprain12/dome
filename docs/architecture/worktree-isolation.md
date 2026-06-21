@@ -2,7 +2,7 @@
 
 ## Problema
 
-Por defecto Electron usa un único `userData` por usuario, por lo que varios clones (worktrees) comparten la misma base SQLite y datos.
+Por defecto Electron usa un único `userData` por usuario, por lo que varios clones (worktrees) comparten la misma base DuckDB y datos (`dome.duckdb`).
 
 ## Solución
 

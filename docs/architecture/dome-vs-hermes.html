@@ -537,7 +537,7 @@ flowchart LR
         </tr>
         <tr data-keywords="external memory mem0 supermemory">
           <th>Memoria externa</th>
-          <td class="dome">No integrada directamente. La <em>knowledge base</em> es local: LanceDB (<code>dome-lance</code>) + FTS5 + grafo. RAG vía tool <code>resource_hybrid_search</code>.<small>Hay un LLM dedicado al KB sync (<code>kb-llm-provision.cjs</code>).</small></td>
+          <td class="dome">No integrada directamente. La <em>knowledge base</em> es local: LanceDB (<code>dome-lance</code>) + FTS (DuckDB <code>fts</code> extension) + grafo. RAG vía tool <code>resource_hybrid_search</code>.<small>Hay un LLM dedicado al KB sync (<code>kb-llm-provision.cjs</code>).</small></td>
           <td class="hermes">Sí, opcional. <strong>mem0</strong> y <strong>SuperMemory</strong> como providers externos. Cuando está habilitado, recupera memorias relevantes más allá de los Markdown y SQLite locales.<small>La memoria externa es "recall" sobre memorias aprendidas.</small></td>
           <td><span class="verdict"><span class="badge diferente">Resuelven cosas distintas</span></span><small>Dome = retrieval sobre documentos. Hermes = recall sobre memorias del usuario.</small></td>
         </tr>
@@ -678,7 +678,7 @@ sequenceDiagram
           <li><strong>Project memory</strong> — <code>AGENTS.md</code> en la raíz del proyecto, inyección manual por el caller.</li>
           <li><strong>Sesiones JSONL</strong> — <code>JsonlSessionRepo</code> en <code>userData/agent-sessions/</code>. Tree con entries, forks, compactions.</li>
           <li><strong>Runs SQLite</strong> — <code>automation_runs</code> + <code>automation_run_steps</code> + <code>automation_run_links</code>.</li>
-          <li><strong>Knowledge base local</strong> — LanceDB (<code>dome-lance</code>) + FTS5 + grafo. RAG vía tool <code>resource_hybrid_search</code>.</li>
+          <li><strong>Knowledge base local</strong> — LanceDB (<code>dome-lance</code>) + FTS (DuckDB <code>fts</code> extension) + grafo. RAG vía tool <code>resource_hybrid_search</code>.</li>
           <li><strong>Tool</strong> <code>remember_fact</code> — para que el modelo guarde hechos del usuario.</li>
         </ul>
       </div>

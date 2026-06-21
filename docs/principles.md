@@ -17,7 +17,7 @@ Cada regla tiene un id **P-NNN** que linters, CI y el auditor pueden citar en me
 
 ## P-001 — Renderer nunca importa módulos Node/DB
 
-En `app/` no se importan `better-sqlite3`, `node:fs`, `electron` (renderer), `child_process`, etc. Toda I/O pasa por `window.electron.invoke(...)` y handlers en `electron/ipc/`.
+En `app/` no se importan `@duckdb/node-api`, `better-sqlite3` (legacy), `node:fs`, `electron` (renderer), `child_process`, etc. Toda I/O pasa por `window.electron.invoke(...)` y handlers en `electron/ipc/`.
 
 Cumplimiento: ESLint `dome/no-renderer-node-imports` (fs / `node:fs` / `better-sqlite3` / prefijo `bun:`) + job `architecture-check` en CI (`grep` adicional).
 

@@ -2,7 +2,7 @@
 
 ## Renderer (`app/`)
 
-- Sin `node:fs`, `better-sqlite3`, `child_process` ni módulos del runtime de escritorio. Ver **P-001** en [../principles.md](../principles.md).
+- Sin `node:fs`, `@duckdb/node-api`, `better-sqlite3`, `child_process` ni módulos del runtime de escritorio. Ver **P-001** en [../principles.md](../principles.md).
 - Comunicación solo vía `window.electron` expuesto en `electron/preload.cjs` (lista blanca `ALLOWED_CHANNELS`).
 
 ## Main (`electron/`)

@@ -1,6 +1,6 @@
 # Manual de Usuario — Dome
 
-> Guía completa para usuarios finales de Dome Desktop (v2.3.5).
+> Guía completa para usuarios finales de Dome Desktop (v2.6.1).
 > Este manual no requiere conocimientos técnicos.
 
 ---
@@ -556,4 +556,4 @@ Sí. Dome soporta múltiples pestañas (tabs) dentro del workspace, una por recu
 
 ---
 
-*Manual de Usuario — Dome v2.1.7*
+*Manual de Usuario — Dome v2.6.1*
