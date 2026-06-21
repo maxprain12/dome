@@ -25,31 +25,32 @@ const SYNC_TABLES = [
 /**
  * @param {import('better-sqlite3').Database} db
  */
-function getOrCreateDeviceId(db) {
+async function getOrCreateDeviceId(db) {
   try {
-    const row = db.prepare('SELECT device_id FROM dome_cloud_sync WHERE id = 1').get();
+    const row = await db.get('SELECT device_id FROM dome_cloud_sync WHERE id = 1');
     if (row?.device_id) return row.device_id;
   } catch {
     return crypto.randomUUID();
   }
   const id = crypto.randomUUID();
   const now = Date.now();
-  db.prepare(
+  await db.run(
     `
       INSERT INTO dome_cloud_sync (id, device_id, last_server_revision, last_event_poll_at, updated_at)
       VALUES (1, ?, 0, 0, ?)
       ON CONFLICT(id) DO UPDATE SET device_id = excluded.device_id, updated_at = excluded.updated_at
     `,
-  ).run(id, now);
+    [id, now],
+  );
   return id;
 }
 
 /**
  * @param {import('better-sqlite3').Database} db
  */
-function getLocalRevision(db) {
+async function getLocalRevision(db) {
   try {
-    const row = db.prepare('SELECT last_server_revision FROM dome_cloud_sync WHERE id = 1').get();
+    const row = await db.get('SELECT last_server_revision FROM dome_cloud_sync WHERE id = 1');
     return row?.last_server_revision ?? 0;
   } catch {
     return 0;
@@ -59,24 +60,25 @@ function getLocalRevision(db) {
 /**
  * @param {import('better-sqlite3').Database} db
  */
-function setLocalRevision(db, rev) {
+async function setLocalRevision(db, rev) {
   const now = Date.now();
-  const dev = getOrCreateDeviceId(db);
-  db.prepare(
+  const dev = await getOrCreateDeviceId(db);
+  await db.run(
     `
       INSERT INTO dome_cloud_sync (id, device_id, last_server_revision, last_event_poll_at, updated_at)
       VALUES (1, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET last_server_revision = excluded.last_server_revision, updated_at = excluded.updated_at
     `,
-  ).run(dev, rev, now, now);
+    [dev, rev, now, now],
+  );
 }
 
 /**
  * @param {import('better-sqlite3').Database} db
  */
-function getLastPushAt(db) {
+async function getLastPushAt(db) {
   try {
-    const row = db.prepare('SELECT last_push_at FROM dome_cloud_sync WHERE id = 1').get();
+    const row = await db.get('SELECT last_push_at FROM dome_cloud_sync WHERE id = 1');
     return row?.last_push_at ?? 0;
   } catch {
     return 0;
@@ -86,14 +88,15 @@ function getLastPushAt(db) {
 /**
  * @param {import('better-sqlite3').Database} db
  */
-function setLastPushAt(db, ts) {
-  const dev = getOrCreateDeviceId(db);
+async function setLastPushAt(db, ts) {
+  const dev = await getOrCreateDeviceId(db);
   const now = Date.now();
-  db.prepare(
+  await db.run(
     `INSERT INTO dome_cloud_sync (id, device_id, last_push_at, last_server_revision, last_event_poll_at, updated_at)
      VALUES (1, ?, ?, 0, 0, ?)
      ON CONFLICT(id) DO UPDATE SET last_push_at = excluded.last_push_at, updated_at = excluded.updated_at`,
-  ).run(dev, ts, now);
+    [dev, ts, now],
+  );
 }
 
 /**
@@ -102,18 +105,18 @@ function setLastPushAt(db, ts) {
  * @param {import('better-sqlite3').Database} db
  * @param {number} sinceMs — 0 means full snapshot
  */
-function buildDelta(db, sinceMs) {
+async function buildDelta(db, sinceMs) {
   const isFullSync = sinceMs === 0;
   const since = sinceMs;
 
   const projects = isFullSync
-    ? db.prepare('SELECT * FROM projects').all()
-    : db.prepare('SELECT * FROM projects WHERE updated_at > ?').all(since);
+    ? await db.all('SELECT * FROM projects')
+    : await db.all('SELECT * FROM projects WHERE updated_at > ?', [since]);
 
   const resources = (
     isFullSync
-      ? db.prepare('SELECT * FROM resources').all()
-      : db.prepare('SELECT * FROM resources WHERE updated_at > ?').all(since)
+      ? await db.all('SELECT * FROM resources')
+      : await db.all('SELECT * FROM resources WHERE updated_at > ?', [since])
   ).map((r) => {
     const row = { ...r };
     if ('thumbnail_data' in row) delete row.thumbnail_data;
@@ -121,20 +124,20 @@ function buildDelta(db, sinceMs) {
   });
 
   const sources = isFullSync
-    ? db.prepare('SELECT * FROM sources').all()
-    : db.prepare('SELECT * FROM sources WHERE updated_at > ?').all(since);
+    ? await db.all('SELECT * FROM sources')
+    : await db.all('SELECT * FROM sources WHERE updated_at > ?', [since]);
 
   const interactions = isFullSync
-    ? db.prepare('SELECT * FROM resource_interactions').all()
-    : db.prepare('SELECT * FROM resource_interactions WHERE updated_at > ?').all(since);
+    ? await db.all('SELECT * FROM resource_interactions')
+    : await db.all('SELECT * FROM resource_interactions WHERE updated_at > ?', [since]);
 
   const artifacts = isFullSync
-    ? db.prepare('SELECT * FROM artifacts').all()
-    : db.prepare('SELECT * FROM artifacts WHERE updated_at > ?').all(since);
+    ? await db.all('SELECT * FROM artifacts')
+    : await db.all('SELECT * FROM artifacts WHERE updated_at > ?', [since]);
 
   // No updated_at — always send full (they're small)
-  const tags = db.prepare('SELECT * FROM tags').all();
-  const resource_tags = db.prepare('SELECT * FROM resource_tags').all();
+  const tags = await db.all('SELECT * FROM tags');
+  const resource_tags = await db.all('SELECT * FROM resource_tags');
 
   return {
     syncSchemaVersion: SYNC_SCHEMA_VERSION,
@@ -155,8 +158,8 @@ function buildDelta(db, sinceMs) {
 /**
  * @param {import('better-sqlite3').Database} db
  */
-function pragmaColumns(db, table) {
-  return db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+async function pragmaColumns(db, table) {
+  return (await db.all(`PRAGMA table_info(${table})`)).map((c) => c.name);
 }
 
 /**
@@ -164,9 +167,9 @@ function pragmaColumns(db, table) {
  * @param {string} table
  * @param {Record<string, unknown>[]} rows
  */
-function upsertRows(db, table, rows) {
+async function upsertRows(db, table, rows) {
   if (!rows?.length) return;
-  const validCols = new Set(pragmaColumns(db, table));
+  const validCols = new Set(await pragmaColumns(db, table));
   for (const raw of rows) {
     const row = /** @type {Record<string, unknown>} */ ({});
     for (const [k, v] of Object.entries(raw)) {
@@ -177,7 +180,7 @@ function upsertRows(db, table, rows) {
     if (keys.length === 0) continue;
     const placeholders = keys.map(() => '?').join(',');
     const sql = `INSERT OR REPLACE INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`;
-    db.prepare(sql).run(...keys.map((k) => row[k]));
+    await db.run(sql, keys.map((k) => row[k]));
   }
 }
 
@@ -186,7 +189,7 @@ function upsertRows(db, table, rows) {
  * @param {Record<string, unknown>} payload
  * @param {string} localDeviceId
  */
-function applyBundlePayload(db, payload) {
+async function applyBundlePayload(db, payload) {
   const tables = payload?.tables;
   if (!tables || typeof tables !== 'object') return;
 
@@ -202,14 +205,13 @@ function applyBundlePayload(db, payload) {
     { table: 'resource_interactions', rows: tables.resource_interactions },
   ];
 
-  const tx = db.transaction(() => {
+  await db.transaction(async (tx) => {
     for (const { table, rows } of order) {
       if (!Array.isArray(rows)) continue;
       if (!SYNC_TABLES.includes(table)) continue;
-      upsertRows(db, table, rows);
+      await upsertRows(tx, table, rows);
     }
   });
-  tx();
 }
 
 /**
@@ -220,9 +222,7 @@ function applyBundlePayload(db, payload) {
  * @param {Object} database
  */
 async function uploadResourceFiles(db, fileStorage, database, oauthModule) {
-  const rows = db
-    .prepare(`SELECT id, internal_path, file_mime_type FROM resources WHERE internal_path IS NOT NULL AND trim(internal_path) != ''`)
-    .all();
+  const rows = await db.all(`SELECT id, internal_path, file_mime_type FROM resources WHERE internal_path IS NOT NULL AND trim(internal_path) != ''`);
   const base = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/sync/blob`;
 
   for (const r of rows) {
@@ -285,9 +285,7 @@ async function downloadResourceFiles(db, fileStorage, database, oauthModule, pay
  * actual bytes so every device has the portable vault on disk.
  */
 async function uploadVaultFiles(db, fileStorage, database, oauthModule) {
-  const rows = db
-    .prepare(`SELECT id, project_id, vault_path, file_mime_type FROM resources WHERE type != 'folder' AND vault_path IS NOT NULL AND trim(vault_path) != ''`)
-    .all();
+  const rows = await db.all(`SELECT id, project_id, vault_path, file_mime_type FROM resources WHERE type != 'folder' AND vault_path IS NOT NULL AND trim(vault_path) != ''`);
   const queries = database.getQueries();
   const base = `${getDomeProviderBaseUrl().replace(/\/$/, '')}/api/v1/sync/blob`;
   for (const r of rows) {
@@ -336,7 +334,7 @@ async function downloadVaultFiles(db, fileStorage, database, oauthModule, payloa
       if (!fs.existsSync(pathMod.dirname(abs))) fs.mkdirSync(pathMod.dirname(abs), { recursive: true });
       vaultStore.markSelfWrite(abs, vaultStore.contentHash(buf));
       fs.writeFileSync(abs, buf);
-      db.prepare('UPDATE resources SET content_hash = ? WHERE id = ?').run(vaultStore.contentHash(buf), res.id);
+      await db.run('UPDATE resources SET content_hash = ? WHERE id = ?', [vaultStore.contentHash(buf), res.id]);
     } catch (e) {
       console.warn('[cloud-sync] vault file write failed', res.id, e.message);
     }
@@ -351,13 +349,12 @@ async function runEmbeddingReindex(database, windowManager) {
     if (!db) return;
     const INDEXABLE_TYPES = ['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image', 'artifact'];
     const placeholders = INDEXABLE_TYPES.map(() => '?').join(',');
-    const resources = db
-      .prepare(
-        `SELECT id, type, title FROM resources
-         WHERE type IN (${placeholders})
-         ORDER BY updated_at DESC`,
-      )
-      .all(...INDEXABLE_TYPES);
+    const resources = await db.all(
+      `SELECT id, type, title FROM resources
+       WHERE type IN (${placeholders})
+       ORDER BY updated_at DESC`,
+      INDEXABLE_TYPES,
+    );
     for (const res of resources) {
       try {
         await semanticIndexScheduler.getIndexer().indexResource(res.id, { skipSemanticRelations: true });
@@ -386,18 +383,18 @@ async function pushFullSync(deps) {
   const db = database.getDB?.();
   if (!db) return { success: false, error: 'No database' };
 
-  const deviceId = getOrCreateDeviceId(db);
-  let localRev = getLocalRevision(db);
+  const deviceId = await getOrCreateDeviceId(db);
+  let localRev = await getLocalRevision(db);
   const remote = await getRemoteStatus(database);
   if (remote.success && remote.currentRevision > localRev) {
     const pulled = await pullAndApply({ database, fileStorage, windowManager });
     if (!pulled.success) return { success: false, error: pulled.error || 'pull_failed' };
-    localRev = getLocalRevision(db);
+    localRev = await getLocalRevision(db);
   }
 
-  const lastPushAt = getLastPushAt(db);
+  const lastPushAt = await getLastPushAt(db);
   const pushStartedAt = Date.now();
-  const delta = buildDelta(db, lastPushAt);
+  const delta = await buildDelta(db, lastPushAt);
   delta.deviceId = deviceId;
 
   await uploadResourceFiles(db, fileStorage, database, domeOauth);
@@ -421,8 +418,8 @@ async function pushFullSync(deps) {
     await res.json().catch(() => ({}));
     const pullResult = await pullAndApply({ database, fileStorage, windowManager });
     if (!pullResult.success) return { success: false, error: pullResult.error || 'pull_failed_after_409' };
-    const newLocal = getLocalRevision(db);
-    const retryDelta = buildDelta(db, lastPushAt);
+    const newLocal = await getLocalRevision(db);
+    const retryDelta = await buildDelta(db, lastPushAt);
     retryDelta.deviceId = deviceId;
     const retryBody = JSON.stringify({
       deviceId,
@@ -445,8 +442,8 @@ async function pushFullSync(deps) {
   const data = await res.json();
   const newRev = Number(data.newRevision);
   if (Number.isFinite(newRev)) {
-    setLocalRevision(db, newRev);
-    setLastPushAt(db, pushStartedAt);
+    await setLocalRevision(db, newRev);
+    await setLastPushAt(db, pushStartedAt);
   }
   try {
     windowManager?.broadcast?.('cloud-sync:pushed', { newRevision: newRev });
@@ -467,8 +464,8 @@ async function pullAndApply(deps) {
   const db = database.getDB?.();
   if (!db) return { success: false, error: 'No database' };
 
-  const deviceId = getOrCreateDeviceId(db);
-  let since = getLocalRevision(db);
+  const deviceId = await getOrCreateDeviceId(db);
+  let since = await getLocalRevision(db);
   const base = getDomeProviderBaseUrl().replace(/\/$/, '');
   const limit = 100;
   let maxRev = since;
@@ -489,7 +486,7 @@ async function pullAndApply(deps) {
       if (rev > maxRev) maxRev = rev;
       if (m.device_id === deviceId) continue;
       if (m.kind === 'bundle' && m.payload) {
-        applyBundlePayload(db, m.payload);
+        await applyBundlePayload(db, m.payload);
         await downloadResourceFiles(db, fileStorage, database, domeOauth, m.payload);
         await downloadVaultFiles(db, fileStorage, database, domeOauth, m.payload);
       }
@@ -499,7 +496,7 @@ async function pullAndApply(deps) {
     since = mutations[mutations.length - 1].revision;
   }
 
-  setLocalRevision(db, maxRev);
+  await setLocalRevision(db, maxRev);
 
   try {
     database.invalidateQueries?.();

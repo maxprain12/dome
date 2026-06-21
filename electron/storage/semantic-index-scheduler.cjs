@@ -97,15 +97,11 @@ async function indexMissingResources() {
   }
   try {
     const db = _database.getDB();
-    const rows = db
-      .prepare(
-        `
+    const rows = await db.all(`
       SELECT r.id FROM resources r
       WHERE r.type IN ('note','url','document','pdf','notebook','ppt','excel','image','artifact')
       LIMIT 500
-    `,
-      )
-      .all();
+    `);
     let scheduled = 0;
     for (const row of rows) {
       if (scheduled >= AUTO_INDEX_MAX_SCHEDULE_PER_SWEEP) break;

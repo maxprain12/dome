@@ -44,7 +44,7 @@ async function main() {
   console.log('[Bench] provider:', args.provider, 'model:', args.model);
 
   database.initDatabase();
-  runEngine.init(null, database, null);
+  await runEngine.init(null, database, null);
 
   fsMkdirSkills();
   await seedFixtures({ force: !args.keepData });

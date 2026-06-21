@@ -122,71 +122,71 @@ function rowToAccount(row, { withSecret = false } = {}) {
   return account;
 }
 
-function getAccountRow(accountId) {
-  return db().prepare('SELECT * FROM email_accounts WHERE id = ?').get(accountId);
+async function getAccountRow(accountId) {
+  return await db().get('SELECT * FROM email_accounts WHERE id = ?', [accountId]);
 }
 
-function listAccountRows() {
-  return db().prepare('SELECT * FROM email_accounts ORDER BY is_default DESC, created_at ASC').all();
+async function listAccountRows() {
+  return await db().all('SELECT * FROM email_accounts ORDER BY is_default DESC, created_at ASC');
 }
 
-function listAccounts() {
-  return { success: true, accounts: listAccountRows().map((r) => rowToAccount(r)) };
+async function listAccounts() {
+  return { success: true, accounts: (await listAccountRows()).map((r) => rowToAccount(r)) };
 }
 
-function resolveAccountId(accountId) {
+async function resolveAccountId(accountId) {
   if (accountId) return accountId;
-  const def = db().prepare('SELECT id FROM email_accounts WHERE is_default = 1 LIMIT 1').get();
+  const def = await db().get('SELECT id FROM email_accounts WHERE is_default = 1 LIMIT 1');
   if (def) return def.id;
-  const first = db().prepare('SELECT id FROM email_accounts ORDER BY created_at ASC LIMIT 1').get();
+  const first = await db().get('SELECT id FROM email_accounts ORDER BY created_at ASC LIMIT 1');
   return first ? first.id : null;
 }
 
-function addAccount(input) {
+async function addAccount(input) {
   const now = Date.now();
   const id = `email-${crypto.randomBytes(6).toString('hex')}`;
-  const existingCount = db().prepare('SELECT COUNT(*) AS n FROM email_accounts').get().n;
+  const existingCount = (await db().get('SELECT COUNT(*) AS n FROM email_accounts')).n;
   const isDefault = existingCount === 0 ? 1 : input.is_default ? 1 : 0;
-  if (isDefault) db().prepare('UPDATE email_accounts SET is_default = 0').run();
+  if (isDefault) await db().run('UPDATE email_accounts SET is_default = 0');
 
-  db()
-    .prepare(
+  await db()
+    .run(
       `INSERT INTO email_accounts
         (id, email, display_name, imap_host, imap_port, imap_encryption,
          smtp_host, smtp_port, smtp_encryption, username, secret, is_default, status, created_at, updated_at)
        VALUES (@id,@email,@display_name,@imap_host,@imap_port,@imap_encryption,
          @smtp_host,@smtp_port,@smtp_encryption,@username,@secret,@is_default,'active',@now,@now)`,
-    )
-    .run({
-      id,
-      email: input.email,
-      display_name: input.display_name || '',
-      imap_host: input.imap_host,
-      imap_port: Number(input.imap_port) || 993,
-      imap_encryption: input.imap_encryption || 'tls',
-      smtp_host: input.smtp_host,
-      smtp_port: Number(input.smtp_port) || 465,
-      smtp_encryption: input.smtp_encryption || 'tls',
-      username: input.username || input.email,
-      secret: encryptSecret(input.password || ''),
-      is_default: isDefault,
-      now,
-    });
+      [{
+        id,
+        email: input.email,
+        display_name: input.display_name || '',
+        imap_host: input.imap_host,
+        imap_port: Number(input.imap_port) || 993,
+        imap_encryption: input.imap_encryption || 'tls',
+        smtp_host: input.smtp_host,
+        smtp_port: Number(input.smtp_port) || 465,
+        smtp_encryption: input.smtp_encryption || 'tls',
+        username: input.username || input.email,
+        secret: encryptSecret(input.password || ''),
+        is_default: isDefault,
+        now,
+      }],
+    );
 
-  writeConfig();
-  return { success: true, accountId: id, accounts: listAccounts().accounts };
+  await writeConfig();
+  return { success: true, accountId: id, accounts: (await listAccounts()).accounts };
 }
 
-function removeAccount(accountId) {
-  const row = getAccountRow(accountId);
+async function removeAccount(accountId) {
+  const row = await getAccountRow(accountId);
   if (!row) return { success: false, error: 'Account not found' };
-  db().prepare('DELETE FROM email_accounts WHERE id = ?').run(accountId);
+  await db().run('DELETE FROM email_accounts WHERE id = ?', [accountId]);
   if (row.is_default) {
-    const next = db().prepare('SELECT id FROM email_accounts ORDER BY created_at ASC LIMIT 1').get();
-    if (next) db().prepare('UPDATE email_accounts SET is_default = 1 WHERE id = ?').run(next.id);
+    const next = await db().get('SELECT id FROM email_accounts ORDER BY created_at ASC LIMIT 1');
+    if (next) await db().run('UPDATE email_accounts SET is_default = 1 WHERE id = ?', [next.id]);
   }
-  writeConfig();
-  return { success: true, accounts: listAccounts().accounts };
+  await writeConfig();
+  return { success: true, accounts: (await listAccounts()).accounts };
 }
 
 // ---------------------------------------------------------------------------
@@ -230,8 +230,8 @@ function tomlAccountSection(row) {
     .join('\n');
 }
 
-function writeConfig() {
-  const rows = listAccountRows();
+async function writeConfig() {
+  const rows = await listAccountRows();
   fs.mkdirSync(configDir(), { recursive: true });
   const body = ['# Generated by Dome — do not edit by hand.', '', ...rows.map(tomlAccountSection)].join('\n');
   fs.writeFileSync(configPath(), body, { mode: 0o600 });
@@ -248,12 +248,12 @@ function writeConfig() {
  * @param {{ accountId?: string, input?: string }} [opts]
  */
 async function runHimalaya(args, opts = {}) {
-  const bin = await ensureHimalaya({ settingPath: getSettingPath() });
-  writeConfig();
+  const bin = await ensureHimalaya({ settingPath: await getSettingPath() });
+  await writeConfig();
 
   const env = { ...process.env };
   if (opts.accountId) {
-    const row = getAccountRow(opts.accountId);
+    const row = await getAccountRow(opts.accountId);
     if (!row) throw new Error('Account not found');
     env[PASSWORD_ENV] = decryptSecret(row.secret);
   }
@@ -323,14 +323,14 @@ function normalizeFolders(data) {
 }
 
 async function listFolders(accountId) {
-  const id = resolveAccountId(accountId);
+  const id = await resolveAccountId(accountId);
   if (!id) return { success: false, error: 'No email account configured', folders: [] };
   const data = await runHimalaya(['folder', 'list'], { accountId: id });
   return { success: true, folders: normalizeFolders(data) };
 }
 
 async function listEnvelopes(accountId, { folder = 'INBOX', page = 1, pageSize = 30 } = {}) {
-  const id = resolveAccountId(accountId);
+  const id = await resolveAccountId(accountId);
   if (!id) return { success: false, error: 'No email account configured', envelopes: [] };
   const data = await runHimalaya(
     ['envelope', 'list', '-f', folder, '--page', String(page), '--page-size', String(pageSize)],
@@ -340,7 +340,7 @@ async function listEnvelopes(accountId, { folder = 'INBOX', page = 1, pageSize =
 }
 
 async function searchEnvelopes(accountId, query, { folder = 'INBOX', pageSize = 30 } = {}) {
-  const id = resolveAccountId(accountId);
+  const id = await resolveAccountId(accountId);
   if (!id) return { success: false, error: 'No email account configured', envelopes: [] };
   const args = ['envelope', 'list', '-f', folder, '--page-size', String(pageSize)];
   if (query && query.trim()) args.push(query.trim());
@@ -405,7 +405,7 @@ async function readMessageHeaders(accountId, messageId, { folder = 'INBOX' } = {
  * `message export` writes `index.html` and `plain.txt` — we prefer the HTML file.
  */
 async function readMessage(accountId, messageId, { folder = 'INBOX' } = {}) {
-  const id = resolveAccountId(accountId);
+  const id = await resolveAccountId(accountId);
   if (!id) return { success: false, error: 'No email account configured' };
 
   const dest = messageExportDir(id, messageId, folder);
@@ -462,10 +462,10 @@ function buildMime({ from, to, cc, bcc, subject, body, extraHeaders = {} }) {
 }
 
 async function sendMessage(accountId, { to, cc, bcc, subject, body }) {
-  const id = resolveAccountId(accountId);
+  const id = await resolveAccountId(accountId);
   if (!id) return { success: false, error: 'No email account configured' };
   if (!to) return { success: false, error: 'Recipient (to) is required' };
-  const row = getAccountRow(id);
+  const row = await getAccountRow(id);
   const from = row.display_name ? `${row.display_name} <${row.email}>` : row.email;
   const mime = buildMime({ from, to, cc, bcc, subject, body });
   await runHimalaya(['message', 'send'], { accountId: id, input: mime });
@@ -473,7 +473,7 @@ async function sendMessage(accountId, { to, cc, bcc, subject, body }) {
 }
 
 async function replyMessage(accountId, messageId, { body, folder = 'INBOX' } = {}) {
-  const id = resolveAccountId(accountId);
+  const id = await resolveAccountId(accountId);
   if (!id) return { success: false, error: 'No email account configured' };
   const headers = await readMessageHeaders(id, messageId, { folder });
   const origFrom = headers.from;
@@ -482,7 +482,7 @@ async function replyMessage(accountId, messageId, { body, folder = 'INBOX' } = {
   if (!origFrom) return { success: false, error: 'Could not determine the original sender to reply to' };
 
   const subject = /^re:/i.test(origSubject) ? origSubject : `Re: ${origSubject}`;
-  const row = getAccountRow(id);
+  const row = await getAccountRow(id);
   const from = row.display_name ? `${row.display_name} <${row.email}>` : row.email;
   const mime = buildMime({
     from,
@@ -514,9 +514,9 @@ async function testConnection(accountId) {
 // Settings helper (optional explicit binary path)
 // ---------------------------------------------------------------------------
 
-function getSettingPath() {
+async function getSettingPath() {
   try {
-    const row = db().prepare("SELECT value FROM settings WHERE key = 'email_himalaya_path'").get();
+    const row = await db().get("SELECT value FROM settings WHERE key = 'email_himalaya_path'");
     return row?.value || null;
   } catch {
     return null;

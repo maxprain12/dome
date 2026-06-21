@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dome vs Hermes — Comparativa de harnesses de agentes</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --bg-elev: #11151c;
+      --bg-card: #161b24;
+      --border: #232a36;
+      --border-soft: #1c222d;
+      --text: #e6e9ef;
+      --text-dim: #9aa3b2;
+      --text-mute: #6b7484;
+      --accent: #7c9cff;
+      --accent-2: #a78bfa;
+      --dome: #38bdf8;
+      --dome-bg: rgba(56, 189, 248, 0.08);
+      --dome-bd: rgba(56, 189, 248, 0.35);
+      --hermes: #fb923c;
+      --hermes-bg: rgba(251, 146, 60, 0.08);
+      --hermes-bd: rgba(251, 146, 60, 0.35);
+      --ok: #34d399;
+      --warn: #fbbf24;
+      --bad: #f87171;
+      --shadow: 0 1px 0 rgba(255, 255, 255, 0.04), 0 6px 24px rgba(0, 0, 0, 0.4);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { background: var(--bg); color: var(--text); }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code { font-family: var(--mono); font-size: 0.88em; background: var(--bg-elev); padding: 1px 6px; border-radius: 4px; border: 1px solid var(--border-soft); }
+    pre {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      overflow-x: auto;
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin: 0;
+    }
+    pre code { background: none; border: 0; padding: 0; }
+
+    header {
+      padding: 36px 32px 18px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(180deg, rgba(124, 156, 255, 0.06), transparent);
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      letter-spacing: -0.01em;
+    }
+    header .sub {
+      color: var(--text-dim);
+      max-width: 920px;
+      font-size: 14.5px;
+    }
+    .meta {
+      margin-top: 14px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--text-mute);
+    }
+    .meta span { padding: 2px 8px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-elev); }
+
+    main { max-width: 1280px; margin: 0 auto; padding: 24px 32px 80px; }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 8px 0 18px;
+      font-size: 12.5px;
+      color: var(--text-dim);
+    }
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--bg-elev);
+    }
+    .chip .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .chip.dome { color: var(--dome); border-color: var(--dome-bd); background: var(--dome-bg); }
+    .chip.dome .dot { background: var(--dome); }
+    .chip.hermes { color: var(--hermes); border-color: var(--hermes-bd); background: var(--hermes-bg); }
+    .chip.hermes .dot { background: var(--hermes); }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 24px;
+      overflow-x: auto;
+    }
+    .tab {
+      padding: 10px 14px;
+      font-size: 13.5px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border: 0;
+      background: none;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      font-family: inherit;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-color: var(--accent); }
+    .tab .count { font-size: 11px; color: var(--text-mute); margin-left: 6px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    h2 { font-size: 19px; margin: 30px 0 12px; letter-spacing: -0.01em; }
+    h3 { font-size: 15.5px; margin: 22px 0 8px; color: var(--text); }
+    h4 { font-size: 13px; margin: 16px 0 6px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+    p { color: var(--text-dim); }
+    .lead { color: var(--text); font-size: 15px; }
+
+    /* Cards grid */
+    .grid { display: grid; gap: 14px; }
+    .grid.two { grid-template-columns: repeat(2, 1fr); }
+    .grid.three { grid-template-columns: repeat(3, 1fr); }
+    @media (max-width: 900px) { .grid.two, .grid.three { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h3 { margin-top: 0; }
+    .card .tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 999px; margin-right: 4px; }
+
+    /* Compare table */
+    .cmp {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      font-size: 13.5px;
+    }
+    .cmp th, .cmp td {
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--border-soft);
+    }
+    .cmp tr:last-child th, .cmp tr:last-child td { border-bottom: 0; }
+    .cmp thead th {
+      background: var(--bg-elev);
+      color: var(--text-dim);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .cmp tbody th {
+      width: 22%;
+      color: var(--text);
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.015);
+    }
+    .cmp td.dome { background: var(--dome-bg); border-left: 2px solid var(--dome-bd); }
+    .cmp td.hermes { background: var(--hermes-bg); border-left: 2px solid var(--hermes-bd); }
+    .cmp td small { color: var(--text-mute); display: block; margin-top: 4px; }
+
+    /* Verdict */
+    .verdict {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .verdict .badge {
+      padding: 1px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .verdict .badge.equivalente { background: rgba(154, 163, 178, 0.15); color: var(--text-dim); }
+    .verdict .badge.dome-mejor { background: rgba(56, 189, 248, 0.15); color: var(--dome); }
+    .verdict .badge.hermes-mejor { background: rgba(251, 146, 60, 0.15); color: var(--hermes); }
+    .verdict .badge.dome-unico { background: rgba(167, 139, 250, 0.15); color: var(--accent-2); }
+    .verdict .badge.hermes-unico { background: rgba(167, 139, 250, 0.15); color: var(--accent-2); }
+    .verdict .badge.diferente { background: rgba(251, 191, 36, 0.15); color: var(--warn); }
+
+    /* Accordion */
+    details {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+    }
+    details[open] { border-color: var(--border); }
+    details > summary {
+      cursor: pointer;
+      padding: 12px 16px;
+      list-style: none;
+      font-weight: 600;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    details > summary::-webkit-details-marker { display: none; }
+    details > summary::before {
+      content: "▸";
+      color: var(--text-mute);
+      transition: transform 0.15s ease;
+      display: inline-block;
+      width: 12px;
+    }
+    details[open] > summary::before { transform: rotate(90deg); }
+    details .body { padding: 4px 16px 16px; color: var(--text-dim); font-size: 13.5px; }
+
+    .stack-block {
+      display: grid;
+      grid-template-columns: 110px 1fr 1fr;
+      gap: 0;
+      font-size: 13px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--bg-card);
+    }
+    .stack-block .head {
+      padding: 8px 12px;
+      background: var(--bg-elev);
+      color: var(--text-dim);
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid var(--border);
+    }
+    .stack-block .cell { padding: 10px 14px; border-bottom: 1px solid var(--border-soft); }
+    .stack-block .row:last-child .cell { border-bottom: 0; }
+    .stack-block .cell.dome { border-left: 2px solid var(--dome-bd); background: var(--dome-bg); }
+    .stack-block .cell.hermes { border-left: 2px solid var(--hermes-bd); background: var(--hermes-bg); }
+    .stack-block .row {
+      display: contents;
+    }
+    .stack-block .label {
+      background: rgba(255, 255, 255, 0.02);
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .mermaid { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; overflow-x: auto; }
+    .mermaid svg { max-width: 100%; height: auto; }
+
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+      color: var(--text-mute);
+      font-size: 12.5px;
+    }
+
+    .kbd {
+      display: inline-block;
+      padding: 1px 6px;
+      border: 1px solid var(--border);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      background: var(--bg-elev);
+      color: var(--text-dim);
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      background: rgba(11, 13, 18, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 32px;
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      z-index: 10;
+      font-size: 12.5px;
+      color: var(--text-mute);
+    }
+    .nav strong { color: var(--text); }
+    .nav .spacer { flex: 1; }
+
+    .search {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      color: var(--text);
+      font-size: 12px;
+      width: 220px;
+      font-family: inherit;
+    }
+
+    @media print {
+      .nav, .tabs { display: none; }
+      .panel { display: block !important; }
+      body { background: white; color: black; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <strong>Dome vs Hermes</strong>
+  <span>Comparativa de harnesses de agentes (gateways omitidos)</span>
+  <div class="spacer"></div>
+  <input id="search" class="search" placeholder="Buscar dimensión (loop, memory, hitl, skills…)" />
+</nav>
+
+<header>
+  <h1>Dome vs Hermes — arquitectura de harnesses de agentes</h1>
+  <p class="sub">
+    Comparación de los dos harnesses obviando el sistema de gateways de Hermes
+    (Telegram/Discord/Slack/email/WhatsApp/SMS). El objetivo es entender la
+    <em>forma</em> de cada sistema: bucle, contexto, memoria, sesiones, tools,
+    skills, compactación, scheduling y orquestación. Si conoces uno, el otro se
+    entiende como un conjunto de variantes.
+  </p>
+  <div class="meta">
+    <span>16 dimensiones</span>
+    <span>7 diagramas Mermaid</span>
+    <span>Dome: Electron + <code>@dome/agent-core</code></span>
+    <span>Hermes: CLI + siempre activo</span>
+  </div>
+</header>
+
+<main>
+  <div class="legend">
+    <span class="chip dome"><span class="dot"></span>Dome</span>
+    <span class="chip hermes"><span class="dot"></span>Hermes</span>
+    <span>Las tarjetas con borde de color pertenecen al harness correspondiente.</span>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="overview" role="tab">Resumen <span class="count">4</span></button>
+    <button class="tab" data-tab="compare" role="tab">Matriz 16-d <span class="count">16</span></button>
+    <button class="tab" data-tab="loop" role="tab">Bucle del agente <span class="count">3</span></button>
+    <button class="tab" data-tab="memory" role="tab">Memoria + contexto <span class="count">3</span></button>
+    <button class="tab" data-tab="tools" role="tab">Tools, skills, HITL <span class="count">3</span></button>
+    <button class="tab" data-tab="orchestration" role="tab">Sub-agentes + scheduling <span class="count">3</span></button>
+    <button class="tab" data-tab="patterns" role="tab">Patrones transferibles <span class="count">2</span></button>
+  </div>
+
+  <!-- ============================== OVERVIEW ============================== -->
+  <section id="overview" class="panel active">
+    <h2>Resumen en una página</h2>
+    <p class="lead">
+      Ambos harnesses resuelven el mismo problema: dar a un LLM un bucle
+      persistente con memoria, contexto, tools y scheduling. Lo hacen con
+      filosofías distintas — Hermes apuesta por la simplicidad textual
+      (Markdown como fuente de verdad), Dome por la orquestación rica (DAG,
+      sub-agentes, HITL, IPC). Esta página te ayuda a saltar entre los dos.
+    </p>
+
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome <small style="color: var(--text-mute); font-weight: 400;">Electron desktop app</small></h3>
+        <p>Runtime único <code>@dome/agent-core</code> + LLM connector <code>@dome/ai</code>. Bucle <code>stream → tools → repeat</code> con <em>hooks</em> <code>beforeToolCall</code> (caps + HITL) y <code>context</code> (compactación por resumen). Persistencia de sesión en JSONL, runs en SQLite, sub-agentes anidados (<code>task</code>, <code>delegate_to_agent</code>), workflows como DAG topológico, threads/time-travel.</p>
+        <p><strong>7 superficies</strong>: <code>many</code>, <code>agent-chat</code>, <code>workflows</code>, <code>agent-team</code>, <code>subagent</code>, <code>agent-team-member</code>, <code>threads</code>. Frontend React con tabs; main process en CommonJS.</p>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes <small style="color: var(--text-mute); font-weight: 400;">Always-on agent</small></h3>
+        <p>CLI + gateways (Telegram/Discord/Slack/email/SMS/WhatsApp) + API. Bucle clásico: <em>recibe → contexto → LLM → tools → respuesta → memoria</em>. Persistencia en SQLite por sesión, memoria principal en tres archivos Markdown (<code>soul.md</code>, <code>user.md</code>, <code>memory.md</code>). Cron propio con <code>jobs.json</code>. Memoria externa opcional (mem0, SuperMemory).</p>
+        <p><strong>1 superficie</strong> principal (loop), una por gateway. Sin sub-agentes anidados, sin HITL explícito, sin DAG, sin time-travel. La potencia viene de la composición externa (vía gateways).</p>
+      </div>
+    </div>
+
+    <h3>Vista global lado a lado</h3>
+    <div class="mermaid">
+flowchart LR
+    subgraph D[Dome]
+        D1[Renderer<br/>ManyPanel, AgentTeamChat, AgentCanvasView]
+        D2[IPC layer<br/>electron/preload.cjs]
+        D3[run-engine.cjs<br/>createRunChunkEmitter]
+        D4[agent-runtime.cjs<br/>setupHarness + runDomeAgent]
+        D5["@dome/agent-core<br/>AgentHarness.prompt()"]
+        D6[JSONL sessions<br/>+ SQLite runs]
+        D1 --> D2 --> D3 --> D4 --> D5
+        D5 -. append / open .-> D6
+    end
+
+    subgraph H[Hermes]
+        H1[CLI / Gateways / API]
+        H2[Gateway adapter<br/>Telegram, Slack, Discord, etc.]
+        H3[Context builder<br/>soul.md + user.md + memory.md + history]
+        H4[Agent loop<br/>LLM ↔ tools]
+        H5[SQLite sessions<br/>+ jobs.json cron]
+        H1 --> H2 --> H3 --> H4
+        H4 -. session_id .-> H5
+    end
+    </div>
+
+    <h3>Cómo está organizada esta página</h3>
+    <ul>
+      <li><strong>Matriz 16-d</strong>: una tabla compacta que cruza cada dimensión y da un veredicto (Dome mejor / Hermes mejor / equivalente / único de Dome / único de Hermes / diferente).</li>
+      <li><strong>Bucle</strong>: la pieza central de cualquier agente. Aquí se ve cómo cada uno hace <em>stream → tools → repeat</em> y qué metadata persiste por turno.</li>
+      <li><strong>Memoria + contexto</strong>: tres archivos Markdown vs JSONL+SQLite+múltiples memorias, y cómo se combinan con el system prompt.</li>
+      <li><strong>Tools, skills, HITL</strong>: catálogo plano, caps por herramienta, system prompt on-demand, aprobación humana.</li>
+      <li><strong>Sub-agentes + scheduling</strong>: workflows DAG, time-travel, jobs.json. La dimensión donde más difieren.</li>
+      <li><strong>Patrones transferibles</strong>: lecciones que se pueden portar de uno al otro.</li>
+    </ul>
+  </section>
+
+  <!-- ============================== COMPARE TABLE ============================== -->
+  <section id="compare" class="panel">
+    <h2>Matriz 16 dimensiones</h2>
+    <p>Cada fila compara una dimensión arquitectónica. Las celdas Dome van con borde azul; las Hermes, naranja. El <em>veredicto</em> indica qué harness tiene la solución más rica o si son conceptos diferentes.</p>
+
+    <div style="overflow-x: auto;">
+    <table class="cmp" id="cmpTable">
+      <thead>
+        <tr>
+          <th>Dimensión</th>
+          <th>Dome</th>
+          <th>Hermes</th>
+          <th>Veredicto</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr data-keywords="loop bucle agent core">
+          <th>Bucle del agente</th>
+          <td class="dome"><code>stream → tools → repeat</code> con <code>AgentHarness.prompt()</code> y hooks <code>beforeToolCall</code> + <code>context</code>. Límite de 25 turnos (env).<small><code>electron/agents/agent-runtime.cjs</code></small></td>
+          <td class="hermes">Loop clásico: usuario → contexto → LLM → tool calls → resultado → LLM → respuesta. Sin límite explícito de turnos descrito.<small>El loop vive en el core; los gateways lo invocan.</small></td>
+          <td><span class="verdict"><span class="badge dome-mejor">Dome más rico</span></span><small>Hooks programáticos + límite explícito + compactación automática entre turnos.</small></td>
+        </tr>
+        <tr data-keywords="context system prompt assembler">
+          <th>Construcción de contexto</th>
+          <td class="dome"><code>shared/prompt-assembler</code> con orden estable: persona → constraints → appContext → tools → skills → volatile (date + recurso activo) → extras → voice. 13 secciones core + 12 docs on-demand (<code>dome_load_doc</code>).<small><code>PROMPT_VERSION = 'minimax-v1'</code></small></td>
+          <td class="hermes">Tres archivos Markdown: <code>soul.md</code> (rol), <code>user.md</code> (sobre el usuario), <code>memory.md</code> (notas durables). + historial + descripción de tools/skills + memoria externa opcional.<small>Concatenación, no assembler.</small></td>
+          <td><span class="verdict"><span class="badge diferente">Filosofías distintas</span></span><small>Hermes = texto + humano. Dome = assembler estructurado + presupuesto medido por chunk.</small></td>
+        </tr>
+        <tr data-keywords="memory markdown soul user">
+          <th>Memoria principal</th>
+          <td class="dome">Markdown legacy: <code>~/.dome/martin/{SOUL,USER,MEMORY}.md</code> + memoria diaria <code>memory/YYYY-MM-DD.md</code>. Disociada del runtime nativo (path legacy).<small><code>electron/personality/personality-loader.cjs</code></small></td>
+          <td class="hermes"><strong>Fuente de verdad principal</strong>: <code>soul.md</code> + <code>user.md</code> + <code>memory.md</code>. El agente puede reescribir <code>user.md</code> cuando aprende algo.<small>La potencia de Hermes está en la edición por parte del modelo.</small></td>
+          <td><span class="verdict"><span class="badge hermes-mejor">Hermes más simple y vivo</span></span><small>El modelo reescribe su propia memoria. Dome tiene el path pero está desconectado del runtime nativo.</small></td>
+        </tr>
+        <tr data-keywords="session sqlite jsonl">
+          <th>Persistencia de sesión</th>
+          <td class="dome">JSONL por thread en <code>userData/agent-sessions/dome/&lt;threadId&gt;.jsonl</code>. Cada mensaje, cambio de thinking, modelo, compaction, branch, label es un entry. <code>JsonlSessionRepo</code> soporta <code>fork</code> y <code>compact</code>.<small>Sesiones anidadas (sub/member/fork) se filtran del sidebar Many.</small></td>
+          <td class="hermes">SQLite, una fila por interaction con un <code>session_id</code>. El <code>session_id</code> identifica el canal (Telegram, Slack, email thread, etc.).<small>Sin árbol ni forks.</small></td>
+          <td><span class="verdict"><span class="badge dome-mejor">Dome más expresivo</span></span><small>JSONL + fork = time-travel nativo. SQLite plano en Hermes.</small></td>
+        </tr>
+        <tr data-keywords="runs store sqlite steps">
+          <th>Persistencia de runs / observabilidad</th>
+          <td class="dome">SQLite: <code>automation_runs</code> + <code>automation_run_steps</code> + <code>automation_run_links</code>. Patch por chunk vía <code>createRunChunkEmitter</code>. Emite eventos <code>runs:updated</code> / <code>runs:step</code> / <code>runs:chunk</code>.<small>El <code>RunLogView</code> muestra la timeline.</small></td>
+          <td class="hermes">Historial embebido en la misma tabla de sesiones. Sin "run" como entidad separada — el loop no se rompe.<small>Más simple, pero menos auditable.</small></td>
+          <td><span class="verdict"><span class="badge dome-mejor">Dome más auditable</span></span><small>Run = unidad de auditoría explícita. Steps persistidos, links a artefactos.</small></td>
+        </tr>
+        <tr data-keywords="compact summarization context window">
+          <th>Compactación de contexto</th>
+          <td class="dome">Automática + manual. <code>DEFAULT_COMPACTION_SETTINGS</code>: <code>reserveTokens: 16384</code>, <code>keepRecentTokens: 20000</code>. Trigger <code>contextTokens &gt; contextWindow - reserve</code>. <code>generateSummary</code> + emite chunk <code>compaction</code>.<small>Manual: <code>threads:compact</code> IPC.</small></td>
+          <td class="hermes">Por umbral (default 50% de la ventana, ajustable). Resume preservando: objetivo, acciones completadas, estado activo, blockers, decisiones, archivos relevantes, resúmenes previos, turnos pendientes.<small>Estructura explícita del resumen.</small></td>
+          <td><span class="verdict"><span class="badge equivalente">Equivalente con distinto detalle</span></span><small>Hermes define <em>qué</em> debe quedar en el resumen. Dome define <em>cuándo</em> y los tokens a reservar.</small></td>
+        </tr>
+        <tr data-keywords="tools catálogo registry">
+          <th>Catálogo de tools</th>
+          <td class="dome"><code>TOOL_COUNT = 102</code> en 21 familias (<code>@dome/tools/src/families.ts</code>). Registry nuevo <code>createToolRegistry</code> + dispatcher histórico <code>tool-dispatcher.cjs</code>. Handlers en <code>ai-tools-handler.cjs</code>.<small>Tool families: web, resources, projects, memory, calendar, email, artifacts, feeders, flashcards, notebook, office, vision, docs, entities, marketplace, browser, image, file, shell, studio, ui.</small></td>
+          <td class="hermes">Tools definidas vía el system prompt + descripción. No hay catálogo estructurado público; el agente ve el nombre y la descripción.<small>No detallado en el tutorial.</small></td>
+          <td><span class="verdict"><span class="badge dome-mejor">Dome más estructurado</span></span><small>Familias, caps por tool, timeouts específicos, registry tipado.</small></td>
+        </tr>
+        <tr data-keywords="tools caps limit">
+          <th>Límites de tools</th>
+          <td class="dome">Cap global 200/run (<code>DEFAULT_GLOBAL_TOOL_CALL_LIMIT</code>). Cap por tool (<code>CREATION_TOOL_CAPS</code>, 19 entries; default 50). Mutation thresholds (<code>resource_update:5</code>, <code>artifact_merge_data:10</code>).<small>OPENAI_COMPAT_MAX_TOOLS = 128.</small></td>
+          <td class="hermes">No descrito. El loop continúa mientras el LLM pida tools; no hay caps explícitos.<small>El costo del LLM es el único límite práctico.</small></td>
+          <td><span class="verdict"><span class="badge dome-mejor">Dome más seguro</span></span><small>Caps evitan loops infinitos y abuso. Hermes depende del juicio del modelo.</small></td>
+        </tr>
+        <tr data-keywords="skills SKILL.md">
+          <th>Skills</th>
+          <td class="dome">Formato <code>SKILL.md</code> con YAML frontmatter (<code>name</code>, <code>description</code>, <code>when_to_use</code>). User dir <code>~/.dome/skills/</code> + bundled seed. Inyección XML en system prompt vía <code>formatSkillsForSystemPrompt</code>.<small>~3 skills bundled: <code>dome-commit-helper</code>, <code>dome-source-synthesizer</code>, <code>dome-study-planner</code>.</small></td>
+          <td class="hermes">Skills inyectadas también como descripciones en el system prompt. El cuerpo completo está disponible.<small>Mismo patrón conceptual, distinto formato.</small></td>
+          <td><span class="verdict"><span class="badge equivalente">Conceptualmente equivalente</span></span><small>Dome tipifica más el formato (frontmatter). Hermes lo deja más libre.</small></td>
+        </tr>
+        <tr data-keywords="hitl approval interrupt">
+          <th>HITL (Human-in-the-loop)</th>
+          <td class="dome"><strong>Sí, robusto</strong>. <code>HITL_TOOL_NAMES</code> (8 tools: <code>resource_delete</code>, <code>artifact_delete</code>, <code>feeder_run</code>, <code>ppt_create</code>, <code>notebook_run_cell</code>, <code>shell_exec</code>, <code>email_send</code>, <code>email_reply</code>). <code>beforeToolCall</code> lanza <code>HitlInterruptError</code>; el run-engine persiste <code>status:'waiting_approval'</code>; el renderer envía <code>runs:resume</code> con <code>approve | reject | edit</code>.<small>Stale recovery a 7 días.</small></td>
+          <td class="hermes">No descrito. El loop se ejecuta sin approval gates. La única "moderación" posible es la respuesta humana al mensaje final.<small>Hermes confía en el humano que está al otro lado del gateway.</small></td>
+          <td><span class="verdict"><span class="badge dome-unico">Único de Dome</span></span><small>HITL explícito es la pieza que más trabajo da a los harness siempre-activos.</small></td>
+        </tr>
+        <tr data-keywords="sub-agent delegation task">
+          <th>Sub-agentes / delegación</th>
+          <td class="dome"><strong>Sí, dos tools</strong>. <code>task</code> (Many, enum fijo <code>['research','library','writer','data']</code>) y <code>delegate_to_agent</code> (Agent Team, members dinámicos). Cada uno lanza un <em>nested harness</em> con surface propia (<code>subagent</code>, <code>agent-team-member</code>) y sub-session JSONL (<code>&lt;parent&gt;_sub_&lt;name&gt;_&lt;ts&gt;</code>).<small><strong>Sin recursión</strong>: <code>task</code> no se inyecta dentro del subagente.</small></td>
+          <td class="hermes">No descrito. Sin mecanismo de sub-delegation.<small>El loop es plano.</small></td>
+          <td><span class="verdict"><span class="badge dome-unico">Único de Dome</span></span><small>Capacidad de componer especialistas (research/library/writer/data) sin re-implementar el loop.</small></td>
+        </tr>
+        <tr data-keywords="workflow dag nodes">
+          <th>Workflows / orquestación</th>
+          <td class="dome"><strong>Sí, DAG topológico</strong> en <code>workflow-executor.cjs</code> + <code>workflow-dag.cjs</code>. Niveles por dependencias, paralelismo intra-nivel (<code>Promise.all</code>), retry 3× con backoff (500ms·2^j + jitter). Nodos: <code>text-input</code>, <code>document</code>, <code>image</code>, <code>output</code>, <code>agent</code>. Sin checkpoint persistente: si crashea, hay que relanzar.<small>Output node puede crear <code>createNoteResource</code>.</small></td>
+          <td class="hermes">No descrito. Sin DAG.<small>La orquestación se hace en código o manualmente por el usuario.</small></td>
+          <td><span class="verdict"><span class="badge dome-unico">Único de Dome</span></span><small>Dome es un motor de workflows + agente, no solo un agente.</small></td>
+        </tr>
+        <tr data-keywords="time travel fork thread">
+          <th>Time-travel / threads</th>
+          <td class="dome">API <code>Session.fork()</code> + <code>navigateTree(targetId)</code>. IPC <code>threads:list</code>, <code>threads:get-state</code>, <code>threads:get-history</code>, <code>threads:update-state</code>, <code>threads:compact</code>, <code>threads:navigate-tree</code>.<small>UI <code>ThreadTimeline.tsx</code> existe pero parcial.</small></td>
+          <td class="hermes">No descrito.<small>El historial se queda en SQLite, no hay branching.</small></td>
+          <td><span class="verdict"><span class="badge dome-unico">Único de Dome</span></span><small>Capacidad de fork y resumen de rama no es trivial de añadir a un loop plano.</small></td>
+        </tr>
+        <tr data-keywords="scheduler cron jobs">
+          <th>Scheduling / cron</th>
+          <td class="dome"><code>automation-service.cjs</code> con <code>setInterval(tick, 60_000)</code>. Triggers: <code>schedule</code> (cadence: <code>daily</code>, <code>weekly</code>, <code>cron-lite</code> con <code>intervalMinutes</code>), <code>resource_opened</code> (contextual). Startup grace (60s / 120s Windows).<small>Puede disparar <code>feeder</code>, <code>workflow</code>, <code>agent</code>, <code>many</code>.</small></td>
+          <td class="hermes"><strong>Loop propio</strong> que lee <code>jobs.json</code> en el directorio de cron (no SQLite como dice la doc). Ejecuta jobs programados. Interactúa con gateways (ej. "send daily Slack post").<small>La doc dice SQLite pero el código usa <code>jobs.json</code>.</small></td>
+          <td><span class="verdict"><span class="badge equivalente">Conceptualmente equivalente</span></span><small>Ambos tienen un loop independiente. Dome dispara runs completos; Hermes envía mensajes.</small></td>
+        </tr>
+        <tr data-keywords="external memory mem0 supermemory">
+          <th>Memoria externa</th>
+          <td class="dome">No integrada directamente. La <em>knowledge base</em> es local: LanceDB (<code>dome-lance</code>) + FTS5 + grafo. RAG vía tool <code>resource_hybrid_search</code>.<small>Hay un LLM dedicado al KB sync (<code>kb-llm-provision.cjs</code>).</small></td>
+          <td class="hermes">Sí, opcional. <strong>mem0</strong> y <strong>SuperMemory</strong> como providers externos. Cuando está habilitado, recupera memorias relevantes más allá de los Markdown y SQLite locales.<small>La memoria externa es "recall" sobre memorias aprendidas.</small></td>
+          <td><span class="verdict"><span class="badge diferente">Resuelven cosas distintas</span></span><small>Dome = retrieval sobre documentos. Hermes = recall sobre memorias del usuario.</small></td>
+        </tr>
+        <tr data-keywords="providers llm openai anthropic">
+          <th>Providers LLM</th>
+          <td class="dome">9+ providers: <code>openai</code>, <code>anthropic</code>, <code>google</code>, <code>ollama</code>, <code>openrouter</code>, <code>minimax</code> (alias Anthropic), <code>copilot</code> (GitHub OAuth), <code>deepseek</code>, <code>moonshot</code>, <code>qwen</code>, <code>opencode</code>, <code>opencode-go</code>, <code>dome</code>.<small><code>@dome/ai</code> + <code>model-factory.cjs</code>.</small></td>
+          <td class="hermes">No detallado. Típicamente OpenAI / Anthropic / open-weight locales. Configurable pero no listado exhaustivamente.<small>El gateway es agnóstico al provider.</small></td>
+          <td><span class="verdict"><span class="badge dome-mejor">Dome más documentado</span></span><small>Lista explícita en el código; settings UI cubre todos.</small></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- ============================== LOOP ============================== -->
+  <section id="loop" class="panel">
+    <h2>Bucle del agente</h2>
+    <p>El bucle es la pieza común. La diferencia está en los hooks y en lo que persiste cada turno.</p>
+
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome — bucle nativo</h3>
+        <p>El <code>AgentHarness</code> de <code>@dome/agent-core</code> ejecuta <code>prompt(userPrompt, images)</code> y emite <em>AgentEvents</em> que el bridge mapea a chunks del renderer.</p>
+<pre><code>// electron/agents/agent-runtime.cjs
+const setup = await setupHarness(surface, opts);
+const assistant = await harness.prompt(
+  userPrompt,
+  promptImages.length > 0 ? { images: promptImages } : undefined,
+);</code></pre>
+        <p>Hook <code>beforeToolCall</code> (caps + HITL) y hook <code>context</code> (compactación por resumen) corren entre eventos.</p>
+        <p><strong>Límite duro</strong>: 25 turnos (<code>DEFAULT_RECURSION_LIMIT</code>, env <code>DOME_RECURSION_LIMIT</code>) vía <code>buildTurnLimiter</code>.</p>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes — bucle clásico</h3>
+        <p>El loop es lo que describe el tutorial: <em>recibe → contexto → LLM → tool calls → resultado → respuesta → memoria</em>.</p>
+<pre><code>1. User sends a message
+2. Hermes builds the context for the request
+3. The context and message history are sent to the LLM
+4. The LLM may decide to call tools
+5. Tool results are sent back to the LLM
+6. The LLM produces a final response
+7. Hermes updates memory when there is something useful to remember</code></pre>
+        <p>El último paso — <em>update memory</em> — es la pieza clave: el agente mejora con el uso.</p>
+      </div>
+    </div>
+
+    <h3>Diagrama de bucle</h3>
+    <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant U as User / Gateway
+    participant CB as Context Builder
+    participant L as LLM
+    participant T as Tools
+    participant M as Memory Store
+    participant H as Hooks (Dome) / post-loop (Hermes)
+
+    U->>CB: message
+    CB->>L: context + history + tools/skills
+    alt Dome: hook 'context' (compaction)
+        L-->>H: estimateTokens
+        H-->>CB: replace old msgs with summary
+    end
+    L-->>L: stream deltas
+    L->>T: tool calls
+    alt Dome: hook 'beforeToolCall' (caps + HITL)
+        T-->>H: prior counts + mutation threshold
+        alt cap exceeded
+            H-->>L: block reason
+        else HITL tool
+            H->>U: approval request
+            U-->>H: approve | reject | edit
+        else ok
+            T->>T: executeToolInMain
+        end
+    end
+    T-->>L: tool results
+    L-->>CB: final response
+    CB->>M: persist turn
+    alt Hermes: post-loop memory update
+        M->>M: rewrite user.md / memory.md if useful
+    end
+    M-->>U: response
+    </div>
+
+    <h3>Por turno persiste</h3>
+    <div class="stack-block">
+      <div class="row">
+        <div class="head"></div>
+        <div class="head">Dome</div>
+        <div class="head">Hermes</div>
+      </div>
+      <div class="row">
+        <div class="cell label">Mensajes</div>
+        <div class="cell dome">JSONL entry en <code>userData/agent-sessions/dome/&lt;threadId&gt;.jsonl</code></div>
+        <div class="cell hermes">Fila en SQLite con <code>session_id</code></div>
+      </div>
+      <div class="row">
+        <div class="cell label">Cambios de thinking/modelo</div>
+        <div class="cell dome">Sí, entries tipados (<code>ThinkingLevelChange</code>, <code>ModelChange</code>)</div>
+        <div class="cell hermes">No descrito</div>
+      </div>
+      <div class="row">
+        <div class="cell label">Tool calls + resultados</div>
+        <div class="cell dome">En <code>automation_run_steps</code> (SQLite) <em>y</em> en la response del modelo</div>
+        <div class="cell hermes">En el message de la sesión</div>
+      </div>
+      <div class="row">
+        <div class="cell label">Usage / tokens</div>
+        <div class="cell dome"><code>mergeLlmUsage</code> acumulativo, emitido como chunk <code>usage</code></div>
+        <div class="cell hermes">No detallado</div>
+      </div>
+      <div class="row">
+        <div class="cell label">Compaction</div>
+        <div class="cell dome">Entry <code>CompactionEntry</code> con <code>tokensBefore</code>, <code>summary</code>, <code>firstKeptEntryId</code></div>
+        <div class="cell hermes">Reemplaza el segmento resumido en contexto; el log SQLite no se modifica</div>
+      </div>
+      <div class="row">
+        <div class="cell label">HITL interrupt</div>
+        <div class="cell dome">Run pasa a <code>status:'waiting_approval'</code>; chunk <code>interrupt</code> con <code>actionRequests</code></div>
+        <div class="cell hermes">No aplica</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== MEMORY ============================== -->
+  <section id="memory" class="panel">
+    <h2>Memoria + contexto</h2>
+    <p>Cómo cada harness decide qué va al contexto de cada turno.</p>
+
+    <h3>Fuentes de memoria</h3>
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome</h3>
+        <ul>
+          <li><strong>Markdown legacy</strong> (<code>~/.dome/martin/{SOUL,USER,MEMORY}.md</code>) — disociado del runtime nativo, path legacy.</li>
+          <li><strong>Project memory</strong> — <code>AGENTS.md</code> en la raíz del proyecto, inyección manual por el caller.</li>
+          <li><strong>Sesiones JSONL</strong> — <code>JsonlSessionRepo</code> en <code>userData/agent-sessions/</code>. Tree con entries, forks, compactions.</li>
+          <li><strong>Runs SQLite</strong> — <code>automation_runs</code> + <code>automation_run_steps</code> + <code>automation_run_links</code>.</li>
+          <li><strong>Knowledge base local</strong> — LanceDB (<code>dome-lance</code>) + FTS5 + grafo. RAG vía tool <code>resource_hybrid_search</code>.</li>
+          <li><strong>Tool</strong> <code>remember_fact</code> — para que el modelo guarde hechos del usuario.</li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes</h3>
+        <ul>
+          <li><strong>Markdown vivo</strong> — <code>soul.md</code> (rol), <code>user.md</code> (sobre el usuario, reescrito por el modelo), <code>memory.md</code> (notas durables).</li>
+          <li><strong>SQLite</strong> — una fila por interaction con <code>session_id</code>. Identifica el canal (Telegram, Slack, email).</li>
+          <li><strong>Memoria externa opcional</strong> — mem0, SuperMemory. Cuando está habilitada, recupera memorias relevantes más allá de los Markdown.</li>
+          <li><strong>Historial reciente</strong> — los últimos mensajes de la sesión + descripción de tools + skills.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Diagrama — qué entra al contexto de un turno</h3>
+    <div class="mermaid">
+flowchart TB
+    subgraph D2[Dome context]
+        D1[System prompt assembler]
+        D2a["1. staticPersona<br/>(role)"]
+        D2b["2. constraintsLanguage"]
+        D2c["3. appContext +<br/>core tools block"]
+        D2d["4. skillsCatalogMarkdown"]
+        D2e["5. volatileContext<br/>(date, activeResourceId,<br/>pinnedResourceIds)"]
+        D2f["6. extraSections"]
+        D2g["7. voice suffix"]
+        D1 --> D2a --> D2b --> D2c --> D2d --> D2e --> D2f --> D2g --> DOut([System prompt final<br/>PROMPT_VERSION=minimax-v1])
+    end
+    subgraph H2[Hermes context]
+        H1[soul.md<br/>role + tone + goals]
+        H2a[user.md<br/>about the user]
+        H2b[memory.md<br/>workflows + facts]
+        H2c[recent message history]
+        H2d[tool descriptions]
+        H2e[skill descriptions]
+        H2f[external memory<br/>mem0 / SuperMemory]
+        H1 --> HOut
+        H2a --> HOut
+        H2b --> HOut
+        H2c --> HOut
+        H2d --> HOut
+        H2e --> HOut
+        H2f --> HOut
+        HOut([Assembled context])
+    end
+    </div>
+
+    <h3>Compactación</h3>
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h4 style="color: var(--dome);">Dome</h4>
+        <pre><code>DEFAULT_COMPACTION_SETTINGS = {
+  enabled: true,
+  reserveTokens: 16384,
+  keepRecentTokens: 20000,
+}
+
+shouldCompact(estimate, window, settings) =
+  estimate &gt; window - reserveTokens</code></pre>
+        <p>Genera resumen con <code>generateSummary</code>, lo inserta como primer mensaje del nuevo contexto, persiste un <code>CompactionEntry</code> en el JSONL.</p>
+        <p><strong>Trigger</strong>: automático cuando se cumple el umbral. <strong>Manual</strong>: <code>threads:compact</code> IPC.</p>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h4 style="color: var(--hermes);">Hermes</h4>
+        <pre><code>Threshold: 50% of model context window
+(configurable; lower for small-window models)
+
+Summary preserves:
+  - goal of the conversation
+  - completed actions
+  - active state
+  - blockers
+  - key decisions
+  - resolved questions
+  - relevant files
+  - previous summaries
+  - turns still to incorporate</code></pre>
+        <p>Hermes define explícitamente la <em>estructura</em> del resumen; Dome define los tokens y el corte. Los dos cubren el mismo problema.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================== TOOLS / SKILLS / HITL ============================== -->
+  <section id="tools" class="panel">
+    <h2>Tools, skills, HITL</h2>
+
+    <h3>Tools</h3>
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome</h3>
+        <p><strong>102 tools</strong> en 21 familias, registradas con tipado y timeout por tool. Caps explícitos para evitar abuso.</p>
+        <ul>
+          <li>Registry: <code>@dome/tools/src/families.ts</code> + <code>createToolRegistry</code></li>
+          <li>Dispatcher: <code>tool-dispatcher.cjs</code> con <code>TOOL_HANDLER_MAP</code> → <code>ai-tools-handler.cjs</code></li>
+          <li>Cap global: <strong>200 tool-calls / run</strong></li>
+          <li>Cap por tool: <code>CREATION_TOOL_CAPS</code> (19 entries) o <code>DEFAULT_PER_TOOL_CAP = 50</code></li>
+          <li><code>dome_load_doc</code>: 12 docs on-demand (entity_rules, artifacts, …)</li>
+          <li>Helpers: <code>normalizeToolInput</code>, <code>capToolResultString</code> (48k default), <code>formatToolResultForModel</code></li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes</h3>
+        <p>Las tools se describen en el system prompt. El agente decide cuándo invocarlas por nombre.</p>
+        <ul>
+          <li>Sin catálogo estructurado público</li>
+          <li>Sin caps explícitos por tool</li>
+          <li>Sin timeout por tool en el código del loop</li>
+          <li>El costo del LLM es el único freno natural</li>
+          <li>El gateway mapea entradas externas al formato interno de la tool</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Skills</h3>
+    <p>Ambos exponen skills al agente como descripciones, con cuerpo disponible bajo demanda. La diferencia es de formato.</p>
+
+    <details open>
+      <summary>SKILL.md (Dome)</summary>
+      <div class="body">
+<pre><code>---
+name: Commit Helper
+description: Write clear, conventional git commit messages and summarize a set of changes.
+when_to_use: When the user asks for a commit message, wants to summarize a diff, or is preparing to commit code.
+---
+
+# Body in markdown...</code></pre>
+        <p>YAML frontmatter tipifica <code>name</code>, <code>description</code>, <code>when_to_use</code>, opcional <code>disableModelInvocation</code>. Inyección en system prompt como bloque XML:</p>
+<pre><code>&lt;available_skills&gt;
+  &lt;skill&gt;
+    &lt;name&gt;Commit Helper&lt;/name&gt;
+    &lt;description&gt;...&lt;/description&gt;
+    &lt;location&gt;/Users/.../SKILL.md&lt;/location&gt;
+  &lt;/skill&gt;
+&lt;/available_skills&gt;</code></pre>
+      </div>
+    </details>
+
+    <details>
+      <summary>Skills (Hermes)</summary>
+      <div class="body">
+        <p>Las skills también se inyectan como descripciones en el system prompt; el cuerpo completo está disponible. Formato más libre — no se exige frontmatter YAML.</p>
+      </div>
+    </details>
+
+    <h3>HITL — la pieza que más difiere</h3>
+    <div class="mermaid">
+flowchart LR
+    subgraph A[Dome HITL]
+        A1[beforeToolCall hook] --> A2{Tool en HITL_TOOL_NAMES?}
+        A2 -->|sí| A3[throw HitlInterruptError]
+        A2 -->|no, mutation threshold| A4[thresholdApproval = true]
+        A2 -->|no| A5[execute]
+        A3 --> A6[chunk 'interrupt' + status='waiting_approval']
+        A6 --> A7[renderer: HITLReviewPanel]
+        A7 --> A8[runs:resume con decisions]
+        A8 --> A9[resumeDomeAgent: skipHitl, execute con hitlApproved:true]
+        A4 --> A3
+    end
+    subgraph B[Hermes]
+        B1[tool call] --> B2[execute]
+        B2 --> B3[final response]
+        B3 --> B4[user reads response]
+        B4 --> B5[no further automated control]
+    end
+    </div>
+
+    <h3>Resumen comparativo</h3>
+    <table class="cmp">
+      <thead>
+        <tr><th>Aspecto</th><th>Dome</th><th>Hermes</th></tr>
+      </thead>
+      <tbody>
+        <tr><th>Catálogo de tools</th><td class="dome">102 tools, 21 familias, tipadas</td><td class="hermes">Plano, descrito en system prompt</td></tr>
+        <tr><th>Cap por tool</th><td class="dome"><code>CREATION_TOOL_CAPS</code> + default 50</td><td class="hermes">Ninguno explícito</td></tr>
+        <tr><th>Cap global</th><td class="dome">200 calls/run</td><td class="hermes">Sin límite descrito</td></tr>
+        <tr><th>Skills</th><td class="dome"><code>SKILL.md</code> + bundled seed</td><td class="hermes">Descripción en system prompt</td></tr>
+        <tr><th>HITL</th><td class="dome"><code>HitlInterruptError</code> + 8 tools gateadas</td><td class="hermes">No descrito</td></tr>
+        <tr><th>Time-out por tool</th><td class="dome">Sí, <code>TOOL_TIMEOUT_OVERRIDES</code> (ej. <code>transcribe_audio: 600s</code>)</td><td class="hermes">No descrito</td></tr>
+        <tr><th>On-demand docs</th><td class="dome"><code>dome_load_doc</code> con 12 IDs</td><td class="hermes">No descrito</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================== ORCHESTRATION ============================== -->
+  <section id="orchestration" class="panel">
+    <h2>Sub-agentes, workflows y scheduling</h2>
+    <p>Aquí es donde más difieren. Dome es un motor de orquestación + agente; Hermes es un agente siempre-activo.</p>
+
+    <h3>Sub-agentes</h3>
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome — dos tools de delegación</h3>
+        <p><code>task</code> (Many) llama a un sub-harness con surface <code>subagent</code> y tool subset fijo. <code>delegate_to_agent</code> (Agent Team) llama a un member con surface <code>agent-team-member</code> y tools por <code>member.toolIds</code>.</p>
+<pre><code>// electron/agents/subagents-native.cjs
+const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data'];
+
+const text = await agentRuntime.runAgent('subagent', {
+  provider, model, apiKey, baseUrl,
+  messages, toolDefinitions: toolDefs,   // subset fijo
+  useDirectTools: true, skipHitl: true,
+  threadId: `${parent.threadId}_sub_${name}_${ts}`,
+  parentThreadId: parent.threadId,
+});</code></pre>
+        <p><strong>Limitación confirmada</strong>: <code>task</code> no se inyecta dentro del subagente — sin recursión.</p>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes — sin sub-agentes</h3>
+        <p>El loop es plano. No hay <em>delegation</em> interna. La "composición" se hace a nivel externo: múltiples instancias del agente, o el humano decide qué instancia atender qué tarea.</p>
+        <p>Si necesitas "research + writer" tendrías que:</p>
+        <ul>
+          <li>Definir un agent research y uno writer como dos procesos.</li>
+          <li>Coordinar entre ellos a nivel de gateway o con código.</li>
+          <li>O el humano encadena turnos.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Workflows / orquestación</h3>
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome — DAG topológico</h3>
+        <p>Workflows son nodos conectados por edges. <code>topologicalLevels()</code> agrupa por dependencias; intra-nivel se ejecuta en paralelo (<code>Promise.all</code>); entre niveles, en serie. Cada nodo-agent pasa por el harness (<code>runAgent('workflows', …)</code>).</p>
+<pre><code>// electron/agents/workflow-executor.cjs
+const levels = topologicalLevels(wfNodes, wfEdges);
+for (const level of levels) {
+  const results = await Promise.all(
+    level.map((node) => runNodeWithRetry(nodeRunners.get(node.id)))
+  );
+  for (const r of results) if (r?.payloads) Object.assign(state.payloads, r.payloads);
+}</code></pre>
+        <p>Tipos de nodo: <code>text-input</code>, <code>document</code>, <code>image</code>, <code>output</code>, <code>agent</code>. Retry 3× con backoff exponencial (500ms·2^j + jitter).</p>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes — sin DAG</h3>
+        <p>No hay concepto de workflow. La "orquestación" es la concatenación de turnos que el usuario o un script externo decide.</p>
+        <p>El cron loop ejecuta jobs aislados; no encadena resultados entre jobs.</p>
+      </div>
+    </div>
+
+    <h3>Scheduling</h3>
+    <div class="grid two">
+      <div class="card" style="border-color: var(--dome-bd);">
+        <h3 style="color: var(--dome);">Dome — automation-service</h3>
+        <pre><code>// electron/agents/automation-service.cjs
+setInterval(tick, 60_000);
+// isDue(automation, ts) por triggerType:
+//  - 'schedule' (daily, weekly, cron-lite)
+//  - 'resource_opened' (contextual, vía notifications IPC)
+//  - 'feeder' / 'workflow' / 'agent' / 'many' como targetType</code></pre>
+        <p>Dispara runs completos. Persiste run en <code>automation_runs</code>, ejecuta con <code>startAutomationNow</code> que decide entre feeder/workflow/agent/many. Si hay <code>automation_artifact_bindings</code>, el resultado se mapea a artefactos persistidos (Kind B) vía <code>artifact-sink.cjs</code>.</p>
+      </div>
+
+      <div class="card" style="border-color: var(--hermes-bd);">
+        <h3 style="color: var(--hermes);">Hermes — jobs.json loop</h3>
+        <p>El loop propio lee <code>jobs.json</code> en intervalos y ejecuta los jobs que encuentra. La documentación dice SQLite pero la implementación analizada usa JSON.</p>
+        <p>Casos típicos:</p>
+        <ul>
+          <li>Enviar un email cada mañana con AI news</li>
+          <li>Post diario a Slack</li>
+          <li>Mensaje semanal al jefe</li>
+          <li>Recurring agent tasks</li>
+        </ul>
+        <p>El cron interactúa con gateways: si el job debe notificarte en Telegram/Slack, el gateway debe estar configurado.</p>
+      </div>
+    </div>
+
+    <h3>Diagrama de scheduling</h3>
+    <div class="mermaid">
+flowchart LR
+    subgraph D3[Dome scheduling]
+        DS[Tick<br/>setInterval 60s] --> DA[automation-service.isDue]
+        DA -->|schedule| DR[startAgentRun]
+        DA -->|resource_opened| DR
+        DR --> DB[SQLite automation_runs]
+        DR --> DH[runAgent via harness]
+        DH -. output .-> DSink[artifact-sink<br/>apply bindings]
+        DSink --> DArt[artifact:updated event]
+    end
+    subgraph H3[Hermes scheduling]
+        HS[Tick<br/>interval] --> HJ[read jobs.json]
+        HJ -->|due| HJob[execute scheduled job]
+        HJob --> HLoop[run agent loop]
+        HLoop --> HG[send via gateway]
+    end
+    </div>
+  </section>
+
+  <!-- ============================== PATTERNS ============================== -->
+  <section id="patterns" class="panel">
+    <h2>Patrones transferibles</h2>
+    <p>Lo que puedes portar de uno al otro.</p>
+
+    <div class="grid two">
+      <div class="card">
+        <h3>De Hermes a Dome</h3>
+        <ul>
+          <li><strong>Memoria Markdown viva</strong>: el modelo reescribe <code>user.md</code>/<code>memory.md</code>. Dome tiene el path legacy disociado; revivirlo como mecanismo de aprendizaje es lo que más le falta.</li>
+          <li><strong>Estructura explícita del resumen</strong>: objetivo, acciones, blockers, decisiones, archivos relevantes. Dome podría adoptarlo en <code>generateSummary</code> con un prompt estructurado.</li>
+          <li><strong>Concatenación minimalista</strong>: el context builder de Hermes es trivial (append). Dome podría ganar un modo "minimal" para casos simples sin perder el assembler rico.</li>
+          <li><strong>Memoria externa opcional</strong>: mem0/SuperMemory como providers pluggables. Dome tiene la KB local (LanceDB); añadir recall semántico sobre memorias del usuario es una pieza similar.</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>De Dome a Hermes</h3>
+        <ul>
+          <li><strong>HITL explícito</strong>: el <code>beforeToolCall</code> con caps + interrupt. Para un always-on agent que toca <code>shell_exec</code> o <code>email_send</code>, la aprobación humana por tool es valiosa. Hermes no la tiene; añadirla es la mejora más obvia.</li>
+          <li><strong>Caps por tool</strong>: 200 global + cap por tool evita loops infinitos y abuso. Un siempre-activo se beneficia de límites duros.</li>
+          <li><strong>Sub-agentes / delegación</strong>: Hermes es plano. Añadir <code>task(subagent_type, prompt)</code> con un subset de tools (research, writer, data) lo haría más potente sin cambiar el loop principal.</li>
+          <li><strong>Time-travel / fork</strong>: JSONL con <code>fork()</code> permite explorar variantes de un thread. SQLite plano no lo soporta; el coste es bajo si se opta por JSONL per-thread.</li>
+          <li><strong>Run como entidad auditable</strong>: el <code>RunLogView</code> de Dome con <code>runs:updated</code> + <code>runs:step</code> es un patrón útil para depurar y facturar.</li>
+          <li><strong>Tool registry tipado</strong>: <code>createToolRegistry</code> + <code>executeToolInMain</code> desacopla definición de ejecución. Un patrón limpio si Hermes quiere migrar a TS.</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Lo que ambos comparten (la columna vertebral)</h3>
+    <ul>
+      <li><strong>Loop</strong>: usuario → contexto → LLM → tools → respuesta → memoria.</li>
+      <li><strong>Context builder</strong>: system prompt + historial + tools/skills.</li>
+      <li><strong>Persistencia de sesión</strong>: una unidad de conversación con su <code>session_id</code>.</li>
+      <li><strong>Compactación por resumen</strong> cuando el contexto se acerca al límite.</li>
+      <li><strong>Scheduling</strong> como loop independiente del loop principal.</li>
+      <li><strong>Punto de entrada único</strong>: cada harness tiene una función a la que todo converge.</li>
+    </ul>
+
+    <h3>Resumen en una frase</h3>
+    <div class="card" style="background: linear-gradient(135deg, var(--dome-bg), var(--hermes-bg));">
+      <p class="lead" style="margin: 0; color: var(--text);">
+        <strong>Hermes</strong> es la versión minimalista, text-first, donde el modelo reescribe su propia memoria.
+        <strong>Dome</strong> es la versión orquestada, con HITL, sub-agentes, DAG, time-travel y auditoría por run.
+        El poder viene del mismo lugar: un loop limpio, contexto bien definido, memoria fiable, e integración con los canales por los que la gente realmente se comunica.
+      </p>
+    </div>
+  </section>
+
+  <div class="footer">
+    <p>Documento generado para uso interno. Citas a Dome contrastadas contra el código real (<a href="./harness-and-subagents.md">harness-and-subagents.md</a>, <a href="./agent-runtime.md">agent-runtime.md</a>). Hermes descrito según el tutorial de Alejandro — consultar el código real de Hermes para detalles de implementación.</p>
+  </div>
+</main>
+
+<!-- Mermaid (loaded from CDN with offline fallback) -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script>
+  if (typeof mermaid === 'undefined') {
+    document.querySelectorAll('.mermaid').forEach((el) => {
+      el.innerHTML = '<pre style="color:#9aa3b2;">' + el.textContent + '</pre>';
+    });
+  } else {
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      securityLevel: 'loose',
+      themeVariables: {
+        background: '#161b24',
+        primaryColor: '#1f2632',
+        primaryTextColor: '#e6e9ef',
+        primaryBorderColor: '#232a36',
+        lineColor: '#7c9cff',
+        secondaryColor: '#1c222d',
+        tertiaryColor: '#11151c',
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+        fontSize: '13px',
+      },
+      flowchart: { curve: 'basis', padding: 8 },
+      sequence: { actorMargin: 50, messageMargin: 35, boxMargin: 10 },
+    });
+  }
+
+  // Tabs
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.panel');
+  tabs.forEach((t) => {
+    t.addEventListener('click', () => {
+      tabs.forEach((x) => x.classList.remove('active'));
+      panels.forEach((p) => p.classList.remove('active'));
+      t.classList.add('active');
+      document.getElementById(t.dataset.tab).classList.add('active');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    const idx = Array.from(tabs).findIndex((t) => t.classList.contains('active'));
+    if (e.key === 'ArrowRight' && idx < tabs.length - 1) tabs[idx + 1].click();
+    if (e.key === 'ArrowLeft' && idx > 0) tabs[idx - 1].click();
+  });
+
+  // Search filter (highlights rows in the compare table)
+  const search = document.getElementById('search');
+  search.addEventListener('input', () => {
+    const q = search.value.trim().toLowerCase();
+    const rows = document.querySelectorAll('#cmpTable tbody tr');
+    rows.forEach((r) => {
+      const k = r.getAttribute('data-keywords') || '';
+      const txt = r.textContent.toLowerCase();
+      const match = !q || k.toLowerCase().includes(q) || txt.includes(q);
+      r.style.display = match ? '' : 'none';
+    });
+    if (q && !document.getElementById('compare').classList.contains('active')) {
+      document.querySelector('.tab[data-tab="compare"]').click();
+    }
+  });
+</script>
+
+</body>
+</html>

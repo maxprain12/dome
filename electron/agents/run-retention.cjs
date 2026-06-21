@@ -84,10 +84,10 @@ async function purgeExpiredRuns({ now = Date.now(), deps = defaultDeps() } = {})
   const cutoff = now - retentionDays * DAY_MS;
   const db = deps.getDB();
 
-  const expired = db.prepare(`
+  const expired = await db.all(`
     SELECT id, owner_type FROM automation_runs
     WHERE status IN ('completed', 'failed', 'cancelled') AND updated_at < ?
-  `).all(cutoff);
+  `, [cutoff]);
 
   const workflowRunIds = expired
     .filter((run) => run.owner_type === 'workflow')
@@ -100,18 +100,18 @@ async function purgeExpiredRuns({ now = Date.now(), deps = defaultDeps() } = {})
     .map((run) => run.id);
 
   if (purgeable.length > 0) {
-    const deleteRun = db.prepare('DELETE FROM automation_runs WHERE id = ?');
-    const deleteRuns = db.transaction((ids) => {
-      for (const id of ids) deleteRun.run(id);
+    await db.transaction(async (tx) => {
+      for (const id of purgeable) {
+        await tx.run('DELETE FROM automation_runs WHERE id = ?', [id]);
+      }
     });
-    deleteRuns(purgeable);
     result.purgedRuns = purgeable.length;
   }
 
-  const feederResult = db.prepare(`
+  const feederResult = await db.run(`
     DELETE FROM feeder_runs
     WHERE status IN ('completed', 'failed') AND started_at < ?
-  `).run(cutoff);
+  `, [cutoff]);
   result.purgedFeederRuns = feederResult?.changes ?? 0;
 
   if (result.purgedRuns > 0 || result.purgedFeederRuns > 0 || result.purgedSessions > 0) {

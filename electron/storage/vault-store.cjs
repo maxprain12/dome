@@ -87,33 +87,33 @@ function getVaultDir(fileStorage) {
  * Absolute vault root for a project: its custom `vault_root` if set, else
  * `dome-files/vault/<sanitized project name>`.
  */
-function getProjectVaultRoot(projectId, queries, fileStorage) {
+async function getProjectVaultRoot(projectId, queries, fileStorage) {
   let project = null;
-  try { project = queries.getProjectById.get(projectId); } catch { /* */ }
+  try { project = await queries.getProjectById.get(projectId); } catch { /* */ }
   const custom = project && typeof project.vault_root === 'string' ? project.vault_root.trim() : '';
   if (custom) return custom;
   return path.join(getDefaultVaultDir(fileStorage), sanitizeSegment(project?.name || 'Library', 'Library'));
 }
 
 /** List every project's vault root (for the watcher to know where to look). */
-function getProjectRoots(queries, fileStorage) {
+async function getProjectRoots(queries, fileStorage) {
   const out = [];
   let projects = [];
-  try { projects = queries.getProjects.all(); } catch { /* */ }
+  try { projects = await queries.getProjects.all(); } catch { /* */ }
   for (const p of projects) {
-    out.push({ projectId: p.id, projectName: p.name, root: getProjectVaultRoot(p.id, queries, fileStorage) });
+    out.push({ projectId: p.id, projectName: p.name, root: await getProjectVaultRoot(p.id, queries, fileStorage) });
   }
   return out;
 }
 
 /** Project-relative folder directory (POSIX) for a resource ('' at root). */
-function resolveFolderDir(resource, queries) {
+async function resolveFolderDir(resource, queries) {
   const segments = [];
   const visited = new Set();
   let folderId = resource.folder_id || null;
   while (folderId && !visited.has(folderId)) {
     visited.add(folderId);
-    const folder = queries.getResourceById.get(folderId);
+    const folder = await queries.getResourceById.get(folderId);
     if (!folder || folder.type !== 'folder') break;
     segments.unshift(sanitizeSegment(folder.title, 'Folder'));
     folderId = folder.folder_id || null;
@@ -135,8 +135,8 @@ function sanitizeFilename(name, fallback = 'file') {
  * resource: its folder chain + filename. Notes use `<title>.md`; other types
  * use the provided filename (import) or keep their current basename (relocate).
  */
-function buildRelPath(resource, queries, filename) {
-  const dir = resolveFolderDir(resource, queries);
+async function buildRelPath(resource, queries, filename) {
+  const dir = await resolveFolderDir(resource, queries);
   let file;
   if (resource.type === 'note') {
     file = `${sanitizeSegment(resource.title, 'Untitled')}${MD_EXT}`;
@@ -148,15 +148,15 @@ function buildRelPath(resource, queries, filename) {
 }
 
 /** Notes-only convenience (title-based `.md` path). */
-function resolveRelPath(resource, queries) {
-  return buildRelPath(resource, queries, null);
+async function resolveRelPath(resource, queries) {
+  return await buildRelPath(resource, queries, null);
 }
 
 /** Resolve the absolute on-disk path of a resource's file (vault or legacy). */
-function getResourceFilePath(resource, queries, fileStorage) {
+async function getResourceFilePath(resource, queries, fileStorage) {
   if (!resource) return null;
   if (resource.vault_path) {
-    return path.join(getProjectVaultRoot(resource.project_id, queries, fileStorage), resource.vault_path);
+    return path.join(await getProjectVaultRoot(resource.project_id, queries, fileStorage), resource.vault_path);
   }
   if (resource.internal_path) return fileStorage.getFullPath(resource.internal_path);
   if (resource.file_path) return resource.file_path;
@@ -169,12 +169,12 @@ function getResourceFilePath(resource, queries, fileStorage) {
  * project-relative vault_path + file metadata.
  * @returns {{ vaultPath: string, mimeType: string, size: number, contentHash: string }}
  */
-function importFileToVault(srcPath, resource, { database, fileStorage }) {
+async function importFileToVault(srcPath, resource, { database, fileStorage }) {
   const db = database.getDB();
   const queries = database.getQueries();
-  const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+  const root = await getProjectVaultRoot(resource.project_id, queries, fileStorage);
   const filename = sanitizeFilename(path.basename(srcPath), 'file');
-  const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, filename), resource, db);
+  const relPath = await ensureUniqueRelPath(await buildRelPath(resource, queries, filename), resource, db);
   const abs = path.join(root, relPath);
   const dir = path.dirname(abs);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -192,10 +192,11 @@ function importFileToVault(srcPath, resource, { database, fileStorage }) {
 }
 
 /** Ensure the relative path is unique within the project; else suffix an id. */
-function ensureUniqueRelPath(desiredRel, resource, db) {
-  const owner = db
-    .prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ? LIMIT 1')
-    .get(resource.project_id, desiredRel);
+async function ensureUniqueRelPath(desiredRel, resource, db) {
+  const owner = await db.get(
+    'SELECT id FROM resources WHERE project_id = ? AND vault_path = ? LIMIT 1',
+    [resource.project_id, desiredRel],
+  );
   if (!owner || owner.id === resource.id) return desiredRel;
   const dir = path.posix.dirname(desiredRel);
   const ext = path.posix.extname(desiredRel);
@@ -206,9 +207,9 @@ function ensureUniqueRelPath(desiredRel, resource, db) {
 }
 
 /** Absolute path of a note's mirror, resolving its project vault root. */
-function vaultAbsPathForResource(resource, queries, fileStorage) {
+async function vaultAbsPathForResource(resource, queries, fileStorage) {
   if (!resource?.vault_path) return null;
-  return path.join(getProjectVaultRoot(resource.project_id, queries, fileStorage), resource.vault_path);
+  return path.join(await getProjectVaultRoot(resource.project_id, queries, fileStorage), resource.vault_path);
 }
 
 // ── Disk primitives ──────────────────────────────────────────────────────────
@@ -307,17 +308,17 @@ function removeMirrorAbs(absPath, rootDir) {
 
 // ── High-level operations ────────────────────────────────────────────────────
 
-function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
+async function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
   try {
     const db = database.getDB();
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(id);
+    const resource = await queries.getResourceById.get(id);
     if (!resource) return { success: false, error: 'Resource not found' };
     if (resource.type !== 'note') return { success: false, error: 'Not a note' };
 
-    const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
-    const desiredRel = resolveRelPath(resource, queries);
-    const relPath = ensureUniqueRelPath(desiredRel, resource, db);
+    const root = await getProjectVaultRoot(resource.project_id, queries, fileStorage);
+    const desiredRel = await resolveRelPath(resource, queries);
+    const relPath = await ensureUniqueRelPath(desiredRel, resource, db);
     const prevRel = resource.vault_path || null;
 
     const body = typeof markdown === 'string' ? markdown : '';
@@ -328,9 +329,10 @@ function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
 
     const text = markdownToPlainText(body);
     const hash = contentHash(contents);
-    db.prepare(
+    await db.run(
       'UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ? WHERE id = ?',
-    ).run(relPath, text, hash, id);
+      [relPath, text, hash, id],
+    );
     return { success: true, vaultPath: relPath, contentHash: hash };
   } catch (err) {
     console.error('[VaultStore] writeNoteMarkdown failed:', err);
@@ -338,14 +340,14 @@ function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
   }
 }
 
-function readNoteMarkdown({ id }, { database, fileStorage }) {
+async function readNoteMarkdown({ id }, { database, fileStorage }) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(id);
+    const resource = await queries.getResourceById.get(id);
     if (!resource) return { success: false, error: 'Resource not found' };
     if (!resource.vault_path) return { success: false, error: 'No mirror' };
 
-    const full = vaultAbsPathForResource(resource, queries, fileStorage);
+    const full = await vaultAbsPathForResource(resource, queries, fileStorage);
     if (!full || !fs.existsSync(full)) return { success: false, error: 'Mirror missing' };
     const raw = fs.readFileSync(full, 'utf8');
     return { success: true, markdown: stripFrontmatter(raw), vaultPath: resource.vault_path };
@@ -360,22 +362,22 @@ function readNoteMarkdown({ id }, { database, fileStorage }) {
  * (notes) / filename (binaries) + folder chain, renaming on disk and updating
  * vault_path. Used after folder moves/renames.
  */
-function relocateResource(id, { database, fileStorage }) {
+async function relocateResource(id, { database, fileStorage }) {
   const db = database.getDB();
   const queries = database.getQueries();
-  const resource = queries.getResourceById.get(id);
+  const resource = await queries.getResourceById.get(id);
   if (!resource || resource.type === 'folder' || !resource.vault_path) {
     return { moved: false, vaultPath: resource?.vault_path || null };
   }
 
-  const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+  const root = await getProjectVaultRoot(resource.project_id, queries, fileStorage);
   const prevRel = resource.vault_path || null;
-  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+  const desiredRel = await ensureUniqueRelPath(await buildRelPath(resource, queries, null), resource, db);
   if (prevRel === desiredRel) return { moved: false, vaultPath: prevRel };
 
   const newAbs = path.join(root, desiredRel);
   try {
-    db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?').run(desiredRel, id);
+    await db.run('UPDATE resources SET vault_path = ? WHERE id = ?', [desiredRel, id]);
     if (prevRel) {
       const oldAbs = path.join(root, prevRel);
       if (fs.existsSync(oldAbs)) {
@@ -395,29 +397,31 @@ function relocateResource(id, { database, fileStorage }) {
 }
 
 /** Relocate every file-backed resource inside a folder subtree (after move/rename). */
-function relocateDescendants(folderId, deps) {
+async function relocateDescendants(folderId, deps) {
   const db = deps.database.getDB();
   const folderIds = [folderId];
   for (let i = 0; i < folderIds.length; i++) {
-    const subs = db
-      .prepare("SELECT id FROM resources WHERE folder_id = ? AND type = 'folder'")
-      .all(folderIds[i]);
+    const subs = await db.all(
+      "SELECT id FROM resources WHERE folder_id = ? AND type = 'folder'",
+      [folderIds[i]],
+    );
     for (const s of subs) folderIds.push(s.id);
   }
   const placeholders = folderIds.map(() => '?').join(',');
-  const items = db
-    .prepare(`SELECT id FROM resources WHERE type != 'folder' AND vault_path IS NOT NULL AND folder_id IN (${placeholders})`)
-    .all(...folderIds);
-  for (const n of items) relocateResource(n.id, deps);
+  const items = await db.all(
+    `SELECT id FROM resources WHERE type != 'folder' AND vault_path IS NOT NULL AND folder_id IN (${placeholders})`,
+    folderIds,
+  );
+  for (const n of items) await relocateResource(n.id, deps);
 }
 
 /** Remove the mirror file for a resource (on in-app delete). */
-function removeMirrorForResource(id, { database, fileStorage }) {
+async function removeMirrorForResource(id, { database, fileStorage }) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(id);
+    const resource = await queries.getResourceById.get(id);
     if (resource?.vault_path) {
-      const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+      const root = await getProjectVaultRoot(resource.project_id, queries, fileStorage);
       removeMirrorAbs(path.join(root, resource.vault_path), root);
     }
   } catch (err) {
@@ -429,22 +433,23 @@ function removeMirrorForResource(id, { database, fileStorage }) {
  * Write a `.md` received from cloud sync to disk and reconcile the matching
  * resource (by frontmatter id). Self-write so the watcher ignores it.
  */
-function applyDownloadedMirror(relPath, contents, { database, fileStorage }) {
+async function applyDownloadedMirror(relPath, contents, { database, fileStorage }) {
   try {
     const db = database.getDB();
     const queries = database.getQueries();
     const id = parseFrontmatterId(contents);
-    const resource = id ? queries.getResourceById.get(id) : null;
+    const resource = id ? await queries.getResourceById.get(id) : null;
     const projectId = resource?.project_id;
     const root = projectId
-      ? getProjectVaultRoot(projectId, queries, fileStorage)
+      ? await getProjectVaultRoot(projectId, queries, fileStorage)
       : getDefaultVaultDir(fileStorage);
     atomicWrite(path.join(root, relPath), contents);
     if (id && resource) {
       const text = markdownToPlainText(stripFrontmatter(contents));
-      db.prepare(
+      await db.run(
         'UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ? WHERE id = ?',
-      ).run(relPath, text, contentHash(contents), id);
+        [relPath, text, contentHash(contents), id],
+      );
     }
     return true;
   } catch (err) {
@@ -458,22 +463,23 @@ function applyDownloadedMirror(relPath, contents, { database, fileStorage }) {
  * from the old root to the new one. `newRoot` empty/null = revert to default.
  * @returns {{ success: boolean, root?: string, error?: string }}
  */
-function setProjectVaultRoot(projectId, newRoot, { database, fileStorage }) {
+async function setProjectVaultRoot(projectId, newRoot, { database, fileStorage }) {
   try {
     const db = database.getDB();
     const queries = database.getQueries();
-    const project = queries.getProjectById.get(projectId);
+    const project = await queries.getProjectById.get(projectId);
     if (!project) return { success: false, error: 'Project not found' };
 
-    const oldRoot = getProjectVaultRoot(projectId, queries, fileStorage);
+    const oldRoot = await getProjectVaultRoot(projectId, queries, fileStorage);
     const cleanRoot = String(newRoot || '').trim() || null;
     const resolvedNew = cleanRoot
       || path.join(getDefaultVaultDir(fileStorage), sanitizeSegment(project.name || 'Library', 'Library'));
 
     if (path.resolve(resolvedNew) !== path.resolve(oldRoot)) {
-      const notes = db
-        .prepare("SELECT id, vault_path FROM resources WHERE project_id=? AND type='note' AND vault_path IS NOT NULL AND trim(vault_path)!=''")
-        .all(projectId);
+      const notes = await db.all(
+        "SELECT id, vault_path FROM resources WHERE project_id=? AND type='note' AND vault_path IS NOT NULL AND trim(vault_path)!=''",
+        [projectId],
+      );
       for (const n of notes) {
         try {
           const oldAbs = path.join(oldRoot, n.vault_path);
@@ -489,7 +495,7 @@ function setProjectVaultRoot(projectId, newRoot, { database, fileStorage }) {
       }
     }
 
-    db.prepare('UPDATE projects SET vault_root = ? WHERE id = ?').run(cleanRoot, projectId);
+    await db.run('UPDATE projects SET vault_root = ? WHERE id = ?', [cleanRoot, projectId]);
     return { success: true, root: resolvedNew };
   } catch (err) {
     console.error('[VaultStore] setProjectVaultRoot failed:', err);

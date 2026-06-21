@@ -356,18 +356,18 @@ async function listEvents(startMs, endMs, options = {}) {
     let rows;
     if (calendarIds.length > 0) {
       const placeholders = calendarIds.map(() => '?').join(',');
-      const stmt = db.prepare(`
-        SELECT e.*, c.title as calendar_title, c.color as calendar_color
-        FROM calendar_events e
-        JOIN calendar_calendars c ON e.calendar_id = c.id
-        WHERE c.is_selected = 1 AND e.status != 'cancelled'
-          AND e.start_at < ? AND e.end_at > ?
-          AND e.calendar_id IN (${placeholders})
-        ORDER BY e.start_at ASC
-      `);
-      rows = stmt.all(endMs, startMs, ...calendarIds);
+      rows = await db.all(
+        `SELECT e.*, c.title as calendar_title, c.color as calendar_color
+         FROM calendar_events e
+         JOIN calendar_calendars c ON e.calendar_id = c.id
+         WHERE c.is_selected = 1 AND e.status != 'cancelled'
+           AND e.start_at < ? AND e.end_at > ?
+           AND e.calendar_id IN (${placeholders})
+         ORDER BY e.start_at ASC`,
+        [endMs, startMs, ...calendarIds],
+      );
     } else {
-      rows = q.getCalendarEventsByRange.all(endMs, startMs);
+      rows = await q.getCalendarEventsByRange.all(endMs, startMs);
     }
     const events = rows.map(rowToEventSummary);
     return { success: true, events };
@@ -459,14 +459,13 @@ async function getEventById(eventId) {
       return { success: false, error: 'Invalid event id' };
     }
     const db = database.getDB();
-    const row = db
-      .prepare(
-        `SELECT e.*, c.title as calendar_title, c.color as calendar_color
-         FROM calendar_events e
-         JOIN calendar_calendars c ON e.calendar_id = c.id
-         WHERE e.id = ?`,
-      )
-      .get(eventId);
+    const row = await db.get(
+      `SELECT e.*, c.title as calendar_title, c.color as calendar_color
+       FROM calendar_events e
+       JOIN calendar_calendars c ON e.calendar_id = c.id
+       WHERE e.id = ?`,
+      [eventId],
+    );
     if (!row) return { success: false, error: 'Event not found' };
     return { success: true, event: rowToEvent(row) };
   } catch (err) {

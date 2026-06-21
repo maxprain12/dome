@@ -94,12 +94,12 @@ function normalizeStepRow(row) {
   };
 }
 
-function updateStoredRun(run) {
+async function updateStoredRun(run) {
   const queries = getQueries();
   if (!queries?.updateAutomationRun) {
     throw new Error('Database queries unavailable');
   }
-  queries.updateAutomationRun.run(
+  await queries.updateAutomationRun.run(
     run.projectId ?? 'default',
     run.automationId ?? null,
     run.ownerType,
@@ -121,7 +121,7 @@ function updateStoredRun(run) {
   );
 }
 
-function createRun(params) {
+async function createRun(params) {
   const queries = getQueries();
   const timestamp = now();
   const run = {
@@ -145,7 +145,7 @@ function createRun(params) {
     finishedAt: params.finishedAt ?? null,
     lastHeartbeatAt: params.lastHeartbeatAt ?? timestamp,
   };
-  queries.createAutomationRun.run(
+  await queries.createAutomationRun.run(
     run.id,
     run.projectId,
     run.automationId,
@@ -170,9 +170,9 @@ function createRun(params) {
   return run;
 }
 
-function patchRun(runId, patch) {
+async function patchRun(runId, patch) {
   const queries = getQueries();
-  const current = normalizeRunRow(queries.getAutomationRunById.get(runId));
+  const current = normalizeRunRow(await queries.getAutomationRunById.get(runId));
   if (!current) {
     console.warn('[RunEngine] patchRun skipped — run not found:', runId);
     return null;
@@ -187,7 +187,7 @@ function patchRun(runId, patch) {
         ? patch.lastHeartbeatAt
         : (patch.status === 'running' ? now() : current.lastHeartbeatAt),
   };
-  updateStoredRun(next);
+  await updateStoredRun(next);
   emit(RUN_EVENT_CHANNEL, { run: next });
   if (next.automationId && RUN_TERMINAL_STATUSES.has(next.status)) {
     try {
@@ -217,9 +217,9 @@ function patchRun(runId, patch) {
   return next;
 }
 
-function appendRunStep(params) {
+async function appendRunStep(params) {
   const queries = getQueries();
-  if (!queries.getAutomationRunById.get(params.runId)) {
+  if (!(await queries.getAutomationRunById.get(params.runId))) {
     console.warn('[RunEngine] appendRunStep skipped — run not found:', params.runId);
     return null;
   }
@@ -237,7 +237,7 @@ function appendRunStep(params) {
     updatedAt: params.updatedAt ?? timestamp,
   };
   try {
-    queries.createAutomationRunStep.run(
+    await queries.createAutomationRunStep.run(
       step.id,
       step.runId,
       step.parentStepId,
@@ -257,7 +257,7 @@ function appendRunStep(params) {
   return step;
 }
 
-function updateRunStep(stepId, patch, existingStep = null) {
+async function updateRunStep(stepId, patch, existingStep = null) {
   const queries = getQueries();
   const mergedMetadata = existingStep
     ? { ...(existingStep.metadata ?? {}), ...(patch.metadata ?? {}) }
@@ -270,7 +270,7 @@ function updateRunStep(stepId, patch, existingStep = null) {
       updatedAt: patch.updatedAt ?? now(),
     }
     : null;
-  queries.updateAutomationRunStep.run(
+  await queries.updateAutomationRunStep.run(
     patch.status ?? 'done',
     patch.content ?? null,
     toJson(mergedMetadata),
@@ -281,7 +281,7 @@ function updateRunStep(stepId, patch, existingStep = null) {
   return nextStep;
 }
 
-function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
+async function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
   const stepStatus =
     runTerminalStatus === 'completed' ? 'done'
       : runTerminalStatus === 'cancelled' ? 'cancelled'
@@ -290,7 +290,7 @@ function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
   if (context?.toolSteps instanceof Map) {
     for (const [toolCallId, step] of context.toolSteps.entries()) {
       if (!step || step.status !== 'running') continue;
-      const next = updateRunStep(step.id, {
+      const next = await updateRunStep(step.id, {
         status: stepStatus,
         metadata: { ...(step.metadata ?? {}), autoFinalized: true },
       }, step);
@@ -299,11 +299,11 @@ function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
   }
 
   const queries = getQueries();
-  if (!queries.getAutomationRunById.get(runId)) return;
-  const steps = queries.getAutomationRunSteps.all(runId).map(normalizeStepRow);
+  if (!(await queries.getAutomationRunById.get(runId))) return;
+  const steps = (await queries.getAutomationRunSteps.all(runId)).map(normalizeStepRow);
   for (const step of steps) {
     if (step.status !== 'running') continue;
-    updateRunStep(step.id, {
+    await updateRunStep(step.id, {
       status: stepStatus,
       metadata: { ...(step.metadata ?? {}), autoFinalized: true },
     }, step);
@@ -319,12 +319,12 @@ function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
   }
 }
 
-function getRun(runId) {
+async function getRun(runId) {
   const queries = getQueries();
-  const run = normalizeRunRow(queries.getAutomationRunById.get(runId));
+  const run = normalizeRunRow(await queries.getAutomationRunById.get(runId));
   if (!run) return null;
-  const steps = queries.getAutomationRunSteps.all(runId).map(normalizeStepRow);
-  const links = queries.getAutomationRunLinks.all(runId).map((row) => ({
+  const steps = (await queries.getAutomationRunSteps.all(runId)).map(normalizeStepRow);
+  const links = (await queries.getAutomationRunLinks.all(runId)).map((row) => ({
     id: row.id,
     runId: row.run_id,
     linkType: row.link_type,
@@ -334,35 +334,35 @@ function getRun(runId) {
   return { ...run, steps, links };
 }
 
-function listRuns(filters = {}) {
+async function listRuns(filters = {}) {
   const queries = getQueries();
   const limit = Math.max(1, Math.min(Number(filters.limit ?? 20), 100));
   if (filters.sessionId) {
-    const row = queries.getActiveRunBySession.get(filters.sessionId);
+    const row = await queries.getActiveRunBySession.get(filters.sessionId);
     return row ? [normalizeRunRow(row)] : [];
   }
   if (filters.automationId) {
-    return queries.getAutomationRunsByAutomation.all(filters.automationId, limit).map(normalizeRunRow);
+    return (await queries.getAutomationRunsByAutomation.all(filters.automationId, limit)).map(normalizeRunRow);
   }
   if (filters.ownerType && filters.ownerId) {
-    return queries.getAutomationRunsByOwner.all(filters.ownerType, filters.ownerId, limit).map(normalizeRunRow);
+    return (await queries.getAutomationRunsByOwner.all(filters.ownerType, filters.ownerId, limit)).map(normalizeRunRow);
   }
   if (filters.projectId) {
-    return queries.getLatestAutomationRunsByProject.all(filters.projectId, limit).map(normalizeRunRow);
+    return (await queries.getLatestAutomationRunsByProject.all(filters.projectId, limit)).map(normalizeRunRow);
   }
-  return queries.getLatestAutomationRuns.all(limit).map(normalizeRunRow);
+  return (await queries.getLatestAutomationRuns.all(limit)).map(normalizeRunRow);
 }
 
-function getActiveRunBySession(sessionId) {
+async function getActiveRunBySession(sessionId) {
   const queries = getQueries();
-  return normalizeRunRow(queries.getActiveRunBySession.get(sessionId));
+  return normalizeRunRow(await queries.getActiveRunBySession.get(sessionId));
 }
 
-function createNoteResource(projectId, title, content, metadata = {}) {
+async function createNoteResource(projectId, title, content, metadata = {}) {
   const queries = getQueries();
   const timestamp = now();
   const id = crypto.randomUUID();
-  queries.createResource.run(
+  await queries.createResource.run(
     id,
     projectId || 'default',
     'note',

@@ -35,16 +35,17 @@ function isEnabled(kind) {
 }
 
 /** Ensure the dedicated local "GitHub" calendar exists. */
-function ensureGithubCalendar() {
+async function ensureGithubCalendar() {
   const db = database.getDB();
-  const existing = db.prepare('SELECT id FROM calendar_calendars WHERE id = ?').get(GITHUB_CALENDAR_ID);
+  const existing = await db.get('SELECT id FROM calendar_calendars WHERE id = ?', [GITHUB_CALENDAR_ID]);
   if (existing) return GITHUB_CALENDAR_ID;
   const ts = Date.now();
-  db.prepare(
+  await db.run(
     `INSERT OR IGNORE INTO calendar_calendars
       (id, account_id, remote_id, title, color, is_selected, is_default, created_at, updated_at)
      VALUES (?, 'local', 'github', 'GitHub', '#6e40c9', 1, 0, ?, ?)`,
-  ).run(GITHUB_CALENDAR_ID, ts, ts);
+    [GITHUB_CALENDAR_ID, ts, ts],
+  );
   return GITHUB_CALENDAR_ID;
 }
 
@@ -154,7 +155,7 @@ async function removeEvent(entityType, entityId) {
 
 /** Reproject all dated entities for the selected repos. Idempotent. */
 async function syncCalendar() {
-  ensureGithubCalendar();
+  await ensureGithubCalendar();
   const repos = store.listSelectedRepos();
   const milestonesOn = isEnabled('milestones');
   const issuesOn = isEnabled('issues');
@@ -247,8 +248,8 @@ async function purgeAllEvents() {
   try {
     const db = database.getDB();
     // Remove any stray github events then the calendar row.
-    db.prepare('DELETE FROM calendar_events WHERE calendar_id = ?').run(GITHUB_CALENDAR_ID);
-    db.prepare('DELETE FROM calendar_calendars WHERE id = ?').run(GITHUB_CALENDAR_ID);
+    await db.run('DELETE FROM calendar_events WHERE calendar_id = ?', [GITHUB_CALENDAR_ID]);
+    await db.run('DELETE FROM calendar_calendars WHERE id = ?', [GITHUB_CALENDAR_ID]);
   } catch {
     /* best-effort */
   }

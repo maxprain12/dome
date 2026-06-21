@@ -115,15 +115,14 @@ function previewIcsFile(filePath) {
   return { events, rawCount: blocks.length };
 }
 
-function loadExistingFingerprintsForCalendar(calendarId, startMs, endMs) {
+async function loadExistingFingerprintsForCalendar(calendarId, startMs, endMs) {
   const db = database.getDB();
-  const rows = db
-    .prepare(
-      `SELECT title, start_at, end_at, metadata FROM calendar_events
-       WHERE calendar_id = ? AND status != 'cancelled'
-         AND start_at < ? AND end_at > ?`,
-    )
-    .all(calendarId, endMs, startMs);
+  const rows = await db.all(
+    `SELECT title, start_at, end_at, metadata FROM calendar_events
+     WHERE calendar_id = ? AND status != 'cancelled'
+       AND start_at < ? AND end_at > ?`,
+    [calendarId, endMs, startMs],
+  );
   const set = new Set();
   for (const row of rows) {
     const meta = parseMetadata(row.metadata);
@@ -147,7 +146,7 @@ async function importIcsFile(filePath, calendarId, options = {}) {
   const preview = previewIcsFile(filePath);
   const rangeStart = Date.now() - 86400000 * 365 * 2;
   const rangeEnd = Date.now() + 86400000 * 365 * 2;
-  const existingFp = loadExistingFingerprintsForCalendar(calendarId, rangeStart, rangeEnd);
+  const existingFp = await loadExistingFingerprintsForCalendar(calendarId, rangeStart, rangeEnd);
   let imported = 0;
   let skipped = 0;
   const errors = [];

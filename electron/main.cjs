@@ -1090,7 +1090,7 @@ app
     calendarSyncScheduler.init(windowManager);
     githubSyncService.init(windowManager);
     githubSyncScheduler.init(windowManager);
-    runEngine.init(windowManager, database, ttsService);
+    await runEngine.init(windowManager, database, ttsService);
     automationService.init(windowManager, database);
     runRetention.init();
     errorNotify.init(windowManager);

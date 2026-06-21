@@ -98,28 +98,28 @@ function normalizeAutomationArtifactBindingRow(row) {
   };
 }
 
-function attachAutomationArtifactBindings(automation) {
+async function attachAutomationArtifactBindings(automation) {
   if (!automation) return null;
   const queries = getQueries();
-  const rows = queries.listAutomationArtifactBindings.all(automation.id);
+  const rows = await queries.listAutomationArtifactBindings.all(automation.id);
   const artifactBindings = rows.map(normalizeAutomationArtifactBindingRow);
   return { ...automation, artifactBindings };
 }
 
-function replaceAutomationArtifactBindings(automationId, rawBindings) {
+async function replaceAutomationArtifactBindings(automationId, rawBindings) {
   const queries = getQueries();
   const ts = now();
-  queries.deleteAutomationArtifactBindingsByAutomation.run(automationId);
+  await queries.deleteAutomationArtifactBindingsByAutomation.run(automationId);
   if (!Array.isArray(rawBindings)) return;
   for (const b of rawBindings) {
     if (!b || !b.artifactResourceId) continue;
-    const res = queries.getResourceById.get(String(b.artifactResourceId));
+    const res = await queries.getResourceById.get(String(b.artifactResourceId));
     if (!res || res.type !== 'artifact') continue;
     const policy = ['replace', 'merge_shallow', 'merge_deep', 'append_array'].includes(b.updatePolicy)
       ? b.updatePolicy
       : 'replace';
     const extract = ['json_fence', 'full_output'].includes(b.extractMode) ? b.extractMode : 'json_fence';
-    queries.insertAutomationArtifactBinding.run(
+    await queries.insertAutomationArtifactBinding.run(
       typeof b.id === 'string' && b.id.length >= 32 ? b.id : crypto.randomUUID(),
       automationId,
       String(b.artifactResourceId),
@@ -183,14 +183,14 @@ function normalizeAutomationInput(input, existingRow = null) {
   };
 }
 
-function upsertAutomation(input) {
+async function upsertAutomation(input) {
   const queries = getQueries();
   const id = input?.id ?? crypto.randomUUID();
-  const existing = queries.getAutomationDefinitionById.get(id);
+  const existing = await queries.getAutomationDefinitionById.get(id);
   const normalized = normalizeAutomationInput({ ...input, id }, existing);
   if (existing) {
     const previous = normalizeAutomationRow(existing);
-    queries.updateAutomationDefinition.run(
+    await queries.updateAutomationDefinition.run(
       normalized.projectId,
       normalized.title,
       normalized.description,
@@ -208,7 +208,7 @@ function upsertAutomation(input) {
       normalized.id,
     );
   } else {
-    queries.createAutomationDefinition.run(
+    await queries.createAutomationDefinition.run(
       normalized.id,
       normalized.projectId,
       normalized.title,
@@ -228,73 +228,75 @@ function upsertAutomation(input) {
     );
   }
   if (input.artifactBindings !== undefined) {
-    replaceAutomationArtifactBindings(normalized.id, input.artifactBindings);
+    await replaceAutomationArtifactBindings(normalized.id, input.artifactBindings);
   }
-  return attachAutomationArtifactBindings(normalizeAutomationRow(queries.getAutomationDefinitionById.get(normalized.id)));
+  return await attachAutomationArtifactBindings(normalizeAutomationRow(await queries.getAutomationDefinitionById.get(normalized.id)));
 }
 
-function listAutomations(filters = {}) {
+async function listAutomations(filters = {}) {
   const queries = getQueries();
   if (filters.targetType && filters.targetId) {
-    const rows = queries.getAutomationDefinitionsByTarget.all(filters.targetType, filters.targetId);
-    const mapped = rows.map(normalizeAutomationRow).map(attachAutomationArtifactBindings);
+    const rows = await queries.getAutomationDefinitionsByTarget.all(filters.targetType, filters.targetId);
+    const mapped = await Promise.all(rows.map(normalizeAutomationRow).map(attachAutomationArtifactBindings));
     if (filters.projectId) {
       return mapped.filter((a) => a.projectId === filters.projectId);
     }
     return mapped;
   }
   if (filters.projectId) {
-    return queries.getAutomationDefinitionsByProject.all(filters.projectId).map(normalizeAutomationRow).map(attachAutomationArtifactBindings);
+    const rows = await queries.getAutomationDefinitionsByProject.all(filters.projectId);
+    return await Promise.all(rows.map(normalizeAutomationRow).map(attachAutomationArtifactBindings));
   }
-  return queries.getAllAutomationDefinitions.all().map(normalizeAutomationRow).map(attachAutomationArtifactBindings);
+  const rows = await queries.getAllAutomationDefinitions.all();
+  return await Promise.all(rows.map(normalizeAutomationRow).map(attachAutomationArtifactBindings));
 }
 
-function deleteAutomation(id) {
+async function deleteAutomation(id) {
   const queries = getQueries();
-  queries.deleteAutomationDefinition.run(id);
+  await queries.deleteAutomationDefinition.run(id);
 }
 
-function deleteRun(runId) {
+async function deleteRun(runId) {
   abortRun(runId);
   releaseRunContext(runId, { force: true });
   const queries = getQueries();
-  const row = queries.getAutomationRunById.get(runId);
+  const row = await queries.getAutomationRunById.get(runId);
   if (!row) return;
   const snapshot = normalizeRunRow(row);
-  queries.deleteAutomationRun.run(runId);
+  await queries.deleteAutomationRun.run(runId);
   emit(RUN_EVENT_CHANNEL, { run: snapshot, deleted: true });
   emit('dome:runs-changed');
 }
 
-function getAutomation(id) {
+async function getAutomation(id) {
   const queries = getQueries();
-  const base = normalizeAutomationRow(queries.getAutomationDefinitionById.get(id));
-  return attachAutomationArtifactBindings(base);
+  const base = normalizeAutomationRow(await queries.getAutomationDefinitionById.get(id));
+  return await attachAutomationArtifactBindings(base);
 }
 
-function setAutomationRunStatus(automationId, status) {
-  const automation = getAutomation(automationId);
+async function setAutomationRunStatus(automationId, status) {
+  const automation = await getAutomation(automationId);
   if (!automation) return null;
-  return upsertAutomation({
+  return await upsertAutomation({
     ...automation,
     lastRunAt: now(),
     lastRunStatus: status,
   });
 }
 
-function ensureSettingsFlag(key) {
+async function ensureSettingsFlag(key) {
   const queries = getQueries();
-  return queries?.getSetting?.get(key)?.value === '1';
+  return (await queries?.getSetting?.get(key))?.value === '1';
 }
 
-function writeSettingsFlag(key) {
+async function writeSettingsFlag(key) {
   const queries = getQueries();
-  queries?.setSetting?.run(key, '1', now());
+  await queries?.setSetting?.run(key, '1', now());
 }
 
-function loadManyAgents(projectId = 'default') {
+async function loadManyAgents(projectId = 'default') {
   const queries = getQueries();
-  const rows = queries?.listManyAgents?.all?.(projectId) ?? [];
+  const rows = (await queries?.listManyAgents?.all?.(projectId)) ?? [];
   if (Array.isArray(rows) && rows.length > 0) {
     return rows.map((row) => ({
       id: row.id,
@@ -310,14 +312,14 @@ function loadManyAgents(projectId = 'default') {
       updatedAt: row.updated_at,
     }));
   }
-  const raw = queries?.getSetting?.get('many_agents')?.value;
+  const raw = (await queries?.getSetting?.get('many_agents'))?.value;
   const parsed = parseJsonSafely(raw, []);
   return Array.isArray(parsed) ? parsed : [];
 }
 
-function loadWorkflowById(workflowId) {
+async function loadWorkflowById(workflowId) {
   const queries = getQueries();
-  const row = queries?.getCanvasWorkflowById?.get?.(workflowId);
+  const row = await queries?.getCanvasWorkflowById?.get?.(workflowId);
   if (row) {
     return {
       id: row.id,
@@ -331,7 +333,7 @@ function loadWorkflowById(workflowId) {
       updatedAt: row.updated_at,
     };
   }
-  const raw = queries?.getSetting?.get('canvas_workflows')?.value;
+  const raw = (await queries?.getSetting?.get('canvas_workflows'))?.value;
   const parsed = parseJsonSafely(raw, []);
   if (!Array.isArray(parsed)) return null;
   return parsed.find((workflow) => workflow?.id === workflowId) ?? null;
@@ -342,11 +344,11 @@ async function getProviderConfig(providerArg, modelArg) {
   return resolveProviderConfig(_database, providerArg, modelArg);
 }
 
-function persistAssistantMessage(sessionId, payload) {
+async function persistAssistantMessage(sessionId, payload) {
   const queries = getQueries();
   const messageId = crypto.randomUUID();
   const timestamp = now();
-  queries.createChatMessage.run(
+  await queries.createChatMessage.run(
     messageId,
     sessionId,
     'assistant',
@@ -356,7 +358,7 @@ function persistAssistantMessage(sessionId, payload) {
     toJson(payload.metadata ?? {}),
     timestamp,
   );
-  queries.updateChatSession.run(
+  await queries.updateChatSession.run(
     payload.mode ?? 'many',
     payload.contextId ?? null,
     payload.threadId ?? null,
@@ -368,7 +370,7 @@ function persistAssistantMessage(sessionId, payload) {
   );
 }
 
-function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
+async function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
   if (!sessionId) {
     if (persistOpts.ownerType === 'many') {
       console.warn('[RunEngine] Many run completed without sessionId — assistant reply not saved to chat_messages');
@@ -376,7 +378,7 @@ function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
     return;
   }
   try {
-    persistAssistantMessage(sessionId, {
+    await persistAssistantMessage(sessionId, {
       content: context.fullResponse,
       toolCalls: context.toolCalls,
       thinking: context.fullThinking,
@@ -641,7 +643,7 @@ async function executeAgentRun(runId, params) {
       return getRun(runId);
     }
     if (params.sessionId) {
-      tryPersistRunAssistantMessage(
+      await tryPersistRunAssistantMessage(
         params.sessionId,
         {
           ownerType: params.ownerType,
@@ -730,7 +732,7 @@ async function executeAgentRun(runId, params) {
       (context.fullResponse.trim().length > 0 || context.toolCalls.length > 0)
     ) {
       try {
-        persistAssistantMessage(params.sessionId, {
+        await persistAssistantMessage(params.sessionId, {
           content: context.fullResponse.trim(),
           toolCalls: context.toolCalls,
           thinking: context.fullThinking,
@@ -901,7 +903,7 @@ async function resumeRun(runId, decisions) {
     }
 
     if (run.sessionId) {
-      tryPersistRunAssistantMessage(
+      await tryPersistRunAssistantMessage(
         run.sessionId,
         {
           ownerType: run.ownerType,
@@ -958,8 +960,8 @@ async function resumeRun(runId, decisions) {
   }
 }
 
-function startWorkflowRun(params) {
-  const workflow = loadWorkflowById(params.workflowId);
+async function startWorkflowRun(params) {
+  const workflow = await loadWorkflowById(params.workflowId);
   if (!workflow) {
     throw new Error('Workflow no encontrado');
   }
@@ -993,7 +995,7 @@ function startWorkflowRun(params) {
 
 async function fireContextualAutomations(tag) {
   if (!tag || typeof tag !== 'string') return { fired: 0 };
-  const all = listAutomations({});
+  const all = await listAutomations({});
   let fired = 0;
   for (const a of all) {
     if (!a.enabled || a.triggerType !== 'contextual') continue;
@@ -1127,18 +1129,18 @@ async function startAutomationNow(automationId) {
   return run;
 }
 
-function migrateLegacyAutomations() {
-  if (ensureSettingsFlag('automation_definitions_migrated')) return;
+async function migrateLegacyAutomations() {
+  if (await ensureSettingsFlag('automation_definitions_migrated')) return;
   const queries = getQueries();
-  const raw = queries?.getSetting?.get('automations_config')?.value;
+  const raw = (await queries?.getSetting?.get('automations_config'))?.value;
   const parsed = parseJsonSafely(raw, []);
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    writeSettingsFlag('automation_definitions_migrated');
+    await writeSettingsFlag('automation_definitions_migrated');
     return;
   }
   for (const item of parsed) {
     const cadence = item?.cadence === 'weekly' ? 'weekly' : 'daily';
-    upsertAutomation({
+    await upsertAutomation({
       id: `legacy-${item.id || crypto.randomUUID()}`,
       projectId: item.projectId || 'default',
       title: String(item.id || 'Legacy automation')
@@ -1164,15 +1166,15 @@ function migrateLegacyAutomations() {
       lastRunStatus: item.lastRunAt ? 'completed' : null,
     });
   }
-  writeSettingsFlag('automation_definitions_migrated');
+  await writeSettingsFlag('automation_definitions_migrated');
 }
 
-function migrateLegacyWorkflowExecutions() {
-  if (ensureSettingsFlag('automation_runs_legacy_canvas_migrated')) return;
+async function migrateLegacyWorkflowExecutions() {
+  if (await ensureSettingsFlag('automation_runs_legacy_canvas_migrated')) return;
   const queries = getQueries();
   let parsed = [];
   try {
-    const rows = _database?.getDB?.()?.prepare('SELECT * FROM workflow_executions ORDER BY started_at DESC')?.all?.() ?? [];
+    const rows = (await _database?.getDB?.()?.all?.('SELECT * FROM workflow_executions ORDER BY started_at DESC')) ?? [];
     if (Array.isArray(rows) && rows.length > 0) {
       parsed = rows.map((row) => ({
         id: row.id,
@@ -1185,19 +1187,19 @@ function migrateLegacyWorkflowExecutions() {
         nodeOutputs: row.node_outputs_json ? parseJsonSafely(row.node_outputs_json, {}) : {},
       }));
     } else {
-      const raw = queries?.getSetting?.get('canvas_executions')?.value;
+      const raw = (await queries?.getSetting?.get('canvas_executions'))?.value;
       parsed = parseJsonSafely(raw, []);
     }
   } catch {
-    const raw = queries?.getSetting?.get('canvas_executions')?.value;
+    const raw = (await queries?.getSetting?.get('canvas_executions'))?.value;
     parsed = parseJsonSafely(raw, []);
   }
   if (!Array.isArray(parsed) || parsed.length === 0) {
-    writeSettingsFlag('automation_runs_legacy_canvas_migrated');
+    await writeSettingsFlag('automation_runs_legacy_canvas_migrated');
     return;
   }
   for (const execution of parsed) {
-    const run = createRun({
+    const run = await createRun({
       id: execution.id,
       projectId: 'default',
       ownerType: 'workflow',
@@ -1218,7 +1220,7 @@ function migrateLegacyWorkflowExecutions() {
       lastHeartbeatAt: execution.finishedAt || execution.startedAt || now(),
     });
     for (const entry of execution.entries || []) {
-      appendRunStep({
+      await appendRunStep({
         runId: run.id,
         stepType: entry.type || 'info',
         title: entry.nodeLabel || entry.nodeId || 'Paso',
@@ -1233,15 +1235,15 @@ function migrateLegacyWorkflowExecutions() {
       });
     }
   }
-  writeSettingsFlag('automation_runs_legacy_canvas_migrated');
+  await writeSettingsFlag('automation_runs_legacy_canvas_migrated');
 }
 
-function migrateLegacyData() {
-  migrateLegacyAutomations();
-  migrateLegacyWorkflowExecutions();
+async function migrateLegacyData() {
+  await migrateLegacyAutomations();
+  await migrateLegacyWorkflowExecutions();
 }
 
-function recoverStuckRuns() {
+async function recoverStuckRuns() {
   try {
     const db = _database.getDB();
     const ts = now();
@@ -1250,7 +1252,7 @@ function recoverStuckRuns() {
     const approvalStaleCutoff = ts - RUN_WAITING_APPROVAL_STALE_MS;
 
     // Fail runs that were actively executing (running) and missed heartbeat.
-    const runningResult = db.prepare(`
+    const runningResult = await db.run(`
       UPDATE automation_runs
       SET status = 'failed',
           error = ?,
@@ -1258,10 +1260,10 @@ function recoverStuckRuns() {
           updated_at = ?
       WHERE status = 'running'
         AND COALESCE(last_heartbeat_at, updated_at, started_at) < ?
-    `).run(RUN_RESTART_ERROR, ts, ts, runningStaleCutoff);
+    `, [RUN_RESTART_ERROR, ts, ts, runningStaleCutoff]);
 
     // Queued runs left behind after a crash never start — unblock automations.
-    const queuedResult = db.prepare(`
+    const queuedResult = await db.run(`
       UPDATE automation_runs
       SET status = 'failed',
           error = ?,
@@ -1269,10 +1271,10 @@ function recoverStuckRuns() {
           updated_at = ?
       WHERE status = 'queued'
         AND COALESCE(started_at, updated_at) < ?
-    `).run(RUN_QUEUED_ORPHAN_ERROR, ts, ts, queuedStaleCutoff);
+    `, [RUN_QUEUED_ORPHAN_ERROR, ts, ts, queuedStaleCutoff]);
 
     // Very old approval checkpoints are unlikely to be resumed.
-    const approvalResult = db.prepare(`
+    const approvalResult = await db.run(`
       UPDATE automation_runs
       SET status = 'cancelled',
           error = ?,
@@ -1280,7 +1282,7 @@ function recoverStuckRuns() {
           updated_at = ?
       WHERE status = 'waiting_approval'
         AND COALESCE(updated_at, started_at) < ?
-    `).run(RUN_APPROVAL_STALE_ERROR, ts, ts, approvalStaleCutoff);
+    `, [RUN_APPROVAL_STALE_ERROR, ts, ts, approvalStaleCutoff]);
 
     const recovered = (runningResult?.changes ?? 0)
       + (queuedResult?.changes ?? 0)
@@ -1293,7 +1295,7 @@ function recoverStuckRuns() {
   }
 }
 
-function init(windowManager, database, ttsService) {
+async function init(windowManager, database, ttsService) {
   _windowManager = windowManager;
   _database = database;
   workflowExecutor.init({ database, loadManyAgents });
@@ -1312,8 +1314,8 @@ function init(windowManager, database, ttsService) {
     });
   }
 
-  recoverStuckRuns();
-  migrateLegacyData();
+  await recoverStuckRuns();
+  await migrateLegacyData();
 }
 
 function stop() {
