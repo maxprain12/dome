@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "2.6.0",
+  "version": "2.6.1",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -34,6 +34,7 @@
     "check:ipc-zod": "node scripts/check-ipc-zod.mjs",
     "check:tool-coverage": "node scripts/verify-tool-coverage.mjs",
     "check:design-system": "node scripts/check-hardcoded-colors.mjs",
+    "check:asar-unpack": "node scripts/check-asar-unpack.cjs",
     "test:db": "tsx scripts/test-db.ts",
     "test:filesystem-tools": "node --test scripts/test-filesystem-tools.mjs",
     "test:feeders": "node --test scripts/test-feeders.mjs",

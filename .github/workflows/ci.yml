@@ -68,6 +68,9 @@ jobs:
       - name: Design system ratchet (hardcoded colors)
         run: pnpm run check:design-system
 
+      - name: asarUnpack guard (native addons & bundled binaries)
+        run: pnpm run check:asar-unpack
+
       - name: Security unit tests
         run: pnpm run test:security
 

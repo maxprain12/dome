@@ -127,14 +127,22 @@ exports.default = async function afterPack(context) {
 
   // Check if app.asar.unpacked exists
   const asarUnpackedPath = path.join(resourcesPath, 'app.asar.unpacked');
+  // Collected hard failures — we throw at the end so the packaged build never
+  // ships with a missing native module / binary (which crashes only in prod).
+  const fatal = [];
+
   if (fs.existsSync(asarUnpackedPath)) {
     console.log('[AfterPack] ✅ app.asar.unpacked exists');
 
-    // Verify critical native modules
+    // Verify critical native modules / binaries are actually unpacked.
+    // Keep in sync with build.asarUnpack in package.json — scripts/check-asar-unpack.cjs
+    // enforces that every entry here is covered by an asarUnpack glob.
     const criticalModules = [
       'node_modules/better-sqlite3',
       'node_modules/sharp',
       'node_modules/@ffmpeg-installer',
+      'node_modules/@napi-rs/canvas',
+      'node_modules/@lancedb/lancedb',
     ];
 
     for (const modulePath of criticalModules) {
@@ -151,12 +159,23 @@ exports.default = async function afterPack(context) {
           });
         }
       } else {
-        console.warn(`[AfterPack] ⚠️  ${modulePath} is NOT unpacked - this may cause errors!`);
+        fatal.push(`${modulePath} is NOT unpacked (add to build.asarUnpack)`);
+        console.error(`[AfterPack] ❌ ${modulePath} is NOT unpacked!`);
       }
     }
+
+    // The 2.6.0 crash: the ffmpeg binary must exist OUTSIDE app.asar and be
+    // executable. Verify the actual platform binary is present and not in-asar.
+    const ffmpegErr = verifyFfmpegBinary(asarUnpackedPath, electronPlatformName);
+    if (ffmpegErr) {
+      fatal.push(ffmpegErr);
+      console.error(`[AfterPack] ❌ ${ffmpegErr}`);
+    } else {
+      console.log('[AfterPack] ✅ ffmpeg binary is unpacked and executable');
+    }
   } else {
+    fatal.push('app.asar.unpacked does NOT exist — native modules will not work in production');
     console.error('[AfterPack] ❌ app.asar.unpacked does NOT exist!');
-    console.error('[AfterPack] Native modules will not work in production!');
   }
 
   if (electronPlatformName === 'darwin') {
@@ -168,8 +187,50 @@ exports.default = async function afterPack(context) {
     }
   }
 
+  if (fatal.length > 0) {
+    console.error('\n[AfterPack] ❌ Packaging gate failed — refusing to ship a broken build:');
+    for (const f of fatal) console.error(`[AfterPack]   • ${f}`);
+    throw new Error(`after-pack: ${fatal.length} critical packaging problem(s) — see log above`);
+  }
+
   console.log('[AfterPack] After-pack hook completed');
 };
+
+/**
+ * Verify the ffmpeg binary is unpacked (outside app.asar) and executable.
+ * Returns an error string on failure, or null on success.
+ * This is the exact regression that crashed Dome 2.6.0 (spawn ENOTDIR from
+ * an app.asar ffmpeg path).
+ */
+function verifyFfmpegBinary(asarUnpackedPath, electronPlatformName) {
+  const platformDir = {
+    darwin: process.arch === 'arm64' ? 'darwin-arm64' : 'darwin-x64',
+    win32: process.arch === 'ia32' ? 'win32-ia32' : 'win32-x64',
+    linux: process.arch === 'arm64' ? 'linux-arm64' : 'linux-x64',
+  }[electronPlatformName];
+
+  if (!platformDir) {
+    // Unknown platform: confirm at least one ffmpeg binary is unpacked.
+    const base = path.join(asarUnpackedPath, 'node_modules', '@ffmpeg-installer');
+    return fs.existsSync(base) ? null : '@ffmpeg-installer not unpacked';
+  }
+
+  const binName = electronPlatformName === 'win32' ? 'ffmpeg.exe' : 'ffmpeg';
+  const binPath = path.join(
+    asarUnpackedPath, 'node_modules', '@ffmpeg-installer', platformDir, binName,
+  );
+  if (!fs.existsSync(binPath)) {
+    return `ffmpeg binary missing at ${path.relative(asarUnpackedPath, binPath)} (must be in app.asar.unpacked, not app.asar)`;
+  }
+  if (electronPlatformName !== 'win32') {
+    try {
+      fs.accessSync(binPath, fs.constants.X_OK);
+    } catch {
+      return `ffmpeg binary not executable: ${binPath}`;
+    }
+  }
+  return null;
+}
 
 /**
  * Recursively find all .node files in a directory

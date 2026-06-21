@@ -305,7 +305,23 @@ Plugins loaded via `electron/marketplace/plugin-loader.cjs`. Marketplace config 
 
 - **Dev**: Vite on port 5173, Electron loads `http://localhost:5173`
 - **Prod**: Vite builds to `dist/`, Electron loads via `app://dome/` protocol
-- **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `@napi-rs/canvas`, `archiver`, `yauzl`
+- **Native modules** unpacked from asar: `better-sqlite3`, `sharp`, `@napi-rs/canvas`, `archiver`, `yauzl`, `@ffmpeg-installer`
+
+### ⚠️ asarUnpack: native modules & bundled binaries (NEVER FORGET)
+
+**Any dependency that ships a native `.node` addon OR an executable binary that gets `spawn`/`exec`'d MUST be added to `asarUnpack` in `package.json`.** Inside `app.asar` files cannot be executed (`spawn` → `ENOTDIR`) and many native loaders cannot `dlopen` from the archive. In packaged builds this fails as an **uncaught async error that aborts the main process** — and it is invisible in dev (where modules live in plain `node_modules/`). This is exactly what crashed v2.6.0 (ffmpeg path inside `app.asar`, see PR #405).
+
+When adding a dependency that calls a binary or loads a native addon:
+
+1. Add its path to `asarUnpack` in `package.json` (e.g. `node_modules/<pkg>/**/*`).
+2. Never pass an installer's raw `.path` to `spawn`/`setFfmpegPath`/etc. — a path inside `app.asar` is unrunnable. Rewrite `…/app.asar/…` → `…/app.asar.unpacked/…` before use. For ffmpeg/ffprobe use the helper `electron/media/ffmpeg-paths.cjs` (`toSpawnSafePath` / `configureFluentFfmpeg`); follow the same pattern for any new binary.
+3. Add the module to `criticalModules` in `scripts/after-pack.cjs` so the packaged build is verified to contain the unpacked binary.
+4. Degrade gracefully if the binary is missing (warn + disable the feature) — never let it throw an uncaught exception.
+5. Test in a **packaged** build (`pnpm run electron:build`), not just dev — these failures only manifest after packaging.
+
+**Enforced automatically (don't rely on memory):**
+- `pnpm run check:asar-unpack` (`scripts/check-asar-unpack.cjs`) runs in CI on **every PR and every push to `main`** (CI `Lint` job). It discovers every production dependency that ships a `.node` addon or a bundled binary and **fails** if any isn't covered by an `asarUnpack` glob. It also keeps `after-pack.cjs` `criticalModules` consistent with `asarUnpack`. For a new spawned-binary installer with no `.node` file, add its name prefix to `BINARY_PACKAGE_PREFIXES` in that script.
+- `scripts/after-pack.cjs` is a **hard gate** during `electron:build` / release: it throws (fails the build) if a critical module isn't in `app.asar.unpacked`, or if the platform ffmpeg binary is missing/inside `app.asar`/not executable. A broken release build cannot be produced.
 
 ## Security Requirements
 
@@ -321,6 +337,7 @@ Plugins loaded via `electron/marketplace/plugin-loader.cjs`. Marketplace config 
 3. **New IPC channel**: Must be added in both `electron/ipc/<group>/<domain>.cjs` AND `electron/preload.cjs` ALLOWED_CHANNELS (and imported with its subfolder path in `electron/ipc/index.cjs`)
 4. **Type-only imports**: Use `import type { }` due to `verbatimModuleSyntax: true`
 5. **File paths**: Always use IPC handlers, never access filesystem directly from renderer
+6. **Native addons / bundled binaries**: Any new dep with a `.node` addon or a spawned executable MUST be added to `asarUnpack` (and `after-pack.cjs` `criticalModules`), and its path rewritten from `app.asar` → `app.asar.unpacked` before `spawn`. See **Build & Packaging → asarUnpack**. Forgetting this crashes the packaged app only (dev is fine).
 
 ## File-based skills (Claude / Agent Skills)
 
