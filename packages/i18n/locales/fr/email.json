@@ -15,6 +15,10 @@
   "compose_failed": "Impossible d'envoyer le message",
   "folders": {
     "title": "Dossiers",
+    "toggle": "Afficher ou masquer la liste des dossiers",
+    "openMenu": "Ouvrir le menu des dossiers",
+    "expand": "Afficher les dossiers",
+    "collapse": "Masquer les dossiers",
     "inbox": "Boîte de réception",
     "sent": "Envoyés",
     "drafts": "Brouillons",
@@ -37,6 +41,45 @@
     "description": "Ajoutez un compte e-mail pour lire, rechercher et envoyer des e-mails depuis Dome et laissez Many vous aider avec votre boîte de réception.",
     "connect": "Connecter la messagerie"
   },
+  "reader": {
+    "actions": {
+      "reply": "Répondre",
+      "replyAll": "Répondre à tous",
+      "forward": "Transférer",
+      "archive": "Archiver",
+      "delete": "Supprimer",
+      "more": "Plus"
+    },
+    "meta": {
+      "to": "À",
+      "cc": "Cc",
+      "bcc": "Cci",
+      "showRecipients": "Afficher les destinataires",
+      "hideRecipients": "Masquer les destinataires",
+      "messageId": "ID du message",
+      "folder": "Dossier",
+      "flags": "Drapeaux"
+    },
+    "body": {
+      "loadImages": "Charger les images",
+      "imagesBlocked": "Les images sont bloquées pour protéger votre vie privée",
+      "sanitized": "Les éléments non sûrs ont été supprimés du message"
+    },
+    "empty": {
+      "title": "Sélectionnez un e-mail",
+      "subtitle": "Choisissez un message dans la liste pour le lire ici"
+    },
+    "loading": "Chargement…",
+    "flags": {
+      "seen": "Lu",
+      "flagged": "Important",
+      "answered": "Répondu",
+      "draft": "Brouillon",
+      "deleted": "Supprimé",
+      "recent": "Récent"
+    },
+    "soon": "Bientôt disponible"
+  },
   "settings": {
     "title": "Comptes e-mail",
     "description": "Connectez des comptes IMAP/SMTP. Les mots de passe sont chiffrés sur cet appareil et n'en sortent jamais.",
@@ -53,6 +96,26 @@
     "username": "Nom d'utilisateur",
     "password": "Mot de passe",
     "app_password_hint": "Pour Gmail, Outlook ou iCloud, utilisez un mot de passe d'application.",
+    "provider_label": "Fournisseur e-mail",
+    "provider_aria": "Choisissez votre fournisseur e-mail",
+    "providers": {
+      "gmail": "Gmail",
+      "outlook": "Outlook / Microsoft 365",
+      "icloud": "iCloud",
+      "yahoo": "Yahoo Mail",
+      "fastmail": "Fastmail",
+      "custom": "Personnalisé",
+      "custom_desc": "Saisir les serveurs manuellement"
+    },
+    "guides": {
+      "title": "Conseils de configuration",
+      "app_password": "Mot de passe d'application",
+      "enable_imap_gmail": "Activer IMAP dans Gmail",
+      "outlook_imap_enabled": "IMAP est activé par défaut dans Outlook",
+      "icloud_imap": "Générez un mot de passe d'application dans Apple ID",
+      "fastmail_app_password": "Utilisez un mot de passe d'application si la 2FA est active",
+      "custom_manual": "Saisissez les paramètres IMAP/SMTP de votre fournisseur"
+    },
     "test_and_save": "Tester et enregistrer",
     "save_without_test": "Enregistrer sans tester",
     "required_fields": "L'e-mail, le serveur IMAP et le serveur SMTP sont requis.",

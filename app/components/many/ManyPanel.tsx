@@ -244,6 +244,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     };
   }, [hydrateFromThreads]);
 
+  // Re-scope Many history when the active project changes: start a fresh draft
+  // for the new project and re-hydrate the list (which filters by project).
+  const prevChatProjectIdRef = useRef(chatProjectId);
+  useEffect(() => {
+    if (prevChatProjectIdRef.current === chatProjectId) return;
+    prevChatProjectIdRef.current = chatProjectId;
+    startNewChat();
+    void hydrateFromThreads();
+  }, [chatProjectId, startNewChat, hydrateFromThreads]);
+
   // Load messages from JSONL when switching chats.
   useEffect(() => {
     if (!currentSessionId || !window.electron?.threads?.getState) return;

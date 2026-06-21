@@ -25,6 +25,10 @@ export default function ColorPickerPopover({
     return () => document.removeEventListener('mousedown', close);
   }, [onClose]);
 
+  const popoverWidth = 196;
+  const clampedLeft = Math.min(Math.max(8, pos.left), window.innerWidth - popoverWidth - 8);
+  const clampedTop = Math.min(Math.max(8, pos.top), window.innerHeight - 100);
+
   return (
     // onMouseDown only stops the outside-click closer (propagation barrier).
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
@@ -33,7 +37,7 @@ export default function ColorPickerPopover({
       role="group"
       aria-label={t('folder.changeColor', 'Cambiar color')}
       className="fixed z-[var(--z-popover)] rounded-xl shadow-lg p-2.5"
-      style={{ top: pos.top, left: pos.left, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
+      style={{ top: clampedTop, left: clampedLeft, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="grid grid-cols-6 gap-1.5">

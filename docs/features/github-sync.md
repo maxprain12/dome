@@ -77,6 +77,12 @@ disconnect). State in `app/lib/store/useGitHubStore.ts`, IPC wrapper in
 
 - Full i18n: UI strings are Spanish literals; needs `github.*` keys in
   `app/lib/i18n.ts` for en/fr/pt.
-- Creating brand-new milestones/issues from the Kanban UI (the IPC + service
-  support it via `github:issue:create` / `github:milestone:create`; no UI form yet).
-- Drag-and-drop on the Kanban (currently move via per-card dropdown/toggle).
+- IPC channel naming follows the `path.join(':')` convention (e.g.
+  `github:issues:listComments`, `github:milestones:create`) so that the dev
+  browser IPC shim can resolve channels by the same access path used at
+  runtime.
+- Brand-new milestones/issues can already be created from the Minimal tracker
+  via the quick-create form (with optional milestone selection or inline
+  milestone creation).
+- Drag-and-drop on the Kanban reassigns the milestone of a card by dropping
+  it on another column.

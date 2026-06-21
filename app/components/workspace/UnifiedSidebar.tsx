@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { ChevronDown, Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Bot, Workflow, Zap, Activity, Layers, ListTodo, Mail } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Bot, Workflow, Zap, Activity, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -22,9 +22,8 @@ import {
   HUB_RUNS_CHANGED,
   HUB_WORKFLOWS_CHANGED,
 } from '@/lib/hub/hubEvents';
-import { db } from '@/lib/db/client';
-import ManyIcon from '@/components/many/ManyIcon';
-
+import { useFeaturesStore, useHiddenFeatureCount } from '@/lib/store/useFeaturesStore';
+import { isFeatureVisible } from '@/lib/features/featureKeys';
 
 // ---------------------------------------------------------------------------
 // Folder colors — central palette in app/lib/ui/palettes.ts (persisted in DB)
@@ -35,6 +34,7 @@ import { pickFolderColor, parseMeta } from './sidebar/sidebarHelpers';
 import FileTree from './sidebar/SidebarFileTree';
 import { NewFolderModal, UrlInputModal } from './sidebar/SidebarModals';
 import AddResourceMenu from './sidebar/AddResourceMenu';
+import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
 
 interface UnifiedSidebarProps {
   collapsed: boolean;
@@ -51,10 +51,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [showCloudPicker, setShowCloudPicker] = useState(false);
   const [newFolderInWorkspace, setNewFolderInWorkspace] = useState(false);
-  const [projectMenuOpen, setProjectMenuOpen] = useState(false);
-  const [quickProjectName, setQuickProjectName] = useState('');
-  const [quickCreatingProject, setQuickCreatingProject] = useState(false);
-  const projectMenuRef = useRef<HTMLDivElement>(null);
 
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [hubCounts, setHubCounts] = useState({
@@ -75,7 +71,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const theme = useAppStore((s) => s.theme);
   const updateTheme = useAppStore((s) => s.updateTheme);
   const currentProject = useAppStore((s) => s.currentProject);
-  const setCurrentProject = useAppStore((s) => s.setCurrentProject);
   const hubProjectId = currentProject?.id ?? 'default';
   const activeProjectLabel =
     currentProject?.name ?? projects.find((p) => p.id === hubProjectId)?.name ?? 'Dome';
@@ -94,6 +89,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openAutomationsTab,
     openRunsTab,
     openMarketplaceTab,
+    openFolderTab,
     activeTabId,
     tabs,
   } = useTabStore(
@@ -110,10 +106,31 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openAutomationsTab: s.openAutomationsTab,
       openRunsTab: s.openRunsTab,
       openMarketplaceTab: s.openMarketplaceTab,
+      openFolderTab: s.openFolderTab,
       activeTabId: s.activeTabId,
       tabs: s.tabs,
     })),
   );
+
+  // Feature visibility (role-based). Load once; filter nav items by it.
+  const featureVisibility = useFeaturesStore((s) => s.visibility);
+  const featuresLoaded = useFeaturesStore((s) => s.loaded);
+  const loadFeatures = useFeaturesStore((s) => s.loadFeatures);
+  const hiddenFeatureCount = useHiddenFeatureCount();
+  useEffect(() => {
+    if (!featuresLoaded) void loadFeatures();
+  }, [featuresLoaded, loadFeatures]);
+  const navItemVisible = useCallback(
+    (key: string) => isFeatureVisible(featureVisibility, key),
+    [featureVisibility],
+  );
+  const goToFeatureSettings = useCallback(() => {
+    openSettingsTab();
+    // SettingsPage listens for this to jump to the Features panel.
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'features' }));
+    }, 50);
+  }, [openSettingsTab]);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isDark = theme === 'dark';
@@ -164,29 +181,20 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     void refreshHubCounts();
   }, [hubProjectId, refreshHubCounts]);
 
-  useEffect(() => {
-    if (!projectMenuOpen) return;
-    const onDoc = (e: MouseEvent) => {
-      if (projectMenuRef.current && !projectMenuRef.current.contains(e.target as Node)) {
-        setProjectMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [projectMenuOpen]);
-
   const fetchResources = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
     if (typeof window === 'undefined' || !window.electron?.db?.resources) return;
     try {
       if (!silent) setLoading(true);
-      const result = await window.electron.db.resources.listLight(500);
+      // Scope to the active project in SQL so files never leak across projects
+      // and a project never loses its own files to the global LIMIT.
+      const result = await window.electron.db.resources.listLight(500, hubProjectId);
       if (result?.success && result.data) setResources(result.data as Resource[]);
     } catch { /* ignore */ }
     finally {
       if (!silent) setLoading(false);
     }
-  }, []);
+  }, [hubProjectId]);
 
   const fetchProjects = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.db?.projects) return;
@@ -235,7 +243,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note');
+      useTabStore.getState().openResourceTab(id, 'note', 'Untitled Note', getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources]);
 
@@ -255,7 +263,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook');
+      useTabStore.getState().openResourceTab(id, 'notebook', 'Untitled Notebook', getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources]);
 
@@ -274,7 +282,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success && result.data) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(result.data.resourceId, 'artifact', result.data.title);
+      useTabStore.getState().openResourceTab(result.data.resourceId, 'artifact', result.data.title, getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources, t]);
 
@@ -294,7 +302,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     });
     if (result?.success) {
       await fetchResources({ silent: true });
-      useTabStore.getState().openResourceTab(id, 'url', title ?? url);
+      useTabStore.getState().openResourceTab(id, 'url', title ?? url, getDefaultProjectId());
     }
   }, [getDefaultProjectId, fetchResources]);
 
@@ -327,37 +335,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     }
     void fetchResources({ silent: true });
   }, [getDefaultProjectId, fetchResources]);
-
-  const handleProjectChange = useCallback(
-    async (projectId: string) => {
-      const nextProject = projects.find((project) => project.id === projectId) ?? null;
-      setCurrentProject(nextProject);
-      setProjectMenuOpen(false);
-      await fetchResources({ silent: true });
-    },
-    [fetchResources, projects, setCurrentProject],
-  );
-
-  const handleQuickCreateProject = useCallback(async () => {
-    const name = quickProjectName.trim();
-    if (!name || quickCreatingProject || !db.isAvailable()) return;
-    setQuickCreatingProject(true);
-    try {
-      const result = await db.createProject({ name });
-      if (result.success && result.data) {
-        setQuickProjectName('');
-        await fetchProjects();
-        setCurrentProject(result.data);
-        setProjectMenuOpen(false);
-        showToast('success', t('projects.created'));
-        await fetchResources({ silent: true });
-      } else {
-        showToast('error', result.error ?? t('toast.project_create_error'));
-      }
-    } finally {
-      setQuickCreatingProject(false);
-    }
-  }, [quickCreatingProject, quickProjectName, fetchProjects, setCurrentProject, fetchResources, t]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
@@ -558,6 +535,11 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     ];
   }, [t, openLearnTab, openTagsTab, openMarketplaceTab]);
 
+  const handleOpenProjectRootFolder = useCallback(() => {
+    openFolderTab(hubProjectId, activeProjectLabel, undefined, hubProjectId);
+    setWorkspaceOpen(true);
+  }, [openFolderTab, hubProjectId, activeProjectLabel]);
+
   const handleUnifiedNavClick = (item: UnifiedNavItem) => {
     if (item.kind === 'section') {
       setSection(item.sectionId as typeof activeSection);
@@ -576,128 +558,23 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     return activeTab?.type === item.tabType;
   };
 
-  if (collapsed) return null;
+  if (collapsed) {
+    return null;
+  }
 
   return (
     <aside
       className="dome-left-sidebar flex flex-col h-full relative shrink-0 overflow-hidden"
       style={{ width: 260, minWidth: 260, background: 'var(--dome-sidebar-bg)', borderRight: '1px solid var(--dome-border)' }}
     >
-      {/* Proyecto activo + selector (antes marca fija) */}
-      <div
-        ref={projectMenuRef}
-        className="shrink-0 px-2 pt-2 pb-2 border-b relative"
-        style={{ borderColor: 'var(--dome-border)' }}
-      >
-        <button
-          type="button"
-          onClick={() => setProjectMenuOpen((o) => !o)}
-          className="flex items-center gap-1.5 w-full rounded-md p-1.5 text-left transition-colors"
-          style={{ background: projectMenuOpen ? 'var(--dome-bg-hover)' : 'transparent', border: 'none', cursor: 'pointer' }}
-          onMouseEnter={(e) => {
-            if (!projectMenuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-          }}
-          onMouseLeave={(e) => {
-            if (!projectMenuOpen) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          }}
-        >
-          <div className="size-4 shrink-0" style={{ filter: 'var(--dome-logo-filter)' }}>
-            <ManyIcon size={16} />
-          </div>
-          <span
-            className="truncate flex-1 min-w-0"
-            style={{ fontSize: 12, fontWeight: 600, color: 'var(--dome-text)', userSelect: 'none' }}
-          >
-            {activeProjectLabel}
-          </span>
-          <ChevronDown
-            className={`size-3.5 shrink-0 transition-transform ${projectMenuOpen ? 'rotate-180' : ''}`}
-            strokeWidth={2.5}
-            style={{ color: 'var(--dome-text-muted)' }}
-          />
-        </button>
-        {projectMenuOpen ? (
-          <div
-            className="absolute left-2 right-2 top-full mt-1 z-[80] rounded-lg border shadow-lg overflow-hidden flex flex-col"
-            style={{ background: 'var(--dome-surface)', borderColor: 'var(--dome-border)', maxHeight: 280 }}
-          >
-            <div className="overflow-y-auto py-1">
-              {projects.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  onClick={() => void handleProjectChange(project.id)}
-                  className="w-full text-left px-2.5 py-1.5 text-xs transition-colors truncate"
-                  style={{
-                    background: project.id === hubProjectId ? 'var(--dome-bg-hover)' : 'transparent',
-                    color: 'var(--dome-text)',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: project.id === hubProjectId ? 600 : 500,
-                  }}
-                >
-                  {project.name}
-                </button>
-              ))}
-            </div>
-            <div className="p-2 border-t flex gap-1" style={{ borderColor: 'var(--dome-border)' }}>
-              <input
-                value={quickProjectName}
-                onChange={(e) => setQuickProjectName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    void handleQuickCreateProject();
-                  }
-                }}
-                placeholder={t('sidebar.quick_create_project_placeholder')}
-                className="flex-1 min-w-0 rounded px-2 py-1 text-xs outline-none"
-                style={{
-                  background: 'var(--dome-bg-hover)',
-                  border: '1px solid var(--dome-border)',
-                  color: 'var(--dome-text)',
-                }}
-              />
-              <button
-                type="button"
-                disabled={quickCreatingProject || !quickProjectName.trim()}
-                onClick={() => void handleQuickCreateProject()}
-                className="shrink-0 rounded px-2 py-1 text-xs font-medium"
-                style={{
-                  background: 'var(--dome-accent)',
-                  color: 'var(--dome-accent-fg, white)',
-                  border: 'none',
-                  cursor: quickCreatingProject || !quickProjectName.trim() ? 'not-allowed' : 'pointer',
-                  opacity: quickCreatingProject || !quickProjectName.trim() ? 0.5 : 1,
-                }}
-              >
-                {t('sidebar.quick_create_project_button')}
-              </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setProjectMenuOpen(false);
-                openProjectsTab();
-              }}
-              className="text-left px-2.5 py-1.5 text-xs border-t transition-colors"
-              style={{
-                borderColor: 'var(--dome-border)',
-                color: 'var(--dome-accent)',
-                background: 'transparent',
-                cursor: 'pointer',
-              }}
-            >
-              {t('sidebar.manage_projects')}
-            </button>
-          </div>
-        ) : null}
+      <div className="dome-sidebar-project-picker shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
+        <ShellProjectPicker />
       </div>
 
       {/* Navegación principal */}
       <div className="shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
         <div className="flex flex-col gap-0.5">
-          {primaryUnifiedNavItems.map((item) => {
+          {primaryUnifiedNavItems.filter((item) => navItemVisible(item.key)).map((item) => {
             const isActive = getUnifiedNavActive(item);
             const count = item.kind === 'tab' ? item.count : undefined;
             return (
@@ -749,13 +626,25 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           {/* Header row */}
           <div className="flex items-center px-2 py-1.5 gap-0.5">
             <button
+              type="button"
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
-              className="flex items-center gap-1.5 flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
-              style={{ color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}
+              className="flex items-center justify-center shrink-0 rounded-md transition-colors"
+              style={{ width: 22, height: 22, color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+              aria-expanded={workspaceOpen}
+              aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
               onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
               <ChevronDown className={`size-3 shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} strokeWidth={2.5} />
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenProjectRootFolder}
+              className="flex items-center flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
+              style={{ color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+            >
               <span>Workspace</span>
             </button>
 
@@ -862,7 +751,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             {t('sidebar.more_tools')}
           </p>
           <div className="flex flex-col gap-0.5">
-            {secondaryUnifiedNavItems.map((item) => {
+            {secondaryUnifiedNavItems.filter((item) => navItemVisible(item.key)).map((item) => {
               const isActive = getUnifiedNavActive(item);
               const count = item.kind === 'tab' ? item.count : undefined;
               return (
@@ -907,6 +796,27 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             })}
           </div>
         </div>
+        {hiddenFeatureCount > 0 && (
+          <div className="px-2 pt-2">
+            <button
+              type="button"
+              onClick={goToFeatureSettings}
+              className="flex items-center gap-2 w-full text-left rounded-md px-2 py-1.5 transition-colors"
+              style={{
+                fontSize: 11.5,
+                color: 'var(--dome-text-muted)',
+                background: 'var(--dome-bg-hover)',
+                border: '1px solid var(--dome-border)',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-accent)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--dome-border)'; }}
+              title={t('features.hidden_notice_title')}
+            >
+              <span className="truncate">{t('features.hidden_notice', { n: hiddenFeatureCount })}</span>
+            </button>
+          </div>
+        )}
         <div className="p-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
         <button
           type="button"

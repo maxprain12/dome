@@ -1,0 +1,35 @@
+{
+  "got_it": "Entendido",
+  "close": "Cerrar",
+  "help_aria": "Cómo usar esta sección",
+  "learn": {
+    "title": "Aprender · Cómo usar",
+    "step1": "Crea un mazo desde cualquier recurso o nota.",
+    "step2": "Estudia con repaso espaciado para recordar a largo plazo.",
+    "step3": "Sigue tu progreso con los KPIs de arriba."
+  },
+  "agents": {
+    "title": "Agentes · Cómo usar",
+    "step1": "Crea un agente y describe qué debe hacer.",
+    "step2": "Dale acceso a tus recursos y skills.",
+    "step3": "Chatea con él o actívalo desde una automatización."
+  },
+  "automations": {
+    "title": "Automatizaciones · Cómo usar",
+    "step1": "Elige un disparador: programado, evento o manual.",
+    "step2": "Escoge el agente o la acción a ejecutar.",
+    "step3": "Revisa la sección Ejecuciones para ver resultados."
+  },
+  "github": {
+    "title": "GitHub · Cómo usar",
+    "step1": "Conecta un repositorio para sincronizar issues e hitos.",
+    "step2": "Sigue el trabajo en las vistas Kanban y Gantt.",
+    "step3": "Los cambios se sincronizan de vuelta a GitHub automáticamente."
+  },
+  "calendar": {
+    "title": "Calendario · Cómo usar",
+    "step1": "Conecta un calendario o crea eventos directamente.",
+    "step2": "Vincula eventos a proyectos y recursos.",
+    "step3": "Recibe recordatorios de lo que viene."
+  }
+}

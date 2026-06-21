@@ -203,9 +203,9 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         if (electron?.db?.resources?.getById) {
           const result = await electron.db.resources.getById(folderId);
           if (result?.success && result.data) {
-            const folder = result.data as { title?: string; type?: string };
+            const folder = result.data as { title?: string; type?: string; project_id?: string };
             const title = folder.title || 'Carpeta';
-            useTabStore.getState().openFolderTab(folderId, title);
+            useTabStore.getState().openFolderTab(folderId, title, undefined, folder.project_id);
             return;
           }
           // Folder not found in DB (likely a hallucinated ID from the AI)
@@ -214,7 +214,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         }
       } catch { /* fall through */ }
       // Fallback: open with generic title if IPC isn't available
-      useTabStore.getState().openFolderTab(folderId, 'Carpeta');
+      useTabStore.getState().openFolderTab(folderId, 'Carpeta', undefined, useAppStore.getState().currentProject?.id);
     },
     [t]
   );
@@ -306,7 +306,8 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
           if (!resolvedId) {
             const altSlug = resolveSlug.replace(/^Ver:\s*/i, '').trim();
             const searchSlug = altSlug || resolveSlug;
-            const lookup = await electron.db.resources.searchForMention(searchSlug);
+            const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
+            const lookup = await electron.db.resources.searchForMention(searchSlug, activeProjectId);
             const results = lookup?.success && Array.isArray(lookup.data) ? lookup.data : [];
             const match =
               results.find(

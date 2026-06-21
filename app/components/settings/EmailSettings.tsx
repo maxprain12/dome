@@ -2,6 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mail, Trash2, Loader2, CheckCircle2, Plus } from 'lucide-react';
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
+import EmailProviderGuides from '@/components/settings/EmailProviderGuides';
+import EmailProviderPicker from '@/components/settings/EmailProviderPicker';
+import SettingsPanel from '@/components/settings/SettingsPanel';
+import {
+  applyProviderPreset,
+  EMAIL_PROVIDER_BY_ID,
+  type EmailProviderId,
+} from '@/lib/email/providerPresets';
 
 interface EmailAccount {
   id: string;
@@ -32,6 +40,7 @@ export default function EmailSettings() {
   const { t } = useTranslation();
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [providerId, setProviderId] = useState<EmailProviderId>('custom');
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<EmailErrorInfo | null>(null);
@@ -46,7 +55,49 @@ export default function EmailSettings() {
     load();
   }, [load]);
 
-  const update = (key: string, value: string | number) => setForm((f) => ({ ...f, [key]: value }));
+  const update = (key: string, value: string | number) => {
+    setForm((f) => {
+      const next = { ...f, [key]: value };
+      if (key === 'email' && !f.username) {
+        next.username = String(value);
+      }
+      return next;
+    });
+  };
+
+  const handleProviderChange = (nextProviderId: EmailProviderId) => {
+    setProviderId(nextProviderId);
+    setForm((f) => ({
+      ...f,
+      ...applyProviderPreset(
+        {
+          email: f.email,
+          username: f.username,
+          ...EMAIL_PROVIDER_BY_ID[nextProviderId].servers,
+        },
+        nextProviderId,
+      ),
+    }));
+  };
+
+  const handleServerFieldChange = (key: string, value: string | number) => {
+    if (providerId !== 'custom' && (key === 'imap_host' || key === 'smtp_host' || key === 'imap_port' || key === 'smtp_port')) {
+      setProviderId('custom');
+    }
+    update(key, value);
+  };
+
+  const resetForm = () => {
+    setForm({ ...EMPTY_FORM });
+    setProviderId('custom');
+    setError(null);
+    setTestState('idle');
+  };
+
+  const openForm = () => {
+    resetForm();
+    setShowForm(true);
+  };
 
   const handleAdd = async () => {
     setBusy(true);
@@ -60,9 +111,8 @@ export default function EmailSettings() {
         setError({ error: res.error || t('email.settings.add_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });
         return;
       }
-      setForm({ ...EMPTY_FORM });
+      resetForm();
       setShowForm(false);
-      setTestState('idle');
       await load();
     } finally {
       setBusy(false);
@@ -77,14 +127,11 @@ export default function EmailSettings() {
   const handleTest = async () => {
     setTestState('testing');
     setError(null);
-    // Add a temporary account, test, then remove if the user only wants a probe.
-    // Simpler: require the account be saved first. Here we just validate required fields.
     if (!form.email || !form.imap_host || !form.smtp_host) {
       setError({ error: t('email.settings.required_fields') });
       setTestState('fail');
       return;
     }
-    // Save then test, keeping it (test of an unsaved config is not supported by himalaya).
     const res = await window.electron.email.addAccount({ ...form, username: form.username || form.email });
     if (!res.success) {
       setError({ error: res.error || t('email.settings.add_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });
@@ -94,7 +141,7 @@ export default function EmailSettings() {
     const test = await window.electron.email.testConnection(res.accountId);
     if (test.success) {
       setTestState('ok');
-      setForm({ ...EMPTY_FORM });
+      resetForm();
       setShowForm(false);
     } else {
       setError({ error: test.error || t('email.settings.test_failed'), errorCode: test.errorCode, helpUrl: test.helpUrl });
@@ -105,7 +152,7 @@ export default function EmailSettings() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <SettingsPanel>
       <div className="flex items-center gap-2 mb-1">
         <Mail className="size-5" style={{ color: 'var(--dome-accent)' }} />
         <h1 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
@@ -116,7 +163,6 @@ export default function EmailSettings() {
         {t('email.settings.description')}
       </p>
 
-      {/* Accounts list */}
       <div className="space-y-2 mb-6">
         {accounts.length === 0 && (
           <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
@@ -126,7 +172,7 @@ export default function EmailSettings() {
         {accounts.map((acc) => (
           <div
             key={acc.id}
-            className="flex items-center justify-between rounded-lg px-4 py-3"
+            className="settings-split-row rounded-lg px-4 py-3"
             style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
           >
             <div>
@@ -153,7 +199,7 @@ export default function EmailSettings() {
       {!showForm ? (
         <button
           type="button"
-          onClick={() => setShowForm(true)}
+          onClick={openForm}
           className="inline-flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium"
           style={{ background: 'var(--dome-accent)', color: 'var(--dome-on-accent)' }}
         >
@@ -162,18 +208,21 @@ export default function EmailSettings() {
         </button>
       ) : (
         <div
-          className="rounded-lg p-4 space-y-3"
+          className="rounded-lg p-4 space-y-4 min-w-0"
           style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
         >
+          <EmailProviderPicker value={providerId} onChange={handleProviderChange} />
+          <EmailProviderGuides providerId={providerId} />
+
           <Field label={t('email.settings.email')} value={form.email} onChange={(v) => update('email', v)} placeholder="you@example.com" />
           <Field label={t('email.settings.display_name')} value={form.display_name} onChange={(v) => update('display_name', v)} />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => update('imap_host', v)} placeholder="imap.example.com" />
-            <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => update('imap_port', Number(v) || 993)} />
+          <div className="settings-field-grid settings-field-grid--2 gap-3">
+            <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => handleServerFieldChange('imap_host', v)} placeholder="imap.example.com" />
+            <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => handleServerFieldChange('imap_port', Number(v) || 993)} />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => update('smtp_host', v)} placeholder="smtp.example.com" />
-            <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => update('smtp_port', Number(v) || 465)} />
+          <div className="settings-field-grid settings-field-grid--2 gap-3">
+            <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => handleServerFieldChange('smtp_host', v)} placeholder="smtp.example.com" />
+            <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => handleServerFieldChange('smtp_port', Number(v) || 465)} />
           </div>
           <Field label={t('email.settings.username')} value={form.username} onChange={(v) => update('username', v)} placeholder={form.email} />
           <Field label={t('email.settings.password')} value={form.password} onChange={(v) => update('password', v)} type="password" />
@@ -188,7 +237,7 @@ export default function EmailSettings() {
             </p>
           )}
 
-          <div className="flex items-center gap-2 pt-1">
+          <div className="settings-action-row pt-1">
             <button
               type="button"
               disabled={busy}
@@ -212,8 +261,7 @@ export default function EmailSettings() {
               type="button"
               onClick={() => {
                 setShowForm(false);
-                setForm({ ...EMPTY_FORM });
-                setError(null);
+                resetForm();
               }}
               className="px-3 py-2 rounded-md text-sm"
               style={{ color: 'var(--dome-text-muted)' }}
@@ -223,7 +271,7 @@ export default function EmailSettings() {
           </div>
         </div>
       )}
-    </div>
+    </SettingsPanel>
   );
 }
 
@@ -241,7 +289,7 @@ function Field({
   placeholder?: string;
 }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
         {label}
       </span>
@@ -250,7 +298,7 @@ function Field({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full rounded-md px-3 py-2 text-sm"
+        className="mt-1 w-full min-w-0 rounded-md px-3 py-2 text-sm"
         style={{
           background: 'var(--dome-bg)',
           border: '1px solid var(--dome-border)',

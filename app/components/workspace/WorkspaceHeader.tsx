@@ -424,7 +424,7 @@ export default function WorkspaceHeader({
               label={t('workspace.graph')}
               active={false}
               activeColor="var(--accent)"
-              onClick={() => openSemanticGraphTab(resource.id)}
+              onClick={() => openSemanticGraphTab(resource.id, resource.project_id)}
             />
           </>
         )}

@@ -10,6 +10,7 @@ import type {
   WizardState,
 } from '@/lib/learn/types';
 import { loadSavedGenerateConfig, persistGenerateConfig } from '@/lib/learn/generateConfigStorage';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 export type LearnSection = 'all' | 'decks' | 'mindmaps' | 'quizzes' | 'guides' | 'faqs' | 'timelines' | 'tables';
 
@@ -225,7 +226,9 @@ export const useLearnStore = create<LearnState>((set, get) => ({
 
   loadDecks: async () => {
     try {
-      const result = await window.electron.db.flashcards.getAllDecks(100);
+      // Hard-scope decks to the active project (never cross-project).
+      const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
+      const result = await window.electron.db.flashcards.getDecksByProject(activeProjectId);
       if (result.success && result.data) set({ decks: result.data });
     } catch (error) {
       console.error('[LearnStore] Error loading decks:', error);
@@ -234,9 +237,9 @@ export const useLearnStore = create<LearnState>((set, get) => ({
 
   loadStudioOutputs: async (projectId?: string) => {
     try {
-      const result = projectId
-        ? await window.electron.db.studio.getByProject(projectId)
-        : await window.electron.db.studio.getAll();
+      // Default to the active project so study materials never leak across projects.
+      const scopedProjectId = projectId ?? useAppStore.getState().currentProject?.id ?? 'default';
+      const result = await window.electron.db.studio.getByProject(scopedProjectId);
       if (result.success && result.data) set({ studioOutputs: result.data });
     } catch (error) {
       console.error('[LearnStore] Error loading studio outputs:', error);

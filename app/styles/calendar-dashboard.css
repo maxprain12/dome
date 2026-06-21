@@ -98,6 +98,7 @@
 
 .c-calendar-body {
   display: flex;
+  flex-direction: column;
   gap: 16px;
   align-items: stretch;
   min-height: 480px;
@@ -106,9 +107,10 @@
 .c-calendar-main {
   flex: 1;
   min-width: 0;
-  min-height: 480px;
+  min-height: 400px;
   display: flex;
   flex-direction: column;
+  order: 1;
 }
 
 .c-calendar-grid-panel {
@@ -132,20 +134,65 @@
 }
 
 .c-calendar-sidebar {
-  width: 280px;
+  width: 100%;
   flex-shrink: 0;
+  order: 2;
+}
+
+.c-calendar-sidebar.is-empty {
   display: none;
 }
 
-@media (min-width: 1024px) {
+.c-calendar-sidebar .h-today {
+  max-height: none;
+}
+
+/* Side-by-side only when the canvas is wide enough (sidebar-aware, not viewport) */
+@container home (min-width: 920px) {
+  .c-calendar-body {
+    flex-direction: row;
+    align-items: stretch;
+    min-height: 520px;
+  }
+
+  .c-calendar-main {
+    min-height: 520px;
+  }
+
   .c-calendar-sidebar {
-    display: block;
+    width: min(240px, 28cqi);
+    order: 2;
+  }
+
+  .c-calendar-sidebar.is-empty {
+    display: none;
+  }
+
+  .c-calendar-sidebar:not(.is-empty) .h-today {
+    height: 100%;
   }
 }
 
-.c-calendar-sidebar .h-today {
-  height: 100%;
-  max-height: none;
+@container home (max-width: 919px) {
+  .c-calendar-sidebar.is-empty {
+    display: none;
+  }
+
+  .c-calendar-sidebar:not(.is-empty) .h-today {
+    padding: 16px 18px 14px;
+  }
+
+  .c-calendar-sidebar:not(.is-empty) .h-feed {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0 12px;
+  }
+
+  .c-calendar-sidebar:not(.is-empty) .h-feed-item {
+    border-top: none;
+    border-bottom: 1px solid var(--home-edge-soft);
+    padding: 10px 0;
+  }
 }
 
 /* CalendarGrid nav — editorial chrome */
@@ -344,7 +391,7 @@
   padding-top: 4px;
 }
 
-@media (max-width: 720px) {
+@container home (max-width: 720px) {
   .h-hero.c-calendar-hero {
     grid-template-columns: 1fr;
   }
@@ -354,6 +401,10 @@
   }
 
   .c-calendar-body {
-    min-height: 400px;
+    min-height: 360px;
+  }
+
+  .c-calendar-main {
+    min-height: 320px;
   }
 }

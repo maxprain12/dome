@@ -626,10 +626,30 @@ function buildQueries(db) {
       GROUP BY t.id
       ORDER BY resource_count DESC, t.name ASC
     `),
+    /**
+     * Project-scoped tag list: only tags applied to resources in the given
+     * project, with counts scoped to that project. Tags from other projects
+     * (and their names) never appear.
+     */
+    getAllTagsWithCountByProject: db.prepare(`
+      SELECT t.*, COUNT(rt.resource_id) as resource_count
+      FROM tags t
+      JOIN resource_tags rt ON t.id = rt.tag_id
+      JOIN resources r ON rt.resource_id = r.id
+      WHERE r.project_id = ?
+      GROUP BY t.id
+      ORDER BY resource_count DESC, t.name ASC
+    `),
     getResourcesByTag: db.prepare(`
       SELECT r.* FROM resources r
       JOIN resource_tags rt ON r.id = rt.resource_id
       WHERE rt.tag_id = ?
+      ORDER BY r.updated_at DESC
+    `),
+    getResourcesByTagInProject: db.prepare(`
+      SELECT r.* FROM resources r
+      JOIN resource_tags rt ON r.id = rt.resource_id
+      WHERE rt.tag_id = ? AND r.project_id = ?
       ORDER BY r.updated_at DESC
     `),
     findTagByNameInsensitive: db.prepare(`
@@ -656,7 +676,8 @@ function buildQueries(db) {
 
     // Search (standalone FTS tables)
     searchInteractions: db.prepare(`
-      SELECT i.*, r.title as resource_title, r.type as resource_type FROM resource_interactions i
+      SELECT i.*, r.title as resource_title, r.type as resource_type, r.project_id as project_id
+      FROM resource_interactions i
       JOIN interactions_fts fts ON i.id = fts.interaction_id
       JOIN resources r ON i.resource_id = r.id
       WHERE interactions_fts MATCH ?
@@ -674,12 +695,31 @@ function buildQueries(db) {
              created_at, updated_at
       FROM resources ORDER BY updated_at DESC LIMIT ?
     `),
+    /**
+     * Project-scoped variant of `listResourcesLight`. Filters by `project_id`
+     * BEFORE applying the LIMIT so a project never loses its own files to the
+     * global truncation that the unscoped query suffers from.
+     */
+    listResourcesLightByProject: db.prepare(`
+      SELECT id, project_id, type, title, folder_id, metadata,
+             internal_path, file_mime_type, file_size, file_hash, original_filename,
+             created_at, updated_at
+      FROM resources WHERE project_id = ? ORDER BY updated_at DESC LIMIT ?
+    `),
 
     // Search for mentions (quick search for autocomplete)
     searchForMention: db.prepare(`
       SELECT id, title, type, project_id, thumbnail_data
       FROM resources
       WHERE title LIKE ? OR id LIKE ?
+      ORDER BY updated_at DESC
+      LIMIT 10
+    `),
+    // Project-scoped variant — mentions must never resolve cross-project.
+    searchForMentionByProject: db.prepare(`
+      SELECT id, title, type, project_id, thumbnail_data
+      FROM resources
+      WHERE (title LIKE ? OR id LIKE ?) AND project_id = ?
       ORDER BY updated_at DESC
       LIMIT 10
     `),

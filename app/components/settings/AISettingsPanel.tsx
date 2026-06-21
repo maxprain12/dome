@@ -1,7 +1,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Cloud, Search, MessageSquare, Mic, Layers } from 'lucide-react';
+import { Menu } from '@mantine/core';
+import { Check, ChevronDown, Cloud, Search, MessageSquare, Mic, Layers, type LucideIcon } from 'lucide-react';
 import AIEmbeddingsTab from './ai/AIEmbeddingsTab';
 import AIWebSearchTab from './ai/AIWebSearchTab';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
@@ -25,16 +26,25 @@ import ModelSelector from './ModelSelector';
 import TranscriptionSettingsSections, {
   type TranscriptionSettingsSectionsHandle,
 } from './TranscriptionSettingsSections';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
+import SettingsPanel from '@/components/settings/SettingsPanel';
+import { cn } from '@/lib/utils';
+import '@/styles/ai-settings.css';
 
 type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools';
+
+const TAB_ICON_CLASS = 'size-3.5';
+const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: LucideIcon }> = [
+  { value: 'chat', labelKey: 'settings.ai.tab_chat', icon: MessageSquare },
+  { value: 'embeddings', labelKey: 'settings.ai.tab_embeddings', icon: Layers },
+  { value: 'transcription', labelKey: 'settings.ai.tab_transcription', icon: Mic },
+  { value: 'tools', labelKey: 'settings.ai.tab_tools', icon: Search },
+];
 
 function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -381,26 +391,85 @@ export default function AISettingsPanel() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title={t('settings.ai.title')}
-        subtitle={t('settings.ai.subtitle')}
-      />
+    <SettingsPanel>
+      <div className="ai-settings">
+      <div className="ai-settings__header">
+        <h1 className="ai-settings__title">{t('settings.ai.title')}</h1>
+        <p className="ai-settings__subtitle">{t('settings.ai.subtitle')}</p>
+      </div>
 
-      <DomeSegmentedControl
-        className="w-full !flex"
-        size="sm"
-        aria-label={t('settings.ai.title')}
-        value={activeTab}
-        onChange={(v) => setActiveTab(v as AISettingsTab)}
-        options={[
-          { value: 'chat', label: t('settings.ai.tab_chat'), icon: <MessageSquare className="size-3.5" /> },
-          { value: 'embeddings', label: t('settings.ai.tab_embeddings'), icon: <Layers className="size-3.5" /> },
-          { value: 'transcription', label: t('settings.ai.tab_transcription'), icon: <Mic className="size-3.5" /> },
-          { value: 'tools', label: t('settings.ai.tab_tools'), icon: <Search className="size-3.5" /> },
-        ]}
-      />
+      <div className="ai-settings__tabs">
+        <div className="ai-settings__tabs-segmented">
+          <DomeSegmentedControl
+            className="w-full !flex"
+            size="sm"
+            aria-label={t('settings.ai.title')}
+            value={activeTab}
+            onChange={(v) => setActiveTab(v as AISettingsTab)}
+            options={TAB_DEFINITIONS.map(({ value, labelKey, icon: Icon }) => ({
+              value,
+              label: t(labelKey),
+              icon: <Icon className={TAB_ICON_CLASS} />,
+            }))}
+          />
+        </div>
+        <div className="ai-settings__tabs-dropdown">
+          {(() => {
+            const activeDef = TAB_DEFINITIONS.find((d) => d.value === activeTab) ?? TAB_DEFINITIONS[0];
+            const ActiveIcon = activeDef.icon;
+            return (
+              <Menu
+                withinPortal
+                position="bottom-start"
+                width="target"
+                shadow="md"
+                offset={4}
+                classNames={{
+                  dropdown: 'ai-settings__tabs-dropdown-menu',
+                  item: 'ai-settings__tabs-dropdown-item',
+                }}
+              >
+                <Menu.Target>
+                  <DomeButton
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-haspopup="listbox"
+                    aria-label={t('settings.ai.title')}
+                    className="ai-settings__tabs-dropdown-trigger"
+                    rightIcon={<ChevronDown className="size-3.5 shrink-0 opacity-60" aria-hidden />}
+                    leftIcon={<ActiveIcon className={cn(TAB_ICON_CLASS, 'shrink-0 text-[var(--dome-accent)]')} aria-hidden />}
+                  >
+                    <span className="ai-settings__tabs-dropdown-text">{t(activeDef.labelKey)}</span>
+                  </DomeButton>
+                </Menu.Target>
+                <Menu.Dropdown role="listbox" aria-label={t('settings.ai.title')}>
+                  {TAB_DEFINITIONS.map(({ value, labelKey, icon: Icon }) => {
+                    const isActive = activeTab === value;
+                    return (
+                      <Menu.Item
+                        key={value}
+                        role="option"
+                        aria-selected={isActive}
+                        leftSection={<Icon className={TAB_ICON_CLASS} aria-hidden />}
+                        rightSection={
+                          isActive ? (
+                            <Check className="size-3.5 shrink-0 text-[var(--dome-accent)]" aria-hidden />
+                          ) : null
+                        }
+                        className={cn(isActive && 'is-active')}
+                        onClick={() => setActiveTab(value)}
+                      >
+                        {t(labelKey)}
+                      </Menu.Item>
+                    );
+                  })}
+                </Menu.Dropdown>
+              </Menu>
+            );
+          })()}
+        </div>
+      </div>
 
       {activeTab === 'chat' ? (
       <>
@@ -428,7 +497,7 @@ export default function AISettingsPanel() {
       />
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.ai.configuration')}</DomeSectionLabel>
+        <p className="ai-settings__section-label mb-2">{t('settings.ai.configuration')}</p>
 
         {isCloudAIProvider(provider) && (
           <AICloudProviderConfig
@@ -454,8 +523,8 @@ export default function AISettingsPanel() {
         )}
 
         {provider === 'dome' && (
-          <DomeCard className="space-y-4">
-            <div className="rounded-lg p-4" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
+          <DomeCard className="space-y-3">
+            <div className="rounded-lg p-3" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                 {t('settings.ai.dome_connect_title')}
               </p>
@@ -507,7 +576,7 @@ export default function AISettingsPanel() {
 
             {domeConnected && (
               <div
-                className="rounded-lg p-4 space-y-3"
+                className="rounded-lg p-3 space-y-3"
                 style={{ border: '1px solid var(--dome-border)', backgroundColor: 'var(--dome-bg-hover)' }}
               >
                 <div className="flex items-start gap-2">
@@ -554,8 +623,8 @@ export default function AISettingsPanel() {
         )}
 
         {provider === 'copilot' && (
-          <DomeCard className="space-y-4">
-            <div className="rounded-lg p-4" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
+          <DomeCard className="space-y-3">
+            <div className="rounded-lg p-3" style={{ backgroundColor: accentMix(8), border: `1px solid ${accentMix(25)}` }}>
               <p className="text-sm font-medium mb-1" style={{ color: 'var(--dome-text)' }}>
                 {t('settings.ai.copilot_connect_title')}
               </p>
@@ -653,6 +722,7 @@ export default function AISettingsPanel() {
           ) : null}
         </>
       ) : null}
-    </div>
+      </div>
+    </SettingsPanel>
   );
 }

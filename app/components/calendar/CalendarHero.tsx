@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Link2, Plus, RefreshCw, Upload } from 'lucide-react';
+import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 
 export function CalendarHero({
   syncHint,
@@ -34,7 +35,10 @@ export function CalendarHero({
           <span>{syncHint}</span>
         </div>
 
-        <h1 className="h-page-title">{t('calendarPage.title')}</h1>
+        <h1 className="h-page-title inline-flex items-center gap-2 min-w-0">
+          <span className="min-w-0">{t('calendarPage.title')}</span>
+          <SectionGuideHelp sectionKey="calendar" />
+        </h1>
         <p className="h-hero-sub">{t('calendarPage.subtitle')}</p>
 
         <div className="h-hero-actions">

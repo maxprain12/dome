@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import TranscriptionSettingsSections from './TranscriptionSettingsSections';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 /** @deprecated Use AISettingsPanel — transcription is unified under AI settings. */
 export default function TranscriptionSettingsPanel() {
@@ -28,7 +29,7 @@ export default function TranscriptionSettingsPanel() {
   const { models, loading } = useProviderModels({ provider, apiKey, applyVisibleFilter: false });
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         title={t('settings.transcription.title')}
         subtitle={
@@ -48,6 +49,6 @@ export default function TranscriptionSettingsPanel() {
         summaryModels={models.length > 0 ? models : PROVIDERS[provider]?.models ?? []}
         summaryModelsLoading={loading}
       />
-    </div>
+    </SettingsPanel>
   );
 }

@@ -1,0 +1,181 @@
+/* GitHub tracking view — stable, non-jumping header.
+   ------------------------------------------------------------------
+   The header is split in two visual rows. Each row gets a fixed
+   min-height so the content below never reflows when:
+     - the user switches between Minimal / Developer mode
+     - the dev-mode tab segmented control appears or disappears
+     - the repo selector's full_name changes width
+     - the tab is resized within the shell
+   Container queries drive label-vs-icon fallback so the segmented
+   controls stay on a single row even at narrow widths. */
+
+.dome-github-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  container-type: inline-size;
+  container-name: github-view;
+}
+
+/* ── Header wrapper ───────────────────────────────────────────── */
+
+.dome-github-view__header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  /* Reserve vertical space for both rows even when one row is
+     partially empty. Each row has its own min-height; together
+     they make the header height deterministic. */
+  min-height: 92px;
+  border-bottom: 1px solid var(--dome-border, var(--border));
+  background: var(--dome-surface, var(--bg-secondary));
+}
+
+/* ── Row 1 — identity (title + repo selector + external link) ── */
+
+.dome-github-view__row-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px 6px;
+  min-height: 40px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border, var(--border)) 65%, transparent);
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.dome-github-view__identity-leading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dome-github-view__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.dome-github-view__divider {
+  width: 1px;
+  height: 18px;
+  background: var(--dome-border, var(--border));
+  flex-shrink: 0;
+}
+
+.dome-github-view__repo-wrap {
+  position: relative;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.dome-github-view__repo-select {
+  max-width: 240px;
+  min-width: 0;
+}
+
+.dome-github-view__identity-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Row 2 — tools (search + segmented + actions) ─────────────── */
+
+.dome-github-view__row-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 10px;
+  min-height: 52px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.dome-github-view__search-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dome-github-view__search-input {
+  width: 100%;
+  max-width: 240px;
+}
+
+.dome-github-view__tools-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+}
+
+/* The dev-mode segmented control (Kanban / Gantt / Branches) is
+   rendered with `aria-hidden` + `inert` when the user is in
+   Minimal mode. It still occupies its natural width so switching
+   to Developer mode does not reflow the row. */
+.dome-github-view__segmented-placeholder {
+  display: inline-flex;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.dome-github-view__segmented {
+  flex-shrink: 0;
+  /* Override the default `flex-wrap` on DomeSegmentedControl so
+     the tab buttons always sit in a single line. */
+  flex-wrap: nowrap !important;
+}
+
+.dome-github-view__action-btn {
+  flex-shrink: 0;
+}
+
+/* ── Container-query fallbacks ────────────────────────────────── */
+
+@container github-view (max-width: 880px) {
+  /* Drop the labels of the segmented controls; keep only icons.
+     The label <span> already has `truncate` so we can collapse it
+     without changing the segmented control's component API. */
+  .dome-github-view__segmented > button > span:last-child {
+    display: none;
+  }
+  .dome-github-view__segmented {
+    gap: 0;
+    padding: 4px;
+  }
+  .dome-github-view__repo-select {
+    max-width: 180px;
+  }
+}
+
+@container github-view (max-width: 640px) {
+  .dome-github-view__title > .dome-github-view__title-text {
+    display: none;
+  }
+  .dome-github-view__repo-select {
+    max-width: 140px;
+  }
+  .dome-github-view__search-input {
+    max-width: 160px;
+  }
+}
+
+@container github-view (max-width: 480px) {
+  .dome-github-view__divider {
+    display: none;
+  }
+  .dome-github-view__search-wrap {
+    display: none;
+  }
+}

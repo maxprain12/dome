@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import type { Resource } from '@/types';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 type MenuItem =
   | { kind: 'tag'; id: string; label: string }
@@ -60,7 +61,8 @@ export default function MentionHeaderInput({
   useEffect(() => {
     let cancelled = false;
     async function loadTags() {
-      const res = await window.electron.db.tags.getAll();
+      const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
+      const res = await window.electron.db.tags.getAll(activeProjectId);
       if (!cancelled && res.success && Array.isArray(res.data)) {
         setAllTags(res.data.map((row) => ({ id: row.id, name: row.name, color: row.color })));
       }
@@ -116,7 +118,8 @@ export default function MentionHeaderInput({
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await window.electron.db.resources.searchForMention(token.query);
+        const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
+        const res = await window.electron.db.resources.searchForMention(token.query, activeProjectId);
         const rows = (res.success && Array.isArray(res.data) ? res.data : []) as Resource[];
         const filtered = rows
           .filter((r) => r.id !== resourceId)

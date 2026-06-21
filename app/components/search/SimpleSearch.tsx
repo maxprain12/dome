@@ -42,10 +42,6 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-        e.preventDefault();
-        open();
-      }
       if (e.key === 'Escape' && isOpen) {
         close();
       }
@@ -53,7 +49,7 @@ export function useSimpleSearch({ onResourceSelect }: UseSimpleSearchOptions = {
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, open, close]);
+  }, [isOpen, close]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -540,13 +536,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
-  // ⌘K: AppShell dispara `dome:focus-inline-search` solo en el tab Inicio; Escape cierra
   useEffect(() => {
-    const focusFromChrome = () => {
-      inputRef.current?.focus();
-      setIsFocused(true);
-    };
-    window.addEventListener('dome:focus-inline-search', focusFromChrome);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isFocused) {
         setQuery('');
@@ -556,10 +546,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
       }
     };
     document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('dome:focus-inline-search', focusFromChrome);
-      document.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isFocused]);
 
 // Debounced multi-source search

@@ -660,6 +660,8 @@ declare global {
           create: (project: any) => Promise<DBResponse<Project>>;
           getAll: () => Promise<DBResponse<Project[]>>;
           getById: (id: string) => Promise<DBResponse<Project>>;
+          setVaultRoot: (args: { projectId: string; vaultRoot: string | null }) => Promise<DBResponse<never> & { root?: string }>;
+          getVaultRoot: (projectId: string) => Promise<DBResponse<{ root: string; custom: boolean }>>;
           getDeletionImpact: (projectId: string) => Promise<DBResponse<Record<string, number>>>;
           deleteWithContent: (projectId: string) => Promise<DBResponse<void>>;
         };
@@ -673,7 +675,7 @@ declare global {
           update: (resource: any) => Promise<DBResponse<Resource>>;
           search: (query: string) => Promise<DBResponse<Resource[]>>;
           getAll: (limit?: number) => Promise<DBResponse<Resource[]>>;
-          listLight: (limit?: number) => Promise<DBResponse<Resource[]>>;
+          listLight: (limit?: number, projectId?: string) => Promise<DBResponse<Resource[]>>;
           delete: (id: string) => Promise<DBResponse<void>>;
           bulkDelete: (resourceIds: string[]) => Promise<DBResponse<{ deletedIds: string[] }>>;
           // Folder containment
@@ -688,7 +690,7 @@ declare global {
           // Backlinks
           getBacklinks: (resourceId: string) => Promise<DBResponse<ResourceSemanticBacklink[]>>;
           // Search for mentions
-          searchForMention: (query: string) => Promise<DBResponse<Resource[]>>;
+          searchForMention: (query: string, projectId?: string) => Promise<DBResponse<Resource[]>>;
         };
         interactions: {
           create: (interaction: any) => Promise<DBResponse<ResourceInteraction>>;
@@ -745,8 +747,8 @@ declare global {
         };
         tags: {
           getByResource: (resourceId: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string }>>>;
-          getAll: () => Promise<DBResponse<Array<{ id: string; name: string; color?: string | null; resource_count: number }>>>;
-          getResources: (tagId: string) => Promise<DBResponse<Array<{ id: string; title: string; type: string; updated_at: number }>>>;
+          getAll: (projectId?: string) => Promise<DBResponse<Array<{ id: string; name: string; color?: string | null; resource_count: number }>>>;
+          getResources: (tagId: string, projectId?: string) => Promise<DBResponse<Array<{ id: string; title: string; type: string; updated_at: number }>>>;
           create: (tag: {
             name: string;
             color?: string | null;
@@ -823,7 +825,7 @@ declare global {
           searchNodes: (query: string) => Promise<DBResponse<GraphNode[]>>;
         };
         search: {
-          unified: (query: string) => Promise<DBResponse<UnifiedSearchResult>>;
+          unified: (query: string, projectId?: string) => Promise<DBResponse<UnifiedSearchResult>>;
         };
         flashcards: {
           createDeck: (deck: any) => Promise<DBResponse<any>>;
@@ -976,6 +978,17 @@ declare global {
         getUsage: () => Promise<DBResponse<StorageUsage>>;
         cleanup: () => Promise<DBResponse<{ deleted: number; freedBytes: number }>>;
         getPath: () => Promise<DBResponse<string>>;
+      };
+
+      // Notes Markdown vault mirror API
+      notes: {
+        writeMirror: (args: { id: string; markdown: string }) => Promise<
+          DBResponse<never> & { vaultPath?: string }
+        >;
+        readMirror: (args: { id: string }) => Promise<
+          DBResponse<never> & { markdown?: string; vaultPath?: string }
+        >;
+        vaultDir: () => Promise<DBResponse<string>>;
       };
 
       // Migration API

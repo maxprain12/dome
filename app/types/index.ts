@@ -192,6 +192,9 @@ export interface Resource {
   /** ID of the folder this resource is in (null if at root) */
   folder_id?: string | null;
 
+  /** Relative path of the note's Markdown mirror inside dome-files/vault/ (notes only) */
+  vault_path?: string | null;
+
   metadata?: ResourceMetadata;
   /** Set by main process when URL/YouTube thumbnail fetch completes */
   thumbnail_ready?: boolean;

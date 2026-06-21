@@ -1,6 +1,8 @@
 
 import { useState } from 'react';
 import { useUserStore } from '@/lib/store/useUserStore';
+import { applyOnboardingConfig } from '@/lib/onboarding/applyOnboardingConfig';
+import type { RoleId } from '@/lib/onboarding/roles';
 import MartinOnboarding from './MartinOnboarding';
 
 interface OnboardingProps {
@@ -8,17 +10,22 @@ interface OnboardingProps {
 }
 
 export default function Onboarding({ onComplete }: OnboardingProps) {
-  const { updateUserProfile, completeOnboarding, name: existingName, email: existingEmail } = useUserStore();
+  const { name: existingName, email: existingEmail } = useUserStore();
   const [isVisible, setIsVisible] = useState(true);
 
-  const handleComplete = async (data: { name: string; email: string }) => {
-    await updateUserProfile({
-      name: data.name,
-      email: data.email,
-    });
-
-    // Mark onboarding as completed
-    await completeOnboarding();
+  const handleComplete = async (data: {
+    name: string;
+    email: string;
+    roleId: RoleId;
+    freeText: string;
+  }) => {
+    // Applies profile, agent soul/memory, feature visibility and recommended
+    // skills, then marks onboarding complete. Each step is best-effort.
+    try {
+      await applyOnboardingConfig(data);
+    } catch (err) {
+      console.error('[Onboarding] applyOnboardingConfig failed:', err);
+    }
 
     // Close modal with animation
     setIsVisible(false);

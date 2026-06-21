@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const kbShared = require('../../agents/kb-llm-shared.cjs');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
+const vaultStore = require('../../storage/vault-store.cjs');
 const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer, isMaskedSecret } = require('../../core/settings-secrets.cjs');
@@ -237,6 +238,38 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
+  // Set (or clear) a project's custom Markdown vault root. Moves existing note
+  // .md files to the new location and (re)watches it for external edits.
+  ipcMain.handle('db:projects:setVaultRoot', (event, args) => {
+    try {
+      validateSender(event, windowManager);
+      const projectId = args?.projectId;
+      const vaultRoot = args?.vaultRoot;
+      if (!projectId) return { success: false, error: 'projectId required' };
+      const result = vaultStore.setProjectVaultRoot(projectId, vaultRoot, { database, fileStorage });
+      if (result.success) {
+        try { require('../../storage/vault-watcher.cjs').addRoot(result.root); } catch { /* non-fatal */ }
+        windowManager.broadcast('project:updated', { id: projectId });
+      }
+      return result;
+    } catch (error) {
+      console.error('[DB] Error setting project vault root:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Effective vault root (custom or default) for display.
+  ipcMain.handle('db:projects:getVaultRoot', (event, projectId) => {
+    try {
+      validateSender(event, windowManager);
+      const root = vaultStore.getProjectVaultRoot(projectId, database.getQueries(), fileStorage);
+      const project = database.getQueries().getProjectById.get(projectId);
+      return { success: true, data: { root, custom: !!(project && project.vault_root) } };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('db:projects:getDeletionImpact', (event, projectId) => {
     try {
       validateSender(event, windowManager);
@@ -278,6 +311,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         resource.created_at,
         resource.updated_at
       );
+
+      // Seed the plain-text cache for notes created with content (e.g. by an
+      // AI tool) so FTS/preview/semantic search show readable text immediately.
+      // The .md mirror is written on first open/edit.
+      if (resource.type === 'note' && resource.content) {
+        try {
+          const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
+          const raw = String(resource.content || '');
+          let text = '';
+          if (raw.trim().startsWith('{')) {
+            try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
+          }
+          if (!text) text = stripTags(raw);
+          if (text) database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
+        } catch { /* non-fatal */ }
+      }
 
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:created', resource);
@@ -426,6 +475,36 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const mergedUpdatedAt = resource.updated_at !== undefined ? resource.updated_at : current.updated_at;
 
       queries.updateResource.run(mergedTitle, mergedContent, mergedMetadata, mergedUpdatedAt, resource.id);
+
+      // Vault reconciliation: keep the on-disk Markdown tree + search caches in
+      // sync with this DB write (covers AI/tool edits as well as renderer saves).
+      try {
+        if (current.type === 'folder') {
+          if (resource.title !== undefined && resource.title !== current.title) {
+            vaultStore.relocateDescendants(resource.id, { database, fileStorage });
+          }
+        } else if (current.type === 'note') {
+          // Refresh the plain-text cache from the (possibly AI-updated) Tiptap
+          // JSON so FTS/semantic search stay current. The renderer additionally
+          // writes the .md via notes:writeMirror; AI edits rely on this refresh
+          // and the .md is regenerated on the next editor save.
+          if (resource.content !== undefined) {
+            try {
+              const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
+              const raw = String(mergedContent || '');
+              let text = '';
+              if (raw.trim().startsWith('{')) {
+                try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
+              }
+              if (!text) text = stripTags(raw);
+              database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
+            } catch { /* non-fatal */ }
+          }
+          if (resource.title !== undefined && resource.title !== current.title) {
+            vaultStore.relocateResource(resource.id, { database, fileStorage });
+          }
+        }
+      } catch (e) { console.warn('[DB] vault reconcile (update) failed:', e?.message); }
 
       // Broadcast evento a todas las ventanas (merged values)
       const mergedResource = {
@@ -577,7 +656,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Search for mentions (quick autocomplete)
-  ipcMain.handle('db:resources:searchForMention', (event, query) => {
+  ipcMain.handle('db:resources:searchForMention', (event, query, projectId) => {
     try {
       validateSender(event, windowManager);
       // Validar query
@@ -589,7 +668,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
       const queries = database.getQueries();
       const searchTerm = `%${query}%`;
-      const results = queries.searchForMention.all(searchTerm, searchTerm);
+      // Mentions are hard-scoped to the active project when provided.
+      const results =
+        typeof projectId === 'string' && projectId
+          ? queries.searchForMentionByProject.all(searchTerm, searchTerm, projectId)
+          : queries.searchForMention.all(searchTerm, searchTerm);
       return { success: true, data: results };
     } catch (error) {
       console.error('[DB] Error searching for mentions:', error);
@@ -1503,12 +1586,26 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Unified search
-  ipcMain.handle('db:search:unified', async (event, query) => {
+  //
+  // Hard-scoped to a single project: when `projectId` is provided, resources,
+  // interactions and studio outputs from other projects are dropped so search
+  // never leaks across projects. `projectId` omitted = global (meta) search.
+  const scopeUnifiedData = (data, projectId) => {
+    if (typeof projectId !== 'string' || !projectId) return data;
+    return {
+      resources: (data.resources || []).filter((r) => r.project_id === projectId),
+      interactions: (data.interactions || []).filter((i) => i.project_id === projectId),
+      studioOutputs: (data.studioOutputs || []).filter((s) => s.project_id === projectId),
+    };
+  };
+
+  ipcMain.handle('db:search:unified', async (event, query, projectId) => {
     // Validate and sanitize query BEFORE the try block so retry catch blocks can use it
     validateSender(event, windowManager);
     if (typeof query !== 'string') {
       return { success: false, error: 'Query must be a string' };
     }
+    const scopeProjectId = typeof projectId === 'string' && projectId ? projectId : undefined;
     if (query.length > 1000) {
       return { success: false, error: 'Query too long. Maximum 1000 characters' };
     }
@@ -1542,7 +1639,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       let resourceResults = [];
       if (lanceQuery) {
         try {
-          const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, {});
+          const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, scopeProjectId ? { project_id: scopeProjectId } : {});
           for (const h of lexHits) {
             const r = queries.getResourceById.get(h.id);
             if (r) resourceResults.push(r);
@@ -1590,11 +1687,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       return {
         success: true,
-        data: {
-          resources: resourceResults,
-          interactions: interactionResults,
-          studioOutputs: studioResults,
-        },
+        data: scopeUnifiedData(
+          {
+            resources: resourceResults,
+            interactions: interactionResults,
+            studioOutputs: studioResults,
+          },
+          scopeProjectId,
+        ),
       };
     } catch (error) {
       console.error('[DB] Error in unified search:', error);
@@ -1639,11 +1739,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
           return {
             success: true,
-            data: {
-              resources: resourceResults,
-              interactions: interactionResults,
-              studioOutputs: studioResults,
-            },
+            data: scopeUnifiedData(
+              {
+                resources: resourceResults,
+                interactions: interactionResults,
+                studioOutputs: studioResults,
+              },
+              scopeProjectId,
+            ),
           };
         } catch (retryError) {
           console.error('[DB] Error retrying unified search after repair:', retryError);
@@ -1672,10 +1775,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
                 return {
                   success: true,
-                  data: {
-                    resources: resourceResults,
-                    interactions: interactionResults,
-                  },
+                  data: scopeUnifiedData(
+                    {
+                      resources: resourceResults,
+                      interactions: interactionResults,
+                    },
+                    scopeProjectId,
+                  ),
                 };
               } catch (finalError) {
                 console.error('[DB] Error after second repair attempt:', finalError);
@@ -1705,11 +1811,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Lightweight resource list (no content / thumbnail_data) for sidebar and dashboard
-  ipcMain.handle('db:resources:listLight', (event, limit = 500) => {
+  ipcMain.handle('db:resources:listLight', (event, limit = 500, projectId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const resources = queries.listResourcesLight.all(limit);
+      // Project-scoped when a projectId is provided (filters in SQL before LIMIT
+      // to avoid the global-truncation leak). Omit projectId only for meta views
+      // that intentionally span all projects (e.g. the Projects dashboard).
+      const resources =
+        typeof projectId === 'string' && projectId
+          ? queries.listResourcesLightByProject.all(projectId, limit)
+          : queries.listResourcesLight.all(limit);
       return { success: true, data: resources };
     } catch (error) {
       console.error('[DB] Error listing resources (light):', error);
@@ -1728,6 +1840,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Delete the internal file
         fileStorage.deleteFile(resource.internal_path);
       }
+      // Remove the Markdown mirror from the vault (no-op for non-notes).
+      try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
       // Delete from database
       queries.deleteResource.run(id);
 
@@ -1867,6 +1981,13 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       queries.moveResourceToFolder.run(folderId || null, Date.now(), resourceId);
 
+      // Keep the on-disk vault tree in sync: move the .md (and any descendants).
+      try {
+        const moved = queries.getResourceById.get(resourceId);
+        if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
+        else vaultStore.relocateResource(resourceId, { database, fileStorage });
+      } catch (e) { console.warn('[DB] vault relocate (move) failed:', e?.message); }
+
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:updated', {
         id: resourceId,
@@ -1887,6 +2008,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const queries = database.getQueries();
       const now = Date.now();
       queries.removeResourceFromFolder.run(now, resourceId);
+
+      try {
+        const moved = queries.getResourceById.get(resourceId);
+        if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
+        else vaultStore.relocateResource(resourceId, { database, fileStorage });
+      } catch (e) { console.warn('[DB] vault relocate (removeFromFolder) failed:', e?.message); }
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:updated', {
@@ -1939,6 +2066,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             console.warn('[DB] bulkDelete file:', e?.message);
           }
         }
+        try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
         queries.deleteResource.run(id);
         windowManager.broadcast('resource:deleted', { id });
       }

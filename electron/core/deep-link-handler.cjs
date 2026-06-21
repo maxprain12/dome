@@ -77,7 +77,11 @@ async function handleDomeUrl(url, deps) {
       const altSlug = slug.replace(/^Ver:\s*/i, '').trim();
       const searchSlug = altSlug || slug;
       const searchTerm = `%${searchSlug}%`;
-      const results = queries.searchForMention.all(searchTerm, searchTerm);
+      // Resolve titles only within the active project (never cross-project).
+      const activeProjectId = queries.getSetting.get('last_project_id')?.value;
+      const results = activeProjectId
+        ? queries.searchForMentionByProject.all(searchTerm, searchTerm, activeProjectId)
+        : queries.searchForMention.all(searchTerm, searchTerm);
       const match =
         results.find((x) => (x.title || '').toLowerCase() === searchSlug.toLowerCase()) ??
         results.find((x) => (x.title || '').toLowerCase() === slug.toLowerCase()) ??

@@ -31,6 +31,7 @@ import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
 import { DomeSelect } from '@/components/ui/DomeSelect';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeListState from '@/components/ui/DomeListState';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeCheckbox from '@/components/ui/DomeCheckbox';
 import { isDirectoryTreeTool } from '@/lib/mcp/tool-policy';
@@ -202,7 +203,7 @@ export default function MCPSettingsPanel() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title="MCP"
@@ -575,6 +576,6 @@ export default function MCPSettingsPanel() {
           textareaClassName="text-xs font-mono resize-none min-h-[200px]"
         />
       </DomeModal>
-    </div>
+    </SettingsPanel>
   );
 }

@@ -157,7 +157,7 @@ function register({ ipcMain, windowManager }) {
   });
 
   // --- mutations (bidirectional) -----------------------------------------
-  ipcMain.handle('github:issue:update', async (event, id, patch) => {
+  ipcMain.handle('github:issues:update', async (event, id, patch) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
@@ -170,7 +170,7 @@ function register({ ipcMain, windowManager }) {
   });
 
   // Kanban column move = change state (open/closed) and/or milestone.
-  ipcMain.handle('github:issue:move', async (event, id, { state, milestoneNumber } = {}) => {
+  ipcMain.handle('github:issues:move', async (event, id, { state, milestoneNumber } = {}) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string') return fail('Invalid id');
     try {
@@ -185,7 +185,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:issue:create', async (event, repoId, data) => {
+  ipcMain.handle('github:issues:create', async (event, repoId, data) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string' || typeof data?.title !== 'string') return fail('Invalid args');
     try {
@@ -196,7 +196,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:issue:comments:list', async (event, issueId) => {
+  ipcMain.handle('github:issues:listComments', async (event, issueId) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof issueId !== 'string') return fail('Invalid issueId');
     try {
@@ -207,7 +207,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:issue:comment:create', async (event, issueId, body) => {
+  ipcMain.handle('github:issues:createComment', async (event, issueId, body) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof issueId !== 'string' || typeof body !== 'string') return fail('Invalid args');
     try {
@@ -218,7 +218,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:issue:timeline:list', async (event, issueId) => {
+  ipcMain.handle('github:issues:listTimeline', async (event, issueId) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof issueId !== 'string') return fail('Invalid issueId');
     try {
@@ -229,7 +229,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:issue:mentionables:list', async (event, issueId) => {
+  ipcMain.handle('github:issues:listMentionables', async (event, issueId) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof issueId !== 'string') return fail('Invalid issueId');
     try {
@@ -240,7 +240,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:milestone:update', async (event, id, patch) => {
+  ipcMain.handle('github:milestones:update', async (event, id, patch) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
@@ -252,7 +252,7 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:milestone:create', async (event, repoId, data) => {
+  ipcMain.handle('github:milestones:create', async (event, repoId, data) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string' || typeof data?.title !== 'string') return fail('Invalid args');
     try {

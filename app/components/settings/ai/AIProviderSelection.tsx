@@ -1,31 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import { CheckCircle2, HardDrive, KeyRound, Lock, Settings2, Zap } from 'lucide-react';
+import { CheckCircle2, HardDrive, KeyRound, Lock, Settings2, Sparkles, Zap } from 'lucide-react';
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
-import { accentMix, ACCENT_END } from '@/lib/ui/accent';
 import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import { cn } from '@/lib/utils';
-
-/** Fixed row height: 2-line title + 2-line subtitle + padding (tallest provider labels). */
-const PROVIDER_GRID_ROW_HEIGHT = '5.75rem';
-
-/** Reserved top-right slot so selection tick never steals width from labels. */
-function ProviderCardCheck({ selected }: { selected: boolean }) {
-  return (
-    <CheckCircle2
-      aria-hidden
-      className={cn(
-        'pointer-events-none absolute top-2.5 right-2.5 size-3.5 shrink-0 transition-opacity duration-150',
-        selected ? 'opacity-100' : 'opacity-0',
-      )}
-      style={{ color: 'var(--dome-accent)' }}
-    />
-  );
-}
 
 export interface AIProviderSelectionProps {
   provider: AIProviderType;
@@ -37,6 +17,39 @@ export interface AIProviderSelectionProps {
   configuredProviders?: Record<string, boolean>;
   /** Opens the visible-models modal for a provider (gear icon). */
   onConfigureModels?: (provider: AIProviderType) => void;
+}
+
+function ProviderCardCheck() {
+  return (
+    <CheckCircle2
+      aria-hidden
+      className="ai-provider-card__check"
+    />
+  );
+}
+
+function ConfiguratorGear({
+  provider,
+  onConfigureModels,
+  label,
+}: {
+  provider: AIProviderType;
+  onConfigureModels: (p: AIProviderType) => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="ai-provider-card__gear"
+      aria-label={label}
+      onClick={(e) => {
+        e.stopPropagation();
+        onConfigureModels(provider);
+      }}
+    >
+      <Settings2 className="size-3" aria-hidden />
+    </button>
+  );
 }
 
 export default function AIProviderSelection({
@@ -58,7 +71,7 @@ export default function AIProviderSelection({
   return (
     <div>
       {showSectionLabel ? (
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
+        <DomeSectionLabel className="ai-settings__section-label">
           {t('settings.ai.provider')}
         </DomeSectionLabel>
       ) : null}
@@ -68,63 +81,31 @@ export default function AIProviderSelection({
           <button
             type="button"
             onClick={() => onProviderChange('dome')}
-            className="relative w-full p-4 rounded-xl text-left transition-all cursor-pointer overflow-hidden"
-            style={{
-              background:
-                activeProvider === 'dome'
-                  ? `linear-gradient(135deg, var(--dome-accent) 0%, ${ACCENT_END} 100%)`
-                  : 'var(--dome-surface)',
-              border: activeProvider === 'dome' ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-              boxShadow: activeProvider === 'dome' ? `0 4px 16px ${accentMix(25)}` : 'none',
-            }}
-          >
-            {activeProvider === 'dome' && (
-              <div
-                className="absolute inset-0 pointer-events-none opacity-10"
-                style={{ backgroundImage: 'radial-gradient(circle at 80% 50%, var(--dome-accent-bg), transparent 60%)' }}
-              />
+            aria-pressed={activeProvider === 'dome'}
+            className={cn(
+              'ai-provider-card ai-provider-card--featured',
             )}
-            <div className="relative flex items-center gap-3">
-              <DomeIconBox
-                size="md"
-                className="!w-9 !h-9 !rounded-lg"
-                background={activeProvider === 'dome' ? 'rgba(255,255,255,0.15)' : 'var(--dome-accent-bg)'}
-              >
-                <ProviderBrandIcon provider="dome" size={22} />
-              </DomeIconBox>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-sm font-semibold" style={{ color: activeProvider === 'dome' ? 'var(--base-text)' : 'var(--dome-text)' }}>
-                    {PROVIDERS.dome.name}
-                  </span>
-                  <DomeBadge
-                    label={t('settings.ai.recommended')}
-                    size="xs"
-                    variant={activeProvider === 'dome' ? 'outline' : 'soft'}
-                    color={activeProvider === 'dome' ? 'var(--dome-on-accent)' : 'var(--dome-accent)'}
-                    className={activeProvider === 'dome' ? '!border-white/30 !text-white' : ''}
-                  />
-                </div>
-                <p className="text-xs" style={{ color: activeProvider === 'dome' ? 'rgba(255,255,255,0.7)' : 'var(--dome-text-muted)' }}>
-                  {`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
-                </p>
+          >
+            <div className="ai-provider-card__head">
+              <div className="ai-provider-card__icon">
+                <ProviderBrandIcon provider="dome" size={16} />
               </div>
-              <div className="flex items-center gap-1.5 shrink-0">
-                {[{ icon: Lock, label: t('settings.ai.private') }, { icon: Zap, label: t('settings.ai.fast') }].map(({ icon: Icon, label }) => (
-                  <div
-                    key={label}
-                    className="flex items-center gap-1 px-2 py-1 rounded-md"
-                    style={{
-                      backgroundColor: activeProvider === 'dome' ? 'rgba(255,255,255,0.12)' : accentMix(10),
-                      color: activeProvider === 'dome' ? 'rgba(255,255,255,0.85)' : 'var(--dome-accent)',
-                    }}
-                  >
-                    <Icon className="size-2.5" />
-                    <span className="text-[10px] font-medium">{label}</span>
-                  </div>
-                ))}
-                {activeProvider === 'dome' && <CheckCircle2 className="size-4" style={{ color: 'var(--dome-accent-bg)' }} />}
-              </div>
+              <span className="ai-provider-card__name">{PROVIDERS.dome.name}</span>
+              <span className="ai-provider-card__badge">{t('settings.ai.recommended')}</span>
+              <ProviderCardCheck />
+            </div>
+            <p className="ai-provider-card__desc">
+              {`${PROVIDERS.dome.description}. ${t('settings.ai.no_own_key')}.`}
+            </p>
+            <div className="ai-provider-card__foot">
+              <span className="ai-provider-card__chip">
+                <Lock className="size-2.5" aria-hidden />
+                {t('settings.ai.private')}
+              </span>
+              <span className="ai-provider-card__chip">
+                <Zap className="size-2.5" aria-hidden />
+                {t('settings.ai.fast')}
+              </span>
             </div>
           </button>
         )}
@@ -137,22 +118,16 @@ export default function AIProviderSelection({
           : [{ key: 'all', label: null, options: cloudOptions }]
         ).map((group) =>
           group.options.length === 0 ? null : (
-            <div key={group.key}>
+            <div key={group.key} className="ai-settings__section">
               {group.label ? (
-                <p
-                  className="mb-1.5 mt-3 text-[10px] font-semibold uppercase tracking-widest"
-                  style={{ color: 'var(--dome-text-muted)' }}
-                >
-                  {group.label}
-                </p>
+                <DomeSectionLabel className="ai-settings__section-label">{group.label}</DomeSectionLabel>
               ) : null}
-              <div
-                className="grid grid-cols-3 gap-2"
-                style={{ gridAutoRows: PROVIDER_GRID_ROW_HEIGHT }}
-              >
+              <div className="ai-provider-grid">
                 {group.options.map((option) => {
                   const isSelected = activeProvider === option.value;
                   const hasKey = Boolean(configuredProviders[option.value]);
+                  const showGear =
+                    isVisibleModelsConfigurable(option.value) && Boolean(onConfigureModels);
                   return (
                     <button
                       key={option.value}
@@ -160,61 +135,42 @@ export default function AIProviderSelection({
                       onClick={() => !option.disabled && onProviderChange(option.value)}
                       disabled={option.disabled}
                       aria-pressed={isSelected}
-                      className="relative flex h-full w-full flex-col items-start justify-start p-3 pr-8 rounded-xl text-left transition-[background-color,box-shadow] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: isSelected ? accentMix(8) : 'transparent',
-                        border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-                        boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
-                      }}
+                      className="ai-provider-card"
                     >
-                      {option.badge ? (
-                        <span className="absolute -top-1.5 -right-1.5">
-                          <DomeBadge label={option.badge} size="xs" variant="filled" color="var(--dome-accent)" className="!text-[8px] !py-0.5 !px-1.5" />
-                        </span>
-                      ) : null}
-                      <ProviderCardCheck selected={isSelected} />
-                      {isVisibleModelsConfigurable(option.value) && onConfigureModels ? (
-                        <button
-                          type="button"
-                          className="absolute bottom-2 right-2 flex size-6 items-center justify-center rounded-md border border-[var(--dome-border)] bg-[var(--dome-surface)] text-[var(--dome-text-muted)] transition-colors hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-accent)]"
-                          aria-label={t('settings.ai.visible_models.gear_label', { provider: option.label })}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onConfigureModels(option.value);
-                          }}
-                        >
-                          <Settings2 className="size-3.5" aria-hidden />
-                        </button>
-                      ) : null}
-                      <div className="flex w-full min-w-0 items-start justify-start gap-2.5">
-                        <DomeIconBox
-                          size="sm"
-                          className="!w-7 !h-7 !rounded-md shrink-0"
-                          background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
-                        >
+                      <div className="ai-provider-card__head">
+                        <div className="ai-provider-card__icon">
                           <ProviderBrandIcon provider={option.value} size={16} />
-                        </DomeIconBox>
-                        <div className="min-w-0 flex-1">
-                          <p
-                            className="mb-0.5 min-h-[2rem] line-clamp-2 text-xs font-semibold leading-[1.25]"
-                            style={{ color: 'var(--dome-text)' }}
-                          >
-                            {option.label}
-                          </p>
-                          {hasKey ? (
-                            <p className="flex min-h-[1.25rem] items-center gap-1 text-[10px] leading-[1.25]" style={{ color: 'var(--success)' }}>
-                              <KeyRound aria-hidden className="size-2.5 shrink-0" />
-                              {t('settings.ai.key_saved')}
-                            </p>
-                          ) : (
-                            <p
-                              className="min-h-[1.25rem] line-clamp-2 text-[10px] leading-[1.25]"
-                              style={{ color: 'var(--dome-text-muted)' }}
-                            >
-                              {t('settings.ai.api_key_required')}
-                            </p>
-                          )}
                         </div>
+                        <span className="ai-provider-card__name">{option.label}</span>
+                        {option.badge ? (
+                          <span className="ai-provider-card__badge">{option.badge}</span>
+                        ) : null}
+                        <ProviderCardCheck />
+                      </div>
+                      <p className="ai-provider-card__desc">
+                        {hasKey ? t('settings.ai.key_saved') : t('settings.ai.api_key_required')}
+                      </p>
+                      <div className="ai-provider-card__foot">
+                        <span
+                          className={cn(
+                            'ai-provider-card__status',
+                            hasKey && 'ai-provider-card__status--ok',
+                          )}
+                        >
+                          {hasKey ? (
+                            <KeyRound className="size-2.5 shrink-0" aria-hidden />
+                          ) : (
+                            <Sparkles className="size-2.5 shrink-0" aria-hidden />
+                          )}
+                          {hasKey ? t('settings.ai.key_saved') : t('settings.ai.api_key_required')}
+                        </span>
+                        {showGear && onConfigureModels ? (
+                          <ConfiguratorGear
+                            provider={option.value}
+                            onConfigureModels={onConfigureModels}
+                            label={t('settings.ai.visible_models.gear_label', { provider: option.label })}
+                          />
+                        ) : null}
                       </div>
                     </button>
                   );
@@ -234,39 +190,22 @@ export default function AIProviderSelection({
               aria-label={ollamaOption.label}
               onClick={() => onProviderChange('ollama')}
               aria-pressed={isSelected}
-              className="relative w-full p-3 pr-8 rounded-xl text-left transition-[background-color,box-shadow] cursor-pointer"
-              style={{
-                backgroundColor: isSelected ? accentMix(8) : 'transparent',
-                border: isSelected ? '2px solid var(--dome-accent)' : '2px solid var(--dome-border)',
-                boxShadow: isSelected ? `0 2px 8px ${accentMix(15)}` : 'none',
-              }}
+              className="ai-provider-card ai-provider-card--local"
             >
-              <ProviderCardCheck selected={isSelected} />
-              <div className="flex items-center gap-3 min-w-0">
-                <DomeIconBox
-                  size="sm"
-                  className="!w-8 !h-8 !rounded-md shrink-0"
-                  background={isSelected ? 'var(--dome-accent-bg)' : 'var(--dome-bg-hover)'}
-                >
-                  <ProviderBrandIcon provider="ollama" size={18} />
-                </DomeIconBox>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>
-                      {ollamaOption.label}
-                    </p>
-                    <DomeBadge label={t('settings.ai.local_badge')} size="xs" color="var(--dome-accent)" />
-                  </div>
-                  <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-                    {t('settings.ai.private_local')}
-                  </p>
+              <div className="ai-provider-card__head">
+                <div className="ai-provider-card__icon">
+                  <ProviderBrandIcon provider="ollama" size={16} />
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <div className="flex items-center gap-1 px-2 py-1 rounded-md" style={{ backgroundColor: accentMix(10), color: 'var(--dome-accent)' }}>
-                    <HardDrive className="size-2.5" />
-                    <span className="text-[10px] font-medium">{t('onboarding.offline')}</span>
-                  </div>
-                </div>
+                <span className="ai-provider-card__name">{ollamaOption.label}</span>
+                <span className="ai-provider-card__badge">{t('settings.ai.local_badge')}</span>
+                <ProviderCardCheck />
+              </div>
+              <p className="ai-provider-card__desc">{t('settings.ai.private_local')}</p>
+              <div className="ai-provider-card__foot">
+                <span className="ai-provider-card__chip">
+                  <HardDrive className="size-2.5" aria-hidden />
+                  {t('onboarding.offline')}
+                </span>
               </div>
             </button>
           );

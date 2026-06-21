@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const semanticIndexScheduler = require('../../storage/semantic-index-scheduler.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
+const vaultStore = require('../../storage/vault-store.cjs');
 
 /**
  * Generate a unique ID for resources
@@ -28,27 +29,20 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       const ext = path.extname(filePath).toLowerCase();
       const effectiveType = fileStorage.classifyFileType(ext, type);
-
-      // Import file to internal storage
-      const importResult = await fileStorage.importFile(filePath, effectiveType);
-
-      // Check for duplicate by hash
       const queries = database.getQueries();
-      const existingResource = queries.findByHash.get(importResult.hash);
-      if (existingResource) {
-        return {
-          success: false,
-          error: 'duplicate',
-          duplicate: {
-            id: existingResource.id,
-            title: existingResource.title,
-            projectId: existingResource.project_id,
-          },
-        };
-      }
+      const resourceId = generateId();
+      const originalName = path.basename(filePath);
+
+      // Import the file INTO the project's vault (referenced in place — no
+      // content-addressed copy). Vault duplicates are allowed.
+      const importResult = vaultStore.importFileToVault(
+        filePath,
+        { id: resourceId, type: effectiveType, project_id: projectId, folder_id: null, title: title || originalName, original_filename: originalName },
+        { database, fileStorage },
+      );
 
       // Generate thumbnail for supported types
-      const fullPath = fileStorage.getFullPath(importResult.internalPath);
+      const fullPath = importResult.absPath;
       const thumbnailData = await thumbnail.generateThumbnail(
         fullPath,
         type,
@@ -75,7 +69,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         }
       }
       // Extract text from PDFs on import (so resource_get has content without on-demand extraction)
-      const isPdf = type === 'pdf' || (importResult.mimeType || '').includes('pdf') || (importResult.originalName || '').toLowerCase().endsWith('.pdf');
+      const isPdf = type === 'pdf' || (importResult.mimeType || '').includes('pdf') || (originalName || '').toLowerCase().endsWith('.pdf');
       if (isPdf && !contentText) {
         try {
           contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
@@ -84,10 +78,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         }
       }
 
-      // Create resource in database
-      const resourceId = generateId();
+      // Create resource in database (vault-native: no internal_path; vault_path
+      // + content_hash are set below so the file is referenced in place).
       const now = Date.now();
-      const resourceTitle = title || importResult.originalName || 'Untitled';
+      const resourceTitle = title || originalName || 'Untitled';
 
       queries.createResourceWithFile.run(
         resourceId,
@@ -96,16 +90,18 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         resourceTitle,
         contentText, // content - extracted text for documents
         null, // file_path (legacy, not used)
-        importResult.internalPath,
+        null, // internal_path (legacy — vault-native uses vault_path)
         importResult.mimeType,
         importResult.size,
-        importResult.hash,
+        importResult.contentHash,
         thumbnailData,
-        importResult.originalName,
+        originalName,
         metadata ? JSON.stringify(metadata) : null, // metadata - JSON string for video info
         now,
         now
       );
+      database.getDB().prepare('UPDATE resources SET vault_path = ?, content_hash = ? WHERE id = ?')
+        .run(importResult.vaultPath, importResult.contentHash, resourceId);
 
       // Get the created resource
       const resource = queries.getResourceById.get(resourceId);
@@ -285,18 +281,10 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      // Prefer internal_path, fallback to legacy file_path
-      if (resource.internal_path) {
-        const fullPath = fileStorage.getFullPath(resource.internal_path);
-        if (fileStorage.fileExists(resource.internal_path)) {
-          return { success: true, data: fullPath };
-        }
-        return { success: false, error: 'Internal file not found' };
-      }
-
-      // Legacy: use file_path
-      if (resource.file_path && fs.existsSync(resource.file_path)) {
-        return { success: true, data: resource.file_path };
+      // Resolve via the vault (vault_path) with legacy internal_path/file_path fallback.
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (fullPath && fs.existsSync(fullPath)) {
+        return { success: true, data: fullPath };
       }
 
       return { success: false, error: 'File not found' };
@@ -325,29 +313,18 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      let buffer;
       let mimeType = resource.file_mime_type && String(resource.file_mime_type).trim()
         ? String(resource.file_mime_type).trim()
         : null;
 
-      if (resource.internal_path) {
-        if (!fileStorage.fileExists(resource.internal_path)) {
-          return { success: false, error: 'Internal file not found' };
-        }
-        const fullPath = fileStorage.getFullPath(resource.internal_path);
-        buffer = fs.readFileSync(fullPath);
-        if (!mimeType) {
-          const ext = path.extname(resource.original_filename || resource.title || '').toLowerCase();
-          mimeType = fileStorage.getMimeType(ext);
-        }
-      } else if (resource.file_path && fs.existsSync(resource.file_path)) {
-        buffer = fs.readFileSync(resource.file_path);
-        if (!mimeType) {
-          const ext = path.extname(resource.file_path).toLowerCase();
-          mimeType = fileStorage.getMimeType(ext);
-        }
-      } else {
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (!fullPath || !fs.existsSync(fullPath)) {
         return { success: false, error: 'File not found' };
+      }
+      const buffer = fs.readFileSync(fullPath);
+      if (!mimeType) {
+        const ext = path.extname(fullPath || resource.original_filename || resource.title || '').toLowerCase();
+        mimeType = fileStorage.getMimeType(ext);
       }
 
       return {
@@ -379,12 +356,9 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         (resource.file_mime_type || '').includes('presentationml') ||
         (resource.original_filename || resource.title || '').toLowerCase().endsWith('.pptx');
 
-      // Prefer internal_path
-      if (resource.internal_path) {
-        const fullPath = fileStorage.getFullPath(resource.internal_path);
-        if (!fs.existsSync(fullPath)) {
-          return { success: false, error: 'Internal file not found' };
-        }
+      // Resolve via the vault (vault_path) with legacy fallback.
+      const fullPath = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+      if (fullPath && fs.existsSync(fullPath)) {
         let buffer = fs.readFileSync(fullPath);
         if (isPptx) {
           try {
@@ -399,27 +373,6 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
           }
         }
         const ext = path.extname(fullPath).toLowerCase();
-        const mimeType = fileStorage.getMimeType(ext);
-        const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
-        return { success: true, data: dataUrl };
-      }
-
-      // Legacy: read from file_path
-      if (resource.file_path && fs.existsSync(resource.file_path)) {
-        let buffer = fs.readFileSync(resource.file_path);
-        if (isPptx) {
-          try {
-            const { normalizePptxBuffer } = require('../../documents/pptx-normalize.cjs');
-            const normalized = await normalizePptxBuffer(buffer);
-            if (!normalized.equals(buffer)) {
-              fs.writeFileSync(resource.file_path, normalized);
-            }
-            buffer = normalized;
-          } catch (normErr) {
-            console.warn('[Resource] PPTX normalize failed (non-fatal):', normErr?.message);
-          }
-        }
-        const ext = path.extname(resource.file_path).toLowerCase();
         const mimeType = fileStorage.getMimeType(ext);
         const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
         return { success: true, data: dataUrl };

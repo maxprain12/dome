@@ -154,6 +154,14 @@ function getIndexableText(row, queries) {
   }
 
   if (type === 'note') {
+    // Markdown vault is the source of truth: prefer the cached plain text
+    // derived from the .md (content_text). Fall back to parsing the legacy
+    // Tiptap JSON in `content` for notes not yet mirrored.
+    const cached = String(row.content_text || '').trim();
+    if (cached) {
+      const text = [title, cached].filter(Boolean).join('\n').trim();
+      return text ? { text, source: 'content' } : { text: '', source: 'empty' };
+    }
     const raw = String(row.content || '');
     let body = '';
     const trimmed = raw.trim();

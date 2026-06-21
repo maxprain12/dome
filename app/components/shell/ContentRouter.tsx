@@ -241,7 +241,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
+            <div className="flex flex-col h-full min-w-0 w-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
               <SettingsPage />
             </div>
           </Suspense>

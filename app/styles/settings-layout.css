@@ -1,0 +1,666 @@
+/* Settings shell — container queries follow tab content width (sidebar-aware) */
+
+.settings-shell {
+  display: flex;
+  /* nowrap so the row inherits the container height (wrap let the single line
+     grow to the content's height, which defeated the panes' internal scroll
+     and scrolled the whole shell instead). overflow:hidden clips the shell so
+     the sidebar and content each scroll on their own. */
+  flex-wrap: nowrap;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  background: var(--dome-bg);
+  container-type: inline-size;
+  container-name: settings;
+  --settings-sidebar-width: 220px;
+  --settings-content-min: 280px;
+}
+
+.settings-sidebar {
+  flex: 0 0 var(--settings-sidebar-width);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: var(--settings-sidebar-width);
+  max-width: 100%;
+  min-width: 0;
+  border-right: 1px solid var(--dome-border);
+  background: var(--dome-bg-secondary, var(--dome-bg));
+}
+
+.settings-sidebar-header {
+  flex-shrink: 0;
+  padding: 1.25rem 1rem 1rem;
+}
+
+.settings-nav {
+  flex: 1;
+  padding: 0 0.5rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.settings-nav-group + .settings-nav-group {
+  padding-top: 0.25rem;
+  border-top: 1px solid color-mix(in srgb, var(--dome-border) 65%, transparent);
+}
+
+.settings-nav-group-label {
+  padding: 0 0.5rem;
+  margin-bottom: 0.375rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dome-text-muted);
+  opacity: 0.75;
+}
+
+.settings-nav-subgroup + .settings-nav-subgroup {
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px dashed color-mix(in srgb, var(--dome-border) 50%, transparent);
+}
+
+.settings-nav-item {
+  width: 100%;
+  justify-content: flex-start;
+  gap: 0.625rem;
+  padding: 0.375rem 0.625rem;
+  margin-bottom: 0.125rem;
+  border-radius: 0.375rem;
+  font-size: 13px;
+  font-weight: 400;
+  height: auto;
+  min-height: 0;
+}
+
+.settings-nav-item.is-active {
+  background: var(--dome-accent-subtle, rgba(101, 93, 197, 0.12));
+  color: var(--dome-accent);
+  font-weight: 500;
+}
+
+.settings-nav-item.is-active:hover {
+  background: var(--dome-accent-subtle, rgba(101, 93, 197, 0.12));
+}
+
+.settings-nav-item:not(.is-active) {
+  color: var(--dome-text-secondary, var(--dome-text-muted));
+}
+
+.settings-nav-item:not(.is-active):hover {
+  background: var(--dome-bg-hover, rgba(0, 0, 0, 0.04));
+  color: var(--dome-text);
+}
+
+.settings-nav-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-nav-item:not(.is-active) .settings-nav-icon {
+  opacity: 0.65;
+}
+
+.settings-nav-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+/* Collapsed nav — dropdown (shown only in narrow container) */
+.settings-nav-dropdown {
+  display: none;
+  flex-shrink: 0;
+  padding: 0 1rem 0.875rem;
+  min-width: 0;
+}
+
+.settings-nav-dropdown-trigger {
+  width: 100%;
+  justify-content: space-between;
+  min-height: 2.25rem;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dome-text);
+  border-color: var(--dome-border);
+  background: var(--dome-surface, var(--dome-bg));
+}
+
+.settings-nav-dropdown-trigger:hover {
+  border-color: var(--dome-border-hover, var(--dome-border));
+  background: var(--dome-bg-hover, rgba(0, 0, 0, 0.04));
+}
+
+.settings-nav-dropdown-trigger-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--dome-accent);
+}
+
+.settings-nav-dropdown-trigger-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.settings-nav-dropdown-menu {
+  max-height: min(70vh, 22rem);
+  overflow-y: auto;
+  border-color: var(--dome-border) !important;
+  background: var(--dome-bg-secondary, var(--dome-bg)) !important;
+}
+
+.settings-nav-dropdown-label {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+  color: var(--dome-text-muted) !important;
+  opacity: 0.75;
+  padding-top: 0.375rem !important;
+}
+
+.settings-nav-dropdown-item {
+  font-size: 13px !important;
+  color: var(--dome-text-secondary, var(--dome-text-muted)) !important;
+}
+
+.settings-nav-dropdown-item.is-active,
+.settings-nav-dropdown-item[data-hovered].is-active {
+  background: var(--dome-accent-subtle, rgba(101, 93, 197, 0.12)) !important;
+  color: var(--dome-accent) !important;
+  font-weight: 500 !important;
+}
+
+.settings-nav-dropdown-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.65;
+}
+
+.settings-nav-dropdown-item-icon.is-active {
+  opacity: 1;
+  color: var(--dome-accent);
+}
+
+.settings-content {
+  flex: 1 1 var(--settings-content-min);
+  flex-shrink: 0;
+  min-width: min(100%, var(--settings-content-min));
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  container-type: inline-size;
+  container-name: settings-content;
+}
+
+.settings-content-inner {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+  padding: 2rem 2rem 5rem;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Panel root — all settings sections */
+.settings-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  min-width: 0;
+  width: 100%;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.settings-panel > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.settings-section-label {
+  margin-bottom: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  color: var(--dome-text-muted);
+}
+
+/* Rows that split label/actions — stack when content is narrow */
+.settings-split-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.settings-split-row > :first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-split-row > :first-child p {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.settings-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+}
+
+.settings-toggle-row__label {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-toggle-row__label p {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.settings-toggle-row__control,
+.settings-toggle-row > :last-child {
+  flex-shrink: 0;
+}
+
+.settings-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Responsive grids — follow settings content width, not viewport */
+.settings-field-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.settings-stat-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+
+.settings-choice-grid {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+}
+
+/* Provider / choice cards — auto-fill avoids 1-char-wide columns */
+.settings-choice-grid--3 {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 8.75rem), 1fr));
+}
+
+.settings-provider-card {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.settings-provider-card__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.settings-provider-card__title,
+.settings-provider-card__subtitle {
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.settings-coming-soon {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+/* Segmented controls — wrap/stack inside narrow content */
+.settings-segmented {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: settings-segmented;
+}
+
+.settings-segmented [role='tablist'] {
+  display: flex !important;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.settings-segmented [role='tab'] {
+  flex: 1 1 auto;
+  min-width: min(100%, 5rem);
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: normal;
+  text-align: center;
+}
+
+.settings-segmented [role='tab'] span {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+@container settings-content (max-width: 480px) {
+  .settings-panel {
+    gap: 1.5rem;
+  }
+
+  .settings-split-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-split-row > .shrink-0,
+  .settings-split-row > .settings-split-row__actions {
+    align-self: flex-start;
+  }
+
+  .settings-toggle-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .settings-toggle-row__control,
+  .settings-toggle-row > :last-child {
+    align-self: flex-start;
+  }
+
+  .settings-coming-soon {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@container settings-content (min-width: 400px) {
+  .settings-field-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container settings-content (min-width: 320px) {
+  .settings-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container settings-content (min-width: 520px) {
+  .settings-stat-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container settings-segmented (max-width: 420px) {
+  .settings-segmented [role='tab'] {
+    flex: 1 1 calc(50% - 0.25rem);
+  }
+}
+
+@container settings-segmented (max-width: 280px) {
+  .settings-segmented [role='tab'] {
+    flex: 1 1 100%;
+  }
+}
+
+/* Compact — tighter sidebar; flex-wrap yields full-width content when squeezed */
+@container settings (max-width: 780px) {
+  .settings-shell {
+    --settings-sidebar-width: 200px;
+  }
+
+  .settings-content-inner {
+    padding: 1.5rem 1.25rem 4rem;
+  }
+
+  .settings-nav {
+    gap: 1rem;
+  }
+}
+
+/* Narrow — stack nav above content; dropdown replaces long nav list */
+@container settings (max-width: 559px) {
+  .settings-shell {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    --settings-sidebar-width: 100%;
+  }
+
+  .settings-sidebar {
+    flex: 0 0 auto;
+    width: 100%;
+    min-width: 0;
+    max-height: none;
+    overflow-y: visible;
+    border-right: none;
+    border-bottom: 1px solid var(--dome-border);
+  }
+
+  .settings-nav-dropdown {
+    display: block;
+  }
+
+  .settings-nav {
+    display: none;
+  }
+
+  .settings-content {
+    flex: 1 1 auto;
+    flex-shrink: 1;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+  }
+
+  .settings-sidebar-header {
+    padding: 0.875rem 1rem 0.5rem;
+  }
+
+  .settings-content-inner {
+    padding: 1.25rem 1rem 3rem;
+  }
+}
+
+/* Language picker — grid follows content width, not viewport */
+.language-picker {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: language-picker;
+}
+
+.language-picker__grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.625rem;
+}
+
+.language-picker__card {
+  min-height: 4.5rem;
+}
+
+@container language-picker (min-width: 280px) {
+  .language-picker__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .language-picker__card {
+    min-height: 5rem;
+    padding: 0.875rem;
+  }
+}
+
+@container language-picker (min-width: 520px) {
+  .language-picker__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .language-picker__card {
+    min-height: 5.5rem;
+    padding: 0.875rem;
+  }
+}
+
+@container language-picker (max-width: 279px) {
+  .language-picker__card {
+    flex-direction: row;
+    align-items: center;
+    min-height: 3.5rem;
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .language-picker__badge {
+    display: none;
+  }
+}
+
+/* Theme picker — card grid follows content width */
+.theme-picker {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: theme-picker;
+}
+
+.theme-picker__grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.625rem;
+}
+
+.theme-picker__card {
+  min-height: 4.5rem;
+}
+
+@container theme-picker (min-width: 480px) {
+  .theme-picker__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .theme-picker__card {
+    min-height: 5.5rem;
+    padding: 0.875rem;
+  }
+}
+
+@container theme-picker (max-width: 479px) {
+  .theme-picker__card {
+    flex-direction: row;
+    align-items: center;
+    min-height: 3.5rem;
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .theme-picker__desc {
+    display: none;
+  }
+}
+
+/* AI provider picker — compact cards, follows content width */
+.ai-provider-picker {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: ai-provider-picker;
+}
+
+.ai-provider-picker__grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.ai-provider-picker__card {
+  min-height: 4.25rem;
+}
+
+.ai-provider-picker__featured {
+  min-height: 0;
+}
+
+@container ai-provider-picker (min-width: 360px) {
+  .ai-provider-picker__card {
+    min-height: 4.5rem;
+  }
+}
+
+@container ai-provider-picker (max-width: 280px) {
+  .ai-provider-picker__card {
+    min-height: 3.75rem;
+    padding: 0.625rem;
+  }
+}
+
+/* Email provider picker — preset chips for IMAP/SMTP */
+.email-provider-picker {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: email-provider-picker;
+}
+
+.email-provider-picker__grid {
+  width: 100%;
+  min-width: 0;
+}
+
+.email-provider-guides {
+  width: 100%;
+  min-width: 0;
+}
+
+.email-provider-guides__chip {
+  max-width: 100%;
+  min-width: 0;
+}
+
+@container email-provider-picker (max-width: 280px) {
+  .email-provider-picker__card {
+    padding: 0.625rem;
+  }
+
+  .settings-provider-card__subtitle {
+    display: none;
+  }
+}

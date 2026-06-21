@@ -34,7 +34,7 @@ const ResourceSearchSchema = Type.Object({
   }),
   project_id: Type.Optional(
     Type.String({
-      description: 'Filter results to a specific project ID.',
+      description: 'Optional project ID. Defaults to the active project; results never include other projects unless you pass a different project_id explicitly.',
     }),
   ),
   type: Type.Optional(
@@ -70,7 +70,7 @@ const ResourceGetSchema = Type.Object({
 const ResourceListSchema = Type.Object({
   project_id: Type.Optional(
     Type.String({
-      description: 'Filter results to a specific project ID.',
+      description: 'Optional project ID. Defaults to the active project; results never include other projects unless you pass a different project_id explicitly.',
     }),
   ),
   folder_id: Type.Optional(
@@ -118,7 +118,7 @@ const ResourceSemanticSearchSchema = Type.Object({
   }),
   project_id: Type.Optional(
     Type.String({
-      description: 'Filter results to a specific project ID.',
+      description: 'Optional project ID. Defaults to the active project; results never include other projects unless you pass a different project_id explicitly.',
     }),
   ),
   limit: Type.Optional(
@@ -137,7 +137,7 @@ const ResourceHybridSearchSchema = Type.Object({
   }),
   project_id: Type.Optional(
     Type.String({
-      description: 'Filter results to a specific project ID.',
+      description: 'Optional project ID. Defaults to the active project; results never include other projects unless you pass a different project_id explicitly.',
     }),
   ),
   type: Type.Optional(

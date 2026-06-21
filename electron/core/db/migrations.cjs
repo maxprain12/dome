@@ -54,7 +54,10 @@ function extractLegacyMcpServers(raw) {
   return [];
 }
 
-function applyMigrations(db, version) {
+// `invalidateQueries` lives in database.cjs (it clears the prepared-statement
+// cache). It is passed in by the caller; default to a no-op so migrations never
+// throw a ReferenceError if invoked without it.
+function applyMigrations(db, version, invalidateQueries = () => {}) {
   // Migration 1: Add internal file storage columns to resources
   if (version < 1) {
     console.log('[DB] Running migration 1: Add internal file storage columns');
@@ -2640,7 +2643,7 @@ function applyMigrations(db, version) {
 
       // Backfill FSRS state from legacy SM-2 fields for already-reviewed cards.
       // Never-reviewed cards stay New (stability NULL) and are scheduled on first review.
-      const { backfillFromLegacy } = require('../services/fsrs-scheduler.cjs');
+      const { backfillFromLegacy } = require('../../services/fsrs-scheduler.cjs');
       const allCards = db
         .prepare('SELECT id, ease_factor, interval, repetitions, last_reviewed_at, stability FROM flashcards')
         .all();
@@ -3093,6 +3096,314 @@ function applyMigrations(db, version) {
       console.log('[DB] Migration 45 complete - email accounts');
     } catch (error) {
       console.error('[DB] Migration 45 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 46) {
+    console.log('[DB] Running migration 46 - notes markdown vault (vault_path)');
+    try {
+      // Relative path of the note's mirror .md file inside dome-files/vault/
+      // (e.g. "Mi Proyecto/Investigacion/Nota A.md"). NULL until the note has
+      // been mirrored to disk. Non-destructive: resources.content stays the
+      // source of truth in this phase; the .md is an export mirror.
+      const tableInfoM46 = db.prepare('PRAGMA table_info(resources)').all();
+      const existingColumnsM46 = new Set(tableInfoM46.map((col) => col.name));
+      if (!existingColumnsM46.has('vault_path')) {
+        db.exec('ALTER TABLE resources ADD COLUMN vault_path TEXT');
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_resources_vault_path ON resources(vault_path)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '46', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '46', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 46 complete - vault_path column added');
+    } catch (error) {
+      console.error('[DB] Migration 46 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 47) {
+    console.log('[DB] Running migration 47 - notes vault source-of-truth (content_text/hash + FTS)');
+    try {
+      const tableInfoM47 = db.prepare('PRAGMA table_info(resources)').all();
+      const existingColumnsM47 = new Set(tableInfoM47.map((col) => col.name));
+      // Plain-text cache that feeds FTS/semantic indexing (notes), so search
+      // indexes readable text instead of the Tiptap JSON. content_hash tracks
+      // the .md file for the Phase 3 watcher (set when the mirror is written).
+      if (!existingColumnsM47.has('content_text')) {
+        db.exec('ALTER TABLE resources ADD COLUMN content_text TEXT');
+      }
+      if (!existingColumnsM47.has('content_hash')) {
+        db.exec('ALTER TABLE resources ADD COLUMN content_hash TEXT');
+      }
+
+      // Backfill content_text for notes from their existing Tiptap JSON, using
+      // a minimal (dependency-free) plain-text walk. Refined on next save.
+      const stripTagsLite = (s) =>
+        String(s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const extractNoteText = (raw) => {
+        const trimmed = String(raw || '').trim();
+        if (!trimmed.startsWith('{')) return stripTagsLite(trimmed);
+        let doc;
+        try {
+          doc = JSON.parse(trimmed);
+        } catch {
+          return stripTagsLite(trimmed);
+        }
+        const blockTypes = new Set([
+          'paragraph', 'heading', 'listItem', 'blockquote', 'codeBlock',
+          'bulletList', 'orderedList', 'table', 'tableRow', 'tableCell', 'tableHeader',
+        ]);
+        const parts = [];
+        const walk = (node) => {
+          if (!node || typeof node !== 'object') return;
+          if (typeof node.text === 'string') parts.push(node.text);
+          if (node.type === 'hardBreak') parts.push('\n');
+          const ch = Array.isArray(node.content) ? node.content : null;
+          if (ch) {
+            for (const c of ch) walk(c);
+            if (blockTypes.has(String(node.type))) parts.push('\n');
+          }
+        };
+        walk(doc);
+        return parts.join('').replace(/\n{3,}/g, '\n\n').trim();
+      };
+
+      const notes = db
+        .prepare("SELECT id, content FROM resources WHERE type = 'note' AND content IS NOT NULL AND trim(content) != ''")
+        .all();
+      const setText = db.prepare('UPDATE resources SET content_text = ? WHERE id = ?');
+      const backfill = db.transaction((rows) => {
+        for (const r of rows) {
+          const text = extractNoteText(r.content);
+          if (text) setText.run(text, r.id);
+        }
+      });
+      backfill(notes);
+      console.log(`[DB] Migration 47 - backfilled content_text for ${notes.length} notes`);
+
+      // Repoint FTS triggers to index content_text when present (notes),
+      // falling back to content (pdf/doc/url extracted text, artifacts, and
+      // not-yet-migrated notes).
+      db.exec('DROP TRIGGER IF EXISTS resources_ai');
+      db.exec('DROP TRIGGER IF EXISTS resources_au');
+      db.exec(`
+        CREATE TRIGGER resources_ai AFTER INSERT ON resources BEGIN
+          INSERT INTO resources_fts(resource_id, title, content)
+          VALUES (new.id, new.title, COALESCE(NULLIF(new.content_text, ''), new.content, ''));
+        END
+      `);
+      db.exec(`
+        CREATE TRIGGER resources_au AFTER UPDATE ON resources BEGIN
+          DELETE FROM resources_fts WHERE resource_id = old.id;
+          INSERT INTO resources_fts(resource_id, title, content)
+          VALUES (new.id, new.title, COALESCE(NULLIF(new.content_text, ''), new.content, ''));
+        END
+      `);
+
+      // Rebuild resources_fts so existing rows use the new content source.
+      db.exec('DELETE FROM resources_fts');
+      db.exec(`
+        INSERT INTO resources_fts(resource_id, title, content)
+        SELECT id, title, COALESCE(NULLIF(content_text, ''), content, '') FROM resources
+      `);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '47', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '47', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 47 complete - content_text/hash + FTS repointed');
+    } catch (error) {
+      console.error('[DB] Migration 47 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 48) {
+    console.log('[DB] Running migration 48 - per-project vault root + project-relative vault_path');
+    try {
+      // Per-project vault root (absolute dir). NULL = default dome-files/vault/<project>.
+      const projCols = new Set(db.prepare('PRAGMA table_info(projects)').all().map((c) => c.name));
+      if (!projCols.has('vault_root')) {
+        db.exec('ALTER TABLE projects ADD COLUMN vault_root TEXT');
+      }
+
+      // vault_path becomes RELATIVE TO THE PROJECT ROOT (the project name used to
+      // be the first segment; the default root is now dome-files/vault/<project>,
+      // so the absolute location is unchanged — only the stored value changes).
+      db.exec(`
+        UPDATE resources
+        SET vault_path = substr(vault_path, instr(vault_path, '/') + 1)
+        WHERE type = 'note'
+          AND vault_path IS NOT NULL
+          AND instr(vault_path, '/') > 0
+      `);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '48', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '48', updated_at = excluded.updated_at
+      `).run(Date.now());
+
+      console.log('[DB] Migration 48 complete - vault_root + project-relative vault_path');
+    } catch (error) {
+      console.error('[DB] Migration 48 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 49) {
+    console.log('[DB] Running migration 49 - move binaries into the vault');
+    try {
+      const fsMod = require('fs');
+      const pathMod = require('path');
+      const vs = require('../../storage/vault-store.cjs');
+      const userData = app ? app.getPath('userData') : null;
+
+      if (userData) {
+        const domeFiles = pathMod.join(userData, 'dome-files');
+        const defaultVault = pathMod.join(domeFiles, 'vault');
+        const projRoot = (projectId) => {
+          const p = db.prepare('SELECT name, vault_root FROM projects WHERE id = ?').get(projectId);
+          const custom = p && typeof p.vault_root === 'string' ? p.vault_root.trim() : '';
+          if (custom) return custom;
+          return pathMod.join(defaultVault, vs.sanitizeSegment((p && p.name) || 'Library', 'Library'));
+        };
+        const folderDir = (folderId) => {
+          const segs = [];
+          const seen = new Set();
+          let fid = folderId;
+          while (fid && !seen.has(fid)) {
+            seen.add(fid);
+            const f = db.prepare('SELECT title, folder_id, type FROM resources WHERE id = ?').get(fid);
+            if (!f || f.type !== 'folder') break;
+            segs.unshift(vs.sanitizeSegment(f.title, 'Folder'));
+            fid = f.folder_id || null;
+          }
+          return segs.join('/');
+        };
+
+        const rows = db.prepare(
+          "SELECT id, project_id, folder_id, type, title, internal_path, original_filename FROM resources WHERE internal_path IS NOT NULL AND trim(internal_path) != '' AND (vault_path IS NULL OR trim(vault_path) = '') AND type != 'note'",
+        ).all();
+        const setVaultPath = db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?');
+        const ownerOf = db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?');
+        let moved = 0;
+        for (const r of rows) {
+          try {
+            const src = pathMod.join(domeFiles, r.internal_path);
+            if (!fsMod.existsSync(src)) continue;
+            const root = projRoot(r.project_id);
+            const dir = folderDir(r.folder_id);
+            const ext = pathMod.extname(r.internal_path) || '';
+            let filename = vs.sanitizeFilename(r.original_filename || `${r.title || 'file'}${ext}`, 'file');
+            if (!pathMod.extname(filename) && ext) filename += ext;
+            let rel = dir ? `${dir}/${filename}` : filename;
+            let abs = pathMod.join(root, rel);
+            // Disambiguate against existing files / vault_path collisions.
+            let n = 1;
+            while (fsMod.existsSync(abs) || ownerOf.get(r.project_id, rel)) {
+              const e = pathMod.extname(filename);
+              const b = pathMod.basename(filename, e);
+              rel = `${dir ? `${dir}/` : ''}${b} (${n})${e}`;
+              abs = pathMod.join(root, rel);
+              n++;
+            }
+            fsMod.mkdirSync(pathMod.dirname(abs), { recursive: true });
+            // Copy (keep dome-files source as a rollback fallback; internal_path stays).
+            fsMod.copyFileSync(src, abs);
+            setVaultPath.run(rel, r.id);
+            moved++;
+          } catch (e) {
+            console.warn('[DB] Migration 49 - move failed for', r.id, e.message);
+          }
+        }
+        console.log(`[DB] Migration 49 - moved ${moved} binaries into the vault`);
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '49', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '49', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 49 complete - binaries in vault');
+    } catch (error) {
+      console.error('[DB] Migration 49 failed:', error);
+      throw error;
+    }
+  }
+
+  // Migration 51: store release markdown body so the calendar event can render it
+  // without re-hitting the GitHub API. Older sync runs left body out entirely,
+  // which is why the release modal currently shows the tag URL as plain text.
+  if (version < 51) {
+    console.log('[DB] Running migration 51 - github_releases.body');
+    try {
+      const cols = db.prepare('PRAGMA table_info(github_releases)').all();
+      if (!cols.some((c) => c.name === 'body')) {
+        db.exec('ALTER TABLE github_releases ADD COLUMN body TEXT');
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '51', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '51', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 51 complete - github_releases.body added');
+    } catch (error) {
+      console.error('[DB] Migration 51 failed:', error);
+      throw error;
+    }
+  }
+
+  // Migration 50: snap GitHub all-day events to local midnight.
+  // Earlier versions of the GitHub→calendar bridge stored `start_at` and
+  // `end_at` from the raw GitHub timestamps (e.g. `published_at: 18:30 UTC`),
+  // so the all-day event was painted as a 24-hour bar that started mid-day and
+  // the month-view renderer (which collapses only `end == startOfNextDay` back
+  // to a single cell) ended up showing the same release across two days. Fixing
+  // the bridge alone is not enough for events already in the database — this
+  // migration retroactively snaps every `source = 'github'`, `all_day = 1`
+  // event to local midnight and resets `end_at = start_at + 24h`.
+  if (version < 50) {
+    console.log('[DB] Running migration 50 - snap GitHub all-day events to midnight');
+    try {
+      const updateOne = db.prepare(
+        'UPDATE calendar_events SET start_at = ?, end_at = ? WHERE id = ?',
+      );
+      const rows = db.prepare(
+        "SELECT id, start_at, end_at FROM calendar_events WHERE all_day = 1 AND (metadata LIKE '%\"source\":\"github\"%' OR metadata LIKE '%\"source\": \"github\"%')",
+      ).all();
+      let fixed = 0;
+      const tx = db.transaction((items) => {
+        for (const r of items) {
+          const start = new Date(r.start_at);
+          // Skip if already at local midnight (idempotent guard).
+          if (start.getHours() === 0 && start.getMinutes() === 0 && start.getSeconds() === 0 && start.getMilliseconds() === 0) continue;
+          start.setHours(0, 0, 0, 0);
+          const newStart = start.getTime();
+          const newEnd = newStart + 24 * 60 * 60 * 1000;
+          updateOne.run(newStart, newEnd, r.id);
+          fixed += 1;
+        }
+      });
+      tx(rows);
+      console.log(`[DB] Migration 50 - snapped ${fixed} GitHub all-day events to midnight`);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '50', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '50', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 50 complete - GitHub all-day events snapped');
+    } catch (error) {
+      console.error('[DB] Migration 50 failed:', error);
       throw error;
     }
   }

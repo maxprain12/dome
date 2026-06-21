@@ -11,6 +11,10 @@ export interface Resource {
     type: ResourceType;
     title: string;
     content?: string;
+    /** Plain-text cache derived from the note's Markdown (feeds previews + search) */
+    content_text?: string | null;
+    /** Relative path of the note's Markdown mirror inside dome-files/vault/ */
+    vault_path?: string | null;
     file_path?: string;
     // Internal file storage
     internal_path?: string;
@@ -102,7 +106,9 @@ export function useResources(filter?: ResourceFilter) {
 
         try {
             if (typeof window !== 'undefined' && window.electron?.db) {
-                const result = await window.electron.db.resources.listLight(500);
+                // Scope to the requested project in SQL so a project never loses
+                // its own files to the global LIMIT and never sees cross-project data.
+                const result = await window.electron.db.resources.listLight(500, filter?.projectId);
                 if (result.success && result.data) {
                     startTransition(() => setResources((result.data as Resource[]).map(normalizeResource)));
                 } else if (result.error) {
@@ -115,7 +121,7 @@ export function useResources(filter?: ResourceFilter) {
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [filter?.projectId]);
 
     // Initial fetch
     useEffect(() => {

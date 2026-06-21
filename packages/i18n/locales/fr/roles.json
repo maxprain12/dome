@@ -1,0 +1,6 @@
+{
+  "developer": { "label": "Programmation", "desc": "Suivez vos projets, automatisez et codez." },
+  "study": { "label": "Études", "desc": "Apprenez, révisez avec des flashcards et planifiez." },
+  "research": { "label": "Recherche", "desc": "Synthétisez des sources et écrivez avec citations." },
+  "generalist": { "label": "Un peu de tout", "desc": "Gardez toutes les fonctionnalités de Dome disponibles." }
+}

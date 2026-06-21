@@ -7,6 +7,7 @@ import DomeToggle from '@/components/ui/DomeToggle';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCallout from '@/components/ui/DomeCallout';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 interface McpStatus {
   running: boolean;
@@ -105,7 +106,7 @@ export default function DomeMcpServerSettings() {
   );
 
   return (
-    <div className="space-y-6">
+    <SettingsPanel className="!gap-6">
       <DomeSubpageHeader
         title={t('dome_mcp.title')}
         subtitle={t('dome_mcp.subtitle')}
@@ -113,8 +114,8 @@ export default function DomeMcpServerSettings() {
 
       {/* Toggle + status */}
       <DomeCard>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="settings-split-row">
+          <div className="flex items-center gap-3 min-w-0">
             {status.running
               ? <Wifi className="size-4 shrink-0 text-[var(--success)]" />
               : <WifiOff className="size-4 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />}
@@ -217,6 +218,6 @@ export default function DomeMcpServerSettings() {
       </div>
 
       <DomeCallout tone="info">{t('dome_mcp.info_hint')}</DomeCallout>
-    </div>
+    </SettingsPanel>
   );
 }

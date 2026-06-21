@@ -12,6 +12,7 @@ import {
   FolderInput,
 } from 'lucide-react';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import type { Resource } from '@/lib/hooks/useResources';
 import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
 import { useTranslation } from 'react-i18next';
@@ -324,12 +325,13 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
   });
   const [loading, setLoading] = useState(true);
   const { openResourceTab } = useTabStore.getState();
+  const activeProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const fetchResources = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.db?.resources) return;
     try {
       setLoading(true);
-      const result = await window.electron.db.resources.listLight(500);
+      const result = await window.electron.db.resources.listLight(500, activeProjectId);
       if (result?.success && result.data) {
         setResources(result.data as Resource[]);
       }
@@ -338,7 +340,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeProjectId]);
 
   useEffect(() => {
     fetchResources();

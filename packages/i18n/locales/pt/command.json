@@ -13,5 +13,11 @@
   "upload_files": "Enviar arquivos",
   "no_results": "Nenhum resultado encontrado para \"{{query}}\"",
   "resources": "Recursos",
-  "notes_annotations": "Notas e anotações"
+  "notes_annotations": "Notas e anotações",
+  "palette_title": "Centro de comandos",
+  "palette_placeholder": "Pesquisar ou ir para…",
+  "palette_hint": "↑↓ navegar · ↵ abrir",
+  "palette_esc": "esc fechar",
+  "navigate": "Ir para",
+  "quick_actions": "Ações rápidas"
 }

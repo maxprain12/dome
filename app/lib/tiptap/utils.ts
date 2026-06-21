@@ -1,8 +1,21 @@
 import type { Editor, JSONContent } from '@tiptap/core';
-import { markdownToHtml, looksLikeMarkdown } from '@/lib/utils/markdown';
+import { markdownToHtml, looksLikeMarkdown, htmlToMarkdown } from '@/lib/utils/markdown';
 
 export function serializeNoteContent(editor: Editor): string {
   return JSON.stringify(editor.getJSON());
+}
+
+/**
+ * Serialize the editor to Dome-flavored Markdown for the on-disk vault mirror.
+ * Turndown (inside `htmlToMarkdown`) needs a DOM, so this only runs in the
+ * renderer. Returns '' on failure so callers can treat mirroring as best-effort.
+ */
+export function serializeNoteToMarkdown(editor: Editor): string {
+  try {
+    return htmlToMarkdown(editor.getHTML());
+  } catch {
+    return '';
+  }
 }
 
 /**

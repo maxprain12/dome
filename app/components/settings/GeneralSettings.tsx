@@ -10,6 +10,7 @@ import DomeCard from '@/components/ui/DomeCard';
 import { DomeInput } from '@/components/ui/DomeInput';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeToggle from '@/components/ui/DomeToggle';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 
 export default function GeneralSettings() {
   const { t } = useTranslation();
@@ -51,7 +52,7 @@ export default function GeneralSettings() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <div>
         <h2 className="text-lg font-semibold mb-0.5" style={{ color: 'var(--dome-text)' }}>
           {t('settings.general.title')}
@@ -62,7 +63,7 @@ export default function GeneralSettings() {
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.general.profile')}</DomeSectionLabel>
+        <DomeSectionLabel className="settings-section-label">{t('settings.general.profile')}</DomeSectionLabel>
         <DomeCard>
           <div className="space-y-4">
             <DomeInput
@@ -93,7 +94,7 @@ export default function GeneralSettings() {
               error={errors.email}
             />
 
-            <div className="flex items-center gap-3 pt-1">
+            <div className="settings-action-row pt-1">
               <DomeButton type="button" variant="primary" size="sm" onClick={handleSave}>
                 {t('settings.general.save_changes')}
               </DomeButton>
@@ -109,17 +110,10 @@ export default function GeneralSettings() {
       </div>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">{t('settings.general.privacy')}</DomeSectionLabel>
+        <DomeSectionLabel className="settings-section-label">{t('settings.general.privacy')}</DomeSectionLabel>
         <DomeCard>
-          <div className="flex items-start gap-4">
-            <DomeToggle
-              checked={analyticsEnabled}
-              onChange={(v) => void handleAnalyticsToggle(v)}
-              disabled={analyticsLoading || !isPostHogConfigured()}
-              size="sm"
-              className="mt-0.5"
-            />
-            <div>
+          <div className="settings-toggle-row">
+            <div className="settings-toggle-row__label">
               <p className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
                 {t('settings.general.analytics_label')}
               </p>
@@ -127,9 +121,16 @@ export default function GeneralSettings() {
                 {t('settings.general.analytics_description')}
               </p>
             </div>
+            <DomeToggle
+              checked={analyticsEnabled}
+              onChange={(v) => void handleAnalyticsToggle(v)}
+              disabled={analyticsLoading || !isPostHogConfigured()}
+              size="sm"
+              className="settings-toggle-row__control mt-0.5"
+            />
           </div>
         </DomeCard>
       </div>
-    </div>
+    </SettingsPanel>
   );
 }

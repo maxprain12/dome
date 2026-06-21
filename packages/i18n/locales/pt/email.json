@@ -15,6 +15,10 @@
   "compose_failed": "Não foi possível enviar a mensagem",
   "folders": {
     "title": "Pastas",
+    "toggle": "Mostrar ou ocultar a lista de pastas",
+    "openMenu": "Abrir menu de pastas",
+    "expand": "Mostrar pastas",
+    "collapse": "Ocultar pastas",
     "inbox": "Caixa de entrada",
     "sent": "Enviados",
     "drafts": "Rascunhos",
@@ -37,6 +41,45 @@
     "description": "Adicione uma conta de e-mail para ler, pesquisar e enviar mensagens no Dome e deixe o Many ajudar com sua caixa de entrada.",
     "connect": "Conectar e-mail"
   },
+  "reader": {
+    "actions": {
+      "reply": "Responder",
+      "replyAll": "Responder a todos",
+      "forward": "Encaminhar",
+      "archive": "Arquivar",
+      "delete": "Excluir",
+      "more": "Mais"
+    },
+    "meta": {
+      "to": "Para",
+      "cc": "Cc",
+      "bcc": "Cco",
+      "showRecipients": "Mostrar destinatários",
+      "hideRecipients": "Ocultar destinatários",
+      "messageId": "ID da mensagem",
+      "folder": "Pasta",
+      "flags": "Bandeiras"
+    },
+    "body": {
+      "loadImages": "Carregar imagens",
+      "imagesBlocked": "As imagens estão bloqueadas para proteger sua privacidade",
+      "sanitized": "Elementos inseguros foram removidos da mensagem"
+    },
+    "empty": {
+      "title": "Selecione um e-mail",
+      "subtitle": "Escolha uma mensagem da lista para ler aqui"
+    },
+    "loading": "Carregando…",
+    "flags": {
+      "seen": "Lido",
+      "flagged": "Importante",
+      "answered": "Respondido",
+      "draft": "Rascunho",
+      "deleted": "Excluído",
+      "recent": "Recente"
+    },
+    "soon": "Em breve"
+  },
   "settings": {
     "title": "Contas de e-mail",
     "description": "Conecte contas IMAP/SMTP. As senhas são criptografadas neste dispositivo e nunca saem dele.",
@@ -53,6 +96,26 @@
     "username": "Usuário",
     "password": "Senha",
     "app_password_hint": "Para Gmail, Outlook ou iCloud, use uma senha de aplicativo.",
+    "provider_label": "Provedor de e-mail",
+    "provider_aria": "Escolha seu provedor de e-mail",
+    "providers": {
+      "gmail": "Gmail",
+      "outlook": "Outlook / Microsoft 365",
+      "icloud": "iCloud",
+      "yahoo": "Yahoo Mail",
+      "fastmail": "Fastmail",
+      "custom": "Personalizado",
+      "custom_desc": "Informe os servidores manualmente"
+    },
+    "guides": {
+      "title": "Dicas de configuração",
+      "app_password": "Senha de aplicativo",
+      "enable_imap_gmail": "Ativar IMAP no Gmail",
+      "outlook_imap_enabled": "IMAP vem ativado por padrão no Outlook",
+      "icloud_imap": "Gere uma senha de aplicativo no Apple ID",
+      "fastmail_app_password": "Use senha de aplicativo se tiver 2FA",
+      "custom_manual": "Informe os dados IMAP/SMTP do seu provedor"
+    },
     "test_and_save": "Testar e salvar",
     "save_without_test": "Salvar sem testar",
     "required_fields": "E-mail, servidor IMAP e servidor SMTP são obrigatórios.",

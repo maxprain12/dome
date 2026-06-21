@@ -15,6 +15,10 @@
   "compose_failed": "Could not send the message",
   "folders": {
     "title": "Folders",
+    "toggle": "Toggle folder list",
+    "openMenu": "Open folder menu",
+    "expand": "Show folders",
+    "collapse": "Hide folders",
     "inbox": "Inbox",
     "sent": "Sent",
     "drafts": "Drafts",
@@ -37,6 +41,45 @@
     "description": "Add a mail account to read, search and send email from Dome and let Many help you with your inbox.",
     "connect": "Connect email"
   },
+  "reader": {
+    "actions": {
+      "reply": "Reply",
+      "replyAll": "Reply all",
+      "forward": "Forward",
+      "archive": "Archive",
+      "delete": "Delete",
+      "more": "More"
+    },
+    "meta": {
+      "to": "To",
+      "cc": "Cc",
+      "bcc": "Bcc",
+      "showRecipients": "Show recipients",
+      "hideRecipients": "Hide recipients",
+      "messageId": "Message ID",
+      "folder": "Folder",
+      "flags": "Flags"
+    },
+    "body": {
+      "loadImages": "Load images",
+      "imagesBlocked": "Images are blocked to protect your privacy",
+      "sanitized": "Unsafe elements have been removed from the message"
+    },
+    "empty": {
+      "title": "Select a message",
+      "subtitle": "Pick a message from the list to read it here"
+    },
+    "loading": "Loading…",
+    "flags": {
+      "seen": "Read",
+      "flagged": "Important",
+      "answered": "Replied",
+      "draft": "Draft",
+      "deleted": "Deleted",
+      "recent": "Recent"
+    },
+    "soon": "Coming soon"
+  },
   "settings": {
     "title": "Email accounts",
     "description": "Connect IMAP/SMTP accounts. Passwords are encrypted on this device and never leave it.",
@@ -53,6 +96,26 @@
     "username": "Username",
     "password": "Password",
     "app_password_hint": "For Gmail, Outlook or iCloud, use an app-specific password.",
+    "provider_label": "Email provider",
+    "provider_aria": "Choose your email provider",
+    "providers": {
+      "gmail": "Gmail",
+      "outlook": "Outlook / Microsoft 365",
+      "icloud": "iCloud",
+      "yahoo": "Yahoo Mail",
+      "fastmail": "Fastmail",
+      "custom": "Custom",
+      "custom_desc": "Enter servers manually"
+    },
+    "guides": {
+      "title": "Setup tips",
+      "app_password": "App-specific password",
+      "enable_imap_gmail": "Enable IMAP in Gmail",
+      "outlook_imap_enabled": "IMAP is enabled by default in Outlook",
+      "icloud_imap": "Generate an app-specific password in Apple ID",
+      "fastmail_app_password": "Use an app password if 2FA is on",
+      "custom_manual": "Enter IMAP and SMTP details from your provider"
+    },
     "test_and_save": "Test & save",
     "save_without_test": "Save without testing",
     "required_fields": "Email, IMAP host and SMTP host are required.",

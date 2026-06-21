@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, Loader2, Layers } from 'lucide-react';
+import { CheckCircle2, Eye, EyeOff, KeyRound, Loader2, Layers } from 'lucide-react';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import {
   EMBEDDINGS_PROVIDER_IDS,
@@ -12,12 +12,11 @@ import {
 } from '@/lib/ai/models';
 import ModelSelector from '../ModelSelector';
 import ProviderBrandIcon from './ProviderBrandIcon';
-import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCallout from '@/components/ui/DomeCallout';
 import { DomeInput } from '@/components/ui/DomeInput';
-import { accentMix } from '@/lib/ui/accent';
+import { cn } from '@/lib/utils';
 
 function embeddingModelsAsSelector(
   provider: EmbeddingsProviderType,
@@ -42,6 +41,19 @@ function embeddingModelsAsSelector(
     description: m.dimensions ? `${m.dimensions} dims` : undefined,
     recommended: m.recommended,
   }));
+}
+
+function EmbeddingsProviderCheck({ selected }: { selected: boolean }) {
+  return (
+    <CheckCircle2
+      aria-hidden
+      className={cn(
+        'pointer-events-none absolute top-2 right-2 size-3.5 shrink-0 transition-opacity duration-150',
+        selected ? 'opacity-100' : 'opacity-0',
+      )}
+      style={{ color: 'var(--dome-accent)' }}
+    />
+  );
 }
 
 export default function AIEmbeddingsTab() {
@@ -215,17 +227,27 @@ export default function AIEmbeddingsTab() {
     }
   };
 
+  const hasApiKey = provider !== 'ollama' && apiKey.trim().length > 0;
+
   return (
-    <div className="space-y-6">
-      <p className="text-sm leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
+    <div className="min-w-0 w-full space-y-4">
+      <p className="text-sm leading-relaxed text-[var(--dome-text-muted)]">
         {t('settings.ai.embeddings.description')}
       </p>
 
       <div>
-        <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">
-          {t('settings.ai.embeddings.provider')}
-        </DomeSectionLabel>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="ai-settings__section-label mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <span>{t('settings.ai.embeddings.provider')}</span>
+          <span className="text-[11px] font-normal normal-case tracking-normal opacity-80">
+            {t('settings.ai.active_provider')}:{' '}
+            <span className="font-medium text-[var(--dome-text)]">{PROVIDERS[provider].name}</span>
+          </span>
+        </div>
+        <div
+          role="radiogroup"
+          aria-label={t('settings.ai.embeddings.provider')}
+          className="ai-provider-picker__grid settings-choice-grid settings-choice-grid--3 gap-2"
+        >
           {EMBEDDINGS_PROVIDER_IDS.map((id) => {
             const def = PROVIDERS[id];
             const active = provider === id;
@@ -233,19 +255,21 @@ export default function AIEmbeddingsTab() {
               <button
                 key={id}
                 type="button"
+                role="radio"
+                aria-checked={active}
                 onClick={() => handleProviderChange(id)}
-                className="p-3 rounded-xl text-left transition-all border-2"
-                style={{
-                  borderColor: active ? 'var(--dome-accent)' : 'var(--dome-border)',
-                  background: active ? accentMix(8) : 'var(--dome-surface)',
-                }}
+                className={cn(
+                  'ai-provider-picker__card settings-provider-card relative flex w-full min-w-0 flex-col items-start p-2.5 pr-7 rounded-xl text-left transition-all',
+                  active
+                    ? 'border border-[var(--dome-accent)] bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] shadow-sm'
+                    : 'border border-[var(--dome-border)] bg-[var(--dome-surface)] hover:border-[var(--dome-border-hover,var(--dome-border))]',
+                )}
               >
-                <div className="flex items-center gap-2">
-                  <ProviderBrandIcon provider={id} size={20} />
-                  <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                    {def.name}
-                  </span>
-                </div>
+                <EmbeddingsProviderCheck selected={active} />
+                <ProviderBrandIcon provider={id} size={20} />
+                <span className="settings-provider-card__title mt-1.5 w-full min-w-0 truncate text-xs font-semibold text-[var(--dome-text)]">
+                  {def.name}
+                </span>
               </button>
             );
           })}
@@ -257,9 +281,12 @@ export default function AIEmbeddingsTab() {
           <div>
             <label
               htmlFor="embeddings-api-key"
-              className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]"
+              className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-[var(--dome-text)]"
             >
               {t('settings.ai.embeddings.api_key')}
+              {hasApiKey ? (
+                <KeyRound className="size-3 text-[var(--success)]" aria-label={t('settings.ai.provider_status_configured')} />
+              ) : null}
             </label>
             <div className="relative w-full">
               <DomeInput
@@ -284,7 +311,7 @@ export default function AIEmbeddingsTab() {
               </DomeButton>
             </div>
             {PROVIDERS[provider]?.docsUrl ? (
-              <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">
                 {t('settings.ai.free_key_at')}{' '}
                 <a href={PROVIDERS[provider].docsUrl} target="_blank" rel="noreferrer" className="underline">
                   {PROVIDERS[provider].docsUrl}
@@ -294,10 +321,7 @@ export default function AIEmbeddingsTab() {
           </div>
         ) : (
           <div>
-            <label
-              htmlFor="embeddings-base-url"
-              className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]"
-            >
+            <label htmlFor="embeddings-base-url" className="block text-sm font-medium mb-1.5 text-[var(--dome-text)]">
               {t('settings.ai.embeddings.base_url')}
             </label>
             <DomeInput
@@ -306,18 +330,14 @@ export default function AIEmbeddingsTab() {
               onChange={(e) => setBaseUrl(e.target.value)}
               placeholder="http://localhost:11434"
             />
-            <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('settings.ai.ollama_install')}
-            </p>
+            <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">{t('settings.ai.ollama_install')}</p>
           </div>
         )}
 
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
+          <label className="mb-1.5 flex items-center gap-2 text-sm font-medium text-[var(--dome-text)]">
             {t('settings.ai.embeddings.model')}
-            {modelsLoading ? (
-              <Loader2 className="inline size-3 ml-2 animate-spin opacity-60" aria-hidden />
-            ) : null}
+            {modelsLoading ? <Loader2 className="size-3 animate-spin opacity-60" aria-hidden /> : null}
           </label>
           <ModelSelector
             models={selectorModels}
@@ -329,7 +349,7 @@ export default function AIEmbeddingsTab() {
             disabled={modelsLoading}
           />
           {modelsSource === 'remote' ? (
-            <p className="text-[11px] mt-1.5" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-[11px] mt-1.5 text-[var(--dome-text-muted)]">
               {t('settings.ai.embeddings.models_discovered')}
             </p>
           ) : null}
@@ -364,15 +384,11 @@ export default function AIEmbeddingsTab() {
       </DomeCard>
 
       <DomeCard className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-[var(--dome-text-muted)]">
-          {t('settings.ai.embeddings.status_title')}
-        </p>
+        <p className="text-sm font-medium text-[var(--dome-text)]">{t('settings.ai.embeddings.status_title')}</p>
         {!status?.configured ? (
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.ai.embeddings.status.not_configured')}
-          </p>
+          <p className="text-sm text-[var(--dome-text-muted)]">{t('settings.ai.embeddings.status.not_configured')}</p>
         ) : (
-          <ul className="text-sm space-y-1" style={{ color: 'var(--dome-text)' }}>
+          <ul className="text-sm space-y-1 text-[var(--dome-text)]">
             {status.modelVersion ? (
               <li>
                 {t('settings.ai.embeddings.status.model_active')}:{' '}
@@ -385,8 +401,8 @@ export default function AIEmbeddingsTab() {
               </li>
             ) : null}
             <li>
-              {t('settings.embeddings.chunks')}: {status.chunksTotal ?? 0} ·{' '}
-              {t('settings.embeddings.indexed')}: {status.indexedResourceCount ?? 0}
+              {t('settings.embeddings.chunks')}: {status.chunksTotal ?? 0} · {t('settings.embeddings.indexed')}:{' '}
+              {status.indexedResourceCount ?? 0}
             </li>
           </ul>
         )}

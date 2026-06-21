@@ -28,7 +28,7 @@ export function CalendarUpcoming({
   const locale = getDateTimeLocaleTag();
 
   return (
-    <aside className="c-calendar-sidebar">
+    <aside className={`c-calendar-sidebar${events.length === 0 ? ' is-empty' : ''}`}>
       <div className="h-today">
         <div className="h-today-hd">
           <h2 className="h-today-title">{t('calendarPage.upcoming')}</h2>

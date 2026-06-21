@@ -95,30 +95,32 @@ export default function DashboardView() {
 
   const handleResourceSelect = useCallback(
     (resource: { id: string; type: string; title: string }) => {
+      const projectId = currentProject?.id;
       if (resource.type === 'folder') {
-        openFolderTab(resource.id, resource.title);
+        openFolderTab(resource.id, resource.title, undefined, projectId);
       } else {
-        openResourceTab(resource.id, resource.type, resource.title);
+        openResourceTab(resource.id, resource.type, resource.title, projectId);
       }
     },
-    [openResourceTab, openFolderTab],
+    [openResourceTab, openFolderTab, currentProject?.id],
   );
 
   const handleNewNote = useCallback(async () => {
     if (!window.electron?.db?.resources?.create) return;
     const now = Date.now();
+    const projectId = currentProject?.id ?? 'default';
     const res = {
       id: `res_${now}_${Math.random().toString(36).substr(2, 9)}`,
       type: 'note' as const,
       title: t('dashboard.untitled_note'),
       content: '',
-      project_id: currentProject?.id ?? 'default',
+      project_id: projectId,
       created_at: now,
       updated_at: now,
     };
     const result = await window.electron.db.resources.create(res);
     if (result.success && result.data) {
-      openResourceTab(result.data.id, 'note', result.data.title);
+      openResourceTab(result.data.id, 'note', result.data.title, projectId);
     }
   }, [currentProject?.id, t, openResourceTab]);
 
@@ -182,11 +184,12 @@ export default function DashboardView() {
 
   const onContinueActivity = useCallback(
     (item: ActivityItem) => {
+      const projectId = currentProject?.id;
       if (item.kind === 'resource' && item.resourceId && item.resourceType) {
         if (item.resourceType === 'folder') {
-          openFolderTab(item.resourceId, item.title);
+          openFolderTab(item.resourceId, item.title, undefined, projectId);
         } else {
-          openResourceTab(item.resourceId, item.resourceType, item.title);
+          openResourceTab(item.resourceId, item.resourceType, item.title, projectId);
         }
         return;
       }
@@ -194,7 +197,7 @@ export default function DashboardView() {
         openChatTab(item.sessionId, item.title || t('dashboard.action_new_chat'));
       }
     },
-    [openFolderTab, openResourceTab, openChatTab, t],
+    [openFolderTab, openResourceTab, openChatTab, t, currentProject?.id],
   );
 
   const onGoalClick = useCallback(
@@ -306,7 +309,7 @@ export default function DashboardView() {
                   activity={activity}
                   loading={loading}
                   onContinue={onContinueActivity}
-                  onViewAll={() => openFolderTab(currentProject?.id ?? 'default', currentProject?.name ?? 'Home')}
+                  onViewAll={() => openFolderTab(currentProject?.id ?? 'default', currentProject?.name ?? 'Home', undefined, currentProject?.id)}
                 />
               ) : undefined,
             }}

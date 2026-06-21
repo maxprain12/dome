@@ -4,6 +4,7 @@ import { showToast } from '@/lib/store/useToastStore';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import SettingsPanel from '@/components/settings/SettingsPanel';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
 import DomeListState from '@/components/ui/DomeListState';
@@ -160,7 +161,7 @@ export default function DomeSyncSettings() {
   const hasPendingPull = status ? status.currentRevision > status.localRevision : false;
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <SettingsPanel>
       <DomeSubpageHeader
         className="!border-0 p-0 bg-transparent"
         title="Dome Sync"
@@ -360,6 +361,6 @@ export default function DomeSyncSettings() {
           </div>
         </div>
       )}
-    </div>
+    </SettingsPanel>
   );
 }

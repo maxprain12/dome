@@ -878,6 +878,16 @@ app
     pptToolsHandler.setWindowManager(windowManager);
     aiToolsHandler.setWindowManager(windowManager);
 
+    // Dev-only: capture IPC handlers so the HTTP bridge can relay them to a
+    // browser tab. MUST run before registerAll(). No-op in packaged builds.
+    if (isDev) {
+      try {
+        require('./core/dev-ipc-bridge.cjs').installIpcCapture();
+      } catch (e) {
+        console.warn('[Main] dev IPC capture:', e?.message || e);
+      }
+    }
+
     // Register all IPC handlers (modularized in electron/ipc/)
     registerAll({
       app,
@@ -904,6 +914,17 @@ app
       validateUrl,
       pendingDisplayMediaSources,
     });
+
+    // Dev-only: start the HTTP IPC bridge so a browser tab can drive the app.
+    if (isDev) {
+      try {
+        require('./core/dev-ipc-bridge.cjs').startDevIpcBridge({
+          getSender: () => windowManager.get('main')?.webContents,
+        });
+      } catch (e) {
+        console.warn('[Main] dev IPC bridge:', e?.message || e);
+      }
+    }
 
     try {
       transcriptionShortcut.registerFromDatabase(database, windowManager);
@@ -1074,6 +1095,14 @@ app
     semanticIndexScheduler.init(database);
     semanticIndexScheduler.startAutoIndexing();
 
+    // Watch the Markdown vault for external edits (Obsidian/Finder/etc.).
+    try {
+      const vaultWatcher = require('./storage/vault-watcher.cjs');
+      vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
+    } catch (err) {
+      console.warn('[App] Vault watcher not started:', err?.message || err);
+    }
+
     // Schedule orphan file cleanup after app is ready (non-blocking)
     setTimeout(() => {
       try {
@@ -1132,6 +1161,7 @@ app.on('before-quit', async () => {
     require('./ipc/sync/cloud-sync.cjs').disposeCloudSync();
   } catch (e) { /* non-fatal */ }
   semanticIndexScheduler.stopAutoIndexing?.();
+  try { require('./storage/vault-watcher.cjs').stop(); } catch (e) { /* non-fatal */ }
   await webScraper.close?.();
   await cleanupOllamaManagerIfLoaded();
   try {

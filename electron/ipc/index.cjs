@@ -13,6 +13,7 @@ const cloudLlmHandlers = require('./ai/cloud-llm.cjs');
 const tagsHandlers = require('./data/tags.cjs');
 const graphHandlers = require('./data/graph.cjs');
 const resourcesHandlers = require('./data/resources.cjs');
+const notesHandlers = require('./data/notes.cjs');
 const storageHandlers = require('./data/storage.cjs');
 const filesHandlers = require('./data/files.cjs');
 const migrationHandlers = require('./core/migration.cjs');
@@ -115,6 +116,7 @@ function registerAll(deps) {
   tagsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   graphHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   resourcesHandlers.register({ ipcMain: secureIpcMain, fs, path, crypto, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath });
+  notesHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   storageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   filesHandlers.register({ ipcMain: secureIpcMain, app, windowManager, sanitizePath });
   migrationHandlers.register({ ipcMain: secureIpcMain, fs, windowManager, database, fileStorage, thumbnail });
