@@ -8,32 +8,32 @@ function generateId() {
   return crypto.randomUUID();
 }
 
-function resolveChatProjectId(queries, { projectId, resourceId, agentId }) {
+async function resolveChatProjectId(queries, { projectId, resourceId, agentId }) {
   if (projectId && String(projectId).trim()) {
     return String(projectId).trim();
   }
   if (resourceId) {
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (resource?.project_id) return resource.project_id;
   }
   if (agentId) {
-    const agent = queries.getManyAgentById.get(agentId);
+    const agent = await queries.getManyAgentById.get(agentId);
     if (agent?.project_id) return agent.project_id;
   }
   return 'default';
 }
 
 function register({ ipcMain, windowManager, database, validateSender }) {
-  ipcMain.handle('db:chat:createSession', (event, { id: providedId, agentId, resourceId, mode, contextId, threadId, title, toolIds, mcpServerIds, projectId }) => {
+  ipcMain.handle('db:chat:createSession', async (event, { id: providedId, agentId, resourceId, mode, contextId, threadId, title, toolIds, mcpServerIds, projectId }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const id = providedId || generateId();
       const now = Date.now();
-      const resolvedProjectId = resolveChatProjectId(queries, { projectId, resourceId, agentId });
-      const existing = queries.getChatSession.get(id);
+      const resolvedProjectId = await resolveChatProjectId(queries, { projectId, resourceId, agentId });
+      const existing = await queries.getChatSession.get(id);
       if (existing) {
-        queries.updateChatSession.run(
+        await queries.updateChatSession.run(
           mode ?? existing.mode ?? null,
           contextId ?? existing.context_id ?? null,
           threadId ?? existing.thread_id,
@@ -61,7 +61,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           },
         };
       }
-      queries.createChatSession.run(
+      await queries.createChatSession.run(
         id,
         resolvedProjectId,
         agentId ?? null,
@@ -98,13 +98,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:getSession', (event, sessionId) => {
+  ipcMain.handle('db:chat:getSession', async (event, sessionId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const session = queries.getChatSession.get(sessionId);
+      const session = await queries.getChatSession.get(sessionId);
       if (!session) return { success: true, data: null };
-      const messages = queries.getChatMessagesBySession.all(sessionId);
+      const messages = await queries.getChatMessagesBySession.all(sessionId);
       const parsed = {
         ...session,
         tool_ids: session.tool_ids ? JSON.parse(session.tool_ids) : [],
@@ -122,12 +122,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:updateSession', (event, { id, mode, contextId, threadId, title, toolIds, mcpServerIds }) => {
+  ipcMain.handle('db:chat:updateSession', async (event, { id, mode, contextId, threadId, title, toolIds, mcpServerIds }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      queries.updateChatSession.run(
+      await queries.updateChatSession.run(
         mode ?? null,
         contextId ?? null,
         threadId ?? null,
@@ -144,12 +144,12 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:getSessionsByAgent', (event, { agentId, projectId, limit }) => {
+  ipcMain.handle('db:chat:getSessionsByAgent', async (event, { agentId, projectId, limit }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
-      const sessions = queries.getChatSessionsByAgent.all(agentId, pid, limit ?? 50);
+      const sessions = await queries.getChatSessionsByAgent.all(agentId, pid, limit ?? 50);
       return { success: true, data: sessions };
     } catch (error) {
       console.error('[DB] Error getting chat sessions by agent:', error);
@@ -157,7 +157,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:getSessionsGlobal', (event, arg) => {
+  ipcMain.handle('db:chat:getSessionsGlobal', async (event, arg) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -169,7 +169,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         limit = arg.limit ?? 50;
         projectId = arg.projectId && String(arg.projectId).trim() ? String(arg.projectId).trim() : 'default';
       }
-      const sessions = queries.getChatSessionsGlobal.all(projectId, limit);
+      const sessions = await queries.getChatSessionsGlobal.all(projectId, limit);
       return { success: true, data: sessions };
     } catch (error) {
       console.error('[DB] Error getting global chat sessions:', error);
@@ -177,13 +177,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:addMessage', (event, { sessionId, role, content, toolCalls, thinking, metadata }) => {
+  ipcMain.handle('db:chat:addMessage', async (event, { sessionId, role, content, toolCalls, thinking, metadata }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const id = generateId();
       const now = Date.now();
-      queries.createChatMessage.run(
+      await queries.createChatMessage.run(
         id,
         sessionId,
         role,
@@ -200,13 +200,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:appendTrace', (event, { sessionId, messageId, type, toolName, toolArgs, result, mcpServerId, decision }) => {
+  ipcMain.handle('db:chat:appendTrace', async (event, { sessionId, messageId, type, toolName, toolArgs, result, mcpServerId, decision }) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const id = generateId();
       const now = Date.now();
-      queries.appendChatTrace.run(
+      await queries.appendChatTrace.run(
         id,
         sessionId,
         messageId ?? null,
@@ -225,21 +225,21 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:clearSession', (event, sessionId) => {
+  ipcMain.handle('db:chat:clearSession', async (event, sessionId) => {
     try {
       validateSender(event, windowManager);
       if (!sessionId || typeof sessionId !== 'string') {
         return { success: false, error: 'Invalid sessionId' };
       }
       const queries = database.getQueries();
-      const existing = queries.getChatSession.get(sessionId);
+      const existing = await queries.getChatSession.get(sessionId);
       if (!existing) {
         return { success: true };
       }
-      queries.deleteChatTracesBySession.run(sessionId);
-      queries.deleteChatMessagesBySession.run(sessionId);
+      await queries.deleteChatTracesBySession.run(sessionId);
+      await queries.deleteChatMessagesBySession.run(sessionId);
       const now = Date.now();
-      queries.updateChatSession.run(
+      await queries.updateChatSession.run(
         existing.mode ?? null,
         existing.context_id ?? null,
         existing.thread_id ?? null,
@@ -256,14 +256,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:chat:deleteSession', (event, sessionId) => {
+  ipcMain.handle('db:chat:deleteSession', async (event, sessionId) => {
     try {
       validateSender(event, windowManager);
       if (!sessionId || typeof sessionId !== 'string') {
         return { success: false, error: 'Invalid sessionId' };
       }
       const queries = database.getQueries();
-      queries.deleteChatSession.run(sessionId);
+      await queries.deleteChatSession.run(sessionId);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error deleting chat session:', error);

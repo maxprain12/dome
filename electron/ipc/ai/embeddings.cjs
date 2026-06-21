@@ -118,7 +118,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       let baseUrl = String(parsed.data?.base_url ?? parsed.data?.baseUrl ?? '').trim();
       if (!baseUrl) {
         baseUrl = String(
-          queries.getSetting.get('embeddings_base_url')?.value || 'http://127.0.0.1:11434',
+          (await queries.getSetting.get('embeddings_base_url'))?.value || 'http://127.0.0.1:11434',
         ).replace(/\/$/, '');
       }
 

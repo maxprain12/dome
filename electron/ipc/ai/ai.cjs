@@ -106,11 +106,11 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       if (provider === 'ollama') {
         try {
           const queries = database.getQueries();
-          const baseUrl = queries.getSetting.get('ollama_base_url')?.value || ollamaService.DEFAULT_BASE_URL;
-          const chatModel = model || queries.getSetting.get('ollama_model')?.value || ollamaService.DEFAULT_MODEL;
-          const tempResult = queries.getSetting.get('ollama_temperature');
-          const topPResult = queries.getSetting.get('ollama_top_p');
-          const numPredictResult = queries.getSetting.get('ollama_num_predict');
+          const baseUrl = (await queries.getSetting.get('ollama_base_url'))?.value || ollamaService.DEFAULT_BASE_URL;
+          const chatModel = model || (await queries.getSetting.get('ollama_model'))?.value || ollamaService.DEFAULT_MODEL;
+          const tempResult = await queries.getSetting.get('ollama_temperature');
+          const topPResult = await queries.getSetting.get('ollama_top_p');
+          const numPredictResult = await queries.getSetting.get('ollama_num_predict');
           const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
 
           const ollamaMessages = messages.map((m) => ({
@@ -431,7 +431,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const queries = database.getQueries();
 
       // Read provider config
-      const providerResult = queries.getSetting.get('ai_provider');
+      const providerResult = await queries.getSetting.get('ai_provider');
       const provider = providerResult?.value;
 
       if (!provider) {
@@ -441,7 +441,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       // Ollama check
       if (provider === 'ollama') {
         try {
-          const baseUrlResult = queries.getSetting.get('ollama_base_url');
+          const baseUrlResult = await queries.getSetting.get('ollama_base_url');
           const baseUrl = baseUrlResult?.value || 'http://localhost:11434';
           const urlObj = new URL(`${baseUrl}/api/tags`);
           const transport = urlObj.protocol === 'https:' ? require('https') : require('http');
@@ -453,7 +453,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
             req.on('timeout', () => { req.destroy(); resolve(false); });
           });
           if (available) {
-            const modelResult = queries.getSetting.get('ollama_model');
+            const modelResult = await queries.getSetting.get('ollama_model');
             return { success: true, provider: 'ollama', model: modelResult?.value || 'default' };
           } else {
             return { success: false, error: 'Ollama is not running. Start Ollama first.' };
@@ -464,7 +464,7 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       }
 
       // Cloud providers: openai, anthropic, google, dome
-      const modelResult = queries.getSetting.get('ai_model');
+      const modelResult = await queries.getSetting.get('ai_model');
       const model = modelResult?.value;
 
       if (provider === 'dome') {

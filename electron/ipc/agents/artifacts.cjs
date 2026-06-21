@@ -12,11 +12,11 @@ function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function syncRuntimeDataFromState(queries, artifactRow, stateObj, now) {
+async function syncRuntimeDataFromState(queries, artifactRow, stateObj, now) {
   if (!artifactRow || !isPlainObject(stateObj?.data)) return;
   const dataStr = JSON.stringify(stateObj.data);
-  const existing = queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
-  queries.upsertArtifactRuntimeData.run(
+  const existing = await queries.getArtifactRuntimeDataByArtifactSlot.get(artifactRow.id, 'default');
+  await queries.upsertArtifactRuntimeData.run(
     existing?.id || crypto.randomUUID(),
     artifactRow.id,
     'default',
@@ -32,7 +32,7 @@ function register({ ipcMain, windowManager, database }) {
   const fs = require('fs');
   const { dialog } = require('electron');
 
-  ipcMain.handle('artifact:create', (event, { title, artifactType, template, state, linkedResourceId, projectId, folderId }) => {
+  ipcMain.handle('artifact:create', async (event, { title, artifactType, template, state, linkedResourceId, projectId, folderId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -44,8 +44,8 @@ function register({ ipcMain, windowManager, database }) {
       const artifactId = generateId();
       const stateStr = JSON.stringify(state ?? {});
 
-      const tx = db.transaction(() => {
-        queries.createResource.run(
+      await db.transaction(async (tx) => {
+        await queries.createResource.run(
           resourceId,
           projectId || 'default',
           'artifact',
@@ -57,7 +57,7 @@ function register({ ipcMain, windowManager, database }) {
           now,
           now,
         );
-        queries.createArtifact.run(
+        await queries.createArtifact.run(
           artifactId,
           resourceId,
           artifactType || 'custom',
@@ -67,16 +67,15 @@ function register({ ipcMain, windowManager, database }) {
           now,
           now,
         );
-        const art = queries.getArtifactByResourceId.get(resourceId);
+        const art = await queries.getArtifactByResourceId.get(resourceId);
         if (art) {
-          syncRuntimeDataFromState(queries, art, parseJsonState(stateStr), now);
+          await syncRuntimeDataFromState(queries, art, parseJsonState(stateStr), now);
         }
       });
-      tx();
 
       const queries2 = database.getQueries();
-      const resource = queries2.getResourceById.get(resourceId);
-      const artifact = queries2.getArtifactByResourceId.get(resourceId);
+      const resource = await queries2.getResourceById.get(resourceId);
+      const artifact = await queries2.getArtifactByResourceId.get(resourceId);
       const serialized = serializeArtifactRecord(artifact, resource, queries2);
 
       windowManager.broadcast('resource:created', resource);
@@ -91,15 +90,15 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('artifact:get', (event, resourceId) => {
+  ipcMain.handle('artifact:get', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
       const queries = database.getQueries();
-      const artifact = queries.getArtifactByResourceId.get(resourceId);
+      const artifact = await queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       return { success: true, data: serializeArtifactRecord(artifact, resource, queries) };
     } catch (error) {
       console.error('[Artifact] Error getting:', error);
@@ -137,7 +136,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('artifact:update', (event, { resourceId, state, artifactType, linkedResourceId }) => {
+  ipcMain.handle('artifact:update', async (event, { resourceId, state, artifactType, linkedResourceId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -145,12 +144,12 @@ function register({ ipcMain, windowManager, database }) {
       const queries = database.getQueries();
       const db = database.getDB();
       const now = Date.now();
-      const existing = queries.getArtifactByResourceId.get(resourceId);
+      const existing = await queries.getArtifactByResourceId.get(resourceId);
       if (!existing) return { success: false, error: 'Artifact not found' };
 
-      const tx = db.transaction(() => {
+      await db.transaction(async (tx) => {
         if (artifactType !== undefined || linkedResourceId !== undefined) {
-          queries.updateArtifact.run(
+          await queries.updateArtifact.run(
             artifactType ?? existing.artifact_type,
             existing.template,
             state !== undefined ? JSON.stringify(state) : existing.state,
@@ -159,17 +158,16 @@ function register({ ipcMain, windowManager, database }) {
             resourceId,
           );
         } else if (state !== undefined) {
-          queries.updateArtifactState.run(JSON.stringify(state), now, resourceId);
+          await queries.updateArtifactState.run(JSON.stringify(state), now, resourceId);
         }
-        const updated = queries.getArtifactByResourceId.get(resourceId);
+        const updated = await queries.getArtifactByResourceId.get(resourceId);
         if (updated && state !== undefined) {
-          syncRuntimeDataFromState(queries, updated, parseJsonState(JSON.stringify(state)), now);
+          await syncRuntimeDataFromState(queries, updated, parseJsonState(JSON.stringify(state)), now);
         }
       });
-      tx();
 
-      const updated = queries.getArtifactByResourceId.get(resourceId);
-      const resource = queries.getResourceById.get(resourceId);
+      const updated = await queries.getArtifactByResourceId.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       const serialized = serializeArtifactRecord(updated, resource, queries);
       windowManager.broadcast('artifact:updated', serialized);
 
@@ -182,13 +180,13 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('artifact:delete', (event, resourceId) => {
+  ipcMain.handle('artifact:delete', async (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
       const queries = database.getQueries();
-      queries.deleteArtifact.run(resourceId);
+      await queries.deleteArtifact.run(resourceId);
       windowManager.broadcast('artifact:deleted', { resourceId });
       return { success: true };
     } catch (error) {
@@ -197,17 +195,17 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('artifact:list', (event, projectId) => {
+  ipcMain.handle('artifact:list', async (event, projectId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
       const queries = database.getQueries();
-      const rows = queries.listArtifactsByProject.all(projectId || 'default');
-      const results = rows.map((row) => {
-        const resource = queries.getResourceById.get(row.resource_id);
+      const rows = await queries.listArtifactsByProject.all(projectId || 'default');
+      const results = await Promise.all(rows.map(async (row) => {
+        const resource = await queries.getResourceById.get(row.resource_id);
         return serializeArtifactRecord(row, resource, queries);
-      });
+      }));
       return { success: true, data: results };
     } catch (error) {
       console.error('[Artifact] Error listing:', error);
@@ -221,9 +219,9 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       const queries = database.getQueries();
-      const artifact = queries.getArtifactByResourceId.get(resourceId);
+      const artifact = await queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
-      const resource = queries.getResourceById.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       const mergedState = serializeArtifactRecord(artifact, resource, queries)?.state ?? parseJsonState(artifact.state);
 
       const bundle = {
@@ -277,8 +275,8 @@ function register({ ipcMain, windowManager, database }) {
       const resourceId = generateId();
       const artifactId = generateId();
 
-      const tx = db.transaction(() => {
-        queries.createResource.run(
+      await db.transaction(async (tx) => {
+        await queries.createResource.run(
           resourceId,
           'default',
           'artifact',
@@ -290,7 +288,7 @@ function register({ ipcMain, windowManager, database }) {
           now,
           now,
         );
-        queries.createArtifact.run(
+        await queries.createArtifact.run(
           artifactId,
           resourceId,
           artifact_type,
@@ -300,16 +298,15 @@ function register({ ipcMain, windowManager, database }) {
           now,
           now,
         );
-        const art = queries.getArtifactByResourceId.get(resourceId);
+        const art = await queries.getArtifactByResourceId.get(resourceId);
         if (art) {
-          syncRuntimeDataFromState(queries, art, parseJsonState(JSON.stringify(state ?? {})), now);
+          await syncRuntimeDataFromState(queries, art, parseJsonState(JSON.stringify(state ?? {})), now);
         }
       });
-      tx();
 
       const queries2 = database.getQueries();
-      const resource = queries2.getResourceById.get(resourceId);
-      const artifact = queries2.getArtifactByResourceId.get(resourceId);
+      const resource = await queries2.getResourceById.get(resourceId);
+      const artifact = await queries2.getArtifactByResourceId.get(resourceId);
       const serialized = serializeArtifactRecord(artifact, resource, queries2);
 
       windowManager.broadcast('resource:created', resource);
@@ -335,15 +332,16 @@ function register({ ipcMain, windowManager, database }) {
       const queries = database.getQueries();
       const db = database.getDB();
       const now = Date.now();
-      const existing = queries.getArtifactByResourceId.get(resourceId);
+      const existing = await queries.getArtifactByResourceId.get(resourceId);
       if (!existing) return { success: false, error: 'Artifact not found' };
 
-      db.prepare(
+      await db.run(
         'UPDATE artifacts SET linked_resource_id = ?, version = version + 1, updated_at = ? WHERE resource_id = ?',
-      ).run(linkedResourceId ?? null, now, resourceId);
+        [linkedResourceId ?? null, now, resourceId],
+      );
 
-      const updated = queries.getArtifactByResourceId.get(resourceId);
-      const resource = queries.getResourceById.get(resourceId);
+      const updated = await queries.getArtifactByResourceId.get(resourceId);
+      const resource = await queries.getResourceById.get(resourceId);
       const serialized = serializeArtifactRecord(updated, resource, queries);
       windowManager.broadcast('artifact:updated', serialized);
 
@@ -368,7 +366,7 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       const queries = database.getQueries();
-      const artifact = queries.getArtifactByResourceId.get(resourceId);
+      const artifact = await queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
       if (!artifact.linked_resource_id) return { success: false, error: 'No linked resource' };
 

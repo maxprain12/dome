@@ -43,7 +43,7 @@ function sanitizeSubagentName(name) {
   return raw || 'agent';
 }
 
-function loadAgents(database, projectId = 'default') {
+async function loadAgents(database, projectId = 'default') {
   try {
     const queries = database.getQueries();
     const pid = projectId && String(projectId).trim() ? String(projectId).trim() : 'default';
@@ -63,7 +63,7 @@ function loadAgents(database, projectId = 'default') {
         updatedAt: row.updated_at,
       }));
     }
-    const result = queries.getSetting.get('many_agents');
+    const result = await queries.getSetting.get('many_agents');
     if (!result?.value) return [];
     return JSON.parse(result.value) || [];
   } catch {
@@ -187,7 +187,7 @@ function register({ ipcMain, windowManager, database }) {
 
     try {
       const settings = await getAISettings(database);
-      const allAgents = loadAgents(database, projectId);
+      const allAgents = await loadAgents(database, projectId);
       const memberAgents = memberAgentIds
         .map((id) => allAgents.find((a) => a.id === id))
         .filter(Boolean);

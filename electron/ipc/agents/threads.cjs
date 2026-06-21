@@ -88,8 +88,8 @@ function getWorkflowRunIdSet() {
 
 async function resolveThreadProviderConfig(provider, model) {
   const queries = database.getQueries();
-  const providerResult = queries.getSetting.get('ai_provider');
-  const modelResult = queries.getSetting.get('ai_model');
+  const providerResult = await queries.getSetting.get('ai_provider');
+  const modelResult = await queries.getSetting.get('ai_model');
   const effectiveProvider = provider || providerResult?.value || 'openai';
   const effectiveModel = model || modelResult?.value;
   return resolveProviderConfig(database, effectiveProvider, effectiveModel);

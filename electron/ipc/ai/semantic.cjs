@@ -9,7 +9,7 @@ const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 function register({ ipcMain, windowManager, validateSender }) {
   semanticIndexScheduler.init(database);
 
-  ipcMain.handle('db:semantic:getGraph', (event, resourceId, threshold = 0.45) => {
+  ipcMain.handle('db:semantic:getGraph', async (event, resourceId, threshold = 0.45) => {
     try {
       validateSender(event, windowManager);
       if (typeof resourceId !== 'string' || !resourceId) {
@@ -22,44 +22,45 @@ function register({ ipcMain, windowManager, validateSender }) {
 
       // Hard-scope the graph to the center resource's project so semantic
       // relations never surface nodes/edges from other projects.
-      const centerResource = queries.getResourceById.get(center);
+      const centerResource = await queries.getResourceById.get(center);
       const projectId = centerResource?.project_id || null;
       // Only in-project resources are eligible as graph endpoints.
-      const inProjectPredicate = projectId
-        ? `AND r.project_id = @projectId`
-        : '';
+      const inProjectPredicate = projectId ? `AND r.project_id = ?` : '';
       const inProjectEdgePredicate = projectId
-        ? `AND source_id IN (SELECT id FROM resources WHERE project_id = @projectId)
-           AND target_id IN (SELECT id FROM resources WHERE project_id = @projectId)`
+        ? `AND source_id IN (SELECT id FROM resources WHERE project_id = ?)
+           AND target_id IN (SELECT id FROM resources WHERE project_id = ?)`
         : '';
-      const bind = projectId ? { th, center, projectId } : { th, center };
+      const nodesBind = projectId
+        ? [th, center, center, th, center, th, center, projectId]
+        : [th, center, center, th, center, th, center];
+      const edgesBind = projectId
+        ? [center, center, th, projectId, projectId]
+        : [center, center, th];
 
-      const nodes = db
-        .prepare(
-          `
+      const nodes = await db.all(
+        `
         SELECT r.id, r.title AS label, r.type AS resourceType,
           (SELECT COUNT(*) FROM semantic_relations sr
            WHERE (sr.source_id = r.id OR sr.target_id = r.id)
-           AND sr.similarity >= @th
+           AND sr.similarity >= ?
            AND sr.relation_type != 'rejected') AS connectionCount,
-          CASE WHEN r.id = @center THEN 1 ELSE 0 END AS isCurrentNote
+          CASE WHEN r.id = ? THEN 1 ELSE 0 END AS isCurrentNote
         FROM resources r
         WHERE r.id IN (
           SELECT source_id FROM semantic_relations
-          WHERE target_id = @center AND similarity >= @th AND relation_type != 'rejected'
+          WHERE target_id = ? AND similarity >= ? AND relation_type != 'rejected'
           UNION
           SELECT target_id FROM semantic_relations
-          WHERE source_id = @center AND similarity >= @th AND relation_type != 'rejected'
-          UNION SELECT @center
+          WHERE source_id = ? AND similarity >= ? AND relation_type != 'rejected'
+          UNION SELECT ?
         )
         ${inProjectPredicate}
       `,
-        )
-        .all(bind);
+        nodesBind,
+      );
 
-      const edges = db
-        .prepare(
-          `
+      const edges = await db.all(
+        `
         SELECT id,
                source_id AS source,
                target_id AS target,
@@ -67,19 +68,19 @@ function register({ ipcMain, windowManager, validateSender }) {
                relation_type,
                label
         FROM semantic_relations
-        WHERE (source_id = @center OR target_id = @center)
-          AND similarity >= @th
+        WHERE (source_id = ? OR target_id = ?)
+          AND similarity >= ?
           AND relation_type != 'rejected'
           ${inProjectEdgePredicate}
         ORDER BY similarity DESC
         LIMIT 60
       `,
-        )
-        .all(bind);
+        edgesBind,
+      );
 
       for (const e of edges) {
-        const s = queries.getResourceById.get(e.source);
-        const t = queries.getResourceById.get(e.target);
+        const s = await queries.getResourceById.get(e.source);
+        const t = await queries.getResourceById.get(e.target);
         e.sourceName = s?.title || e.source;
         e.targetName = t?.title || e.target;
         e.sourceType = s?.type;
@@ -105,12 +106,12 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:semantic:confirm', (event, edgeId) => {
+  ipcMain.handle('db:semantic:confirm', async (event, edgeId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const now = Date.now();
-      queries.updateSemanticRelationState.run('confirmed', now, edgeId);
+      await queries.updateSemanticRelationState.run('confirmed', now, edgeId);
       return { success: true };
     } catch (error) {
       console.error('[DB] semantic confirm:', error);
@@ -118,13 +119,13 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:semantic:delete', (event, edgeId) => {
+  ipcMain.handle('db:semantic:delete', async (event, edgeId) => {
     try {
       validateSender(event, windowManager);
       if (typeof edgeId !== 'string' || !edgeId) {
         return { success: false, error: 'edgeId required' };
       }
-      database.getQueries().deleteSemanticRelationById.run(edgeId);
+      await database.getQueries().deleteSemanticRelationById.run(edgeId);
       return { success: true };
     } catch (error) {
       console.error('[DB] semantic delete:', error);
@@ -132,11 +133,11 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:semantic:reject', (event, edgeId) => {
+  ipcMain.handle('db:semantic:reject', async (event, edgeId) => {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      queries.updateSemanticRelationState.run('rejected', null, edgeId);
+      await queries.updateSemanticRelationState.run('rejected', null, edgeId);
       return { success: true };
     } catch (error) {
       console.error('[DB] semantic reject:', error);
@@ -144,7 +145,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('db:semantic:createManual', (event, payload) => {
+  ipcMain.handle('db:semantic:createManual', async (event, payload) => {
     try {
       validateSender(event, windowManager);
       const sourceId = payload?.sourceId ?? payload?.source_id;
@@ -159,40 +160,40 @@ function register({ ipcMain, windowManager, validateSender }) {
       const queries = database.getQueries();
       const now = Date.now();
       const id = `${sourceId}__${targetId}`;
-      const existing = queries.getSemanticRelationByPair.get(sourceId, targetId);
+      const existing = await queries.getSemanticRelationByPair.get(sourceId, targetId);
       if (existing) {
         if (existing.relation_type === 'rejected') {
-          database
+          await database
             .getDB()
-            .prepare(
+            .run(
               `
             UPDATE semantic_relations
             SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
             WHERE id = ?
           `,
-            )
-            .run(now, label, existing.id);
+              [now, label, existing.id],
+            );
           return { success: true, data: { id: existing.id } };
         }
         if (existing.relation_type === 'manual' || existing.relation_type === 'confirmed') {
           return { success: true, data: { id: existing.id, duplicate: true } };
         }
         if (existing.relation_type === 'auto') {
-          database
+          await database
             .getDB()
-            .prepare(
+            .run(
               `
             UPDATE semantic_relations
             SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label)
             WHERE id = ?
           `,
-            )
-            .run(now, label, existing.id);
+              [now, label, existing.id],
+            );
           return { success: true, data: { id: existing.id } };
         }
       }
       try {
-        queries.insertSemanticRelation.run(id, sourceId, targetId, 1.0, 'manual', label, now, null);
+        await queries.insertSemanticRelation.run(id, sourceId, targetId, 1.0, 'manual', label, now, null);
       } catch (e) {
         if (!String(e.message || e).includes('UNIQUE')) throw e;
         return { success: true, data: { id, duplicate: true } };
@@ -255,7 +256,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      const indexableRow = queries.countSemanticIndexableResources.get();
+      const indexableRow = await queries.countSemanticIndexableResources.get();
       const indexableTotal = Number(indexableRow?.c ?? 0);
       const chunksTotal = await lancedbSemantic.countChunksForModel();
       const indexedResourceCount = await lancedbSemantic.countIndexedResources();

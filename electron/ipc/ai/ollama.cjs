@@ -154,8 +154,8 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
         throw new Error('Model must be a string with max 200 characters');
       }
       const queries = database.getQueries();
-      const baseUrlResult = queries.getSetting.get('ollama_base_url');
-      const modelResult = queries.getSetting.get('ollama_model');
+      const baseUrlResult = await queries.getSetting.get('ollama_base_url');
+      const modelResult = await queries.getSetting.get('ollama_model');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
