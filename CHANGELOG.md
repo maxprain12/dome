@@ -4,8 +4,23 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.6.0](https://github.com/maxprain12/dome/releases/tag/v2.6.0) - 2026-06-21
+
+Aislamiento total por proyecto (multi-vault) y una tanda de arreglos de UI: previews de contenido en las tarjetas, selector de carpetas en árbol, y correcciones de layout en Correo y Ajustes.
+
+### Added
+
+- **Aislamiento por proyecto (multi-vault).** Toda la información ahora es visible solo dentro del proyecto activo y nunca cross-project: explorador de archivos, búsqueda y menciones `@`, chat/Many e historial, Learn (decks, studio, flashcards), transcripciones, tags y grafo semántico. Permanecen compartidos los ajustes, correo, calendario y el catálogo de agentes/automatizaciones/marketplace. El scoping se hace en la capa de datos (SQL/IPC) con el proyecto activo como fuente de verdad, corrigiendo además un bug de truncamiento por el que un proyecto podía “perder” archivos propios al superar el `LIMIT` global.
+- **Herramientas de agente acotadas al proyecto activo.** `resource_search`, `resource_list`, `resource_semantic_search` y `resource_hybrid_search` usan por defecto el proyecto activo (`last_project_id`) salvo que se indique otro `project_id` explícitamente.
+- **Previews de contenido en las tarjetas de recurso.** Cada tipo muestra una vista previa real: primera página del PDF, miniatura/imagen para imágenes y vídeos, extracto de texto para notas/documentos/transcripciones y un **render visual del artefacto** (su HTML en un iframe escalado, no el código). Carga perezosa por tarjeta vía `IntersectionObserver` con caché acotada.
+- **Mover a carpeta desde la tarjeta + selector en árbol.** Acción “Mover a carpeta…” por recurso (rejilla y lista) y el selector ahora muestra las carpetas de forma jerárquica con sangría, en lugar de una lista plana.
+
 ### Fixed
 
+- **Aislamiento de pestañas entre vaults.** Al cambiar de proyecto (y al montar) se cierran todas las pestañas de documento que no pertenecen al proyecto activo, incluidas las antiguas sin etiquetar. Las pestañas de carpeta abiertas desde el sidebar y desde enlaces del chat ahora se etiquetan con su `projectId`.
+- **Vista de Correo: layout roto.** El panel de carpetas se apilaba a lo ancho ocupando toda la altura por una container-query que intentaba reestilizar su propio contenedor; ahora el shell es fila por defecto y las carpetas quedan como columna izquierda.
+- **Menú “⋮” de las tarjetas no se mostraba.** Se renderizaba dentro de la tarjeta (que es containing block por `overflow`/`container-type`/`transform`), quedando recortado, y se cerraba al sacar el ratón. Ahora se renderiza por portal a `document.body` y persiste hasta hacer clic fuera.
+- **Ajustes: el menú lateral hacía scroll con el contenido.** El menú de Settings queda fijo con su propio scroll y solo la subsección se desplaza.
 - **Windows: arranque colgado y alto consumo de RAM (v2.5.x).** Diferido el scheduler de automatizaciones (60–120 s), recuperación de runs `queued` huérfanos, timeout en descarga de himalaya, cierre de clientes MCP stdio, `busy_timeout` en SQLite, límite de caché web search, serialización de extracción PPT, y fallbacks de UI cuando la carga supera 15 s. Script de diagnóstico: `node scripts/windows-startup-diag.mjs`.
 - **Windows: `SQLITE_IOERR_TRUNCATE` al arrancar.** Recuperación automática: elimina sidecars `-wal`/`-shm` corruptos, reintenta schema init y restaura desde backup pre-migración si persiste; fallback a journal `DELETE` si WAL falla.
 - **Backups automáticos de `dome.db`.** Snapshots periódicos (cada 6 h), al arrancar (30 s) y al cerrar; hasta 5 copias `dome.db.auto-*`. Si la DB está corrupta al abrir, se detecta con `quick_check` y se restaura el backup más reciente (auto o pre-migración). No se crean snapshots si la DB supera 250 MB; script `pnpm run restore:db` para restaurar en Windows (renombra en lugar de sobrescribir).

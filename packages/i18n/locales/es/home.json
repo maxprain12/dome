@@ -13,5 +13,8 @@
   "aria_select_color_swatch": "Seleccionar color {{color}}",
   "status_pending": "Pendiente",
   "status_processing": "Procesando",
-  "status_failed": "Falló"
+  "status_failed": "Falló",
+  "preview": {
+    "pdf_thumb": "Vista previa de la primera página del PDF"
+  }
 }

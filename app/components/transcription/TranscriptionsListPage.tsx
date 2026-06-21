@@ -151,7 +151,7 @@ export default function TranscriptionsListPage() {
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => openTranscriptionDetailTab(r.id, r.title || '')}
+                    onClick={() => openTranscriptionDetailTab(r.id, r.title || '', r.project_id)}
                   >
                     {t('common.view')}
                   </DomeButton>
