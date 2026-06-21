@@ -26,8 +26,10 @@ function loadFfmpeg() {
   if (ffmpeg !== null) return ffmpeg;
   try {
     const fluent = require('fluent-ffmpeg');
-    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-    fluent.setFfmpegPath(ffmpegInstaller.path);
+    const { configureFluentFfmpeg } = require('../media/ffmpeg-paths.cjs');
+    if (!configureFluentFfmpeg(fluent)) {
+      throw new Error('ffmpeg binary not found');
+    }
     ffmpeg = fluent;
     return ffmpeg;
   } catch (e) {

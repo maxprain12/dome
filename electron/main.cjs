@@ -80,12 +80,32 @@ if (process.env.DOME_PROFILE && String(process.env.DOME_PROFILE).trim()) {
   console.log('[Main] DOME_PROFILE active — userData:', next);
 }
 
+// Crash/shutdown tracer — breadcrumbs + timer stacks → userData/logs/crash-trace.jsonl
+try {
+  const crashTracer = require('./core/crash-tracer.cjs');
+  if (crashTracer.installProcessHooks()) {
+    crashTracer.installElectronHooks(app);
+    console.log('[Main] crash-tracer active →', crashTracer.getTraceLogPath() || '(file after app ready)');
+  }
+} catch (e) {
+  console.warn('[Main] crash-tracer init failed:', e?.message || e);
+}
+
 // In packaged app, native modules live in app.asar.unpacked
 if (app.isPackaged) {
   const mod = require('module');
   const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules');
   if (!mod.globalPaths.includes(unpacked)) {
     mod.globalPaths.unshift(unpacked);
+  }
+  try {
+    const { getFfmpegInstallerPaths } = require('./media/ffmpeg-paths.cjs');
+    const ff = getFfmpegInstallerPaths();
+    if (ff?.ffmpegPath?.includes('app.asar/') && !ff.ffmpegPath.includes('app.asar.unpacked/')) {
+      console.warn('[Main] ffmpeg path still inside app.asar — video/audio may fail:', ff.ffmpegPath);
+    }
+  } catch {
+    /* non-fatal */
   }
 }
 
@@ -602,6 +622,9 @@ function serveFile(filePath) {
 app
   .whenReady()
   .then(async () => {
+    try {
+      require('./core/crash-tracer.cjs').breadcrumb('app.whenReady');
+    } catch { /* ignore */ }
     setupContentSecurityPolicy(isDev);
 
     // Remove stale staging files left by previous crashes or interruptions.
@@ -952,7 +975,8 @@ app
     const mainWindow = await createWindow();
 
     // One-time background semantic chunk reindex; non-blocking (requires embeddings config)
-    setTimeout(() => {
+    const { namedTimeout: crashNamedTimeout } = require('./core/crash-tracer.cjs');
+    crashNamedTimeout('semantic-initial-reindex', () => {
       try {
         if (process.env.NODE_ENV === 'development') return;
         const q = database.getQueries();
@@ -1104,7 +1128,7 @@ app
     }
 
     // Schedule orphan file cleanup after app is ready (non-blocking)
-    setTimeout(() => {
+    crashNamedTimeout('orphan-file-cleanup', () => {
       try {
         console.log('[App] Running automatic orphan file cleanup...');
         const queries = database.getQueries();
@@ -1130,7 +1154,7 @@ app
           `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`
         ).run();
       } catch (e) { /* non-fatal */ }
-    }, 30000); // 30 seconds delay to let app stabilize
+    }, 30_000); // 30 seconds delay to let app stabilize
   })
   .catch(console.error);
 
@@ -1192,6 +1216,9 @@ app.on('before-quit', async () => {
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught exception:', error);
   try {
+    require('./core/crash-tracer.cjs').flushFatal('uncaughtException-main-handler', error);
+  } catch { /* ignore */ }
+  try {
     const logger = require('./core/logger.cjs');
     logger.error('main', 'uncaughtException', { error: error?.message, stack: error?.stack });
   } catch { /* logging must never crash the handler */ }
@@ -1210,6 +1237,12 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason) => {
   console.error('❌ Unhandled rejection:', reason);
+  try {
+    require('./core/crash-tracer.cjs').flushFatal(
+      'unhandledRejection-main-handler',
+      reason instanceof Error ? reason : new Error(String(reason)),
+    );
+  } catch { /* ignore */ }
   try {
     const logger = require('./core/logger.cjs');
     const message = reason instanceof Error ? reason.message : String(reason);

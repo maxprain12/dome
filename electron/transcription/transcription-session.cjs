@@ -131,17 +131,10 @@ function stopTicker(s) {
 function loadFluentFfmpeg() {
   try {
     const fluent = require('fluent-ffmpeg');
-    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-    const ffmpegPath = ffmpegInstaller.path;
-    fluent.setFfmpegPath(ffmpegPath);
-    try {
-      const dir = path.dirname(ffmpegPath);
-      const base = path.basename(ffmpegPath).replace(/^ffmpeg/i, 'ffprobe');
-      const probeGuess = path.join(dir, base);
-      if (fs.existsSync(probeGuess)) {
-        fluent.setFfprobePath(probeGuess);
-      }
-    } catch { /* ignore missing ffprobe */ }
+    const { configureFluentFfmpeg } = require('../media/ffmpeg-paths.cjs');
+    if (!configureFluentFfmpeg(fluent)) {
+      throw new Error('ffmpeg binary not found');
+    }
     return fluent;
   } catch (e) {
     console.warn('[TranscriptionSession] ffmpeg unavailable:', e?.message);
