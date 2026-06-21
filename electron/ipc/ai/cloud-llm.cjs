@@ -18,7 +18,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       if (!imageDataUrl || !question) {
         return { success: false, error: 'imageDataUrl and question required' };
       }
-      if (!await await cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
+      if (!await cloudLlm.isCloudLlmAvailable(() => database.getQueries())) {
         return { success: false, error: 'cloud_unavailable' };
       }
 

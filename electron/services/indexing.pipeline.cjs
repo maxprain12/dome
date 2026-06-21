@@ -120,7 +120,7 @@ function shouldIndexResourceType(type) {
  * @param {Record<string, import('better-sqlite3').Statement>} queries
  * @param {{ type?: string, id?: string } | undefined} resource
  */
-function finalizeArtifactSearchSurface(queries, resource) {
+async function finalizeArtifactSearchSurface(queries, resource) {
   const rid = resource?.id;
   if (!rid || String(resource?.type) !== 'artifact') return;
   try {
@@ -259,7 +259,7 @@ function createIndexer(opts) {
       } catch (e) {
         console.warn('[indexing.pipeline] lance delete (empty)', e?.message || e);
       }
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, skipped: true, reason: 'empty_text' };
     }
 
@@ -282,7 +282,7 @@ function createIndexer(opts) {
       } catch {
         /* ignore */
       }
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: false, error: 'chunking_failed' };
     }
     if (chunks.length === 0) {
@@ -293,7 +293,7 @@ function createIndexer(opts) {
       } catch (e) {
         console.warn('[indexing.pipeline] lance delete (no chunks)', e?.message || e);
       }
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, skipped: true, reason: 'no_chunks' };
     }
 
@@ -308,7 +308,7 @@ function createIndexer(opts) {
       await resetPipeline();
       const msg = e instanceof Error ? e.message : String(e);
       console.error('[indexing.pipeline] embedding_failed', resourceId, msg);
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: false, error: 'embedding_failed', message: msg };
     }
     const now = Date.now();
@@ -337,7 +337,7 @@ function createIndexer(opts) {
       });
     } catch (e) {
       console.error('[indexing.pipeline] lance write', resourceId, e?.message || e);
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: false, error: 'lance_write_failed', message: String(e?.message || e) };
     }
 
@@ -345,12 +345,12 @@ function createIndexer(opts) {
 
     const myCentroid = centroidL2Normalized(sampleEvenlyForCentroid(vectors));
     if (!myCentroid) {
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, count: 0, chunks: chunks.length, textSource: source };
     }
 
     if (skipRelations) {
-      finalizeArtifactSearchSurface(queries, resource);
+      await finalizeArtifactSearchSurface(queries, resource);
       return { ok: true, count: 0, chunks: chunks.length, textSource: source };
     }
 
@@ -392,7 +392,7 @@ function createIndexer(opts) {
       upsertAutoEdge(queries, r.targetId, resourceId, r.sim, now);
     }
 
-    finalizeArtifactSearchSurface(queries, resource);
+    await finalizeArtifactSearchSurface(queries, resource);
 
     return { ok: true, count: topK.length, chunks: chunks.length, textSource: source };
   }

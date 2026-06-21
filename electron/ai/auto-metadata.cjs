@@ -16,7 +16,7 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
   setImmediate(() => {
     void (async () => {
       try {
-        if (!await await cloudLlm.isCloudLlmAvailable(() => db.getQueries())) return;
+        if (!await cloudLlm.isCloudLlmAvailable(() => db.getQueries())) return;
 
         const q = db.getQueries();
         const row = q.getResourceById.get(resourceId);

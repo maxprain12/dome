@@ -64,8 +64,8 @@ function getModelVersionLabel() {
   return `cloud:${p}:${m}`;
 }
 
-function resolveVisionOcrAvailable(queries) {
-  if (!await await cloudLlm.isCloudLlmAvailable(() => queries)) return false;
+async function resolveVisionOcrAvailable(queries) {
+  if (!await cloudLlm.isCloudLlmAvailable(() => queries)) return false;
   const cfg = await cloudLlm.resolveConfig(() => queries);
   return cloudLlm.isVisionSupportedProviderId(cfg.provider);
 }
@@ -163,7 +163,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
     return { text: pdfJsText, source: 'pdfjs' };
   }
 
-  const visionReady = resolveVisionOcrAvailable(queries);
+  const visionReady = await resolveVisionOcrAvailable(queries);
 
   if (!visionReady) {
     finalizePdfIndexingState(queries, resourceId, '', {
