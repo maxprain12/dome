@@ -24,7 +24,7 @@ interface WorkspaceLayoutProps {
 - **AnnotationsTab**: Annotations (interactions type 'annotation'); list + PDF position data.
 - **MetadataModal**: Modal to view/edit resource metadata (title, type, metadata fields); save via db.resources.update.
 
-AI Chat is available globally via **MartinFloatingButton** (Many); the SidePanel sets context via `setContext(resourceId, resourceTitle)` when a resource is open.
+AI Chat is available globally via **ManyFloatingButton** (Many); the SidePanel sets context via `setContext(resourceId, resourceTitle)` when a resource is open.
 
 ### Routing
 
@@ -39,7 +39,7 @@ AI Chat is available globally via **MartinFloatingButton** (Many); the SidePanel
 ### Layout structure
 
 - **WorkspaceLayout**: Header (WorkspaceHeader: title, back, metadata button, panel toggle) + main area + optional SidePanel (tabs: References, Backlinks, Search, Workspace for notebooks).
-- **Main area**: Renders viewer by resource.type — PDFViewer, VideoPlayer, AudioPlayer, ImageViewer, or URLViewer (and for note, Editor/NotionEditor in main or in Notes tab).
+- **Main area**: Renders viewer by resource.type — PDFViewer, VideoPlayer, AudioPlayer, ImageViewer, or URLViewer (and for note, `NoteEditor` in main or in Notes tab).
 - **Dynamic imports**: PDFViewer, VideoPlayer, AudioPlayer, ImageViewer loaded with `dynamic(..., { ssr: false })` to avoid SSR/Node issues.
 
 ### Resource loading
@@ -54,7 +54,7 @@ AI Chat is available globally via **MartinFloatingButton** (Many); the SidePanel
 - **SearchTab**: Find resources to link.
 - **WorkspaceTab**: (Notebooks only) Workspace files panel.
 
-Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for chat. SidePanel calls `setContext(resourceId, resourceTitle)` so Many has resource context.
+Note: AI Chat was removed from SidePanel; use ManyFloatingButton (Many) for chat. SidePanel calls `setContext(resourceId, resourceTitle)` so Many has resource context.
 
 ### Metadata
 
@@ -97,7 +97,7 @@ Note: AI Chat was removed from SidePanel; use MartinFloatingButton (Many) for ch
 | `app/workspace/url/[[...params]]/`             | URL workspace route (same pattern)                                                     |
 | `app/components/workspace/WorkspaceLayout.tsx` | Layout: header, viewer, side panel, metadata modal; resource load and resource:updated |
 | `app/components/workspace/WorkspaceHeader.tsx` | Title, back, metadata button, panel toggle                                             |
-| `app/components/workspace/SidePanel.tsx`       | Tabs: References, Backlinks, Search, Workspace (notebooks); setContext for Martin      |
+| `app/components/workspace/SidePanel.tsx`       | Tabs: References, Backlinks, Search, Workspace (notebooks); `setContext(resourceId, resourceTitle)` para Many |
 | `app/components/workspace/AIChatTab.tsx`       | Many chat tab (see ai-chat.md)                                                         |
 | `app/components/workspace/MetadataModal.tsx`   | Metadata form and save                                                                 |
 | `app/components/workspace/index.ts`            | Exports                                                                                |

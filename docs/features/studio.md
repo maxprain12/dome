@@ -94,7 +94,7 @@ El nombre del output generado incluye el tipo y el nombre del recurso origen:
 
 ## Validación estricta al crear (P-002)
 
-Todas las salidas de Studio con contenido JSON pasan por [`electron/services/studio-validators.cjs`](../../electron/services/studio-validators.cjs) en el handler IPC `db:studio:create` y `db:studio:update` **antes** de persistir en SQLite.
+Todas las salidas de Studio con contenido JSON pasan por [`electron/services/studio-validators.cjs`](../../electron/services/studio-validators.cjs) en el handler IPC `db:studio:create` y `db:studio:update` **antes** de persistir en DuckDB (`dome.duckdb`, tabla `studio_outputs`).
 
 | Tipo | Qué se valida |
 |------|----------------|
@@ -156,7 +156,7 @@ Las generaciones de Studio se ejecutan como **Runs** en el Run Engine, con `outp
 ```
 1. Importar PDF → esperar "Listo para IA"
 2. Studio → Resumen (estilo ejecutivo) → revisar en 2 minutos
-3. Studio → Flashcards → estudiar con SM-2 durante los próximos días
+3. Studio → Flashcards → estudiar con FSRS durante los próximos días
 4. Studio → Quiz → autoevalúate antes del examen
 ```
 

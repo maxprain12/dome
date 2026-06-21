@@ -18,7 +18,7 @@ En **Ajustes → Knowledge Base** puedes activar el modo KB LLM global, interval
 | **Automations** | Reglas programadas o contextuales                         | Dispara compilación incremental o health checks.                            |
 
 
-Implementación: `[app/components/shell/ContentRouter.tsx](../app/components/shell/ContentRouter.tsx)` mapea `studio` y `flashcards` a `LearnPage` vía `[LearnTabShell](../app/components/learn/LearnTabShell.tsx)`.
+Implementación: `[app/components/shell/ContentRouter.tsx](../app/components/shell/ContentRouter.tsx)` mapea `studio` y `flashcards` a `LearnPage` vía `[LearnTabShell](../app/components/learn/LearnTabShell.tsx)`. Las queries de KPIs vienen del IPC `electron/ipc/learn/learn.cjs` y se persisten en DuckDB (tablas `study_events`, `quiz_runs`, `learn_kpis_cache`).
 
 ## Enlaces
 

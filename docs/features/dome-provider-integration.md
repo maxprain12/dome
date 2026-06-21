@@ -42,13 +42,13 @@ La integración es **completamente opcional**. Dome funciona perfectamente sin P
    dome://dome-auth/oauth/callback?code=abc123
 
 6. Electron intercepta el deep link dome://
-   └─ electron/main.cjs: app.on('open-url') / process.argv
+   └─ electron/main.cjs: app.on('open-url') / process.argv (handler en `electron/core/deep-link-handler.cjs`)
 
 7. Dome hace POST /api/oauth/token:
    { code: "abc123", code_verifier: "...", client_id: "dome-desktop" }
    └─ Recibe { access_token: "eyJ...", expires_in: 86400 }
 
-8. Dome guarda el access_token en SQLite (dome_provider_sessions table)
+8. Dome guarda el access_token en DuckDB (tabla `dome_provider_sessions` en `dome.duckdb`)
 
 9. Ahora Dome puede usar el proveedor "dome" en el chat
 ```
@@ -59,17 +59,17 @@ La integración es **completamente opcional**. Dome funciona perfectamente sin P
 
 | Archivo | Rol |
 |---------|-----|
-| `electron/dome-provider-url.cjs` | URL base del provider (env, embed CI, fallback prod `:3001` dev) |
-| `electron/dome-oauth.cjs` | Gestión de sesión OAuth con el Provider |
-| `electron/ipc/dome-auth.cjs` | IPC handlers para `dome-auth:*` channels |
-| `electron/ipc/agent-team.cjs` | Usa Provider como proveedor AI para Agent Teams |
-| `electron/ipc/ai.cjs` | Usa Provider como proveedor AI para el chat |
-| `electron/main.cjs` | Intercepta deep links `dome://dome-auth/oauth/callback` |
+| `electron/ai/dome-provider-url.cjs` | URL base del provider (env, embed CI, fallback prod `:3001` dev) |
+| `electron/auth/dome-oauth.cjs` | Gestión de sesión OAuth con el Provider |
+| `electron/ipc/integrations/dome-auth.cjs` | IPC handlers para `dome-auth:*` channels |
+| `electron/ipc/agents/agent-team.cjs` | Usa Provider como proveedor AI para Agent Teams |
+| `electron/ipc/ai/ai.cjs` | Usa Provider como proveedor AI para el chat |
+| `electron/main.cjs` | Intercepta deep links `dome://dome-auth/oauth/callback` (vía `electron/core/deep-link-handler.cjs`) |
 | `app/components/settings/AISettingsPanel.tsx` | UI para conectar/desconectar cuenta Dome |
 
 ---
 
-## `electron/dome-oauth.cjs`
+## `electron/auth/dome-oauth.cjs`
 
 ```javascript
 // Obtener o refrescar sesión (usado por ai.cjs y agent-team.cjs)
@@ -83,14 +83,14 @@ const session = await domeOauth.getOrRefreshSession(database);
 // El accessToken se usa como Bearer en todas las peticiones al Provider
 ```
 
-### Tabla SQLite: `dome_provider_sessions`
+### Tabla DuckDB: `dome_provider_sessions`
 
 ```sql
 CREATE TABLE dome_provider_sessions (
   id            TEXT PRIMARY KEY DEFAULT 'default',
   access_token  TEXT,
   user_id       TEXT,
-  expires_at    INTEGER,    -- timestamp Unix
+  expires_at    BIGINT,    -- timestamp Unix
   created_at    TEXT,
   updated_at    TEXT
 );
@@ -103,8 +103,8 @@ CREATE TABLE dome_provider_sessions (
 Cuando el usuario selecciona "Dome" en Settings → AI:
 
 ```javascript
-// electron/ipc/agent-team.cjs — getAISettings()
-const { getDomeProviderBaseUrl } = require('../dome-provider-url.cjs');
+// electron/ipc/agents/agent-team.cjs — getAISettings()
+const { getDomeProviderBaseUrl } = require('../../ai/dome-provider-url.cjs');
 if (provider === 'dome') {
   const session = await domeOauth.getOrRefreshSession(database);
   return {
@@ -186,7 +186,7 @@ Si `VITE_ENABLE_DOME_PROVIDER` no es `true`, la opción de Dome Provider no apar
 
 ## Seguridad
 
-- El `access_token` (JWT) se almacena en SQLite local cifrado en el userData de Electron
+- El `access_token` (JWT) se almacena en DuckDB local cifrado en el userData de Electron (`dome.duckdb`)
 - El `code_verifier` NUNCA se envía al server (solo el `code_challenge`)
 - El deep link `dome://` solo acepta callbacks de `dome-auth` — otros paths son ignorados
 - El Provider valida la firma JWT en cada request con el `TOKEN_HMAC_SECRET` del servidor

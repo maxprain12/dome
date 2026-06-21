@@ -1,6 +1,6 @@
 # File Storage Feature (Main Process)
 
-Documentation for Dome's internal file storage in the main process: directory layout, import/export, deduplication, and cleanup. Lives in `electron/file-storage.cjs`; renderer uses IPC (resource:*, storage:*) via db client (see resources.md).
+Documentation for Dome's internal file storage in the main process: directory layout, import/export, deduplication, and cleanup. Lives in `electron/storage/file-storage.cjs`; renderer uses IPC (resource:*, storage:*) via db client (see resources.md).
 
 ---
 
@@ -20,7 +20,7 @@ Documentation for Dome's internal file storage in the main process: directory la
 - **mimeType**: From extension (MIME_TYPES map).
 - **originalName**: Basename of source file.
 
-### MIME_TYPES (file-storage.cjs)
+### MIME_TYPES (electron/storage/file-storage.cjs)
 
 - Images: jpg, png, gif, webp, svg, bmp, ico.
 - PDF: pdf.
@@ -41,7 +41,7 @@ Documentation for Dome's internal file storage in the main process: directory la
 4. **Path**: internalPath = `${getTypeDir(type)}/${hash}${ext}`; fullPath = join(getStorageDir(), internalPath).
 5. **Dedup**: If fullPath already exists, skip copy; still return internalPath, hash, size, mimeType, originalName (caller may use existing resource or create new row).
 6. **Copy**: ensureDir(dirname(fullPath)); fs.copyFileSync(filePath, fullPath).
-7. **Return**: { internalPath, hash, size, mimeType, originalName }. Caller (main) updates resource row with these + thumbnail_data from thumbnail.cjs.
+7. **Return**: { internalPath, hash, size, mimeType, originalName }. Caller (main) updates resource row with these + thumbnail_data from `electron/documents/thumbnail.cjs`.
 
 ### Export
 
@@ -60,7 +60,7 @@ Documentation for Dome's internal file storage in the main process: directory la
 
 ## Data flow
 
-- **Import**: Renderer calls resource:import(filePath, projectId, type, title?) → main: file-storage.importFile(filePath, type) → get internalPath/hash/size/mime/originalName; create or update resource (createResourceWithFile or create + updateResourceFile); generate thumbnail (thumbnail.cjs) → update thumbnail_data; return ResourceImportResult to renderer.
+- **Import**: Renderer calls resource:import(filePath, projectId, type, title?) → main: file-storage.importFile(filePath, type) → get internalPath/hash/size/mime/originalName; create or update resource (createResourceWithFile or create + updateResourceFile); generate thumbnail (`electron/documents/thumbnail.cjs`) → update thumbnail_data; return ResourceImportResult to renderer.
 - **Read**: resource:readFile(resourceId) → main gets resource, full path from internal_path, fs.readFileSync → return base64 data URL.
 - **Export**: resource:export(resourceId, destinationPath) → main copies file to destinationPath.
 - **Delete**: resource:delete(resourceId) → main deletes file (if internal_path) and DB row.
@@ -84,8 +84,8 @@ Documentation for Dome's internal file storage in the main process: directory la
 
 | Path                        | Role                                                                                                                                                                                        |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `electron/file-storage.cjs` | getStorageDir, getTypeDir, getMimeType, calculateHash, ensureDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup, export (if present)                                     |
-| `electron/main.cjs`         | IPC handlers resource:import, resource:readFile, resource:getFilePath, resource:export, resource:delete, storage:getUsage, storage:cleanup, storage:getPath; call file-storage and database |
-| `electron/thumbnail.cjs`    | Generate thumbnail for image/PDF/video; return base64 or path; used after import                                                                                                            |
-| `electron/preload.cjs`      | Exposes resource.* and storage.* to renderer                                                                                                                                                |
+| `electron/storage/file-storage.cjs` | getStorageDir, getTypeDir, getMimeType, calculateHash, ensureDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup, export (if present)                                     |
+| `electron/core/database.cjs`        | DuckDB fachada: initDatabase, getDB, getQueries, integrity, repair (called by `electron/ipc/data/database.cjs` and `electron/ipc/data/files.cjs`)                              |
+| `electron/documents/thumbnail.cjs`  | Generate thumbnail for image/PDF/video; return base64 or path; used after import                                                                                                            |
+| `electron/preload.cjs`              | Exposes resource.* and storage.* to renderer                                                                                                                                                |
 | `app/lib/db/client.ts`      | db.importFile, readResourceFile, exportResource, deleteResource, getStorageUsage, cleanupStorage, getStoragePath (see resources.md)                                                    |

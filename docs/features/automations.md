@@ -12,6 +12,7 @@ Las **automatizaciones** son reglas `trigger → acción` que Dome ejecuta autom
 ┌──────────────┐  tick cada 60s  ┌────────────────┐  run engine  ┌──────────────┐
 │ automation-  │ ─────────────── │  ¿está en hora │ ──────────── │  run-engine  │
 │ service.cjs  │                 │  y habilitada? │              │    .cjs      │
+│ (agents/)    │                 │                │              │  (agents/)   │
 └──────────────┘                 └────────────────┘              └──────────────┘
 ```
 
@@ -26,7 +27,7 @@ interface Automation {
   enabled: boolean;
   triggerType: 'schedule';         // actualmente solo scheduled
   schedule: ScheduleConfig;
-  agentId?: string;                // agente personalizado (null = Martin/Many)
+  agentId?: string;                // agente personalizado (null = Many / agente del sistema)
   systemAgentId?: string;          // research | library | writer | data | presenter | curator
   prompt: string;                  // instrucción para el agente
   outputMode: 'chat_only' | 'note' | 'studio_output' | 'mixed';
@@ -140,7 +141,7 @@ Notas:
 
 ---
 
-## Tick loop (`electron/automation-service.cjs`)
+## Tick loop (`electron/agents/automation-service.cjs`)
 
 El servicio de automatización comprueba cada 60 segundos si hay automatizaciones que ejecutar:
 

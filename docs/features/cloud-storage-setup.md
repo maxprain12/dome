@@ -6,7 +6,7 @@ This guide explains how to generate OAuth 2.0 credentials and configure Dome to 
 
 ## Overview
 
-Dome uses **PKCE OAuth 2.0** (no backend required) to authenticate with cloud providers. The redirect URI is `dome://oauth/callback` — a custom deep-link scheme registered by the Electron app. No data is sent to Dome servers; tokens are stored locally in your SQLite database.
+Dome uses **PKCE OAuth 2.0** (no backend required) to authenticate with cloud providers. The redirect URI is `dome://oauth/callback` — a custom deep-link scheme registered by the Electron app. No data is sent to Dome servers; tokens are stored locally in your DuckDB database (`dome.duckdb`, tabla `settings` con claves `cloud_accounts`, `*_token`).
 
 | Variable | Provider | Required |
 |---|---|---|
@@ -137,7 +137,7 @@ Once the environment variables are set and the app is running:
 5. The browser redirects to `dome://oauth/callback` — the app catches it automatically.
 6. The account appears in **Connected accounts** with your email.
 
-Accounts are stored locally in your SQLite database (`settings` table, key `cloud_accounts`). Tokens are refreshed automatically when they expire.
+Accounts are stored locally in your DuckDB database (`settings` table, key `cloud_accounts`). Tokens are refreshed automatically when they expire.
 
 ---
 
@@ -197,7 +197,7 @@ The CI workflow (`build.yml`) passes them to the Electron build step so they are
 
 ## Security Notes
 
-- Tokens are stored **locally only** in `~/Library/Application Support/dome/dome.db` (macOS) or the equivalent `userData` path on each OS.
+- Tokens are stored **locally only** in `~/Library/Application Support/dome/dome.duckdb` (macOS) o la ruta equivalente `userData` en cada OS.
 - Access tokens expire in ~1 hour and are refreshed automatically using the refresh token.
 - Dome only requests **read-only** scopes (`drive.readonly`, `Files.Read`) — it cannot write to or delete files in your cloud.
 - Disconnecting an account from Settings → Cloud Storage removes all stored tokens immediately.

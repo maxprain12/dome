@@ -1,6 +1,6 @@
 # Resources Feature
 
-Documentation for Dome's resource model: types, persistence, file storage, and renderer API. Lives in `app/types/index.ts`, `app/lib/db/client.ts`, `electron/database.cjs`, `electron/file-storage.cjs`, and IPC.
+Documentation for Dome's resource model: types, persistence, file storage, and renderer API. Lives in `app/types/index.ts`, `app/lib/db/client.ts`, `electron/core/database.cjs` (DuckDB fachada), `electron/storage/file-storage.cjs`, and IPC (`electron/ipc/data/*`).
 
 ---
 
@@ -97,7 +97,7 @@ Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.m
 ### Process separation
 
 - **Renderer**: Uses `app/lib/db/client.ts` singleton `db`. All access via `window.electron.db.`* and `window.electron.resource.*` (IPC). No direct Node/fs/sqlite.
-- **Main**: SQLite in `electron/database.cjs` (better-sqlite3), file ops in `electron/file-storage.cjs`. IPC handlers in `electron/main.cjs`.
+- **Main**: DuckDB in `electron/core/database.cjs` (binding `@duckdb/node-api`), file ops in `electron/storage/file-storage.cjs`. IPC handlers in `electron/ipc/data/{resources,database,files,storage,interactions}.cjs`. Ver [database.md](./database.md) para el engine.
 
 ### Internal file storage
 
@@ -128,7 +128,7 @@ Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.m
 
 - **Create resource**: Renderer calls `db.createResource(...)` (IPC `db:resources:create`). For files: `db.importFile(...)` (IPC `resource:import`) → main runs file-storage import + DB update + thumbnail; returns `ResourceImportResult`.
 - **Read**: `db.getResourceById(id)` / `db.getResourcesByProject(projectId)` etc. → IPC → main runs prepared statements, returns `DBResponse<T>`.
-- **Search**: `db.searchResources(query)` or `db.unifiedSearch(query, options)` → FTS in main, results to renderer.
+- **Search**: `db.searchResources(query)` or `db.unifiedSearch(query, options)` → DuckDB FTS (`fts_main_resources.match_bm25`) + LanceDB vector + grafo en main, results to renderer.
 - **Events**: Main can emit `resource:created`, `resource:updated`, `resource:deleted`; renderer subscribes via `window.electron.on('resource:updated', ...)`.
 
 ---
@@ -136,7 +136,7 @@ Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.m
 ## Functionality
 
 - **CRUD** for projects and resources (create, read, update, delete) via DB client.
-- **Full-text search** on resources (title, content) and interactions via FTS5; unified search can filter by type/project.
+- **Full-text search** on resources (title, content) and interactions via DuckDB `fts` extension (`fts_main_resources`, `fts_main_resource_interactions`, BM25); unified search can filter by type/project. Ver [database.md](./database.md).
 - **Import**: Single/multiple file import; type inferred or passed; duplicate detection by `file_hash`; thumbnail generation (main process).
 - **Export**: Copy file from internal storage to user-chosen path.
 - **Folders**: List by folder, list root, move in/out of folder.
@@ -151,12 +151,13 @@ Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.m
 
 | Path                        | Role                                                                                                                           |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `app/types/index.ts`        | Resource, ResourceMetadata, Project, ResourceType, DBResponse, StorageUsage, ResourceImportResult                              |
-| `app/lib/db/client.ts`      | DatabaseClient singleton: projects, resources, interactions, links, search, settings, import/export/storage/migration wrappers |
-| `electron/database.cjs`     | getDB, initDatabase, migrations, prepared statements for resources (incl. folder, internal_path, FTS)                          |
-| `electron/file-storage.cjs` | getStorageDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup; TYPE_DIRECTORIES, MIME_TYPES                  |
-| `electron/main.cjs`         | IPC handlers for db:*, resource:*, storage:*, migration:*                                                                      |
-| `electron/preload.cjs`      | window.electron.db.*, window.electron.resource.*, ALLOWED_CHANNELS for invoke/on                                               |
+| `app/types/index.ts`                  | Resource, ResourceMetadata, Project, ResourceType, DBResponse, StorageUsage, ResourceImportResult                              |
+| `app/lib/db/client.ts`                | DatabaseClient singleton: projects, resources, interactions, links, search, settings, import/export/storage/migration wrappers |
+| `electron/core/database.cjs`          | DuckDB fachada: getDB, initDatabase, getQueries, integrity, repair; FTS via `electron/core/db/fts.cjs`                            |
+| `electron/storage/file-storage.cjs`   | getStorageDir, importFile, getFilePath, readFile, deleteFile, getUsage, cleanup; TYPE_DIRECTORIES, MIME_TYPES                  |
+| `electron/ipc/data/resources.cjs`     | IPC handlers para `db:resources:*`, `resource:*`, `storage:*`                                                                   |
+| `electron/ipc/data/database.cjs`      | IPC handlers para `db:*` genéricos y migration:*                                                                                |
+| `electron/preload.cjs`                | window.electron.db.*, window.electron.resource.*, ALLOWED_CHANNELS for invoke/on                                               |
 
 
 ---

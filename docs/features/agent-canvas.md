@@ -1,6 +1,6 @@
 # Agent Canvas
 
-Documentación del constructor visual de workflows de IA de Dome (introducido en v2.0.8).
+Documentación del constructor visual de workflows de IA de Dome (introducido en v2.0.8; runtime nativo en v2.6.1 — LangGraph reemplazado por `electron/agents/workflow-executor.cjs`).
 
 ---
 
@@ -162,17 +162,17 @@ Renderer (D3 canvas)
        │
        │ runs:startWorkflow({ workflowDef, inputs })
        ▼
-  electron/ipc/runs.cjs
+  electron/ipc/agents/runs.cjs
        │
        ▼
-  run-engine.cjs → startWorkflowRun()
+  electron/agents/run-engine.cjs → startWorkflowRun()
        │
-       ├── Parsea el grafo (topological sort)
+       ├── Parsea el grafo (topological sort)  [electron/agents/workflow-dag.cjs]
        │
-       └── Para cada nodo, en orden:
+       └── Para cada nodo, en orden (level-parallel):
            ├── text_input: inyecta el texto del usuario
-           ├── agent: startLangGraphRun() → LangGraph
-           ├── document: lee/escribe recurso via DB
+           ├── agent: runAgent('many'|'agent', opts) → @dome/agent-core
+           ├── document: lee/escribe recurso via DuckDB (electron/core/database.cjs)
            └── output: captura y emite resultado final
 ```
 

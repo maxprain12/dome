@@ -1,6 +1,6 @@
 # Modelo de recursos para KB LLM (wiki compilada)
 
-Este documento define cómo modelar en Dome un flujo **raw → wiki compilada → Q&A → outputs**, alineado con el esquema actual de recursos (`resources`, `resource_links`, FTS5 e índice semántico con embeddings).
+Este documento define cómo modelar en Dome un flujo **raw → wiki compilada → Q&A → outputs**, alineado con el esquema actual de recursos (`resources`, `resource_links`, FTS en DuckDB vía `fts` extension e índice semántico con embeddings en LanceDB).
 
 ## Principios
 
@@ -42,12 +42,13 @@ Ejemplo mínimo en una nota compilada:
 
 ## Relación con FTS e índice semántico
 
-- **FTS5** se actualiza en cada guardado de contenido indexable.
-- **Índice semántico** (embeddings Nomic + transcripción/descr. por IA en la nube para PDF/imagen): puede quedar desfasado si el contenido cambia sin reindexar — mitigar con `reindexOnSave` o jobs programados — ver [indexing.md](./indexing.md).
+- **FTS en DuckDB** (`fts_main_resources`, `fts_main_resource_interactions`) se actualiza vía `PRAGMA create_fts_index` en la migración 0015_fts y se reindexa con `reindexFts(db, 'resources')` desde `electron/core/db/fts.cjs`. Ver [database.md](./database.md).
+- **Índice semántico** (embeddings Nomic/Google/Ollama en LanceDB vía `electron/services/lancedb-semantic.cjs` + transcripción/descr. por IA en la nube para PDF/imagen): puede quedar desfasado si el contenido cambia sin reindexar — mitigar con `reindexOnSave` o jobs programados — ver [indexing.md](./indexing.md).
 
 ## Referencias de código
 
-- IPC recursos: `[electron/ipc/database.cjs](../electron/ipc/database.cjs)`, `[electron/ipc/resources.cjs](../electron/ipc/resources.cjs)`
-- Indexación: `[electron/semantic-index-scheduler.cjs](../electron/semantic-index-scheduler.cjs)`, `[electron/services/indexing.pipeline.cjs](../electron/services/indexing.pipeline.cjs)`
-- Herramientas de agente: `[electron/ai-tools-handler.cjs](../electron/ai-tools-handler.cjs)`
+- IPC recursos: `[electron/ipc/data/database.cjs](../electron/ipc/data/database.cjs)`, `[electron/ipc/data/resources.cjs](../electron/ipc/data/resources.cjs)`
+- Indexación: `[electron/storage/semantic-index-scheduler.cjs](../electron/storage/semantic-index-scheduler.cjs)`, `[electron/services/indexing.pipeline.cjs](../electron/services/indexing.pipeline.cjs)`
+- FTS (DuckDB): `[electron/core/db/fts.cjs](../electron/core/db/fts.cjs)` (`createFtsIndexes`, `reindexFts`)
+- Herramientas de agente: `[electron/tools/ai-tools-handler.cjs](../electron/tools/ai-tools-handler.cjs)`
 

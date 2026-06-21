@@ -9,7 +9,7 @@ LearnPage (router)
 ├── LearnLibrary — KPI strip, streak, filters, deck cards, empty ramps
 ├── GenerateWizard (3 steps + progress)
 ├── DeckOverview — tabs: Questions / History / Sources / Settings
-├── FlashPlayer — SRS flashcard study (Space flip, 1–4 SRS, S skip)
+├── FlashPlayer — FSRS flashcard study (Space flip, 1–4 rating, S skip)
 ├── QuizPlayer → Quiz (learnMode + quiz_runs persistence)
 ├── MindMapView — canvas + interactive lr-mind-side panel
 ├── GuideReader — TOC + scroll-spy study guide
@@ -36,7 +36,7 @@ LearnPage (router)
 | `quiz:createRun` / `listRuns` / `getRun` | renderer → main | Quiz attempt history (`quiz_runs` table) |
 | `studio:progress` | main → renderer | Generation phase updates (`broadcast`) |
 | `studio:cancel` | renderer → main | Cancel in-flight generation |
-| `flashcard:sessionEnded` | main → renderer | Refreshes KPIs after SRS or quiz run |
+| `flashcard:sessionEnded` | main → renderer | Refreshes KPIs after FSRS review or quiz run |
 
 Renderer hooks subscribe via `window.electron.on(...)` (not `window.addEventListener`).
 
@@ -67,15 +67,15 @@ Additional study modes: FAQ (`FaqReader`), Timeline (`TimelineView`), Table (`Ta
 |---------|------|
 | Wizard | `Esc` close, `Enter` continue |
 | Quiz | `1–4` options, `Enter` submit/next, `S` skip |
-| Flash | `Space`/`Enter` flip, `1–4` SRS, `S` skip |
+| Flash | `Space`/`Enter` flip, `1–4` rating, `S` skip |
 
 ## Files
 
 - `app/components/learn/` — all Learn UI
-- `app/lib/learn/` — types, SRS, deck items, quiz stats, generate errors
+- `app/lib/learn/` — types, FSRS scheduler, deck items, quiz stats, generate errors
 - `app/lib/hooks/useLearnKpis.ts`, `useLearnStreak.ts`, `useStudioGenerateStream.ts`
-- `electron/services/learn-kpis.cjs`, `studio-progress.cjs`
-- `electron/ipc/learn.cjs`, `quiz.cjs`, `flashcards.cjs`
+- `electron/services/learn-kpis.cjs`, `studio-progress.cjs` (consultan DuckDB)
+- `electron/ipc/learn/learn.cjs`, `quiz.cjs`, `flashcards.cjs` (subfolder `learn/`)
 - `docs/features/learn-tool-schemas.md` — JSON output schemas
 
 ## Tests

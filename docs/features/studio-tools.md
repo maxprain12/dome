@@ -15,8 +15,8 @@ Seven AI tools gather source context for structured Learn/Studio outputs. The mo
 | `flashcard_create` | `flashcards` | `flashcardCreate` (ai-tools-handler) |
 
 Renderer definitions: `app/lib/ai/tools/studio-outputs.ts`, `app/lib/ai/tools/flashcards.ts`  
-Main gather logic: `electron/ai-tools-extra.cjs`  
-Dispatch map: `electron/tool-dispatcher.cjs`  
+Main gather logic: `electron/tools/ai-tools-extra.cjs`  
+Dispatch map: `electron/tools/tool-dispatcher.cjs`  
 **Full JSON schemas**: [`learn-tool-schemas.md`](./learn-tool-schemas.md)
 
 ## Common parameters
@@ -64,7 +64,7 @@ Quiz additionally accepts `num_questions` (1–20) and `difficulty` (`easy` | `m
 
 ## Progress streaming
 
-Gather handlers emit `studio:progress` via `wrapStudioGather` in `electron/ai-tools-handler.cjs` (uses `windowManager.broadcast`):
+Gather handlers emit `studio:progress` via `wrapStudioGather` in `electron/tools/ai-tools-handler.cjs` (uses `windowManager.broadcast`):
 
 1. `read` — Reading sources  
 2. `extract` — Extracted key concepts  
@@ -76,7 +76,7 @@ Cancel: `studio:cancel` with `runId`.
 
 ## Validation
 
-`electron/services/studio-validators.cjs` normalizes and validates content before SQLite insert. Run `pnpm run test:studio` for regression tests.
+`electron/services/studio-validators.cjs` normalizes and validates content before DuckDB insert (tabla `studio_outputs` en `dome.duckdb`). Run `pnpm run test:studio` for regression tests.
 
 ## Tests
 

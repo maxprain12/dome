@@ -1,15 +1,15 @@
 # Onboarding Feature
 
-Documentation for Dome's first-run onboarding: steps (Welcome, Profile, AI), completion flag, and init check. Lives in `app/components/onboarding/`, `app/lib/settings/index.ts`, and `electron/init.cjs`.
+Documentation for Dome's first-run onboarding: steps (Welcome, Profile, AI), completion flag, and init check. Lives in `app/components/onboarding/`, `app/lib/settings/index.ts`, and `electron/core/init.cjs`.
 
 ---
 
 ## Interfaces
 
-### MartinOnboarding (`app/components/onboarding/MartinOnboarding.tsx`)
+### ManyOnboarding (`app/components/onboarding/ManyOnboarding.tsx`)
 
 ```ts
-interface MartinOnboardingProps {
+interface ManyOnboardingProps {
   initialName?: string;
   initialEmail?: string;
   onComplete: (data: { name: string; email: string }) => void;
@@ -61,10 +61,10 @@ type Step = 'welcome' | 'profile' | 'ai';
 
 | Path | Role |
 |------|------|
-| `app/components/onboarding/MartinOnboarding.tsx` | Step state machine |
+| `app/components/onboarding/ManyOnboarding.tsx` | Step state machine |
 | `app/components/onboarding/OnboardingStep.tsx` | Step wrapper |
 | `app/components/onboarding/steps/ProfileStep.tsx` | Profile form |
 | `app/components/onboarding/steps/AISetupStep.tsx` | AI config (shared components) |
 | `app/components/settings/ai/AIProviderSelection.tsx` | Provider grid (Settings + onboarding) |
 | `app/lib/settings/index.ts` | `isOnboardingCompleted()`, `setOnboardingCompleted()` |
-| `electron/init.cjs` | `init:check-onboarding` |
+| `electron/core/init.cjs` | `init:check-onboarding` |

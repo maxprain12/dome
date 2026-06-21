@@ -18,11 +18,11 @@ A **feeder** is a stored script (Python, Node, Bash, or curl args) that:
 
 ```mermaid
 flowchart LR
-  Agent[Agent feeder_run] --> Runner[feeder-runner.cjs]
+  Agent[Agent feeder_run] --> Runner[feeder-runner.cjs<br/>electron/services/]
   Auto[Automation target=feeder] --> Runner
   Runner --> Spawn[spawn interpreter]
   Spawn --> JSON[parse JSON]
-  JSON --> Artifact[(artifact_runtime_data)]
+  JSON --> Artifact[(artifact_runtime_data<br/>DuckDB)]
 ```
 
 ## Agent tools
@@ -47,7 +47,7 @@ Load `dome_load_doc('feeders')` before first use.
 
 ## Secrets
 
-Stored in `feeder_secrets` table, values encrypted with Electron `safeStorage`. Referenced by name in `env_secret_refs`:
+Stored in `feeder_secrets` table (DuckDB), values encrypted with Electron `safeStorage`. Referenced by name in `env_secret_refs`:
 
 ```json
 [{ "envName": "IDRAC_PASS", "secretName": "idrac_password" }]
@@ -75,10 +75,10 @@ No LLM in the refresh loop.
 | `electron/services/feeder-runner.cjs` | Spawn + parse + apply to artifact |
 | `electron/services/feeder-vault.cjs` | safeStorage wrapper |
 | `electron/services/artifact-data-merge.cjs` | Shared JSON merge helpers |
-| `electron/ipc/feeders.cjs` | IPC handlers |
+| `electron/ipc/integrations/feeders.cjs` | IPC handlers (`feeders:*`, `feeder-secrets:*`) |
 | `app/lib/ai/tools/feeder-tools.ts` | Agent tools |
 | `app/components/feeders/FeedersPanel.tsx` | UI in artifact workspace |
-| `prompts/martin/feeders.txt` | Agent guidance |
+| `prompts/martin/feeders.txt` | Agent guidance (legado) — ver `prompts/feeders/` |
 
 ## Example: iDRAC monitor
 

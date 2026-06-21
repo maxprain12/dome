@@ -1,6 +1,6 @@
 # Learn Tool Output Schemas
 
-JSON shapes persisted in `studio_outputs.content` (or flashcard decks via `flashcard_create`). Validators live in `electron/services/studio-validators.cjs`. Renderer tool definitions: `app/lib/ai/tools/studio-outputs.ts`, `app/lib/ai/tools/flashcards.ts`.
+JSON shapes persisted in `studio_outputs.content` (tabla DuckDB `studio_outputs`) o en decks de flashcards vía `flashcard_create`. Validators live in `electron/services/studio-validators.cjs`. Renderer tool definitions: `app/lib/ai/tools/studio-outputs.ts`, `app/lib/ai/tools/flashcards.ts`.
 
 ## Common envelope
 
@@ -49,7 +49,7 @@ Created via `flashcard_create` (not `studio:create` directly). Deck rows live in
 }
 ```
 
-Gather: `generate_mindmap` → `gatherStudioMindmapContext` (`electron/ai-tools-extra.cjs`).
+Gather: `generate_mindmap` → `gatherStudioMindmapContext` (`electron/tools/ai-tools-extra.cjs`).
 
 ## quiz
 
@@ -130,7 +130,7 @@ Gather params: `num_questions` (1–20), `difficulty` (`easy`|`medium`|`hard`).
 
 ## Progress streaming
 
-Gather handlers wrapped by `wrapStudioGather` in `electron/ai-tools-handler.cjs` emit `studio:progress` with phases:
+Gather handlers wrapped by `wrapStudioGather` in `electron/tools/ai-tools-handler.cjs` emit `studio:progress` with phases:
 
 | Phase | Meaning |
 |-------|---------|

@@ -4,8 +4,8 @@ Dome routes multimodal content through two paths:
 
 | Path | Surfaces | Format |
 |------|----------|--------|
-| **Cloud LLM** | OCR, PDF transcription, `image_describe`, PDF region stream | Native content blocks via `electron/llm-service.cjs` |
-| **Agent chat** | Many panel, Agent chat | Structured `attachments` on user messages → `electron/message-multimodal.cjs` |
+| **Cloud LLM** | OCR, PDF transcription, `image_describe`, PDF region stream | Native content blocks via `electron/ai/llm-service.cjs` |
+| **Agent chat** | Many panel, Agent chat | Structured `attachments` on user messages → `electron/ai/message-multimodal.cjs` |
 
 ## Provider matrix
 
@@ -47,8 +47,8 @@ node scripts/test-message-multimodal.mjs
 ## Key modules
 
 - `shared/message-visual/parse-markdown-images.cjs` — parse `![alt](url)` from composer markdown
-- `electron/message-multimodal.cjs` — capability lookup, block building, validation
-- `electron/ipc/minimax-files.cjs` — MiniMax Files API upload for large videos
+- `electron/ai/message-multimodal.cjs` — capability lookup, block building, validation
+- `electron/ipc/media/minimax-files.cjs` — MiniMax Files API upload for large videos
 
 ## Known limitations
 

@@ -1,6 +1,6 @@
 # Calendar
 
-Documentación del módulo de calendario de Dome (introducido en v2.0.0).
+Documentación del módulo de calendario de Dome (introducido en v2.0.0; runtime nativo en v2.6.1).
 
 ---
 
@@ -199,4 +199,4 @@ CREATE TABLE calendar_connections (
 
 ---
 
-*Introducido en Dome v2.0.0. Ver [settings.md](./settings.md) para configuración del calendar.*
+*Introducido en Dome v2.0.0. Ver [settings.md](./settings.md) para configuración del calendar. Backend actual en `electron/calendar/` y `electron/ipc/integrations/calendar.cjs`.*

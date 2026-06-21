@@ -1,6 +1,6 @@
 # Settings Feature
 
-Documentation for Dome's settings: layout, panels (General, Appearance, AI, transcription, cloud, calendar, MCP, indexing, skills, plugins, advanced), persistence via SQLite, and renderer API. Lives in `app/pages/SettingsPage.tsx`, `app/components/settings/`, `app/lib/settings/`, and `electron/database.cjs` (settings table).
+Documentation for Dome's settings: layout, panels (General, Appearance, AI, transcription, cloud, calendar, MCP, indexing, skills, plugins, advanced), persistence via DuckDB (`dome.duckdb` → tabla `settings`), and renderer API. Lives in `app/pages/SettingsPage.tsx`, `app/components/settings/`, `app/lib/settings/`, y `electron/core/database.cjs` (DuckDB fachada).
 
 ---
 
@@ -47,7 +47,7 @@ interface AppPreferences {
 
 ### AI config (`app/lib/settings/index.ts`, `app/lib/ai/client.ts`)
 
-- Stored in settings table: ai_provider, ai_api_key, ai_model, ai_embedding_model, ai_base_url, ollama_*, venice_privacy_mode. See ai-chat.md and getAIConfig/saveAIConfig in lib/settings.
+- Stored in `settings` table: `ai_provider`, `ai_api_key`, `ai_model`, `ai_embedding_model`, `ai_base_url`, `ollama_*`, `venice_privacy_mode`, `embeddings_*` (provider/model/dim para el índice vectorial). Ver [ai-chat.md](./ai-chat.md) y getAIConfig/saveAIConfig en `lib/settings`.
 
 ---
 
@@ -61,10 +61,11 @@ interface AppPreferences {
 
 ### Persistence
 
-- **Storage**: All in SQLite `settings` table (key, value, updated_at). Renderer uses db.getSetting(key) and db.setSetting(key, value) (IPC).
+- **Storage**: All in DuckDB `settings` table (key, value, updated_at) inside `dome.duckdb`. Renderer uses db.getSetting(key) and db.setSetting(key, value) (IPC `db:settings:get/set`). Ver [database.md](./database.md).
 - **Profile**: getUserProfile / saveUserProfile (user_name, user_email, user_avatar_data, user_avatar_path). Avatar file copy via window.electron.avatar.copyFile (main process).
 - **Preferences**: getAppPreferences / saveAppPreferences (app_theme, app_auto_save, app_auto_backup, app_citation_style, app_shortcuts). Theme applied via setTheme and IPC; useAppStore holds theme, citationStyle, autoSave, autoBackup, loadPreferences, updateTheme, updateCitationStyle, updatePreferences.
-- **AI**: getAIConfig / saveAIConfig (all ai_* and ollama_* keys); used by AI client and AISettingsPanel.
+- **AI**: getAIConfig / saveAIConfig (todas las `ai_*`, `ollama_*`, `embeddings_*`); usado por el AI client y `AISettingsPanel`.
+- **Embeddings**: `embeddings_provider`, `embeddings_model`, `embeddings_dim`, `embeddings_api_key`, `embeddings_base_url` — controles del índice semántico LanceDB. Ver [indexing.md](./indexing.md).
 - **Onboarding**: onboarding_completed (true/false); see onboarding.md.
 
 ### Theme
@@ -101,7 +102,7 @@ interface AppPreferences {
 
 ---
 
-## Settings keys reference (v2.1.7)
+## Settings keys reference (v2.6.1)
 
 | Key | Type | Description |
 |-----|------|-------------|
@@ -113,15 +114,22 @@ interface AppPreferences {
 | `app_citation_style` | string | APA, MLA, Chicago, etc. |
 | `ai_provider` | string | openai, anthropic, google, ollama, dome, openrouter |
 | `ai_api_key` | string | API key for current provider |
-| `ai_model` | string | Model ID (e.g. gpt-4o, claude-sonnet-4-6) |
+| `ai_model` | string | Model ID (e.g. gpt-4o, claude-sonnet-4-6, MiniMax-M3) |
+| `embeddings_provider` | string | openai, google, ollama (LanceDB vector index) |
+| `embeddings_model` | string | e.g. `text-embedding-3-small`, `nomic-embed-text` |
+| `embeddings_dim` | number | Dimensión del vector (default 768) |
+| `embeddings_api_key` | string | Key del proveedor de embeddings (si distinta de chat) |
 | `ollama_base_url` | string | Ollama server URL (default: http://127.0.0.1:11434) |
 | `ollama_model` | string | Ollama model name |
 | `many_agents` | JSON | Array of custom agent configs |
+| `dome_provider_token` | JSON | Dome Provider OAuth session (access/refresh/expiry) |
+| `dome_provider_user` | JSON | Dome Provider user profile (id, email, plan) |
 | `gemma_enabled` | bool | Legacy key (unused); kept in DB for downgrades — on-device Gemma was removed |
 | `gemma_dtype` | string | Legacy key (unused) |
 | `calendar_google_token` | JSON | Google Calendar OAuth token |
 | `onboarding_completed` | bool | Has user completed onboarding |
 | `analytics_opted_in` | bool | PostHog analytics consent |
+| `legacy_sqlite_imported` | `'1'` | Marca de importación one-shot desde SQLite legacy (v2.6.1 migration) |
 
 ---
 
@@ -138,5 +146,6 @@ interface AppPreferences {
 | `app/lib/settings/index.ts` | getUserProfile, saveUserProfile, getAppPreferences, saveAppPreferences, getAIConfig, saveAIConfig, isOnboardingCompleted, setOnboardingCompleted, setTheme, setCitationStyle |
 | `app/lib/store/useAppStore.ts` | theme, citationStyle, autoSave, autoBackup, loadPreferences, updateTheme, updateCitationStyle, updatePreferences |
 | `app/lib/store/useUserStore.ts` | User profile state, loadUserProfile, saveUserProfile |
-| `electron/main.cjs` | get-theme, set-theme, theme-changed; db:settings:get/set |
+| `electron/core/database.cjs` | DuckDB fachada; `db:settings:get/set` resueltos por `electron/ipc/data/database.cjs` |
+| `electron/ipc/core/system.cjs` | get-theme, set-theme, theme-changed |
 | `electron/preload.cjs` | getTheme, setTheme, onThemeChanged |

@@ -1,6 +1,6 @@
 # Agent Teams
 
-Documentación del sistema de equipos multi-agente de Dome (introducido en v2.0.8).
+Documentación del sistema de equipos multi-agente de Dome (introducido en v2.0.8; runtime nativo en v2.6.1 — LangGraph reemplazado por `electron/agents/agent-runtime.cjs`).
 
 ---
 
@@ -91,7 +91,7 @@ El supervisor es un LLM con prompt especial que:
 El supervisor tiene acceso al **contexto de Dome** (ruta actual, recurso abierto, carpeta) para decisiones más relevantes:
 
 ```javascript
-// electron/ipc/agent-team.cjs
+// electron/ipc/agents/agent-team.cjs
 function buildDelegationContext(payload) {
   // Incluye: route, resourceId, resourceTitle, folderId, etc.
   // El supervisor usa esto para decidir qué agente y con qué contexto
@@ -143,9 +143,11 @@ const unsub = window.electron.on(`agent-team:chunk:${sessionId}`, (chunk) => {
 
 | Archivo | Descripción |
 |---------|-------------|
-| `electron/ipc/agent-team.cjs` | Handler IPC del supervisor y sub-agentes |
-| `electron/langgraph-agent.cjs` | LangGraph graph para los agentes |
-| `electron/run-engine.cjs` | Run Engine (agentes del sistema definidos aquí) |
+| `electron/ipc/agents/agent-team.cjs` | Handler IPC del supervisor y sub-agentes |
+| `electron/agents/agent-runtime.cjs` | Entry point único del runtime (`runAgent`, `runManyAgent`, `AgentHarness.prompt()`) |
+| `electron/agents/subagents-native.cjs` | Sub-agentes nativos (reemplaza LangGraph `task` tool) |
+| `electron/agents/run-engine.cjs` | Run Engine + workflow DAG executor (SYSTEM_AGENTS definidos aquí) |
+| `electron/agents/dome-harness-bridge.cjs` | Bridge entre `@dome/agent-core` y los subsistemas de Dome (sessions, skills, MCP, HITL) |
 | `app/components/agent-team/` | UI del chat multi-agente |
 | `app/components/many/ManyPanel.tsx` | Panel de Many (integra Agent Teams) |
 | `app/lib/store/useAgentChatStore.ts` | Estado del chat de Agent Teams |
@@ -157,7 +159,7 @@ const unsub = window.electron.on(`agent-team:chunk:${sessionId}`, (chunk) => {
 Los Agent Teams usan el mismo proveedor AI configurado globalmente en Settings → AI Configuration. Si el proveedor es **Dome**, se usa el proxy del Provider con el token de la sesión OAuth.
 
 ```javascript
-// electron/ipc/agent-team.cjs
+// electron/ipc/agents/agent-team.cjs
 async function getAISettings(database) {
   const provider = queries.getSetting.get('ai_provider')?.value;
   if (provider === 'dome') {

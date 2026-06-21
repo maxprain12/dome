@@ -1,6 +1,6 @@
 # Sistema de Plugins
 
-Documentación del sistema de plugins de Dome (introducido en v2.0.8).
+Documentación del sistema de plugins de Dome (introducido en v2.0.8; loader en `electron/marketplace/plugin-loader.cjs`).
 
 ---
 
@@ -177,7 +177,7 @@ Incluye:
 
 ---
 
-## Plugin loader (`electron/plugin-loader.cjs`)
+## Plugin loader (`electron/marketplace/plugin-loader.cjs`)
 
 ### Validación de manifest
 

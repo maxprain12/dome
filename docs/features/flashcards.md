@@ -38,7 +38,11 @@ interface Flashcard {
   deckId: string;
   front: string;          // pregunta / concepto
   back: string;           // respuesta / definición
-  // Campos SM-2:
+  // Campos FSRS (Free Spaced Repetition Scheduler) — algoritmo activo en v2.6.1:
+  stability: number;      // estabilidad FSRS (en días)
+  fsrsDifficulty: number; // dificultad FSRS (1–10)
+  fsrsState: number;      // 0=new, 1=learning, 2=review, 3=relearning
+  // Campos legacy SM-2 (mantenidos en DB para compatibilidad hacia atrás):
   interval: number;       // días hasta próxima revisión
   repetition: number;     // número de veces revisada con éxito consecutivo
   efactor: number;        // factor de facilidad (2.5 inicial)
@@ -50,18 +54,19 @@ interface Flashcard {
 
 ---
 
-## Calificaciones SM-2
+## Calificaciones FSRS
 
-En cada sesión de estudio, tras ver la respuesta, califica tu recuerdo:
+En cada sesión de estudio, tras ver la respuesta, califica tu recuerdo (las mismas 4 opciones que SM-2, pero ahora consumidas por el scheduler FSRS):
 
 
-| Calificación | Botón        | Descripción                      | Efecto en SM-2                      |
-| ------------ | ------------ | -------------------------------- | ----------------------------------- |
-| 0 — Nada     | 😵 Olvidado  | No recordé nada                  | Resetea: intervalo = 1 día          |
-| 1 — Mal      | 😕 Difícil   | Apenas recordé, incorrecto       | Resetea: intervalo = 1 día          |
-| 2 — Regular  | 😐 Regular   | Recordé con dificultad, correcto | Intervalo corto (≤ 3 días)          |
-| 3 — Bien     | 😊 Fácil     | Recordé con pequeño esfuerzo     | Intervalo estándar (efactor normal) |
-| 4 — Muy bien | 😄 Muy fácil | Recordé con facilidad            | Intervalo largo (efactor aumenta)   |
+| Calificación | Botón        | Descripción                      | Efecto en FSRS                                       |
+| ------------ | ------------ | -------------------------------- | ---------------------------------------------------- |
+| 1 — Mal      | 😕 Difícil   | Apenas recordé, incorrecto       | Lapse: stability → 0, vuelve a `learning`            |
+| 2 — Regular  | 😐 Regular   | Recordé con dificultad, correcto | Recorta `stability`, `difficulty` +0.1               |
+| 3 — Bien     | 😊 Fácil     | Recordé con pequeño esfuerzo     | `stability *= difficulty_factor`, schedule N días    |
+| 4 — Muy bien | 😄 Muy fácil | Recordé con facilidad            | `stability *= harder_factor`, schedule más lejos     |
+
+(SM-2 permanece en la DB para downgrades; FSRS es el algoritmo activo desde v2.6.1.)
 
 
 > **Consejo**: Sé honesto en tu calificación. La efectividad del algoritmo depende de ello.
@@ -164,41 +169,54 @@ En cada deck puedes ver:
 | `flashcards:createCard`  | `CardData`             | Crear tarjeta                                    |
 | `flashcards:updateCard`  | `{ id, updates }`      | Editar tarjeta                                   |
 | `flashcards:deleteCard`  | `id`                   | Eliminar tarjeta                                 |
-| `flashcards:review`      | `{ cardId, grade }`    | Registrar resultado de revisión (aplica SM-2)    |
+| `flashcards:review`      | `{ cardId, grade }`    | Registrar resultado de revisión (aplica FSRS)     |
 | `flashcards:getDueCount` | `deckId`               | Número de tarjetas pendientes hoy                |
 
 
 ---
 
-## SQLite schema
+## DuckDB schema (en `dome.duckdb`, migración 0008_learn)
 
 ```sql
 CREATE TABLE flashcard_decks (
   id          TEXT PRIMARY KEY,
-  name        TEXT NOT NULL,
+  resource_id TEXT,           -- FK resources (origen si se generó desde Studio)
+  project_id  TEXT NOT NULL,
+  title       TEXT NOT NULL,
   description TEXT,
-  resourceId  TEXT,           -- FK resources (origen si se generó desde Studio)
-  projectId   TEXT,
-  createdAt   TEXT,
-  updatedAt   TEXT
+  card_count  BIGINT NOT NULL DEFAULT 0,
+  tags        TEXT,
+  settings    TEXT,
+  created_at  BIGINT NOT NULL,
+  updated_at  BIGINT NOT NULL
 );
 
 CREATE TABLE flashcards (
   id          TEXT PRIMARY KEY,
-  deckId      TEXT NOT NULL REFERENCES flashcard_decks(id) ON DELETE CASCADE,
-  front       TEXT NOT NULL,
-  back        TEXT NOT NULL,
-  -- SM-2 fields
-  interval    INTEGER DEFAULT 1,
-  repetition  INTEGER DEFAULT 0,
-  efactor     REAL DEFAULT 2.5,
-  nextReview  TEXT NOT NULL,       -- ISO date YYYY-MM-DD
-  lastReview  TEXT,
-  createdAt   TEXT,
-  updatedAt   TEXT
+  deck_id     TEXT NOT NULL REFERENCES flashcard_decks(id) ON DELETE CASCADE,
+  question    TEXT NOT NULL,
+  answer      TEXT NOT NULL,
+  difficulty  TEXT DEFAULT 'medium',
+  -- FSRS fields (algoritmo activo en v2.6.1)
+  stability       DOUBLE,
+  fsrs_difficulty DOUBLE,
+  fsrs_state      BIGINT DEFAULT 0,
+  -- Legacy SM-2 fields (compatibilidad hacia atrás)
+  ease_factor     DOUBLE DEFAULT 2.5,
+  interval        BIGINT DEFAULT 0,
+  repetitions     BIGINT DEFAULT 0,
+  lapses          BIGINT DEFAULT 0,
+  scheduled_days  BIGINT DEFAULT 0,
+  learning_steps  BIGINT DEFAULT 0,
+  last_rating     BIGINT,
+  next_review_at  BIGINT,
+  last_reviewed_at BIGINT,
+  created_at      BIGINT NOT NULL,
+  updated_at      BIGINT NOT NULL
 );
 
-CREATE INDEX flashcards_deck_next ON flashcards(deckId, nextReview);
+CREATE INDEX idx_flashcards_deck ON flashcards(deck_id);
+CREATE INDEX idx_flashcards_next_review ON flashcards(next_review_at);
 ```
 
 ---

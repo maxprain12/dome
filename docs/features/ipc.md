@@ -1,6 +1,6 @@
 # IPC and Preload Feature
 
-Documentation for Dome's inter-process communication: channel whitelist, preload API surface, and security. Lives in `electron/preload.cjs`, `electron/main.cjs`, and `electron/security.cjs`.
+Documentation for Dome's inter-process communication: channel whitelist, preload API surface, and security. Lives in `electron/preload.cjs`, `electron/main.cjs` (boot), `electron/core/security.cjs`, y los handlers en `electron/ipc/{agents,ai,core,data,integrations,learn,media,sync}/*.cjs`.
 
 ---
 
@@ -8,7 +8,7 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 
 ### Context isolation
 
-- **Renderer**: No Node integration; no direct require('fs') or require('better-sqlite3'). Only `window.electron` (and exposed subset).
+- **Renderer**: No Node integration; no direct require('fs') or require('@duckdb/node-api'). Only `window.electron` (and exposed subset).
 - **Preload**: Runs in isolated context with Node; uses contextBridge.exposeInMainWorld('electron', electronHandler). Renderer sees only electronHandler.
 
 ### Whitelist
@@ -28,7 +28,7 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 
 ### Security (main process)
 
-- **Validation**: security.cjs (or inline) validates sender (validateSender(event.sender)), sanitizes paths (sanitizePath), validates URLs (validateUrl). Handlers should validate/sanitize all inputs.
+- **Validation**: `electron/core/security.cjs` (or inline in `electron/core/ipc-guard.cjs`) validates sender (validateSender(event.sender)), sanitizes paths (sanitizePath), validates URLs (validateUrl). Handlers should validate/sanitize all inputs.
 - **No remote**: remote module not used.
 
 ---
@@ -99,6 +99,8 @@ Documentation for Dome's inter-process communication: channel whitelist, preload
 | Path | Role |
 |------|------|
 | `electron/preload.cjs` | contextBridge; ALLOWED_CHANNELS; electronHandler (invoke, on, once, db, resource, ai, etc.) |
-| `electron/main.cjs` | ipcMain.handle for all invoke channels; validation; event emission |
-| `electron/security.cjs` | validateSender, sanitizePath, validateUrl (if present) |
+| `electron/main.cjs` | Boot: `app.whenReady` → `initDatabase()`, `initIpc()`, `createMainWindow()`; registra el resto de subsistemas |
+| `electron/ipc/index.cjs` | Registra todos los handlers por subcarpeta (`agents`, `ai`, `core`, `data`, `integrations`, `learn`, `media`, `sync`) |
+| `electron/core/security.cjs` | validateSender, sanitizePath, validateUrl |
+| `electron/core/ipc-guard.cjs` | Wrapper central de validación por handler |
 | `CLAUDE.md` | Architecture: no Node in renderer; IPC only |
