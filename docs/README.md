@@ -17,7 +17,9 @@ Documentación del proyecto Dome (v2.3.5). Además de este índice:
 
 | Documento | Descripción |
 | --------- | ----------- |
-| [Manual Técnico](manual-tecnico.md) | Arquitectura, IPC, esquema DB, build |
+| [Arquitectura](architecture/) | Capas, dominios IPC, harness, worktree-isolation, decisions |
+| [Database](features/database.md) | DuckDB, 15 migraciones, async API, FTS, backups, legacy-import |
+| [IPC channels](architecture/ipc-channels.md) | Inventario auto-generado de todos los canales IPC |
 
 ---
 
