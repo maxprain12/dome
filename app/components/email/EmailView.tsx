@@ -21,6 +21,7 @@ import {
   Archive,
   Star,
   Folder,
+  ChevronLeft,
   ChevronRight,
   ChevronDown,
   X,
@@ -297,7 +298,9 @@ export default function EmailView() {
   }
 
   return (
-    <div className="dome-email-view">
+    <div
+      className={`dome-email-view${selected ? ' dome-email-view--reader-active' : ''}`}
+    >
       {/* Folder sidebar — visible only on wide layouts (>= 960px container width). */}
       <aside
         className="dome-email-view__sidebar"
@@ -394,6 +397,8 @@ export default function EmailView() {
               )}
               {envelopes.map((env) => {
                 const active = selected?.id === env.id;
+                const senderName = fromLabel(env.from) || t('email.unknown_sender');
+                const initials = monogram(senderName);
                 return (
                   <button
                     key={env.id}
@@ -401,15 +406,18 @@ export default function EmailView() {
                     onClick={() => openMessage(env)}
                     className={`dome-email-view__envelope${active ? ' dome-email-view__envelope--active' : ''}`}
                   >
-                    <div className="dome-email-view__envelope-row">
-                      <span className="dome-email-view__envelope-sender">
-                        {fromLabel(env.from) || t('email.unknown_sender')}
+                    <span className="dome-email-view__envelope-avatar" aria-hidden="true">
+                      {initials}
+                    </span>
+                    <span className="dome-email-view__envelope-content">
+                      <span className="dome-email-view__envelope-sender">{senderName}</span>
+                      <span className="dome-email-view__envelope-subject">
+                        {env.subject || t('email.no_subject')}
                       </span>
+                    </span>
+                    <span className="dome-email-view__envelope-meta">
                       <span className="dome-email-view__envelope-date">{env.date || ''}</span>
-                    </div>
-                    <div className="dome-email-view__envelope-subject">
-                      {env.subject || t('email.no_subject')}
-                    </div>
+                    </span>
                   </button>
                 );
               })}
@@ -424,6 +432,7 @@ export default function EmailView() {
             folder={folder}
             message={message}
             onReply={(env) => setComposing({ mode: 'reply', replyTo: env })}
+            onBack={() => setSelected(null)}
           />
         </div>
       </div>
@@ -594,9 +603,10 @@ interface ReaderPaneProps {
   folder: string;
   message: unknown;
   onReply: (env: Envelope) => void;
+  onBack: () => void;
 }
 
-function ReaderPane({ selected, reading, error, folder, message, onReply }: ReaderPaneProps) {
+function ReaderPane({ selected, reading, error, folder, message, onReply, onBack }: ReaderPaneProps) {
   const { t, i18n } = useTranslation();
   const [recipientsOpen, setRecipientsOpen] = useState(false);
 
@@ -785,7 +795,21 @@ function ReaderPane({ selected, reading, error, folder, message, onReply }: Read
           )}
         </header>
 
-        {/* Body */}
+        {/* Back button — only visible on narrow layouts via container query */}
+        <div className="dome-email-view__reader-back-row">
+          <button
+            type="button"
+            className="dome-email-view__reader-back"
+            onClick={() => onBack()}
+            aria-label={t('common.back')}
+            title={t('common.back')}
+          >
+            <ChevronLeft className="size-4" aria-hidden="true" />
+            <span>{t('common.back')}</span>
+          </button>
+        </div>
+
+      {/* Body */}
         <div className="dome-email-view__reader-body-scroll">
           {reading ? (
             <div className="dome-email-view__reader-loading" role="status">

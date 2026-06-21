@@ -2,12 +2,16 @@
 
 .settings-shell {
   display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
+  /* nowrap so the row inherits the container height (wrap let the single line
+     grow to the content's height, which defeated the panes' internal scroll
+     and scrolled the whole shell instead). overflow:hidden clips the shell so
+     the sidebar and content each scroll on their own. */
+  flex-wrap: nowrap;
   height: 100%;
   min-height: 0;
   min-width: 0;
   width: 100%;
+  overflow: hidden;
   background: var(--dome-bg);
   container-type: inline-size;
   container-name: settings;

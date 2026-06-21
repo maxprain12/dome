@@ -9,7 +9,12 @@
 
 .dome-email-view {
   display: flex;
-  flex-direction: column;
+  /* Always a row: [sidebar | main]. The sidebar is hidden on narrow widths
+     (container query below), leaving `main` to fill the width. NOTE: this
+     element is the query container itself, so a container query can never
+     restyle it — only its descendants. That is why the row/column toggle
+     lives here as the default, not inside `@container`. */
+  flex-direction: row;
   height: 100%;
   background: var(--dome-bg);
   container-type: inline-size;
@@ -47,6 +52,8 @@
   background: var(--dome-surface, var(--dome-bg-secondary));
   flex-shrink: 0;
   min-width: 0;
+  flex-wrap: wrap;
+  row-gap: 8px;
 }
 
 .dome-email-view__search {
@@ -283,20 +290,27 @@
   flex-shrink: 0;
   width: 320px;
   min-width: 0;
+  max-width: 100%;
   min-height: 0;
   border-right: 1px solid var(--dome-border);
   background: var(--dome-bg);
+  overflow: hidden;
 }
 
 .dome-email-view__list-body {
   flex: 1;
+  min-width: 0;
   min-height: 0;
+  overflow-x: hidden;
   overflow-y: auto;
 }
 
 .dome-email-view__envelope {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   width: 100%;
+  max-width: 100%;
   padding: 10px 12px;
   border: none;
   border-bottom: 1px solid var(--dome-border);
@@ -304,6 +318,7 @@
   text-align: left;
   cursor: pointer;
   min-width: 0;
+  box-sizing: border-box;
 }
 
 .dome-email-view__envelope:hover {
@@ -314,39 +329,72 @@
   background: var(--dome-bg-secondary);
 }
 
-.dome-email-view__envelope-row {
-  display: flex;
+.dome-email-view__envelope-avatar {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--dome-accent);
+  color: var(--dome-on-accent, #fff);
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  user-select: none;
+  align-self: center;
+}
+
+.dome-email-view__envelope-content {
+  flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
 }
 
 .dome-email-view__envelope-sender {
-  flex: 1;
-  min-width: 0;
   font-size: 13px;
   font-weight: 500;
   color: var(--dome-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.dome-email-view__envelope-date {
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--dome-text-muted);
-  white-space: nowrap;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dome-email-view__envelope-subject {
-  margin-top: 2px;
   font-size: 13px;
   color: var(--dome-text-secondary, var(--dome-text-muted));
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
+  max-width: 100%;
+  word-break: break-word;
+  line-height: 1.35;
+}
+
+.dome-email-view__envelope-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.dome-email-view__envelope-date {
+  font-size: 11px;
+  color: var(--dome-text-muted);
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Reader pane ─────────────────────────────────────────────── */
@@ -358,6 +406,39 @@
   min-width: 0;
   min-height: 0;
   background: var(--dome-bg);
+  overflow: hidden;
+}
+
+/* Back button row — visible only on narrow layouts (container query). */
+.dome-email-view__reader-back-row {
+  display: none;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 65%, transparent);
+  flex-shrink: 0;
+}
+
+.dome-email-view__reader-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  margin-left: -4px;
+  border: none;
+  background: transparent;
+  color: var(--dome-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.dome-email-view__reader-back:hover {
+  background: var(--dome-bg-hover);
+}
+
+.dome-email-view__reader-back:focus-visible {
+  outline: 2px solid var(--dome-accent);
+  outline-offset: 2px;
 }
 
 .dome-email-view__reader-error {
@@ -633,14 +714,16 @@
 /* ── Responsive: wide layout (sidebar visible) ───────────────── */
 
 @container email-view (min-width: 960px) {
-  .dome-email-view {
-    flex-direction: row;
-  }
   .dome-email-view__sidebar {
     display: flex;
   }
   .dome-email-view__main {
     flex: 1;
+  }
+  /* Sidebar is visible at this width, so the redundant folder dropdown in the
+     topbar is hidden — the topbar acts purely as the list-pane toolbar. */
+  .dome-email-view__folder-trigger {
+    display: none;
   }
 }
 
@@ -694,16 +777,26 @@
   }
 }
 
+/* Narrow layout: list takes the full width, reader is hidden unless an
+   email is selected (toggled via `.dome-email-view--reader-active` on the
+   root from JSX). */
 @container email-view (max-width: 520px) {
   .dome-email-view__list {
     width: 100%;
     border-right: none;
+    max-width: 100%;
   }
-  .dome-email-view--list-active .dome-email-view__reader {
+  .dome-email-view__reader {
     display: none;
+  }
+  .dome-email-view--reader-active .dome-email-view__reader {
+    display: flex;
   }
   .dome-email-view--reader-active .dome-email-view__list {
     display: none;
+  }
+  .dome-email-view__reader-back-row {
+    display: block;
   }
 }
 
