@@ -13,72 +13,70 @@ const {
   findLatestPreMigrationBackup,
   isSqliteIoError,
   LATEST_SCHEMA_VERSION,
+  MIGRATION_BACKUP_PREFIX,
 } = require('../core/migration-backup.cjs');
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const tmpDir = path.join(__dirname, '.tmp-migration-backup');
 
-describe('migration-backup', () => {
+describe('migration-backup (duckdb)', () => {
   it('creates backup when schema is behind latest', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
-    const dbPath = path.join(tmpDir, 'dome.db');
-    fs.writeFileSync(dbPath, 'sqlite-placeholder');
+    const dbPath = path.join(tmpDir, 'dome.duckdb');
+    fs.writeFileSync(dbPath, 'duckdb-placeholder');
     const backup = backupDatabaseBeforeMigrations(dbPath, 0);
     assert.ok(backup);
     assert.ok(fs.existsSync(backup));
+    assert.ok(path.basename(backup).startsWith(MIGRATION_BACKUP_PREFIX), `unexpected basename: ${backup}`);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('skips backup when schema is current', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
-    const dbPath = path.join(tmpDir, 'dome.db');
-    fs.writeFileSync(dbPath, 'sqlite-placeholder');
+    const dbPath = path.join(tmpDir, 'dome.duckdb');
+    fs.writeFileSync(dbPath, 'duckdb-placeholder');
     const backup = backupDatabaseBeforeMigrations(dbPath, LATEST_SCHEMA_VERSION);
     assert.equal(backup, null);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('restores db from backup and removes stale wal/shm sidecars', () => {
+  it('restores db from backup and removes stale .wal sidecar', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
-    const dbPath = path.join(tmpDir, 'dome.db');
+    const dbPath = path.join(tmpDir, 'dome.duckdb');
     fs.writeFileSync(dbPath, 'original-content');
     const backup = backupDatabaseBeforeMigrations(dbPath, 0);
     assert.ok(backup);
 
     // Simulate a half-applied migration corrupting the db.
     fs.writeFileSync(dbPath, 'corrupted-by-failed-migration');
-    fs.writeFileSync(`${dbPath}-wal`, 'stale wal');
-    fs.writeFileSync(`${dbPath}-shm`, 'stale shm');
+    fs.writeFileSync(`${dbPath}.wal`, 'stale wal');
 
     const restored = restoreDatabaseFromBackup(dbPath, backup);
     assert.equal(restored, true);
     assert.equal(fs.readFileSync(dbPath, 'utf8'), 'original-content');
-    assert.equal(fs.existsSync(`${dbPath}-wal`), false);
-    assert.equal(fs.existsSync(`${dbPath}-shm`), false);
+    assert.equal(fs.existsSync(`${dbPath}.wal`), false);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   it('returns false when backup file is missing', () => {
-    const restored = restoreDatabaseFromBackup('/tmp/nonexistent-db', '/tmp/nonexistent-backup');
+    const restored = restoreDatabaseFromBackup('/tmp/nonexistent-db.duckdb', '/tmp/nonexistent-backup');
     assert.equal(restored, false);
   });
 
-  it('removeWalSidecars deletes wal and shm sidecars', () => {
+  it('removeWalSidecars deletes the .wal sidecar only (duckdb has no -shm)', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
-    const dbPath = path.join(tmpDir, 'dome.db');
+    const dbPath = path.join(tmpDir, 'dome.duckdb');
     fs.writeFileSync(dbPath, 'db');
-    fs.writeFileSync(`${dbPath}-wal`, 'wal');
-    fs.writeFileSync(`${dbPath}-shm`, 'shm');
-    assert.equal(removeWalSidecars(dbPath), 2);
-    assert.equal(fs.existsSync(`${dbPath}-wal`), false);
-    assert.equal(fs.existsSync(`${dbPath}-shm`), false);
+    fs.writeFileSync(`${dbPath}.wal`, 'wal');
+    assert.equal(removeWalSidecars(dbPath), 1);
+    assert.equal(fs.existsSync(`${dbPath}.wal`), false);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it('findLatestPreMigrationBackup returns newest backup file', () => {
+  it('findLatestPreMigrationBackup returns newest duckdb backup file', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
-    const older = path.join(tmpDir, 'dome.db.backup-v1-old');
-    const newer = path.join(tmpDir, 'dome.db.backup-v2-new');
+    const older = path.join(tmpDir, `${MIGRATION_BACKUP_PREFIX}1-old`);
+    const newer = path.join(tmpDir, `${MIGRATION_BACKUP_PREFIX}2-new`);
     fs.writeFileSync(older, 'old');
     fs.writeFileSync(newer, 'new');
     const now = Date.now();

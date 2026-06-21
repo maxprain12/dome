@@ -30,7 +30,7 @@ function providerBaseUrlSetting(provider) {
  */
 async function readProviderApiKey(queries, provider) {
   if (!provider || KEYLESS_PROVIDERS.has(provider)) return null;
-  const own = readSettingSecret(queries, providerApiKeySetting(provider));
+  const own = await readSettingSecret(queries, providerApiKeySetting(provider));
   if (own) return own;
   const active = (await queries.getSetting.get('ai_provider'))?.value;
   if (active === provider) {
@@ -39,9 +39,9 @@ async function readProviderApiKey(queries, provider) {
   return null;
 }
 
-function writeProviderApiKey(queries, provider, plain) {
+async function writeProviderApiKey(queries, provider, plain) {
   if (!provider || KEYLESS_PROVIDERS.has(provider)) return;
-  writeSettingSecret(queries, providerApiKeySetting(provider), plain);
+  await writeSettingSecret(queries, providerApiKeySetting(provider), plain);
 }
 
 /** Custom base URL for a provider (same active-provider-only legacy fallback). */

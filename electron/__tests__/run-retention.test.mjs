@@ -9,27 +9,37 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW = Date.UTC(2026, 5, 10);
 
 /**
- * Minimal fake of the better-sqlite3 surface used by run-retention:
- * prepare().all/.run + transaction(). Tracks deletions per table.
+ * Minimal fake of the async DuckDB surface used by run-retention:
+ * .all(sql, params) / .run(sql, params) / .transaction(async fn).
+ * Tracks deletions per table.
  */
 function makeFakeDb({ expiredRuns = [], feederRunChanges = 0 } = {}) {
   const deletedRunIds = [];
   return {
     deletedRunIds,
-    prepare(sql) {
+    async all(sql) {
       if (sql.includes('SELECT id, owner_type FROM automation_runs')) {
-        return { all: () => expiredRuns };
+        return expiredRuns;
       }
+      throw new Error(`Unexpected SQL in fake db.all: ${sql}`);
+    },
+    async run(sql, params) {
       if (sql.includes('DELETE FROM automation_runs')) {
-        return { run: (id) => { deletedRunIds.push(id); return { changes: 1 }; } };
+        deletedRunIds.push(params[0]);
+        return { changes: 1 };
       }
       if (sql.includes('DELETE FROM feeder_runs')) {
-        return { run: () => ({ changes: feederRunChanges }) };
+        return { changes: feederRunChanges };
       }
-      throw new Error(`Unexpected SQL in fake db: ${sql}`);
+      throw new Error(`Unexpected SQL in fake db.run: ${sql}`);
     },
-    transaction(fn) {
-      return fn;
+    async transaction(fn) {
+      // Provide a fake `tx` with the same all/run interface.
+      const tx = {
+        all: (sql) => this.all(sql),
+        run: (sql, params) => this.run(sql, params),
+      };
+      return fn(tx);
     },
   };
 }

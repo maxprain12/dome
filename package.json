@@ -36,6 +36,7 @@
     "check:design-system": "node scripts/check-hardcoded-colors.mjs",
     "check:asar-unpack": "node scripts/check-asar-unpack.cjs",
     "test:db": "tsx scripts/test-db.ts",
+    "test:duckdb": "node scripts/test-duckdb-migration.cjs",
     "test:filesystem-tools": "node --test scripts/test-filesystem-tools.mjs",
     "test:feeders": "node --test scripts/test-feeders.mjs",
     "test:web-search": "node --test scripts/test-web-search.mjs",
