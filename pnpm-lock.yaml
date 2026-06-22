@@ -60,7 +60,7 @@ importers:
         specifier: ^0.6.0
         version: 0.6.0
       '@napi-rs/canvas':
-        specifier: ^0.1.97
+        specifier: ^0.1.100
         version: 0.1.100
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.1.16
