@@ -3,30 +3,30 @@
 const runEngine = require('../../agents/run-engine.cjs');
 
 function register({ ipcMain, windowManager, validateSender }) {
-  ipcMain.handle('runs:get', (event, runId) => {
+  ipcMain.handle('runs:get', async (event, runId) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.getRun(runId) };
+      return { success: true, data: await runEngine.getRun(runId) };
     } catch (error) {
       console.error('[Runs] get error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('runs:list', (event, filters) => {
+  ipcMain.handle('runs:list', async (event, filters) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.listRuns(filters || {}) };
+      return { success: true, data: await runEngine.listRuns(filters || {}) };
     } catch (error) {
       console.error('[Runs] list error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('runs:getActiveBySession', (event, sessionId) => {
+  ipcMain.handle('runs:getActiveBySession', async (event, sessionId) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.getActiveRunBySession(sessionId) };
+      return { success: true, data: await runEngine.getActiveRunBySession(sessionId) };
     } catch (error) {
       console.error('[Runs] getActiveBySession error:', error);
       return { success: false, error: error.message };
@@ -43,20 +43,20 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('runs:startWorkflow', (event, params) => {
+  ipcMain.handle('runs:startWorkflow', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.startWorkflowRun(params || {}) };
+      return { success: true, data: await runEngine.startWorkflowRun(params || {}) };
     } catch (error) {
       console.error('[Runs] startWorkflow error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('runs:resume', (event, { runId, decisions }) => {
+  ipcMain.handle('runs:resume', async (event, { runId, decisions }) => {
     try {
       validateSender(event, windowManager);
-      return runEngine.resumeRun(runId, Array.isArray(decisions) ? decisions : []);
+      return await runEngine.resumeRun(runId, Array.isArray(decisions) ? decisions : []);
     } catch (error) {
       console.error('[Runs] resume error:', error);
       return { success: false, error: error.message };
@@ -74,10 +74,10 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('runs:delete', (event, runId) => {
+  ipcMain.handle('runs:delete', async (event, runId) => {
     try {
       validateSender(event, windowManager);
-      runEngine.deleteRun(runId);
+      await runEngine.deleteRun(runId);
       return { success: true };
     } catch (error) {
       console.error('[Runs] delete error:', error);
@@ -85,40 +85,40 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('automations:get', (event, automationId) => {
+  ipcMain.handle('automations:get', async (event, automationId) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.getAutomation(automationId) };
+      return { success: true, data: await runEngine.getAutomation(automationId) };
     } catch (error) {
       console.error('[Automations] get error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('automations:list', (event, filters) => {
+  ipcMain.handle('automations:list', async (event, filters) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.listAutomations(filters || {}) };
+      return { success: true, data: await runEngine.listAutomations(filters || {}) };
     } catch (error) {
       console.error('[Automations] list error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('automations:upsert', (event, automation) => {
+  ipcMain.handle('automations:upsert', async (event, automation) => {
     try {
       validateSender(event, windowManager);
-      return { success: true, data: runEngine.upsertAutomation(automation || {}) };
+      return { success: true, data: await runEngine.upsertAutomation(automation || {}) };
     } catch (error) {
       console.error('[Automations] upsert error:', error);
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('automations:delete', (event, automationId) => {
+  ipcMain.handle('automations:delete', async (event, automationId) => {
     try {
       validateSender(event, windowManager);
-      runEngine.deleteAutomation(automationId);
+      await runEngine.deleteAutomation(automationId);
       return { success: true };
     } catch (error) {
       console.error('[Automations] delete error:', error);

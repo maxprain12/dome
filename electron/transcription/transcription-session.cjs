@@ -429,7 +429,7 @@ async function appendChunk(deps, payload) {
 
 async function transcribeChunkBestEffort(deps, session, chunk) {
   try {
-    const apiKey = transcriptionService.getTranscriptionApiKey(deps.database);
+    const apiKey = await transcriptionService.getTranscriptionApiKey(deps.database);
     if (!apiKey) return;
 
     // MediaRecorder streaming WebM chunks are NOT valid standalone files — only chunk 0
@@ -616,7 +616,7 @@ async function finalizeSession(deps, sessionId) {
       .map((c) => c.text.trim())
       .join(' ');
   } else {
-    const apiKey = transcriptionService.getTranscriptionApiKey(deps.database);
+    const apiKey = await transcriptionService.getTranscriptionApiKey(deps.database);
     if (!apiKey) throw new Error('STT API key not configured');
     const out = await transcriptionService.transcribeFilePath(mergedMp3, {
       apiKey,

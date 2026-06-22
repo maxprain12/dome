@@ -26,15 +26,15 @@ function defaultDeps() {
   const bridge = require('./dome-harness-bridge.cjs');
   return {
     getDB: () => database.getDB(),
-    getSetting: (key) => database.getQueries().getSetting.get(key)?.value,
+    getSetting: async (key) => (await database.getQueries().getSetting.get(key))?.value,
     getSessionRepo: () => bridge.getSessionRepo(),
     sessionCwd: bridge.SESSION_CWD,
   };
 }
 
-function resolveRetentionDays(deps) {
+async function resolveRetentionDays(deps) {
   try {
-    const value = deps.getSetting('runs_retention_days');
+    const value = await deps.getSetting('runs_retention_days');
     if (value != null && String(value).trim() !== '') {
       const days = Number(value);
       if (Number.isFinite(days)) return days;
@@ -78,7 +78,7 @@ async function deleteWorkflowRunSessions(deps, workflowRunIds) {
 }
 
 async function purgeExpiredRuns({ now = Date.now(), deps = defaultDeps() } = {}) {
-  const retentionDays = resolveRetentionDays(deps);
+  const retentionDays = await resolveRetentionDays(deps);
   const result = { retentionDays, purgedRuns: 0, purgedFeederRuns: 0, purgedSessions: 0 };
   if (!(retentionDays > 0)) return result;
   const cutoff = now - retentionDays * DAY_MS;

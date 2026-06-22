@@ -143,9 +143,9 @@ function startLoopbackServer(port, expectedState) {
 
 // ─── DB helpers ───────────────────────────────────────────────────────────────
 
-function loadAccounts(database) {
+async function loadAccounts(database) {
   try {
-    const row = database.getQueries().getSetting.get('cloud_accounts');
+    const row = await database.getQueries().getSetting.get('cloud_accounts');
     return row?.value ? JSON.parse(row.value) : [];
   } catch {
     return [];
@@ -196,7 +196,7 @@ async function getValidToken(database, account) {
   if (!isTokenExpired(account)) return account.accessToken;
   const refreshed = await refreshGoogleToken(account);
   if (!refreshed) return null;
-  const accounts = loadAccounts(database);
+  const accounts = await loadAccounts(database);
   const idx = accounts.findIndex((a) => a.accountId === account.accountId);
   if (idx >= 0) {
     accounts[idx] = { ...accounts[idx], ...refreshed };
@@ -254,7 +254,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('cloud:get-accounts', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      const accounts = loadAccounts(database).map((a) => ({
+      const accounts = (await loadAccounts(database)).map((a) => ({
         provider: a.provider,
         accountId: a.accountId,
         email: a.email,
@@ -344,7 +344,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         }
 
         const accountId = `google-${email}`;
-        const accounts = loadAccounts(database);
+        const accounts = await loadAccounts(database);
         const existingIdx = accounts.findIndex((a) => a.accountId === accountId);
         const account = {
           provider: 'google',
@@ -378,7 +378,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('cloud:disconnect', async (event, { accountId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      const accounts = loadAccounts(database).filter((a) => a.accountId !== accountId);
+      const accounts = (await loadAccounts(database)).filter((a) => a.accountId !== accountId);
       await saveAccounts(database, accounts);
       return { success: true };
     } catch (err) {
@@ -392,7 +392,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('cloud:list-files', async (event, { accountId, folderId, query }) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      const accounts = loadAccounts(database);
+      const accounts = await loadAccounts(database);
       const account = accounts.find((a) => a.accountId === accountId);
       if (!account) return { success: false, error: 'Account not found' };
 
@@ -429,7 +429,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     const crypto = require('crypto');
 
     try {
-      const accounts = loadAccounts(database);
+      const accounts = await loadAccounts(database);
       const account = accounts.find((a) => a.accountId === accountId);
       if (!account) return { success: false, error: 'Account not found' };
 
@@ -452,7 +452,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
         const importResult = await fileStorage.importFile(tempPath, effectiveType);
         const queries = database.getQueries();
 
-        const existing = queries.findByHash?.get(importResult.hash);
+        const existing = await queries.findByHash?.get(importResult.hash);
         if (existing) {
           return { success: false, error: 'duplicate', duplicate: { id: existing.id, title: existing.title } };
         }

@@ -84,7 +84,7 @@ async function searchWeb(input) {
     };
   }
 
-  const settings = getWebSettings();
+  const settings = await getWebSettings();
   const chain = buildProviderChain(settings);
   const errors = [];
 

@@ -2842,7 +2842,7 @@ function ghParseArr(s) {
 
 async function githubListRepos({ selected_only = true } = {}) {
   try {
-    const repos = selected_only ? githubStore().listSelectedRepos() : githubStore().listRepos();
+    const repos = selected_only ? await githubStore().listSelectedRepos() : await githubStore().listRepos();
     return {
       success: true,
       source: 'github',
@@ -2856,8 +2856,8 @@ async function githubListRepos({ selected_only = true } = {}) {
 async function githubListMilestones({ repo_id } = {}) {
   try {
     if (!repo_id) return { success: false, error: 'repo_id is required' };
-    const repo = githubStore().getRepo(repo_id);
-    const milestones = githubStore().listMilestones(repo_id).map((m) => ({
+    const repo = await githubStore().getRepo(repo_id);
+    const milestones = (await githubStore().listMilestones(repo_id)).map((m) => ({
       id: m.id,
       number: m.number,
       title: m.title,
@@ -2877,11 +2877,11 @@ async function githubListMilestones({ repo_id } = {}) {
 
 async function githubUpcomingMilestones({ limit = 30, state = 'all', include_past_due = true } = {}) {
   try {
-    const repos = githubStore().listSelectedRepos();
+    const repos = await githubStore().listSelectedRepos();
     const rows = [];
     const now = Date.now();
     for (const repo of repos) {
-      for (const m of githubStore().listMilestones(repo.id)) {
+      for (const m of await githubStore().listMilestones(repo.id)) {
         if (state !== 'all' && m.state !== state) continue;
         if (!include_past_due && m.due_on != null && m.due_on < now) continue;
         rows.push({
@@ -2915,7 +2915,7 @@ async function githubUpcomingMilestones({ limit = 30, state = 'all', include_pas
 async function githubListIssues({ repo_id, state = 'all' } = {}) {
   try {
     if (!repo_id) return { success: false, error: 'repo_id is required' };
-    let issues = githubStore().listIssues(repo_id);
+    let issues = await githubStore().listIssues(repo_id);
     if (state === 'open' || state === 'closed') issues = issues.filter((i) => i.state === state);
     return {
       success: true,
@@ -2954,7 +2954,7 @@ async function githubUpdateIssue({ issue_id, title, body, state, milestone_numbe
     if (body != null) patch.body = body;
     if (state === 'open' || state === 'closed') patch.state = state;
     if (milestone_number !== undefined) patch.milestoneNumber = milestone_number;
-    const issue = githubStore().updateLocalIssue(issue_id, patch);
+    const issue = await githubStore().updateLocalIssue(issue_id, patch);
     if (!issue) return { success: false, error: 'Issue not found' };
     // Push to GitHub + refresh.
     void githubSyncService().syncNow().catch(() => {});
@@ -4221,7 +4221,7 @@ async function feederCreate(args) {
       envName: String(ref?.env_name || ref?.envName || ''),
       secretName: String(ref?.secret_name || ref?.secretName || ref?.name || ''),
     }));
-    const feeder = createFeederRecord(database, {
+    const feeder = await createFeederRecord(database, {
       artifactResourceId: args?.artifact_resource_id ?? args?.artifactResourceId,
       name: args?.name,
       interpreter: args?.interpreter,
@@ -4272,7 +4272,7 @@ async function feederUpdateScript(args) {
     const script = args?.script;
     if (!feederId) return { success: false, error: 'feeder_id is required' };
     if (!script) return { success: false, error: 'script is required' };
-    const feeder = updateFeederScriptRecord(database, feederId, String(script));
+    const feeder = await updateFeederScriptRecord(database, feederId, String(script));
     if (windowManagerRef?.broadcast) {
       windowManagerRef.broadcast('feeder:updated', feeder);
     }

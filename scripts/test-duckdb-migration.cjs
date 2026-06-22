@@ -14,8 +14,8 @@
  *      chat sessions) work end-to-end.
  *   6. Re-opening a `:memory:` DB and re-applying migrations is idempotent
  *      (no errors, no duplicate rows in `schema_migrations`).
- *   7. The legacy import sentinel path works (sets `duckdb_legacy_imported_v1`
- *      and refuses to re-run when present).
+ *
+ *   (v2.7: the legacy SQLite import was removed — fresh-start upgrade.)
  *
  * Exits 0 on success, 1 on any failure. The output is structured so it can
  * be eyeballed in CI logs.
@@ -29,7 +29,6 @@ const { openDuckDb } = require(path.join(REPO, 'electron/core/db/duckdb.cjs'));
 const { applyMigrations } = require(path.join(REPO, 'electron/core/db/migrate.cjs'));
 const { createFtsIndexes } = require(path.join(REPO, 'electron/core/db/fts.cjs'));
 const { buildQueries } = require(path.join(REPO, 'electron/core/db/queries.cjs'));
-const { importLegacySqlite } = require(path.join(REPO, 'electron/core/db/legacy-import.cjs'));
 
 const EXPECTED_TABLE_COUNT = 76; // per docs/duckdb-migration/head-schema-sqlite.sql (incl. FTS shadow tables)
 const FTS_SHADOW_TABLES = new Set([
@@ -241,22 +240,9 @@ async function main() {
     await db2.close();
   }));
 
-  steps.push(await step('legacy import: no-ops when no legacy file is present', async () => {
-    // M1's importLegacySqlite uses the `ATTACH '<path>' AS legacy (TYPE sqlite)`
-    // approach and stamps the sentinel `legacy_sqlite_imported`. When the
-    // legacy file is missing the function must return `{ imported: false,
-    // reason: 'no_legacy_file' }` and not touch the settings table.
-    const db2 = await openDuckDb(':memory:');
-    const { applied } = await applyMigrations(db2);
-    assert.strictEqual(applied, 15);
-    const tmpDuck = path.join(require('os').tmpdir(), 'dome-no-legacy-' + Date.now() + '.duckdb');
-    const r1 = await importLegacySqlite(db2, tmpDuck);
-    assert.strictEqual(r1.imported, false);
-    assert.strictEqual(r1.reason, 'no_legacy_file');
-    const sent = await db2.get('SELECT value FROM settings WHERE key = ?', ['legacy_sqlite_imported']);
-    assert.ok(!sent, 'no sentinel when no legacy DB present');
-    await db2.close();
-  }));
+  // NOTE (v2.7): legacy SQLite import was removed (DuckDB's sqlite_scanner
+  // crashed the native binding on real data), so there is no longer an import
+  // step to test — v2.7 is a deliberate fresh-start upgrade.
 
   await db.close();
 

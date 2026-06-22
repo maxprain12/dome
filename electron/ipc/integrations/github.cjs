@@ -56,7 +56,7 @@ function register({ ipcMain, windowManager }) {
   ipcMain.handle('github:auth:status', async (event) => {
     if (!guard(event)) return fail('Unauthorized');
     try {
-      return ok(githubOAuth.getStatus());
+      return ok(await githubOAuth.getStatus());
     } catch (err) {
       return fail(err);
     }
@@ -77,7 +77,7 @@ function register({ ipcMain, windowManager }) {
   ipcMain.handle('github:repos:list', async (event) => {
     if (!guard(event)) return fail('Unauthorized');
     try {
-      return ok({ repos: store.listRepos() });
+      return ok({ repos: await store.listRepos() });
     } catch (err) {
       return fail(err);
     }
@@ -97,7 +97,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     try {
-      const repo = syncService.setRepoSelected(repoId, !!selected);
+      const repo = await syncService.setRepoSelected(repoId, !!selected);
       if (selected) kickSync();
       return ok({ repo });
     } catch (err) {
@@ -110,7 +110,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     try {
-      return ok({ milestones: store.listMilestones(repoId) });
+      return ok({ milestones: await store.listMilestones(repoId) });
     } catch (err) {
       return fail(err);
     }
@@ -120,7 +120,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     try {
-      return ok({ issues: store.listIssues(repoId) });
+      return ok({ issues: await store.listIssues(repoId) });
     } catch (err) {
       return fail(err);
     }
@@ -130,7 +130,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string') return fail('Invalid id');
     try {
-      return ok({ issue: store.getIssue(id) });
+      return ok({ issue: await store.getIssue(id) });
     } catch (err) {
       return fail(err);
     }
@@ -140,7 +140,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     try {
-      return ok({ branches: store.listBranches(repoId) });
+      return ok({ branches: await store.listBranches(repoId) });
     } catch (err) {
       return fail(err);
     }
@@ -150,7 +150,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     try {
-      return ok({ releases: store.listReleases(repoId) });
+      return ok({ releases: await store.listReleases(repoId) });
     } catch (err) {
       return fail(err);
     }
@@ -161,7 +161,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
-      const issue = store.updateLocalIssue(id, patch);
+      const issue = await store.updateLocalIssue(id, patch);
       kickSync();
       return ok({ issue });
     } catch (err) {
@@ -177,7 +177,7 @@ function register({ ipcMain, windowManager }) {
       const patch = {};
       if (state === 'open' || state === 'closed') patch.state = state;
       if (milestoneNumber !== undefined) patch.milestoneNumber = milestoneNumber;
-      const issue = store.updateLocalIssue(id, patch);
+      const issue = await store.updateLocalIssue(id, patch);
       kickSync();
       return ok({ issue });
     } catch (err) {
@@ -244,7 +244,7 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
-      const milestone = store.updateLocalMilestone(id, patch);
+      const milestone = await store.updateLocalMilestone(id, patch);
       kickSync();
       return ok({ milestone });
     } catch (err) {
@@ -283,7 +283,7 @@ function register({ ipcMain, windowManager }) {
     if (!allowed) return fail('Host not allowed');
     if (imageCache.has(url)) return ok({ dataUrl: imageCache.get(url) });
     try {
-      const token = githubOAuth.getToken();
+      const token = await githubOAuth.getToken();
       const res = await fetch(url, {
         redirect: 'follow',
         headers: {

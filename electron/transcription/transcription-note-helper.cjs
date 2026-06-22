@@ -69,7 +69,7 @@ async function getDefaults(database) {
   let sttProvider = providerRow?.value && String(providerRow.value).trim().toLowerCase();
   if (sttProvider === 'local-gemma') sttProvider = 'openai';
   if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
-    sttProvider = transcriptionService.getTranscriptionSttProvider(database);
+    sttProvider = await transcriptionService.getTranscriptionSttProvider(database);
   }
   const modelRow = await queries.getSetting.get('transcription_model');
   const langRow = await queries.getSetting.get('transcription_language');
@@ -169,7 +169,7 @@ async function transcribeResourceToNote(ctx) {
     }
     if (!filePath) return { success: false, error: 'Media file not found' };
 
-    const apiKey = transcriptionService.getTranscriptionApiKey(database);
+    const apiKey = await transcriptionService.getTranscriptionApiKey(database);
     if (!apiKey) return { success: false, error: 'No STT API key for transcription' };
 
     const defaults = await getDefaults(database);

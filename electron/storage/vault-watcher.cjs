@@ -34,9 +34,9 @@ function toRelPath(rootDir, absPath) {
 }
 
 /** Resolve which project + project-relative path an absolute file belongs to. */
-function resolvePathContext(absPath, deps) {
+async function resolvePathContext(absPath, deps) {
   const queries = deps.database.getQueries();
-  const roots = vaultStore.getProjectRoots(queries, deps.fileStorage);
+  const roots = await vaultStore.getProjectRoots(queries, deps.fileStorage);
   let best = null;
   for (const r of roots) {
     if (absPath === r.root || absPath.startsWith(r.root + path.sep)) {
@@ -166,7 +166,7 @@ async function handleChange(absPath, deps) {
   const hash = vaultStore.contentHash(buf);
   if (vaultStore.isSelfWrite(absPath, hash)) return;
 
-  const ctx = resolvePathContext(absPath, deps);
+  const ctx = await resolvePathContext(absPath, deps);
   if (!ctx) return;
   const db = database.getDB();
 
@@ -206,7 +206,7 @@ async function handleChange(absPath, deps) {
 
 async function handleAddDir(absPath, deps) {
   try {
-    const ctx = resolvePathContext(absPath, deps);
+    const ctx = await resolvePathContext(absPath, deps);
     if (!ctx || !ctx.relPath) return;
     await ensureFolderChain(ctx.projectId, ctx.relPath.split('/').filter(Boolean), deps);
   } catch (err) {
@@ -220,7 +220,7 @@ function handleUnlink(absPath, deps) {
   _pendingUnlinks.set(absPath, setTimeout(async () => {
     _pendingUnlinks.delete(absPath);
     try {
-      const ctx = resolvePathContext(absPath, deps);
+      const ctx = await resolvePathContext(absPath, deps);
       if (!ctx) return;
       const db = database.getDB();
       const row = await db.get("SELECT id FROM resources WHERE project_id = ? AND vault_path = ? AND type != 'folder'", [ctx.projectId, ctx.relPath]);
@@ -247,7 +247,7 @@ async function scanRoot(rootAbs, deps) {
       if (e.name.startsWith('.')) continue;
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) { await handleAddDir(abs, deps); stack.push(abs); continue; }
-      const ctx = resolvePathContext(abs, deps);
+      const ctx = await resolvePathContext(abs, deps);
       if (!ctx) continue;
       const known = await db.get('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?', [ctx.projectId, ctx.relPath]);
       if (known) continue;
@@ -266,18 +266,19 @@ async function scanRoot(rootAbs, deps) {
   }
 }
 
-function watchTargets(deps) {
+async function watchTargets(deps) {
   const defaultDir = vaultStore.getDefaultVaultDir(deps.fileStorage);
   const targets = new Set([defaultDir]);
   try {
-    for (const r of vaultStore.getProjectRoots(deps.database.getQueries(), deps.fileStorage)) {
+    const roots = await vaultStore.getProjectRoots(deps.database.getQueries(), deps.fileStorage);
+    for (const r of roots) {
       if (!r.root.startsWith(defaultDir)) targets.add(r.root);
     }
   } catch { /* */ }
   return [...targets];
 }
 
-function start(deps) {
+async function start(deps) {
   if (_watcher) return;
   _deps = deps;
   let chokidar;
@@ -285,7 +286,7 @@ function start(deps) {
     console.warn('[VaultWatcher] chokidar unavailable:', err.message);
     return;
   }
-  const targets = watchTargets(deps);
+  const targets = await watchTargets(deps);
   for (const t of targets) {
     try { if (!fs.existsSync(t)) fs.mkdirSync(t, { recursive: true }); } catch { /* */ }
   }

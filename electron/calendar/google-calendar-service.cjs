@@ -22,11 +22,11 @@ let _pendingOAuth = null;
 /**
  * Get Google OAuth client ID (from env or settings)
  */
-function getClientId() {
+async function getClientId() {
   const env = process.env.DOME_GOOGLE_CALENDAR_CLIENT_ID;
   if (env) return env;
   try {
-    const row = database.getQueries().getSetting?.get?.('google_calendar_client_id');
+    const row = await database.getQueries().getSetting?.get?.('google_calendar_client_id');
     return row?.value ?? null;
   } catch {
     return null;
@@ -36,11 +36,11 @@ function getClientId() {
 /**
  * Get Google OAuth client secret (optional for PKCE, required for auth code flow)
  */
-function getClientSecret() {
+async function getClientSecret() {
   const env = process.env.DOME_GOOGLE_CALENDAR_CLIENT_SECRET;
   if (env) return env;
   try {
-    const row = database.getQueries().getSetting?.get?.('google_calendar_client_secret');
+    const row = await database.getQueries().getSetting?.get?.('google_calendar_client_secret');
     return row?.value ?? null;
   } catch {
     return null;
@@ -61,9 +61,9 @@ function generatePKCE() {
  * Start Google Calendar OAuth flow
  * Opens browser, returns Promise that resolves when callback is received
  */
-function startOAuthFlow() {
+async function startOAuthFlow() {
+  const clientId = await getClientId();
   return new Promise((resolve, reject) => {
-    const clientId = getClientId();
     if (!clientId) {
       reject(new Error('Google Calendar OAuth: client_id not configured. Set DOME_GOOGLE_CALENDAR_CLIENT_ID or google_calendar_client_id in settings.'));
       return;
@@ -114,8 +114,8 @@ async function handleOAuthCallback(url) {
     if (!code || !state || !_pendingOAuth) return false;
     if (_pendingOAuth.state !== state) return false;
 
-    const clientId = getClientId();
-    const clientSecret = getClientSecret();
+    const clientId = await getClientId();
+    const clientSecret = await getClientSecret();
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
@@ -155,7 +155,7 @@ async function handleOAuthCallback(url) {
 
     const q = database.getQueries();
     const now = Date.now();
-    q.createCalendarAccount.run(accountId, 'google', 'pending@google.com', credentials, 'active', null, null, now, now);
+    await q.createCalendarAccount.run(accountId, 'google', 'pending@google.com', credentials, 'active', null, null, now, now);
 
     _pendingOAuth.resolve({ accountId, accessToken: access_token });
     _pendingOAuth = null;
@@ -175,7 +175,7 @@ async function handleOAuthCallback(url) {
  */
 async function getAccessToken(accountId) {
   const q = database.getQueries();
-  const row = q.getCalendarAccountById.get(accountId);
+  const row = await q.getCalendarAccountById.get(accountId);
   if (!row || row.provider !== 'google') return null;
 
   let creds;
@@ -196,8 +196,8 @@ async function getAccessToken(accountId) {
     return null;
   }
 
-  const clientId = getClientId();
-  const clientSecret = getClientSecret();
+  const clientId = await getClientId();
+  const clientSecret = await getClientSecret();
   const body = new URLSearchParams({
     grant_type: 'refresh_token',
     refresh_token: creds.refresh_token,
@@ -214,7 +214,7 @@ async function getAccessToken(accountId) {
   if (!res.ok) {
     const text = await res.text();
     console.error('[GoogleCalendar] Token refresh failed:', res.status, text);
-    q.updateCalendarAccount.run(row.account_email, row.credentials, 'error', null, null, Date.now(), accountId);
+    await q.updateCalendarAccount.run(row.account_email, row.credentials, 'error', null, null, Date.now(), accountId);
     return null;
   }
 
@@ -225,7 +225,7 @@ async function getAccessToken(accountId) {
     expires_at: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null,
   };
   const newCredsStr = JSON.stringify(newCreds);
-  q.updateCalendarAccount.run(row.account_email, newCredsStr, 'active', now, row.sync_token, Date.now(), accountId);
+  await q.updateCalendarAccount.run(row.account_email, newCredsStr, 'active', now, row.sync_token, Date.now(), accountId);
 
   return newCreds.access_token;
 }
@@ -363,7 +363,7 @@ async function deleteGoogleEvent(accountId, calendarId, googleEventId) {
  */
 async function syncAll() {
   const q = database.getQueries();
-  const accounts = q.getCalendarAccountsByProvider.all('google');
+  const accounts = await q.getCalendarAccountsByProvider.all('google');
   if (accounts.length === 0) {
     return { success: true, synced: false, message: 'No Google accounts connected' };
   }
@@ -378,24 +378,24 @@ async function syncAll() {
         ? await fetchUserEmail(acc.id)
         : acc.account_email;
       if (acc.account_email === 'pending@google.com') {
-        q.updateCalendarAccount.run(email, acc.credentials, 'active', acc.last_sync_at, acc.sync_token, now, acc.id);
+        await q.updateCalendarAccount.run(email, acc.credentials, 'active', acc.last_sync_at, acc.sync_token, now, acc.id);
       }
 
       const googleCals = await listGoogleCalendars(acc.id);
       for (const gc of googleCals) {
-        let localCal = q.getCalendarCalendarsByAccount.all(acc.id).find((c) => c.remote_id === gc.id);
+        let localCal = (await q.getCalendarCalendarsByAccount.all(acc.id)).find((c) => c.remote_id === gc.id);
         if (!localCal) {
           const calId = `cal-${acc.id}-${gc.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
-          q.createCalendarCalendar.run(calId, acc.id, gc.id, gc.summary, gc.backgroundColor, 1, gc.primary ? 1 : 0, now, now);
-          localCal = q.getCalendarCalendarById.get(calId);
+          await q.createCalendarCalendar.run(calId, acc.id, gc.id, gc.summary, gc.backgroundColor, 1, gc.primary ? 1 : 0, now, now);
+          localCal = await q.getCalendarCalendarById.get(calId);
         }
 
         const { items } = await listGoogleEvents(acc.id, gc.id, oneMonthAgo, threeMonthsAhead);
 
         for (const ge of items) {
           if (ge.status === 'cancelled') {
-            const link = q.getCalendarEventLinkByRemote.get('google', ge.id);
-            if (link) q.deleteCalendarEvent.run(link.event_id);
+            const link = await q.getCalendarEventLinkByRemote.get('google', ge.id);
+            if (link) await q.deleteCalendarEvent.run(link.event_id);
             continue;
           }
 
@@ -406,9 +406,9 @@ async function syncAll() {
             ? new Date(ge.end.dateTime).getTime()
             : new Date(ge.end?.date + 'T23:59:59Z').getTime();
 
-          const link = q.getCalendarEventLinkByRemote.get('google', ge.id);
+          const link = await q.getCalendarEventLinkByRemote.get('google', ge.id);
           if (link) {
-            q.updateCalendarEvent.run(
+            await q.updateCalendarEvent.run(
               ge.summary || 'Untitled',
               ge.description || null,
               ge.location || null,
@@ -425,7 +425,7 @@ async function syncAll() {
             );
           } else {
             const eventId = `evt-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-            q.createCalendarEvent.run(
+            await q.createCalendarEvent.run(
               eventId,
               localCal.id,
               ge.summary || 'Untitled',
@@ -442,15 +442,15 @@ async function syncAll() {
               now,
               now
             );
-            q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, gc.id, now, now);
+            await q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, gc.id, now, now);
           }
         }
 
-        q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'active', now, acc.sync_token, now, acc.id);
+        await q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'active', now, acc.sync_token, now, acc.id);
       }
     } catch (err) {
       console.error('[GoogleCalendar] Sync error for account', acc.id, err);
-      q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'error', acc.last_sync_at, acc.sync_token, now, acc.id);
+      await q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'error', acc.last_sync_at, acc.sync_token, now, acc.id);
     }
   }
 

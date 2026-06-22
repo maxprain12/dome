@@ -499,7 +499,7 @@ async function executeWorkflowRun(runId, params, workflow) {
     }
     if (createdNote) {
       const queries = getQueries();
-      queries.createAutomationRunLink.run(
+      await queries.createAutomationRunLink.run(
         crypto.randomUUID(),
         runId,
         'resource',

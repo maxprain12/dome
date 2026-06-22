@@ -25,9 +25,9 @@ function startOfWeek(ts) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff).getTime();
 }
 
-function isAutomationRunOnStartupEnabled() {
+async function isAutomationRunOnStartupEnabled() {
   try {
-    const row = database.getQueries().getSetting.get('automation_run_on_startup');
+    const row = await database.getQueries().getSetting.get('automation_run_on_startup');
     if (row?.value != null && row.value !== '') {
       return row.value === '1' || row.value === 'true';
     }
@@ -38,8 +38,8 @@ function isAutomationRunOnStartupEnabled() {
   return process.platform !== 'win32';
 }
 
-function getStartupGraceMs() {
-  if (isAutomationRunOnStartupEnabled()) return STARTUP_GRACE_MS;
+async function getStartupGraceMs() {
+  if (await isAutomationRunOnStartupEnabled()) return STARTUP_GRACE_MS;
   return process.platform === 'win32' ? STARTUP_GRACE_MS_WINDOWS_DEFERRED : STARTUP_GRACE_MS;
 }
 
@@ -69,17 +69,17 @@ function isDue(automation, timestamp) {
   return !automation.lastRunAt || startOfDay(automation.lastRunAt) < startOfDay(timestamp);
 }
 
-function isAutomationBusy(automation) {
+async function isAutomationBusy(automation) {
   const automationId = typeof automation === 'string' ? automation : automation?.id;
   if (!automationId) return false;
-  const runs = runEngine.listRuns({ automationId, limit: 5 });
+  const runs = await runEngine.listRuns({ automationId, limit: 5 });
   if (runs.some((run) => ['queued', 'running', 'waiting_approval'].includes(run.status))) {
     return true;
   }
   // Feeders write to feeder_runs (not automation_runs); check that table when target is a feeder.
   if (typeof automation === 'object' && automation?.targetType === 'feeder') {
     try {
-      const row = database.getQueries().countRunningFeederRunsByAutomation.get(automationId);
+      const row = await database.getQueries().countRunningFeederRunsByAutomation.get(automationId);
       if (row && Number(row.c) > 0) return true;
     } catch (error) {
       console.error('[Automation] Feeder busy check failed:', error?.message || error);
@@ -90,12 +90,12 @@ function isAutomationBusy(automation) {
 
 async function tick() {
   const timestamp = Date.now();
-  const automations = runEngine.listAutomations();
+  const automations = await runEngine.listAutomations();
   for (const automation of automations) {
     if (!isDue(automation, timestamp)) {
       continue;
     }
-    if (isAutomationBusy(automation)) {
+    if (await isAutomationBusy(automation)) {
       continue;
     }
     try {
@@ -121,12 +121,12 @@ function startSchedulerAfterGrace() {
   void tick();
 }
 
-function init() {
+async function init() {
   stop();
-  const graceMs = getStartupGraceMs();
+  const graceMs = await getStartupGraceMs();
   console.log(
     `[Automation] Scheduler deferred for ${Math.round(graceMs / 1000)}s `
-    + `(automation_run_on_startup=${isAutomationRunOnStartupEnabled() ? 'on' : 'off'})`,
+    + `(automation_run_on_startup=${(await isAutomationRunOnStartupEnabled()) ? 'on' : 'off'})`,
   );
   _startupTimeoutId = setTimeout(() => {
     _startupTimeoutId = null;

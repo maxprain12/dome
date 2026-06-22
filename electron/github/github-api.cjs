@@ -19,8 +19,8 @@ const API_BASE = 'https://api.github.com';
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF = 1000;
 
-function requireToken() {
-  const token = githubOAuth.getToken();
+async function requireToken() {
+  const token = await githubOAuth.getToken();
   if (!token) {
     throw new Error('GitHub no conectado. Conéctalo en Ajustes → GitHub.');
   }
@@ -91,7 +91,7 @@ async function rawRequest(method, path, { body, etag, token } = {}, retries = MA
 
 /** GET with automatic pagination (follows the Link rel="next" header). */
 async function getAllPages(path, { etag } = {}) {
-  const token = requireToken();
+  const token = await requireToken();
   const sep = path.includes('?') ? '&' : '?';
   let next = `${path}${sep}per_page=100`;
   const all = [];
@@ -114,13 +114,13 @@ async function getAllPages(path, { etag } = {}) {
 }
 
 async function get(path) {
-  const token = requireToken();
+  const token = await requireToken();
   const res = await rawRequest('GET', path, { token });
   return res.data;
 }
 
 async function mutate(method, path, body) {
-  const token = requireToken();
+  const token = await requireToken();
   const res = await rawRequest(method, path, { token, body });
   return res.data;
 }

@@ -70,14 +70,14 @@ async function openThreadSession(threadId) {
 const WORKFLOW_RUN_IDS_TTL_MS = 30_000;
 let workflowRunIdsCache = { set: null, at: 0 };
 
-function getWorkflowRunIdSet() {
+async function getWorkflowRunIdSet() {
   const now = Date.now();
   if (workflowRunIdsCache.set && now - workflowRunIdsCache.at < WORKFLOW_RUN_IDS_TTL_MS) {
     return workflowRunIdsCache.set;
   }
   try {
     const queries = database.getQueries();
-    const rows = queries?.getWorkflowRunIds?.all() ?? [];
+    const rows = (await queries?.getWorkflowRunIds?.all()) ?? [];
     workflowRunIdsCache = { set: new Set(rows.map((row) => row.id)), at: now };
     return workflowRunIdsCache.set;
   } catch (err) {
@@ -112,7 +112,7 @@ function register({ ipcMain, windowManager, validateSender }) {
         // root JSONL sessions but belong to Workflows, not the Many chat history.
         // Workflow run ids are UUIDs (no underscores), so the segment before the
         // first underscore is the run id — match it against known workflow runs.
-        const workflowRunIds = getWorkflowRunIdSet();
+        const workflowRunIds = await getWorkflowRunIdSet();
         if (workflowRunIds.size > 0) {
           sessions = sessions.filter((meta) => {
             const sep = typeof meta.id === 'string' ? meta.id.indexOf('_') : -1;

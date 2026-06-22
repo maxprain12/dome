@@ -51,13 +51,13 @@ function getQueries() {
   return database.getQueries();
 }
 
-function setSetting(key, value) {
-  getQueries().setSetting.run(key, value, Date.now());
+async function setSetting(key, value) {
+  await getQueries().setSetting.run(key, value, Date.now());
 }
 
-function getSettingRaw(key) {
+async function getSettingRaw(key) {
   try {
-    return getQueries().getSetting.get(key)?.value || null;
+    return (await getQueries().getSetting.get(key))?.value || null;
   } catch {
     return null;
   }
@@ -149,7 +149,7 @@ async function pollForAccessToken({ deviceCode, interval = 5, expiresIn = 900 } 
     if (raw && typeof raw.access_token === 'string') {
       await writeSettingSecret(getQueries(), TOKEN_SETTING, raw.access_token);
       const login = await fetchLogin(raw.access_token).catch(() => null);
-      if (login) setSetting(LOGIN_SETTING, login);
+      if (login) await setSetting(LOGIN_SETTING, login);
       return { success: true, login };
     }
     if (raw && typeof raw.error === 'string') {
@@ -177,20 +177,20 @@ async function fetchLogin(token) {
 }
 
 /** Read the decrypted GitHub OAuth token (or null if not connected). */
-function getToken() {
+async function getToken() {
   return readSettingSecret(getQueries(), TOKEN_SETTING);
 }
 
-function getStatus() {
+async function getStatus() {
   return {
-    connected: !!getToken(),
-    login: getSettingRaw(LOGIN_SETTING) || null,
+    connected: !!(await getToken()),
+    login: (await getSettingRaw(LOGIN_SETTING)) || null,
   };
 }
 
 async function disconnect() {
   await writeSettingSecret(getQueries(), TOKEN_SETTING, '');
-  setSetting(LOGIN_SETTING, '');
+  await setSetting(LOGIN_SETTING, '');
   return { success: true };
 }
 

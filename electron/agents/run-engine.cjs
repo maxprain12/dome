@@ -400,13 +400,13 @@ async function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
 }
 
 function createRunChunkEmitter(runId, context) {
-  return (data) => {
+  return async (data) => {
     const heartbeat = now();
     context.lastHeartbeatAt = heartbeat;
     if (data.type === 'thinking' && data.text) {
       context.fullThinking += data.text;
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'thinking', text: data.text });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
+      await patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
     if (data.type === 'text' && data.text) {
@@ -416,7 +416,7 @@ function createRunChunkEmitter(runId, context) {
       if (context.autoSpeak) {
         streamingTts.feedChunk(runId, data.text);
       }
-      patchRun(runId, {
+      await patchRun(runId, {
         status: 'running',
         outputText: context.fullResponse,
         lastHeartbeatAt: heartbeat,
@@ -439,7 +439,7 @@ function createRunChunkEmitter(runId, context) {
         status: 'running',
         ...(data.agentName ? { agentName: data.agentName } : {}),
       });
-      const step = appendRunStep({
+      const step = await appendRunStep({
         runId,
         stepType: 'tool_call',
         title: data.toolCall.name,
@@ -459,7 +459,7 @@ function createRunChunkEmitter(runId, context) {
         toolCall: data.toolCall,
         ...(data.agentName ? { agentName: data.agentName } : {}),
       });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
+      await patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
     if (data.type === 'tool_result' && data.toolCallId != null) {
@@ -472,7 +472,7 @@ function createRunChunkEmitter(runId, context) {
       const stepId = context.toolStepIds.get(data.toolCallId);
       if (stepId) {
         const existingStep = context.toolSteps.get(data.toolCallId) ?? null;
-        const nextStep = updateRunStep(
+        const nextStep = await updateRunStep(
           stepId,
           stepPatch,
           existingStep,
@@ -486,7 +486,7 @@ function createRunChunkEmitter(runId, context) {
         result: data.result,
         ...(data.agentName ? { agentName: data.agentName } : {}),
       });
-      patchRun(runId, { lastHeartbeatAt: heartbeat });
+      await patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
     if (data.type === 'budget' && data.breakdown) {
@@ -506,7 +506,7 @@ function createRunChunkEmitter(runId, context) {
     }
     if (data.type === 'error' && data.error) {
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'error', error: data.error });
-      patchRun(runId, {
+      await patchRun(runId, {
         status: 'failed',
         error: data.error,
         lastHeartbeatAt: heartbeat,
@@ -542,7 +542,7 @@ function createRunChunkEmitter(runId, context) {
     ) {
       context.threadId = data.threadId || context.threadId;
       const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
-      patchRun(runId, {
+      await patchRun(runId, {
         status: 'waiting_approval',
         threadId: context.threadId,
         metadata: {
@@ -570,7 +570,7 @@ function createRunChunkEmitter(runId, context) {
 async function executeAgentRun(runId, params) {
   const context = activeRunContexts.get(runId);
   if (!context) return;
-  patchRun(runId, {
+  await patchRun(runId, {
     status: 'running',
     threadId: context.threadId,
     metadata: {
@@ -585,7 +585,7 @@ async function executeAgentRun(runId, params) {
       toolIds: params.toolIds ?? [],
     },
   });
-  appendRunStep({
+  await appendRunStep({
     runId,
     stepType: 'info',
     title: 'Run iniciado',
@@ -638,9 +638,9 @@ async function executeAgentRun(runId, params) {
       runtimeContext,
       userMemory: params.userMemory ?? null,
     });
-    const current = getRun(runId);
+    const current = await getRun(runId);
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
-      return getRun(runId);
+      return await getRun(runId);
     }
     if (params.sessionId) {
       await tryPersistRunAssistantMessage(
@@ -656,7 +656,7 @@ async function executeAgentRun(runId, params) {
         context,
       );
     }
-    appendRunStep({
+    await appendRunStep({
       runId,
       stepType: 'completion',
       title: 'Run completado',
@@ -668,8 +668,8 @@ async function executeAgentRun(runId, params) {
     if (context.autoSpeak) {
       streamingTts.flush(runId);
     }
-    finalizeRunningRunSteps(runId, 'completed', context);
-    return patchRun(runId, {
+    await finalizeRunningRunSteps(runId, 'completed', context);
+    return await patchRun(runId, {
       status: 'completed',
       outputText: context.fullResponse,
       summary: context.fullResponse.slice(0, 280) || params.title || 'Run completado',
@@ -693,8 +693,8 @@ async function executeAgentRun(runId, params) {
     for (const entry of context.toolCalls) {
       if (entry.status === 'running') entry.status = aborted ? 'cancelled' : 'error';
     }
-    finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
-    appendRunStep({
+    await finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
+    await appendRunStep({
       runId,
       stepType: aborted ? 'cancelled' : 'error',
       title: aborted ? 'Run cancelado' : 'Run con error',
@@ -707,10 +707,10 @@ async function executeAgentRun(runId, params) {
         scope: 'runs',
         message: error?.message || String(error),
         runId,
-        title: getRun(runId)?.title || undefined,
+        title: (await getRun(runId))?.title || undefined,
       });
     }
-    const currentMeta = getRun(runId)?.metadata ?? {};
+    const currentMeta = (await getRun(runId))?.metadata ?? {};
     const patched = await patchRun(runId, {
       status: aborted ? 'cancelled' : 'failed',
       outputText: context.fullResponse,
@@ -755,7 +755,7 @@ async function executeAgentRun(runId, params) {
     }
     return patched;
   } finally {
-    const latest = getRun(runId);
+    const latest = await getRun(runId);
     if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
       releaseRunContext(runId, { force: true });
     }
@@ -768,7 +768,7 @@ async function startAgentRun(params) {
   // chat messages are correlated. Automations without a session get a unique run ID.
   const threadId = params.threadId
     || (params.sessionId ? `session_${params.sessionId}` : `run_${params.ownerType}_${now()}`);
-  const run = createRun({
+  const run = await createRun({
     automationId: params.automationId ?? null,
     projectId: params.projectId ?? 'default',
     ownerType: params.ownerType,
@@ -818,11 +818,11 @@ async function startAgentRun(params) {
       model: providerConfig.model,
     });
   });
-  return getRun(run.id);
+  return await getRun(run.id);
 }
 
 async function resumeRun(runId, decisions) {
-  const run = getRun(runId);
+  const run = await getRun(runId);
   if (!run?.threadId) {
     throw new Error('El run no tiene threadId para reanudar');
   }
@@ -861,14 +861,14 @@ async function resumeRun(runId, decisions) {
     existingContext.projectId = run.projectId ?? 'default';
   }
   activeRunContexts.set(runId, context);
-  appendRunStep({
+  await appendRunStep({
     runId,
     stepType: 'decision',
     title: 'Reanudación manual',
     status: 'done',
     content: JSON.stringify(decisions),
   });
-  patchRun(runId, {
+  await patchRun(runId, {
     status: 'running',
     metadata: {
       pendingApproval: null,
@@ -899,7 +899,7 @@ async function resumeRun(runId, decisions) {
     });
 
     if (result && typeof result === 'object' && result.__interrupt__) {
-      return getRun(runId);
+      return await getRun(runId);
     }
 
     if (run.sessionId) {
@@ -916,7 +916,7 @@ async function resumeRun(runId, decisions) {
         context,
       );
     }
-    appendRunStep({
+    await appendRunStep({
       runId,
       stepType: 'completion',
       title: 'Run completado',
@@ -924,8 +924,8 @@ async function resumeRun(runId, decisions) {
       content: context.fullResponse.slice(0, 8000),
       ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
     });
-    finalizeRunningRunSteps(runId, 'completed', context);
-    return patchRun(runId, {
+    await finalizeRunningRunSteps(runId, 'completed', context);
+    return await patchRun(runId, {
       status: 'completed',
       outputText: context.fullResponse,
       summary: context.fullResponse.slice(0, 280) || 'Run completado',
@@ -943,7 +943,7 @@ async function resumeRun(runId, decisions) {
     });
   } catch (error) {
     const failMeta = run.metadata ?? {};
-    return patchRun(runId, {
+    return await patchRun(runId, {
       status: 'failed',
       error: error?.message || String(error),
       finishedAt: now(),
@@ -953,7 +953,7 @@ async function resumeRun(runId, decisions) {
       },
     });
   } finally {
-    const latest = getRun(runId);
+    const latest = await getRun(runId);
     if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
       releaseRunContext(runId, { force: true });
     }
@@ -965,7 +965,7 @@ async function startWorkflowRun(params) {
   if (!workflow) {
     throw new Error('Workflow no encontrado');
   }
-  const run = createRun({
+  const run = await createRun({
     automationId: params.automationId ?? null,
     projectId: workflow.projectId ?? 'default',
     ownerType: 'workflow',
@@ -990,7 +990,7 @@ async function startWorkflowRun(params) {
   setImmediate(() => {
     void executeWorkflowRun(run.id, params, workflow);
   });
-  return getRun(run.id);
+  return await getRun(run.id);
 }
 
 async function fireContextualAutomations(tag) {

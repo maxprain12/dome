@@ -42,7 +42,7 @@ const { serializeFeederRow, serializeFeederRunRow } = require('../../services/fe
 function register({ ipcMain, windowManager, database }) {
   const vault = createFeederVault(database);
 
-  ipcMain.handle('feeders:create', (event, input) => {
+  ipcMain.handle('feeders:create', async (event, input) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -51,7 +51,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Invalid payload' };
     }
     try {
-      const feeder = createFeederRecord(database, parsed.data || {});
+      const feeder = await createFeederRecord(database, parsed.data || {});
       if (windowManager.broadcast) {
         windowManager.broadcast('feeder:created', feeder);
       }
@@ -62,7 +62,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('feeders:get', (event, feederId) => {
+  ipcMain.handle('feeders:get', async (event, feederId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -71,7 +71,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Invalid feederId' };
     }
     try {
-      const row = database.getQueries().getFeederById.get(parsed.data);
+      const row = await database.getQueries().getFeederById.get(parsed.data);
       if (!row) return { success: false, error: 'Feeder not found' };
       return { success: true, data: serializeFeederRow(row) };
     } catch (error) {
@@ -79,7 +79,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('feeders:list', (event, artifactResourceId) => {
+  ipcMain.handle('feeders:list', async (event, artifactResourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -88,26 +88,26 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Invalid artifactResourceId' };
     }
     try {
-      const rows = database.getQueries().listFeedersByArtifact.all(parsed.data);
+      const rows = await database.getQueries().listFeedersByArtifact.all(parsed.data);
       return { success: true, data: rows.map(serializeFeederRow) };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('feeders:listAll', (event) => {
+  ipcMain.handle('feeders:listAll', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      const rows = database.getQueries().listAllFeeders.all();
+      const rows = await database.getQueries().listAllFeeders.all();
       return { success: true, data: rows.map(serializeFeederRow) };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('feeders:update-script', (event, raw) => {
+  ipcMain.handle('feeders:update-script', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -117,7 +117,7 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       const { feederId, script } = parsed.data;
-      const feeder = updateFeederScript(database, feederId, String(script || ''));
+      const feeder = await updateFeederScript(database, feederId, String(script || ''));
       if (windowManager.broadcast) {
         windowManager.broadcast('feeder:updated', feeder);
       }
@@ -127,7 +127,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('feeders:approve', (event, feederId) => {
+  ipcMain.handle('feeders:approve', async (event, feederId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -136,7 +136,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Invalid feederId' };
     }
     try {
-      const feeder = approveFeeder(database, parsed.data);
+      const feeder = await approveFeeder(database, parsed.data);
       if (windowManager.broadcast) {
         windowManager.broadcast('feeder:updated', feeder);
       }
@@ -155,7 +155,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Invalid feederId' };
     }
     try {
-      database.getQueries().deleteFeeder.run(parsed.data);
+      await database.getQueries().deleteFeeder.run(parsed.data);
       const workspaceRoot = path.join(app.getPath('userData'), 'feeders', parsed.data);
       await fs.promises.rm(workspaceRoot, { recursive: true, force: true }).catch(() => {});
       if (windowManager.broadcast) {
@@ -186,7 +186,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('feeders:history', (event, raw) => {
+  ipcMain.handle('feeders:history', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -196,14 +196,14 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       const { feederId, limit } = parsed.data;
-      const rows = database.getQueries().listFeederRuns.all(feederId, Math.min(Number(limit) || 20, 100));
+      const rows = await database.getQueries().listFeederRuns.all(feederId, Math.min(Number(limit) || 20, 100));
       return { success: true, data: rows.map(serializeFeederRunRow) };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('feeder-secrets:list', (event) => {
+  ipcMain.handle('feeder-secrets:list', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -211,13 +211,13 @@ function register({ ipcMain, windowManager, database }) {
       if (!vault.isAvailable()) {
         return { success: false, error: 'Secret vault unavailable (OS encryption not available)' };
       }
-      return { success: true, data: vault.listSecrets() };
+      return { success: true, data: await vault.listSecrets() };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('feeder-secrets:set', (event, raw) => {
+  ipcMain.handle('feeder-secrets:set', async (event, raw) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -227,7 +227,7 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       const { name, value } = parsed.data;
-      const data = vault.setSecret(name, value);
+      const data = await vault.setSecret(name, value);
       if (windowManager.broadcast) {
         windowManager.broadcast('feeder:secret-updated', { name: data.name });
       }
@@ -237,7 +237,7 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
-  ipcMain.handle('feeder-secrets:delete', (event, secretId) => {
+  ipcMain.handle('feeder-secrets:delete', async (event, secretId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -246,7 +246,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Invalid secretId' };
     }
     try {
-      vault.deleteSecret(parsed.data);
+      await vault.deleteSecret(parsed.data);
       if (windowManager.broadcast) {
         windowManager.broadcast('feeder:secret-deleted', { secretId });
       }

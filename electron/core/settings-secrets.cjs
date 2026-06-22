@@ -48,8 +48,8 @@ async function writeSettingSecret(queries, key, plain) {
   await queries.setSetting.run(key, encryptSecret(String(plain).trim()), ts);
 }
 
-function maskSettingForRenderer(queries, key) {
-  const plain = readSettingSecret(queries, key);
+async function maskSettingForRenderer(queries, key) {
+  const plain = await readSettingSecret(queries, key);
   if (!plain) return null;
   return maskSecret(plain);
 }
@@ -66,10 +66,10 @@ function isMaskedSecret(value) {
  * Prefer a fresh plaintext candidate from the renderer; otherwise read decrypted storage.
  * Ignores masked placeholders so HTTP headers never receive Unicode ellipsis.
  */
-function resolveSettingSecretForApi(queries, key, candidate) {
+async function resolveSettingSecretForApi(queries, key, candidate) {
   const trimmed = String(candidate ?? '').trim();
   if (trimmed && !isMaskedSecret(trimmed)) return trimmed;
-  return readSettingSecret(queries, key) || '';
+  return (await readSettingSecret(queries, key)) || '';
 }
 
 function encryptSessionField(value) {

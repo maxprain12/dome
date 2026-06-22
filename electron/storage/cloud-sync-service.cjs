@@ -170,6 +170,7 @@ async function pragmaColumns(db, table) {
 async function upsertRows(db, table, rows) {
   if (!rows?.length) return;
   const validCols = new Set(await pragmaColumns(db, table));
+  const hasId = validCols.has('id');
   for (const raw of rows) {
     const row = /** @type {Record<string, unknown>} */ ({});
     for (const [k, v] of Object.entries(raw)) {
@@ -179,8 +180,19 @@ async function upsertRows(db, table, rows) {
     const keys = Object.keys(row);
     if (keys.length === 0) continue;
     const placeholders = keys.map(() => '?').join(',');
-    const sql = `INSERT OR REPLACE INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`;
-    await db.run(sql, keys.map((k) => row[k]));
+    const values = keys.map((k) => row[k]);
+    // DuckDB rejects `INSERT OR REPLACE` on tables with more than one
+    // UNIQUE/PRIMARY KEY constraint (it can't infer a conflict target). Emulate
+    // the replace by deleting the existing row by its primary key (`id`) first,
+    // then inserting. Best-effort per row so one bad row doesn't abort the sync.
+    try {
+      if (hasId && row.id != null) {
+        await db.run(`DELETE FROM ${table} WHERE id = ?`, [row.id]);
+      }
+      await db.run(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${placeholders})`, values);
+    } catch (err) {
+      console.warn(`[cloud-sync] upsert ${table} row failed:`, err?.message || err);
+    }
   }
 }
 

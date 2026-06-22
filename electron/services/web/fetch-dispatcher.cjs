@@ -217,7 +217,7 @@ async function scrapeUrl(input) {
     // Screenshots require a headless browser; HTTP providers cannot render JS pages.
   }
 
-  const settings = getWebSettings();
+  const settings = await getWebSettings();
   const chain = buildProviderChain(settings);
   const errors = [];
 

@@ -48,6 +48,20 @@ function normalizeRows(rows) {
   return rows;
 }
 
+/**
+ * Coerce bound parameters into types DuckDB's binder accepts. better-sqlite3
+ * silently treated `undefined` as NULL, but DuckDB throws "Cannot create values
+ * of type ANY" — so map `undefined` → `null`. Booleans are mapped to 1/0 to match
+ * how SQLite stored them (call sites read integer flags like `row.x === 1`).
+ */
+function sanitizeParams(params) {
+  return params.map((p) => {
+    if (p === undefined) return null;
+    if (typeof p === 'boolean') return p ? 1 : 0;
+    return p;
+  });
+}
+
 class DuckDbConnection {
   constructor(instance, connection, dbPath) {
     this._instance = instance;
@@ -74,7 +88,7 @@ class DuckDbConnection {
   async all(sql, params = []) {
     return this._enqueue(async () => {
       const reader = Array.isArray(params) && params.length > 0
-        ? await this._conn.runAndReadAll(sql, params)
+        ? await this._conn.runAndReadAll(sql, sanitizeParams(params))
         : await this._conn.runAndReadAll(sql);
       return normalizeRows(reader.getRowObjects());
     });
@@ -88,7 +102,7 @@ class DuckDbConnection {
   async run(sql, params = []) {
     return this._enqueue(async () => {
       const result = Array.isArray(params) && params.length > 0
-        ? await this._conn.run(sql, params)
+        ? await this._conn.run(sql, sanitizeParams(params))
         : await this._conn.run(sql);
       // DuckDB returns the affected-row count on DML as `rowsChanged`; expose it
       // as `changes` to match the better-sqlite3 RunResult shape used by callers.
@@ -160,14 +174,14 @@ async function openDuckDb(dbPath) {
   const instance = await DuckDBInstance.create(dbPath);
   const connection = await instance.connect();
   const conn = new DuckDbConnection(instance, connection, dbPath);
-  // FTS + sqlite scanner extensions are bundled with the DuckDB binary; LOAD is
-  // cheap and idempotent. sqlite_scanner is needed for the legacy data import
-  // (ATTACH 'dome.db' AS legacy (TYPE sqlite)) so DuckDB can read the old
-  // better-sqlite3 file natively without keeping that native dependency around.
+  // FTS + JSON extensions are bundled with the DuckDB binary; LOAD is cheap and
+  // idempotent. (The `sqlite_scanner` extension was previously loaded to import
+  // the legacy `dome.db`, but that import crashed the native binding on real
+  // data and was removed in v2.7 — see database.cjs initDatabase note.)
   try {
-    await conn.exec('INSTALL fts; LOAD fts; INSTALL json; LOAD json; INSTALL sqlite_scanner; LOAD sqlite_scanner;');
+    await conn.exec('INSTALL fts; LOAD fts; INSTALL json; LOAD json;');
   } catch (err) {
-    console.warn('[DuckDB] Could not load fts/json/sqlite_scanner extensions:', err?.message || err);
+    console.warn('[DuckDB] Could not load fts/json extensions:', err?.message || err);
   }
   return conn;
 }

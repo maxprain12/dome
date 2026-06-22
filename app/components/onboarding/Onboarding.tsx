@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { applyOnboardingConfig } from '@/lib/onboarding/applyOnboardingConfig';
 import type { RoleId } from '@/lib/onboarding/roles';
@@ -40,13 +41,18 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
     return null;
   }
 
-  return (
+  // Portal to <body> so the full-screen backdrop escapes the shell's content
+  // container (whose ancestors establish a containing block that would otherwise
+  // clip `position: fixed` to the central area). This makes the onboarding take
+  // over the ENTIRE app — sidebar and Many panel included — and blur all of it.
+  return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center"
       style={{
-        zIndex: 'var(--z-modal)',
+        zIndex: 'var(--z-max)',
         backgroundColor: 'color-mix(in srgb, var(--dome-text) 40%, transparent)',
         backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
       }}
     >
       <div
@@ -62,6 +68,7 @@ export default function Onboarding({ onComplete }: OnboardingProps) {
           onComplete={handleComplete}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

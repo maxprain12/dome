@@ -46,14 +46,14 @@ const { getOpenAIKey: getOpenAIKeyForTranscription } = require('../ai/openai-key
  * @param {Object|null} database
  * @returns {'openai'|'groq'|'custom'}
  */
-function getTranscriptionSttProvider(database) {
+async function getTranscriptionSttProvider(database) {
   if (!database) return 'openai';
   try {
-    const row = database.getQueries().getSetting.get('transcription_stt_provider');
+    const row = await database.getQueries().getSetting.get('transcription_stt_provider');
     const v = row?.value && String(row.value).trim().toLowerCase();
     if (v === 'local-gemma') return 'openai';
     if (v === 'groq' || v === 'openai' || v === 'custom') return v;
-    const baseRow = database.getQueries().getSetting.get('transcription_api_base_url');
+    const baseRow = await database.getQueries().getSetting.get('transcription_api_base_url');
     const raw = baseRow?.value && String(baseRow.value).trim().toLowerCase();
     if (raw && raw.includes('groq')) return 'groq';
     return 'openai';
@@ -68,19 +68,19 @@ function getTranscriptionSttProvider(database) {
  * @param {'openai'|'groq'|'custom'|undefined} [providerHint]
  * @returns {string|null}
  */
-function getTranscriptionApiKey(database, providerHint) {
-  const p = providerHint || (database ? getTranscriptionSttProvider(database) : 'openai');
+async function getTranscriptionApiKey(database, providerHint) {
+  const p = providerHint || (database ? await getTranscriptionSttProvider(database) : 'openai');
   if (p === 'groq') {
     if (!database) return null;
     try {
-      const row = database.getQueries().getSetting.get('transcription_groq_api_key');
+      const row = await database.getQueries().getSetting.get('transcription_groq_api_key');
       if (row?.value && String(row.value).trim()) return String(row.value).trim();
     } catch (err) {
       console.error('[Transcription] Groq key lookup error:', err);
     }
     return null;
   }
-  return getOpenAIKeyForTranscription(database);
+  return await getOpenAIKeyForTranscription(database);
 }
 
 /**
@@ -90,13 +90,13 @@ function getTranscriptionApiKey(database, providerHint) {
  * @param {'openai'|'groq'|'custom'|undefined} [forcedProvider]
  * @returns {string}
  */
-function resolveTranscriptionsUrl(database, forcedProvider) {
-  const provider = forcedProvider || (database ? getTranscriptionSttProvider(database) : 'openai');
+async function resolveTranscriptionsUrl(database, forcedProvider) {
+  const provider = forcedProvider || (database ? await getTranscriptionSttProvider(database) : 'openai');
   const defaultOrigin = provider === 'groq' ? DEFAULT_GROQ_ORIGIN : DEFAULT_OPENAI_ORIGIN;
   const defaultUrl = `${defaultOrigin}/v1/audio/transcriptions`;
   if (!database) return defaultUrl;
   try {
-    const row = database.getQueries().getSetting.get('transcription_api_base_url');
+    const row = await database.getQueries().getSetting.get('transcription_api_base_url');
     const raw = row?.value && String(row.value).trim() ? String(row.value).trim() : '';
     if (!raw) return defaultUrl;
     if (/\/audio\/transcriptions/i.test(raw)) {
@@ -114,10 +114,10 @@ function resolveTranscriptionsUrl(database, forcedProvider) {
  * @param {Object|null} database
  * @returns {string|null}
  */
-function getTranscriptionPromptFromDb(database) {
+async function getTranscriptionPromptFromDb(database) {
   if (!database) return null;
   try {
-    const row = database.getQueries().getSetting.get('transcription_prompt');
+    const row = await database.getQueries().getSetting.get('transcription_prompt');
     const p = row?.value && String(row.value).trim() ? String(row.value).trim() : '';
     return p || null;
   } catch {
@@ -126,10 +126,10 @@ function getTranscriptionPromptFromDb(database) {
 }
 
 /** Pausa mínima (s) para alternar hablante heurístico */
-function getPauseThresholdFromDb(database) {
+async function getPauseThresholdFromDb(database) {
   if (!database) return 1.35;
   try {
-    const row = database.getQueries().getSetting.get('transcription_pause_threshold_sec');
+    const row = await database.getQueries().getSetting.get('transcription_pause_threshold_sec');
     const v = parseFloat(String(row?.value || ''));
     if (Number.isFinite(v) && v >= 0.4 && v <= 8) return v;
   } catch {
@@ -374,16 +374,16 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
  */
 async function transcribeFilePath(inputAbsolutePath, options) {
   const database = options.database || null;
-  const sttProvider = database ? getTranscriptionSttProvider(database) : options.sttProvider || 'openai';
-  const apiKey = options.apiKey || (database ? getTranscriptionApiKey(database, sttProvider) : null);
+  const sttProvider = database ? await getTranscriptionSttProvider(database) : options.sttProvider || 'openai';
+  const apiKey = options.apiKey || (database ? await getTranscriptionApiKey(database, sttProvider) : null);
   if (!apiKey) {
     throw new Error('STT API key not configured for the selected provider (OpenAI/Groq key in Transcription or AI settings).');
   }
 
-  const apiUrl = options.apiUrl || resolveTranscriptionsUrl(database, sttProvider);
+  const apiUrl = options.apiUrl || await resolveTranscriptionsUrl(database, sttProvider);
   let prompt = options.prompt;
   if (prompt === undefined) {
-    prompt = getTranscriptionPromptFromDb(database);
+    prompt = await getTranscriptionPromptFromDb(database);
   } else if (prompt !== null && typeof prompt === 'string' && !prompt.trim()) {
     prompt = null;
   }
@@ -419,7 +419,7 @@ async function transcribeFilePath(inputAbsolutePath, options) {
     const pauseThresholdSec =
       options.pauseThresholdSec != null && Number.isFinite(options.pauseThresholdSec)
         ? options.pauseThresholdSec
-        : getPauseThresholdFromDb(database);
+        : await getPauseThresholdFromDb(database);
     const captureSources =
       Array.isArray(options.captureSources) && options.captureSources.length
         ? options.captureSources.filter((s) => s === 'mic' || s === 'system')
@@ -538,8 +538,8 @@ async function transcribeFilePath(inputAbsolutePath, options) {
  * @param {string} suggestedExtension - e.g. webm, wav
  */
 async function transcribeBuffer(buffer, suggestedExtension, database, transcriptionOptions = {}) {
-  const stt = database ? getTranscriptionSttProvider(database) : 'openai';
-  const apiKey = transcriptionOptions.apiKey || (database ? getTranscriptionApiKey(database) : null);
+  const stt = database ? await getTranscriptionSttProvider(database) : 'openai';
+  const apiKey = transcriptionOptions.apiKey || (database ? await getTranscriptionApiKey(database) : null);
   if (!apiKey) {
     throw new Error('STT API key not configured for the selected provider (OpenAI/Groq key in Transcription or AI settings).');
   }

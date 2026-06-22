@@ -57,10 +57,10 @@ function pdfJsExtractIsInsufficient(text, numPages) {
   return avg < 32;
 }
 
-function getModelVersionLabel() {
+async function getModelVersionLabel() {
   const q = database.getQueries();
-  const p = String(q.getSetting.get('ai_provider')?.value || 'cloud');
-  const m = String(q.getSetting.get('ai_model')?.value || 'default');
+  const p = String((await q.getSetting.get('ai_provider'))?.value || 'cloud');
+  const m = String((await q.getSetting.get('ai_model'))?.value || 'default');
   return `cloud:${p}:${m}`;
 }
 
@@ -76,9 +76,9 @@ async function resolveVisionOcrAvailable(queries) {
  * @param {string} nextContent
  * @param {Record<string, unknown>} indexingPatch merged into metadata.pdf_indexing
  */
-function finalizePdfIndexingState(queries, resourceId, nextContent, indexingPatch) {
+async function finalizePdfIndexingState(queries, resourceId, nextContent, indexingPatch) {
   try {
-    const row = queries.getResourceById.get(resourceId);
+    const row = await queries.getResourceById.get(resourceId);
     if (!row) return;
     const now = Date.now();
     let meta = {};
@@ -92,7 +92,7 @@ function finalizePdfIndexingState(queries, resourceId, nextContent, indexingPatc
       ...indexingPatch,
       updated_at: now,
     };
-    queries.updateResource.run(row.title || 'Untitled', nextContent ?? '', JSON.stringify(meta), now, resourceId);
+    await queries.updateResource.run(row.title || 'Untitled', nextContent ?? '', JSON.stringify(meta), now, resourceId);
   } catch (e) {
     console.warn('[pdf-transcription] finalizePdfIndexingState', e?.message || e);
   }
@@ -152,11 +152,11 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
   const pdfJsText = await buildPdfjsMarkedText(fullPath, numPages);
   if (!pdfJsExtractIsInsufficient(pdfJsText, numPages)) {
     try {
-      queries.deleteResourceTranscripts.run(resourceId);
+      await queries.deleteResourceTranscripts.run(resourceId);
     } catch {
       /* */
     }
-    finalizePdfIndexingState(queries, resourceId, pdfJsText, {
+    await finalizePdfIndexingState(queries, resourceId, pdfJsText, {
       status: 'ok',
       text_source: 'pdfjs',
     });
@@ -166,7 +166,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
   const visionReady = await resolveVisionOcrAvailable(queries);
 
   if (!visionReady) {
-    finalizePdfIndexingState(queries, resourceId, '', {
+    await finalizePdfIndexingState(queries, resourceId, '', {
       status: 'blocked_no_vision_ocr',
       text_source: 'none',
       blocked_reason: 'pdfjs_insufficient_no_ocr_provider',
@@ -176,7 +176,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
         'Sin eso Dome no ejecuta OCR del modelo sobre las páginas.',
     });
     try {
-      queries.deleteResourceTranscripts.run(resourceId);
+      await queries.deleteResourceTranscripts.run(resourceId);
     } catch {
       /* */
     }
@@ -185,11 +185,11 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
 
   /** 2 — OCR por modelo (solo si pdf.js fue insuficiente) */
   const visionNow = Date.now();
-  const modelUsed = getModelVersionLabel();
-  const cachedCount = queries.countResourceTranscriptsForHash.get(resourceId, fileHash || '__none__');
+  const modelUsed = await getModelVersionLabel();
+  const cachedCount = await queries.countResourceTranscriptsForHash.get(resourceId, fileHash || '__none__');
   const c = Number(cachedCount?.c ?? 0);
   if (fileHash && c === numPages && numPages > 0) {
-    const rows = queries.getResourceTranscriptsByResource.all(resourceId);
+    const rows = await queries.getResourceTranscriptsByResource.all(resourceId);
     if (rows.length === numPages) {
       let text = rows
         .map((row) => {
@@ -200,7 +200,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
       if (!text.trim() || storedPdfVisionTranscriptLooksCorrupted(text)) {
         /** Caché inservible ante nuevas reglas; reintentar OCR */
       } else {
-        finalizePdfIndexingState(queries, resourceId, text, {
+        await finalizePdfIndexingState(queries, resourceId, text, {
           status: 'ok',
           text_source: 'vision_ocr_cached',
         });
@@ -210,7 +210,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
   }
 
   try {
-    queries.deleteResourceTranscripts.run(resourceId);
+    await queries.deleteResourceTranscripts.run(resourceId);
   } catch {
     /* */
   }
@@ -247,7 +247,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
       parts.push(`<!-- page:${p} -->\n\n${md}`);
 
       try {
-        queries.upsertResourceTranscript.run(
+        await queries.upsertResourceTranscript.run(
           resourceId,
           p,
           md,
@@ -268,7 +268,7 @@ async function extractPdfTextWithCloud(resource, queries, opts = {}) {
 
   const joined = parts.join('\n\n');
 
-  finalizePdfIndexingState(queries, resourceId, joined, {
+  await finalizePdfIndexingState(queries, resourceId, joined, {
     status: joined.trim().length ? 'ok' : 'failed_vision_empty',
     text_source: joined.trim().length ? 'vision_ocr' : 'none',
     blocked_reason: joined.trim().length ? undefined : 'vision_ocr_yielded_empty',

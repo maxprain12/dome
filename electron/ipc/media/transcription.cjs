@@ -70,7 +70,7 @@ async function readBoolSetting(database, key, fallback) {
 async function getSettingsPayload(database) {
   const queries = database.getQueries();
 
-  let sttProvider = transcriptionService.getTranscriptionSttProvider(database);
+  let sttProvider = await transcriptionService.getTranscriptionSttProvider(database);
   if (sttProvider !== 'groq' && sttProvider !== 'openai' && sttProvider !== 'custom') {
     sttProvider = 'openai';
   }
@@ -350,9 +350,9 @@ function register({
   ipcMain.handle('transcription:session-start', async (event, payload = {}) => {
     if (!windowManager.isAuthorized(event.sender.id)) return { success: false, error: 'Unauthorized' };
     try {
-      const apiKey = transcriptionService.getTranscriptionApiKey(database);
+      const apiKey = await transcriptionService.getTranscriptionApiKey(database);
       if (!apiKey) {
-        const prov = transcriptionService.getTranscriptionSttProvider(database);
+        const prov = await transcriptionService.getTranscriptionSttProvider(database);
         return {
           success: false,
           error: prov === 'groq'

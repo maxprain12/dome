@@ -36,16 +36,16 @@ const GH_TOKEN_SETTING = 'copilot_github_token';
 /** @type {{ token: string, baseUrl: string, expires: number } | null} */
 let cachedCopilotToken = null;
 
-function getSetting(database, key) {
+async function getSetting(database, key) {
   try {
-    return database.getQueries().getSetting.get(key)?.value || null;
+    return (await database.getQueries().getSetting.get(key))?.value || null;
   } catch {
     return null;
   }
 }
 
-function setSetting(database, key, value) {
-  database.getQueries().setSetting.run(key, value, Date.now());
+async function setSetting(database, key, value) {
+  await database.getQueries().setSetting.run(key, value, Date.now());
 }
 
 async function fetchJson(url, init) {
@@ -129,7 +129,7 @@ async function pollForAccessToken(database, { deviceCode, interval = 5, expiresI
     }
 
     if (raw && typeof raw.access_token === 'string') {
-      setSetting(database, GH_TOKEN_SETTING, raw.access_token);
+      await setSetting(database, GH_TOKEN_SETTING, raw.access_token);
       cachedCopilotToken = null;
       return { success: true };
     }
@@ -164,7 +164,7 @@ async function getCopilotToken(database) {
     return { token: cachedCopilotToken.token, baseUrl: cachedCopilotToken.baseUrl };
   }
 
-  const ghToken = getSetting(database, GH_TOKEN_SETTING);
+  const ghToken = await getSetting(database, GH_TOKEN_SETTING);
   if (!ghToken) {
     throw new Error('GitHub Copilot no conectado. Conéctalo en Ajustes → IA.');
   }
@@ -185,12 +185,12 @@ async function getCopilotToken(database) {
   return { token: raw.token, baseUrl };
 }
 
-function getStatus(database) {
-  return { connected: !!getSetting(database, GH_TOKEN_SETTING) };
+async function getStatus(database) {
+  return { connected: !!(await getSetting(database, GH_TOKEN_SETTING)) };
 }
 
-function disconnect(database) {
-  setSetting(database, GH_TOKEN_SETTING, '');
+async function disconnect(database) {
+  await setSetting(database, GH_TOKEN_SETTING, '');
   cachedCopilotToken = null;
   return { success: true };
 }

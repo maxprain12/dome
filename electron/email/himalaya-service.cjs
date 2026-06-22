@@ -154,23 +154,23 @@ async function addAccount(input) {
       `INSERT INTO email_accounts
         (id, email, display_name, imap_host, imap_port, imap_encryption,
          smtp_host, smtp_port, smtp_encryption, username, secret, is_default, status, created_at, updated_at)
-       VALUES (@id,@email,@display_name,@imap_host,@imap_port,@imap_encryption,
-         @smtp_host,@smtp_port,@smtp_encryption,@username,@secret,@is_default,'active',@now,@now)`,
-      [{
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?)`,
+      [
         id,
-        email: input.email,
-        display_name: input.display_name || '',
-        imap_host: input.imap_host,
-        imap_port: Number(input.imap_port) || 993,
-        imap_encryption: input.imap_encryption || 'tls',
-        smtp_host: input.smtp_host,
-        smtp_port: Number(input.smtp_port) || 465,
-        smtp_encryption: input.smtp_encryption || 'tls',
-        username: input.username || input.email,
-        secret: encryptSecret(input.password || ''),
-        is_default: isDefault,
+        input.email,
+        input.display_name || '',
+        input.imap_host,
+        Number(input.imap_port) || 993,
+        input.imap_encryption || 'tls',
+        input.smtp_host,
+        Number(input.smtp_port) || 465,
+        input.smtp_encryption || 'tls',
+        input.username || input.email,
+        encryptSecret(input.password || ''),
+        isDefault,
         now,
-      }],
+        now,
+      ],
     );
 
   await writeConfig();

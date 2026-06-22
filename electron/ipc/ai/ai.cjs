@@ -539,8 +539,8 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
       const candidate = params && typeof params === 'object' && typeof params.apiKey === 'string'
         ? params.apiKey
         : '';
-      const apiKey = resolveSettingSecretForApi(queries, 'ai_api_key_openrouter', candidate)
-        || resolveSettingSecretForApi(queries, 'ai_api_key', '');
+      const apiKey = (await resolveSettingSecretForApi(queries, 'ai_api_key_openrouter', candidate))
+        || (await resolveSettingSecretForApi(queries, 'ai_api_key', ''));
       return await fetchOpenRouterModels(apiKey);
     } catch (error) {
       return { success: false, error: error.message || String(error) };

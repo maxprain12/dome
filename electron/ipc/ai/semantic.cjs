@@ -262,7 +262,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       const indexedResourceCount = await lancedbSemantic.countIndexedResources();
       const pendingCount = Math.max(0, indexableTotal - indexedResourceCount);
       const allIndexed = indexableTotal === 0 || indexedResourceCount >= indexableTotal;
-      const configured = embeddingsService.isConfigured();
+      const configured = await embeddingsService.isConfigured();
       return {
         success: true,
         data: {

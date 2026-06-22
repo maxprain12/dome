@@ -266,8 +266,12 @@ async function replaceBranches(rId, branches) {
     await tx.run('DELETE FROM github_branches WHERE repo_id = ?', [rId]);
     for (const b of branches) {
       const linked = /(?:^|[/-])(\d+)(?:[/-]|$)/.exec(b.name);
+      // Plain INSERT (not INSERT OR REPLACE): the repo's branches were just
+      // DELETEd above, so there is no conflict. DuckDB rejects INSERT OR REPLACE
+      // here anyway — github_branches has two constraints (PK id + UNIQUE
+      // repo_id,name) and DuckDB can't infer a conflict target for OR REPLACE.
       await tx.run(
-        `INSERT OR REPLACE INTO github_branches (id, repo_id, name, sha, protected, linked_issue_number, updated_at)
+        `INSERT INTO github_branches (id, repo_id, name, sha, protected, linked_issue_number, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [`ghb-${rId}-${slug(b.name)}`, rId, b.name, b.commit?.sha || null, b.protected ? 1 : 0, linked ? Number(linked[1]) : null, ts],
       );

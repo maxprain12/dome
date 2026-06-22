@@ -281,5 +281,6 @@
   "tool_sql_generic": "SQL query",
   "tool_mcp_generic": "MCP tool",
   "calendar_event_untitled": "Event",
-  "flashcard_deck_count": "{{count}} cards"
+  "flashcard_deck_count": "{{count}} cards",
+  "try_again": "Try again"
 }

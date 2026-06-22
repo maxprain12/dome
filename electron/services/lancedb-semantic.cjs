@@ -519,7 +519,7 @@ async function migrateChunksFromSqliteIfNeeded(sqlite) {
   );
   const n = Number(total?.c ?? 0) || 0;
   if (n === 0) return { migrated: 0 };
-  if (!embeddingsSvc().isConfigured()) return { migrated: 0 };
+  if (!await embeddingsSvc().isConfigured()) return { migrated: 0 };
 
   console.log('[LanceDB] migrando', n, 'chunks legacy Nomic desde DuckDB…');
   const rows = await sqlite.all(

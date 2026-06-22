@@ -282,5 +282,6 @@
   "tool_sql_generic": "Consulta SQL",
   "tool_mcp_generic": "Ferramenta MCP",
   "calendar_event_untitled": "Evento",
-  "flashcard_deck_count": "{{count}} cartões"
+  "flashcard_deck_count": "{{count}} cartões",
+  "try_again": "Tentar de novo"
 }

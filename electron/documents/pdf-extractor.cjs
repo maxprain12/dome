@@ -411,7 +411,7 @@ async function renderPdfPagePngDataUrl(filePath, pageNum = 1, scale = 1.5) {
 async function getPdfFilePathFromResource(resourceId, database) {
   try {
     const queries = database.getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     
     if (!resource) {
       return { success: false, error: 'Resource not found' };

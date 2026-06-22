@@ -6,6 +6,11 @@ import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
 import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import { cn } from '@/lib/utils';
+// Co-locate the provider-card stylesheet with the component that uses its
+// classes (`ai-provider-grid`, `ai-provider-card`, …). Previously only
+// AISettingsPanel imported it, so the onboarding AI step rendered unstyled until
+// Settings → AI had been opened at least once. Vite dedupes this import.
+import '@/styles/ai-settings.css';
 
 export interface AIProviderSelectionProps {
   provider: AIProviderType;

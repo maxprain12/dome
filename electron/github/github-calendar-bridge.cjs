@@ -101,7 +101,7 @@ function completedMilestoneLinkId(milestoneId) {
 }
 
 async function upsertEvent(entityType, entityId, { title, description, dateMs, url, extraMetadata = {} }) {
-  const link = store.getCalendarLink(entityType, entityId);
+  const link = await store.getCalendarLink(entityType, entityId);
   // Snap to the start of the local day so all-day events render in exactly one
   // cell. GitHub's `published_at` / `due_on` come with arbitrary hours (UTC),
   // and `endAt = startAt + 24h` would otherwise land mid-day and the renderer
@@ -141,22 +141,22 @@ async function createAndLink(entityType, entityId, { title, description, startAt
     metadata,
   });
   if (res?.success && res.event?.id) {
-    store.upsertCalendarLink(entityType, entityId, res.event.id);
+    await store.upsertCalendarLink(entityType, entityId, res.event.id);
   }
 }
 
 async function removeEvent(entityType, entityId) {
-  const link = store.getCalendarLink(entityType, entityId);
+  const link = await store.getCalendarLink(entityType, entityId);
   if (link?.event_id) {
     await calendarService.deleteEvent(link.event_id).catch(() => {});
   }
-  store.deleteCalendarLink(entityType, entityId);
+  await store.deleteCalendarLink(entityType, entityId);
 }
 
 /** Reproject all dated entities for the selected repos. Idempotent. */
 async function syncCalendar() {
   await ensureGithubCalendar();
-  const repos = store.listSelectedRepos();
+  const repos = await store.listSelectedRepos();
   const milestonesOn = isEnabled('milestones');
   const issuesOn = isEnabled('issues');
   const releasesOn = isEnabled('releases');
@@ -170,7 +170,7 @@ async function syncCalendar() {
 
   for (const repo of repos) {
     // Milestones — always on due_on (fecha de entrega), open or closed
-    for (const m of store.listMilestones(repo.id)) {
+    for (const m of await store.listMilestones(repo.id)) {
       // Remove legacy completion-date events from earlier bridge versions
       await removeEvent('milestone', completedMilestoneLinkId(m.id));
 
@@ -194,7 +194,7 @@ async function syncCalendar() {
       await breathe();
     }
     // Issues with a parsed due date
-    for (const issue of store.listIssues(repo.id)) {
+    for (const issue of await store.listIssues(repo.id)) {
       if (issuesOn && issue.due_date && issue.state === 'open') {
         await upsertEvent('issue', issue.id, {
           title: `#${issue.number} ${issue.title}`,
@@ -215,7 +215,7 @@ async function syncCalendar() {
     }
     // Releases (calendar rejects dates >1y in the past, so skip stale ones)
     const oneYearAgo = Date.now() - 350 * 24 * 60 * 60 * 1000;
-    for (const rel of store.listReleases(repo.id)) {
+    for (const rel of await store.listReleases(repo.id)) {
       if (releasesOn && rel.published_at && rel.published_at >= oneYearAgo) {
         await upsertEvent('release', rel.id, {
           title: `🚀 ${rel.name || rel.tag_name}`,
@@ -239,7 +239,7 @@ async function syncCalendar() {
 
 /** Delete every GitHub-originated calendar event + the GitHub calendar itself. */
 async function purgeAllEvents() {
-  const eventIds = store.listAllCalendarLinkEventIds();
+  const eventIds = await store.listAllCalendarLinkEventIds();
   let i = 0;
   for (const id of eventIds) {
     await calendarService.deleteEvent(id).catch(() => {});

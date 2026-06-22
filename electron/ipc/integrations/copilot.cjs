@@ -50,7 +50,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
-      return { success: true, ...copilotOAuth.getStatus(database) };
+      return { success: true, ...(await copilotOAuth.getStatus(database)) };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
     }

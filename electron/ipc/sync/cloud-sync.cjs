@@ -131,11 +131,11 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const q = database.getQueries();
       const now = Date.now();
       if (partial.auto_enabled != null) {
-        q.setSetting.run('dome_sync_auto_enabled', partial.auto_enabled ? 'true' : 'false', now);
+        await q.setSetting.run('dome_sync_auto_enabled', partial.auto_enabled ? 'true' : 'false', now);
       }
       if (partial.interval_minutes != null) {
         const m = Math.min(24 * 60, Math.max(5, Number(partial.interval_minutes) || 15));
-        q.setSetting.run('dome_sync_interval_minutes', String(m), now);
+        await q.setSetting.run('dome_sync_interval_minutes', String(m), now);
       }
       return { success: true };
     } catch (e) {

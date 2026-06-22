@@ -40,7 +40,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       validateSender(event, windowManager);
       const queries = database.getQueries();
       const cfg = await embeddingsService.readEmbeddingsSettings(queries);
-      const configured = embeddingsService.isConfigured(queries);
+      const configured = await embeddingsService.isConfigured(queries);
       let chunksTotal = 0;
       let indexedResourceCount = 0;
       try {
@@ -81,7 +81,7 @@ function register({ ipcMain, windowManager, validateSender }) {
         cfg = {
           provider: String(parsed.data.provider),
           model: String(parsed.data.model),
-          apiKey: resolveSettingSecretForApi(queries, 'embeddings_api_key', candidate),
+          apiKey: await resolveSettingSecretForApi(queries, 'embeddings_api_key', candidate),
           baseUrl: String(parsed.data.base_url ?? parsed.data.baseUrl ?? 'http://127.0.0.1:11434'),
         };
       } else {
@@ -114,7 +114,7 @@ function register({ ipcMain, windowManager, validateSender }) {
       const queries = database.getQueries();
       const provider = String(parsed.data?.provider || '').toLowerCase();
       const candidate = String(parsed.data?.api_key ?? parsed.data?.apiKey ?? '').trim();
-      let apiKey = resolveSettingSecretForApi(queries, 'embeddings_api_key', candidate);
+      let apiKey = await resolveSettingSecretForApi(queries, 'embeddings_api_key', candidate);
       let baseUrl = String(parsed.data?.base_url ?? parsed.data?.baseUrl ?? '').trim();
       if (!baseUrl) {
         baseUrl = String(
@@ -134,7 +134,7 @@ function register({ ipcMain, windowManager, validateSender }) {
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
-      if (!embeddingsService.isConfigured(queries)) {
+      if (!await embeddingsService.isConfigured(queries)) {
         return { success: false, error: 'Embeddings not configured' };
       }
       clearContextCache();

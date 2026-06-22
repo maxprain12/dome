@@ -155,7 +155,7 @@ async function initializeApp() {
   if (isInitialized) {
     return {
       success: true,
-      needsOnboarding: checkOnboardingStatus(),
+      needsOnboarding: await checkOnboardingStatus(),
     };
   }
 

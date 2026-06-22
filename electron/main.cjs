@@ -55,6 +55,7 @@ const {
   session,
   desktopCapturer,
   systemPreferences,
+  dialog,
 } = require('electron');
 
 // Pending display-media source ID.
@@ -539,18 +540,56 @@ function createTray(mainWindow) {
 /**
  * Enable auto-launch on first install (can be toggled later from settings).
  */
-function configureFirstLaunchAutoStart() {
+async function configureFirstLaunchAutoStart() {
   try {
     const queries = database.getQueries();
-    const already = queries.getSetting.get('auto_launch_initialized');
+    const already = await queries.getSetting.get('auto_launch_initialized');
     if (!already) {
       // First install — enable start-at-login by default
       app.setLoginItemSettings({ openAtLogin: true });
-      queries.setSetting.run('auto_launch_initialized', '1', Date.now());
+      await queries.setSetting.run('auto_launch_initialized', '1', Date.now());
       console.log('[AutoLaunch] Enabled auto-launch on first install');
     }
   } catch (err) {
     console.warn('[AutoLaunch] Could not configure first-launch auto-start:', err?.message);
+  }
+}
+
+/**
+ * Show a one-time warning that v2.7 does NOT migrate the pre-v2.7 SQLite
+ * database. Dome switched its store from SQLite (better-sqlite3) to DuckDB;
+ * automatically importing the old `dome.db` crashed DuckDB's native binding, so
+ * v2.7 starts fresh. The old file is left on disk untouched as a manual backup.
+ * Best-effort and non-blocking — never let this break startup.
+ * @param {import('electron').BrowserWindow} [parentWindow]
+ */
+async function notifyDestructiveUpgradeIfNeeded(parentWindow) {
+  try {
+    const { legacyPresent, noticeShown, legacyPath } = await database.legacyDbNoticeState();
+    if (!legacyPresent || noticeShown) return;
+
+    const opts = {
+      type: 'warning',
+      buttons: ['Entendido'],
+      defaultId: 0,
+      title: 'Dome 2.7 — actualización con datos nuevos',
+      message: 'Dome 2.7 empieza con una base de datos nueva',
+      detail:
+        'Esta versión cambia el motor de base de datos (SQLite → DuckDB). Los datos de versiones anteriores NO se migran automáticamente.\n\n' +
+        `Tu base de datos anterior se conserva intacta como copia de seguridad en:\n${legacyPath}\n\n` +
+        'No se ha borrado nada: simplemente Dome 2.7 arranca limpio.',
+      noLink: true,
+    };
+
+    if (parentWindow && !parentWindow.isDestroyed()) {
+      await dialog.showMessageBox(parentWindow, opts);
+    } else {
+      await dialog.showMessageBox(opts);
+    }
+    await database.markLegacyDbNoticeShown();
+    console.log('[Upgrade] Shown one-time v2.7 destructive-upgrade notice');
+  } catch (err) {
+    console.warn('[Upgrade] Could not show destructive-upgrade notice:', err?.message || err);
   }
 }
 
@@ -960,12 +999,12 @@ app
     const mainWindow = await createWindow();
 
     // One-time background semantic chunk reindex; non-blocking (requires embeddings config)
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         if (process.env.NODE_ENV === 'development') return;
         const q = database.getQueries();
-        if (!embeddingsService.isConfigured(q)) return;
-        const done = q.getSetting.get('semantic_initial_reindex_done_v2');
+        if (!(await embeddingsService.isConfigured(q))) return;
+        const done = await q.getSetting.get('semantic_initial_reindex_done_v2');
         if (done?.value === '1') return;
         const semanticScheduler = require('./storage/semantic-index-scheduler.cjs');
         semanticScheduler.init(database);
@@ -981,9 +1020,9 @@ app
               }
             },
           })
-          .then(() => {
+          .then(async () => {
             try {
-              q.setSetting.run('semantic_initial_reindex_done_v2', '1', Date.now());
+              await q.setSetting.run('semantic_initial_reindex_done_v2', '1', Date.now());
             } catch {
               /* ignore */
             }
@@ -1041,6 +1080,10 @@ app
 
     // Create tray icon for background operation (automations, notifications)
     createTray(mainWindow);
+
+    // One-time warning: v2.7 switched to DuckDB and does NOT migrate the old
+    // SQLite database (the automatic import crashed DuckDB's native binding).
+    void notifyDestructiveUpgradeIfNeeded(mainWindow);
 
     // Enable auto-launch on first install
     configureFirstLaunchAutoStart();

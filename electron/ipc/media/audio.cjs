@@ -34,7 +34,7 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     }
 
     try {
-      const apiKey = getOpenAIKey(database);
+      const apiKey = await getOpenAIKey(database);
       if (!apiKey) {
         return { success: false, error: 'OpenAI API key not configured. Please add it in Settings.' };
       }
@@ -89,7 +89,7 @@ function register({ ipcMain, windowManager, database, ttsService }) {
     }
 
     try {
-      const apiKey = getOpenAIKey(database);
+      const apiKey = await getOpenAIKey(database);
       if (!apiKey) {
         return { success: false, error: 'OpenAI API key not configured. Please add it in Settings.' };
       }

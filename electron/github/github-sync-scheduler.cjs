@@ -33,9 +33,9 @@ function isAutoSyncEnabled() {
   return getSetting('github_sync_auto_enabled', 'true') === 'true';
 }
 
-function isConnected() {
+async function isConnected() {
   try {
-    return require('../auth/github-oauth.cjs').getStatus().connected;
+    return (await require("../auth/github-oauth.cjs").getStatus()).connected;
   } catch {
     return false;
   }
@@ -51,7 +51,7 @@ function getIntervalMs() {
 async function tick() {
   // Startup/periodic GitHub sync pulls large API payloads; skip in dev to avoid V8 Zone OOM on low-RAM machines.
   if (process.env.NODE_ENV === 'development') return;
-  if (!isAutoSyncEnabled() || !isConnected()) return;
+  if (!isAutoSyncEnabled() || !(await isConnected())) return;
 
   const now = Date.now();
   const intervalMs = getIntervalMs();

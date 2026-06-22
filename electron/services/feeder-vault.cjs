@@ -28,7 +28,7 @@ function createFeederVault(database) {
    * @param {string} name
    * @param {string} value
    */
-  function setSecret(name, value) {
+  async function setSecret(name, value) {
     assertAvailable();
     const trimmedName = String(name || '').trim();
     const trimmedValue = String(value ?? '');
@@ -37,33 +37,33 @@ function createFeederVault(database) {
 
     const queries = database.getQueries();
     const now = Date.now();
-    const existing = queries.getFeederSecretByName.get(trimmedName);
+    const existing = await queries.getFeederSecretByName.get(trimmedName);
     const encrypted = safeStorage.encryptString(trimmedValue);
     if (existing) {
-      queries.updateFeederSecret.run(encrypted, now, existing.id);
+      await queries.updateFeederSecret.run(encrypted, now, existing.id);
       return { id: existing.id, name: trimmedName, updatedAt: now };
     }
     const id = crypto.randomUUID();
-    queries.createFeederSecret.run(id, trimmedName, encrypted, now, now);
+    await queries.createFeederSecret.run(id, trimmedName, encrypted, now, now);
     return { id, name: trimmedName, createdAt: now, updatedAt: now };
   }
 
   /**
    * @param {string} name
-   * @returns {string|null}
+   * @returns {Promise<string|null>}
    */
-  function getSecretValueByName(name) {
+  async function getSecretValueByName(name) {
     assertAvailable();
     const trimmedName = String(name || '').trim();
     if (!trimmedName) return null;
     const queries = database.getQueries();
-    const row = queries.getFeederSecretByName.get(trimmedName);
+    const row = await queries.getFeederSecretByName.get(trimmedName);
     if (!row?.encrypted_value) return null;
     try {
       const buf = Buffer.isBuffer(row.encrypted_value)
         ? row.encrypted_value
         : Buffer.from(row.encrypted_value);
-      queries.touchFeederSecretUsed.run(Date.now(), row.id);
+      await queries.touchFeederSecretUsed.run(Date.now(), row.id);
       return safeStorage.decryptString(buf);
     } catch (err) {
       console.warn('[feeder-vault] decrypt failed for', trimmedName, err?.message || err);
@@ -71,9 +71,9 @@ function createFeederVault(database) {
     }
   }
 
-  function listSecrets() {
+  async function listSecrets() {
     const queries = database.getQueries();
-    return queries.listFeederSecrets.all().map((row) => ({
+    return (await queries.listFeederSecrets.all()).map((row) => ({
       id: row.id,
       name: row.name,
       lastUsedAt: row.last_used_at ?? null,
@@ -85,9 +85,9 @@ function createFeederVault(database) {
   /**
    * @param {string} id
    */
-  function deleteSecret(id) {
+  async function deleteSecret(id) {
     const queries = database.getQueries();
-    queries.deleteFeederSecret.run(id);
+    await queries.deleteFeederSecret.run(id);
     return { success: true };
   }
 

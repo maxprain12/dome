@@ -100,12 +100,12 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
       if (text.length > 500000) {
         throw new Error('Text too long. Maximum 500000 characters');
       }
-      const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
-      const modelResult = database.getQueries().getSetting.get('ollama_model');
+      const baseUrlResult = await database.getQueries().getSetting.get('ollama_base_url');
+      const modelResult = await database.getQueries().getSetting.get('ollama_model');
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const model = modelResult?.value || ollamaService.DEFAULT_MODEL;
-      const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
+      const apiKey = (await readSettingSecret(database.getQueries(), 'ollama_api_key')) || '';
 
       const summary = await ollamaService.generateSummary(text, model, baseUrl, apiKey);
       return { success: true, summary };
@@ -159,7 +159,7 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
 
       const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const chatModel = model || modelResult?.value || ollamaService.DEFAULT_MODEL;
-      const apiKey = readSettingSecret(queries, 'ollama_api_key') || '';
+      const apiKey = (await readSettingSecret(queries, 'ollama_api_key')) || '';
 
       console.log(`[Ollama] Chat config - Base URL: ${baseUrl}, Model from param: ${model}, Model from DB: ${modelResult?.value}, Using: ${chatModel}`);
 

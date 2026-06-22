@@ -19,7 +19,7 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
         if (!await cloudLlm.isCloudLlmAvailable(() => db.getQueries())) return;
 
         const q = db.getQueries();
-        const row = q.getResourceById.get(resourceId);
+        const row = await q.getResourceById.get(resourceId);
         if (!row) return;
 
         const title = String(row.title || '').trim();
@@ -69,7 +69,7 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
         };
         if (metaObj.dome_gemma_auto) delete metaObj.dome_gemma_auto;
 
-        q.updateResource.run(
+        await q.updateResource.run(
           newTitle,
           row.content,
           JSON.stringify(metaObj),

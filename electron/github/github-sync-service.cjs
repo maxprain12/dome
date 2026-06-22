@@ -43,18 +43,18 @@ function parseJsonArray(s) {
 
 async function refreshRepos() {
   const seen = new Set();
-  const upsertAll = (items) => {
+  const upsertAll = async (items) => {
     if (!Array.isArray(items)) return;
     for (const r of items) {
       if (seen.has(r.full_name)) continue;
       seen.add(r.full_name);
-      store.upsertRepo(r);
+      await store.upsertRepo(r);
     }
   };
 
   // 1. Repos affiliated with the user (owner / collaborator / org member).
   const userRepos = await api.listRepos();
-  upsertAll(userRepos.items);
+  await upsertAll(userRepos.items);
 
   // 2. Explicitly pull each org's repos — /user/repos can omit org repos when
   //    the org has third-party access restrictions or many repos.
@@ -63,7 +63,7 @@ async function refreshRepos() {
     for (const org of orgs.items || []) {
       try {
         const orgRepos = await api.listOrgRepos(org.login);
-        upsertAll(orgRepos.items);
+        await upsertAll(orgRepos.items);
       } catch (err) {
         console.warn(`[github-sync] org repos ${org.login} failed:`, err.message);
       }
@@ -72,12 +72,12 @@ async function refreshRepos() {
     console.warn('[github-sync] list orgs failed:', err.message);
   }
 
-  return store.listRepos();
+  return await store.listRepos();
 }
 
-function setRepoSelected(repoId, selected) {
-  store.setRepoSelected(repoId, selected);
-  return store.getRepo(repoId);
+async function setRepoSelected(repoId, selected) {
+  await store.setRepoSelected(repoId, selected);
+  return await store.getRepo(repoId);
 }
 
 // --- pull ------------------------------------------------------------------
@@ -86,45 +86,45 @@ async function pullRepo(repo) {
   const [owner, name] = [repo.owner, repo.name];
 
   // Milestones
-  const msEtag = store.getEtag(repo.id, 'milestones');
+  const msEtag = await store.getEtag(repo.id, 'milestones');
   const ms = await api.listMilestones(owner, name, { etag: msEtag });
   if (ms.items) {
-    for (const m of ms.items) store.upsertMilestoneFromRemote(repo.id, m);
-    store.setEtag(repo.id, 'milestones', ms.etag);
+    for (const m of ms.items) await store.upsertMilestoneFromRemote(repo.id, m);
+    await store.setEtag(repo.id, 'milestones', ms.etag);
   }
 
   // Issues (includes PRs; the store flags is_pull_request)
-  const issEtag = store.getEtag(repo.id, 'issues');
+  const issEtag = await store.getEtag(repo.id, 'issues');
   const iss = await api.listIssues(owner, name, { etag: issEtag });
   if (iss.items) {
-    for (const issue of iss.items) store.upsertIssueFromRemote(repo.id, issue);
-    store.setEtag(repo.id, 'issues', iss.etag);
+    for (const issue of iss.items) await store.upsertIssueFromRemote(repo.id, issue);
+    await store.setEtag(repo.id, 'issues', iss.etag);
   }
 
   // Branches
-  const brEtag = store.getEtag(repo.id, 'branches');
+  const brEtag = await store.getEtag(repo.id, 'branches');
   const br = await api.listBranches(owner, name, { etag: brEtag });
   if (br.items) {
-    store.replaceBranches(repo.id, br.items);
-    store.setEtag(repo.id, 'branches', br.etag);
+    await store.replaceBranches(repo.id, br.items);
+    await store.setEtag(repo.id, 'branches', br.etag);
   }
 
   // Releases
-  const relEtag = store.getEtag(repo.id, 'releases');
+  const relEtag = await store.getEtag(repo.id, 'releases');
   const rel = await api.listReleases(owner, name, { etag: relEtag });
   if (rel.items) {
-    for (const r of rel.items) store.upsertRelease(repo.id, r);
-    store.setEtag(repo.id, 'releases', rel.etag);
+    for (const r of rel.items) await store.upsertRelease(repo.id, r);
+    await store.setEtag(repo.id, 'releases', rel.etag);
   }
 
-  store.touchRepoSync(repo.id);
+  await store.touchRepoSync(repo.id);
 }
 
 // --- push ------------------------------------------------------------------
 
 async function pushDirty() {
-  for (const m of store.listDirtyMilestones()) {
-    const repo = store.getRepo(m.repo_id);
+  for (const m of await store.listDirtyMilestones()) {
+    const repo = await store.getRepo(m.repo_id);
     if (!repo) continue;
     try {
       await api.updateMilestone(repo.owner, repo.name, m.number, {
@@ -133,14 +133,14 @@ async function pushDirty() {
         dueOn: m.due_on ? new Date(m.due_on).toISOString() : null,
         state: m.state,
       });
-      store.markMilestoneClean(m.id);
+      await store.markMilestoneClean(m.id);
     } catch (err) {
       console.error(`[github-sync] push milestone ${repo.full_name}#${m.number} failed:`, err.message);
     }
   }
 
-  for (const issue of store.listDirtyIssues()) {
-    const repo = store.getRepo(issue.repo_id);
+  for (const issue of await store.listDirtyIssues()) {
+    const repo = await store.getRepo(issue.repo_id);
     if (!repo) continue;
     try {
       await api.updateIssue(repo.owner, repo.name, issue.number, {
@@ -151,7 +151,7 @@ async function pushDirty() {
         labels: parseJsonArray(issue.labels),
         assignees: parseJsonArray(issue.assignees),
       });
-      store.markIssueClean(issue.id);
+      await store.markIssueClean(issue.id);
     } catch (err) {
       console.error(`[github-sync] push issue ${repo.full_name}#${issue.number} failed:`, err.message);
     }
@@ -161,7 +161,7 @@ async function pushDirty() {
 // --- create (explicit, renderer-driven) ------------------------------------
 
 async function createIssue(repoId, { title, body, milestoneNumber, labels, assignees }) {
-  const repo = store.getRepo(repoId);
+  const repo = await store.getRepo(repoId);
   if (!repo) throw new Error('Repo not found');
   const created = await api.createIssue(repo.owner, repo.name, {
     title,
@@ -170,12 +170,12 @@ async function createIssue(repoId, { title, body, milestoneNumber, labels, assig
     labels,
     assignees,
   });
-  store.upsertIssueFromRemote(repoId, created);
-  return store.getIssue(`ghi-${repoId}-${created.number}`);
+  await store.upsertIssueFromRemote(repoId, created);
+  return await store.getIssue(`ghi-${repoId}-${created.number}`);
 }
 
 async function createMilestone(repoId, { title, description, dueOn, state }) {
-  const repo = store.getRepo(repoId);
+  const repo = await store.getRepo(repoId);
   if (!repo) throw new Error('Repo not found');
   const created = await api.createMilestone(repo.owner, repo.name, {
     title,
@@ -183,14 +183,14 @@ async function createMilestone(repoId, { title, description, dueOn, state }) {
     dueOn: dueOn ? new Date(dueOn).toISOString() : undefined,
     state,
   });
-  store.upsertMilestoneFromRemote(repoId, created);
-  return store.getMilestone(`ghm-${repoId}-${created.number}`);
+  await store.upsertMilestoneFromRemote(repoId, created);
+  return await store.getMilestone(`ghm-${repoId}-${created.number}`);
 }
 
-function requireIssueRepo(issueId) {
-  const issue = store.getIssue(issueId);
+async function requireIssueRepo(issueId) {
+  const issue = await store.getIssue(issueId);
   if (!issue) throw new Error('Issue not found');
-  const repo = store.getRepo(issue.repo_id);
+  const repo = await store.getRepo(issue.repo_id);
   if (!repo) throw new Error('Repo not found');
   return { issue, repo };
 }
@@ -208,7 +208,7 @@ function mapIssueComment(remote) {
 }
 
 async function listIssueComments(issueId) {
-  const { issue, repo } = requireIssueRepo(issueId);
+  const { issue, repo } = await requireIssueRepo(issueId);
   const res = await api.listIssueComments(repo.owner, repo.name, issue.number);
   return (res.items || []).map(mapIssueComment);
 }
@@ -216,7 +216,7 @@ async function listIssueComments(issueId) {
 async function createIssueComment(issueId, body) {
   const text = typeof body === 'string' ? body.trim() : '';
   if (!text) throw new Error('Comment body is required');
-  const { issue, repo } = requireIssueRepo(issueId);
+  const { issue, repo } = await requireIssueRepo(issueId);
   const created = await api.createIssueComment(repo.owner, repo.name, issue.number, text);
   return mapIssueComment(created);
 }
@@ -262,7 +262,7 @@ function mapTimelineEvent(ev) {
 }
 
 async function listIssueTimeline(issueId) {
-  const { issue, repo } = requireIssueRepo(issueId);
+  const { issue, repo } = await requireIssueRepo(issueId);
   const res = await api.listIssueTimeline(repo.owner, repo.name, issue.number);
   return (res.items || [])
     .filter((ev) => TIMELINE_EVENTS.has(ev.event))
@@ -270,7 +270,7 @@ async function listIssueTimeline(issueId) {
 }
 
 async function listMentionableUsers(issueId) {
-  const { repo } = requireIssueRepo(issueId);
+  const { repo } = await requireIssueRepo(issueId);
   const [assignees, collaborators] = await Promise.all([
     api.listMentionableUsers(repo.owner, repo.name),
     api.listCollaborators(repo.owner, repo.name).catch(() => ({ items: [] })),
@@ -290,7 +290,7 @@ async function syncNow() {
   broadcast('github:sync:status', { status: 'syncing' });
   try {
     await pushDirty();
-    const repos = store.listSelectedRepos();
+    const repos = await store.listSelectedRepos();
     for (const repo of repos) {
       await pullRepo(repo);
     }
@@ -314,7 +314,7 @@ async function purgeAllData() {
   } catch (err) {
     console.error('[github-sync] purge calendar failed:', err.message);
   }
-  store.clearAllData();
+  await store.clearAllData();
   broadcast('github:data:updated', {});
 }
 

@@ -125,7 +125,7 @@ function extractUsage(chunks) {
   return usage;
 }
 
-function buildMessages(caseDef, fixtureIds) {
+async function buildMessages(caseDef, fixtureIds) {
   const system = buildBenchSystemPrompt(caseDef, fixtureIds);
 
   const scopeLine = `Ámbito: solo proyecto ${BENCH_PROJECT_ID}. IDs de fixture: ${fixtureIds.length ? fixtureIds.join(', ') : 'ninguno'}. Herramienta objetivo: ${caseDef.tool || 'según mensaje'}. No explores el código de Dome ni el filesystem del desarrollador.`;
@@ -133,8 +133,8 @@ function buildMessages(caseDef, fixtureIds) {
 
   if (caseDef.tool === 'image_thumbnail') {
     try {
-      database.initDatabase();
-      const pngPath = database.getQueries().getSetting.get('bench_sample_png_path')?.value;
+      await database.initDatabase();
+      const pngPath = (await database.getQueries().getSetting.get("bench_sample_png_path"))?.value;
       if (pngPath) {
         userContent += `\nRuta absoluta de la imagen: ${pngPath}`;
       }
@@ -254,7 +254,7 @@ async function runSingleCase(caseDef, opts) {
   const fixtureIds = caseDef.fixtures || [];
 
   try {
-    const messages = buildMessages(caseDef, fixtureIds);
+    const messages = await buildMessages(caseDef, fixtureIds);
     const invokeOpts = {
       provider: providerConfig.provider,
       model: providerConfig.model,

@@ -231,7 +231,7 @@ class StreamingTtsOrchestrator {
   /** Generate TTS for a sentence using the injected TTS service. */
   async _generateTts(voice, text) {
     try {
-      const apiKey = this._getApiKeyFn?.();
+      const apiKey = await this._getApiKeyFn?.();
       if (!apiKey) {
         return { success: false, error: 'No OpenAI API key configured for TTS' };
       }

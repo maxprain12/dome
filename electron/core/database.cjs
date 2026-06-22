@@ -44,9 +44,16 @@ function getDB() {
 }
 
 /**
- * Initialize the database: open the connection, run migrations, import any
- * legacy SQLite data, create the default project, and build queries.
+ * Initialize the database: open the connection, run migrations, create the
+ * default project, and build queries.
  * Idempotent and safe to call concurrently (work is deduped via a shared promise).
+ *
+ * NOTE (v2.7): the old SQLite database (`dome.db`) is NOT migrated into DuckDB.
+ * Automatic import via DuckDB's `sqlite_scanner` crashed the native binding
+ * (SIGTRAP in a libuv worker) on real data, so v2.7 is a deliberately
+ * destructive upgrade: it starts with a fresh DuckDB. The old `dome.db` file is
+ * left untouched on disk as a manual backup, and `legacyDbNoticeState()` lets
+ * the main process warn the user once. See `notifyDestructiveUpgradeIfNeeded`.
  */
 async function initDatabase() {
   if (_schemaInitialized) return;
@@ -60,9 +67,6 @@ async function initDatabase() {
 
     _db = await openDuckDb(dbPath);
     console.log('✅ DuckDB database opened at:', dbPath);
-
-    // One-time import of legacy better-sqlite3 data (dome.db) if present.
-    await importLegacySqliteIfPresent(_db);
 
     // Apply domain-organized migrations (idempotent).
     await applyMigrations(_db);
@@ -83,23 +87,36 @@ async function initDatabase() {
   }
 }
 
+const LEGACY_NOTICE_KEY = 'legacy_db_destructive_notice_v2_7_shown';
+
 /**
- * Best-effort one-time migration of legacy SQLite data into DuckDB.
- * The actual copy logic lives in `db/legacy-import.cjs` (added in the data-
- * migration phase); if that module isn't present yet this is a no-op.
- * @param {import('./db/duckdb.cjs').DuckDbConnection} db
+ * Whether a pre-v2.7 SQLite database (`dome.db`) is present and the one-time
+ * "your old data is not migrated" notice has not been shown yet. Used by the
+ * main process to warn the user once on startup. Best-effort; never throws.
+ * @returns {Promise<{ legacyPresent: boolean, noticeShown: boolean, legacyPath: string }>}
  */
-async function importLegacySqliteIfPresent(db) {
-  let legacyImport;
+async function legacyDbNoticeState() {
+  const legacyPath = path.join(path.dirname(getDbPath()), 'dome.db');
+  const legacyPresent = fs.existsSync(legacyPath);
+  let noticeShown = false;
   try {
-    legacyImport = require('./db/legacy-import.cjs');
+    const row = await getDB().get('SELECT value FROM settings WHERE key = ?', [LEGACY_NOTICE_KEY]);
+    noticeShown = row?.value === '1';
   } catch {
-    return; // module not added yet
+    /* settings unavailable — treat as not shown */
   }
+  return { legacyPresent, noticeShown, legacyPath };
+}
+
+/** Persist that the destructive-upgrade notice has been shown (idempotent). */
+async function markLegacyDbNoticeShown() {
   try {
-    await legacyImport.importLegacySqlite(db, getDbPath());
+    await getDB().run(
+      'INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, ?)',
+      [LEGACY_NOTICE_KEY, '1', Date.now()],
+    );
   } catch (err) {
-    console.error('[DB] Legacy SQLite import failed (continuing with empty DuckDB):', err?.message || err);
+    console.warn('[DB] Could not stamp legacy notice flag:', err?.message || err);
   }
 }
 
@@ -409,4 +426,6 @@ module.exports = {
   removeWalSidecars,
   isSqliteIoError,
   restoreFromLatestBackupAndReinit,
+  legacyDbNoticeState,
+  markLegacyDbNoticeShown,
 };

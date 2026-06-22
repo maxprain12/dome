@@ -51,14 +51,14 @@ function readPromptFile(filename) {
   }
 }
 
-function getGlobalFromDb(queries) {
-  const row = queries.getSetting.get(KB_GLOBAL_KEY);
+async function getGlobalFromDb(queries) {
+  const row = await queries.getSetting.get(KB_GLOBAL_KEY);
   const merged = { ...defaultGlobalConfig(), ...parseJson(row?.value, {}) };
   return merged;
 }
 
-function getProjectOverrideFromDb(queries, projectId) {
-  const row = queries.getSetting.get(projectKey(projectId));
+async function getProjectOverrideFromDb(queries, projectId) {
+  const row = await queries.getSetting.get(projectKey(projectId));
   return parseJson(row?.value, { override: 'inherit' });
 }
 
@@ -69,12 +69,12 @@ function automationIds(projectId) {
   };
 }
 
-function disablePair(projectId) {
+async function disablePair(projectId) {
   const ids = automationIds(projectId);
   for (const id of [ids.compile, ids.health]) {
-    const existing = runEngine.getAutomation(id);
+    const existing = await runEngine.getAutomation(id);
     if (existing) {
-      runEngine.upsertAutomation({ ...existing, enabled: false });
+      await runEngine.upsertAutomation({ ...existing, enabled: false });
     }
   }
 }
@@ -83,14 +83,14 @@ function disablePair(projectId) {
  * @param {import('better-sqlite3').Database} database
  * @param {string} projectId
  */
-function syncKbLlmForProject(database, projectId) {
+async function syncKbLlmForProject(database, projectId) {
   const queries = database.getQueries();
-  const global = getGlobalFromDb(queries);
-  const override = getProjectOverrideFromDb(queries, projectId);
+  const global = await getGlobalFromDb(queries);
+  const override = await getProjectOverrideFromDb(queries, projectId);
   const enabled = effectiveKbEnabled(global, override);
 
   if (!enabled) {
-    disablePair(projectId);
+    await disablePair(projectId);
     return { success: true, enabled: false, projectId };
   }
 
@@ -113,7 +113,7 @@ function syncKbLlmForProject(database, projectId) {
   const ids = automationIds(projectId);
   const userPreamble = `Project ID: ${projectId}\nGlobal KB LLM: enabled. Output may create or update notes when allowed.\n\n`;
 
-  runEngine.upsertAutomation({
+  await runEngine.upsertAutomation({
     id: ids.compile,
     projectId,
     title: 'KB LLM: Wiki compile',
@@ -135,7 +135,7 @@ function syncKbLlmForProject(database, projectId) {
     legacySource: 'kb_llm',
   });
 
-  runEngine.upsertAutomation({
+  await runEngine.upsertAutomation({
     id: ids.health,
     projectId,
     title: 'KB LLM: Wiki health',
@@ -160,18 +160,18 @@ function syncKbLlmForProject(database, projectId) {
   return { success: true, enabled: true, projectId };
 }
 
-function listProjectIds(database) {
+async function listProjectIds(database) {
   const queries = database.getQueries();
-  const rows = queries.getProjects.all();
+  const rows = await queries.getProjects.all();
   return Array.isArray(rows) ? rows.map((r) => r.id) : [];
 }
 
-function syncKbLlmAllProjects(database) {
-  const ids = listProjectIds(database);
+async function syncKbLlmAllProjects(database) {
+  const ids = await listProjectIds(database);
   const results = [];
   for (const pid of ids) {
     try {
-      results.push(syncKbLlmForProject(database, pid));
+      results.push(await syncKbLlmForProject(database, pid));
     } catch (e) {
       console.error('[KB LLM] sync project failed', pid, e);
       results.push({ success: false, projectId: pid, error: e?.message || String(e) });

@@ -137,16 +137,16 @@ async function finalizeArtifactSearchSurface(queries, resource) {
  * @param {number} sim
  * @param {number} now
  */
-function upsertAutoEdge(q, src, tgt, sim, now) {
+async function upsertAutoEdge(q, src, tgt, sim, now) {
   if (src === tgt) return;
   const id = `${src}__${tgt}`;
-  const existing = q.getSemanticRelationByPair.get(src, tgt);
+  const existing = await q.getSemanticRelationByPair.get(src, tgt);
   if (!existing) {
-    q.insertSemanticRelation.run(id, src, tgt, sim, 'auto', null, now, null);
+    await q.insertSemanticRelation.run(id, src, tgt, sim, 'auto', null, now, null);
     return;
   }
   if (existing.relation_type === 'auto') {
-    q.updateSemanticAutoByPair.run(sim, now, src, tgt);
+    await q.updateSemanticAutoByPair.run(sim, now, src, tgt);
   }
 }
 
@@ -201,7 +201,7 @@ function createIndexer(opts) {
         ? Math.floor(options.neighborScanBudget)
         : MAX_NEIGHBOR_CANDIDATES;
     const queries = getQueries();
-    const resource = queries.getResourceById.get(resourceId);
+    const resource = await queries.getResourceById.get(resourceId);
     if (!resource) {
       return { ok: false, error: 'not_found' };
     }
@@ -209,7 +209,7 @@ function createIndexer(opts) {
       return { ok: true, skipped: true };
     }
 
-    if (!isConfigured()) {
+    if (!await isConfigured()) {
       return { ok: true, skipped: true, reason: 'embeddings_not_configured' };
     }
 
@@ -252,8 +252,8 @@ function createIndexer(opts) {
       source === 'blocked_no_vision_ocr' ||
       source === 'vision_ocr_failed'
     ) {
-      queries.deleteChunksByResource.run(resourceId);
-      queries.deleteSemanticAutoFromSource.run(resourceId);
+      await queries.deleteChunksByResource.run(resourceId);
+      await queries.deleteSemanticAutoFromSource.run(resourceId);
       try {
         await lancedb.deleteChunksForResource(resourceId);
       } catch (e) {
@@ -286,8 +286,8 @@ function createIndexer(opts) {
       return { ok: false, error: 'chunking_failed' };
     }
     if (chunks.length === 0) {
-      queries.deleteChunksByResource.run(resourceId);
-      queries.deleteSemanticAutoFromSource.run(resourceId);
+      await queries.deleteChunksByResource.run(resourceId);
+      await queries.deleteSemanticAutoFromSource.run(resourceId);
       try {
         await lancedb.deleteChunksForResource(resourceId);
       } catch (e) {
@@ -313,7 +313,7 @@ function createIndexer(opts) {
     }
     const now = Date.now();
 
-    queries.deleteChunksByResource.run(resourceId);
+    await queries.deleteChunksByResource.run(resourceId);
 
     const lanceRows = chunks.map((ch, i) => ({
       chunk_index: i,
@@ -341,7 +341,7 @@ function createIndexer(opts) {
       return { ok: false, error: 'lance_write_failed', message: String(e?.message || e) };
     }
 
-    queries.deleteSemanticAutoFromSource.run(resourceId);
+    await queries.deleteSemanticAutoFromSource.run(resourceId);
 
     const myCentroid = centroidL2Normalized(sampleEvenlyForCentroid(vectors));
     if (!myCentroid) {
@@ -388,8 +388,8 @@ function createIndexer(opts) {
     const topK = relations.slice(0, TOP_K);
 
     for (const r of topK) {
-      upsertAutoEdge(queries, resourceId, r.targetId, r.sim, now);
-      upsertAutoEdge(queries, r.targetId, resourceId, r.sim, now);
+      await upsertAutoEdge(queries, resourceId, r.targetId, r.sim, now);
+      await upsertAutoEdge(queries, r.targetId, resourceId, r.sim, now);
     }
 
     await finalizeArtifactSearchSurface(queries, resource);
@@ -403,7 +403,7 @@ function createIndexer(opts) {
   async function reindexAll(options = {}) {
     _reindexAllInFlight = true;
     const queries = getQueries();
-    const rows = queries.listResourcesIdType.all(500000);
+    const rows = await queries.listResourcesIdType.all(500000);
     const targets = rows
       .filter((r) => shouldIndexResourceType(r.type))
       .map((r) => ({ id: r.id, type: r.type }));
@@ -439,7 +439,7 @@ function createIndexer(opts) {
   async function searchSemantic(query, options = {}) {
     const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
     const filterTypes = options.filter?.type?.length ? new Set(options.filter.type) : null;
-    if (!isConfigured()) return [];
+    if (!await isConfigured()) return [];
     let qVec;
     try {
       qVec = await embedQuery(query);

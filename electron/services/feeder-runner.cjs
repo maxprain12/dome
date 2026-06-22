@@ -115,13 +115,13 @@ async function resolveFeederEnv(vault, feeder, workspace) {
   //    user only needs to add the secret named `IDRAC_PASS` in the vault.
   if (vault.isAvailable()) {
     try {
-      const secrets = vault.listSecrets() || [];
+      const secrets = (await vault.listSecrets()) || [];
       for (const meta of secrets) {
         const sname = meta?.name;
         if (!sname) continue;
         if (staticKeys.has(sname)) continue; // explicit static env wins
         if (process.env[sname] != null) continue; // never clobber host env
-        const val = vault.getSecretValueByName(sname);
+        const val = await vault.getSecretValueByName(sname);
         if (val != null) {
           env[sname] = val;
           secretValues.push(val);
@@ -137,7 +137,7 @@ async function resolveFeederEnv(vault, feeder, workspace) {
   //    different env-var name than the secret's vault name.
   const refs = parseEnvSecretRefs(feeder.envSecretRefs);
   for (const ref of refs) {
-    const val = vault.getSecretValueByName(ref.secretName);
+    const val = await vault.getSecretValueByName(ref.secretName);
     if (val == null) {
       throw new Error(`Missing feeder secret "${ref.secretName}" (env ${ref.envName})`);
     }
@@ -242,9 +242,9 @@ function runProcess(bin, args, opts) {
  * @param {{ broadcast?: Function }} windowManager
  * @param {{ artifactResourceId: string, slot: string, updatePolicy: string, incoming: unknown, runId?: string|null, automationId?: string|null }} opts
  */
-function applyDataToArtifact(database, windowManager, opts) {
+async function applyDataToArtifact(database, windowManager, opts) {
   const queries = database.getQueries();
-  const art = queries.getArtifactByResourceId.get(opts.artifactResourceId);
+  const art = await queries.getArtifactByResourceId.get(opts.artifactResourceId);
   if (!art) throw new Error('Linked artifact not found');
 
   const now = Date.now();
@@ -256,11 +256,11 @@ function applyDataToArtifact(database, windowManager, opts) {
   const nextData = applyUpdatePolicy(prevData, opts.incoming, opts.updatePolicy || 'replace');
   state = { ...state, data: nextData };
 
-  queries.updateArtifactState.run(JSON.stringify(state), now, opts.artifactResourceId);
+  await queries.updateArtifactState.run(JSON.stringify(state), now, opts.artifactResourceId);
 
   const slot = opts.slot || 'default';
-  const rtExisting = queries.getArtifactRuntimeDataByArtifactSlot.get(art.id, slot);
-  queries.upsertArtifactRuntimeData.run(
+  const rtExisting = await queries.getArtifactRuntimeDataByArtifactSlot.get(art.id, slot);
+  await queries.upsertArtifactRuntimeData.run(
     rtExisting?.id || crypto.randomUUID(),
     art.id,
     slot,
@@ -271,8 +271,8 @@ function applyDataToArtifact(database, windowManager, opts) {
     now,
   );
 
-  const resource = queries.getResourceById.get(opts.artifactResourceId);
-  const updatedArt = queries.getArtifactByResourceId.get(opts.artifactResourceId);
+  const resource = await queries.getResourceById.get(opts.artifactResourceId);
+  const updatedArt = await queries.getArtifactByResourceId.get(opts.artifactResourceId);
   const serialized = serializeArtifactRecord(updatedArt, resource, queries);
   if (serialized && windowManager?.broadcast) {
     windowManager.broadcast('artifact:updated', serialized);
@@ -307,7 +307,7 @@ function assertFeederApproved(feederRow) {
  */
 async function runFeeder(database, windowManager, feederId, opts = {}) {
   const queries = database.getQueries();
-  const row = queries.getFeederById.get(feederId);
+  const row = await queries.getFeederById.get(feederId);
   const feeder = assertFeederApproved(row);
   const vault = createFeederVault(database);
   if (!vault.isAvailable() && parseEnvSecretRefs(feeder.envSecretRefs).length > 0) {
@@ -335,7 +335,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
     automationId: opts.automationId ?? null,
   };
 
-  queries.createFeederRun.run(
+  await queries.createFeederRun.run(
     runId,
     feederId,
     startedAt,
@@ -432,7 +432,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
       );
     }
 
-    applyDataToArtifact(database, windowManager, {
+    await applyDataToArtifact(database, windowManager, {
       artifactResourceId: feeder.artifactResourceId,
       slot: feeder.slot,
       updatePolicy: feeder.updatePolicy,
@@ -443,7 +443,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
 
     const dataBytes = Buffer.byteLength(JSON.stringify(parsed), 'utf8');
     const finishedAt = Date.now();
-    queries.updateFeederRun.run(
+    await queries.updateFeederRun.run(
       finishedAt,
       'completed',
       result.exitCode ?? 0,
@@ -452,7 +452,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
       dataBytes,
       runId,
     );
-    queries.updateFeederLastRun.run(finishedAt, 'completed', null, finishedAt, feederId);
+    await queries.updateFeederLastRun.run(finishedAt, 'completed', null, finishedAt, feederId);
 
     runRecord = {
       ...runRecord,
@@ -481,7 +481,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
       secretValues,
     );
     const exitCode = capturedExitCode ?? 1;
-    queries.updateFeederRun.run(
+    await queries.updateFeederRun.run(
       finishedAt,
       'failed',
       exitCode,
@@ -490,7 +490,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
       0,
       runId,
     );
-    queries.updateFeederLastRun.run(finishedAt, 'failed', message, finishedAt, feederId);
+    await queries.updateFeederLastRun.run(finishedAt, 'failed', message, finishedAt, feederId);
     runRecord = {
       ...runRecord,
       finishedAt,
@@ -513,7 +513,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
  * @param {import('../core/database.cjs')} database
  * @param {Record<string, unknown>} input
  */
-function createFeederRecord(database, input) {
+async function createFeederRecord(database, input) {
   const queries = database.getQueries();
   const interpreter = ALLOWED_INTERPRETERS.has(String(input.interpreter))
     ? String(input.interpreter)
@@ -532,13 +532,13 @@ function createFeederRecord(database, input) {
   if (!script.trim()) throw new Error('script is required');
   const artifactResourceId = String(input.artifactResourceId || input.artifact_resource_id || '').trim();
   if (!artifactResourceId) throw new Error('artifactResourceId is required');
-  const art = queries.getArtifactByResourceId.get(artifactResourceId);
+  const art = await queries.getArtifactByResourceId.get(artifactResourceId);
   if (!art) throw new Error('Artifact not found');
 
   const now = Date.now();
   const id = String(input.id || crypto.randomUUID());
   const scriptHash = hashScript(script);
-  queries.createFeeder.run(
+  await queries.createFeeder.run(
     id,
     artifactResourceId,
     String(input.slot || 'default'),
@@ -561,7 +561,7 @@ function createFeederRecord(database, input) {
     now,
     now,
   );
-  return serializeFeederRow(queries.getFeederById.get(id));
+  return serializeFeederRow(await queries.getFeederById.get(id));
 }
 
 /**
@@ -569,27 +569,27 @@ function createFeederRecord(database, input) {
  * @param {string} feederId
  * @param {string} script
  */
-function updateFeederScript(database, feederId, script) {
+async function updateFeederScript(database, feederId, script) {
   const queries = database.getQueries();
-  const existing = queries.getFeederById.get(feederId);
+  const existing = await queries.getFeederById.get(feederId);
   if (!existing) throw new Error('Feeder not found');
   const scriptHash = hashScript(script);
   const now = Date.now();
-  queries.updateFeederScript.run(String(script), scriptHash, 0, null, now, feederId);
-  return serializeFeederRow(queries.getFeederById.get(feederId));
+  await queries.updateFeederScript.run(String(script), scriptHash, 0, null, now, feederId);
+  return serializeFeederRow(await queries.getFeederById.get(feederId));
 }
 
 /**
  * @param {import('../core/database.cjs')} database
  * @param {string} feederId
  */
-function approveFeeder(database, feederId) {
+async function approveFeeder(database, feederId) {
   const queries = database.getQueries();
-  const existing = queries.getFeederById.get(feederId);
+  const existing = await queries.getFeederById.get(feederId);
   if (!existing) throw new Error('Feeder not found');
   const now = Date.now();
-  queries.approveFeeder.run(1, existing.script_hash, now, feederId);
-  return serializeFeederRow(queries.getFeederById.get(feederId));
+  await queries.approveFeeder.run(1, existing.script_hash, now, feederId);
+  return serializeFeederRow(await queries.getFeederById.get(feederId));
 }
 
 module.exports = {

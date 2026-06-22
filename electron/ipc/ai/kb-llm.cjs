@@ -12,11 +12,11 @@ const {
 function register({ ipcMain, windowManager, database, validateSender }) {
   const queries = () => database.getQueries();
 
-  ipcMain.handle('kbllm:getGlobal', (event) => {
+  ipcMain.handle('kbllm:getGlobal', async (event) => {
     try {
       validateSender(event, windowManager);
       const q = queries();
-      const merged = { ...defaultGlobalConfig(), ...parseJson(q.getSetting.get(KB_GLOBAL_KEY)?.value, {}) };
+      const merged = { ...defaultGlobalConfig(), ...parseJson((await q.getSetting.get(KB_GLOBAL_KEY))?.value, {}) };
       return { success: true, data: merged };
     } catch (error) {
       console.error('[KB LLM] getGlobal', error);
@@ -24,13 +24,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('kbllm:setGlobal', (event, payload) => {
+  ipcMain.handle('kbllm:setGlobal', async (event, payload) => {
     try {
       validateSender(event, windowManager);
       const q = queries();
-      const next = { ...defaultGlobalConfig(), ...parseJson(q.getSetting.get(KB_GLOBAL_KEY)?.value, {}), ...(payload || {}) };
-      q.setSetting.run(KB_GLOBAL_KEY, JSON.stringify(next), Date.now());
-      const sync = kbProvision.syncKbLlmAllProjects(database);
+      const next = { ...defaultGlobalConfig(), ...parseJson((await q.getSetting.get(KB_GLOBAL_KEY))?.value, {}), ...(payload || {}) };
+      await q.setSetting.run(KB_GLOBAL_KEY, JSON.stringify(next), Date.now());
+      const sync = await kbProvision.syncKbLlmAllProjects(database);
       return { success: true, data: { config: next, sync } };
     } catch (error) {
       console.error('[KB LLM] setGlobal', error);
@@ -38,14 +38,14 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('kbllm:getProjectOverride', (event, projectId) => {
+  ipcMain.handle('kbllm:getProjectOverride', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       if (!projectId || typeof projectId !== 'string') {
         return { success: false, error: 'projectId required' };
       }
       const q = queries();
-      const merged = { override: 'inherit', ...parseJson(q.getSetting.get(projectKey(projectId))?.value, {}) };
+      const merged = { override: 'inherit', ...parseJson((await q.getSetting.get(projectKey(projectId)))?.value, {}) };
       return { success: true, data: merged };
     } catch (error) {
       console.error('[KB LLM] getProjectOverride', error);
@@ -53,7 +53,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('kbllm:setProjectOverride', (event, payload) => {
+  ipcMain.handle('kbllm:setProjectOverride', async (event, payload) => {
     try {
       validateSender(event, windowManager);
       const projectId = payload?.projectId;
@@ -61,10 +61,10 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         return { success: false, error: 'projectId required' };
       }
       const q = queries();
-      const prev = parseJson(q.getSetting.get(projectKey(projectId))?.value, {});
+      const prev = parseJson((await q.getSetting.get(projectKey(projectId)))?.value, {});
       const next = { ...prev, ...(payload || {}) };
-      q.setSetting.run(projectKey(projectId), JSON.stringify(next), Date.now());
-      const sync = kbProvision.syncKbLlmForProject(database, projectId);
+      await q.setSetting.run(projectKey(projectId), JSON.stringify(next), Date.now());
+      const sync = await kbProvision.syncKbLlmForProject(database, projectId);
       return { success: true, data: { override: next, sync } };
     } catch (error) {
       console.error('[KB LLM] setProjectOverride', error);
@@ -72,13 +72,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('kbllm:syncProject', (event, projectId) => {
+  ipcMain.handle('kbllm:syncProject', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       if (!projectId || typeof projectId !== 'string') {
         return { success: false, error: 'projectId required' };
       }
-      const data = kbProvision.syncKbLlmForProject(database, projectId);
+      const data = await kbProvision.syncKbLlmForProject(database, projectId);
       return { success: true, data };
     } catch (error) {
       console.error('[KB LLM] syncProject', error);
@@ -86,10 +86,10 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('kbllm:syncAll', (event) => {
+  ipcMain.handle('kbllm:syncAll', async (event) => {
     try {
       validateSender(event, windowManager);
-      const data = kbProvision.syncKbLlmAllProjects(database);
+      const data = await kbProvision.syncKbLlmAllProjects(database);
       return { success: true, data };
     } catch (error) {
       console.error('[KB LLM] syncAll', error);
@@ -97,19 +97,19 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     }
   });
 
-  ipcMain.handle('kbllm:getStatus', (event, projectId) => {
+  ipcMain.handle('kbllm:getStatus', async (event, projectId) => {
     try {
       validateSender(event, windowManager);
       const q = queries();
-      const global = { ...defaultGlobalConfig(), ...parseJson(q.getSetting.get(KB_GLOBAL_KEY)?.value, {}) };
+      const global = { ...defaultGlobalConfig(), ...parseJson((await q.getSetting.get(KB_GLOBAL_KEY))?.value, {}) };
       const pid = typeof projectId === 'string' && projectId ? projectId : 'default';
-      const projectOverride = { override: 'inherit', ...parseJson(q.getSetting.get(projectKey(pid))?.value, {}) };
+      const projectOverride = { override: 'inherit', ...parseJson((await q.getSetting.get(projectKey(pid)))?.value, {}) };
       const effectiveEnabled = effectiveKbEnabled(global, projectOverride);
       const ids = kbProvision.automationIds(pid);
-      const compileA = runEngine.getAutomation(ids.compile);
-      const healthA = runEngine.getAutomation(ids.health);
-      const compileRuns = runEngine.listRuns({ automationId: ids.compile, limit: 1 });
-      const healthRuns = runEngine.listRuns({ automationId: ids.health, limit: 1 });
+      const compileA = await runEngine.getAutomation(ids.compile);
+      const healthA = await runEngine.getAutomation(ids.health);
+      const compileRuns = await runEngine.listRuns({ automationId: ids.compile, limit: 1 });
+      const healthRuns = await runEngine.listRuns({ automationId: ids.health, limit: 1 });
       return {
         success: true,
         data: {

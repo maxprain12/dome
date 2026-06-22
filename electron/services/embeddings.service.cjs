@@ -56,8 +56,8 @@ async function readEmbeddingsSettings(queries) {
 /**
  * @param {ReturnType<typeof defaultGetQueries>} [queries]
  */
-function isConfigured(queries = defaultGetQueries()) {
-  const { provider, model, apiKey } = readEmbeddingsSettings(queries);
+async function isConfigured(queries = defaultGetQueries()) {
+  const { provider, model, apiKey } = await readEmbeddingsSettings(queries);
   if (!SUPPORTED_PROVIDERS.has(provider) || !model) return false;
   if (provider === 'ollama') return true;
   return Boolean(apiKey);
@@ -184,8 +184,8 @@ async function refreshActiveContext(cfg) {
  */
 async function getClient(getQueries = defaultGetQueries) {
   const queries = typeof getQueries === 'function' ? getQueries() : getQueries;
-  const cfg = readEmbeddingsSettings(queries);
-  if (!isConfigured(queries)) {
+  const cfg = await readEmbeddingsSettings(queries);
+  if (!await isConfigured(queries)) {
     throw new Error(EMBEDDINGS_NOT_CONFIGURED);
   }
   const key = configKey(cfg);
@@ -213,7 +213,7 @@ function toFloat32(vec) {
  */
 async function probeDimensions(getQueries = defaultGetQueries) {
   const client = await getClient(getQueries);
-  const cfg = readEmbeddingsSettings(typeof getQueries === 'function' ? getQueries() : getQueries);
+  const cfg = await readEmbeddingsSettings(typeof getQueries === 'function' ? getQueries() : getQueries);
   const probe = applyNomicPrefixes(cfg.model, 'ping', true);
   const vec = await client.embedQuery(probe);
   if (!Array.isArray(vec) || vec.length === 0) {
@@ -241,8 +241,8 @@ function getActiveContextTokens() {
 async function getActiveContextTokensSafe(getQueries = defaultGetQueries) {
   if (_activeContextTokens != null) return _activeContextTokens;
   const queries = typeof getQueries === 'function' ? getQueries() : getQueries;
-  const cfg = readEmbeddingsSettings(queries);
-  if (!isConfigured(queries)) return DEFAULT_CONTEXT_TOKENS;
+  const cfg = await readEmbeddingsSettings(queries);
+  if (!await isConfigured(queries)) return DEFAULT_CONTEXT_TOKENS;
   await getClient(getQueries);
   return _activeContextTokens ?? DEFAULT_CONTEXT_TOKENS;
 }
@@ -253,11 +253,11 @@ async function getActiveContextTokensSafe(getQueries = defaultGetQueries) {
  * @returns {Promise<Float32Array[]>}
  */
 async function embedDocuments(texts, getQueries = defaultGetQueries) {
-  if (!isConfigured(typeof getQueries === 'function' ? getQueries() : getQueries)) {
+  if (!await isConfigured(typeof getQueries === 'function' ? getQueries() : getQueries)) {
     throw new Error(EMBEDDINGS_NOT_CONFIGURED);
   }
   const queries = typeof getQueries === 'function' ? getQueries() : getQueries;
-  const cfg = readEmbeddingsSettings(queries);
+  const cfg = await readEmbeddingsSettings(queries);
   const client = await getClient(getQueries);
   const inputs = (texts || []).map((t) => applyNomicPrefixes(cfg.model, t, false));
   if (inputs.length === 0) return [];
@@ -287,11 +287,11 @@ async function embedDocuments(texts, getQueries = defaultGetQueries) {
  * @returns {Promise<Float32Array>}
  */
 async function embedQuery(text, getQueries = defaultGetQueries) {
-  if (!isConfigured(typeof getQueries === 'function' ? getQueries() : getQueries)) {
+  if (!await isConfigured(typeof getQueries === 'function' ? getQueries() : getQueries)) {
     throw new Error(EMBEDDINGS_NOT_CONFIGURED);
   }
   const queries = typeof getQueries === 'function' ? getQueries() : getQueries;
-  const cfg = readEmbeddingsSettings(queries);
+  const cfg = await readEmbeddingsSettings(queries);
   const client = await getClient(getQueries);
   const ctxTokens = _activeContextTokens ?? DEFAULT_CONTEXT_TOKENS;
   const maxQueryChars = Math.min(MAX_QUERY_CHARS, Math.floor(ctxTokens * 3.3 * 0.9));

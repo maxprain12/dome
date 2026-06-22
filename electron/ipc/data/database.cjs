@@ -722,7 +722,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       validateSender(event, windowManager);
       const queries = database.getQueries();
       if (isSecretSettingKey(key)) {
-        const masked = maskSettingForRenderer(queries, key);
+        const masked = await maskSettingForRenderer(queries, key);
         return { success: true, data: masked, hasSecret: Boolean(masked) };
       }
       const result = await queries.getSetting.get(key);

@@ -4,6 +4,7 @@
 const { createIndexer, shouldIndexResourceType, reindexAllInFlight } = require('../services/indexing.pipeline.cjs');
 const { isConfigured: isEmbeddingsConfigured } = require('../services/embeddings.service.cjs');
 const lancedb = require('../services/lancedb-semantic.cjs');
+const { reindexFts } = require('../core/db/fts.cjs');
 
 /** @type {import('../services/indexing.pipeline.cjs').createIndexer extends (a: any) => infer R ? R : never} */
 let _indexer = null;
@@ -16,6 +17,35 @@ const _timers = new Map();
 
 /** Handle for the hourly sweep interval (cleared on app quit). */
 let _sweepInterval = null;
+
+/**
+ * Handle for the debounced FTS rebuild. DuckDB's `fts` extension does NOT keep
+ * its index in sync with table writes (unlike SQLite's FTS5 triggers), so the
+ * `fts_main_resources` index must be rebuilt after resources change or searches
+ * return stale/empty results. We coalesce bursts of writes into a single rebuild.
+ */
+let _ftsTimer = null;
+const FTS_REINDEX_DEBOUNCE_MS = 2500;
+
+/**
+ * Schedule a debounced rebuild of the resources FTS index. Safe to call on every
+ * resource mutation; bursts collapse into one rebuild after the writes settle.
+ */
+function scheduleFtsReindex() {
+  if (!_database) return;
+  if (_ftsTimer) clearTimeout(_ftsTimer);
+  _ftsTimer = setTimeout(() => {
+    _ftsTimer = null;
+    try {
+      const db = _database.getDB();
+      reindexFts(db, 'resources').catch((e) =>
+        console.warn('[fts-reindex]', e?.message || e),
+      );
+    } catch (e) {
+      console.warn('[fts-reindex]', e?.message || e);
+    }
+  }, FTS_REINDEX_DEBOUNCE_MS);
+}
 
 /** Máx. recursos encolados por barrido automático (evita ráfaga concurrente hacia Lance). */
 const AUTO_INDEX_MAX_SCHEDULE_PER_SWEEP = 8;
@@ -42,6 +72,9 @@ function getIndexer() {
  */
 function scheduleSemanticReindex(resourceId) {
   if (!resourceId || typeof resourceId !== 'string') return;
+  // Keep the FTS index in sync regardless of embeddings configuration: this hook
+  // fires from every resource write path (IPC, vault-watcher, tools, transcripts).
+  scheduleFtsReindex();
   const prev = _timers.get(resourceId);
   if (prev) {
     clearTimeout(prev);
@@ -71,13 +104,14 @@ function scheduleIndexing(resourceId) {
  * Remove semantic chunks/transcripts for a resource (before delete, if needed without CASCADE).
  * @param {string} resourceId
  */
-function deleteSemanticIndexArtifacts(resourceId) {
+async function deleteSemanticIndexArtifacts(resourceId) {
   if (!_database || !resourceId) return;
   try {
     const q = _database.getQueries();
-    q.deleteChunksByResource.run(resourceId);
-    q.deleteSemanticAutoFromSource.run(resourceId);
-    q.deleteResourceTranscripts.run(resourceId);
+    await q.deleteChunksByResource.run(resourceId);
+    await q.deleteSemanticAutoFromSource.run(resourceId);
+    await q.deleteResourceTranscripts.run(resourceId);
+    scheduleFtsReindex();
     void lancedb.deleteChunksForResource(resourceId).catch((e) => {
       console.warn('[semantic-index-scheduler] lance delete', e?.message || e);
     });
@@ -89,7 +123,7 @@ function deleteSemanticIndexArtifacts(resourceId) {
 
 async function indexMissingResources() {
   if (!_database) return;
-  if (!isEmbeddingsConfigured()) return;
+  if (!await isEmbeddingsConfigured()) return;
   // Don't schedule while a full reindex is running to avoid ONNX worker contention.
   if (reindexAllInFlight) {
     console.log('[AutoIndex] reindexAll in progress — skipping sweep');
@@ -122,6 +156,16 @@ async function indexMissingResources() {
 }
 
 function startAutoIndexing() {
+  // One-time FTS rebuild on boot so existing rows are searchable immediately
+  // (DuckDB FTS indexes don't persist row changes between sessions).
+  setTimeout(() => {
+    if (!_database) return;
+    try {
+      const db = _database.getDB();
+      reindexFts(db, 'resources').catch(() => {});
+      reindexFts(db, 'resource_interactions').catch(() => {});
+    } catch { /* non-fatal */ }
+  }, 5_000);
   setTimeout(() => {
     indexMissingResources().catch(() => {});
   }, 15_000);

@@ -22,9 +22,9 @@ function generateEventId() {
 /**
  * Get default calendar ID (local or first selected)
  */
-function getDefaultCalendarId() {
+async function getDefaultCalendarId() {
   const q = database.getQueries();
-  const row = q.getDefaultCalendar.get();
+  const row = await q.getDefaultCalendar.get();
   if (row) return row.id;
   return 'local-default';
 }
@@ -55,10 +55,10 @@ function eventRowToGooglePayload(row) {
 /**
  * Rebuild calendar_notifications rows for an event from reminders JSON + start_at.
  */
-function rebuildNotificationsForEvent(eventId, startAt, remindersJson) {
+async function rebuildNotificationsForEvent(eventId, startAt, remindersJson) {
   const q = database.getQueries();
   if (q.deleteCalendarNotificationsForEvent) {
-    q.deleteCalendarNotificationsForEvent.run(eventId);
+    await q.deleteCalendarNotificationsForEvent.run(eventId);
   }
   let reminders = [{ minutes: DEFAULT_REMINDER_MINUTES }];
   try {
@@ -76,7 +76,7 @@ function rebuildNotificationsForEvent(eventId, startAt, remindersJson) {
     if (notifyAt <= now) continue;
     const nid = `caln-${eventId}-${notifyAt}`;
     try {
-      q.createCalendarNotification.run(nid, eventId, notifyAt, null, now);
+      await q.createCalendarNotification.run(nid, eventId, notifyAt, null, now);
     } catch (e) {
       if (!String(e.message || '').includes('UNIQUE')) console.warn('[Calendar] notification insert:', e.message);
     }
@@ -151,15 +151,15 @@ async function pushCreatedEventToGoogle(eventId, cal, eventRow) {
   if (!isGoogleCalendarRow(cal)) return;
   const google = require('./google-calendar-service.cjs');
   const q = database.getQueries();
-  const acc = q.getCalendarAccountById.get(cal.account_id);
+  const acc = await q.getCalendarAccountById.get(cal.account_id);
   if (!acc || acc.provider !== 'google' || acc.status === 'disconnected') return;
   try {
     const payload = eventRowToGooglePayload(eventRow);
     const ge = await google.createGoogleEvent(acc.id, cal.remote_id, payload);
     if (ge?.id) {
       const now = Date.now();
-      q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, cal.remote_id, now, now);
-      q.updateCalendarEvent.run(
+      await q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, cal.remote_id, now, now);
+      await q.updateCalendarEvent.run(
         eventRow.title,
         eventRow.description,
         eventRow.location,
@@ -183,10 +183,10 @@ async function pushCreatedEventToGoogle(eventId, cal, eventRow) {
 async function pushUpdatedEventToGoogle(eventId, cal, eventRow) {
   if (!isGoogleCalendarRow(cal)) return;
   const q = database.getQueries();
-  const link = q.getCalendarEventLinkByEvent.get(eventId);
+  const link = await q.getCalendarEventLinkByEvent.get(eventId);
   if (!link || link.provider !== 'google') return;
   const google = require('./google-calendar-service.cjs');
-  const acc = q.getCalendarAccountById.get(cal.account_id);
+  const acc = await q.getCalendarAccountById.get(cal.account_id);
   if (!acc || acc.provider !== 'google') return;
   try {
     const payload = eventRowToGooglePayload(eventRow);
@@ -207,8 +207,8 @@ async function createEvent(data) {
     }
 
     const q = database.getQueries();
-    const calendarId = data.calendar_id || getDefaultCalendarId();
-    const cal = q.getCalendarCalendarById.get(calendarId);
+    const calendarId = data.calendar_id || await getDefaultCalendarId();
+    const cal = await q.getCalendarCalendarById.get(calendarId);
     if (!cal) {
       return { success: false, error: 'Calendar not found' };
     }
@@ -228,7 +228,7 @@ async function createEvent(data) {
 
     const initialSource = isGoogleCalendarRow(cal) ? 'local' : 'local';
 
-    q.createCalendarEvent.run(
+    await q.createCalendarEvent.run(
       eventId,
       calendarId,
       p.title || 'Untitled',
@@ -246,10 +246,10 @@ async function createEvent(data) {
       now
     );
 
-    let event = q.getCalendarEventById.get(eventId);
+    let event = await q.getCalendarEventById.get(eventId);
     await pushCreatedEventToGoogle(eventId, cal, event);
-    event = q.getCalendarEventById.get(eventId);
-    rebuildNotificationsForEvent(eventId, event.start_at, event.reminders);
+    event = await q.getCalendarEventById.get(eventId);
+    await rebuildNotificationsForEvent(eventId, event.start_at, event.reminders);
 
     return { success: true, event: rowToEvent({ ...event, calendar_title: cal?.title, calendar_color: cal?.color }) };
   } catch (err) {
@@ -264,7 +264,7 @@ async function createEvent(data) {
 async function updateEvent(eventId, updates) {
   try {
     const q = database.getQueries();
-    const existing = q.getCalendarEventById.get(eventId);
+    const existing = await q.getCalendarEventById.get(eventId);
     if (!existing) {
       return { success: false, error: 'Event not found' };
     }
@@ -276,9 +276,9 @@ async function updateEvent(eventId, updates) {
 
     const p = validation.parsed;
     const now = Date.now();
-    const cal = q.getCalendarCalendarById.get(existing.calendar_id);
+    const cal = await q.getCalendarCalendarById.get(existing.calendar_id);
 
-    q.updateCalendarEvent.run(
+    await q.updateCalendarEvent.run(
       p.title ?? existing.title,
       p.description ?? existing.description,
       p.location ?? existing.location,
@@ -296,10 +296,10 @@ async function updateEvent(eventId, updates) {
       eventId
     );
 
-    let event = q.getCalendarEventById.get(eventId);
+    let event = await q.getCalendarEventById.get(eventId);
     await pushUpdatedEventToGoogle(eventId, cal, event);
-    event = q.getCalendarEventById.get(eventId);
-    rebuildNotificationsForEvent(eventId, event.start_at, event.reminders);
+    event = await q.getCalendarEventById.get(eventId);
+    await rebuildNotificationsForEvent(eventId, event.start_at, event.reminders);
 
     return { success: true, event: rowToEvent(event) };
   } catch (err) {
@@ -314,13 +314,13 @@ async function updateEvent(eventId, updates) {
 async function deleteEvent(eventId) {
   try {
     const q = database.getQueries();
-    const existing = q.getCalendarEventById.get(eventId);
+    const existing = await q.getCalendarEventById.get(eventId);
     if (!existing) {
       return { success: false, error: 'Event not found' };
     }
 
-    const link = q.getCalendarEventLinkByEvent.get(eventId);
-    const cal = q.getCalendarCalendarById.get(existing.calendar_id);
+    const link = await q.getCalendarEventLinkByEvent.get(eventId);
+    const cal = await q.getCalendarCalendarById.get(existing.calendar_id);
     if (link && link.provider === 'google' && cal && isGoogleCalendarRow(cal)) {
       const google = require('./google-calendar-service.cjs');
       try {
@@ -331,10 +331,10 @@ async function deleteEvent(eventId) {
     }
 
     if (q.deleteCalendarNotificationsForEvent) {
-      q.deleteCalendarNotificationsForEvent.run(eventId);
+      await q.deleteCalendarNotificationsForEvent.run(eventId);
     }
-    q.deleteCalendarEventLinksByEvent.run(eventId);
-    q.deleteCalendarEvent.run(eventId);
+    await q.deleteCalendarEventLinksByEvent.run(eventId);
+    await q.deleteCalendarEvent.run(eventId);
     return { success: true, deleted: true };
   } catch (err) {
     console.error('[Calendar] deleteEvent error:', err);
@@ -385,7 +385,7 @@ async function getUpcomingEvents(windowMinutes = 10080, limit = 20) {
     const now = Date.now();
     const endMs = now + windowMinutes * 60 * 1000;
     const q = database.getQueries();
-    const rows = q.getUpcomingCalendarEvents.all(now, endMs, Math.min(limit, 50));
+    const rows = await q.getUpcomingCalendarEvents.all(now, endMs, Math.min(limit, 50));
     const events = rows.map(rowToEventSummary);
     return { success: true, events };
   } catch (err) {
@@ -493,14 +493,14 @@ function getGoogleAccounts() {
   }
 }
 
-function listCalendars(accountId = null) {
+async function listCalendars(accountId = null) {
   try {
     const q = database.getQueries();
     let rows;
     if (accountId) {
-      rows = q.getCalendarCalendarsByAccount.all(accountId);
+      rows = await q.getCalendarCalendarsByAccount.all(accountId);
     } else {
-      rows = q.getSelectedCalendarCalendars.all();
+      rows = await q.getSelectedCalendarCalendars.all();
     }
     return {
       success: true,
@@ -538,23 +538,23 @@ function getCalendarSettings() {
   }
 }
 
-function setCalendarSettings(partial) {
+async function setCalendarSettings(partial) {
   try {
     const q = database.getQueries();
     const now = Date.now();
     if (partial.sync_auto_enabled != null) {
-      q.setSetting.run('calendar_sync_auto_enabled', partial.sync_auto_enabled ? 'true' : 'false', now);
+      await q.setSetting.run('calendar_sync_auto_enabled', partial.sync_auto_enabled ? 'true' : 'false', now);
     }
     if (partial.sync_interval_minutes != null) {
       const m = Math.min(24 * 60, Math.max(5, Number(partial.sync_interval_minutes) || 30));
-      q.setSetting.run('calendar_sync_interval_minutes', String(m), now);
+      await q.setSetting.run('calendar_sync_interval_minutes', String(m), now);
     }
     if (partial.in_app_notifications_enabled != null) {
-      q.setSetting.run('calendar_in_app_notifications_enabled', partial.in_app_notifications_enabled ? 'true' : 'false', now);
+      await q.setSetting.run('calendar_in_app_notifications_enabled', partial.in_app_notifications_enabled ? 'true' : 'false', now);
     }
     if (partial.in_app_reminder_lead_minutes != null) {
       const lead = Math.min(7 * 24 * 60, Math.max(1, Number(partial.in_app_reminder_lead_minutes) || 15));
-      q.setSetting.run('calendar_in_app_reminder_lead_minutes', String(lead), now);
+      await q.setSetting.run('calendar_in_app_reminder_lead_minutes', String(lead), now);
     }
     return getCalendarSettings();
   } catch (err) {
@@ -563,12 +563,12 @@ function setCalendarSettings(partial) {
   }
 }
 
-function setCalendarSelected(calendarId, isSelected) {
+async function setCalendarSelected(calendarId, isSelected) {
   try {
     const q = database.getQueries();
-    const cal = q.getCalendarCalendarById.get(calendarId);
+    const cal = await q.getCalendarCalendarById.get(calendarId);
     if (!cal) return { success: false, error: 'Calendar not found' };
-    q.updateCalendarCalendar.run(
+    await q.updateCalendarCalendar.run(
       cal.title,
       cal.color,
       isSelected ? 1 : 0,
@@ -582,14 +582,14 @@ function setCalendarSelected(calendarId, isSelected) {
   }
 }
 
-function disconnectGoogleAccount(accountId) {
+async function disconnectGoogleAccount(accountId) {
   try {
     const q = database.getQueries();
-    const acc = q.getCalendarAccountById.get(accountId);
+    const acc = await q.getCalendarAccountById.get(accountId);
     if (!acc || acc.provider !== 'google') {
       return { success: false, error: 'Not a Google calendar account' };
     }
-    q.deleteCalendarAccount.run(accountId);
+    await q.deleteCalendarAccount.run(accountId);
     return { success: true };
   } catch (err) {
     return { success: false, error: err.message };
