@@ -9,7 +9,10 @@ import {
   applyProviderPreset,
   EMAIL_PROVIDER_BY_ID,
   type EmailProviderId,
+  DEFAULT_ZOHO_REGION,
+  type ZohoRegionId,
 } from '@/lib/email/providerPresets';
+import { cn } from '@/lib/utils';
 
 interface EmailAccount {
   id: string;
@@ -41,6 +44,7 @@ export default function EmailSettings() {
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [providerId, setProviderId] = useState<EmailProviderId>('custom');
+  const [zohoRegion, setZohoRegion] = useState<ZohoRegionId>(DEFAULT_ZOHO_REGION);
   const [showForm, setShowForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<EmailErrorInfo | null>(null);
@@ -76,6 +80,24 @@ export default function EmailSettings() {
           ...EMAIL_PROVIDER_BY_ID[nextProviderId].servers,
         },
         nextProviderId,
+        zohoRegion,
+      ),
+    }));
+  };
+
+  const handleZohoRegionChange = (nextRegion: ZohoRegionId) => {
+    setZohoRegion(nextRegion);
+    if (providerId !== 'zoho') return;
+    setForm((f) => ({
+      ...f,
+      ...applyProviderPreset(
+        {
+          email: f.email,
+          username: f.username,
+          ...EMAIL_PROVIDER_BY_ID.zoho.servers,
+        },
+        'zoho',
+        nextRegion,
       ),
     }));
   };
@@ -90,6 +112,7 @@ export default function EmailSettings() {
   const resetForm = () => {
     setForm({ ...EMPTY_FORM });
     setProviderId('custom');
+    setZohoRegion(DEFAULT_ZOHO_REGION);
     setError(null);
     setTestState('idle');
   };
@@ -212,18 +235,37 @@ export default function EmailSettings() {
           style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
         >
           <EmailProviderPicker value={providerId} onChange={handleProviderChange} />
-          <EmailProviderGuides providerId={providerId} />
+          <EmailProviderGuides providerId={providerId} zohoRegion={zohoRegion} />
 
           <Field label={t('email.settings.email')} value={form.email} onChange={(v) => update('email', v)} placeholder="you@example.com" />
           <Field label={t('email.settings.display_name')} value={form.display_name} onChange={(v) => update('display_name', v)} />
-          <div className="settings-field-grid settings-field-grid--2 gap-3">
-            <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => handleServerFieldChange('imap_host', v)} placeholder="imap.example.com" />
-            <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => handleServerFieldChange('imap_port', Number(v) || 993)} />
-          </div>
-          <div className="settings-field-grid settings-field-grid--2 gap-3">
-            <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => handleServerFieldChange('smtp_host', v)} placeholder="smtp.example.com" />
-            <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => handleServerFieldChange('smtp_port', Number(v) || 465)} />
-          </div>
+          {providerId === 'zoho' ? (
+            <div
+              className="space-y-3 rounded-lg p-3 min-w-0"
+              style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+            >
+              <ZohoRegionPicker value={zohoRegion} onChange={handleZohoRegionChange} />
+              <div className="settings-field-grid settings-field-grid--2 gap-3">
+                <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => handleServerFieldChange('imap_host', v)} placeholder="imap.example.com" />
+                <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => handleServerFieldChange('imap_port', Number(v) || 993)} />
+              </div>
+              <div className="settings-field-grid settings-field-grid--2 gap-3">
+                <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => handleServerFieldChange('smtp_host', v)} placeholder="smtp.example.com" />
+                <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => handleServerFieldChange('smtp_port', Number(v) || 465)} />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="settings-field-grid settings-field-grid--2 gap-3">
+                <Field label={t('email.settings.imap_host')} value={form.imap_host} onChange={(v) => handleServerFieldChange('imap_host', v)} placeholder="imap.example.com" />
+                <Field label={t('email.settings.imap_port')} value={String(form.imap_port)} onChange={(v) => handleServerFieldChange('imap_port', Number(v) || 993)} />
+              </div>
+              <div className="settings-field-grid settings-field-grid--2 gap-3">
+                <Field label={t('email.settings.smtp_host')} value={form.smtp_host} onChange={(v) => handleServerFieldChange('smtp_host', v)} placeholder="smtp.example.com" />
+                <Field label={t('email.settings.smtp_port')} value={String(form.smtp_port)} onChange={(v) => handleServerFieldChange('smtp_port', Number(v) || 465)} />
+              </div>
+            </>
+          )}
           <Field label={t('email.settings.username')} value={form.username} onChange={(v) => update('username', v)} placeholder={form.email} />
           <Field label={t('email.settings.password')} value={form.password} onChange={(v) => update('password', v)} type="password" />
           <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
@@ -272,6 +314,56 @@ export default function EmailSettings() {
         </div>
       )}
     </SettingsPanel>
+  );
+}
+
+function ZohoRegionPicker({
+  value,
+  onChange,
+}: {
+  value: ZohoRegionId;
+  onChange: (region: ZohoRegionId) => void;
+}) {
+  const { t } = useTranslation();
+  const options: { id: ZohoRegionId; labelKey: string }[] = [
+    { id: 'eu', labelKey: 'email.settings.zoho_region_eu' },
+    { id: 'global', labelKey: 'email.settings.zoho_region_global' },
+  ];
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 min-w-0">
+      <span className="text-xs font-medium" style={{ color: 'var(--dome-text-muted)' }}>
+        {t('email.settings.zoho_region_label')}
+      </span>
+      <div
+        className="inline-flex gap-1 rounded-lg p-0.5"
+        role="radiogroup"
+        aria-label={t('email.settings.zoho_region_aria')}
+        style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
+      >
+        {options.map((opt) => {
+          const selected = value === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => onChange(opt.id)}
+              className={cn(
+                'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--dome-bg-secondary)]',
+                selected
+                  ? 'bg-[var(--dome-accent-subtle,rgba(101,93,197,0.12))] text-[var(--dome-text)] shadow-sm'
+                  : 'text-[var(--dome-text-muted)] hover:text-[var(--dome-text)]',
+              )}
+            >
+              {t(opt.labelKey)}
+            </button>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
