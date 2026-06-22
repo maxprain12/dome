@@ -156,7 +156,7 @@ export default function TabPaneShell({
           className="relative flex flex-col flex-1 min-h-0 min-w-0 overflow-hidden"
           style={{
             opacity: revealPhase === 'shown' ? 1 : 0,
-            filter: revealPhase === 'shown' ? 'blur(0px)' : `blur(${BLUR_PX}px)`,
+            filter: revealPhase === 'shown' ? 'none' : `blur(${BLUR_PX}px)`,
             transition:
               revealPhase === 'animating' || revealPhase === 'shown'
                 ? `opacity ${REVEAL_MS}ms ease-out, filter ${REVEAL_MS}ms ease-out`
