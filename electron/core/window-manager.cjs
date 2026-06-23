@@ -162,6 +162,30 @@ class WindowManager {
       this.authorizedWindows.delete(webContentsId);
     });
 
+    // Renderer-crash telemetry. A renderer process dying (OOM, V8 fatal, GPU
+    // crash) is NOT an uncaughtException in main, so it was previously invisible
+    // — the user just saw "the app crashed" with nothing in Sentry. Report it so
+    // production crashes (e.g. heavy re-renders) carry a reason + window id.
+    window.webContents.on('render-process-gone', (_event, details) => {
+      console.error(`[WindowManager] render-process-gone (${id}):`, details?.reason, details?.exitCode);
+      try {
+        require('./sentry-main.cjs').captureExceptionMain(
+          new Error(`renderer gone: ${details?.reason || 'unknown'} (exit ${details?.exitCode ?? '?'})`),
+          { window: id, route, reason: details?.reason, exitCode: details?.exitCode },
+        );
+      } catch { /* reporting must never crash main */ }
+    });
+
+    window.webContents.on('unresponsive', () => {
+      console.warn(`[WindowManager] window unresponsive (${id})`);
+      try {
+        require('./sentry-main.cjs').captureExceptionMain(
+          new Error(`renderer unresponsive: ${id}`),
+          { window: id, route },
+        );
+      } catch { /* reporting must never crash main */ }
+    });
+
     // Prevenir navegación no autorizada; manejar dome:// internamente
     window.webContents.on('will-navigate', (event, navigationUrl) => {
       if (navigationUrl.startsWith('dome://') && this.domeLinkHandler) {

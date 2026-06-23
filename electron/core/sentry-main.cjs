@@ -20,6 +20,21 @@ let Sentry = null; // lazy-required @sentry/electron/main
 let initialized = false;
 let consentEnabled = false;
 
+// Build-time credentials baked by scripts/embed-env.cjs. In a packaged app
+// process.env does NOT carry the CI build secrets, so the DSN must be read from
+// here (same pattern as github-oauth.cjs / dome-provider-url.cjs). Absent in dev
+// when embed-env hasn't run — that's fine, Sentry just stays a no-op.
+let _appCredentials = {};
+try {
+  _appCredentials = require('../app-credentials.cjs');
+} catch {
+  // app-credentials.cjs not generated yet (dev without running embed-env.cjs)
+}
+
+function resolveDsn() {
+  return _appCredentials.SENTRY_DSN || process.env.SENTRY_DSN || '';
+}
+
 function isProd(app) {
   try {
     return !!app && app.isPackaged === true;
@@ -35,7 +50,7 @@ function isProd(app) {
  */
 function initSentryMain(app) {
   if (initialized) return;
-  const dsn = process.env.SENTRY_DSN;
+  const dsn = resolveDsn();
   if (!dsn) {
     // No DSN → stay a no-op. Don't warn (parity with Langfuse/PostHog).
     return;
