@@ -30,6 +30,7 @@ notebook.cjs
 ollama.cjs
 pdf-render.cjs
 personality.cjs
+pipelines.cjs
 plugins.cjs
 resources.cjs
 runs.cjs
