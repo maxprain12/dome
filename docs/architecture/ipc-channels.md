@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-23T02:14:54.721Z
+> Última generación: 2026-06-23T14:27:33.413Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -402,31 +402,35 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `personality:read-file` | `electron/ipc/integrations/personality.cjs:16` |
 | `personality:remember-fact` | `electron/ipc/integrations/personality.cjs:69` |
 | `personality:write-file` | `electron/ipc/integrations/personality.cjs:30` |
-| `pipelines:create` | `electron/ipc/agents/pipelines.cjs:186` |
-| `pipelines:delete` | `electron/ipc/agents/pipelines.cjs:240` |
-| `pipelines:get` | `electron/ipc/agents/pipelines.cjs:170` |
-| `pipelines:items:addEvent` | `electron/ipc/agents/pipelines.cjs:690` |
-| `pipelines:items:create` | `electron/ipc/agents/pipelines.cjs:383` |
-| `pipelines:items:delete` | `electron/ipc/agents/pipelines.cjs:544` |
-| `pipelines:items:list` | `electron/ipc/agents/pipelines.cjs:372` |
-| `pipelines:items:listEvents` | `electron/ipc/agents/pipelines.cjs:669` |
-| `pipelines:items:move` | `electron/ipc/agents/pipelines.cjs:464` |
-| `pipelines:items:resolve` | `electron/ipc/agents/pipelines.cjs:527` |
-| `pipelines:items:run` | `electron/ipc/agents/pipelines.cjs:513` |
-| `pipelines:items:update` | `electron/ipc/agents/pipelines.cjs:426` |
-| `pipelines:list` | `electron/ipc/agents/pipelines.cjs:158` |
-| `pipelines:sources:create` | `electron/ipc/agents/pipelines.cjs:573` |
-| `pipelines:sources:delete` | `electron/ipc/agents/pipelines.cjs:629` |
-| `pipelines:sources:list` | `electron/ipc/agents/pipelines.cjs:562` |
-| `pipelines:sources:sync` | `electron/ipc/agents/pipelines.cjs:643` |
-| `pipelines:sources:testConnection` | `electron/ipc/agents/pipelines.cjs:657` |
-| `pipelines:sources:update` | `electron/ipc/agents/pipelines.cjs:604` |
-| `pipelines:stages:create` | `electron/ipc/agents/pipelines.cjs:266` |
-| `pipelines:stages:delete` | `electron/ipc/agents/pipelines.cjs:356` |
-| `pipelines:stages:list` | `electron/ipc/agents/pipelines.cjs:255` |
-| `pipelines:stages:reorder` | `electron/ipc/agents/pipelines.cjs:334` |
-| `pipelines:stages:update` | `electron/ipc/agents/pipelines.cjs:303` |
-| `pipelines:update` | `electron/ipc/agents/pipelines.cjs:214` |
+| `pipelines:create` | `electron/ipc/agents/pipelines.cjs:188` |
+| `pipelines:delete` | `electron/ipc/agents/pipelines.cjs:242` |
+| `pipelines:export` | `electron/ipc/agents/pipelines.cjs:261` |
+| `pipelines:get` | `electron/ipc/agents/pipelines.cjs:172` |
+| `pipelines:import` | `electron/ipc/agents/pipelines.cjs:317` |
+| `pipelines:items:addEvent` | `electron/ipc/agents/pipelines.cjs:876` |
+| `pipelines:items:create` | `electron/ipc/agents/pipelines.cjs:536` |
+| `pipelines:items:delete` | `electron/ipc/agents/pipelines.cjs:729` |
+| `pipelines:items:generateReport` | `electron/ipc/agents/pipelines.cjs:699` |
+| `pipelines:items:get` | `electron/ipc/agents/pipelines.cjs:680` |
+| `pipelines:items:list` | `electron/ipc/agents/pipelines.cjs:525` |
+| `pipelines:items:listEvents` | `electron/ipc/agents/pipelines.cjs:854` |
+| `pipelines:items:move` | `electron/ipc/agents/pipelines.cjs:617` |
+| `pipelines:items:resolve` | `electron/ipc/agents/pipelines.cjs:712` |
+| `pipelines:items:run` | `electron/ipc/agents/pipelines.cjs:666` |
+| `pipelines:items:update` | `electron/ipc/agents/pipelines.cjs:579` |
+| `pipelines:list` | `electron/ipc/agents/pipelines.cjs:160` |
+| `pipelines:sources:create` | `electron/ipc/agents/pipelines.cjs:758` |
+| `pipelines:sources:delete` | `electron/ipc/agents/pipelines.cjs:814` |
+| `pipelines:sources:list` | `electron/ipc/agents/pipelines.cjs:747` |
+| `pipelines:sources:sync` | `electron/ipc/agents/pipelines.cjs:828` |
+| `pipelines:sources:testConnection` | `electron/ipc/agents/pipelines.cjs:842` |
+| `pipelines:sources:update` | `electron/ipc/agents/pipelines.cjs:789` |
+| `pipelines:stages:create` | `electron/ipc/agents/pipelines.cjs:419` |
+| `pipelines:stages:delete` | `electron/ipc/agents/pipelines.cjs:509` |
+| `pipelines:stages:list` | `electron/ipc/agents/pipelines.cjs:408` |
+| `pipelines:stages:reorder` | `electron/ipc/agents/pipelines.cjs:487` |
+| `pipelines:stages:update` | `electron/ipc/agents/pipelines.cjs:456` |
+| `pipelines:update` | `electron/ipc/agents/pipelines.cjs:216` |
 | `plugin:install-from-folder` | `electron/ipc/integrations/plugins.cjs:36` |
 | `plugin:install-from-repo` | `electron/ipc/integrations/plugins.cjs:139` |
 | `plugin:list` | `electron/ipc/integrations/plugins.cjs:23` |
@@ -441,15 +445,15 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `resource:extractPptImages` | `electron/ipc/data/resources.cjs:391` |
 | `resource:getFilePath` | `electron/ipc/data/resources.cjs:271` |
 | `resource:import` | `electron/ipc/data/resources.cjs:19` |
-| `resource:importFromContent` | `electron/ipc/data/resources.cjs:770` |
+| `resource:importFromContent` | `electron/ipc/data/resources.cjs:780` |
 | `resource:importMultiple` | `electron/ipc/data/resources.cjs:163` |
 | `resource:readDocumentContent` | `electron/ipc/data/resources.cjs:428` |
 | `resource:readFile` | `electron/ipc/data/resources.cjs:341` |
 | `resource:readFileBuffer` | `electron/ipc/data/resources.cjs:303` |
-| `resource:regenerateThumbnail` | `electron/ipc/data/resources.cjs:698` |
+| `resource:regenerateThumbnail` | `electron/ipc/data/resources.cjs:708` |
 | `resource:saveDocxFromHtml` | `electron/ipc/data/resources.cjs:526` |
 | `resource:scheduleIndex` | `electron/ipc/data/resources.cjs:133` |
-| `resource:setThumbnail` | `electron/ipc/data/resources.cjs:737` |
+| `resource:setThumbnail` | `electron/ipc/data/resources.cjs:747` |
 | `resource:writeExcelContent` | `electron/ipc/data/resources.cjs:469` |
 | `runs:abort` | `electron/ipc/agents/runs.cjs:66` |
 | `runs:delete` | `electron/ipc/agents/runs.cjs:77` |
