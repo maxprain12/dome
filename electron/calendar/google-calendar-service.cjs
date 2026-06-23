@@ -19,10 +19,23 @@ const GOOGLE_CALENDAR_SCOPES = [
 
 let _pendingOAuth = null;
 
+// Build-time credentials baked by scripts/embed-env.cjs. In a packaged app
+// process.env does NOT carry the CI build secrets, so the OAuth client id/secret
+// must be read from here (same pattern as github-oauth.cjs / sentry-main.cjs).
+// Absent in dev when embed-env hasn't run — falls back to env then settings.
+let _appCredentials = {};
+try {
+  _appCredentials = require('../app-credentials.cjs');
+} catch {
+  // app-credentials.cjs not generated yet (dev without running embed-env.cjs)
+}
+
 /**
- * Get Google OAuth client ID (from env or settings)
+ * Get Google OAuth client ID (baked credentials → env → settings)
  */
 function getClientId() {
+  const baked = _appCredentials.DOME_GOOGLE_CALENDAR_CLIENT_ID;
+  if (baked) return baked;
   const env = process.env.DOME_GOOGLE_CALENDAR_CLIENT_ID;
   if (env) return env;
   try {
@@ -37,6 +50,8 @@ function getClientId() {
  * Get Google OAuth client secret (optional for PKCE, required for auth code flow)
  */
 function getClientSecret() {
+  const baked = _appCredentials.DOME_GOOGLE_CALENDAR_CLIENT_SECRET;
+  if (baked) return baked;
   const env = process.env.DOME_GOOGLE_CALENDAR_CLIENT_SECRET;
   if (env) return env;
   try {

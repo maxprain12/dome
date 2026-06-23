@@ -73,6 +73,8 @@ jobs:
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+          DOME_GOOGLE_CALENDAR_CLIENT_ID: ${{ secrets.DOME_GOOGLE_CALENDAR_CLIENT_ID }}
+          DOME_GOOGLE_CALENDAR_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_CALENDAR_CLIENT_SECRET }}
           DOME_PROVIDER_URL: ${{ secrets.DOME_PROVIDER_URL }}
           DOME_GITHUB_CLIENT_ID: ${{ secrets.DOME_GITHUB_CLIENT_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -83,6 +85,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+          # Sentry: VITE_SENTRY_DSN → renderer (Vite inlines it at build);
+          # SENTRY_DSN → main process (baked by embed-env.cjs into app-credentials).
+          # Both fall back to the same DSN secret so one value drives both.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN || secrets.VITE_SENTRY_DSN }}
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -128,12 +135,19 @@ jobs:
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+          DOME_GOOGLE_CALENDAR_CLIENT_ID: ${{ secrets.DOME_GOOGLE_CALENDAR_CLIENT_ID }}
+          DOME_GOOGLE_CALENDAR_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_CALENDAR_CLIENT_SECRET }}
           DOME_PROVIDER_URL: ${{ secrets.DOME_PROVIDER_URL }}
           DOME_GITHUB_CLIENT_ID: ${{ secrets.DOME_GITHUB_CLIENT_ID }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+          # Sentry: VITE_SENTRY_DSN → renderer (Vite inlines it at build);
+          # SENTRY_DSN → main process (baked by embed-env.cjs into app-credentials).
+          # Both fall back to the same DSN secret so one value drives both.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN || secrets.VITE_SENTRY_DSN }}
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -212,10 +226,17 @@ jobs:
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+          DOME_GOOGLE_CALENDAR_CLIENT_ID: ${{ secrets.DOME_GOOGLE_CALENDAR_CLIENT_ID }}
+          DOME_GOOGLE_CALENDAR_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_CALENDAR_CLIENT_SECRET }}
           DOME_PROVIDER_URL: ${{ secrets.DOME_PROVIDER_URL }}
           DOME_GITHUB_CLIENT_ID: ${{ secrets.DOME_GITHUB_CLIENT_ID }}
           VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
           VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+          # Sentry: VITE_SENTRY_DSN → renderer (Vite inlines it at build);
+          # SENTRY_DSN → main process (baked by embed-env.cjs into app-credentials).
+          # Both fall back to the same DSN secret so one value drives both.
+          VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN || secrets.VITE_SENTRY_DSN }}
 
       - name: Verify Linux artifacts
         run: |
