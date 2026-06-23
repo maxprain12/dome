@@ -2,10 +2,17 @@ name: Build Electron App
 
 # Solo se ejecuta al publicar un GitHub Release (no en push/PR a main).
 # Flujo: crear el release (etiqueta + notas) y publicarlo → este workflow
-# compila macOS/Windows y sube los artefactos al mismo release.
+# compila macOS/Windows/Linux y sube los artefactos al mismo release.
+# workflow_dispatch permite probar builds Linux sin publicar release.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      attach_to_release:
+        description: 'Attach artifacts to the latest GitHub release (manual only)'
+        type: boolean
+        default: false
 
 # Permite subir activos al release (electron-publish / action-gh-release) con GITHUB_TOKEN.
 permissions:
@@ -137,9 +144,99 @@ jobs:
             release/latest.yml
           if-no-files-found: error
 
-  # Adjunta DMG/ZIP/EXE al release que disparó el workflow (no crea otro release).
+  # Linux build (AppImage + Flatpak)
+  build-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Cache electron-builder
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron-builder
+          key: linux-eb-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            linux-eb-
+
+      - name: Cache Electron download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/electron
+          key: linux-electron-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            linux-electron-
+
+      - name: Cache Flatpak runtimes
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/flatpak
+          key: linux-flatpak-2408-v1
+          restore-keys: |
+            linux-flatpak-
+
+      - name: Install Flatpak toolchain and runtimes
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub \
+            org.freedesktop.Platform//24.08 \
+            org.freedesktop.Sdk//24.08 \
+            org.electronjs.Electron2.BaseApp//24.08
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Vite, natives, embed env, pack (Linux)
+        run: |
+          pnpm run build:packages
+          pnpm run materialize:workspace-deps
+          pnpm run build
+          pnpm run rebuild:natives
+          pnpm run verify:workspace-deps
+          pnpm run verify:natives
+          node scripts/embed-env.cjs
+          pnpm run electron:pack -- --linux AppImage flatpak --publish never
+        env:
+          DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
+          DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
+          DOME_PROVIDER_URL: ${{ secrets.DOME_PROVIDER_URL }}
+          DOME_GITHUB_CLIENT_ID: ${{ secrets.DOME_GITHUB_CLIENT_ID }}
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
+
+      - name: Verify Linux artifacts
+        run: |
+          ls -lh release/
+          chmod +x release/*.AppImage
+          test -x release/*.AppImage
+          test -f release/*.flatpak
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dome-linux
+          path: |
+            release/*.AppImage
+            release/*.flatpak
+          if-no-files-found: error
+
+  # Adjunta DMG/ZIP/EXE/AppImage/Flatpak al release que disparó el workflow (no crea otro release).
   attach-artifacts:
-    needs: [build-macos, build-windows]
+    needs: [build-macos, build-windows, build-linux]
+    if: github.event_name == 'release' || inputs.attach_to_release == true
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -150,11 +247,24 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R artifacts
 
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            echo "tag=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$(gh release view --json tagName -q .tagName)" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload build assets to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
           files: |
             artifacts/dome-macos/*
             artifacts/dome-windows/*
+            artifacts/dome-linux/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

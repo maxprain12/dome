@@ -167,7 +167,29 @@ git push origin feature/your-feature
 
 ### Releases & CI/CD
 
-Desktop binaries (macOS `.dmg`, Windows `.exe`) are built with GitHub Actions on every published release. To publish: create a version tag, draft a release, and click **Publish release**.
+Desktop binaries are built with GitHub Actions on every published release:
+
+| Platform | Formats |
+|----------|---------|
+| macOS | `.dmg`, `.zip` |
+| Windows | `.exe` (installer + portable) |
+| Linux | `.AppImage` (portable), `.flatpak` (sandboxed) |
+
+To publish: create a version tag, draft a release, and click **Publish release**.
+
+**Linux install (from release assets):**
+
+```bash
+# AppImage — portable, no install
+chmod +x Dome-<version>.AppImage
+./Dome-<version>.AppImage
+
+# Flatpak — sandboxed, desktop integration
+flatpak install --user Dome-<version>.flatpak
+flatpak run com.domepro.app
+```
+
+AppImage and Flatpak x64 run on Ubuntu, Fedora, Arch, and other distros that support those formats.
 
 ## Core Maintainers
 
