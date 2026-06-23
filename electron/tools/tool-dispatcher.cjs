@@ -118,6 +118,14 @@ const TOOL_HANDLER_MAP = {
   calendar_delete_event: 'calendarDeleteEvent',
   get_tool_definition: 'getToolDefinition',
 
+  // Pipelines (Kanban)
+  pipeline_list: 'pipelineList',
+  pipeline_get: 'pipelineGet',
+  pipeline_create_card: 'pipelineCreateCard',
+  pipeline_move_card: 'pipelineMoveCard',
+  pipeline_run_card: 'pipelineRunCard',
+  pipeline_add_stage: 'pipelineAddStage',
+
   // Email (himalaya IMAP/SMTP)
   email_list_folders: 'emailListFolders',
   email_list: 'emailListEnvelopes',
@@ -673,6 +681,36 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
       case 'calendarDeleteEvent':
         result = await fn({ event_id: args.event_id });
         break;
+      case 'pipelineList':
+        result = await fn({ project_id: automationProjectId || args.project_id });
+        break;
+      case 'pipelineGet':
+        result = await fn({ pipeline_id: args.pipeline_id });
+        break;
+      case 'pipelineCreateCard':
+        result = await fn({
+          pipeline_id: args.pipeline_id,
+          stage_id: args.stage_id,
+          title: args.title,
+          data: args.data,
+          start_at: args.start_at,
+          end_at: args.end_at,
+        });
+        break;
+      case 'pipelineMoveCard':
+        result = await fn({ item_id: args.item_id, to_stage_id: args.to_stage_id });
+        break;
+      case 'pipelineRunCard':
+        result = await fn({ item_id: args.item_id });
+        break;
+      case 'pipelineAddStage':
+        result = await fn({
+          pipeline_id: args.pipeline_id,
+          title: args.title,
+          execution_policy: args.execution_policy,
+          assigned_agent_id: args.assigned_agent_id,
+        });
+        break;
       case 'emailListEnvelopes':
         result = await fn({ folder: args.folder, page: args.page, page_size: args.page_size });
         break;
@@ -1213,6 +1251,89 @@ function getAllToolDefinitions() {
             event_id: { type: 'string', description: 'ID of the event to delete' },
           },
           required: ['event_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'pipeline_list',
+        description: "List the user's pipelines (Kanban boards) in the active project. Use before creating cards to find the right pipeline_id.",
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'pipeline_get',
+        description: 'Get a pipeline with its stages and cards (items). Returns stage ids/titles and card ids/statuses. Use to find stage_id or item_id.',
+        parameters: {
+          type: 'object',
+          properties: { pipeline_id: { type: 'string', description: 'ID of the pipeline' } },
+          required: ['pipeline_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'pipeline_create_card',
+        description: "Create a card (item) in a pipeline, e.g. a new lead. Defaults to the first stage if stage_id is omitted. Set start_at/end_at (ISO 8601) to make it appear in the calendar (e.g. a response deadline).",
+        parameters: {
+          type: 'object',
+          properties: {
+            pipeline_id: { type: 'string', description: 'Target pipeline ID (required)' },
+            stage_id: { type: 'string', description: 'Optional stage ID; defaults to the first stage' },
+            title: { type: 'string', description: 'Card title (required)' },
+            data: { type: 'object', description: 'Arbitrary business data for the card (the agent assigned to a stage processes this)' },
+            start_at: { type: 'string', description: 'Optional start date/time as ISO 8601 (mirrors to calendar)' },
+            end_at: { type: 'string', description: 'Optional end/deadline as ISO 8601 (mirrors to calendar)' },
+          },
+          required: ['pipeline_id', 'title'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'pipeline_move_card',
+        description: 'Move a card to another stage. If the destination stage auto-runs an agent, the run starts automatically.',
+        parameters: {
+          type: 'object',
+          properties: {
+            item_id: { type: 'string', description: 'ID of the card to move (required)' },
+            to_stage_id: { type: 'string', description: 'Destination stage ID (required)' },
+          },
+          required: ['item_id', 'to_stage_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'pipeline_run_card',
+        description: "Run the stage's assigned agent on a card now (for stages with a manual-agent policy).",
+        parameters: {
+          type: 'object',
+          properties: { item_id: { type: 'string', description: 'ID of the card to run (required)' } },
+          required: ['item_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'pipeline_add_stage',
+        description: 'Add a stage (column) to a pipeline. execution_policy: auto_agent (runs on entry), manual_agent (run button), or manual_resolve (no agent).',
+        parameters: {
+          type: 'object',
+          properties: {
+            pipeline_id: { type: 'string', description: 'Target pipeline ID (required)' },
+            title: { type: 'string', description: 'Stage title (required)' },
+            execution_policy: { type: 'string', enum: ['auto_agent', 'manual_agent', 'manual_resolve'], description: 'How the stage executes' },
+            assigned_agent_id: { type: 'string', description: 'Optional agent ID to assign to the stage' },
+          },
+          required: ['pipeline_id', 'title'],
         },
       },
     },

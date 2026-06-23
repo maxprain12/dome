@@ -10,7 +10,7 @@ import IssueDetailPanel from './IssueDetailPanel';
 import GitHubSettings from './GitHubSettings';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import DomeIconBox from '@/components/ui/DomeIconBox';
-import { DomeSelect } from '@/components/ui/DomeSelect';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import { DomeInput } from '@/components/ui/DomeInput';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
@@ -49,6 +49,7 @@ function openStandalone(id: string, route: string, title: string) {
 export default function GitHubView() {
   const { t } = useTranslation();
   const init = useGitHubStore((s) => s.init);
+  const dispose = useGitHubStore((s) => s.dispose);
   const connected = useGitHubStore((s) => s.connected);
   const checkingAuth = useGitHubStore((s) => s.checkingAuth);
   const repos = useGitHubStore((s) => s.repos);
@@ -86,9 +87,12 @@ export default function GitHubView() {
     }
   };
 
+  // Init IPC subscriptions on mount, tear them down on unmount so repeated
+  // navigation (and popout windows) don't leak ipcRenderer listeners.
   useEffect(() => {
     void init();
-  }, [init]);
+    return () => dispose();
+  }, [init, dispose]);
 
   if (checkingAuth) {
     return (
@@ -117,24 +121,18 @@ export default function GitHubView() {
             </h1>
             <span className="dome-github-view__divider" aria-hidden />
             <div className="dome-github-view__repo-wrap">
-              <Github
-                size={13}
-                className="shrink-0 absolute top-1/2 -translate-y-1/2 text-[var(--tertiary-text)]"
-                style={{ left: 10 }}
-                aria-hidden
-              />
-              <DomeSelect
+              <DomeSelectMenu
                 value={selectedRepoId ?? ''}
-                onChange={(e) => void selectRepo(e.target.value)}
+                onChange={(id) => void selectRepo(id)}
                 aria-label={t('github.tab_title')}
                 className="min-w-0"
-                selectClassName="dome-github-view__repo-select pl-7 py-1 text-sm"
-              >
-                {selectedRepos.length === 0 && <option value="">{t('github.select_repos_in_settings')}</option>}
-                {selectedRepos.map((r) => (
-                  <option key={r.id} value={r.id}>{r.full_name}</option>
-                ))}
-              </DomeSelect>
+                placeholder={selectedRepos.length === 0 ? t('github.select_repos_in_settings') : t('github.tab_title')}
+                options={selectedRepos.map((r) => ({
+                  value: r.id,
+                  label: r.full_name,
+                  icon: <Github size={13} className="shrink-0 text-[var(--tertiary-text)]" aria-hidden />,
+                }))}
+              />
             </div>
           </div>
 

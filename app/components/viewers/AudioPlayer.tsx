@@ -6,6 +6,7 @@ import { type Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
 import { useSafeMediaSource } from '@/lib/hooks/useSafeMediaSource';
 import LoadingState from '@/components/ui/LoadingState';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import ErrorState from '@/components/ui/ErrorState';
 import MediaControls from './shared/MediaControls';
 import SeekBar from './shared/SeekBar';
@@ -303,24 +304,20 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                 formatTime={formatTime}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <select
-                  value={playbackRate}
-                  onChange={(e) => handlePlaybackRateChange(parseFloat(e.target.value))}
-                  className="cursor-pointer rounded-lg px-2 py-1 text-xs"
-                  style={{
-                    background: 'var(--dome-bg-hover)',
-                    border: '1px solid var(--dome-border)',
-                    color: 'var(--dome-text)',
-                  }}
+                <DomeSelectMenu
+                  value={String(playbackRate)}
+                  onChange={(v) => handlePlaybackRateChange(parseFloat(v))}
                   aria-label="Playback speed"
-                >
-                  <option value={0.5}>0.5x</option>
-                  <option value={0.75}>0.75x</option>
-                  <option value={1}>1x</option>
-                  <option value={1.25}>1.25x</option>
-                  <option value={1.5}>1.5x</option>
-                  <option value={2}>2x</option>
-                </select>
+                  fullWidth={false}
+                  options={[
+                    { value: '0.5', label: '0.5x' },
+                    { value: '0.75', label: '0.75x' },
+                    { value: '1', label: '1x' },
+                    { value: '1.25', label: '1.25x' },
+                    { value: '1.5', label: '1.5x' },
+                    { value: '2', label: '2x' },
+                  ]}
+                />
                 <div className="flex items-center justify-center gap-1">
                   <button
                     type="button"

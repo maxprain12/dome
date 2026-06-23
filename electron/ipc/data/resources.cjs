@@ -679,6 +679,16 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         fileStorage.deleteFile(resource.internal_path);
       }
 
+      // Remove the vault mirror BEFORE dropping the DB row. Without this the
+      // file lingers in the vault and the VaultWatcher re-imports it as a new
+      // resource — so deletes from the sidebar / folder manager "came back".
+      // Must run before deleteResource (it reads vault_path via the row).
+      try {
+        vaultStore.removeMirrorForResource(resourceId, { database, fileStorage });
+      } catch (e) {
+        console.warn('[Resource] removeMirrorForResource failed (non-fatal):', e?.message);
+      }
+
       // Delete from database
       queries.deleteResource.run(resourceId);
 

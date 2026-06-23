@@ -50,6 +50,8 @@ export { default as DomeModal } from './DomeModal';
 export type { DomeModalProps, DomeModalSize } from './DomeModal';
 export { DomeSelect } from './DomeSelect';
 export type { DomeSelectProps } from './DomeSelect';
+export { DomeSelectMenu } from './DomeSelectMenu';
+export type { DomeSelectMenuProps, DomeSelectOption } from './DomeSelectMenu';
 export { default as DomeCard } from './DomeCard';
 export type { DomeCardProps } from './DomeCard';
 export { default as DomeToolbar } from './DomeToolbar';

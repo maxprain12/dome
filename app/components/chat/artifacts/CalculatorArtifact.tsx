@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { CalculatorArtifactV } from '@/lib/chat/artifactSchemas';
 import { evaluateSafeCalculatorFormula } from '@/lib/chat/artifactSchemas';
 
@@ -122,26 +123,14 @@ export default function CalculatorArtifact({ artifact }: { artifact: CalculatorA
             />
           )}
           {inp.kind === 'select' && inp.options && (
-            <select
+            <DomeSelectMenu
               value={String(values[inp.id] ?? inp.options[0]?.value ?? 0)}
-              onChange={(e) => {
-                const n = Number.parseFloat(e.target.value);
+              onChange={(v) => {
+                const n = Number.parseFloat(v);
                 setValues((s) => ({ ...s, [inp.id]: Number.isFinite(n) ? n : 0 }));
               }}
-              style={{
-                padding: '6px 8px',
-                borderRadius: 6,
-                border: '1px solid var(--border)',
-                background: 'var(--bg)',
-                color: 'var(--primary-text)',
-              }}
-            >
-              {inp.options.map((o) => (
-                <option key={o.label + o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              options={inp.options.map((o) => ({ value: String(o.value), label: o.label }))}
+            />
           )}
         </label>
       ))}

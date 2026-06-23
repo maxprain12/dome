@@ -1,9 +1,35 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { createRequire } from 'module';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
+
+const require = createRequire(import.meta.url);
+const { version: appVersion } = require('./package.json') as { version: string };
+
+// Source map upload only happens in release builds that provide SENTRY_AUTH_TOKEN
+// (CI/local release). Without a token: no source maps generated/shipped, no upload.
+// The release name MUST match the main process (`dome@<version>`, see sentry-main.cjs).
+const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+const sentryRelease = `dome@${appVersion}`;
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // Must be last so it sees the final bundle + maps.
+    ...(sentryAuthToken
+      ? [
+          sentryVitePlugin({
+            org: process.env.SENTRY_ORG,
+            project: process.env.SENTRY_PROJECT,
+            authToken: sentryAuthToken,
+            release: { name: sentryRelease },
+            // Delete maps from dist/ after upload so they never ship to users.
+            sourcemaps: { filesToDeleteAfterUpload: ['./dist/**/*.map'] },
+          }),
+        ]
+      : []),
+  ],
 
   // Base path for assets (absolute so deep routes resolve correctly)
   base: '/',
@@ -30,6 +56,9 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    // 'hidden' = generate maps for Sentry upload without referencing them in the
+    // bundle. Only when a token is present (release builds); off otherwise.
+    sourcemap: sentryAuthToken ? 'hidden' : false,
     rollupOptions: {
       output: {
         manualChunks(id) {

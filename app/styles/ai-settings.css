@@ -106,6 +106,15 @@
   }
 }
 
+/* Provider selection root — establishes the `ai-settings` container context so the
+ * grid's container queries work even outside AISettingsPanel (e.g. onboarding). */
+.ai-provider-selection {
+  width: 100%;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: ai-settings;
+}
+
 /* Provider grid — auto-fill columns that adapt to content width */
 .ai-provider-grid {
   display: grid;

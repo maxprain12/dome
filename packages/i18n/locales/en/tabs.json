@@ -7,5 +7,6 @@
   "agents": "Agents",
   "agents_flows": "Agents & Flows",
   "learn": "Learn",
-  "marketplace": "Marketplace"
+  "marketplace": "Marketplace",
+  "pipelines": "Pipelines"
 }

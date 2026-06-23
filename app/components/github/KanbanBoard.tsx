@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent 
 import { CircleDot, CheckCircle2, Calendar, ExternalLink, GripVertical, Plus, X, Milestone } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
+import { useGitHubSortStore } from '@/lib/store/useGitHubSortStore';
 import { githubClient, parseLabels } from '@/lib/github/client';
+import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
+import GitHubSortControls from './GitHubSortControls';
 
 /**
  * Kanban matching GitHub milestones ⇄ Dome columns.
@@ -22,6 +25,11 @@ export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: 
   const syncNow = useGitHubStore((s) => s.syncNow);
 
   const q = query.trim().toLowerCase();
+  const columnSort = useGitHubSortStore((s) => s.milestones);
+  const setColumnSort = useGitHubSortStore((s) => s.setMilestoneSort);
+  const cardSort = useGitHubSortStore((s) => s.issues);
+  const setCardSort = useGitHubSortStore((s) => s.setIssueSort);
+
   const issues = useMemo(() => {
     if (!q) return allIssues;
     return allIssues.filter((i) =>
@@ -32,14 +40,43 @@ export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: 
   }, [allIssues, q]);
 
   const columns = useMemo(() => {
-    const cols: Array<{ key: ColumnKey; title: string; dueOn: number | null; milestoneNumber: number | null; url: string | null }> = [
-      { key: 'none', title: t('github.no_milestone'), dueOn: null, milestoneNumber: null, url: null },
+    const cols: Array<{ key: ColumnKey; title: string; dueOn: number | null; milestoneNumber: number | null; url: string | null; state: 'open' | 'closed' | null }> = [
+      { key: 'none', title: t('github.no_milestone'), dueOn: null, milestoneNumber: null, url: null, state: null },
     ];
     for (const m of milestones) {
-      cols.push({ key: m.number, title: m.title, dueOn: m.due_on, milestoneNumber: m.number, url: m.html_url });
+      cols.push({ key: m.number, title: m.title, dueOn: m.due_on, milestoneNumber: m.number, url: m.html_url, state: m.state });
     }
-    return cols;
-  }, [milestones, t]);
+    // "Sin milestone" always stays first regardless of the sort.
+    const noneCol = cols.shift()!;
+    const milestoneCols = cols.slice();
+    switch (columnSort) {
+      case 'newest':
+        milestoneCols.sort((a, b) => (b.milestoneNumber ?? 0) - (a.milestoneNumber ?? 0));
+        break;
+      case 'oldest':
+        milestoneCols.sort((a, b) => (a.milestoneNumber ?? 0) - (b.milestoneNumber ?? 0));
+        break;
+      case 'due_date':
+        // Milestones without a due_on go last; earlier due dates first.
+        milestoneCols.sort((a, b) => {
+          if (a.dueOn == null && b.dueOn == null) return 0;
+          if (a.dueOn == null) return 1;
+          if (b.dueOn == null) return -1;
+          return a.dueOn - b.dueOn;
+        });
+        break;
+      case 'state':
+        // Open milestones first, then closed (stable within each group by number desc).
+        milestoneCols.sort((a, b) => {
+          const ao = a.state === 'open' ? 0 : 1;
+          const bo = b.state === 'open' ? 0 : 1;
+          if (ao !== bo) return ao - bo;
+          return (b.milestoneNumber ?? 0) - (a.milestoneNumber ?? 0);
+        });
+        break;
+    }
+    return [noneCol, ...milestoneCols];
+  }, [milestones, t, columnSort]);
 
   const issuesByMilestone = useMemo(() => {
     const map = new Map<ColumnKey, GitHubIssueRow[]>();
@@ -48,8 +85,30 @@ export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: 
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(issue);
     }
+    // Sort each column's cards in-place according to cardSort.
+    for (const [key, list] of map) {
+      const sorted = [...list];
+      switch (cardSort) {
+        case 'newest':
+          sorted.sort((a, b) => b.number - a.number);
+          break;
+        case 'oldest':
+          sorted.sort((a, b) => a.number - b.number);
+          break;
+        case 'status':
+          // Open first, then closed; stable by number desc within each group.
+          sorted.sort((a, b) => {
+            const ao = a.state === 'open' ? 0 : 1;
+            const bo = b.state === 'open' ? 0 : 1;
+            if (ao !== bo) return ao - bo;
+            return b.number - a.number;
+          });
+          break;
+      }
+      map.set(key, sorted);
+    }
     return map;
-  }, [issues]);
+  }, [issues, cardSort]);
 
   const move = async (issueId: string, milestoneNumber: number | null) => {
     await githubClient.issues.move(issueId, { milestoneNumber });
@@ -61,35 +120,49 @@ export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: 
     void syncNow();
   };
 
+  // Horizontal wheel-scroll + drag for the columns row (mouse wheel → scrollLeft).
+  const boardScrollRef = useRef<HTMLDivElement>(null);
+  useHorizontalScroll(boardScrollRef);
+
   return (
-    <div className="flex gap-3 overflow-x-auto h-full p-4">
-      {columns.map((col) => (
-        <KanbanColumn
-          key={String(col.key)}
-          title={col.title}
-          dueOn={col.dueOn}
-          url={col.url}
-          milestoneNumber={col.milestoneNumber}
-          issues={issuesByMilestone.get(col.key) ?? []}
-          onOpenIssue={onOpenIssue}
-          onDrop={(issueId) => move(issueId, col.milestoneNumber)}
-          onToggleState={toggleState}
-        />
-      ))}
-      {selectedRepoId && (
-        <NewMilestoneColumn
-          onCreate={async ({ title, description, dueOn }) => {
-            await githubClient.milestones.create(selectedRepoId, {
-              title,
-              description: description.trim() || undefined,
-              dueOn: dueOn || undefined,
-            });
-            // Full reload so the new milestone + column appear in the store.
-            await loadRepoData(selectedRepoId);
-            void syncNow();
-          }}
-        />
-      )}
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Sort filters bar — minimal icon-only buttons with dropdown menu */}
+      <div
+        className="flex items-center gap-1 px-4 py-1.5 border-b shrink-0"
+        style={{ borderColor: 'var(--dome-border, var(--border))' }}
+      >
+        <GitHubSortControls />
+      </div>
+
+      <div ref={boardScrollRef} className="flex gap-3 overflow-x-auto flex-1 p-4 min-h-0">
+        {columns.map((col) => (
+          <KanbanColumn
+            key={String(col.key)}
+            title={col.title}
+            dueOn={col.dueOn}
+            url={col.url}
+            milestoneNumber={col.milestoneNumber}
+            issues={issuesByMilestone.get(col.key) ?? []}
+            onOpenIssue={onOpenIssue}
+            onDrop={(issueId) => move(issueId, col.milestoneNumber)}
+            onToggleState={toggleState}
+          />
+        ))}
+        {selectedRepoId && (
+          <NewMilestoneColumn
+            onCreate={async ({ title, description, dueOn }) => {
+              await githubClient.milestones.create(selectedRepoId, {
+                title,
+                description: description.trim() || undefined,
+                dueOn: dueOn || undefined,
+              });
+              // Full reload so the new milestone + column appear in the store.
+              await loadRepoData(selectedRepoId);
+              void syncNow();
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -266,8 +266,60 @@ function register({ ipcMain, windowManager }) {
   // --- image proxy --------------------------------------------------------
   // GitHub issue images (user-attachments / *.githubusercontent.com) need auth
   // and can't be loaded directly in an <img>. Fetch with the token, return a
-  // data URL. Cached in-memory.
-  const imageCache = new Map(); // url -> dataUrl
+  // data URL. Cached in-memory with an LRU+TTL policy so a session browsing
+  // many issue images can't hold up to ~2GB of base64 forever (the old
+  // count-only cap of 200 × up to 8MB had no age eviction).
+  const IMAGE_CACHE_MAX = 50;        // entries
+  const IMAGE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 min
+  const IMAGE_CACHE_MAX_BYTES = 64 * 1024 * 1024; // 64 MB total
+  /** @type {Map<string, { dataUrl: string, bytes: number, ts: number }>} */
+  const imageCache = new Map();
+  let imageCacheBytes = 0;
+
+  function imageCacheGet(url) {
+    const entry = imageCache.get(url);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > IMAGE_CACHE_TTL_MS) {
+      // Expired — evict lazily.
+      imageCache.delete(url);
+      imageCacheBytes -= entry.bytes;
+      return null;
+    }
+    // LRU: move to most-recently-used position (Map preserves insertion order).
+    imageCache.delete(url);
+    imageCache.set(url, entry);
+    return entry.dataUrl;
+  }
+
+  function imageCacheEvictOne() {
+    // Map iteration order = oldest first (LRU victim).
+    const oldest = imageCache.keys().next();
+    if (oldest.done) return;
+    const key = oldest.value;
+    const entry = imageCache.get(key);
+    if (entry) imageCacheBytes -= entry.bytes;
+    imageCache.delete(key);
+  }
+
+  function imageCacheSet(url, dataUrl) {
+    const bytes = Buffer.byteLength(dataUrl, 'utf8');
+    // If this single entry is huge, skip caching it rather than evicting the
+    // whole cache to fit one outlier.
+    if (bytes > IMAGE_CACHE_MAX_BYTES / 2) return;
+    // Remove existing entry for this key (refresh) so we don't double-count.
+    const existing = imageCache.get(url);
+    if (existing) imageCacheBytes -= existing.bytes;
+    // Evict until both count and byte caps are satisfied.
+    while (
+      (imageCache.size >= IMAGE_CACHE_MAX || imageCacheBytes + bytes > IMAGE_CACHE_MAX_BYTES) &&
+      imageCache.size > 0
+    ) {
+      imageCacheEvictOne();
+    }
+    imageCache.set(url, { dataUrl, bytes, ts: Date.now() });
+    imageCacheBytes += bytes;
+  }
+
   ipcMain.handle('github:image:resolve', async (event, url) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof url !== 'string') return fail('Invalid url');
@@ -281,7 +333,8 @@ function register({ ipcMain, windowManager }) {
     const host = parsed.hostname;
     const allowed = host === 'github.com' || host.endsWith('githubusercontent.com');
     if (!allowed) return fail('Host not allowed');
-    if (imageCache.has(url)) return ok({ dataUrl: imageCache.get(url) });
+    const cached = imageCacheGet(url);
+    if (cached) return ok({ dataUrl: cached });
     try {
       const token = githubOAuth.getToken();
       const res = await fetch(url, {
@@ -301,7 +354,7 @@ function register({ ipcMain, windowManager }) {
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length > 8 * 1024 * 1024) return fail('Image too large');
       const dataUrl = `data:${ct};base64,${buf.toString('base64')}`;
-      if (imageCache.size < 200) imageCache.set(url, dataUrl);
+      imageCacheSet(url, dataUrl);
       return ok({ dataUrl });
     } catch (err) {
       return fail(err);

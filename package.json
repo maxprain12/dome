@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "2.6.2",
+  "version": "2.7.0",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -88,6 +88,7 @@
     "@napi-rs/canvas": "^0.1.97",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-popover": "^1.1.15",
+    "@sentry/electron": "^7.13.0",
     "@sinclair/typebox": "^0.34.49",
     "@tabler/icons-react": "^3.41.1",
     "@tiptap/core": "^3.22.4",
@@ -190,6 +191,7 @@
   "devDependencies": {
     "@base-ui/react": "^1.4.1",
     "@electron/rebuild": "^4.0.4",
+    "@sentry/vite-plugin": "^5.3.0",
     "@types/better-sqlite3": "^7.6.0",
     "@types/d3-drag": "^3.0.7",
     "@types/d3-force": "^3.0.10",

@@ -20,7 +20,7 @@ let _hooks = {};
 /**
  * @param {object} database
  * @param {object} windowManager
- * @param {{ onTerminalAutomationStatus?: (automationId: string, status: string) => void }} hooks
+ * @param {{ onTerminalAutomationStatus?: (automationId: string, status: string) => void, onRunTerminal?: (run: object) => void }} hooks
  */
 function init(database, windowManager, hooks = {}) {
   _database = database;
@@ -194,6 +194,15 @@ function patchRun(runId, patch) {
       _hooks.onTerminalAutomationStatus?.(next.automationId, next.status);
     } catch (e) {
       console.warn('[RunStore] onTerminalAutomationStatus failed:', e?.message);
+    }
+  }
+  // Generic terminal hook (any owner). Used by the pipeline runner to close the
+  // run → pipeline_item loop without coupling the core engine to pipelines.
+  if (RUN_TERMINAL_STATUSES.has(next.status) && current.status !== next.status) {
+    try {
+      _hooks.onRunTerminal?.(next);
+    } catch (e) {
+      console.warn('[RunStore] onRunTerminal failed:', e?.message);
     }
   }
   const becameCompleted =

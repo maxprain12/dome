@@ -113,6 +113,7 @@ function TabIcon({ tab }: { tab: DomeTab }) {
     case 'flashcards': return <WalletCards className={cls} strokeWidth={sw} />;
     case 'tags': return <Tag className={cls} strokeWidth={sw} />;
     case 'marketplace': return <Store className={cls} strokeWidth={sw} />;
+    case 'pipelines': return <Workflow className={cls} strokeWidth={sw} />;
     case 'agents': return <Bot className={cls} strokeWidth={sw} />;
     case 'workflows': return <Workflow className={cls} strokeWidth={sw} />;
     case 'automations': return <Zap className={cls} strokeWidth={sw} />;

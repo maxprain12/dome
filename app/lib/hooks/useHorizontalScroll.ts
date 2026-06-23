@@ -6,6 +6,31 @@ function hasHorizontalOverflow(element: HTMLElement) {
   return element.scrollWidth > element.clientWidth + 1;
 }
 
+/**
+ * Walk up from `target` to (but not including) `container` looking for the
+ * nearest ancestor that can scroll vertically. Used so a Kanban column's card
+ * list keeps its vertical wheel scroll — the parent only translates to
+ * horizontal when the column is already at its top/bottom boundary.
+ */
+function findVerticalScrollableAncestor(target: Element | null, container: HTMLElement): HTMLElement | null {
+  let node = target instanceof Element ? target.parentElement : null;
+  while (node && node !== container) {
+    const style = getComputedStyle(node);
+    const overflowY = style.overflowY;
+    const canScrollY = (overflowY === 'auto' || overflowY === 'scroll') && node.scrollHeight > node.clientHeight + 1;
+    if (canScrollY) return node;
+    node = node.parentElement;
+  }
+  return null;
+}
+
+/** True when `el` cannot scroll further in the direction implied by `deltaY`. */
+function isAtVerticalBoundary(el: HTMLElement, deltaY: number): boolean {
+  if (deltaY > 0) return el.scrollTop + el.clientHeight >= el.scrollHeight - 1; // at bottom
+  if (deltaY < 0) return el.scrollTop <= 0; // at top
+  return false;
+}
+
 export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const element = ref.current;
@@ -72,12 +97,25 @@ export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
     const handleWheel = (event: WheelEvent) => {
       if (!hasHorizontalOverflow(element)) return;
 
+      // If the wheel started inside a vertically-scrollable child (e.g. a
+      // Kanban column's card list) and that child can still scroll in the
+      // wheel direction, let the browser handle the vertical scroll and don't
+      // translate to horizontal — otherwise we'd steal column scrolling.
+      const verticalChild = findVerticalScrollableAncestor(event.target as Element | null, element);
+      if (verticalChild && !isAtVerticalBoundary(verticalChild, event.deltaY)) return;
+
       const horizontalDelta = event.deltaX;
       const verticalDelta = event.deltaY;
       const shouldTranslateVerticalWheel = Math.abs(verticalDelta) > Math.abs(horizontalDelta);
       const delta = shouldTranslateVerticalWheel ? verticalDelta : horizontalDelta;
 
       if (delta === 0) return;
+
+      // Don't steal the event (and prevent default scroll chaining) if the
+      // container is already at its horizontal boundary in this direction.
+      const atStart = element.scrollLeft <= 0;
+      const atEnd = element.scrollLeft >= element.scrollWidth - element.clientWidth - 1;
+      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return;
 
       element.scrollLeft += delta;
       event.preventDefault();

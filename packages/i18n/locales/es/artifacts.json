@@ -27,6 +27,7 @@
   "view_and_run": "Ver y ejecutar",
   "new_artifact": "Nuevo Artefacto",
   "export_artifact": "Exportar",
+  "export_html": "Exportar HTML",
   "save_state": "Guardar",
   "save_state_title": "Guardar los valores actuales en la biblioteca (al reabrir y para búsqueda con IA)",
   "save_state_ok": "Estado del artefacto guardado",

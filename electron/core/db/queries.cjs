@@ -1132,6 +1132,107 @@ function buildQueries(db) {
     listFeederRuns: db.prepare(`
       SELECT * FROM feeder_runs WHERE feeder_id = ? ORDER BY started_at DESC LIMIT ?
     `),
+
+    // Pipelines (Kanban) — migration 52
+    createPipeline: db.prepare(`
+      INSERT INTO pipelines (id, project_id, name, description, icon_index, color, folder_id, archived, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getPipelineById: db.prepare('SELECT * FROM pipelines WHERE id = ?'),
+    listPipelinesByProject: db.prepare(`
+      SELECT * FROM pipelines WHERE project_id = ? AND archived = 0 ORDER BY updated_at DESC
+    `),
+    updatePipeline: db.prepare(`
+      UPDATE pipelines
+      SET name = ?, description = ?, icon_index = ?, color = ?, folder_id = ?, archived = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    deletePipeline: db.prepare('DELETE FROM pipelines WHERE id = ?'),
+
+    // Pipeline stages
+    createPipelineStage: db.prepare(`
+      INSERT INTO pipeline_stages (
+        id, pipeline_id, project_id, title, position, execution_policy, assigned_agent_id,
+        assigned_workflow_id, run_input_template, provider, model, is_terminal, wip_limit,
+        config_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getPipelineStageById: db.prepare('SELECT * FROM pipeline_stages WHERE id = ?'),
+    listStagesByPipeline: db.prepare(`
+      SELECT * FROM pipeline_stages WHERE pipeline_id = ? ORDER BY position ASC, created_at ASC
+    `),
+    updatePipelineStage: db.prepare(`
+      UPDATE pipeline_stages
+      SET title = ?, position = ?, execution_policy = ?, assigned_agent_id = ?, assigned_workflow_id = ?,
+          run_input_template = ?, provider = ?, model = ?, is_terminal = ?, wip_limit = ?, config_json = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    updatePipelineStagePosition: db.prepare('UPDATE pipeline_stages SET position = ?, updated_at = ? WHERE id = ?'),
+    deletePipelineStage: db.prepare('DELETE FROM pipeline_stages WHERE id = ?'),
+
+    // Pipeline sources
+    createPipelineSource: db.prepare(`
+      INSERT INTO pipeline_sources (
+        id, pipeline_id, project_id, name, source_type, config_json, target_stage_id,
+        enabled, last_sync_at, last_sync_status, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getPipelineSourceById: db.prepare('SELECT * FROM pipeline_sources WHERE id = ?'),
+    listSourcesByPipeline: db.prepare(`
+      SELECT * FROM pipeline_sources WHERE pipeline_id = ? ORDER BY created_at ASC
+    `),
+    updatePipelineSource: db.prepare(`
+      UPDATE pipeline_sources
+      SET name = ?, source_type = ?, config_json = ?, target_stage_id = ?, enabled = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    updatePipelineSourceSync: db.prepare(`
+      UPDATE pipeline_sources SET last_sync_at = ?, last_sync_status = ?, updated_at = ? WHERE id = ?
+    `),
+    deletePipelineSource: db.prepare('DELETE FROM pipeline_sources WHERE id = ?'),
+
+    // Pipeline items (cards)
+    createPipelineItem: db.prepare(`
+      INSERT INTO pipeline_items (
+        id, pipeline_id, project_id, stage_id, source_id, title, position, data_json, exec_status,
+        assigned_kind, assigned_agent_id, current_run_id, last_output, start_at, end_at,
+        calendar_event_id, metadata_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getPipelineItemById: db.prepare('SELECT * FROM pipeline_items WHERE id = ?'),
+    getPipelineItemByRunId: db.prepare('SELECT * FROM pipeline_items WHERE current_run_id = ?'),
+    listItemsByPipeline: db.prepare(`
+      SELECT * FROM pipeline_items WHERE pipeline_id = ? ORDER BY stage_id ASC, position ASC, created_at ASC
+    `),
+    listItemsByStage: db.prepare(`
+      SELECT * FROM pipeline_items WHERE stage_id = ? ORDER BY position ASC, created_at ASC
+    `),
+    updatePipelineItem: db.prepare(`
+      UPDATE pipeline_items
+      SET stage_id = ?, source_id = ?, title = ?, position = ?, data_json = ?, exec_status = ?,
+          assigned_kind = ?, assigned_agent_id = ?, current_run_id = ?, last_output = ?,
+          start_at = ?, end_at = ?, calendar_event_id = ?, metadata_json = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    updatePipelineItemStageAndPosition: db.prepare(`
+      UPDATE pipeline_items SET stage_id = ?, position = ?, updated_at = ? WHERE id = ?
+    `),
+    updatePipelineItemExecStatus: db.prepare(`
+      UPDATE pipeline_items SET exec_status = ?, assigned_kind = ?, current_run_id = ?, last_output = ?, updated_at = ? WHERE id = ?
+    `),
+    updatePipelineItemCalendar: db.prepare(`
+      UPDATE pipeline_items SET calendar_event_id = ?, updated_at = ? WHERE id = ?
+    `),
+    deletePipelineItem: db.prepare('DELETE FROM pipeline_items WHERE id = ?'),
+
+    // Pipeline item events (activity log — migration 53)
+    createPipelineItemEvent: db.prepare(`
+      INSERT INTO pipeline_item_events (id, item_id, project_id, event_type, actor, summary, detail_json, run_id, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    listPipelineItemEvents: db.prepare(`
+      SELECT * FROM pipeline_item_events WHERE item_id = ? ORDER BY created_at ASC
+    `),
   };
 }
 

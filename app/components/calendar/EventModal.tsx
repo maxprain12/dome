@@ -1,14 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ExternalLink, Tag, GitBranch, CircleDot, CheckCircle2,
-  Rocket, Milestone, Github,
+  Rocket, Milestone, Github, Pencil, MapPin, Clock, Workflow,
 } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
+import DomeButton from '@/components/ui/DomeButton';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
+import { pipelinesClient } from '@/lib/pipelines/client';
+import { useTabStore } from '@/lib/store/useTabStore';
+import type { PipelineItem } from '@/lib/pipelines/types';
 
 const GITHUB_CALENDAR_ID = 'github-dome';
 
@@ -25,6 +29,12 @@ function isGithubCalendarEvent(event: CalendarEvent | null | undefined): boolean
   if (!event) return false;
   if (event.calendar_id === GITHUB_CALENDAR_ID) return true;
   return event.metadata?.source === 'github';
+}
+
+function pipelineItemIdOf(event: CalendarEvent | null | undefined): string | null {
+  if (!event || event.metadata?.source !== 'pipeline') return null;
+  const id = event.metadata?.pipelineItemId;
+  return typeof id === 'string' ? id : null;
 }
 
 function githubEventUrl(event: CalendarEvent): string | null {
@@ -92,6 +102,125 @@ function MetaRow({ label, children }: MetaRowProps) {
         {children}
       </dd>
     </>
+  );
+}
+
+interface PipelineDetail {
+  item: PipelineItem;
+  stageTitle: string | null;
+  pipelineName: string | null;
+}
+
+/** Read-only detail view for a local (or pipeline-sourced) calendar event. */
+function LocalEventDetail({
+  event,
+  locale,
+  pipeline,
+  onOpenPipeline,
+}: {
+  event: CalendarEvent;
+  locale: string;
+  pipeline: PipelineDetail | null;
+  onOpenPipeline: () => void;
+}) {
+  const { t } = useTranslation();
+  const todos = Array.isArray(pipeline?.item.data?.todos)
+    ? (pipeline!.item.data!.todos as Array<{ done?: boolean }>)
+    : [];
+  const todoDone = todos.filter((td) => td?.done).length;
+  const dataText =
+    pipeline && typeof pipeline.item.data?.text === 'string' ? pipeline.item.data.text.trim() : '';
+
+  return (
+    <div className="flex flex-col gap-4">
+      {pipeline && (
+        <div
+          className="inline-flex items-center gap-1.5 self-start rounded-full px-2.5 py-1 text-[11px] font-medium"
+          style={{ background: 'var(--accent)', color: 'var(--dome-on-accent, var(--base-text))' }}
+        >
+          <Workflow size={12} />
+          {pipeline.pipelineName ? `${pipeline.pipelineName}` : t('tabs.pipelines')}
+        </div>
+      )}
+
+      <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-0">
+        <MetaRow label={t('calendarPage.when', { defaultValue: 'When' })}>
+          <span className="inline-flex items-center gap-1.5">
+            <Clock size={13} style={{ color: 'var(--dome-text-muted)' }} />
+            {formatEventWhen(event, locale)}
+          </span>
+        </MetaRow>
+        {event.location ? (
+          <MetaRow label={t('calendarPage.location', { defaultValue: 'Location' })}>
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin size={13} style={{ color: 'var(--dome-text-muted)' }} />
+              {event.location}
+            </span>
+          </MetaRow>
+        ) : null}
+        {pipeline?.stageTitle ? (
+          <MetaRow label={t('pipelines.stage_agent', { defaultValue: 'Stage' })}>
+            {pipeline.stageTitle}
+          </MetaRow>
+        ) : null}
+        {pipeline ? (
+          <MetaRow label={t('calendarPage.status', { defaultValue: 'Status' })}>
+            {t(`pipelines.status_${pipeline.item.execStatus}`, { defaultValue: pipeline.item.execStatus })}
+          </MetaRow>
+        ) : null}
+        {pipeline && todos.length > 0 ? (
+          <MetaRow label={t('pipelines.field_todos')}>
+            {t('pipelines.todos_progress', { done: todoDone, total: todos.length })}
+          </MetaRow>
+        ) : null}
+      </dl>
+
+      {dataText ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('pipelines.field_description')}
+          </span>
+          <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--dome-text)' }}>
+            {dataText}
+          </p>
+        </div>
+      ) : event.description ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('calendarPage.description', { defaultValue: 'Description' })}
+          </span>
+          <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--dome-text)' }}>
+            {event.description}
+          </p>
+        </div>
+      ) : null}
+
+      {pipeline?.item.lastOutput ? (
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+            {t('pipelines.history')}
+          </span>
+          <p
+            className="text-xs whitespace-pre-wrap max-h-32 overflow-y-auto rounded-md px-2 py-1.5"
+            style={{ color: 'var(--dome-text-muted)', background: 'var(--bg)', border: '1px solid var(--border)' }}
+          >
+            {pipeline.item.lastOutput.slice(0, 600)}
+          </p>
+        </div>
+      ) : null}
+
+      {pipeline ? (
+        <button
+          type="button"
+          onClick={onOpenPipeline}
+          className="inline-flex items-center gap-1.5 self-start text-sm font-medium"
+          style={{ color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+        >
+          <ExternalLink size={14} />
+          {t('pipelines.open_in_pipelines', { defaultValue: 'Open in Pipelines' })}
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -325,9 +454,34 @@ export default function EventModal({
   onSave,
   onDelete,
 }: EventModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const githubEvent = isGithubCalendarEvent(event);
   const githubUrl = event ? githubEventUrl(event) : null;
+  const pipelineItemId = pipelineItemIdOf(event);
+  const openPipelinesTab = useTabStore((s) => s.openPipelinesTab);
+  // Existing events open in a read-only detail view; new events go straight to
+  // the edit form.
+  const [editing, setEditing] = useState(!event);
+  const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
+
+  useEffect(() => {
+    if (!pipelineItemId) {
+      setPipelineInfo(null);
+      return;
+    }
+    let cancelled = false;
+    pipelinesClient
+      .getItem(pipelineItemId)
+      .then((d) => {
+        if (!cancelled) setPipelineInfo(d);
+      })
+      .catch(() => {
+        if (!cancelled) setPipelineInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pipelineItemId]);
 
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
@@ -416,6 +570,51 @@ export default function EventModal({
         }
       >
         <GithubEventBody event={event} githubUrl={githubUrl} />
+      </DomeModal>
+    );
+  }
+
+  // Read-only detail view for existing (non-GitHub) events. "Edit" switches to
+  // the form; pipeline-sourced events show extended, relevant info.
+  if (event && !editing) {
+    return (
+      <DomeModal
+        open
+        onClose={onClose}
+        title={event.title}
+        size="md"
+        footer={
+          <>
+            {onDelete ? (
+              <DomeButton
+                variant="ghost"
+                size="sm"
+                onClick={() => void handleDelete()}
+                loading={deleting}
+                style={{ color: 'var(--home-rose)' }}
+              >
+                {t('common.delete')}
+              </DomeButton>
+            ) : null}
+            <div style={{ flex: 1 }} />
+            <DomeButton variant="outline" size="sm" onClick={() => setEditing(true)} leftIcon={<Pencil className="size-4" />}>
+              {t('common.edit', { defaultValue: 'Edit' })}
+            </DomeButton>
+            <DomeButton variant="primary" size="sm" onClick={onClose}>
+              {t('common.close', { defaultValue: 'Close' })}
+            </DomeButton>
+          </>
+        }
+      >
+        <LocalEventDetail
+          event={event}
+          locale={i18n.language}
+          pipeline={pipelineInfo}
+          onOpenPipeline={() => {
+            openPipelinesTab();
+            onClose();
+          }}
+        />
       </DomeModal>
     );
   }

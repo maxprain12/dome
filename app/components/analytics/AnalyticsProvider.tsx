@@ -7,10 +7,10 @@ import { useLocation } from 'react-router-dom';
 import {
   initPostHog,
   capturePostHog,
-  captureExceptionPostHog,
   identifyPostHog,
   isPostHogConfigured,
 } from '@/lib/analytics/posthog';
+import { initSentry, setSentryUser } from '@/lib/analytics/sentry';
 import { getAnalyticsEnabled, getUserProfile } from '@/lib/settings';
 import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
@@ -27,28 +27,34 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
       try {
         const enabled = await getAnalyticsEnabled();
 
-        if (!enabled || !isPostHogConfigured()) return;
+        // Sentry (errors/crashes/perf) — also forwards consent to the main process.
+        // Honours the same opt-in; a disabled call gates the main-process SDK off.
+        initSentry(enabled);
 
-        await initPostHog(enabled);
-        setAnalyticsActive(true);
+        if (!enabled) return;
+
+        // PostHog (product analytics) — independent of Sentry being configured.
+        const posthogReady = isPostHogConfigured();
+        if (posthogReady) {
+          await initPostHog(enabled);
+          setAnalyticsActive(true);
+        }
 
         const profile = await getUserProfile();
         if (profile.email) {
-          identifyPostHog(profile.email, { name: profile.name });
+          setSentryUser(profile.email, { name: profile.name });
+          if (posthogReady) identifyPostHog(profile.email, { name: profile.name });
         }
 
         unsub = window.electron.on(
           'analytics:event',
           (data: { event: string; properties?: Record<string, unknown> }) => {
             if (!data?.event) return;
-            if (data.event === 'main_process_exception' && data.properties) {
-              const { message, stack } = data.properties as { message?: string; stack?: string };
-              const err = new Error(message || 'Unknown main process error');
-              if (stack) err.stack = stack;
-              captureExceptionPostHog(err, { source: 'main_process', ...data.properties });
-            } else {
-              capturePostHog(data.event, data.properties);
-            }
+            // Main-process exceptions are reported to Sentry directly from the main
+            // process now — skip here to avoid duplicates. Forward everything else
+            // (product events) to PostHog.
+            if (data.event === 'main_process_exception') return;
+            if (posthogReady) capturePostHog(data.event, data.properties);
           }
         );
       } catch (err) {

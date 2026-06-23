@@ -14,16 +14,37 @@
     "extensions": "Extensions"
   },
   "items": {
-    "projects": { "label": "Projets", "desc": "Organisez le travail en projets." },
-    "calendar": { "label": "Calendrier", "desc": "Événements et planification." },
-    "email": { "label": "E-mail", "desc": "Lisez et envoyez des e-mails depuis Dome." },
-    "tags": { "label": "Étiquettes", "desc": "Parcourez les ressources par étiquette." },
-    "github": { "label": "GitHub", "desc": "Suivez jalons, issues et releases." },
-    "agents": { "label": "Agents", "desc": "Agents IA qui travaillent avec vos ressources." },
-    "workflows": { "label": "Workflows", "desc": "Flux d'agents multi-étapes sur un canevas." },
-    "automations": { "label": "Automatisations", "desc": "Automatisations déclenchées ou programmées." },
-    "runs": { "label": "Exécutions", "desc": "Historique des exécutions d'agents et d'automatisations." },
-    "learn": { "label": "Apprendre", "desc": "Flashcards, répétition espacée et quiz." },
-    "marketplace": { "label": "Marketplace", "desc": "Agents, plugins et compétences." }
+    "projects": {
+      "label": "Projets",
+      "desc": "Organisez le travail en projets."
+    },
+    "calendar": {
+      "label": "Calendrier",
+      "desc": "Événements et planification."
+    },
+    "email": {
+      "label": "E-mail",
+      "desc": "Lisez et envoyez des e-mails depuis Dome."
+    },
+    "tags": {
+      "label": "Étiquettes",
+      "desc": "Parcourez les ressources par étiquette."
+    },
+    "github": {
+      "label": "GitHub",
+      "desc": "Suivez jalons, issues et releases."
+    },
+    "learn": {
+      "label": "Apprendre",
+      "desc": "Flashcards, répétition espacée et quiz."
+    },
+    "marketplace": {
+      "label": "Marketplace",
+      "desc": "Agents, plugins et compétences."
+    },
+    "pipelines": {
+      "label": "Pipelines",
+      "desc": "Tableaux Kanban où les agents exécutent votre travail par étapes."
+    }
   }
 }

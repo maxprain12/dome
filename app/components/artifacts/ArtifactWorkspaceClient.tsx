@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layers, Download, Save, RefreshCw, Database, LayoutDashboard } from 'lucide-react';
+import { Layers, Download, FileDown, Save, RefreshCw, Database, LayoutDashboard } from 'lucide-react';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import HubListState from '@/components/ui/HubListState';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
@@ -351,6 +351,10 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     await window.electron.artifacts.export(resourceId);
   }, [resourceId]);
 
+  const handleExportHtml = useCallback(async () => {
+    await window.electron.artifacts.exportHtml(resourceId);
+  }, [resourceId]);
+
   const handleSaveState = useCallback(() => {
     const w = iframeRef.current?.contentWindow;
     if (!w) {
@@ -495,6 +499,20 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
             >
               <Download className="size-3.5" />
               {t('artifacts.export_artifact')}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportHtml}
+              title={t('artifacts.export_html')}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
+              style={{
+                color: 'var(--secondary-text)',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border)',
+              }}
+            >
+              <FileDown className="size-3.5" />
+              {t('artifacts.export_html')}
             </button>
           </>
         }

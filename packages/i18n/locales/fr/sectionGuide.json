@@ -31,5 +31,11 @@
     "step1": "Connectez un calendrier ou créez des événements directement.",
     "step2": "Liez les événements aux projets et ressources.",
     "step3": "Recevez des rappels pour ce qui arrive."
+  },
+  "pipelines": {
+    "title": "Pipelines · Comment faire",
+    "step1": "Créez un pipeline et ajoutez une étape pour chaque phase de votre flux.",
+    "step2": "Un agent est une IA dotée d'instructions qui traite chaque carte. Assignez-en un à une étape, ou utilisez Many — et créez un nouvel agent directement depuis les réglages de l'étape.",
+    "step3": "Déposez des cartes ; les agents s'exécutent automatiquement ou à la demande, et vous suivez l'activité et les exécutions."
   }
 }

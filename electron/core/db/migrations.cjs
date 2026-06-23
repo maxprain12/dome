@@ -3407,6 +3407,157 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  // Migration 52: Pipelines — unified Kanban model on top of the existing run
+  // engine. Adds four tables (pipelines, pipeline_stages, pipeline_items,
+  // pipeline_sources). Purely additive: no DROP/ALTER on existing tables, so it
+  // is reversible by restoring the pre-migration backup. Items reference the
+  // existing automation_runs / calendar_events / many_agents / canvas_workflows
+  // rows rather than duplicating them.
+  if (version < 52) {
+    console.log('[DB] Running migration 52 - pipelines');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS pipelines (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL DEFAULT 'default',
+          name TEXT NOT NULL,
+          description TEXT,
+          icon_index INTEGER NOT NULL DEFAULT 0,
+          color TEXT,
+          folder_id TEXT,
+          archived INTEGER NOT NULL DEFAULT 0,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipelines_project ON pipelines(project_id, updated_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS pipeline_stages (
+          id TEXT PRIMARY KEY,
+          pipeline_id TEXT NOT NULL,
+          project_id TEXT NOT NULL DEFAULT 'default',
+          title TEXT NOT NULL,
+          position INTEGER NOT NULL DEFAULT 0,
+          execution_policy TEXT NOT NULL DEFAULT 'manual_resolve'
+            CHECK(execution_policy IN ('auto_agent', 'manual_agent', 'manual_resolve')),
+          assigned_agent_id TEXT,
+          assigned_workflow_id TEXT,
+          run_input_template TEXT,
+          provider TEXT,
+          model TEXT,
+          is_terminal INTEGER NOT NULL DEFAULT 0,
+          wip_limit INTEGER,
+          config_json TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (pipeline_id) REFERENCES pipelines(id) ON DELETE CASCADE,
+          FOREIGN KEY (assigned_agent_id) REFERENCES many_agents(id) ON DELETE SET NULL,
+          FOREIGN KEY (assigned_workflow_id) REFERENCES canvas_workflows(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_stages_pipeline ON pipeline_stages(pipeline_id, position)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS pipeline_sources (
+          id TEXT PRIMARY KEY,
+          pipeline_id TEXT NOT NULL,
+          project_id TEXT NOT NULL DEFAULT 'default',
+          name TEXT NOT NULL,
+          source_type TEXT NOT NULL
+            CHECK(source_type IN ('internal_resources', 'excel', 'manual', 'external_db', 'prompt_mcp')),
+          config_json TEXT,
+          target_stage_id TEXT,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          last_sync_at INTEGER,
+          last_sync_status TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (pipeline_id) REFERENCES pipelines(id) ON DELETE CASCADE,
+          FOREIGN KEY (target_stage_id) REFERENCES pipeline_stages(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_sources_pipeline ON pipeline_sources(pipeline_id)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS pipeline_items (
+          id TEXT PRIMARY KEY,
+          pipeline_id TEXT NOT NULL,
+          project_id TEXT NOT NULL DEFAULT 'default',
+          stage_id TEXT NOT NULL,
+          source_id TEXT,
+          title TEXT NOT NULL,
+          position INTEGER NOT NULL DEFAULT 0,
+          data_json TEXT,
+          exec_status TEXT NOT NULL DEFAULT 'pending'
+            CHECK(exec_status IN ('pending', 'running', 'ready', 'failed', 'blocked')),
+          assigned_kind TEXT NOT NULL DEFAULT 'unassigned'
+            CHECK(assigned_kind IN ('unassigned', 'agent', 'manual', 'auto')),
+          assigned_agent_id TEXT,
+          current_run_id TEXT,
+          last_output TEXT,
+          start_at INTEGER,
+          end_at INTEGER,
+          calendar_event_id TEXT,
+          metadata_json TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (pipeline_id) REFERENCES pipelines(id) ON DELETE CASCADE,
+          FOREIGN KEY (stage_id) REFERENCES pipeline_stages(id) ON DELETE CASCADE,
+          FOREIGN KEY (source_id) REFERENCES pipeline_sources(id) ON DELETE SET NULL,
+          FOREIGN KEY (assigned_agent_id) REFERENCES many_agents(id) ON DELETE SET NULL,
+          FOREIGN KEY (current_run_id) REFERENCES automation_runs(id) ON DELETE SET NULL,
+          FOREIGN KEY (calendar_event_id) REFERENCES calendar_events(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_items_stage ON pipeline_items(stage_id, position)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_items_pipeline ON pipeline_items(pipeline_id, updated_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_items_run ON pipeline_items(current_run_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_items_range ON pipeline_items(start_at, end_at)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '52', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '52', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 52 complete - pipelines tables created');
+    } catch (error) {
+      console.error('[DB] Migration 52 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 53) {
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS pipeline_item_events (
+          id TEXT PRIMARY KEY,
+          item_id TEXT NOT NULL,
+          project_id TEXT NOT NULL DEFAULT 'default',
+          event_type TEXT NOT NULL,
+          actor TEXT,
+          summary TEXT,
+          detail_json TEXT,
+          run_id TEXT,
+          created_at INTEGER NOT NULL,
+          FOREIGN KEY (item_id) REFERENCES pipeline_items(id) ON DELETE CASCADE,
+          FOREIGN KEY (run_id) REFERENCES automation_runs(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_pipeline_item_events_item ON pipeline_item_events(item_id, created_at)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '53', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '53', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 53 complete - pipeline_item_events table created');
+    } catch (error) {
+      console.error('[DB] Migration 53 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

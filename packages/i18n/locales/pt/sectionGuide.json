@@ -31,5 +31,11 @@
     "step1": "Conecte um calendário ou crie eventos diretamente.",
     "step2": "Vincule eventos a projetos e recursos.",
     "step3": "Receba lembretes do que está por vir."
+  },
+  "pipelines": {
+    "title": "Pipelines · Como usar",
+    "step1": "Crie um pipeline e adicione uma fase para cada passo do seu fluxo.",
+    "step2": "Um agente é uma IA com instruções que processa cada cartão. Atribua um à fase ou use Many — e crie um novo agente direto nas configurações da fase.",
+    "step3": "Arraste cartões para dentro; os agentes executam automaticamente ou sob demanda, e você acompanha a atividade e as execuções."
   }
 }

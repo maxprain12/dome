@@ -789,6 +789,7 @@ async function startAgentRun(params) {
   const voiceLanguage = typeof params.voiceLanguage === 'string' ? params.voiceLanguage : 'es';
   activeRunContexts.set(run.id, {
     controller,
+    createdAt: Date.now(),
     fullResponse: run.outputText || '',
     fullThinking: '',
     toolCalls: [],
@@ -858,6 +859,7 @@ async function resumeRun(runId, decisions) {
   if (existingContext && existingContext.projectId == null) {
     existingContext.projectId = run.projectId ?? 'default';
   }
+  if (!context.createdAt) context.createdAt = Date.now();
   activeRunContexts.set(runId, context);
   appendRunStep({
     runId,
@@ -984,7 +986,7 @@ function startWorkflowRun(params) {
   });
   const controller = new AbortController();
   setMaxListeners(64, controller.signal);
-  activeRunContexts.set(run.id, { controller });
+  activeRunContexts.set(run.id, { controller, createdAt: Date.now() });
   setImmediate(() => {
     void executeWorkflowRun(run.id, params, workflow);
   });
@@ -1297,9 +1299,25 @@ function init(windowManager, database, ttsService) {
   _windowManager = windowManager;
   _database = database;
   workflowExecutor.init({ database, loadManyAgents });
+  const pipelineRunner = require('./pipeline-runner.cjs');
+  const pipelineEventLog = require('./pipeline-event-log.cjs');
+  pipelineEventLog.init(database);
+  pipelineRunner.init({
+    database,
+    windowManager,
+    runEngine: { startAgentRun, startWorkflowRun },
+    logEvent: pipelineEventLog.logEvent,
+  });
+  require('./pipeline-report.cjs').init({
+    database,
+    windowManager,
+    runEngine: { startAgentRun, startWorkflowRun },
+    logEvent: pipelineEventLog.logEvent,
+  });
   runStore.init(database, windowManager, {
     onTerminalAutomationStatus: (automationId, status) =>
       setAutomationRunStatus(automationId, status),
+    onRunTerminal: (run) => pipelineRunner.onRunTerminal(run),
   });
 
   // Initialize streaming TTS with dependencies

@@ -6,9 +6,9 @@
 import { useCallback } from 'react';
 import {
   capturePostHog,
-  captureExceptionPostHog,
   isPostHogConfigured,
 } from './posthog';
+import { captureExceptionSentry } from './sentry';
 import { ANALYTICS_EVENTS } from './events';
 
 export function useAnalytics(enabled: boolean) {
@@ -22,12 +22,13 @@ export function useAnalytics(enabled: boolean) {
     [canTrack]
   );
 
+  // Errors go to Sentry (single source of truth); no-ops unless Sentry is initialized.
   const captureError = useCallback(
     (error: Error, context?: Record<string, unknown>) => {
-      if (!canTrack) return;
-      captureExceptionPostHog(error, context);
+      if (!enabled) return;
+      captureExceptionSentry(error, context);
     },
-    [canTrack]
+    [enabled]
   );
 
   return { track, captureError, ANALYTICS_EVENTS };

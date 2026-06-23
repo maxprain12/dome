@@ -54,7 +54,7 @@ export default function DomeContextMenu({
     position: 'fixed',
     top: 0,
     minWidth: 0,
-    zIndex: 'var(--z-max, 9999)',
+    zIndex: 10001,
   });
 
   const updatePosition = useCallback(() => {
@@ -68,7 +68,7 @@ export default function DomeContextMenu({
         top: r.bottom + 4,
         right: Math.max(8, window.innerWidth - r.right),
         minWidth: minW,
-        zIndex: 'var(--z-max, 9999)',
+        zIndex: 10001,
       });
     } else {
       setMenuStyle({
@@ -76,7 +76,7 @@ export default function DomeContextMenu({
         top: r.bottom + 4,
         left: Math.max(8, r.left),
         minWidth: minW,
-        zIndex: 'var(--z-max, 9999)',
+        zIndex: 10001,
       });
     }
   }, [align]);

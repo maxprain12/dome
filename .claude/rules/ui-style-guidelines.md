@@ -22,6 +22,16 @@
 - Support keyboard navigation for all interactive elements
 - Provide clear focus states
 
+### 5. Nunca pantallas vacías — siempre un dashboard con información
+
+**Regla obligatoria.** Una vista principal **nunca** debe renderizar una pantalla vacía con solo un "No hay nada todavía + crear el primero". Aunque no haya datos, muestra un **dashboard/overview con información relevante**:
+
+- **KPIs / stat cards** con los números reales disponibles (aunque sean 0): recursos relacionados, agentes/workflows disponibles, actividad reciente, etc.
+- **Acciones de arranque rápido** (quick-start): plantillas o atajos que creen algo útil en un clic, además del CTA primario.
+- **Contexto útil**: qué es esta sección y qué puede hacer el usuario aquí.
+
+El estado "cero datos" es un caso de diseño de primera clase, no un placeholder. Si vas a mostrar un empty-state, conviértelo en un panel informativo con datos del entorno + CTAs, no en una pantalla en blanco centrada. Esto aplica a Pipelines, Learn, Agents y cualquier vista nueva.
+
 ---
 
 ## Color System

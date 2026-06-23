@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Filter, Grid3X3, List, Image as ImageIcon, Video, Music, Link2, File, FolderOpen, Notebook, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { ResourceType } from '@/types';
 
 export type { ResourceType };
@@ -59,18 +60,17 @@ export function FilterBar({
       <div className="filter-bar-left">
         {/* Sort dropdown */}
         <div className="sort-dropdown">
-          <label htmlFor="filter-sort-select" className="sr-only">{t('filter.sort_by')}</label>
-          <select
-            id="filter-sort-select"
+          <DomeSelectMenu<'updated_at' | 'created_at' | 'title'>
             value={sortBy}
-            onChange={(e) => onSortByChange(e.target.value as 'updated_at' | 'created_at' | 'title')}
-            className="sort-select"
+            onChange={onSortByChange}
             aria-label={t('filter.sort_by')}
-          >
-            <option value="updated_at">{t('filter.sort.recently_updated')}</option>
-            <option value="created_at">{t('filter.sort.date_created')}</option>
-            <option value="title">{t('filter.sort.alphabetical')}</option>
-          </select>
+            fullWidth={false}
+            options={[
+              { value: 'updated_at', label: t('filter.sort.recently_updated') },
+              { value: 'created_at', label: t('filter.sort.date_created') },
+              { value: 'title', label: t('filter.sort.alphabetical') },
+            ]}
+          />
         </div>
 
         {/* Filter button */}

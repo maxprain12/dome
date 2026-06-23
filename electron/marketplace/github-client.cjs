@@ -15,31 +15,47 @@ const { URL } = require('url');
 
 const GITHUB_API_BASE = 'https://api.github.com';
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const CACHE_MAX_ENTRIES = 100; // LRU cap — the old Cache had no size bound
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF = 1000; // 1 second
 
 /**
- * Simple cache implementation
+ * TTL + LRU cache (size-bounded). The previous version only evicted lazily on
+ * get() and never capped the number of entries, so browsing the marketplace
+ * accumulated every fetched file content for the process lifetime.
  */
 class Cache {
-  constructor(ttl = CACHE_TTL) {
-    this.cache = new Map();
+  constructor(ttl = CACHE_TTL, maxEntries = CACHE_MAX_ENTRIES) {
+    this.cache = new Map(); // insertion order = LRU order (oldest first)
     this.ttl = ttl;
+    this.maxEntries = maxEntries;
   }
 
   get(key) {
     const entry = this.cache.get(key);
     if (!entry) return null;
-    
+
     if (Date.now() - entry.timestamp > this.ttl) {
+      // Expired — evict lazily.
       this.cache.delete(key);
       return null;
     }
-    
+
+    // LRU: refresh position so frequently-accessed entries survive eviction.
+    this.cache.delete(key);
+    this.cache.set(key, entry);
     return entry.data;
   }
 
   set(key, data) {
+    // Refresh existing entry without double-counting toward the cap.
+    if (this.cache.has(key)) this.cache.delete(key);
+    // Evict oldest until we're under the cap (Map iteration = insertion order).
+    while (this.cache.size >= this.maxEntries) {
+      const oldest = this.cache.keys().next();
+      if (oldest.done) break;
+      this.cache.delete(oldest.value);
+    }
     this.cache.set(key, { data, timestamp: Date.now() });
   }
 

@@ -8,6 +8,7 @@ import {
 } from 'date-fns';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import type { EventDateChangePayload } from '@/components/calendar/CalendarGrid';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import EventModal from '@/components/calendar/EventModal';
 import { CalendarHero } from '@/components/calendar/CalendarHero';
 import { CalendarUpcoming } from '@/components/calendar/CalendarUpcoming';
@@ -384,21 +385,12 @@ export default function CalendarPage() {
             <p className="p-projects-modal-body">
               {t('calendarPage.import_preview', { count: importPreview.events.length, raw: importPreview.rawCount })}
             </p>
-            <label htmlFor="calendar-import-target-select" className="p-projects-create-desc block">
-              {t('calendarPage.import_target')}
-            </label>
-            <select
-              id="calendar-import-target-select"
+            <DomeSelectMenu
+              label={t('calendarPage.import_target')}
               value={importTargetId}
-              onChange={(e) => setImportTargetId(e.target.value)}
-              className="p-projects-field"
-            >
-              {calendars.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
-                </option>
-              ))}
-            </select>
+              onChange={setImportTargetId}
+              options={calendars.map((c) => ({ value: c.id, label: c.title }))}
+            />
             <label className="c-calendar-modal-check mt-3">
               <input type="checkbox" checked={importSkipDup} onChange={(e) => setImportSkipDup(e.target.checked)} />
               {t('calendarPage.import_skip_dup')}

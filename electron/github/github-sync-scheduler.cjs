@@ -8,6 +8,7 @@
  */
 
 const database = require('../core/database.cjs');
+const memoryMonitor = require('../core/memory-monitor.cjs');
 
 const MIN_INTERVAL_MS = 5 * 60 * 1000;
 const MAX_INTERVAL_MS = 24 * 60 * 60 * 1000;
@@ -49,9 +50,24 @@ function getIntervalMs() {
 }
 
 async function tick() {
-  // Startup/periodic GitHub sync pulls large API payloads; skip in dev to avoid V8 Zone OOM on low-RAM machines.
+  // Skip in dev: the periodic GitHub sync pulls large API payloads and, with
+  // detached DevTools + Vite source maps, can trigger a V8 Zone OOM on
+  // low-RAM dev machines. (In production the streaming + per-page persistence
+  // in github-api.cjs keeps the heap flat, so the sync runs normally.)
   if (process.env.NODE_ENV === 'development') return;
   if (!isAutoSyncEnabled() || !isConnected()) return;
+
+  // Graceful degradation under memory pressure: skip this tick instead of
+  // risking an OOM crash. The next tick (after the interval) retries once the
+  // GC has reclaimed memory. This replaces the old "crash and hope" behaviour.
+  if (memoryMonitor.isMemoryPressureHigh()) {
+    const m = memoryMonitor.getMemoryInfo();
+    console.warn(
+      `[github-sync-scheduler] skipping tick — memory pressure ${(m.heapUsedRatio * 100).toFixed(1)}% ` +
+      `(heapUsed ${(m.heapUsed / 1024 / 1024).toFixed(0)}MB / ${(m.heapTotal / 1024 / 1024).toFixed(0)}MB)`,
+    );
+    return;
+  }
 
   const now = Date.now();
   const intervalMs = getIntervalMs();

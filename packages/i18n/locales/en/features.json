@@ -14,16 +14,37 @@
     "extensions": "Extensions"
   },
   "items": {
-    "projects": { "label": "Projects", "desc": "Organize work into projects." },
-    "calendar": { "label": "Calendar", "desc": "Events and scheduling." },
-    "email": { "label": "Email", "desc": "Read and send email from Dome." },
-    "tags": { "label": "Tags", "desc": "Browse resources by tag." },
-    "github": { "label": "GitHub", "desc": "Track milestones, issues and releases." },
-    "agents": { "label": "Agents", "desc": "AI agents that work with your resources." },
-    "workflows": { "label": "Workflows", "desc": "Multi-step agent workflows on a canvas." },
-    "automations": { "label": "Automations", "desc": "Triggered and scheduled automations." },
-    "runs": { "label": "Runs", "desc": "History of agent and automation runs." },
-    "learn": { "label": "Learn", "desc": "Flashcards, spaced repetition and quizzes." },
-    "marketplace": { "label": "Marketplace", "desc": "Agents, plugins and skills." }
+    "projects": {
+      "label": "Projects",
+      "desc": "Organize work into projects."
+    },
+    "calendar": {
+      "label": "Calendar",
+      "desc": "Events and scheduling."
+    },
+    "email": {
+      "label": "Email",
+      "desc": "Read and send email from Dome."
+    },
+    "tags": {
+      "label": "Tags",
+      "desc": "Browse resources by tag."
+    },
+    "github": {
+      "label": "GitHub",
+      "desc": "Track milestones, issues and releases."
+    },
+    "learn": {
+      "label": "Learn",
+      "desc": "Flashcards, spaced repetition and quizzes."
+    },
+    "marketplace": {
+      "label": "Marketplace",
+      "desc": "Agents, plugins and skills."
+    },
+    "pipelines": {
+      "label": "Pipelines",
+      "desc": "Kanban boards where agents run your work in stages."
+    }
   }
 }

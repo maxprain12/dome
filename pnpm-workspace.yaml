@@ -29,3 +29,4 @@ allowBuilds:
   sharp: true
   onnxruntime-node: false
   '@google/genai': false
+  '@sentry/cli': true

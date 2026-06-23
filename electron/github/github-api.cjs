@@ -19,6 +19,14 @@ const API_BASE = 'https://api.github.com';
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF = 1000;
 
+// Safety cap on how many pages a single getAllPages/streamPages call may walk
+// before bailing out. At per_page=100 this is up to 50k items — far above any
+// sane single-resource request, but prevents an unbounded loop from blowing
+// up the main-process heap (root cause of the GitHub-pull OOM; see
+// github-sync-scheduler.cjs). Callers that genuinely need more should switch
+// to the streamed variant below and persist per page.
+const MAX_PAGES = 500;
+
 function requireToken() {
   const token = githubOAuth.getToken();
   if (!token) {
@@ -89,16 +97,24 @@ async function rawRequest(method, path, { body, etag, token } = {}, retries = MA
   throw new Error(message);
 }
 
-/** GET with automatic pagination (follows the Link rel="next" header). */
-async function getAllPages(path, { etag } = {}) {
+/** GET with automatic pagination (follows the Link rel="next" header).
+ *  Caps at `maxPages` (default MAX_PAGES) to keep main-process heap bounded;
+ *  use streamPages() for the few endpoints whose true page count may exceed
+ *  the cap (issues, user/org repos). */
+async function getAllPages(path, { etag, maxPages = MAX_PAGES } = {}) {
   const token = requireToken();
   const sep = path.includes('?') ? '&' : '?';
   let next = `${path}${sep}per_page=100`;
   const all = [];
   let firstEtag = null;
   let first = true;
+  let pages = 0;
 
   while (next) {
+    if (pages >= maxPages) {
+      console.warn(`[github-api] getAllPages hit maxPages=${maxPages} cap at ${path} (collected ${all.length} items)`);
+      break;
+    }
     const res = await rawRequest('GET', next, { token, etag: first ? etag : undefined });
     if (first) {
       firstEtag = res.headers.get('etag');
@@ -109,8 +125,56 @@ async function getAllPages(path, { etag } = {}) {
     const link = res.headers.get('link') || '';
     const m = /<([^>]+)>;\s*rel="next"/.exec(link);
     next = m ? m[1] : null;
+    pages += 1;
   }
   return { items: all, etag: firstEtag };
+}
+
+/**
+ * Streaming variant of getAllPages: invokes `onPage(items, pageInfo)` once per
+ * fetched page and does NOT accumulate anything in memory. Peak memory is ~one
+ * page (100 items) regardless of how many pages the endpoint returns.
+ *
+ * Returns { etag, pages, total } (total = sum of onPage return values if
+ * numbers, else 0) so callers can report progress. Stops at `maxPages`.
+ *
+ * Use this for endpoints that can return thousands of items per repo:
+ *   - listIssues (state=all includes PRs → can be 10k+)
+ *   - listRepos / listOrgRepos (user in many orgs → thousands)
+ * The small per-issue endpoints (milestones, branches, releases, comments,
+ * timeline, mentionables) keep using getAllPages with its cap.
+ */
+async function streamPages(path, { etag, maxPages = MAX_PAGES, onPage } = {}) {
+  const token = requireToken();
+  const sep = path.includes('?') ? '&' : '?';
+  let next = `${path}${sep}per_page=100`;
+  let firstEtag = null;
+  let first = true;
+  let pages = 0;
+  let total = 0;
+
+  while (next) {
+    if (pages >= maxPages) {
+      console.warn(`[github-api] streamPages hit maxPages=${maxPages} cap at ${path}`);
+      break;
+    }
+    const res = await rawRequest('GET', next, { token, etag: first ? etag : undefined });
+    if (first) {
+      firstEtag = res.headers.get('etag');
+      first = false;
+      if (res.status === 304) return { etag, pages, total, notModified: true };
+    }
+    const items = Array.isArray(res.data) ? res.data : [];
+    if (typeof onPage === 'function') {
+      const r = onPage(items, { page: pages });
+      if (typeof r === 'number') total += r;
+    }
+    const link = res.headers.get('link') || '';
+    const m = /<([^>]+)>;\s*rel="next"/.exec(link);
+    next = m ? m[1] : null;
+    pages += 1;
+  }
+  return { etag: firstEtag, pages, total, notModified: false };
 }
 
 async function get(path) {
@@ -134,6 +198,11 @@ function listRepos() {
   return getAllPages('/user/repos?affiliation=owner,collaborator,organization_member&sort=updated');
 }
 
+/** Streaming variant of listRepos — upsert each page before fetching the next. */
+function listReposStreamed(opts = {}) {
+  return streamPages('/user/repos?affiliation=owner,collaborator,organization_member&sort=updated', opts);
+}
+
 /** Organizations the authenticated user belongs to. */
 function listOrgs() {
   return getAllPages('/user/orgs');
@@ -142,6 +211,11 @@ function listOrgs() {
 /** Repos for a specific org (covers orgs whose repos /user/repos may omit). */
 function listOrgRepos(org) {
   return getAllPages(`/orgs/${org}/repos?sort=updated`);
+}
+
+/** Streaming variant of listOrgRepos. */
+function listOrgReposStreamed(org, opts = {}) {
+  return streamPages(`/orgs/${org}/repos?sort=updated`, opts);
 }
 
 function listMilestones(owner, repo, opts = {}) {
@@ -169,6 +243,12 @@ function updateMilestone(owner, repo, number, patch) {
 /** Issues (GitHub returns PRs too; callers filter on pull_request). */
 function listIssues(owner, repo, opts = {}) {
   return getAllPages(`/repos/${owner}/${repo}/issues?state=all`, opts);
+}
+
+/** Streaming variant of listIssues — persist per page to keep heap flat.
+ *  `onPage(items)` is called with each page of up to 100 issues/PRs. */
+function listIssuesStreamed(owner, repo, opts = {}) {
+  return streamPages(`/repos/${owner}/${repo}/issues?state=all`, opts);
 }
 
 function getIssue(owner, repo, number) {
@@ -228,13 +308,20 @@ function listReleases(owner, repo, opts = {}) {
 }
 
 module.exports = {
+  // pagination primitives
+  getAllPages,
+  streamPages,
+  // high-level endpoints
   listRepos,
+  listReposStreamed,
   listOrgs,
   listOrgRepos,
+  listOrgReposStreamed,
   listMilestones,
   createMilestone,
   updateMilestone,
   listIssues,
+  listIssuesStreamed,
   getIssue,
   createIssue,
   updateIssue,

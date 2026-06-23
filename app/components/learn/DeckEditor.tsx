@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Plus, Trash2, Loader2 } from 'lucide-react';
 import { useLearnStore } from '@/lib/store/useLearnStore';
 import { showToast } from '@/lib/store/useToastStore';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { FlashcardDeck } from '@/types';
 
 interface DeckEditorProps {
@@ -230,16 +231,17 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
                     aria-label={t('flashcard.answer', 'Answer')}
                   />
                 </div>
-                <select
-                  className="lr-input lr-deck-edit-difficulty"
+                <DomeSelectMenu
+                  className="lr-deck-edit-difficulty"
                   value={card.difficulty}
-                  onChange={(e) => handleCardChange(index, 'difficulty', e.target.value)}
+                  onChange={(v) => handleCardChange(index, 'difficulty', v)}
                   aria-label={t('flashcard.difficulty', 'Difficulty')}
-                >
-                  <option value="easy">{t('flashcard.easy', 'Easy')}</option>
-                  <option value="medium">{t('flashcard.medium', 'Medium')}</option>
-                  <option value="hard">{t('flashcard.difficult', 'Hard')}</option>
-                </select>
+                  options={[
+                    { value: 'easy', label: t('flashcard.easy', 'Easy') },
+                    { value: 'medium', label: t('flashcard.medium', 'Medium') },
+                    { value: 'hard', label: t('flashcard.difficult', 'Hard') },
+                  ]}
+                />
                 <button
                   type="button"
                   className="lr-btn lr-btn-ghost lr-deck-edit-remove"

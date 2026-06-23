@@ -153,5 +153,14 @@
   "calendar_issue_state_open": "Open",
   "calendar_issue_state_closed": "Closed",
   "calendar_repo_unknown": "GitHub",
-  "calendar_release_published": "Published"
+  "calendar_release_published": "Published",
+  "sort_columns": "Sort columns",
+  "sort_columns_newest": "Newest first",
+  "sort_columns_oldest": "Oldest first",
+  "sort_columns_due_date": "By due date",
+  "sort_columns_state": "By state (open first)",
+  "sort_cards": "Sort cards",
+  "sort_cards_newest": "Newest first",
+  "sort_cards_oldest": "Oldest first",
+  "sort_cards_status": "By status (open first)"
 }

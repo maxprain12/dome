@@ -271,17 +271,61 @@ function verifyDatabaseFile(dbPath) {
 }
 
 /**
+ * Open the live DB read-write so SQLite recovers any pending -wal frames
+ * (durably merging the latest committed transactions into the main file),
+ * then run quick_check. This is the safe alternative to deleting the WAL: it
+ * preserves data the way a normal open does. Returns { ok, errors }.
+ */
+function checkpointAndVerifyLive(dbPath) {
+  if (!dbPath || !fs.existsSync(dbPath)) {
+    return { ok: false, errors: ['database file missing'] };
+  }
+  let db = null;
+  try {
+    const Database = require('better-sqlite3');
+    // Read-write open → SQLite recovers the -wal on open (no data loss).
+    db = new Database(dbPath, { fileMustExist: true });
+    db.pragma('busy_timeout = 5000');
+    try {
+      db.pragma('wal_checkpoint(TRUNCATE)');
+    } catch {
+      /* best-effort: open already recovered the WAL */
+    }
+    const rows = db.prepare('PRAGMA quick_check').all();
+    const errors = rows
+      .map((r) => r.integrity_check || r.quick_check)
+      .filter((v) => v && v !== 'ok');
+    return { ok: errors.length === 0, errors };
+  } catch (err) {
+    return { ok: false, errors: [err?.message || String(err)] };
+  } finally {
+    try {
+      db?.close();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
  * If dome.db fails quick_check or cannot open, restore from latest backup.
  * @returns {boolean} true if a restore was performed
  */
 function preflightRestoreIfCorrupt(dbPath) {
   if (!dbPath || !fs.existsSync(dbPath)) return false;
 
-  removeWalSidecars(dbPath);
-  const check = verifyDatabaseFile(dbPath);
+  // IMPORTANT: never blind-delete -wal/-shm here. In WAL mode the most recent
+  // committed transactions can live only in the -wal file until a checkpoint;
+  // SQLite recovers them automatically on a normal (read-write) open. Deleting
+  // the sidecars before opening silently discards that data — which is exactly
+  // what made freshly-created records (e.g. pipelines) vanish after a hard kill
+  // / Ctrl-C in dev. Recover + verify the live DB instead; only clear sidecars
+  // and restore from a backup if the database is genuinely corrupt.
+  const check = checkpointAndVerifyLive(dbPath);
   if (check.ok) return false;
 
   console.warn('[DB] Preflight check failed:', check.errors.join('; '));
+  removeWalSidecars(dbPath);
   const { restored, backupPath } = restoreFromLatestBackup(dbPath);
   if (restored) {
     console.warn('[DB] Preflight restored database from:', backupPath);
