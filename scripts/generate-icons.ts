@@ -87,6 +87,21 @@ async function generateIcons() {
     .toFile(join(ASSETS_DIR, 'trayTemplate@2x.png'));
   console.log('   ✅ Creado: assets/trayTemplate.png + trayTemplate@2x.png');
 
+  // Generar icono para system tray de Linux (AppIndicator/StatusNotifier)
+  // En Linux el tray usa tamaños pequeños (~22-24px); icon.png a 512px no es
+  // adecuado. Generamos un PNG dedicado con fondo transparente + @2x para HiDPI.
+  console.log('\n🐧 Generando icono para system tray de Linux...');
+  await sharp(Buffer.from(iconBuffer))
+    .resize(24, 24, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toFile(join(ASSETS_DIR, 'tray-linux.png'));
+  // @2x para entornos HiDPI (Wayland fractional scaling, KDE, etc.)
+  await sharp(Buffer.from(iconBuffer))
+    .resize(48, 48, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .png()
+    .toFile(join(ASSETS_DIR, 'tray-linux@2x.png'));
+  console.log('   ✅ Creado: assets/tray-linux.png + tray-linux@2x.png');
+
   // Crear .icns usando png2icons (funciona en macOS, Windows y Linux)
   console.log('\n🍎 Generando icono .icns para macOS...');
   try {

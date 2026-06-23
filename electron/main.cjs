@@ -51,6 +51,7 @@ const {
   nativeTheme,
   Menu,
   Tray,
+  nativeImage,
   protocol,
   session,
   desktopCapturer,
@@ -472,8 +473,17 @@ function createTray(mainWindow) {
     ? path.join(process.resourcesPath, 'assets')
     : path.join(__dirname, '../assets');
 
-  // macOS uses a template image (18x18, white/black auto-switching for menu bar)
-  const trayIconName = process.platform === 'darwin' ? 'trayTemplate.png' : 'icon.png';
+  // Per-platform tray icon:
+  // - macOS: template image (18x18, white/black auto-switching for menu bar)
+  // - Linux: dedicated small icon (~24px) for AppIndicator/StatusNotifier hosts;
+  //          the 512px icon.png is too large/unreliable for the system tray
+  // - Windows/other: icon.png
+  const trayIconName =
+    process.platform === 'darwin'
+      ? 'trayTemplate.png'
+      : process.platform === 'linux'
+      ? 'tray-linux.png'
+      : 'icon.png';
   const trayIconPath = path.join(RESOURCES_PATH, trayIconName);
   const fallbackIconPath = path.join(RESOURCES_PATH, 'icon.png');
 
@@ -488,7 +498,24 @@ function createTray(mainWindow) {
     return;
   }
 
-  appTray = new Tray(resolvedIconPath);
+  if (process.platform === 'linux') {
+    // Build a nativeImage and downscale to a tray-friendly size. Some Linux
+    // desktops (GNOME via AppIndicator, KDE StatusNotifier) render the raw
+    // pixel size, so an oversized icon shows up huge or not at all.
+    let trayImage = nativeImage.createFromPath(resolvedIconPath);
+    if (!trayImage.isEmpty()) {
+      const { width } = trayImage.getSize();
+      if (width > 32) {
+        trayImage = trayImage.resize({ width: 24, height: 24, quality: 'best' });
+      }
+      appTray = new Tray(trayImage);
+    } else {
+      appTray = new Tray(resolvedIconPath);
+    }
+  } else {
+    appTray = new Tray(resolvedIconPath);
+  }
+
   if (process.platform === 'darwin') {
     // Template image auto-adapts to light/dark menu bar
     appTray.setImage(resolvedIconPath);
