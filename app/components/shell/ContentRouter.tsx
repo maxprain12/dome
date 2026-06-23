@@ -27,7 +27,7 @@ const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
 const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
 const TagsPage = lazy(() => import('@/components/home/TagBrowser'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
-const AgentsPage = lazy(() => import('@/components/automations/AutomationsHubView'));
+const PipelinesBoard = lazy(() => import('@/components/pipelines/PipelinesBoard'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
@@ -343,47 +343,21 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         </ErrorBoundary>
       );
 
+    // Pipelines unifies the former agents/workflows/automations/runs tabs.
+    // The deprecated tab types fall through to the same board so any persisted
+    // tabs from before the migration keep rendering.
+    case 'pipelines':
     case 'agents':
-      return (
-        <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-              <AgentsPage shellHubTab="agents" />
-            </div>
-          </Suspense>
-        </ErrorBoundary>
-      );
-
     case 'workflows':
-      return (
-        <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-              <AgentsPage shellHubTab="workflows" />
-            </div>
-          </Suspense>
-        </ErrorBoundary>
-      );
-
     case 'automations':
-      return (
-        <ErrorBoundary>
-          <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-              <AgentsPage shellHubTab="automations" />
-            </div>
-          </Suspense>
-        </ErrorBoundary>
-      );
-
     case 'runs':
       return (
         <ErrorBoundary>
-          <SuspenseWithTimeout>
+          <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-              <AgentsPage shellHubTab="runs" />
+              <PipelinesBoard />
             </div>
-          </SuspenseWithTimeout>
+          </Suspense>
         </ErrorBoundary>
       );
 

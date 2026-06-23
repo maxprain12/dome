@@ -28,9 +28,12 @@ export async function initPostHog(analyticsEnabled: boolean): Promise<void> {
       /** Dome does not use PostHog feature flags — skip /flags requests (avoids 401 noise in dev). */
       advanced_disable_flags: true,
       advanced_disable_feature_flags: true,
+      // Sentry is the single source of truth for errors/crashes — disable PostHog's
+      // exception capture to avoid duplicate reports across two dashboards.
+      // See app/lib/analytics/sentry.ts.
       capture_exceptions: {
-        capture_unhandled_errors: true,
-        capture_unhandled_rejections: true,
+        capture_unhandled_errors: false,
+        capture_unhandled_rejections: false,
         capture_console_errors: false,
       },
     });

@@ -44,6 +44,8 @@ import HubListState from '@/components/ui/HubListState';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeButton from '@/components/ui/DomeButton';
 import HubBentoCard from '@/components/ui/HubBentoCard';
+import DomeContextMenu, { type DomeContextMenuItem } from '@/components/ui/DomeContextMenu';
+import { showPrompt } from '@/lib/store/usePromptStore';
 import { useEditorialHub } from '@/lib/context/EditorialHubContext';
 import { useHubListLoader } from '@/lib/hub/useHubListLoader';
 import { HUB_AGENTS_CHANGED, notifyHubAgentsChanged } from '@/lib/hub/hubEvents';
@@ -125,7 +127,6 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
   const [search, setSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [dragOverFolderId, setDragOverFolderId] = useState<string | 'root' | null>(null);
-  const [menuFolderId, setMenuFolderId] = useState<string | null>(null);
 
   const folderMap = useMemo(() => folderByIdMap(folders), [folders]);
 
@@ -291,7 +292,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
   };
 
   const handleNewRootFolder = async () => {
-    const name = window.prompt(t('agents.new_folder_name'), t('filter.new_folder'));
+    const name = await showPrompt(t('agents.new_folder_name'), t('filter.new_folder'));
     if (name === null) return;
     const result = await createAgentFolderRecord(name || t('filter.new_folder'), null, projectId);
     if (result.success && result.data) {
@@ -305,7 +306,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
   };
 
   const handleNewChildFolder = async (parentId: string) => {
-    const name = window.prompt(t('agents.new_folder_name'), t('filter.new_folder'));
+    const name = await showPrompt(t('agents.new_folder_name'), t('filter.new_folder'));
     if (name === null) return;
     const result = await createAgentFolderRecord(name || t('filter.new_folder'), parentId, projectId);
     if (result.success && result.data) {
@@ -316,7 +317,6 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     } else {
       showToast('error', result.error || t('agents.error_import'));
     }
-    setMenuFolderId(null);
   };
 
   const moveAgentToFolder = async (agentId: string, folderId: string | null) => {
@@ -525,85 +525,73 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           onDragLeave={() => setDragOverFolderId((cur) => (cur === folder.id ? null : cur))}
           onDrop={onDropRow}
         >
-          <button
-            type="button"
-            onClick={() => toggleExpand(folder.id)}
-            className="p-1 rounded-lg hover:bg-[var(--dome-bg)] shrink-0"
+          <DomeButton
+            iconOnly
+            variant="ghost"
+            size="sm"
+            aria-label={isOpen ? t('ui.collapse') : t('ui.expand')}
             aria-expanded={isOpen}
+            onClick={() => toggleExpand(folder.id)}
           >
             {isOpen ? (
               <ChevronDown className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             ) : (
               <ChevronRight className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
             )}
-          </button>
+          </DomeButton>
           <FolderOpen className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
           <span className="flex-1 min-w-0 text-sm font-medium break-words" style={{ color: 'var(--dome-text)' }}>
             {folder.name}
           </span>
-          <div className="relative flex items-center gap-1">
-            <button
-              type="button"
+          <div className="flex items-center gap-1">
+            <DomeButton
+              iconOnly
+              variant="ghost"
+              size="sm"
+              aria-label={t('filter.new_folder')}
               onClick={() => handleNewChildFolder(folder.id)}
-              className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)]"
-              title={t('filter.new_folder')}
             >
               <FolderPlus className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setMenuFolderId((m) => (m === folder.id ? null : folder.id))}
-              className="p-1.5 rounded-lg hover:bg-[var(--dome-bg)]"
-              title={t('agents.folder_actions')}
-              aria-haspopup="true"
-            >
-              <MoreHorizontal className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-            </button>
-            {menuFolderId === folder.id ? (
-              <div
-                className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-lg border py-1 shadow-lg"
-                style={{
-                  background: 'var(--dome-surface)',
-                  borderColor: 'var(--dome-border)',
-                }}
-              >
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--dome-bg)]"
-                  style={{ color: 'var(--dome-text)' }}
-                  onClick={() => {
-                    setMenuFolderId(null);
-                    const name = window.prompt(t('agents.rename_folder'), folder.name);
+            </DomeButton>
+            <DomeContextMenu
+              align="end"
+              trigger={
+                <DomeButton
+                  iconOnly
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t('agents.folder_actions')}
+                >
+                  <MoreHorizontal className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
+                </DomeButton>
+              }
+              items={[
+                {
+                  label: t('agents.rename_folder'),
+                  icon: <Pencil className="size-3.5" />,
+                  onClick: async () => {
+                    const name = await showPrompt(t('agents.rename_folder'), folder.name);
                     if (name === null) return;
                     const trimmed = name.trim();
                     if (!trimmed) return;
-                    void (async () => {
-                      const result = await updateAgentFolderRecord(folder.id, { name: trimmed });
-                      if (result.success) {
-                        setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, name: trimmed } : f)));
-                        showToast('success', t('agents.folder_renamed'));
-                        notifyAgentsChanged();
-                      } else {
-                        showToast('error', result.error || t('agents.error_delete'));
-                      }
-                    })();
-                  }}
-                >
-                  {t('agents.rename_folder')}
-                </button>
-                <button
-                  type="button"
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-[var(--error-bg)]"
-                  style={{ color: 'var(--error)' }}
-                  onClick={() => {
-                    setDeleteFolderTarget(folder);
-                    setMenuFolderId(null);
-                  }}
-                >
-                  {t('agents.delete_folder')}
-                </button>
-              </div>
-            ) : null}
+                    const result = await updateAgentFolderRecord(folder.id, { name: trimmed });
+                    if (result.success) {
+                      setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, name: trimmed } : f)));
+                      showToast('success', t('agents.folder_renamed'));
+                      notifyAgentsChanged();
+                    } else {
+                      showToast('error', result.error || t('agents.error_delete'));
+                    }
+                  },
+                },
+                {
+                  label: t('agents.delete_folder'),
+                  icon: <Trash2 className="size-3.5" />,
+                  variant: 'danger',
+                  onClick: () => setDeleteFolderTarget(folder),
+                },
+              ] as DomeContextMenuItem[]}
+            />
           </div>
         </div>
         {isOpen ? (

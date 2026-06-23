@@ -30,6 +30,7 @@ import {
   GraduationCap,
   PanelsTopLeft,
   FileCode2,
+  FileDown,
   History,
   PanelRight,
   Download,
@@ -289,6 +290,18 @@ function ArtifactHeader({
     URL.revokeObjectURL(a.href);
   };
 
+  const handleExportHtml = () => {
+    if (artifact.type !== 'html') return;
+    const a = artifact as HtmlArtifactV;
+    const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${a.title || 'artifact'}</title><style>${a.css || ''}</style></head><body>${a.html || ''}<script>${a.js || ''}</script></body></html>`;
+    const blob = new Blob([doc], { type: 'text/html' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'dome-artifact.html';
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
   return (
     <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-[var(--border)]">
       <DomeButton
@@ -344,6 +357,20 @@ function ArtifactHeader({
         >
           <Download className="size-3.5" aria-hidden />
         </DomeButton>
+        {artifact.type === 'html' && (
+          <DomeButton
+            type="button"
+            variant="ghost"
+            size="xs"
+            onClick={handleExportHtml}
+            title={t('artifacts.export_html')}
+            aria-label={t('artifacts.export_html')}
+            className="gap-0 !p-1.5 size-8 min-w-0 text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+            iconOnly
+          >
+            <FileDown className="size-3.5" aria-hidden />
+          </DomeButton>
+        )}
         <DomeButton
           type="button"
           variant="ghost"

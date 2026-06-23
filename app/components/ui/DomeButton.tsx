@@ -92,7 +92,7 @@ const DomeButton = forwardRef<HTMLButtonElement, DomeButtonProps>(function DomeB
       type={type}
       disabled={isDisabled}
       className={cn(
-        'inline-flex items-center justify-center select-none transition-all',
+        'inline-flex items-center justify-center select-none whitespace-nowrap transition-all',
         variant === 'outline' || variant === 'danger' ? outlineOrDanger : variantClass,
         iconOnly ? iconOnlyPadding[size] : sizeClasses[size],
         isDisabled && 'opacity-50 cursor-not-allowed pointer-events-none',

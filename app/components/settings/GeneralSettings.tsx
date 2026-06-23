@@ -5,6 +5,7 @@ import { useUserStore } from '@/lib/store/useUserStore';
 import { validateEmail, validateName } from '@/lib/utils/validation';
 import { getAnalyticsEnabled, setAnalyticsEnabled } from '@/lib/settings';
 import { initPostHog, shutdownPostHog, isPostHogConfigured } from '@/lib/analytics/posthog';
+import { initSentry, shutdownSentry } from '@/lib/analytics/sentry';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 import { DomeInput } from '@/components/ui/DomeInput';
@@ -46,8 +47,14 @@ export default function GeneralSettings() {
     setAnalyticsLoading(true);
     await setAnalyticsEnabled(enabled);
     setAnalyticsEnabledState(enabled);
-    if (enabled && isPostHogConfigured()) await initPostHog(true);
-    else if (!enabled) shutdownPostHog();
+    if (enabled) {
+      // Sentry (errors/crashes/perf) also forwards consent to the main process.
+      initSentry(true);
+      if (isPostHogConfigured()) await initPostHog(true);
+    } else {
+      shutdownSentry();
+      shutdownPostHog();
+    }
     setAnalyticsLoading(false);
   };
 

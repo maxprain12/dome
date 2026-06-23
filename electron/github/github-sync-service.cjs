@@ -44,17 +44,21 @@ function parseJsonArray(s) {
 async function refreshRepos() {
   const seen = new Set();
   const upsertAll = (items) => {
-    if (!Array.isArray(items)) return;
+    if (!Array.isArray(items)) return 0;
+    let n = 0;
     for (const r of items) {
       if (seen.has(r.full_name)) continue;
       seen.add(r.full_name);
       store.upsertRepo(r);
+      n += 1;
     }
+    return n;
   };
 
   // 1. Repos affiliated with the user (owner / collaborator / org member).
-  const userRepos = await api.listRepos();
-  upsertAll(userRepos.items);
+  //    Streamed + persisted per page so a user in many orgs (thousands of
+  //    repos) doesn't accumulate the whole list in main-process heap.
+  await api.listReposStreamed({ onPage: upsertAll });
 
   // 2. Explicitly pull each org's repos — /user/repos can omit org repos when
   //    the org has third-party access restrictions or many repos.
@@ -62,8 +66,7 @@ async function refreshRepos() {
     const orgs = await api.listOrgs();
     for (const org of orgs.items || []) {
       try {
-        const orgRepos = await api.listOrgRepos(org.login);
-        upsertAll(orgRepos.items);
+        await api.listOrgReposStreamed(org.login, { onPage: upsertAll });
       } catch (err) {
         console.warn(`[github-sync] org repos ${org.login} failed:`, err.message);
       }
@@ -85,7 +88,7 @@ function setRepoSelected(repoId, selected) {
 async function pullRepo(repo) {
   const [owner, name] = [repo.owner, repo.name];
 
-  // Milestones
+  // Milestones — small endpoint, capped getAllPages is fine.
   const msEtag = store.getEtag(repo.id, 'milestones');
   const ms = await api.listMilestones(owner, name, { etag: msEtag });
   if (ms.items) {
@@ -93,12 +96,26 @@ async function pullRepo(repo) {
     store.setEtag(repo.id, 'milestones', ms.etag);
   }
 
-  // Issues (includes PRs; the store flags is_pull_request)
+  // Issues (includes PRs; the store flags is_pull_request).
+  // STREAMED: a busy repo can return 10k+ issues with state=all; persisting
+  // per page keeps main-process heap flat instead of accumulating the whole
+  // array (root cause of the GitHub-pull OOM).
   const issEtag = store.getEtag(repo.id, 'issues');
-  const iss = await api.listIssues(owner, name, { etag: issEtag });
-  if (iss.items) {
-    for (const issue of iss.items) store.upsertIssueFromRemote(repo.id, issue);
+  let issueCount = 0;
+  const iss = await api.listIssuesStreamed(owner, name, {
+    etag: issEtag,
+    onPage: (items) => {
+      for (const issue of items) store.upsertIssueFromRemote(repo.id, issue);
+      issueCount += items.length;
+      return items.length;
+    },
+  });
+  if (!iss.notModified) {
     store.setEtag(repo.id, 'issues', iss.etag);
+    if (iss.pages > 0) {
+      // streamPages already warns if the maxPages safety cap was hit.
+      console.log(`[github-sync] pulled ${issueCount} issues from ${repo.full_name} (${iss.pages} page(s))`);
+    }
   }
 
   // Branches

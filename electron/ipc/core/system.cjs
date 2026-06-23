@@ -34,6 +34,19 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     }
   });
 
+  // Sentry consent gate — the renderer mirrors the analytics_enabled toggle here so
+  // the main-process SDK (errors + native crashes) honours the same opt-in.
+  ipcMain.handle('sentry:set-consent', (event, enabled) => {
+    try {
+      validateSender(event, windowManager);
+      require('../../core/sentry-main.cjs').setSentryConsent(enabled === true);
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] Error in sentry:set-consent:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
   // File dialogs
   ipcMain.handle('select-file', async (event, options) => {
     try {
@@ -240,6 +253,20 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
       return { success: true };
     } catch (error) {
       console.error('[IPC] Error in system:quit:', error.message);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Memory diagnostics — surfaces main-process heap pressure so a future
+  // Settings/diagnostics panel can show it. Used by the GitHub sync scheduler
+  // to skip ticks under pressure (see github-sync-scheduler.cjs).
+  ipcMain.handle('system:memoryInfo', (event) => {
+    try {
+      validateSender(event, windowManager);
+      const memoryMonitor = require('../../core/memory-monitor.cjs');
+      return { success: true, data: memoryMonitor.getMemoryInfo() };
+    } catch (error) {
+      console.error('[IPC] Error in system:memoryInfo:', error.message);
       return { success: false, error: error.message };
     }
   });

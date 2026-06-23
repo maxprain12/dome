@@ -57,6 +57,13 @@ const {
   systemPreferences,
 } = require('electron');
 
+// Initialize Sentry (main process) as EARLY as possible — before any domain module
+// loads — so native-addon load failures and early crashes are captured. No-op unless
+// SENTRY_DSN is set; events are gated behind the analytics_enabled consent toggle
+// (renderer flips it on via the `sentry:set-consent` IPC). See electron/core/sentry-main.cjs.
+const sentryMain = require('./core/sentry-main.cjs');
+sentryMain.initSentryMain(app);
+
 // Pending display-media source ID.
 // The renderer sets this via IPC immediately before calling getDisplayMedia() so the
 // setDisplayMediaRequestHandler can select the correct source without Chromium's picker.
@@ -247,10 +254,12 @@ const calendarNotificationService = require('./calendar/calendar-notification-se
 const calendarSyncScheduler = require('./calendar/calendar-sync-scheduler.cjs');
 const githubSyncService = require('./github/github-sync-service.cjs');
 const githubSyncScheduler = require('./github/github-sync-scheduler.cjs');
+const memoryMonitor = require('./core/memory-monitor.cjs');
 const automationService = require('./agents/automation-service.cjs');
 const runRetention = require('./agents/run-retention.cjs');
 const errorNotify = require('./core/error-notify.cjs');
 const runEngine = require('./agents/run-engine.cjs');
+const runLifecycle = require('./agents/run-lifecycle.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
 const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
@@ -1091,7 +1100,14 @@ app
     calendarSyncScheduler.init(windowManager);
     githubSyncService.init(windowManager);
     githubSyncScheduler.init(windowManager);
+    // Start proactive main-process memory monitoring so the GitHub sync
+    // scheduler can skip ticks under heap pressure instead of OOMing.
+    memoryMonitor.startMemoryMonitor();
     runEngine.init(windowManager, database, ttsService);
+    // Reclaim run contexts (steps, AbortController, API keys) for runs that
+    // finished without calling releaseRunContext, or that have been paused on
+    // human approval for too long. See T04-cleanup-run-contexts.md.
+    runLifecycle.startRunContextSweep();
     automationService.init(windowManager, database);
     runRetention.init();
     errorNotify.init(windowManager);
@@ -1179,6 +1195,11 @@ app.on('before-quit', async () => {
     console.warn('[Main] langfuse shutdown failed:', e?.message);
   }
   try {
+    await sentryMain.closeSentryMain(2000);
+  } catch (e) {
+    console.warn('[Main] sentry flush failed:', e?.message);
+  }
+  try {
     const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
     const indexer = semanticIndexScheduler.getIndexer?.();
     if (indexer && typeof indexer.waitForIndexerIdle === 'function') {
@@ -1204,6 +1225,8 @@ process.on('uncaughtException', (error) => {
     const logger = require('./core/logger.cjs');
     logger.error('main', 'uncaughtException', { error: error?.message, stack: error?.stack });
   } catch { /* logging must never crash the handler */ }
+  // Report the error to Sentry directly from the main process (gated by consent).
+  sentryMain.captureExceptionMain(error, { type: 'uncaughtException' });
   if (windowManager && typeof windowManager.broadcast === 'function') {
     const err = error instanceof Error ? error : new Error(String(error));
     windowManager.broadcast('analytics:event', {
@@ -1224,6 +1247,8 @@ process.on('unhandledRejection', (reason) => {
     const message = reason instanceof Error ? reason.message : String(reason);
     logger.error('main', 'unhandledRejection', { error: message, stack: reason instanceof Error ? reason.stack : undefined });
   } catch { /* logging must never crash the handler */ }
+  // Report to Sentry directly from the main process (gated by consent).
+  sentryMain.captureExceptionMain(reason, { type: 'unhandledRejection' });
   if (windowManager && typeof windowManager.broadcast === 'function') {
     const message = reason instanceof Error ? reason.message : String(reason);
     const stack = reason instanceof Error ? reason.stack : undefined;

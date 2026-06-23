@@ -252,6 +252,38 @@ function register({ ipcMain, windowManager, database }) {
     }
   });
 
+  ipcMain.handle('artifact:exportHtml', async (event, resourceId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const queries = database.getQueries();
+      const artifact = queries.getArtifactByResourceId.get(resourceId);
+      if (!artifact) return { success: false, error: 'Artifact not found' };
+      const resource = queries.getResourceById.get(resourceId);
+      const mergedState = serializeArtifactRecord(artifact, resource, queries)?.state ?? parseJsonState(artifact.state);
+      const stateObj = isPlainObject(mergedState) ? mergedState : {};
+      const title = resource?.title ?? 'Untitled';
+      const html = typeof stateObj.html === 'string' ? stateObj.html : '';
+      const css = typeof stateObj.css === 'string' ? stateObj.css : '';
+      const data = stateObj.data !== undefined ? stateObj.data : {};
+
+      const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${title}</title><style>${css || ''}</style></head><body>${html || ''}<script>window.DOME_DATA = ${JSON.stringify(data || {})};</script></body></html>`;
+
+      const result = await dialog.showSaveDialog({
+        defaultPath: `${title}.html`,
+        filters: [{ name: 'HTML', extensions: ['html'] }],
+      });
+      if (result.canceled || !result.filePath) return { success: false, cancelled: true };
+
+      fs.writeFileSync(result.filePath, doc, 'utf8');
+      return { success: true, filePath: result.filePath };
+    } catch (error) {
+      console.error('[Artifact] Error exporting HTML:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('artifact:import', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };

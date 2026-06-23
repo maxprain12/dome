@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Bot, Workflow, Zap, Activity, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -8,20 +8,6 @@ import { useTabStore, type TabType } from '@/lib/store/useTabStore';
 import type { Resource } from '@/lib/hooks/useResources';
 import type { Project } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
-import { getManyAgents } from '@/lib/agents/api';
-import { getWorkflows } from '@/lib/agent-canvas/api';
-import {
-  listAutomations,
-  listRuns,
-  onRunUpdated,
-  AUTOMATIONS_CHANGED_EVENT,
-} from '@/lib/automations/api';
-import {
-  HUB_AGENTS_CHANGED,
-  HUB_AUTOMATIONS_CHANGED,
-  HUB_RUNS_CHANGED,
-  HUB_WORKFLOWS_CHANGED,
-} from '@/lib/hub/hubEvents';
 import { useFeaturesStore, useHiddenFeatureCount } from '@/lib/store/useFeaturesStore';
 import { isFeatureVisible } from '@/lib/features/featureKeys';
 
@@ -53,12 +39,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const [newFolderInWorkspace, setNewFolderInWorkspace] = useState(false);
 
   const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [hubCounts, setHubCounts] = useState({
-    agents: 0,
-    workflows: 0,
-    automations: 0,
-    runs: 0,
-  });
 
   useEffect(() => {
     if (!window.electron?.updater?.onStatus) return;
@@ -84,10 +64,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openProjectsTab,
     openLearnTab,
     openTagsTab,
-    openAgentsTab,
-    openWorkflowsTab,
-    openAutomationsTab,
-    openRunsTab,
+    openPipelinesTab,
     openMarketplaceTab,
     openFolderTab,
     activeTabId,
@@ -101,10 +78,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
       openTagsTab: s.openTagsTab,
-      openAgentsTab: s.openAgentsTab,
-      openWorkflowsTab: s.openWorkflowsTab,
-      openAutomationsTab: s.openAutomationsTab,
-      openRunsTab: s.openRunsTab,
+      openPipelinesTab: s.openPipelinesTab,
       openMarketplaceTab: s.openMarketplaceTab,
       openFolderTab: s.openFolderTab,
       activeTabId: s.activeTabId,
@@ -134,52 +108,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isDark = theme === 'dark';
-
-  const refreshHubCounts = useCallback(async () => {
-    try {
-      const pid = useAppStore.getState().currentProject?.id ?? 'default';
-      const [agentList, wfList, autoList, runList] = await Promise.all([
-        getManyAgents(pid),
-        getWorkflows(pid),
-        listAutomations({ projectId: pid }),
-        listRuns({ limit: 200, projectId: pid }),
-      ]);
-      setHubCounts({
-        agents: agentList.length,
-        workflows: wfList.length,
-        automations: autoList.length,
-        runs: runList.filter((r) => r.ownerType !== 'many').length,
-      });
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshHubCounts();
-    const onAgents = () => void refreshHubCounts();
-    const onWorkflows = () => void refreshHubCounts();
-    const onAutos = () => void refreshHubCounts();
-    const onRuns = () => void refreshHubCounts();
-    window.addEventListener(HUB_AGENTS_CHANGED, onAgents);
-    window.addEventListener(HUB_WORKFLOWS_CHANGED, onWorkflows);
-    window.addEventListener(HUB_AUTOMATIONS_CHANGED, onAutos);
-    window.addEventListener(HUB_RUNS_CHANGED, onRuns);
-    window.addEventListener(AUTOMATIONS_CHANGED_EVENT, onAutos);
-    const unsubRuns = onRunUpdated(() => void refreshHubCounts());
-    return () => {
-      window.removeEventListener(HUB_AGENTS_CHANGED, onAgents);
-      window.removeEventListener(HUB_WORKFLOWS_CHANGED, onWorkflows);
-      window.removeEventListener(HUB_AUTOMATIONS_CHANGED, onAutos);
-      window.removeEventListener(HUB_RUNS_CHANGED, onRuns);
-      window.removeEventListener(AUTOMATIONS_CHANGED_EVENT, onAutos);
-      unsubRuns();
-    };
-  }, [refreshHubCounts]);
-
-  useEffect(() => {
-    void refreshHubCounts();
-  }, [hubProjectId, refreshHubCounts]);
 
   const fetchResources = useCallback(async (options?: { silent?: boolean }) => {
     const silent = options?.silent ?? false;
@@ -383,7 +311,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         });
       }
       void fetchResources({ silent: true });
-      void refreshHubCounts();
     };
     const u5 = window.electron.on('project:deleted', onProjectDeleted);
     return () => {
@@ -394,7 +321,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       u5?.();
       if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
     };
-  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch, refreshHubCounts]);
+  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch]);
 
   type UnifiedNavItem =
     | { key: string; kind: 'section'; sectionId: string; label: string; icon: ReactNode }
@@ -452,56 +379,21 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         onOpen: openEmailTab,
       },
       {
-        key: 'agents',
+        key: 'pipelines',
         kind: 'tab',
-        tabType: 'agents',
-        label: t('automationHub.tab_agents'),
-        icon: <Bot className="size-4 shrink-0" strokeWidth={sw} />,
-        count: hubCounts.agents,
-        onOpen: openAgentsTab,
-      },
-      {
-        key: 'workflows',
-        kind: 'tab',
-        tabType: 'workflows',
-        label: t('automationHub.tab_workflows'),
+        tabType: 'pipelines',
+        label: t('tabs.pipelines'),
         icon: <Workflow className="size-4 shrink-0" strokeWidth={sw} />,
-        count: hubCounts.workflows,
-        onOpen: openWorkflowsTab,
-      },
-      {
-        key: 'automations',
-        kind: 'tab',
-        tabType: 'automations',
-        label: t('automationHub.tab_automations'),
-        icon: <Zap className="size-4 shrink-0" strokeWidth={sw} />,
-        count: hubCounts.automations,
-        onOpen: openAutomationsTab,
-      },
-      {
-        key: 'runs',
-        kind: 'tab',
-        tabType: 'runs',
-        label: t('automationHub.tab_runs'),
-        icon: <Activity className="size-4 shrink-0" strokeWidth={sw} />,
-        count: hubCounts.runs,
-        onOpen: openRunsTab,
+        onOpen: openPipelinesTab,
       },
     ];
   }, [
     t,
-    hubCounts.agents,
-    hubCounts.workflows,
-    hubCounts.automations,
-    hubCounts.runs,
     openCalendarTab,
     openGitHubTab,
     openEmailTab,
     openProjectsTab,
-    openAgentsTab,
-    openWorkflowsTab,
-    openAutomationsTab,
-    openRunsTab,
+    openPipelinesTab,
   ]);
 
   /** Menos uso típico: estudio, taxonomía, extensiones — encima de Ajustes. */

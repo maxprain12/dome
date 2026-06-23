@@ -153,5 +153,14 @@
   "calendar_issue_state_open": "Abierta",
   "calendar_issue_state_closed": "Cerrada",
   "calendar_repo_unknown": "GitHub",
-  "calendar_release_published": "Publicado"
+  "calendar_release_published": "Publicado",
+  "sort_columns": "Ordenar columnas",
+  "sort_columns_newest": "Más reciente primero",
+  "sort_columns_oldest": "Más antiguo primero",
+  "sort_columns_due_date": "Por fecha límite",
+  "sort_columns_state": "Por estado (abiertos primero)",
+  "sort_cards": "Ordenar tarjetas",
+  "sort_cards_newest": "Más reciente primero",
+  "sort_cards_oldest": "Más antiguo primero",
+  "sort_cards_status": "Por estado (abiertos primero)"
 }

@@ -1,5 +1,5 @@
 import { Component, type ReactNode } from 'react';
-import { captureExceptionPostHog } from '@/lib/analytics/posthog';
+import { captureExceptionSentry } from '@/lib/analytics/sentry';
 import ErrorState from '@/components/ui/ErrorState';
 
 interface Props {
@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
-    captureExceptionPostHog(error, { componentStack: errorInfo.componentStack });
+    captureExceptionSentry(error, { componentStack: errorInfo.componentStack });
     this.props.onError?.(error, errorInfo);
   }
 

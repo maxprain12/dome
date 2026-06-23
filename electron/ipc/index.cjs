@@ -40,6 +40,7 @@ const domeAuthHandlers = require('./integrations/dome-auth.cjs');
 const agentTeamHandlers = require('./agents/agent-team.cjs');
 const chatHandlers = require('./agents/chat.cjs');
 const runsHandlers = require('./agents/runs.cjs');
+const pipelinesHandlers = require('./agents/pipelines.cjs');
 const marketplaceHandlers = require('./integrations/marketplace.cjs');
 const cloudStorageHandlers = require('./sync/cloud-storage.cjs');
 const transcriptionHandlers = require('./media/transcription.cjs');
@@ -143,6 +144,7 @@ function registerAll(deps) {
   agentTeamHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   chatHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   runsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  pipelinesHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   marketplaceHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   cloudStorageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   transcriptionSession.setWindowManager(windowManager);

@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-21T00:15:31.640Z
+> Última generación: 2026-06-23T14:27:33.413Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -76,11 +76,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `artifact:create` | `electron/ipc/agents/artifacts.cjs:35` |
 | `artifact:delete` | `electron/ipc/agents/artifacts.cjs:185` |
 | `artifact:export` | `electron/ipc/agents/artifacts.cjs:218` |
+| `artifact:exportHtml` | `electron/ipc/agents/artifacts.cjs:255` |
 | `artifact:get` | `electron/ipc/agents/artifacts.cjs:94` |
-| `artifact:import` | `electron/ipc/agents/artifacts.cjs:255` |
+| `artifact:import` | `electron/ipc/agents/artifacts.cjs:287` |
 | `artifact:list` | `electron/ipc/agents/artifacts.cjs:200` |
-| `artifact:refresh-linked` | `electron/ipc/agents/artifacts.cjs:362` |
-| `artifact:set-linked-resource` | `electron/ipc/agents/artifacts.cjs:327` |
+| `artifact:refresh-linked` | `electron/ipc/agents/artifacts.cjs:394` |
+| `artifact:set-linked-resource` | `electron/ipc/agents/artifacts.cjs:359` |
 | `artifact:update` | `electron/ipc/agents/artifacts.cjs:140` |
 | `audio:generate-podcast` | `electron/ipc/media/audio.cjs:86` |
 | `audio:generate-speech` | `electron/ipc/media/audio.cjs:31` |
@@ -308,14 +309,14 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `file:writeFile` | `electron/ipc/data/files.cjs:89` |
 | `get-app-version` | `electron/ipc/core/system.cjs:27` |
 | `get-home-path` | `electron/ipc/core/system.cjs:17` |
-| `get-theme` | `electron/ipc/core/system.cjs:171` |
+| `get-theme` | `electron/ipc/core/system.cjs:184` |
 | `get-user-data-path` | `electron/ipc/core/system.cjs:7` |
 | `github:auth:disconnect` | `electron/ipc/integrations/github.cjs:65` |
 | `github:auth:poll` | `electron/ipc/integrations/github.cjs:43` |
 | `github:auth:start` | `electron/ipc/integrations/github.cjs:32` |
 | `github:auth:status` | `electron/ipc/integrations/github.cjs:56` |
 | `github:branches:list` | `electron/ipc/integrations/github.cjs:139` |
-| `github:image:resolve` | `electron/ipc/integrations/github.cjs:271` |
+| `github:image:resolve` | `electron/ipc/integrations/github.cjs:323` |
 | `github:issues:create` | `electron/ipc/integrations/github.cjs:188` |
 | `github:issues:createComment` | `electron/ipc/integrations/github.cjs:210` |
 | `github:issues:get` | `electron/ipc/integrations/github.cjs:129` |
@@ -332,7 +333,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `github:repos:list` | `electron/ipc/integrations/github.cjs:77` |
 | `github:repos:refresh` | `electron/ipc/integrations/github.cjs:86` |
 | `github:repos:setSelected` | `electron/ipc/integrations/github.cjs:96` |
-| `github:sync:now` | `electron/ipc/integrations/github.cjs:312` |
+| `github:sync:now` | `electron/ipc/integrations/github.cjs:365` |
 | `image:crop` | `electron/ipc/media/images.cjs:11` |
 | `image:metadata` | `electron/ipc/media/images.cjs:82` |
 | `image:resize` | `electron/ipc/media/images.cjs:37` |
@@ -392,8 +393,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ollama:manager:status` | `electron/ipc/ai/ollama.cjs:227` |
 | `ollama:manager:stop` | `electron/ipc/ai/ollama.cjs:209` |
 | `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:268` |
-| `open-external-url` | `electron/ipc/core/system.cjs:159` |
-| `open-path` | `electron/ipc/core/system.cjs:134` |
+| `open-external-url` | `electron/ipc/core/system.cjs:172` |
+| `open-path` | `electron/ipc/core/system.cjs:147` |
 | `pdf:render-page` | `electron/ipc/media/pdf-render.cjs:15` |
 | `personality:add-memory` | `electron/ipc/integrations/personality.cjs:43` |
 | `personality:get-prompt` | `electron/ipc/integrations/personality.cjs:3` |
@@ -401,6 +402,35 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `personality:read-file` | `electron/ipc/integrations/personality.cjs:16` |
 | `personality:remember-fact` | `electron/ipc/integrations/personality.cjs:69` |
 | `personality:write-file` | `electron/ipc/integrations/personality.cjs:30` |
+| `pipelines:create` | `electron/ipc/agents/pipelines.cjs:188` |
+| `pipelines:delete` | `electron/ipc/agents/pipelines.cjs:242` |
+| `pipelines:export` | `electron/ipc/agents/pipelines.cjs:261` |
+| `pipelines:get` | `electron/ipc/agents/pipelines.cjs:172` |
+| `pipelines:import` | `electron/ipc/agents/pipelines.cjs:317` |
+| `pipelines:items:addEvent` | `electron/ipc/agents/pipelines.cjs:876` |
+| `pipelines:items:create` | `electron/ipc/agents/pipelines.cjs:536` |
+| `pipelines:items:delete` | `electron/ipc/agents/pipelines.cjs:729` |
+| `pipelines:items:generateReport` | `electron/ipc/agents/pipelines.cjs:699` |
+| `pipelines:items:get` | `electron/ipc/agents/pipelines.cjs:680` |
+| `pipelines:items:list` | `electron/ipc/agents/pipelines.cjs:525` |
+| `pipelines:items:listEvents` | `electron/ipc/agents/pipelines.cjs:854` |
+| `pipelines:items:move` | `electron/ipc/agents/pipelines.cjs:617` |
+| `pipelines:items:resolve` | `electron/ipc/agents/pipelines.cjs:712` |
+| `pipelines:items:run` | `electron/ipc/agents/pipelines.cjs:666` |
+| `pipelines:items:update` | `electron/ipc/agents/pipelines.cjs:579` |
+| `pipelines:list` | `electron/ipc/agents/pipelines.cjs:160` |
+| `pipelines:sources:create` | `electron/ipc/agents/pipelines.cjs:758` |
+| `pipelines:sources:delete` | `electron/ipc/agents/pipelines.cjs:814` |
+| `pipelines:sources:list` | `electron/ipc/agents/pipelines.cjs:747` |
+| `pipelines:sources:sync` | `electron/ipc/agents/pipelines.cjs:828` |
+| `pipelines:sources:testConnection` | `electron/ipc/agents/pipelines.cjs:842` |
+| `pipelines:sources:update` | `electron/ipc/agents/pipelines.cjs:789` |
+| `pipelines:stages:create` | `electron/ipc/agents/pipelines.cjs:419` |
+| `pipelines:stages:delete` | `electron/ipc/agents/pipelines.cjs:509` |
+| `pipelines:stages:list` | `electron/ipc/agents/pipelines.cjs:408` |
+| `pipelines:stages:reorder` | `electron/ipc/agents/pipelines.cjs:487` |
+| `pipelines:stages:update` | `electron/ipc/agents/pipelines.cjs:456` |
+| `pipelines:update` | `electron/ipc/agents/pipelines.cjs:216` |
 | `plugin:install-from-folder` | `electron/ipc/integrations/plugins.cjs:36` |
 | `plugin:install-from-repo` | `electron/ipc/integrations/plugins.cjs:139` |
 | `plugin:list` | `electron/ipc/integrations/plugins.cjs:23` |
@@ -415,15 +445,15 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `resource:extractPptImages` | `electron/ipc/data/resources.cjs:391` |
 | `resource:getFilePath` | `electron/ipc/data/resources.cjs:271` |
 | `resource:import` | `electron/ipc/data/resources.cjs:19` |
-| `resource:importFromContent` | `electron/ipc/data/resources.cjs:770` |
+| `resource:importFromContent` | `electron/ipc/data/resources.cjs:780` |
 | `resource:importMultiple` | `electron/ipc/data/resources.cjs:163` |
 | `resource:readDocumentContent` | `electron/ipc/data/resources.cjs:428` |
 | `resource:readFile` | `electron/ipc/data/resources.cjs:341` |
 | `resource:readFileBuffer` | `electron/ipc/data/resources.cjs:303` |
-| `resource:regenerateThumbnail` | `electron/ipc/data/resources.cjs:698` |
+| `resource:regenerateThumbnail` | `electron/ipc/data/resources.cjs:708` |
 | `resource:saveDocxFromHtml` | `electron/ipc/data/resources.cjs:526` |
 | `resource:scheduleIndex` | `electron/ipc/data/resources.cjs:133` |
-| `resource:setThumbnail` | `electron/ipc/data/resources.cjs:737` |
+| `resource:setThumbnail` | `electron/ipc/data/resources.cjs:747` |
 | `resource:writeExcelContent` | `electron/ipc/data/resources.cjs:469` |
 | `runs:abort` | `electron/ipc/agents/runs.cjs:66` |
 | `runs:delete` | `electron/ipc/agents/runs.cjs:77` |
@@ -433,15 +463,16 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `runs:resume` | `electron/ipc/agents/runs.cjs:56` |
 | `runs:start` | `electron/ipc/agents/runs.cjs:36` |
 | `runs:startWorkflow` | `electron/ipc/agents/runs.cjs:46` |
-| `security:grant-external-path` | `electron/ipc/core/system.cjs:120` |
-| `select-file` | `electron/ipc/core/system.cjs:38` |
-| `select-files` | `electron/ipc/core/system.cjs:58` |
-| `select-folder` | `electron/ipc/core/system.cjs:77` |
-| `set-theme` | `electron/ipc/core/system.cjs:183` |
+| `security:grant-external-path` | `electron/ipc/core/system.cjs:133` |
+| `select-file` | `electron/ipc/core/system.cjs:51` |
+| `select-files` | `electron/ipc/core/system.cjs:71` |
+| `select-folder` | `electron/ipc/core/system.cjs:90` |
+| `sentry:set-consent` | `electron/ipc/core/system.cjs:39` |
+| `set-theme` | `electron/ipc/core/system.cjs:196` |
 | `shell:exec` | `electron/ipc/core/shell.cjs:43` |
 | `shell:file:search` | `electron/ipc/core/shell.cjs:96` |
-| `show-item-in-folder` | `electron/ipc/core/system.cjs:146` |
-| `show-save-dialog` | `electron/ipc/core/system.cjs:101` |
+| `show-item-in-folder` | `electron/ipc/core/system.cjs:159` |
+| `show-save-dialog` | `electron/ipc/core/system.cjs:114` |
 | `skills:add` | `electron/ipc/integrations/skills.cjs:70` |
 | `skills:browseRepo` | `electron/ipc/integrations/skills.cjs:91` |
 | `skills:installBundled` | `electron/ipc/integrations/skills.cjs:48` |
@@ -455,10 +486,11 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `studio:cancel` | `electron/ipc/learn/studio.cjs:213` |
 | `sync:export` | `electron/ipc/sync/sync.cjs:18` |
 | `sync:import` | `electron/ipc/sync/sync.cjs:85` |
-| `system:get-app-locale` | `electron/ipc/core/system.cjs:225` |
-| `system:get-login-item` | `electron/ipc/core/system.cjs:203` |
-| `system:quit` | `electron/ipc/core/system.cjs:236` |
-| `system:set-login-item` | `electron/ipc/core/system.cjs:214` |
+| `system:get-app-locale` | `electron/ipc/core/system.cjs:238` |
+| `system:get-login-item` | `electron/ipc/core/system.cjs:216` |
+| `system:memoryInfo` | `electron/ipc/core/system.cjs:263` |
+| `system:quit` | `electron/ipc/core/system.cjs:249` |
+| `system:set-login-item` | `electron/ipc/core/system.cjs:227` |
 | `threads:compact` | `electron/ipc/agents/threads.cjs:258` |
 | `threads:delete` | `electron/ipc/agents/threads.cjs:205` |
 | `threads:get-history` | `electron/ipc/agents/threads.cjs:177` |

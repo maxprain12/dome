@@ -6,6 +6,9 @@ import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
 import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import { cn } from '@/lib/utils';
+// Self-contained: own the provider-card styles so the grid renders correctly in any
+// consumer (settings, onboarding, …), not just where AISettingsPanel imports the CSS.
+import '@/styles/ai-settings.css';
 
 export interface AIProviderSelectionProps {
   provider: AIProviderType;
@@ -69,7 +72,9 @@ export default function AIProviderSelection({
   const hasGroups = configured.length > 0 && available.length > 0;
 
   return (
-    <div>
+    // Establish the `ai-settings` container context here so the provider grid's
+    // container queries resolve even when there's no AISettingsPanel ancestor.
+    <div className="ai-provider-selection">
       {showSectionLabel ? (
         <DomeSectionLabel className="ai-settings__section-label">
           {t('settings.ai.provider')}

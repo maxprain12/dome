@@ -39,6 +39,11 @@ export const SECTION_GUIDES: Record<string, SectionGuide> = {
     titleKey: 'sectionGuide.calendar.title',
     stepKeys: ['sectionGuide.calendar.step1', 'sectionGuide.calendar.step2', 'sectionGuide.calendar.step3'],
   },
+  pipelines: {
+    key: 'pipelines',
+    titleKey: 'sectionGuide.pipelines.title',
+    stepKeys: ['sectionGuide.pipelines.step1', 'sectionGuide.pipelines.step2', 'sectionGuide.pipelines.step3'],
+  },
 };
 
 export function getSectionGuide(key: string): SectionGuide | undefined {

@@ -28,10 +28,7 @@ export const TOGGLEABLE_FEATURES: FeatureDef[] = [
   { key: 'email', labelKey: 'features.items.email.label', descKey: 'features.items.email.desc', group: 'workspace' },
   { key: 'tags', labelKey: 'features.items.tags.label', descKey: 'features.items.tags.desc', group: 'workspace' },
   { key: 'github', labelKey: 'features.items.github.label', descKey: 'features.items.github.desc', group: 'automation' },
-  { key: 'agents', labelKey: 'features.items.agents.label', descKey: 'features.items.agents.desc', group: 'automation' },
-  { key: 'workflows', labelKey: 'features.items.workflows.label', descKey: 'features.items.workflows.desc', group: 'automation' },
-  { key: 'automations', labelKey: 'features.items.automations.label', descKey: 'features.items.automations.desc', group: 'automation' },
-  { key: 'runs', labelKey: 'features.items.runs.label', descKey: 'features.items.runs.desc', group: 'automation' },
+  { key: 'pipelines', labelKey: 'features.items.pipelines.label', descKey: 'features.items.pipelines.desc', group: 'automation' },
   { key: 'learn', labelKey: 'features.items.learn.label', descKey: 'features.items.learn.desc', group: 'study' },
   { key: 'marketplace', labelKey: 'features.items.marketplace.label', descKey: 'features.items.marketplace.desc', group: 'extensions' },
 ];

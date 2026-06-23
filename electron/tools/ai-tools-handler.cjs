@@ -2827,6 +2827,97 @@ async function calendarDeleteEvent({ event_id } = {}) {
 }
 
 // =============================================================================
+// Pipelines (Kanban) — let agents drive pipelines/cards
+// =============================================================================
+
+const pipelineService = require('../agents/pipeline-service.cjs');
+
+function broadcastPipelineItem(item) {
+  if (item && windowManagerRef) windowManagerRef.broadcast('pipelines:item:updated', { item });
+}
+function broadcastPipelineStage(stage) {
+  if (stage && windowManagerRef) windowManagerRef.broadcast('pipelines:stage:updated', { stage });
+}
+
+async function pipelineList({ project_id } = {}) {
+  try {
+    const pid = project_id || 'default';
+    return { success: true, pipelines: pipelineService.listPipelines(pid) };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function pipelineGet({ pipeline_id } = {}) {
+  try {
+    if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
+    const data = pipelineService.getPipeline(pipeline_id);
+    if (!data) return { success: false, error: 'Pipeline not found' };
+    return { success: true, pipeline: data };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function pipelineCreateCard({ pipeline_id, stage_id, title, data, start_at, end_at } = {}) {
+  try {
+    if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
+    const startAt = start_at != null ? new Date(start_at).getTime() : null;
+    const endAt = end_at != null ? new Date(end_at).getTime() : null;
+    const item = await pipelineService.createCard({
+      pipelineId: pipeline_id,
+      stageId: stage_id || null,
+      title,
+      data: data ?? null,
+      startAt: Number.isNaN(startAt) ? null : startAt,
+      endAt: Number.isNaN(endAt) ? null : endAt,
+    });
+    broadcastPipelineItem(item);
+    return { success: true, item };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function pipelineMoveCard({ item_id, to_stage_id } = {}) {
+  try {
+    if (!item_id || !to_stage_id) return { success: false, error: 'item_id and to_stage_id are required' };
+    const item = await pipelineService.moveCard({ itemId: item_id, toStageId: to_stage_id });
+    broadcastPipelineItem(item);
+    return { success: true, item };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function pipelineRunCard({ item_id } = {}) {
+  try {
+    if (!item_id) return { success: false, error: 'item_id is required' };
+    const item = await pipelineService.runCard({ itemId: item_id });
+    broadcastPipelineItem(item);
+    return { success: true, item };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function pipelineAddStage({ pipeline_id, title, execution_policy, assigned_agent_id } = {}) {
+  try {
+    if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
+    const stage = pipelineService.addStage({
+      pipelineId: pipeline_id,
+      title,
+      executionPolicy: execution_policy,
+      assignedAgentId: assigned_agent_id ?? null,
+    });
+    broadcastPipelineStage(stage);
+    return { success: true, stage };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // GitHub project sync (Seguimiento) — every result is tagged source: 'github'
 // =============================================================================
 
@@ -4452,6 +4543,12 @@ module.exports = {
   calendarCreateEvent,
   calendarUpdateEvent,
   calendarDeleteEvent,
+  pipelineList,
+  pipelineGet,
+  pipelineCreateCard,
+  pipelineMoveCard,
+  pipelineRunCard,
+  pipelineAddStage,
   emailListFolders,
   emailListEnvelopes,
   emailSearchEnvelopes,

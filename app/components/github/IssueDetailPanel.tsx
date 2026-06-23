@@ -7,6 +7,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import IssueTimeline from '@/components/github/IssueTimeline';
 import MentionTextarea, { type Mentionable } from '@/components/github/MentionTextarea';
@@ -420,27 +421,15 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                 <Milestone size={11} />
                 {t('github.milestone')}
               </label>
-              <div
-                className="flex items-center gap-1.5 rounded-md px-2"
-                style={{
-                  background: 'var(--dome-bg)',
-                  border: '1px solid var(--dome-border)',
-                  height: 30,
-                }}
-              >
-                <select
-                  id="issue-edit-milestone"
-                  value={milestoneChoice}
-                  onChange={(e) => setMilestoneChoice(e.target.value)}
-                  className="flex-1 bg-transparent outline-none text-sm min-w-0 max-w-full"
-                  style={{ color: 'var(--dome-text)' }}
-                >
-                  <option value="none">{t('github.no_milestone_label')}</option>
-                  {milestones.filter((m) => m.state === 'open').map((m) => (
-                    <option key={m.id} value={String(m.number)}>{m.title}</option>
-                  ))}
-                </select>
-              </div>
+              <DomeSelectMenu
+                value={milestoneChoice}
+                onChange={setMilestoneChoice}
+                aria-label={t('github.milestone')}
+                options={[
+                  { value: 'none', label: t('github.no_milestone_label') },
+                  ...milestones.filter((m) => m.state === 'open').map((m) => ({ value: String(m.number), label: m.title })),
+                ]}
+              />
             </div>
 
             <div className="flex flex-col gap-1.5 min-w-0 flex-1">
@@ -451,25 +440,15 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               >
                 {t('github.state_open')} / {t('github.state_closed')}
               </label>
-              <div
-                className="flex items-center gap-1.5 rounded-md px-2"
-                style={{
-                  background: 'var(--dome-bg)',
-                  border: '1px solid var(--dome-border)',
-                  height: 30,
-                }}
-              >
-                <select
-                  id="issue-edit-state"
-                  value={state}
-                  onChange={(e) => setState(e.target.value as 'open' | 'closed')}
-                  className="flex-1 bg-transparent outline-none text-sm min-w-0"
-                  style={{ color: 'var(--dome-text)' }}
-                >
-                  <option value="open">{t('github.state_open')}</option>
-                  <option value="closed">{t('github.state_closed')}</option>
-                </select>
-              </div>
+              <DomeSelectMenu<'open' | 'closed'>
+                value={state}
+                onChange={setState}
+                aria-label={`${t('github.state_open')} / ${t('github.state_closed')}`}
+                options={[
+                  { value: 'open', label: t('github.state_open') },
+                  { value: 'closed', label: t('github.state_closed') },
+                ]}
+              />
             </div>
           </div>
 

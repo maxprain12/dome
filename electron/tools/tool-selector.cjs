@@ -74,6 +74,18 @@ const INTENT_RULES = [
     ],
   },
   {
+    id: 'pipelines',
+    re: /\b(pipeline|pipelines|kanban|tablero|board|lead|leads|fase|etapa|tarjeta|card)\b/i,
+    tools: [
+      'pipeline_list',
+      'pipeline_get',
+      'pipeline_create_card',
+      'pipeline_move_card',
+      'pipeline_run_card',
+      'pipeline_add_stage',
+    ],
+  },
+  {
     id: 'email',
     re: /\b(correo|correos|email|e-mail|mail|bandeja|inbox|imap|smtp|mensajes?\s+(?:de\s+)?correo)\b/i,
     tools: [

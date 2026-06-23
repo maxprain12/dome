@@ -2,6 +2,8 @@
   "add": "Add",
   "cancel": "Cancel",
   "close": "Close",
+  "collapse": "Collapse",
+  "expand": "Expand",
   "create": "Create",
   "delete": "Delete",
   "edit": "Edit",

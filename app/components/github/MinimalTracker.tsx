@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Plus, Circle, CheckCircle2, Calendar, ChevronRight, Inbox, Target, Hash, X, CheckCircle, Milestone, FileText } from 'lucide-react';
+import { Plus, Circle, CheckCircle2, Calendar, ChevronRight, Inbox, Target, Hash, X, CheckCircle, FileText } from 'lucide-react';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
+import { useGitHubSortStore } from '@/lib/store/useGitHubSortStore';
 import { githubClient, parseLabels } from '@/lib/github/client';
+import GitHubSortControls from './GitHubSortControls';
 
 /**
  * Minimal "chill" tracker — the default mode. A calm, list-first view of
@@ -17,13 +20,33 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
   const syncNow = useGitHubStore((s) => s.syncNow);
 
   const q = query.trim().toLowerCase();
+  const milestoneSort = useGitHubSortStore((s) => s.milestones);
+  const setMilestoneSort = useGitHubSortStore((s) => s.setMilestoneSort);
+  const issueSort = useGitHubSortStore((s) => s.issues);
+  const setIssueSort = useGitHubSortStore((s) => s.setIssueSort);
+
   const issues = useMemo(() => {
-    const open = allIssues.filter((i) => i.state === 'open');
-    if (!q) return open;
-    return open.filter(
-      (i) => i.title.toLowerCase().includes(q) || parseLabels(i.labels).some((l) => l.toLowerCase().includes(q)),
-    );
-  }, [allIssues, q]);
+    let open = allIssues.filter((i) => i.state === 'open');
+    if (q) {
+      open = open.filter(
+        (i) => i.title.toLowerCase().includes(q) || parseLabels(i.labels).some((l) => l.toLowerCase().includes(q)),
+      );
+    }
+    const sorted = [...open];
+    switch (issueSort) {
+      case 'newest':
+        sorted.sort((a, b) => b.number - a.number);
+        break;
+      case 'oldest':
+        sorted.sort((a, b) => a.number - b.number);
+        break;
+      case 'status':
+        // open already filtered; stable by number desc.
+        sorted.sort((a, b) => b.number - a.number);
+        break;
+    }
+    return sorted;
+  }, [allIssues, q, issueSort]);
 
   const groups = useMemo(() => {
     const open = milestones.filter((m) => m.state === 'open' && (!q || m.title.toLowerCase().includes(q)));
@@ -33,13 +56,27 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
       if (!byNumber.has(k)) byNumber.set(k, []);
       byNumber.get(k)!.push(i);
     }
-    const cards = open
-      .slice()
-      .sort((a, b) => (a.due_on ?? Infinity) - (b.due_on ?? Infinity))
-      .map((m) => ({ milestone: m, issues: byNumber.get(m.number) ?? [] }));
+    const sortedMilestones = [...open];
+    switch (milestoneSort) {
+      case 'due_date':
+        sortedMilestones.sort((a, b) => (a.due_on ?? Infinity) - (b.due_on ?? Infinity));
+        break;
+      case 'newest':
+        sortedMilestones.sort((a, b) => b.number - a.number);
+        break;
+      case 'oldest':
+        sortedMilestones.sort((a, b) => a.number - b.number);
+        break;
+      case 'state':
+        // All open here (we filtered above), so this is a stable no-op that
+        // keeps newest-first within the open set.
+        sortedMilestones.sort((a, b) => b.number - a.number);
+        break;
+    }
+    const cards = sortedMilestones.map((m) => ({ milestone: m, issues: byNumber.get(m.number) ?? [] }));
     const orphan = byNumber.get('none') ?? [];
     return { cards, orphan };
-  }, [milestones, issues, q]);
+  }, [milestones, issues, q, milestoneSort]);
 
   const toggle = async (issue: GitHubIssueRow) => {
     await githubClient.issues.move(issue.id, { state: issue.state === 'open' ? 'closed' : 'open' });
@@ -183,31 +220,19 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
 
         {/* Row 2: milestone + body toggle + cancel/create */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <div
-            className="flex items-center gap-1.5 rounded-md px-2 shrink min-w-0"
-            style={{
-              background: 'var(--dome-bg)',
-              border: '1px solid var(--dome-border)',
-              height: 28,
-            }}
-          >
-            <Milestone size={12} style={{ color: 'var(--dome-text-muted)' }} className="shrink-0" />
-            <select
-              value={milestoneChoice}
-              onChange={(e) => setMilestoneChoice(e.target.value)}
-              aria-label={t('github.minimal_quick_milestone_label')}
-              className="bg-transparent outline-none text-xs min-w-0 max-w-[180px] truncate"
-              style={{ color: 'var(--dome-text)' }}
-            >
-              <option value="none">{t('github.minimal_quick_milestone_none')}</option>
-              {milestones
+          <DomeSelectMenu
+            value={milestoneChoice}
+            onChange={setMilestoneChoice}
+            aria-label={t('github.minimal_quick_milestone_label')}
+            fullWidth={false}
+            options={[
+              { value: 'none', label: t('github.minimal_quick_milestone_none') },
+              ...milestones
                 .filter((m) => m.state === 'open')
-                .map((m) => (
-                  <option key={m.id} value={String(m.number)}>{m.title}</option>
-                ))}
-              <option value="__new__">{t('github.minimal_quick_milestone_new')}</option>
-            </select>
-          </div>
+                .map((m) => ({ value: String(m.number), label: m.title })),
+              { value: '__new__', label: t('github.minimal_quick_milestone_new') },
+            ]}
+          />
 
           <button
             type="button"
@@ -383,6 +408,11 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
   return (
     <div className="h-full overflow-auto px-4 py-4 mx-auto w-full max-w-3xl">
       <QuickCreateIssue />
+
+      {/* Sort filters — icon-only buttons aligned right, minimal */}
+      <div className="flex items-center justify-end gap-1 mb-2 -mt-1">
+        <GitHubSortControls />
+      </div>
 
       {/* Milestone cards */}
       <div className="flex flex-col gap-3">

@@ -14,16 +14,37 @@
     "extensions": "Extensões"
   },
   "items": {
-    "projects": { "label": "Projetos", "desc": "Organize o trabalho em projetos." },
-    "calendar": { "label": "Calendário", "desc": "Eventos e agendamento." },
-    "email": { "label": "E-mail", "desc": "Leia e envie e-mails pelo Dome." },
-    "tags": { "label": "Tags", "desc": "Navegue pelos recursos por tag." },
-    "github": { "label": "GitHub", "desc": "Acompanhe marcos, issues e releases." },
-    "agents": { "label": "Agentes", "desc": "Agentes de IA que trabalham com seus recursos." },
-    "workflows": { "label": "Workflows", "desc": "Fluxos de agentes em várias etapas num canvas." },
-    "automations": { "label": "Automações", "desc": "Automações por evento ou agendadas." },
-    "runs": { "label": "Execuções", "desc": "Histórico de execuções de agentes e automações." },
-    "learn": { "label": "Aprender", "desc": "Flashcards, repetição espaçada e quizzes." },
-    "marketplace": { "label": "Marketplace", "desc": "Agentes, plugins e habilidades." }
+    "projects": {
+      "label": "Projetos",
+      "desc": "Organize o trabalho em projetos."
+    },
+    "calendar": {
+      "label": "Calendário",
+      "desc": "Eventos e agendamento."
+    },
+    "email": {
+      "label": "E-mail",
+      "desc": "Leia e envie e-mails pelo Dome."
+    },
+    "tags": {
+      "label": "Tags",
+      "desc": "Navegue pelos recursos por tag."
+    },
+    "github": {
+      "label": "GitHub",
+      "desc": "Acompanhe marcos, issues e releases."
+    },
+    "learn": {
+      "label": "Aprender",
+      "desc": "Flashcards, repetição espaçada e quizzes."
+    },
+    "marketplace": {
+      "label": "Marketplace",
+      "desc": "Agentes, plugins e habilidades."
+    },
+    "pipelines": {
+      "label": "Pipelines",
+      "desc": "Quadros Kanban onde os agentes executam seu trabalho em fases."
+    }
   }
 }

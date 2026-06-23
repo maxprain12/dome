@@ -21,6 +21,8 @@ export type TabType =
   | 'flashcards'
   | 'tags'
   | 'marketplace'
+  | 'pipelines'
+  // Deprecated: collapsed into 'pipelines'. Kept for backward-compatible tab restore.
   | 'agents'
   | 'workflows'
   | 'automations'
@@ -96,6 +98,7 @@ export const FLASHCARDS_TAB_ID = 'flashcards';
 export const LEARN_TAB_ID = 'learn';
 export const TAGS_TAB_ID = 'tags';
 export const MARKETPLACE_TAB_ID = 'marketplace';
+export const PIPELINES_TAB_ID = 'pipelines';
 export const AGENTS_TAB_ID = 'agents';
 export const WORKFLOWS_TAB_ID = 'workflows';
 export const AUTOMATIONS_TAB_ID = 'automations';
@@ -205,6 +208,7 @@ interface TabStore {
   openLearnTab: () => void;
   openTagsTab: () => void;
   openMarketplaceTab: () => void;
+  openPipelinesTab: () => void;
   openAgentsTab: () => void;
   openWorkflowsTab: () => void;
   openAutomationsTab: () => void;
@@ -248,6 +252,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         'flashcards',
         'tags',
         'marketplace',
+        'pipelines',
         'agents',
         'workflows',
         'automations',
@@ -619,20 +624,27 @@ export const useTabStore = create<TabStore>((set, get) => {
       get().openTab({ id: MARKETPLACE_TAB_ID, type: 'marketplace', title: 'Marketplace', pinned: false });
     },
 
+    openPipelinesTab: () => {
+      get().openTab({ id: PIPELINES_TAB_ID, type: 'pipelines', title: i18n.t('tabs.pipelines'), pinned: false });
+    },
+
+    // The agents/workflows/automations/runs experiences were unified into
+    // Pipelines. These openers are kept as aliases so existing callers keep
+    // working; they all focus the single Pipelines tab.
     openAgentsTab: () => {
-      get().openTab({ id: AGENTS_TAB_ID, type: 'agents', title: 'Agents', pinned: false });
+      get().openPipelinesTab();
     },
 
     openWorkflowsTab: () => {
-      get().openTab({ id: WORKFLOWS_TAB_ID, type: 'workflows', title: 'Workflows', pinned: false });
+      get().openPipelinesTab();
     },
 
     openAutomationsTab: () => {
-      get().openTab({ id: AUTOMATIONS_TAB_ID, type: 'automations', title: 'Automations', pinned: false });
+      get().openPipelinesTab();
     },
 
     openRunsTab: () => {
-      get().openTab({ id: RUNS_TAB_ID, type: 'runs', title: 'Runs', pinned: false });
+      get().openPipelinesTab();
     },
 
     openProjectsTab: () => {

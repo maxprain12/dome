@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Terminal, Clock, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { ExecutionLogEntry } from '@/lib/agent-canvas/executor';
 import type { CanvasExecutionStatus } from '@/lib/store/useCanvasStore';
 import type { WorkflowExecution } from '@/types/canvas';
@@ -144,26 +145,22 @@ export default function ExecutionLog({
         )}
         <div className="flex-1" />
         {history.length > 0 && onSelectExecution && (
-          <select
-            value={selectedExecutionId ?? ''}
-            onChange={(e) => onSelectExecution(e.target.value || null)}
-            className="text-xs rounded px-2 py-0.5 border-0 outline-none cursor-pointer"
-            style={{
-              background: 'var(--dome-bg)',
-              color: 'var(--dome-text-secondary)',
-              border: '1px solid var(--dome-border)',
-              maxWidth: 140,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <option value="">{t('canvas.exec_current_run')}</option>
-            {history.map((ex) => (
-              <option key={ex.id} value={ex.id}>
-                {new Date(ex.startedAt).toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}{' '}
-                ({ex.status}) {ex.finishedAt ? formatElapsedFromRange(ex.startedAt, ex.finishedAt) : ''}
-              </option>
-            ))}
-          </select>
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- propagation guard only; the inner DomeSelectMenu owns all interaction.
+          <div style={{ maxWidth: 180 }} onClick={(e) => e.stopPropagation()}>
+            <DomeSelectMenu
+              value={selectedExecutionId ?? ''}
+              onChange={(v) => onSelectExecution(v || null)}
+              fullWidth={false}
+              aria-label={t('canvas.exec_current_run')}
+              options={[
+                { value: '', label: t('canvas.exec_current_run') },
+                ...history.map((ex) => ({
+                  value: ex.id,
+                  label: `${new Date(ex.startedAt).toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })} (${ex.status}) ${ex.finishedAt ? formatElapsedFromRange(ex.startedAt, ex.finishedAt) : ''}`,
+                })),
+              ]}
+            />
+          </div>
         )}
         {collapsed ? (
           <ChevronUp className="size-3.5 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />

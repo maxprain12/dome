@@ -66,6 +66,10 @@ const CREATION_TOOL_CAPS = Object.freeze({
   notebook_add_cell: 50,
   pdf_annotation_create: 50,
   link_resources: 40,
+  pipeline_create_card: 40,
+  pipeline_add_stage: 15,
+  pipeline_move_card: 60,
+  pipeline_run_card: 30,
 });
 
 /** Total tool calls allowed per run (any tool); override with DOME_TOOL_CALL_LIMIT. */

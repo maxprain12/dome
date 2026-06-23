@@ -3,6 +3,7 @@ import { Check, Copy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { NodeViewContent, NodeViewWrapper } from '@tiptap/react';
 import type { NodeViewProps } from '@tiptap/react';
+import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 
 const LANG_OPTIONS = [
   'plaintext',
@@ -26,8 +27,7 @@ export function CodeBlockNoteView(props: NodeViewProps) {
   const [copied, setCopied] = useState(false);
 
   const onLang = useCallback(
-    (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const next = e.currentTarget.value;
+    (next: string) => {
       updateAttributes({ language: next });
     },
     [updateAttributes],
@@ -45,19 +45,20 @@ export function CodeBlockNoteView(props: NodeViewProps) {
     <NodeViewWrapper className="dome-code-block-view" style={{ margin: '1rem 0' }}>
       <div className="dome-code-block-view__toolbar">
         {!readonly ? (
-          <select
+          // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- contentEditable guard; the inner DomeSelectMenu owns all interaction.
+          <div
             className="dome-code-block-view__lang"
-            value={lang}
-            aria-label={t('notes.code_lang', 'Lenguaje')}
-            onChange={onLang}
+            contentEditable={false}
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {LANG_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
+            <DomeSelectMenu
+              value={lang}
+              onChange={onLang}
+              aria-label={t('notes.code_lang', 'Lenguaje')}
+              fullWidth={false}
+              options={LANG_OPTIONS.map((opt) => ({ value: opt, label: opt }))}
+            />
+          </div>
         ) : (
           <span className="dome-code-block-view__lang-ro">{lang}</span>
         )}

@@ -52,7 +52,7 @@ export const ROLE_PRESETS: RolePreset[] = [
     labelKey: 'roles.developer.label',
     descriptionKey: 'roles.developer.desc',
     emoji: '👩‍💻',
-    visibleFeatures: ['projects', 'tags', 'github', 'agents', 'workflows', 'automations', 'runs', 'marketplace'],
+    visibleFeatures: ['projects', 'tags', 'github', 'pipelines', 'marketplace'],
     recommendedSkills: [{ bundledId: 'dome-commit-helper' }],
     buildSoul: ({ name, freeText }) => `# SOUL — Many
 
@@ -108,7 +108,7 @@ ${focusLine(freeText, 'Studying and learning — turning resources into understa
     labelKey: 'roles.research.label',
     descriptionKey: 'roles.research.desc',
     emoji: '🔬',
-    visibleFeatures: ['projects', 'calendar', 'tags', 'agents', 'learn', 'marketplace'],
+    visibleFeatures: ['projects', 'calendar', 'tags', 'pipelines', 'learn', 'marketplace'],
     recommendedSkills: [{ bundledId: 'dome-source-synthesizer' }],
     buildSoul: ({ name, freeText }) => `# SOUL — Many
 
@@ -136,7 +136,7 @@ ${focusLine(freeText, 'Research — reading, synthesizing sources, and producing
     descriptionKey: 'roles.generalist.desc',
     emoji: '🗂️',
     // Generalist keeps everything visible.
-    visibleFeatures: ['projects', 'calendar', 'email', 'tags', 'github', 'agents', 'workflows', 'automations', 'runs', 'learn', 'marketplace'],
+    visibleFeatures: ['projects', 'calendar', 'email', 'tags', 'github', 'pipelines', 'learn', 'marketplace'],
     recommendedSkills: [],
     buildSoul: ({ name, freeText }) => `# SOUL — Many
 

@@ -31,5 +31,11 @@
     "step1": "Connect a calendar or create events directly.",
     "step2": "Link events to projects and resources.",
     "step3": "Get reminders for what's coming up."
+  },
+  "pipelines": {
+    "title": "Pipelines · How to use",
+    "step1": "Create a pipeline and add a stage for each step of your flow.",
+    "step2": "An agent is an AI with instructions that processes each card. Assign one to a stage, or use Many — and create a new agent right from the stage settings.",
+    "step3": "Drop cards in; agents run automatically or on demand, and you track activity and runs."
   }
 }

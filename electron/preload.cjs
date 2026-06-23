@@ -1,6 +1,16 @@
 /* eslint-disable no-unused-vars */
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
+// Sentry IPC bridge: under contextIsolation + sandbox the renderer SDK
+// (@sentry/electron/renderer) can only reach the main process through this preload
+// hook. Must run in the preload; it exposes nothing to `window`. No-op if the SDK
+// isn't installed/initialized. See electron/core/sentry-main.cjs.
+try {
+  require('@sentry/electron/preload');
+} catch (e) {
+  // Sentry optional — never block preload init.
+}
+
 /**
  * electron.app is main-process-only; preload must not use app.isPackaged.
  * With sandbox enabled, avoid fs/path — use defaultApp (false when packaged).
@@ -59,6 +69,8 @@ const ALLOWED_CHANNELS = {
     'get-home-path',
     'get-app-version',
     'open-external-url',
+    // Sentry consent gate (renderer → main: mirrors analytics_enabled toggle)
+    'sentry:set-consent',
     // File dialogs
     'select-file',
     'select-files',
@@ -75,6 +87,7 @@ const ALLOWED_CHANNELS = {
     'system:set-login-item',
     'system:get-app-locale',
     'system:quit',
+    'system:memoryInfo',
     // Window management
     'window:create',
     'window:create-modal',
@@ -155,6 +168,36 @@ const ALLOWED_CHANNELS = {
     'automations:delete',
     'automations:runNow',
     'automations:notifyContext',
+    // Pipelines (Kanban) — migration 52
+    'pipelines:list',
+    'pipelines:get',
+    'pipelines:create',
+    'pipelines:update',
+    'pipelines:delete',
+    'pipelines:export',
+    'pipelines:import',
+    'pipelines:stages:list',
+    'pipelines:stages:create',
+    'pipelines:stages:update',
+    'pipelines:stages:reorder',
+    'pipelines:stages:delete',
+    'pipelines:items:list',
+    'pipelines:items:create',
+    'pipelines:items:update',
+    'pipelines:items:move',
+    'pipelines:items:get',
+    'pipelines:items:run',
+    'pipelines:items:generateReport',
+    'pipelines:items:resolve',
+    'pipelines:items:delete',
+    'pipelines:items:listEvents',
+    'pipelines:items:addEvent',
+    'pipelines:sources:list',
+    'pipelines:sources:create',
+    'pipelines:sources:update',
+    'pipelines:sources:delete',
+    'pipelines:sources:sync',
+    'pipelines:sources:testConnection',
     'kbllm:getGlobal',
     'kbllm:setGlobal',
     'kbllm:getProjectOverride',
@@ -557,6 +600,7 @@ const ALLOWED_CHANNELS = {
     'artifact:delete',
     'artifact:list',
     'artifact:export',
+    'artifact:exportHtml',
     'artifact:import',
     // Artifact feeders (sandbox scripts → runtime data)
     'feeders:create',
@@ -665,6 +709,12 @@ const ALLOWED_CHANNELS = {
     'runs:updated',
     'runs:step',
     'runs:chunk',
+    // Pipelines (Kanban) — migration 52
+    'pipelines:updated',
+    'pipelines:stage:updated',
+    'pipelines:item:updated',
+    'pipelines:source:updated',
+    'pipelines:report:ready',
     // Hub entity invalidation (main → renderer bridge)
     'dome:agents-changed',
     'dome:workflows-changed',
@@ -792,6 +842,7 @@ const electronHandler = {
   getLoginItemSettings: () => ipcRenderer.invoke('system:get-login-item'),
   setLoginItemSettings: (openAtLogin) => ipcRenderer.invoke('system:set-login-item', openAtLogin),
   quitApp: () => ipcRenderer.invoke('system:quit'),
+  getMemoryInfo: () => ipcRenderer.invoke('system:memoryInfo'),
 
   // ============================================
   // USER SETTINGS
@@ -1979,6 +2030,7 @@ const electronHandler = {
     delete: (resourceId) => ipcRenderer.invoke('artifact:delete', resourceId),
     list: (projectId) => ipcRenderer.invoke('artifact:list', projectId),
     export: (resourceId) => ipcRenderer.invoke('artifact:export', resourceId),
+    exportHtml: (resourceId) => ipcRenderer.invoke('artifact:exportHtml', resourceId),
     import: () => ipcRenderer.invoke('artifact:import'),
     refreshLinked: (resourceId) => ipcRenderer.invoke('artifact:refresh-linked', resourceId),
     setLinkedResource: (resourceId, linkedResourceId) =>
