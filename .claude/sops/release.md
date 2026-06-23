@@ -42,13 +42,20 @@ Or via GitHub UI: Releases → Draft a new release → Tag: `v2.1.5`
 The `build.yml` workflow triggers automatically on release publish:
 - Builds macOS (arm64 + x64) DMG and ZIP
 - Builds Windows NSIS installer and portable EXE
+- Builds Linux AppImage and Flatpak (x64, Ubuntu runner)
 - Attaches all artifacts to the GitHub Release
+
+Manual test without publishing a release: **Actions → Build Electron App → Run workflow**. Artifacts stay in the workflow run unless you enable **Attach artifacts to the latest GitHub release**.
 
 ### 5. Verify
 
 - [ ] Build workflow passes in GitHub Actions
-- [ ] All 4 release artifacts appear in the GitHub Release
-- [ ] Test the DMG/EXE on a clean machine if possible
+- [ ] Release assets appear: macOS DMG/ZIP, Windows EXE, Linux AppImage + Flatpak
+- [ ] Test DMG/EXE on a clean machine if possible
+- [ ] **Linux smoke (post-release, manual):**
+  - AppImage: `chmod +x` → launch on Ubuntu or Fedora; check DB at `~/.config/dome/`, network, PDF open
+  - Flatpak: `flatpak install --user` → app in menu with icon; same basic checks
+  - If Flatpak blocks file picker or notifications, adjust `build.flatpak.finishArgs` in `package.json`
 
 ## Dependency & Electron version policy
 
