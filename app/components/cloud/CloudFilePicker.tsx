@@ -270,6 +270,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                   onChange={(e) => setSearch(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="Buscar archivos..."
+                  aria-label="Buscar archivos"
                   className="text-xs bg-transparent outline-none w-36"
                   style={{ color: 'var(--primary-text)' }}
                 />

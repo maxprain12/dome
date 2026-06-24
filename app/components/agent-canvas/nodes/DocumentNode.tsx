@@ -164,6 +164,7 @@ export default function DocumentNode({
               <input
                 type="text"
                 placeholder={t('canvas.picker_search')}
+                aria-label={t('canvas.picker_search')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="nodrag w-full pl-8 pr-2 py-2 text-xs rounded-lg outline-none"

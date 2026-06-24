@@ -147,6 +147,7 @@ export default function ShellProjectPicker({ compact = false }: ShellProjectPick
                 }
               }}
               placeholder={t('sidebar.quick_create_project_placeholder')}
+              aria-label={t('sidebar.quick_create_project_placeholder')}
               className="dome-shell-project-input"
             />
             <button

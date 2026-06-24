@@ -567,6 +567,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
         type="file"
         accept="application/json,.json"
         className="hidden"
+        aria-label={t('canvas.import_workflow_json', 'Import workflow JSON file')}
         onChange={(ev) => void handleWorkflowImportFile(ev)}
       />
       <HubToolbar

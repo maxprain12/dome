@@ -28,6 +28,7 @@ export default function TranscriptSearchBar({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder={t('media.transcript_search_placeholder')}
+          aria-label={t('media.transcript_search_placeholder')}
           className="w-full rounded-lg border py-1.5 pl-8 pr-3 text-xs outline-none transition-colors focus:border-[var(--dome-accent)]"
           style={{
             borderColor: 'var(--dome-border)',

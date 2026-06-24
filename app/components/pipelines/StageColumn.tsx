@@ -140,6 +140,7 @@ export default function StageColumn({
                 }
               }}
               placeholder={t('pipelines.card_title_placeholder')}
+              aria-label={t('pipelines.card_title_placeholder')}
               rows={2}
               className="text-sm rounded-md px-2 py-1 outline-none resize-none"
               style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--accent)' }}

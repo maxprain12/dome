@@ -142,7 +142,9 @@ export function NewFolderModal({ parentId, onConfirm, onClose }: {
         </p>
         <input ref={inputRef} type="text" value={name} onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
-          placeholder={t('ui.folder_name')} className="rounded-md px-3 py-2 text-sm outline-none"
+          placeholder={t('ui.folder_name')}
+          aria-label={t('ui.folder_name')}
+          className="rounded-md px-3 py-2 text-sm outline-none"
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }} />
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
@@ -194,6 +196,7 @@ export function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string)
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
           placeholder="https://..."
+          aria-label={t('ui.add_url')}
           className="rounded-md px-3 py-2 text-sm outline-none"
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
         />

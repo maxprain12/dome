@@ -608,6 +608,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
                                 updateTodo(f.id, td.id, { text: e.target.value })
                               }
                               placeholder={t('pipelines.card_todo_placeholder')}
+                              aria-label={t('pipelines.card_todo_placeholder')}
                               className="flex-1 min-w-0 text-sm bg-transparent outline-none"
                               style={{
                                 color: td.done

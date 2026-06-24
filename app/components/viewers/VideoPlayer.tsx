@@ -331,6 +331,7 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
                 src={videoUrl}
                 preload="metadata"
                 className="max-h-[38vh] max-w-full object-contain"
+                aria-label={t('media.video_player', 'Video player')}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
                 onTimeUpdate={handleTimeUpdate}

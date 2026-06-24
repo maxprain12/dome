@@ -464,6 +464,7 @@ export default memo(function ManyChatInput({
             className="hidden"
             multiple
             accept={fileAccept}
+            aria-label={t('chat.attach_files')}
             onChange={(e) => { void handlePickFiles(e.target.files); }}
           />
         ) : null}

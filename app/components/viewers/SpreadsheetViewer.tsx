@@ -444,6 +444,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
                         onBlur={handleEditBlur}
                         onKeyDown={handleEditKeyDown}
                         onClick={(e) => e.stopPropagation()}
+                        aria-label="Cell value"
                       />
                     ) : (
                       String(currentSheet.data[0]?.[i] ?? '')
@@ -474,6 +475,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
                           onBlur={handleEditBlur}
                           onKeyDown={handleEditKeyDown}
                           onClick={(e) => e.stopPropagation()}
+                          aria-label="Cell value"
                         />
                       ) : (
                         String(row[colIdx] ?? '')

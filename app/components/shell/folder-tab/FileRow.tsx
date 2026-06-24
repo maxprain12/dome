@@ -94,6 +94,7 @@ export default function FileRow({
               if (e.key === 'Enter') commitRename();
               if (e.key === 'Escape') setRenaming(false);
             }}
+            aria-label={t('ui.rename', 'Rename')}
             className="flex-1 text-[13px] font-medium rounded px-2 py-0.5 outline-none"
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)' }}
           />

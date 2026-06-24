@@ -227,6 +227,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
               placeholder={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
+              aria-label={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
               style={{
                 width: '100%', padding: '8px 11px', fontSize: 13,
                 border: '1px solid var(--border)', borderRadius: 7,
@@ -243,6 +244,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
                 onChange={(e) => setSkillName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
                 placeholder={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
+                aria-label={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
                 style={{
                   flex: 1, padding: '8px 11px', fontSize: 13,
                   border: '1px solid var(--border)', borderRadius: 7,

@@ -84,6 +84,7 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
             ref={inputRef}
             className="slash-search-input"
             placeholder={t('notes.slash_filter_placeholder')}
+            aria-label={t('notes.slash_filter_placeholder')}
             value={menuFilter}
             onChange={(e) => setMenuFilter(e.currentTarget.value)}
             onKeyDown={(e) => e.stopPropagation()}

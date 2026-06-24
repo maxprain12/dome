@@ -122,6 +122,7 @@ export default function DeckQuestionsTab({
                   className="lr-textarea"
                   value={draftQuestion}
                   onChange={(e) => setDraftQuestion(e.target.value)}
+                  aria-label={t('flashcard.question', 'Question')}
                 />
               </div>
               {!quizQuestions ? (
@@ -131,6 +132,7 @@ export default function DeckQuestionsTab({
                     className="lr-textarea"
                     value={draftAnswer}
                     onChange={(e) => setDraftAnswer(e.target.value)}
+                    aria-label={t('flashcard.answer', 'Answer')}
                   />
                 </div>
               ) : null}

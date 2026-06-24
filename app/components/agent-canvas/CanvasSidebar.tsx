@@ -449,6 +449,7 @@ export default function CanvasSidebar({ onAddNode }: CanvasSidebarProps) {
                 value={agentQuery}
                 onChange={(e) => setAgentQuery(e.target.value)}
                 placeholder={t('canvas.palette_search_agents')}
+                aria-label={t('canvas.palette_search_agents')}
                 className="w-full pl-7 pr-2 py-1.5 text-[11px] rounded-lg outline-none border transition-colors"
                 style={{
                   background: 'var(--dome-bg)',

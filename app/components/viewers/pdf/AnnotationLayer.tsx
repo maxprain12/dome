@@ -382,6 +382,7 @@ export default function AnnotationLayer({
                 }
               }}
               placeholder="Enter note text..."
+              aria-label="Note text"
               className="px-2 py-1 text-sm rounded resize-none"
               style={{
                 background: 'var(--bg-secondary)',

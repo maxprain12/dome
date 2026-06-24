@@ -125,6 +125,7 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
             type="text"
             value={node.data.label}
             onChange={(e) => updateNode(node.id, { label: e.target.value } as Partial<CanvasNodeData>)}
+            aria-label={t('canvas.prop_label')}
             className={inputClass}
             style={{
               background: 'var(--dome-bg)',
@@ -144,6 +145,7 @@ export default function PropertiesPanel({ node, onClose, onDelete }: PropertiesP
               onChange={(e) =>
                 updateNode(node.id, { value: e.target.value } as Partial<TextInputNodeData>)
               }
+              aria-label={t('canvas.prop_value')}
               rows={5}
               className={`${inputClass} resize-none`}
               style={{

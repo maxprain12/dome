@@ -122,5 +122,5 @@ export function BubbleSubmenuLabel({ children }: { children: ReactNode }) {
 }
 
 export function BubbleSubmenuSeparator() {
-  return <div className="bubble-submenu-sep" role="separator" />;
+  return <div className="bubble-submenu-sep" role="separator" aria-label="Separator" />;
 }

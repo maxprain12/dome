@@ -512,6 +512,7 @@ export function FileManagerTree({ compact = false, onRefresh }: FileManagerTreeP
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search..."
+              aria-label="Search"
               className="flex-1 bg-transparent outline-none border-none"
               style={{
                 fontSize: 12,

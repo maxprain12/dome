@@ -285,6 +285,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
               ref={audioRef}
               src={audioUrl}
               preload="metadata"
+              aria-label={t('media.audio_player', 'Audio player')}
               onPlay={() => setIsPlaying(true)}
               onPause={() => setIsPlaying(false)}
               onTimeUpdate={handleTimeUpdate}

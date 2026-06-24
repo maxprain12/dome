@@ -129,7 +129,7 @@ export default memo(function ManyComposerRichInput({
         style={style}
         dangerouslySetInnerHTML={{ __html: mirrorHtml }}
       />
-      <textarea
+<textarea
         ref={inputRef}
         value={value}
         onChange={onChange}
@@ -138,11 +138,11 @@ export default memo(function ManyComposerRichInput({
         onInput={handleInput}
         onPaste={onPaste}
         placeholder={placeholder}
+        aria-label={placeholder ?? 'Message'}
         disabled={disabled}
         rows={rows}
         className="many-composer-rich-input__field focus:outline-none focus:ring-0 disabled:opacity-50"
         style={style}
-        spellCheck
       />
       {tooltip && typeof document !== 'undefined'
         ? createPortal(

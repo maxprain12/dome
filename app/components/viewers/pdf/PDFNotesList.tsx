@@ -84,6 +84,7 @@ export default function PDFNotesList({
                   <textarea
                     value={editValue}
                     onChange={(e) => setEditValue(e.target.value)}
+                    aria-label="Note text"
                     className="w-full px-2 py-1 text-sm rounded resize-none"
                     style={{
                       background: 'var(--bg-secondary)',

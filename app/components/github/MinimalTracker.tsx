@@ -309,6 +309,7 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={t('github.minimal_quick_body_placeholder')}
+            aria-label={t('github.minimal_quick_body_placeholder')}
             rows={3}
             className="w-full rounded-md px-2 py-1.5 text-sm outline-none resize-y"
             style={{

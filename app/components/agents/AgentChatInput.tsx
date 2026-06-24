@@ -310,6 +310,7 @@ export default memo(function AgentChatInput({
             className="hidden"
             multiple
             accept={fileAccept}
+            aria-label={t('chat.attach_files')}
             onChange={(e) => { void handlePickFiles(e.target.files); }}
           />
         ) : null}
@@ -319,6 +320,7 @@ export default memo(function AgentChatInput({
           onChange={enhanced ? handleChange : (e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
+          aria-label={placeholder ?? t('chat.message_placeholder')}
           onPaste={(e) => {
             if (!onAttachmentsChange || !multimodalCaps.supportsImage) return;
             const items = e.clipboardData?.items;

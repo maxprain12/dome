@@ -298,6 +298,7 @@ export default function MentionTextarea({
         }}
         rows={rows}
         placeholder={placeholder}
+        aria-label={placeholder ?? 'Mention'}
         className={className}
         style={style}
       />

@@ -159,6 +159,7 @@ export function TreeNode({
               onKeyDown={handleRenameKeyDown}
               onBlur={() => onRenameCommit(node.id, renameValue)}
               onClick={(e) => e.stopPropagation()}
+              aria-label="Rename"
               className="flex-1 outline-none rounded px-1"
               style={{ fontSize: 12, background: 'var(--dome-surface)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)', minWidth: 0 }}
             />
@@ -451,7 +452,9 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
           <Search className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('workspace.search_resources')} className="flex-1 bg-transparent outline-none border-none"
+            placeholder={t('workspace.search_resources')}
+            aria-label={t('workspace.search_resources')}
+            className="flex-1 bg-transparent outline-none border-none"
             style={{ fontSize: 12, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
           />
         </div>

@@ -67,6 +67,7 @@ export default function GitHubSettings() {
             value={repoQuery}
             onChange={(e) => setRepoQuery(e.target.value)}
             placeholder={t('github.settings_search_repo')}
+            aria-label={t('github.settings_search_repo')}
             className="text-sm bg-transparent outline-none flex-1"
             style={{ color: 'var(--dome-text)' }}
           />

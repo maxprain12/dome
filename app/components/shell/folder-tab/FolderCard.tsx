@@ -394,6 +394,7 @@ function FolderCardImpl({
                   if (e.key === 'Escape') setRenaming(false);
                 }}
                 onClick={(e) => e.stopPropagation()}
+                aria-label={t('ui.rename', 'Rename')}
                 className="dome-fs-tree-row__rename-input"
               />
               <button type="button" onClick={(e) => { e.stopPropagation(); commitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">

@@ -378,6 +378,7 @@ export default function ProjectsDashboard({
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder={t('projects.project_name')}
+                  aria-label={t('projects.project_name')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
                   }}
@@ -387,6 +388,7 @@ export default function ProjectsDashboard({
                   value={newProjectDescription}
                   onChange={(e) => setNewProjectDescription(e.target.value)}
                   placeholder={t('projects.brief_description')}
+                  aria-label={t('projects.brief_description')}
                   rows={2}
                   className="p-projects-field p-projects-field-area"
                   style={{ marginTop: 10 }}

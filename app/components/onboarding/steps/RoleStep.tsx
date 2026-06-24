@@ -81,6 +81,7 @@ export default function RoleStep({
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
           placeholder={t('onboarding.role_about_placeholder')}
+          aria-label={t('onboarding.role_about_label')}
           rows={3}
           className="w-full rounded-lg px-3 py-2 text-sm outline-none resize-none transition-colors"
           style={{
