@@ -58,6 +58,7 @@ export default function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateN
     >
       {ITEMS.map((item) => (
         <button
+          type="button"
           key={item.label}
           style={itemStyle}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}

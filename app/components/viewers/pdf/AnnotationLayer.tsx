@@ -393,6 +393,7 @@ export default function AnnotationLayer({
             />
             <div className="flex gap-2">
               <button
+                type="button"
                 onClick={handleNoteSubmit}
                 className="px-3 py-1 text-xs rounded"
                 style={{
@@ -403,6 +404,7 @@ export default function AnnotationLayer({
                 Add Note
               </button>
               <button
+                type="button"
                 onClick={() => {
                   setShowNoteInput(false);
                   setInputPosition(null);

@@ -174,6 +174,7 @@ function ActionLog({ log }: { log: ResearchLogEntry[] }) {
       }}
     >
       <button
+        type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center gap-2 px-4 py-2.5 text-left transition-colors"
         style={{ background: 'transparent' }}
@@ -347,6 +348,7 @@ function TableOfContents({
       <nav className="space-y-0.5">
         {sections.map((section) => (
           <button
+            type="button"
             key={section.id}
             onClick={() => onSectionClick(section.id)}
             className="w-full text-left text-xs px-2 py-1.5 rounded transition-colors truncate"
@@ -760,6 +762,7 @@ export default function DeepResearch({
           {isComplete && (
             <>
               <button
+                type="button"
                 onClick={() => {
                   /* Toggle TOC handled internally */
                 }}
@@ -771,6 +774,7 @@ export default function DeepResearch({
               </button>
               {onExport && (
                 <button
+                  type="button"
                   onClick={onExport}
                   className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                   aria-label="Export report"
@@ -785,7 +789,7 @@ export default function DeepResearch({
             </>
           )}
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
               <X size={16} />
             </button>
           )}

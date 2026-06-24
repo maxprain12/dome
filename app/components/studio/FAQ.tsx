@@ -37,7 +37,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
           </span>
         </div>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
             <X size={16} />
           </button>
         )}
@@ -59,6 +59,7 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
                 }}
               >
                 <button
+                  type="button"
                   onClick={() => setExpandedIndex(isExpanded ? null : index)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left"
                 >

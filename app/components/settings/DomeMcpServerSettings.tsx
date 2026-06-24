@@ -132,6 +132,7 @@ export default function DomeMcpServerSettings() {
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={refreshStatus}
               className="p-1.5 rounded hover:bg-[var(--dome-bg-hover)]"
               title={t('dome_mcp.refresh')}

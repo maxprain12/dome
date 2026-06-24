@@ -74,6 +74,7 @@ export default function GitHubConnect() {
             {t('github.enter_code_on_github')}
           </span>
           <button
+            type="button"
             onClick={copyCode}
             className="flex items-center gap-2 text-2xl font-mono font-bold px-4 py-2 rounded-md"
             style={{ background: 'var(--dome-bg-hover)' }}
@@ -98,6 +99,7 @@ export default function GitHubConnect() {
         </div>
       ) : (
         <button
+          type="button"
           onClick={start}
           disabled={busy}
           className="flex items-center gap-2 px-5 py-2.5 rounded-md font-medium"

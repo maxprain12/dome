@@ -197,6 +197,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
       backgroundColor: 'var(--bg-secondary)',
     }}>
       <button
+        type="button"
         onClick={() => { setExpanded((e) => !e); setMessage(null); setRepoSkills([]); }}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',

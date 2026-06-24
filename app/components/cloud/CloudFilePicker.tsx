@@ -204,6 +204,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
           <div className="flex gap-2 px-5 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
             {accounts.map((acc) => (
               <button
+                type="button"
                 key={acc.accountId}
                 onClick={() => { setSelectedAccount(acc); setBreadcrumbs([{ id: null, name: 'Mi unidad' }]); }}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
@@ -235,6 +236,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
             {/* Toolbar: breadcrumbs + search */}
             <div className="flex items-center gap-2 px-5 py-2.5" style={{ borderBottom: '1px solid var(--border)' }}>
               <button
+                type="button"
                 onClick={handleBack}
                 disabled={breadcrumbs.length <= 1}
                 className="p-1.5 rounded-lg disabled:opacity-30 transition-opacity hover:opacity-70"
@@ -248,6 +250,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                   <span key={`trail:${breadcrumbs.slice(0, i + 1).map((c) => String(c.id ?? 'root')).join('/')}`} className="flex items-center gap-1 shrink-0">
                     {i > 0 && <ChevronRight className="size-3 opacity-40" style={{ color: 'var(--tertiary-text)' }} />}
                     <button
+                      type="button"
                       onClick={() => handleBreadcrumb(i)}
                       className="text-xs hover:opacity-70 transition-opacity truncate max-w-[120px]"
                       style={{ color: i === breadcrumbs.length - 1 ? 'var(--primary-text)' : 'var(--accent)', fontWeight: i === breadcrumbs.length - 1 ? 600 : 400 }}
@@ -270,7 +273,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
                   style={{ color: 'var(--primary-text)' }}
                 />
                 {search && (
-                  <button onClick={() => { setSearch(''); if (selectedAccount) loadFiles(selectedAccount, currentFolderId); }}>
+                  <button type="button" onClick={() => { setSearch(''); if (selectedAccount) loadFiles(selectedAccount, currentFolderId); }}>
                     <X className="size-3" style={{ color: 'var(--tertiary-text)' }} />
                   </button>
                 )}

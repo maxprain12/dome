@@ -42,6 +42,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
           return (
             <div key={source.number} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <button
+                type="button"
                 onClick={() => onClickSource?.(source)}
                 style={{
                   display: 'flex',
@@ -116,6 +117,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
               {/* Add-to-context button */}
               {source.id && (
                 <button
+                  type="button"
                   onClick={() => {
                     if (isPinned) {
                       removePinnedResource(source.id);

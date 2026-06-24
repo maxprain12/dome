@@ -179,6 +179,7 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
       {/* Footer Actions */}
       <div className="flex flex-col items-center shrink-0 gap-1 pb-4 pt-2 border-t border-[var(--dome-border)] bg-[var(--dome-bg)] w-full">
         <button
+          type="button"
           onClick={() => {
             if (typeof window !== 'undefined' && window.electron?.openSettings) {
               window.electron.openSettings();
@@ -190,6 +191,7 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
           <Settings className="size-5" strokeWidth={1.5} />
         </button>
         <button
+          type="button"
           onClick={() => startDomeTour()}
           className="flex items-center justify-center w-[40px] h-[40px] rounded-lg opacity-80 hover:opacity-100 hover:bg-[var(--dome-surface)] hover:text-[var(--dome-text)] transition-colors duration-200"
           title={t('common.help_tour')}

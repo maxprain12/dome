@@ -93,12 +93,12 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
           {title || t('studio.data_table')}
         </h3>
         <div className="flex items-center gap-2">
-          <button onClick={handleExportCSV} className="btn btn-ghost p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.export_csv_aria')} title={t('studio.export_csv')}>
+          <button type="button" onClick={handleExportCSV} className="btn btn-ghost p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.export_csv_aria')} title={t('studio.export_csv')}>
             <Download size={14} />
             <span>CSV</span>
           </button>
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('ui.close')} title={t('ui.close')}><X size={16} /></button>
+            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('ui.close')} title={t('ui.close')}><X size={16} /></button>
           )}
         </div>
       </div>

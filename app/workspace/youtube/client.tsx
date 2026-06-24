@@ -222,6 +222,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
           {error || 'Resource not found'}
         </p>
         <button
+          type="button"
           onClick={() => navigate('/')}
           className="px-4 py-2 rounded-lg text-sm font-medium"
           style={{ backgroundColor: 'var(--accent)', color: 'var(--base-text)' }}

@@ -318,6 +318,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
             {error ?? 'The requested resource could not be found.'}
           </p>
           <button
+            type="button"
             onClick={() => { if (typeof window !== 'undefined') window.close(); }}
             className="btn btn-primary"
           >

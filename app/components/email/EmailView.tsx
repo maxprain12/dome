@@ -44,8 +44,6 @@ interface Envelope {
   flags?: string[];
 }
 
-const FOLDER_MENU_TYPE = 'button' as const;
-
 function fromLabel(from: Envelope['from']): string {
   if (!from) return '';
   if (typeof from === 'string') return from;
@@ -538,7 +536,7 @@ function FolderMenuButton({
     <>
       <button
         ref={triggerRef}
-        type={FOLDER_MENU_TYPE}
+        type="button"
         className={`dome-email-view__folder-trigger${open ? ' dome-email-view__folder-trigger--open' : ''}`}
         onClick={onToggle}
         aria-haspopup="menu"

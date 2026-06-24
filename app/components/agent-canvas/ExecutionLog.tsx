@@ -116,6 +116,7 @@ export default function ExecutionLog({
     >
       {/* Header bar */}
       <button
+        type="button"
         onClick={() => setCollapsed((v) => !v)}
         className="w-full flex items-center gap-2 px-4 py-2 text-left transition-colors hover:opacity-80"
         style={{ background: 'var(--dome-bg)' }}

@@ -188,6 +188,7 @@ export const TooltipTrigger = forwardRef<HTMLElement, TooltipTriggerProps>(
 
     return (
       <button
+        type="button"
         ref={ref}
         data-tooltip-state={context.open ? "open" : "closed"}
         {...context.getReferenceProps(props)}

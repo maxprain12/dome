@@ -239,6 +239,7 @@ export default function WorkflowDetail({
           </span>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={onClose}
               className="px-4 py-2 rounded-xl text-sm transition-colors hover:opacity-80"
               style={{
@@ -250,6 +251,7 @@ export default function WorkflowDetail({
               Close
             </button>
             <button
+              type="button"
               onClick={() => onInstall(workflow)}
               disabled={isInstalling}
               className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-90 active:scale-95 disabled:opacity-50"

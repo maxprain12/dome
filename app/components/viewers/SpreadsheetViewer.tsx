@@ -406,6 +406,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         <div className="sheet-tabs">
           {sheets.map((sheet, idx) => (
             <button
+              type="button"
               key={sheet.name}
               className={`sheet-tab ${idx === activeSheet ? 'active' : ''}`}
               onClick={() => {

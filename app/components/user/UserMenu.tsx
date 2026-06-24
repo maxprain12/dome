@@ -72,6 +72,7 @@ export default function UserMenu() {
     <div className="relative" ref={dropdownRef}>
       {/* Avatar Button */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="rounded-full transition-all hover:ring-2 hover:ring-offset-2 hover:ring-blue-500 focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
         aria-label={t('userMenu.menu_aria', { name: name || t('userMenu.default_name') })}
@@ -108,6 +109,7 @@ export default function UserMenu() {
           {/* Menu Items */}
           <div className="py-1">
             <button
+              type="button"
               onClick={handleOpenSettings}
               className="w-full px-4 py-2 text-left flex items-center gap-3 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2"
               style={{
@@ -129,6 +131,7 @@ export default function UserMenu() {
             <div className="my-1 border-t" style={{ borderColor: 'var(--border)' }} />
 
             <button
+              type="button"
               onClick={handleSignOut}
               disabled={isSigningOut}
               className="w-full px-4 py-2 text-left flex items-center gap-3 transition-colors focus-visible:ring-2 focus-visible:ring-[var(--base)] focus-visible:ring-offset-2 disabled:opacity-50"

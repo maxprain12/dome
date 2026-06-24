@@ -197,6 +197,7 @@ export default function MarketplaceAgentDetail({
             style={{ borderTop: '1px solid var(--dome-border)' }}
           >
             <button
+              type="button"
               onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{
@@ -208,6 +209,7 @@ export default function MarketplaceAgentDetail({
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => {
                 if ((!isInstalled || hasUpdate) && !isInstalling) onInstall(agent);
               }}

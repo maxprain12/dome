@@ -157,6 +157,7 @@ export default function SidePanel({
             })}
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-[var(--dome-bg-hover)] opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
             style={{ color: 'var(--dome-text-muted)' }}
