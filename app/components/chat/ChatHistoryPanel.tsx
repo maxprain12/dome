@@ -89,8 +89,11 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
             className="relative z-10 w-full max-w-sm rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-lg"
             role="dialog"
             aria-modal="true"
+            aria-labelledby="chat-rename-dialog-title"
           >
-            <p className="text-xs font-medium text-[var(--dome-text)] mb-2">{t('chat.rename_conversation')}</p>
+            <p id="chat-rename-dialog-title" className="text-xs font-medium text-[var(--dome-text)] mb-2">
+              {t('chat.rename_conversation')}
+            </p>
             <DomeInput
               className="gap-0 mb-3"
               value={renameValue}

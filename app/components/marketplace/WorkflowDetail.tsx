@@ -54,6 +54,7 @@ export default function WorkflowDetail({
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', maxHeight: '85vh' }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="workflow-detail-title"
       >
         {/* Header */}
         <div
@@ -65,7 +66,7 @@ export default function WorkflowDetail({
         >
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-base font-bold" style={{ color: 'var(--dome-accent)' }}>
+              <h2 id="workflow-detail-title" className="text-base font-bold" style={{ color: 'var(--dome-accent)' }}>
                 {workflow.name}
               </h2>
               {workflow.featured && (

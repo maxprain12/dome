@@ -109,10 +109,10 @@ export default function DeckQuestionsTab({
 
       {editingId ? (
         <div className="lr-scrim" role="presentation">
-          <div className="lr-modal" role="dialog" aria-modal="true">
+          <div className="lr-modal" role="dialog" aria-modal="true" aria-labelledby="deck-question-edit-title">
             <div className="lr-modal-hd">
               <div className="lr-modal-hd-text">
-                <h2>{t('learn.edit_question', 'Edit question')}</h2>
+                <h2 id="deck-question-edit-title">{t('learn.edit_question', 'Edit question')}</h2>
               </div>
             </div>
             <div className="lr-modal-body">

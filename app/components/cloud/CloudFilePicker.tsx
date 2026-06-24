@@ -185,12 +185,13 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
         }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="cloud-file-picker-title"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <div className="flex items-center gap-2">
             <Cloud className="size-4" style={{ color: 'var(--accent)' }} />
-            <span className="font-semibold text-sm" style={{ color: 'var(--primary-text)' }}>
+            <span id="cloud-file-picker-title" className="font-semibold text-sm" style={{ color: 'var(--primary-text)' }}>
               Importar desde Cloud
             </span>
           </div>

@@ -607,9 +607,12 @@ export default function ProjectsDashboard({
           className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="projects-bulk-delete-title"
         >
           <div className="p-projects-modal">
-            <h3 className="p-projects-modal-title">{t('projects.delete_critical_title')}</h3>
+            <h3 id="projects-bulk-delete-title" className="p-projects-modal-title">
+              {t('projects.delete_critical_title')}
+            </h3>
             <p className="p-projects-modal-body">{t('projects.delete_critical_warning')}</p>
             <ul className="p-projects-modal-body max-h-40 overflow-y-auto space-y-1">
               {[...selectedIds]
