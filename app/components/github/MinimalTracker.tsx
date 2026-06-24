@@ -7,6 +7,335 @@ import { useGitHubSortStore } from '@/lib/store/useGitHubSortStore';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import GitHubSortControls from './GitHubSortControls';
 
+interface QuickCreateIssueProps {
+  selectedRepoId: string;
+  loadRepoData: (repoId: string) => Promise<void>;
+  milestones: GitHubMilestoneRow[];
+}
+
+function QuickCreateIssue({ selectedRepoId, loadRepoData, milestones }: QuickCreateIssueProps) {
+  const { t } = useTranslation();
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [milestoneChoice, setMilestoneChoice] = useState<string>('none');
+  const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  const [bodyOpen, setBodyOpen] = useState(false);
+  const titleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  const reset = () => {
+    setTitle('');
+    setBody('');
+    setMilestoneChoice('none');
+    setNewMilestoneTitle('');
+    setBodyOpen(false);
+    setError(null);
+  };
+
+  const handleSubmit = async (e?: FormEvent) => {
+    e?.preventDefault();
+    const trimmed = title.trim();
+    if (!trimmed || !selectedRepoId) {
+      setError(t('github.minimal_quick_error_title'));
+      return;
+    }
+    setError(null);
+    setSubmitting(true);
+    try {
+      let milestoneNumber: number | null = null;
+      if (milestoneChoice === '__new__') {
+        const mTitle = newMilestoneTitle.trim();
+        if (mTitle) {
+          const created = await githubClient.milestones.create(selectedRepoId, { title: mTitle });
+          const num = (created as { number?: number } | null)?.number;
+          if (typeof num === 'number') milestoneNumber = num;
+        }
+      } else if (milestoneChoice !== 'none') {
+        milestoneNumber = Number(milestoneChoice);
+      }
+      await githubClient.issues.create(selectedRepoId, {
+        title: trimmed,
+        body: body.trim() || undefined,
+        ...(milestoneNumber !== null ? { milestoneNumber } : {}),
+      });
+      reset();
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+      await loadRepoData(selectedRepoId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onTitleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void handleSubmit();
+    }
+  };
+
+  return (
+    <form
+      onSubmit={(e) => void handleSubmit(e)}
+      className="rounded-xl mb-5 p-2.5 flex flex-col gap-2"
+      style={{
+        background: 'var(--dome-surface)',
+        border: '1px solid var(--dome-border)',
+      }}
+    >
+      {/* Row 1: title + submit */}
+      <div
+        className="flex items-center gap-2 rounded-md px-2"
+        style={{
+          background: 'var(--dome-bg)',
+          border: `1px solid ${error ? 'var(--dome-error, var(--error))' : 'var(--dome-border)'}`,
+          height: 32,
+        }}
+      >
+        <Plus size={14} style={{ color: 'var(--dome-text-muted)' }} className="shrink-0" />
+        <input
+          id="quick-issue-title"
+          ref={titleRef}
+          type="text"
+          value={title}
+          onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
+          onKeyDown={onTitleKeyDown}
+          placeholder={t('github.minimal_quick_title_placeholder')}
+          className="flex-1 bg-transparent outline-none text-sm min-w-0"
+          style={{ color: 'var(--dome-text)' }}
+          autoComplete="off"
+          spellCheck={false}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? 'quick-issue-error' : undefined}
+          aria-label={t('github.minimal_quick_title_label')}
+        />
+        {success && (
+          <span
+            className="inline-flex items-center gap-1 text-[11px] shrink-0"
+            style={{ color: 'var(--dome-success)' }}
+            role="status"
+          >
+            <CheckCircle size={12} />
+            {t('github.minimal_quick_created')}
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p
+          id="quick-issue-error"
+          className="text-[11px] flex items-center gap-1 -mt-1"
+          style={{ color: 'var(--dome-error, var(--error))' }}
+          role="alert"
+        >
+          <X size={11} />
+          {error}
+        </p>
+      )}
+
+      {/* Row 2: milestone + body toggle + cancel/create */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <DomeSelectMenu
+          value={milestoneChoice}
+          onChange={setMilestoneChoice}
+          aria-label={t('github.minimal_quick_milestone_label')}
+          fullWidth={false}
+          options={[
+            { value: 'none', label: t('github.minimal_quick_milestone_none') },
+            ...milestones
+              .filter((m) => m.state === 'open')
+              .map((m) => ({ value: String(m.number), label: m.title })),
+            { value: '__new__', label: t('github.minimal_quick_milestone_new') },
+          ]}
+        />
+
+        <button
+          type="button"
+          onClick={() => setBodyOpen((v) => !v)}
+          aria-expanded={bodyOpen}
+          aria-controls="quick-issue-body"
+          title={t('github.minimal_quick_body_label')}
+          className="inline-flex items-center gap-1 text-xs px-2 h-7 rounded-md shrink-0"
+          style={{
+            background: bodyOpen ? 'var(--dome-bg-hover)' : 'transparent',
+            border: '1px solid var(--dome-border)',
+            color: bodyOpen ? 'var(--dome-text)' : 'var(--dome-text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          <FileText size={12} />
+          {bodyOpen ? '−' : '+'}
+        </button>
+
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+          <button
+            type="button"
+            onClick={reset}
+            disabled={submitting}
+            className="text-xs px-2.5 h-7 rounded-md"
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--dome-border)',
+              color: 'var(--dome-text-muted)',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              opacity: submitting ? 0.6 : 1,
+            }}
+          >
+            {t('github.minimal_quick_cancel')}
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || !title.trim()}
+            className="text-xs px-3 h-7 rounded-md font-medium"
+            style={{
+              background: 'var(--dome-accent)',
+              color: 'var(--dome-on-accent)',
+              border: 'none',
+              cursor: submitting || !title.trim() ? 'not-allowed' : 'pointer',
+              opacity: submitting || !title.trim() ? 0.55 : 1,
+            }}
+          >
+            {submitting ? t('github.minimal_quick_creating') : t('github.minimal_quick_create')}
+          </button>
+        </div>
+      </div>
+
+      {milestoneChoice === '__new__' && (
+        <input
+          type="text"
+          value={newMilestoneTitle}
+          onChange={(e) => setNewMilestoneTitle(e.target.value)}
+          placeholder={t('github.minimal_quick_milestone_create_placeholder')}
+          aria-label={t('github.minimal_quick_milestone_create_label')}
+          className="rounded-md px-2 text-sm outline-none"
+          style={{
+            background: 'var(--dome-bg)',
+            border: '1px solid var(--dome-border)',
+            color: 'var(--dome-text)',
+            height: 28,
+          }}
+          autoComplete="off"
+        />
+      )}
+
+      {bodyOpen && (
+        <textarea
+          id="quick-issue-body"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder={t('github.minimal_quick_body_placeholder')}
+          aria-label={t('github.minimal_quick_body_placeholder')}
+          rows={3}
+          className="w-full rounded-md px-2 py-1.5 text-sm outline-none resize-y"
+          style={{
+            background: 'var(--dome-bg)',
+            border: '1px solid var(--dome-border)',
+            color: 'var(--dome-text)',
+            minHeight: 60,
+          }}
+          onKeyDown={(e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+              e.preventDefault();
+              void handleSubmit();
+            }
+          }}
+        />
+      )}
+    </form>
+  );
+}
+
+interface IssueRowProps {
+  issue: GitHubIssueRow;
+  onOpenIssue: (id: string) => void;
+  toggle: (issue: GitHubIssueRow) => Promise<void>;
+}
+
+function IssueRow({ issue, onOpenIssue, toggle }: IssueRowProps) {
+  const { t } = useTranslation();
+  const labels = parseLabels(issue.labels);
+  const visibleLabels = labels.slice(0, 3);
+  const hiddenCount = labels.length - visibleLabels.length;
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenIssue(issue.id)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenIssue(issue.id); } }}
+      className="group flex items-start gap-2 w-full text-left px-2 py-1.5 rounded-md cursor-pointer transition-colors"
+      style={{ color: 'var(--dome-text)' }}
+      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--dome-bg-hover)'; }}
+      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
+    >
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); void toggle(issue); }}
+        title={t('github.minimal_mark_done')}
+        aria-label={t('github.minimal_mark_done')}
+        className="shrink-0 mt-0.5 inline-flex items-center justify-center rounded"
+        style={{
+          width: 18,
+          height: 18,
+          color: 'var(--dome-text-muted)',
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-success)'; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
+      >
+        <Circle size={15} />
+      </button>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="inline-flex items-center gap-0.5 shrink-0 text-[11px] font-mono"
+            style={{ color: 'var(--dome-text-muted)' }}
+          >
+            <Hash size={11} />
+            {issue.number}
+          </span>
+          <span className="text-sm flex-1 truncate">{issue.title}</span>
+        </div>
+        {visibleLabels.length > 0 && (
+          <div className="flex items-center gap-1 mt-1 flex-wrap">
+            {visibleLabels.map((label) => (
+              <span
+                key={label}
+                className="text-[10px] font-medium px-1.5 py-0.5 rounded"
+                style={{
+                  background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
+                  color: 'var(--dome-accent)',
+                  border: '1px solid color-mix(in srgb, var(--dome-accent) 22%, transparent)',
+                }}
+              >
+                {label}
+              </span>
+            ))}
+            {hiddenCount > 0 && (
+              <span className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
+                +{hiddenCount}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      <ChevronRight
+        size={14}
+        className="opacity-0 group-hover:opacity-100 shrink-0 mt-1.5 transition-opacity"
+        style={{ color: 'var(--dome-text-muted)' }}
+      />
+    </div>
+  );
+}
+
 /**
  * Minimal "chill" tracker — the default mode. A calm, list-first view of
  * milestones and their issues with a one-line quick-add. No Kanban/Gantt/tabs.
@@ -91,324 +420,9 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
     );
   }
 
-  const QuickCreateIssue = () => {
-    const [title, setTitle] = useState('');
-    const [body, setBody] = useState('');
-    const [milestoneChoice, setMilestoneChoice] = useState<string>('none');
-    const [newMilestoneTitle, setNewMilestoneTitle] = useState('');
-    const [submitting, setSubmitting] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [success, setSuccess] = useState(false);
-    const [bodyOpen, setBodyOpen] = useState(false);
-    const titleRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-      titleRef.current?.focus();
-    }, []);
-
-    const reset = () => {
-      setTitle('');
-      setBody('');
-      setMilestoneChoice('none');
-      setNewMilestoneTitle('');
-      setBodyOpen(false);
-      setError(null);
-    };
-
-    const handleSubmit = async (e?: FormEvent) => {
-      e?.preventDefault();
-      const trimmed = title.trim();
-      if (!trimmed || !selectedRepoId) {
-        setError(t('github.minimal_quick_error_title'));
-        return;
-      }
-      setError(null);
-      setSubmitting(true);
-      try {
-        let milestoneNumber: number | null = null;
-        if (milestoneChoice === '__new__') {
-          const mTitle = newMilestoneTitle.trim();
-          if (mTitle) {
-            const created = await githubClient.milestones.create(selectedRepoId, { title: mTitle });
-            const num = (created as { number?: number } | null)?.number;
-            if (typeof num === 'number') milestoneNumber = num;
-          }
-        } else if (milestoneChoice !== 'none') {
-          milestoneNumber = Number(milestoneChoice);
-        }
-        await githubClient.issues.create(selectedRepoId, {
-          title: trimmed,
-          body: body.trim() || undefined,
-          ...(milestoneNumber !== null ? { milestoneNumber } : {}),
-        });
-        reset();
-        setSuccess(true);
-        setTimeout(() => setSuccess(false), 2000);
-        await loadRepoData(selectedRepoId);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setSubmitting(false);
-      }
-    };
-
-    const onTitleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        void handleSubmit();
-      }
-    };
-
-    return (
-      <form
-        onSubmit={(e) => void handleSubmit(e)}
-        className="rounded-xl mb-5 p-2.5 flex flex-col gap-2"
-        style={{
-          background: 'var(--dome-surface)',
-          border: '1px solid var(--dome-border)',
-        }}
-      >
-        {/* Row 1: title + submit */}
-        <div
-          className="flex items-center gap-2 rounded-md px-2"
-          style={{
-            background: 'var(--dome-bg)',
-            border: `1px solid ${error ? 'var(--dome-error, var(--error))' : 'var(--dome-border)'}`,
-            height: 32,
-          }}
-        >
-          <Plus size={14} style={{ color: 'var(--dome-text-muted)' }} className="shrink-0" />
-          <input
-            id="quick-issue-title"
-            ref={titleRef}
-            type="text"
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); if (error) setError(null); }}
-            onKeyDown={onTitleKeyDown}
-            placeholder={t('github.minimal_quick_title_placeholder')}
-            className="flex-1 bg-transparent outline-none text-sm min-w-0"
-            style={{ color: 'var(--dome-text)' }}
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={error ? true : undefined}
-            aria-describedby={error ? 'quick-issue-error' : undefined}
-            aria-label={t('github.minimal_quick_title_label')}
-          />
-          {success && (
-            <span
-              className="inline-flex items-center gap-1 text-[11px] shrink-0"
-              style={{ color: 'var(--dome-success)' }}
-              role="status"
-            >
-              <CheckCircle size={12} />
-              {t('github.minimal_quick_created')}
-            </span>
-          )}
-        </div>
-
-        {error && (
-          <p
-            id="quick-issue-error"
-            className="text-[11px] flex items-center gap-1 -mt-1"
-            style={{ color: 'var(--dome-error, var(--error))' }}
-            role="alert"
-          >
-            <X size={11} />
-            {error}
-          </p>
-        )}
-
-        {/* Row 2: milestone + body toggle + cancel/create */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <DomeSelectMenu
-            value={milestoneChoice}
-            onChange={setMilestoneChoice}
-            aria-label={t('github.minimal_quick_milestone_label')}
-            fullWidth={false}
-            options={[
-              { value: 'none', label: t('github.minimal_quick_milestone_none') },
-              ...milestones
-                .filter((m) => m.state === 'open')
-                .map((m) => ({ value: String(m.number), label: m.title })),
-              { value: '__new__', label: t('github.minimal_quick_milestone_new') },
-            ]}
-          />
-
-          <button
-            type="button"
-            onClick={() => setBodyOpen((v) => !v)}
-            aria-expanded={bodyOpen}
-            aria-controls="quick-issue-body"
-            title={t('github.minimal_quick_body_label')}
-            className="inline-flex items-center gap-1 text-xs px-2 h-7 rounded-md shrink-0"
-            style={{
-              background: bodyOpen ? 'var(--dome-bg-hover)' : 'transparent',
-              border: '1px solid var(--dome-border)',
-              color: bodyOpen ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              cursor: 'pointer',
-            }}
-          >
-            <FileText size={12} />
-            {bodyOpen ? '−' : '+'}
-          </button>
-
-          <div className="ml-auto flex items-center gap-1.5 shrink-0">
-            <button
-              type="button"
-              onClick={reset}
-              disabled={submitting}
-              className="text-xs px-2.5 h-7 rounded-md"
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--dome-border)',
-                color: 'var(--dome-text-muted)',
-                cursor: submitting ? 'not-allowed' : 'pointer',
-                opacity: submitting ? 0.6 : 1,
-              }}
-            >
-              {t('github.minimal_quick_cancel')}
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || !title.trim()}
-              className="text-xs px-3 h-7 rounded-md font-medium"
-              style={{
-                background: 'var(--dome-accent)',
-                color: 'var(--dome-on-accent)',
-                border: 'none',
-                cursor: submitting || !title.trim() ? 'not-allowed' : 'pointer',
-                opacity: submitting || !title.trim() ? 0.55 : 1,
-              }}
-            >
-              {submitting ? t('github.minimal_quick_creating') : t('github.minimal_quick_create')}
-            </button>
-          </div>
-        </div>
-
-        {milestoneChoice === '__new__' && (
-          <input
-            type="text"
-            value={newMilestoneTitle}
-            onChange={(e) => setNewMilestoneTitle(e.target.value)}
-            placeholder={t('github.minimal_quick_milestone_create_placeholder')}
-            aria-label={t('github.minimal_quick_milestone_create_label')}
-            className="rounded-md px-2 text-sm outline-none"
-            style={{
-              background: 'var(--dome-bg)',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text)',
-              height: 28,
-            }}
-            autoComplete="off"
-          />
-        )}
-
-        {bodyOpen && (
-          <textarea
-            id="quick-issue-body"
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder={t('github.minimal_quick_body_placeholder')}
-            aria-label={t('github.minimal_quick_body_placeholder')}
-            rows={3}
-            className="w-full rounded-md px-2 py-1.5 text-sm outline-none resize-y"
-            style={{
-              background: 'var(--dome-bg)',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text)',
-              minHeight: 60,
-            }}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
-                e.preventDefault();
-                void handleSubmit();
-              }
-            }}
-          />
-        )}
-      </form>
-    );
-  };
-
-  const IssueRow = ({ issue }: { issue: GitHubIssueRow }) => {
-    const labels = parseLabels(issue.labels);
-    const visibleLabels = labels.slice(0, 3);
-    const hiddenCount = labels.length - visibleLabels.length;
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={() => onOpenIssue(issue.id)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenIssue(issue.id); } }}
-        className="group flex items-start gap-2 w-full text-left px-2 py-1.5 rounded-md cursor-pointer transition-colors"
-        style={{ color: 'var(--dome-text)' }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--dome-bg-hover)'; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
-      >
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); void toggle(issue); }}
-          title={t('github.minimal_mark_done')}
-          aria-label={t('github.minimal_mark_done')}
-          className="shrink-0 mt-0.5 inline-flex items-center justify-center rounded"
-          style={{
-            width: 18,
-            height: 18,
-            color: 'var(--dome-text-muted)',
-          }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-success)'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
-        >
-          <Circle size={15} />
-        </button>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="inline-flex items-center gap-0.5 shrink-0 text-[11px] font-mono"
-              style={{ color: 'var(--dome-text-muted)' }}
-            >
-              <Hash size={11} />
-              {issue.number}
-            </span>
-            <span className="text-sm flex-1 truncate">{issue.title}</span>
-          </div>
-          {visibleLabels.length > 0 && (
-            <div className="flex items-center gap-1 mt-1 flex-wrap">
-              {visibleLabels.map((label) => (
-                <span
-                  key={label}
-                  className="text-[10px] font-medium px-1.5 py-0.5 rounded"
-                  style={{
-                    background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
-                    color: 'var(--dome-accent)',
-                    border: '1px solid color-mix(in srgb, var(--dome-accent) 22%, transparent)',
-                  }}
-                >
-                  {label}
-                </span>
-              ))}
-              {hiddenCount > 0 && (
-                <span className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-                  +{hiddenCount}
-                </span>
-              )}
-            </div>
-          )}
-        </div>
-
-        <ChevronRight
-          size={14}
-          className="opacity-0 group-hover:opacity-100 shrink-0 mt-1.5 transition-opacity"
-          style={{ color: 'var(--dome-text-muted)' }}
-        />
-      </div>
-    );
-  };
-
   return (
     <div className="h-full overflow-auto px-4 py-4 mx-auto w-full max-w-3xl">
-      <QuickCreateIssue />
+      <QuickCreateIssue selectedRepoId={selectedRepoId} loadRepoData={loadRepoData} milestones={milestones} />
 
       {/* Sort filters — icon-only buttons aligned right, minimal */}
       <div className="flex items-center justify-end gap-1 mb-2 -mt-1">
@@ -501,7 +515,7 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
                     {t('github.minimal_no_open_tasks')}
                   </div>
                 ) : (
-                  list.map((issue) => <IssueRow key={issue.id} issue={issue} />)
+                  list.map((issue) => <IssueRow key={issue.id} issue={issue} onOpenIssue={onOpenIssue} toggle={toggle} />)
                 )}
               </div>
             </div>
@@ -539,7 +553,7 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
               </span>
             </div>
             <div className="px-2 py-2 flex flex-col gap-0.5">
-              {groups.orphan.map((issue) => <IssueRow key={issue.id} issue={issue} />)}
+              {groups.orphan.map((issue) => <IssueRow key={issue.id} issue={issue} onOpenIssue={onOpenIssue} toggle={toggle} />)}
             </div>
           </div>
         )}

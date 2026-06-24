@@ -373,10 +373,13 @@ export default memo(function ManyChatInput({
 
   const mentionHighlightLabels = pinnedResources.map((r) => r.title);
   const fileHighlightNames = attachments.map((a) => a.name);
-  const skillHighlightLabels = [
-    ...(pendingOneShotSkillId ? [skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId] : []),
-    ...(activeStickySkillId ? [skillLabels[activeStickySkillId] || activeStickySkillId] : []),
-  ];
+  const skillHighlightLabels = useMemo(
+    () => [
+      ...(pendingOneShotSkillId ? [skillLabels[pendingOneShotSkillId] || pendingOneShotSkillId] : []),
+      ...(activeStickySkillId ? [skillLabels[activeStickySkillId] || activeStickySkillId] : []),
+    ],
+    [pendingOneShotSkillId, activeStickySkillId, skillLabels],
+  );
 
   const tokenTooltips = useMemo(() => {
     const map: Record<string, ComposerTokenTooltip> = {};
