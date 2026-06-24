@@ -50,7 +50,9 @@ export function useStudioOutputs(projectId?: string | null) {
       }
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [projectId, addStudioOutput, setActiveStudioOutput]);
 
   return { load, isLoading };

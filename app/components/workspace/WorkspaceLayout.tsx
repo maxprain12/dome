@@ -202,7 +202,9 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
       });
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resourceId]);
 
   // Modo multimedia: menos paneles al abrir audio/vídeo (workspace más limpio)

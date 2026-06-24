@@ -128,7 +128,9 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
       },
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resourceId]);
 
   useEffect(() => {
@@ -152,7 +154,9 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
       },
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resourceId]);
 
   useEffect(() => {

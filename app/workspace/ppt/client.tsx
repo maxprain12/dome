@@ -106,7 +106,9 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
         setResource((prev) => (prev ? { ...prev, ...payload.updates } : prev));
       }
     );
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resourceId, resource]);
 
   // --- Keyboard navigation ---

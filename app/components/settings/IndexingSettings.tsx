@@ -90,7 +90,9 @@ export default function IndexingSettings() {
         void loadEmbedStatus();
       }
     });
-    return off;
+    return () => {
+      off?.();
+    };
   }, [loadEmbedStatus]);
 
   const fullSyncPercent =

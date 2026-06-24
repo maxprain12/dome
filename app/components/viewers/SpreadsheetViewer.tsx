@@ -264,7 +264,9 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         loadSpreadsheet();
       }
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resource.id, loadSpreadsheet]);
 
   // Focus input when entering edit mode
