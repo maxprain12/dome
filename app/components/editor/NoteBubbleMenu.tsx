@@ -266,7 +266,7 @@ export function NoteBubbleMenu({
           onMouseDown={(e) => e.preventDefault()}
           onClick={toggleType}
         >
-          <span style={{ fontSize: 11, fontWeight: 500 }}>{currentBlockType()}</span>
+          <span style={{ fontSize: 12, fontWeight: 500 }}>{currentBlockType()}</span>
           <ChevronDown size={11} strokeWidth={2} />
         </button>
         <BubbleAnchoredSubmenu

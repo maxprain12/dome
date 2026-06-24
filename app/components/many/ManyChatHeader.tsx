@@ -85,7 +85,7 @@ export default memo(function ManyChatHeader({
           {(isThinking || isSpeaking) && (
             <span
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: 'var(--accent)',
                 fontWeight: 500,
                 padding: '1px 8px',
@@ -114,7 +114,7 @@ export default memo(function ManyChatHeader({
           {subtitleText && (
             <span
               style={{
-                fontSize: 11,
+                fontSize: 12,
                 color: 'var(--tertiary-text)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',

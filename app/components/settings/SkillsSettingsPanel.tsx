@@ -81,7 +81,7 @@ export default function SkillsSettingsPanel() {
             {t('settings.skills.section_configured', 'Configured skills')}
           </span>
           <span style={{
-            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+            fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
             backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
           }}>
             {skills.length}
@@ -281,7 +281,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
 
           {repoSkills.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--tertiary-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--tertiary-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {repoSkills.length} {t('settings.skills.skills_found', 'skills found')}
               </span>
               {repoSkills.map((entry) => (
@@ -344,7 +344,7 @@ function SkillRow({ skill }: { skill: SkillItem }) {
             {skill.name}
           </span>
           <span style={{
-            fontSize: 11, fontWeight: 500, padding: '1px 7px', borderRadius: 999,
+            fontSize: 12, fontWeight: 500, padding: '1px 7px', borderRadius: 999,
             backgroundColor: 'var(--bg-tertiary)', color: 'var(--tertiary-text)',
             fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.01em',
           }}>

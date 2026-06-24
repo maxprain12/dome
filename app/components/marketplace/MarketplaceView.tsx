@@ -101,7 +101,7 @@ function TypeIconBox({ type }: { type: Exclude<FilterType, 'all'> }) {
 function TagChip({ tag }: { tag: string }) {
   return (
     <span style={{
-      fontSize: 10, fontWeight: 600, padding: '2px 6px', borderRadius: 999,
+      fontSize: 12, fontWeight: 600, padding: '2px 6px', borderRadius: 999,
       backgroundColor: 'var(--bg-tertiary)', color: 'var(--tertiary-text)',
       letterSpacing: '0.02em', textTransform: 'uppercase',
     }}>
@@ -155,7 +155,7 @@ function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
             </span>
             {item.featured && <Star size={13} fill="var(--warning)" color="var(--warning)" />}
             <span style={{
-              fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999,
+              fontSize: 12, fontWeight: 600, padding: '1px 6px', borderRadius: 999,
               backgroundColor: TYPE_CONFIG[item.type].iconBg,
               color: TYPE_CONFIG[item.type].iconColor,
               letterSpacing: '0.03em',
@@ -184,7 +184,7 @@ function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
 
       {/* Footer row: author + tags */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: 11, color: 'var(--tertiary-text)' }}>
+        <span style={{ fontSize: 12, color: 'var(--tertiary-text)' }}>
           {item.author ?? 'Dome Team'}{item.version ? ` · v${item.version}` : ''}
         </span>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -671,7 +671,7 @@ export default function MarketplaceView() {
     <div className="hub-marketplace-body">
       <div className="hub-marketplace-sidebar">
         <div>
-          <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
+          <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 12, letterSpacing: '0.08em' }}>
             {t('marketplace.filter_type')}
           </DomeSectionLabel>
           <DomeFilterChipGroup
@@ -685,7 +685,7 @@ export default function MarketplaceView() {
 
         {availableCategories.length > 0 ? (
           <div>
-            <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 10, letterSpacing: '0.08em' }}>
+            <DomeSectionLabel style={{ marginBottom: 6, paddingLeft: 8, fontSize: 12, letterSpacing: '0.08em' }}>
               {t('marketplace.filter_category')}
             </DomeSectionLabel>
             <DomeFilterChipGroup
@@ -718,7 +718,7 @@ export default function MarketplaceView() {
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                   <Star size={13} fill="var(--warning)" color="var(--warning)" />
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
                     {t('marketplace.featured', 'Featured')}
                   </span>
                 </div>
@@ -745,10 +745,10 @@ export default function MarketplaceView() {
               <div>
                 {showFeatured ? (
                   <div style={{ marginBottom: 12 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--tertiary-text)' }}>
                       {t('marketplace.all_items', 'All')}
                       <span style={{
-                        marginLeft: 8, fontSize: 10, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
+                        marginLeft: 8, fontSize: 12, fontWeight: 600, padding: '2px 7px', borderRadius: 999,
                         backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
                       }}>
                         {regularItems.length}

@@ -695,7 +695,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               onClick={goToFeatureSettings}
               className="flex items-center gap-2 w-full text-left rounded-md px-2 py-1.5 transition-colors"
               style={{
-                fontSize: 11.5,
+                fontSize: 12,
                 color: 'var(--dome-text-muted)',
                 background: 'var(--dome-bg-hover)',
                 border: '1px solid var(--dome-border)',

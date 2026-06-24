@@ -29,7 +29,7 @@ function SectionGuideSteps({ sectionKey }: { sectionKey: string }) {
             style={{
               width: 20,
               height: 20,
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: 600,
               background: 'var(--dome-accent, var(--accent))',
               color: 'var(--dome-accent-fg, white)',
