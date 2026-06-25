@@ -115,7 +115,9 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
       },
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resourceId]);
 
   // Merge metadata/title updates from resource:updated (lightweight, no thumbnail_data)
@@ -141,7 +143,9 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
       },
     );
 
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resourceId]);
 
   // Set selected sources to current resource when opening (for Studio generation)

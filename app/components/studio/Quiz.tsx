@@ -301,7 +301,7 @@ export default function Quiz({
             {title || t('quiz.title')}
           </h3>
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
+            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
           )}
         </div>
         <div className="flex-1 flex flex-col items-center justify-center p-8">
@@ -310,7 +310,7 @@ export default function Quiz({
             {t('studio.quiz_data_corrupted')}
           </p>
           {onClose && (
-            <button onClick={onClose} className="btn btn-secondary mt-6">{t('quiz.close')}</button>
+            <button type="button" onClick={onClose} className="btn btn-secondary mt-6">{t('quiz.close')}</button>
           )}
         </div>
       </div>
@@ -329,7 +329,7 @@ export default function Quiz({
             {title || t('quiz.title')} — {t('quiz.results')}
           </h3>
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
+            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
           )}
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto p-8">
@@ -368,11 +368,12 @@ export default function Quiz({
               </div>
             )}
             <div className="flex flex-wrap gap-3 justify-center">
-              <button onClick={() => handleRestart()} className="btn btn-secondary flex items-center gap-2">
+              <button type="button" onClick={() => handleRestart()} className="btn btn-secondary flex items-center gap-2">
                 <RotateCcw size={16} /> {t('quiz.try_again')}
               </button>
               {learnMode && missedCount > 0 && (
                 <button
+                  type="button"
                   onClick={() => handleRestart({ onlyMissed: true })}
                   className="btn btn-secondary flex items-center gap-2"
                 >
@@ -381,6 +382,7 @@ export default function Quiz({
               )}
               {learnMode && (
                 <button
+                  type="button"
                   onClick={() => handleRestart({ shuffle: true })}
                   className="btn btn-ghost flex items-center gap-2"
                 >
@@ -388,7 +390,7 @@ export default function Quiz({
                 </button>
               )}
               {onClose && (
-                <button onClick={onClose} className="btn btn-ghost">{t('quiz.close')}</button>
+                <button type="button" onClick={onClose} className="btn btn-ghost">{t('quiz.close')}</button>
               )}
             </div>
           </div>
@@ -422,7 +424,7 @@ export default function Quiz({
             </button>
           )}
           {onClose && (
-            <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
+            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg" aria-label={t('quiz.close')}><X size={16} /></button>
           )}
         </div>
       </div>
@@ -460,6 +462,7 @@ export default function Quiz({
 
                 return (
                   <button
+                    type="button"
                     key={idx}
                     onClick={() => handleSelectAnswer(idx)}
                     className={optionClass}
@@ -495,6 +498,7 @@ export default function Quiz({
 
                 return (
                   <button
+                    type="button"
                     key={option}
                     onClick={() => handleSelectAnswer(idx)}
                     className="flex-1 p-4 rounded-lg text-center text-sm font-medium transition-all"
@@ -532,6 +536,7 @@ export default function Quiz({
         <div className="flex justify-end gap-3 ml-auto">
           {!showExplanation ? (
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={selectedAnswer === null}
               className="btn btn-primary"
@@ -540,7 +545,7 @@ export default function Quiz({
               {t('quiz.check_answer')}
             </button>
           ) : (
-            <button onClick={handleNext} className="btn btn-primary flex items-center gap-2">
+            <button type="button" onClick={handleNext} className="btn btn-primary flex items-center gap-2">
               {currentIndex < totalQuestions - 1 ? <>{t('quiz.next')} <ArrowRight size={16} /></> : t('quiz.see_results')}
             </button>
           )}

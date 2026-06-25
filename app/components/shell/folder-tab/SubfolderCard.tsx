@@ -123,6 +123,7 @@ export default function SubfolderCard({
               if (e.key === 'Escape') { setRenaming(false); setRenameValue(folder.title ?? ''); }
             }}
             onClick={(e) => e.stopPropagation()}
+            aria-label={t('ui.rename', 'Rename')}
             className="flex-1 min-w-0 text-sm outline-none rounded px-1.5 py-0.5"
             style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)' }}
           />

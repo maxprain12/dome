@@ -378,6 +378,7 @@ export default function ProjectsDashboard({
                   value={newProjectName}
                   onChange={(e) => setNewProjectName(e.target.value)}
                   placeholder={t('projects.project_name')}
+                  aria-label={t('projects.project_name')}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
                   }}
@@ -387,6 +388,7 @@ export default function ProjectsDashboard({
                   value={newProjectDescription}
                   onChange={(e) => setNewProjectDescription(e.target.value)}
                   placeholder={t('projects.brief_description')}
+                  aria-label={t('projects.brief_description')}
                   rows={2}
                   className="p-projects-field p-projects-field-area"
                   style={{ marginTop: 10 }}
@@ -607,9 +609,12 @@ export default function ProjectsDashboard({
           className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="projects-bulk-delete-title"
         >
           <div className="p-projects-modal">
-            <h3 className="p-projects-modal-title">{t('projects.delete_critical_title')}</h3>
+            <h3 id="projects-bulk-delete-title" className="p-projects-modal-title">
+              {t('projects.delete_critical_title')}
+            </h3>
             <p className="p-projects-modal-body">{t('projects.delete_critical_warning')}</p>
             <ul className="p-projects-modal-body max-h-40 overflow-y-auto space-y-1">
               {[...selectedIds]

@@ -211,6 +211,7 @@ export default function PipelinesBoard() {
                 if (e.key === 'Escape') setRenaming(false);
               }}
               placeholder={t('pipelines.pipeline_name_placeholder')}
+              aria-label={t('pipelines.pipeline_name_placeholder')}
               className="text-sm rounded-md px-2 py-1 outline-none"
               style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--accent)' }}
             />
@@ -249,6 +250,7 @@ export default function PipelinesBoard() {
                 if (e.key === 'Escape') setCreatingPipeline(false);
               }}
               placeholder={t('pipelines.pipeline_name_placeholder')}
+              aria-label={t('pipelines.pipeline_name_placeholder')}
               className="text-sm rounded-md px-2 py-1 outline-none"
               style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--accent)' }}
             />

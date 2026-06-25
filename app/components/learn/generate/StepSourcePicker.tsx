@@ -300,6 +300,7 @@ export default function StepSourcePicker({ projectId, selectedIds, onChange }: S
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('learn.source_search', 'Search sources…')}
+            aria-label={t('learn.source_search', 'Search sources…')}
           />
         </div>
         <div className="lr-source-tree">

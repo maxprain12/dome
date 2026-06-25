@@ -75,7 +75,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
           >
             {t('studio.content_parse_error')}
           </p>
-          <button onClick={onClose} className="btn btn-secondary mt-6">
+          <button type="button" onClick={onClose} className="btn btn-secondary mt-6">
             {t('ui.close')}
           </button>
         </div>
@@ -101,7 +101,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
             <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
               {t('studio.deck_not_found')}
             </p>
-            <button onClick={onClose} className="btn btn-secondary mt-4">
+            <button type="button" onClick={onClose} className="btn btn-secondary mt-4">
               {t('ui.close')}
             </button>
           </div>
@@ -133,7 +133,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
             >
               {t('studio.unsupported_type_hint', { type: output.type })}
             </p>
-            <button onClick={onClose} className="btn btn-secondary mt-6">
+            <button type="button" onClick={onClose} className="btn btn-secondary mt-6">
               {t('ui.close')}
             </button>
           </div>

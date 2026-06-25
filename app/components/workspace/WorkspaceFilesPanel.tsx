@@ -504,6 +504,7 @@ export default function WorkspaceFilesPanel({
                     <input
                       type="text"
                       placeholder={t('workspaceFiles.pip_placeholder')}
+                      aria-label={t('workspaceFiles.pip_placeholder')}
                       value={pipInput}
                       onChange={(e) => setPipInput(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handlePipInstall()}

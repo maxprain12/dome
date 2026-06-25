@@ -170,6 +170,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
         </h3>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setZoom((z) => Math.min(z + 0.2, 3))}
             className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             aria-label="Zoom in"
@@ -178,6 +179,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
             <ZoomIn size={16} />
           </button>
           <button
+            type="button"
             onClick={() => setZoom((z) => Math.max(z - 0.2, 0.3))}
             className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             aria-label="Zoom out"
@@ -186,6 +188,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
             <ZoomOut size={16} />
           </button>
           <button
+            type="button"
             onClick={() => {
               setZoom(1);
               setPan({ x: 50, y: 50 });
@@ -198,6 +201,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
           </button>
           {onExport && (
             <button
+              type="button"
               onClick={onExport}
               className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               aria-label="Export"
@@ -208,6 +212,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
           )}
           {onClose && (
             <button
+              type="button"
               onClick={onClose}
               className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
               aria-label={t('studio.close_button')}
@@ -339,6 +344,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
                 Detalle del nodo
               </span>
               <button
+                type="button"
                 onClick={() => setSelectedNodeId(null)}
                 className="btn btn-ghost p-1.5 rounded"
                 aria-label="Cerrar"

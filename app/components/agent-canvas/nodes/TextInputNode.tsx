@@ -47,6 +47,7 @@ export default function TextInputNode({
           value={data.value}
           onChange={(e) => updateNode(id, { value: e.target.value } as Partial<TextInputNodeData>)}
           placeholder={t('canvas.text_placeholder')}
+          aria-label={t('canvas.text_placeholder')}
           rows={2}
           className="nodrag nowheel w-full text-xs resize-none rounded-lg outline-none transition-all leading-snug"
           style={{

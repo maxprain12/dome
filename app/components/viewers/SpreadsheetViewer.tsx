@@ -264,7 +264,9 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         loadSpreadsheet();
       }
     });
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resource.id, loadSpreadsheet]);
 
   // Focus input when entering edit mode
@@ -406,6 +408,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         <div className="sheet-tabs">
           {sheets.map((sheet, idx) => (
             <button
+              type="button"
               key={sheet.name}
               className={`sheet-tab ${idx === activeSheet ? 'active' : ''}`}
               onClick={() => {
@@ -443,6 +446,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
                         onBlur={handleEditBlur}
                         onKeyDown={handleEditKeyDown}
                         onClick={(e) => e.stopPropagation()}
+                        aria-label="Cell value"
                       />
                     ) : (
                       String(currentSheet.data[0]?.[i] ?? '')
@@ -473,6 +477,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
                           onBlur={handleEditBlur}
                           onKeyDown={handleEditKeyDown}
                           onClick={(e) => e.stopPropagation()}
+                          aria-label="Cell value"
                         />
                       ) : (
                         String(row[colIdx] ?? '')

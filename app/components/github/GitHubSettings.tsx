@@ -39,6 +39,7 @@ export default function GitHubSettings() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => void disconnect()}
           className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md"
           style={{ border: '1px solid var(--dome-border)', color: 'var(--error)' }}
@@ -50,6 +51,7 @@ export default function GitHubSettings() {
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-base font-semibold">{t('github.settings_repos_title')}</h3>
         <button
+          type="button"
           onClick={refresh}
           className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md"
           style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
@@ -65,6 +67,7 @@ export default function GitHubSettings() {
             value={repoQuery}
             onChange={(e) => setRepoQuery(e.target.value)}
             placeholder={t('github.settings_search_repo')}
+            aria-label={t('github.settings_search_repo')}
             className="text-sm bg-transparent outline-none flex-1"
             style={{ color: 'var(--dome-text)' }}
           />

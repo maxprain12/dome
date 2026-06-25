@@ -49,6 +49,7 @@ export default function MarkdownCell({ source, onChange, editable = false }: Mar
           fieldSizing: 'content',
         } as React.CSSProperties}
         placeholder={t('notebook.markdown_placeholder')}
+        aria-label={t('notebook.markdown_placeholder')}
       />
     );
   }

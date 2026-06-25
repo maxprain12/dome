@@ -509,6 +509,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                       }, 120);
                     }}
                     placeholder={t('github.add_assignee_hint')}
+                    aria-label={t('github.add_assignee')}
                     className="w-full rounded-md px-2 py-1 text-xs outline-none"
                     style={{
                       background: 'var(--dome-bg)',

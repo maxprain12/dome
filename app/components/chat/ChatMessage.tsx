@@ -333,6 +333,7 @@ export default function ChatMessage({
             {/* User: copy button on hover (left of bubble) */}
             {isUser && (
               <button
+                type="button"
                 onClick={handleCopy}
                 className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity flex size-6 items-center justify-center rounded-full hover:bg-[var(--bg-hover)]"
                 style={{ color: 'var(--tertiary-text)' }}
@@ -499,6 +500,7 @@ export default function ChatMessage({
                   style={{ borderColor: 'var(--border)' }}
                 >
                   <button
+                    type="button"
                     onClick={handleCopy}
                     className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                     style={{ color: 'var(--tertiary-text)' }}
@@ -509,6 +511,7 @@ export default function ChatMessage({
                   </button>
                   {onSaveAsNote && message.content ? (
                     <button
+                      type="button"
                       onClick={handleSaveAsNote}
                       className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: savedAsNote ? 'var(--success)' : 'var(--tertiary-text)' }}
@@ -520,6 +523,7 @@ export default function ChatMessage({
                   ) : null}
                   {onRegenerate ? (
                     <button
+                      type="button"
                       onClick={onRegenerate}
                       className="flex size-6 items-center justify-center rounded transition-colors hover:bg-[var(--bg-hover)]"
                       style={{ color: 'var(--tertiary-text)' }}

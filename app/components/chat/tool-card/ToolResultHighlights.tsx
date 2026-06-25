@@ -149,7 +149,7 @@ export function CodegenPreview({
       </div>
       <pre
         style={{
-          fontSize: 11.5,
+          fontSize: 12,
           lineHeight: 1.5,
           fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
           whiteSpace: 'pre',

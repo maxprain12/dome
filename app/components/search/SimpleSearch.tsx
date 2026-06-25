@@ -258,6 +258,7 @@ export function SearchModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search resources..."
+            aria-label="Search resources..."
             className="flex-1 bg-transparent text-sm outline-none"
             style={{ color: 'var(--dome-text)' }}
             autoComplete="off"
@@ -688,6 +689,7 @@ export function InlineSearch({ onResourceSelect, placeholder }: InlineSearchProp
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => setIsFocused(true)}
           placeholder={placeholder ?? t('dashboard.search_placeholder', 'Buscar recursos, notas, PDFs, chats…')}
+          aria-label={placeholder ?? t('dashboard.search_placeholder', 'Buscar recursos, notas, PDFs, chats…')}
           className="flex-1 bg-transparent text-sm outline-none"
           style={{ color: 'var(--dome-text)' }}
           autoComplete="off"

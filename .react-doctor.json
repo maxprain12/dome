@@ -1,0 +1,16 @@
+{
+  "$schema": "https://react.doctor/schema/config.json",
+  "exclude": [
+    "ds-bundle/**",
+    "pi/**",
+    "dist/**",
+    "release/**",
+    "node_modules/**",
+    ".design-sync/**",
+    "**/*.d.ts"
+  ],
+  "supplyChain": {
+    "minScore": 50,
+    "severity": "warning"
+  }
+}

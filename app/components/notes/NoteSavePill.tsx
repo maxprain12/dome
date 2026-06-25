@@ -89,7 +89,7 @@ export default function NoteSavePill({
       <span className="note-save-dot" aria-hidden />
       <span>{text}</span>
       {state === 'dirty' && dirtyHintCmdS ? (
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, opacity: 0.7 }}>{mod}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, opacity: 0.7 }}>{mod}</span>
       ) : null}
     </button>
   );

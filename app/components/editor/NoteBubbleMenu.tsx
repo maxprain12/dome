@@ -266,7 +266,7 @@ export function NoteBubbleMenu({
           onMouseDown={(e) => e.preventDefault()}
           onClick={toggleType}
         >
-          <span style={{ fontSize: 11, fontWeight: 500 }}>{currentBlockType()}</span>
+          <span style={{ fontSize: 12, fontWeight: 500 }}>{currentBlockType()}</span>
           <ChevronDown size={11} strokeWidth={2} />
         </button>
         <BubbleAnchoredSubmenu
@@ -444,6 +444,7 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
           boxShadow: 'none',
         }}
         placeholder={t('notes.link_placeholder_url')}
+        aria-label={t('notes.link_placeholder_url')}
         value={url}
         onChange={(e) => setUrl(e.target.value)}
         onFocus={(e) => {

@@ -152,7 +152,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
   if (isLoading) {
     return (
       <div className="lr-scrim" role="presentation">
-        <div className="lr-modal" role="dialog" aria-modal="true" aria-busy="true">
+        <div className="lr-modal" role="dialog" aria-modal="true" aria-busy="true" aria-label={t('flashcard.edit_deck', 'Edit deck')}>
           <div className="lr-modal-body" style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
             <Loader2 className="lr-spin" size={28} aria-label={t('ui.loading', 'Loading')} />
           </div>

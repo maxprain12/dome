@@ -388,6 +388,7 @@ export default function AudioOverview({
             {/* Center controls */}
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={skipBackward}
                 className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 aria-label="Rewind 15 seconds"
@@ -396,6 +397,7 @@ export default function AudioOverview({
                 <SkipBack size={16} style={{ color: 'var(--secondary-text)' }} />
               </button>
               <button
+                type="button"
                 onClick={togglePlay}
                 className="flex items-center justify-center size-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{
@@ -408,6 +410,7 @@ export default function AudioOverview({
                 {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
               </button>
               <button
+                type="button"
                 onClick={skipForward}
                 className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 aria-label="Forward 15 seconds"
@@ -420,6 +423,7 @@ export default function AudioOverview({
             {/* Right controls */}
             <div className="flex items-center gap-2 w-20 justify-end">
               <button
+                type="button"
                 onClick={() => setIsMuted(!isMuted)}
                 className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 aria-label={isMuted ? 'Unmute' : 'Mute'}
@@ -432,6 +436,7 @@ export default function AudioOverview({
                 )}
               </button>
               <button
+                type="button"
                 onClick={cyclePlaybackSpeed}
                 className="text-xs font-semibold px-1.5 py-0.5 rounded transition-colors"
                 style={{

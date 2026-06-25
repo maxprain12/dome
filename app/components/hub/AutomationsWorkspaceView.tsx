@@ -522,6 +522,7 @@ function AutomationsTab({
           type="file"
           accept="application/json,.json"
           className="hidden"
+          aria-label={t('automationHub.import_automation_json', 'Import automation JSON file')}
           onChange={(ev) => void handleAutomationImportFile(ev)}
         />
         <HubToolbar

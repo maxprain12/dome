@@ -47,7 +47,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
           {title || 'Study Guide'}
         </h3>
         {onClose && (
-          <button onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
             <X size={16} />
           </button>
         )}
@@ -70,6 +70,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
               >
                 {/* Section header */}
                 <button
+                  type="button"
                   onClick={() => toggleSection(index)}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left transition-colors group"
                   style={{
@@ -88,6 +89,7 @@ export default function StudyGuide({ data, title, onClose }: StudyGuideProps) {
                     {section.title}
                   </span>
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       copySection(section.content, index);

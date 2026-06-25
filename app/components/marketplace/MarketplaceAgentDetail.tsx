@@ -55,6 +55,7 @@ export default function MarketplaceAgentDetail({
         }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="marketplace-agent-detail-title"
       >
         {/* Close */}
         <button
@@ -86,6 +87,7 @@ export default function MarketplaceAgentDetail({
               <div className="flex-1 min-w-0 pt-1">
                 <div className="flex items-center gap-2">
                   <h2
+                    id="marketplace-agent-detail-title"
                     className="text-lg font-bold leading-tight"
                     style={{ color: 'var(--dome-text)' }}
                   >
@@ -197,6 +199,7 @@ export default function MarketplaceAgentDetail({
             style={{ borderTop: '1px solid var(--dome-border)' }}
           >
             <button
+              type="button"
               onClick={onClose}
               className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
               style={{
@@ -208,6 +211,7 @@ export default function MarketplaceAgentDetail({
               Cancel
             </button>
             <button
+              type="button"
               onClick={() => {
                 if ((!isInstalled || hasUpdate) && !isInstalling) onInstall(agent);
               }}

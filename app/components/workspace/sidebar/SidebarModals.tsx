@@ -28,9 +28,12 @@ export function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
         style={{ width: 300, maxHeight: 400, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="move-folder-title"
       >
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--dome-border)' }}>
-          <span className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>Mover "{resource.title}"</span>
+          <span id="move-folder-title" className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
+            Mover "{resource.title}"
+          </span>
           <button type="button" onClick={onClose} className="rounded flex items-center justify-center hover:bg-[var(--dome-bg-hover)]" style={{ width: 24, height: 24, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>
             <X className="size-3.5" />
           </button>
@@ -86,9 +89,10 @@ export function DeleteConfirmModal({ resource, onConfirm, onClose }: {
         style={{ width: 290, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="delete-confirm-title"
       >
         <div>
-          <p className="font-medium text-sm mb-1" style={{ color: 'var(--dome-text)' }}>
+          <p id="delete-confirm-title" className="font-medium text-sm mb-1" style={{ color: 'var(--dome-text)' }}>
             {t('ui.delete_confirm', { type: resource.type === 'folder' ? 'folder' : 'resource' })}
           </p>
           <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
@@ -131,11 +135,16 @@ export function NewFolderModal({ parentId, onConfirm, onClose }: {
         style={{ width: 280, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="new-folder-title"
       >
-        <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>{t('ui.new_folder')}</p>
+        <p id="new-folder-title" className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
+          {t('ui.new_folder')}
+        </p>
         <input ref={inputRef} type="text" value={name} onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
-          placeholder={t('ui.folder_name')} className="rounded-md px-3 py-2 text-sm outline-none"
+          placeholder={t('ui.folder_name')}
+          aria-label={t('ui.folder_name')}
+          className="rounded-md px-3 py-2 text-sm outline-none"
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }} />
         <div className="flex items-center justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
@@ -175,8 +184,11 @@ export function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string)
         style={{ width: 320, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="url-input-title"
       >
-        <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>{t('ui.add_url')}</p>
+        <p id="url-input-title" className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
+          {t('ui.add_url')}
+        </p>
         <input
           ref={inputRef}
           type="url"
@@ -184,6 +196,7 @@ export function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string)
           onChange={(e) => setUrl(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onClose(); }}
           placeholder="https://..."
+          aria-label={t('ui.add_url')}
           className="rounded-md px-3 py-2 text-sm outline-none"
           style={{ background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
         />

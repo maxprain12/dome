@@ -94,6 +94,7 @@ export default function NewStageColumn({ onCreate }: Props) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t('pipelines.stage_title_placeholder')}
+          aria-label={t('pipelines.stage_title_placeholder')}
           className="text-sm rounded-md px-2 py-1 outline-none"
           style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
         />

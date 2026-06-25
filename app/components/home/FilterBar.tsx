@@ -76,6 +76,7 @@ export function FilterBar({
         {/* Filter button */}
         <div className="filter-dropdown-container">
           <button
+            type="button"
             className={`filter-btn min-h-[44px] focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${activeFilterCount > 0 ? 'active' : ''}`}
             onClick={() => setShowFilterDropdown(!showFilterDropdown)}
             aria-label={t('filter.filter_by_type')}
@@ -92,7 +93,7 @@ export function FilterBar({
               <div className="filter-dropdown-header">
                 <span>{t('filter.filter_by_type')}</span>
                 {activeFilterCount > 0 ? (
-                  <button className="clear-btn cursor-pointer" onClick={clearFilters} aria-label={t('filter.clear_all')}>
+                  <button type="button" className="clear-btn cursor-pointer" onClick={clearFilters} aria-label={t('filter.clear_all')}>
                     {t('filter.clear_all')}
                   </button>
                 ) : null}
@@ -100,6 +101,7 @@ export function FilterBar({
               <div className="filter-options">
                 {RESOURCE_TYPES.map(({ type, label, icon }) => (
                   <button
+                    type="button"
                     key={type}
                     className={`filter-option cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${selectedTypes.includes(type) ? 'selected' : ''}`}
                     onClick={() => toggleType(type)}
@@ -123,6 +125,7 @@ export function FilterBar({
               const typeInfo = RESOURCE_TYPES.find((t) => t.type === type);
               return (
                 <button
+                  type="button"
                   key={type}
                   className="filter-chip cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                   onClick={() => toggleType(type)}
@@ -141,7 +144,7 @@ export function FilterBar({
       <div className="filter-bar-right">
         {/* Create Folder button */}
         {onCreateFolder && (
-          <button className="create-folder-btn min-h-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" onClick={onCreateFolder} aria-label={t('filter.new_folder')}>
+          <button type="button" className="create-folder-btn min-h-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" onClick={onCreateFolder} aria-label={t('filter.new_folder')}>
             <FolderOpen size={16} />
             <span>{t('filter.new_folder')}</span>
           </button>
@@ -150,6 +153,7 @@ export function FilterBar({
         {/* View mode toggle */}
         <div className="view-mode-toggle">
           <button
+            type="button"
             className={`view-btn min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${viewMode === 'grid' ? 'active' : ''}`}
             onClick={() => onViewModeChange('grid')}
             aria-label={t('filter.grid_view')}
@@ -158,6 +162,7 @@ export function FilterBar({
             <Grid3X3 size={16} />
           </button>
           <button
+            type="button"
             className={`view-btn min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 ${viewMode === 'list' ? 'active' : ''}`}
             onClick={() => onViewModeChange('list')}
             aria-label={t('filter.list_view')}

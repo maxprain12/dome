@@ -81,7 +81,7 @@ export default function SkillsSettingsPanel() {
             {t('settings.skills.section_configured', 'Configured skills')}
           </span>
           <span style={{
-            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
+            fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
             backgroundColor: 'var(--bg-tertiary)', color: 'var(--secondary-text)',
           }}>
             {skills.length}
@@ -197,6 +197,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
       backgroundColor: 'var(--bg-secondary)',
     }}>
       <button
+        type="button"
         onClick={() => { setExpanded((e) => !e); setMessage(null); setRepoSkills([]); }}
         style={{
           width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -226,6 +227,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
               onChange={(e) => setUrl(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
               placeholder={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
+              aria-label={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
               style={{
                 width: '100%', padding: '8px 11px', fontSize: 13,
                 border: '1px solid var(--border)', borderRadius: 7,
@@ -242,6 +244,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
                 onChange={(e) => setSkillName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
                 placeholder={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
+                aria-label={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
                 style={{
                   flex: 1, padding: '8px 11px', fontSize: 13,
                   border: '1px solid var(--border)', borderRadius: 7,
@@ -280,7 +283,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
 
           {repoSkills.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--tertiary-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--tertiary-text)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                 {repoSkills.length} {t('settings.skills.skills_found', 'skills found')}
               </span>
               {repoSkills.map((entry) => (
@@ -343,7 +346,7 @@ function SkillRow({ skill }: { skill: SkillItem }) {
             {skill.name}
           </span>
           <span style={{
-            fontSize: 11, fontWeight: 500, padding: '1px 7px', borderRadius: 999,
+            fontSize: 12, fontWeight: 500, padding: '1px 7px', borderRadius: 999,
             backgroundColor: 'var(--bg-tertiary)', color: 'var(--tertiary-text)',
             fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.01em',
           }}>

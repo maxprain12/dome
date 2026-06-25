@@ -121,6 +121,7 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
           <div className="w-px h-5 mx-2" style={{ background: 'var(--border)' }} />
 
           <button
+            type="button"
             onClick={handleRotate}
             className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ color: 'var(--secondary-text)' }}
@@ -137,6 +138,7 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
           </button>
 
           <button
+            type="button"
             onClick={handleResetView}
             className="p-2 rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ color: 'var(--secondary-text)' }}

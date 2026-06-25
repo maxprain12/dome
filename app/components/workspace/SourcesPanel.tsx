@@ -100,6 +100,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
           {t('workspace.sources')}
         </h3>
         <button
+          type="button"
           onClick={handleToggleAll}
           className="flex items-center justify-center size-6 rounded transition-colors duration-150"
           style={{ color: 'var(--secondary-text)' }}
@@ -196,6 +197,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
         style={{ borderColor: 'var(--border)' }}
       >
         <button
+          type="button"
           onClick={handleAddSource}
           className="flex items-center gap-2 w-full p-2 rounded-md text-xs font-medium transition-colors duration-150"
           style={{

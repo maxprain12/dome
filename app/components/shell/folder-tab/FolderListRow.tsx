@@ -173,6 +173,7 @@ export default function FolderListRow({
                 if (e.key === 'Enter') commitRename();
                 if (e.key === 'Escape') setRenaming(false);
               }}
+              aria-label={t('ui.rename', 'Rename')}
               className="dome-fs-tree-row__rename-input"
             />
             <button type="button" onClick={commitRename} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">

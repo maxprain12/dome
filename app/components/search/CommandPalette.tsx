@@ -640,6 +640,7 @@ export default function CommandPalette() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('command.palette_placeholder')}
+            aria-label={t('command.palette_placeholder')}
             className="flex-1 bg-transparent text-sm outline-none"
             style={{ color: 'var(--dome-text)' }}
             autoComplete="off"

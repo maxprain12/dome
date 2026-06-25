@@ -217,7 +217,7 @@ function PlusMenuQuickActions({
 function PlusMenuCapabilitiesSection({ manyCapabilities, t }: { manyCapabilities: ManyCapabilitiesBlockProps; t: (key: string) => string }) {
   return (
     <>
-      <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" />
+      <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" aria-label="Separator" />
       <p
         className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
         style={{ color: 'var(--tertiary-text)' }}

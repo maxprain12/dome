@@ -227,6 +227,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
       <div className="h-full flex flex-col items-center justify-center gap-4" style={{ backgroundColor: 'var(--bg)' }}>
         <div style={{ color: 'var(--error)' }}>{error || 'Notebook not found'}</div>
         <button
+          type="button"
           onClick={() => { if (typeof window !== 'undefined') window.close(); }}
           className="btn btn-primary"
         >

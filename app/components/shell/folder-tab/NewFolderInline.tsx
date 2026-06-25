@@ -26,6 +26,7 @@ export default function NewFolderInline({ onConfirm, onCancel }: { onConfirm: (n
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={t('folder.folderNamePlaceholder')}
+          aria-label={t('folder.folderNamePlaceholder')}
           onKeyDown={(e) => {
             if (e.key === 'Enter') handleConfirm();
             if (e.key === 'Escape') onCancel();

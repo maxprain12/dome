@@ -101,10 +101,10 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
 
   return (
     <div className="lr-scrim" role="presentation">
-      <div className="lr-modal lg" role="dialog" aria-modal="true">
+      <div className="lr-modal lg" role="dialog" aria-modal="true" aria-labelledby="generate-wizard-title">
         <div className="lr-modal-hd">
           <div className="lr-modal-hd-text">
-            <h2>{t('learn.generate_title', 'Generate content')}</h2>
+            <h2 id="generate-wizard-title">{t('learn.generate_title', 'Generate content')}</h2>
             <p>{wizardHint}</p>
             {!showProgress ? <WizardStepper step={wizard.step} /> : null}
           </div>

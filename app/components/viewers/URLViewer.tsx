@@ -115,7 +115,9 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
         }
       },
     );
-    return unsubscribe;
+    return () => {
+      unsubscribe?.();
+    };
   }, [resource.id, normalizeMetadata]);
 
   const processingStatus = (metadata?.processing_status as string) || 'pending';

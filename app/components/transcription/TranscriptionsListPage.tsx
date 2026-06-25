@@ -102,6 +102,7 @@ export default function TranscriptionsListPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('transcriptions.search_placeholder')}
+              aria-label={t('transcriptions.search_placeholder')}
               className="min-w-0 flex-1 bg-transparent text-sm outline-none"
               style={{ color: 'var(--dome-text)' }}
             />
