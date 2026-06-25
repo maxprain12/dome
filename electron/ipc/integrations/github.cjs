@@ -5,8 +5,11 @@
 const { z } = require('zod');
 const { shell } = require('electron');
 const githubOAuth = require('../../auth/github-oauth.cjs');
+const memoryMonitor = require('../../core/memory-monitor.cjs');
 const syncService = require('../../github/github-sync-service.cjs');
 const store = require('../../github/github-store.cjs');
+
+const ISSUE_LIST_WARN_THRESHOLD = 10_000;
 
 const PollSchema = z.object({
   deviceCode: z.string().min(1),
@@ -120,7 +123,19 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     try {
-      return ok({ issues: store.listIssues(repoId) });
+      const count = store.countIssues(repoId);
+      if (count > ISSUE_LIST_WARN_THRESHOLD) {
+        console.warn(`[github IPC] github:issues:list repo ${repoId} has ${count} issues (threshold ${ISSUE_LIST_WARN_THRESHOLD})`);
+      }
+      if (memoryMonitor.isMemoryPressureHigh()) {
+        const m = memoryMonitor.getMemoryInfo();
+        console.warn(
+          `[github IPC] github:issues:list skipped — memory pressure ${(m.heapUsedRatio * 100).toFixed(1)}% ` +
+          `(heapUsed ${(m.heapUsed / 1024 / 1024).toFixed(0)}MB / ${(m.heapTotal / 1024 / 1024).toFixed(0)}MB)`,
+        );
+        return fail('Memory pressure too high to load issues. Try again in a moment.');
+      }
+      return ok({ issues: store.listIssuesSummary(repoId) });
     } catch (err) {
       return fail(err);
     }

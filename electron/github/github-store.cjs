@@ -223,6 +223,22 @@ function listIssues(rId) {
   return db().prepare('SELECT * FROM github_issues WHERE repo_id = ? AND is_pull_request = 0 ORDER BY number DESC').all(rId);
 }
 
+/** Metadata-only list for IPC/UI — excludes `body` to avoid OOM on large repos. */
+function listIssuesSummary(rId) {
+  return db()
+    .prepare(
+      `SELECT id, repo_id, number, title, state, milestone_number, due_date, labels, assignees, is_pull_request, html_url
+       FROM github_issues WHERE repo_id = ? AND is_pull_request = 0 ORDER BY number DESC`,
+    )
+    .all(rId);
+}
+
+function countIssues(rId) {
+  return db()
+    .prepare('SELECT COUNT(*) AS count FROM github_issues WHERE repo_id = ? AND is_pull_request = 0')
+    .get(rId).count;
+}
+
 function getIssue(id) {
   return db().prepare('SELECT * FROM github_issues WHERE id = ?').get(id);
 }
@@ -372,6 +388,8 @@ module.exports = {
   markMilestoneClean,
   upsertIssueFromRemote,
   listIssues,
+  listIssuesSummary,
+  countIssues,
   getIssue,
   listDirtyIssues,
   updateLocalIssue,

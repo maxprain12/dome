@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-06-23T14:27:33.413Z
+> Última generación: 2026-06-25T20:13:39.784Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -311,29 +311,29 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `get-home-path` | `electron/ipc/core/system.cjs:17` |
 | `get-theme` | `electron/ipc/core/system.cjs:184` |
 | `get-user-data-path` | `electron/ipc/core/system.cjs:7` |
-| `github:auth:disconnect` | `electron/ipc/integrations/github.cjs:65` |
-| `github:auth:poll` | `electron/ipc/integrations/github.cjs:43` |
-| `github:auth:start` | `electron/ipc/integrations/github.cjs:32` |
-| `github:auth:status` | `electron/ipc/integrations/github.cjs:56` |
-| `github:branches:list` | `electron/ipc/integrations/github.cjs:139` |
-| `github:image:resolve` | `electron/ipc/integrations/github.cjs:323` |
-| `github:issues:create` | `electron/ipc/integrations/github.cjs:188` |
-| `github:issues:createComment` | `electron/ipc/integrations/github.cjs:210` |
-| `github:issues:get` | `electron/ipc/integrations/github.cjs:129` |
-| `github:issues:list` | `electron/ipc/integrations/github.cjs:119` |
-| `github:issues:listComments` | `electron/ipc/integrations/github.cjs:199` |
-| `github:issues:listMentionables` | `electron/ipc/integrations/github.cjs:232` |
-| `github:issues:listTimeline` | `electron/ipc/integrations/github.cjs:221` |
-| `github:issues:move` | `electron/ipc/integrations/github.cjs:173` |
-| `github:issues:update` | `electron/ipc/integrations/github.cjs:160` |
-| `github:milestones:create` | `electron/ipc/integrations/github.cjs:255` |
-| `github:milestones:list` | `electron/ipc/integrations/github.cjs:109` |
-| `github:milestones:update` | `electron/ipc/integrations/github.cjs:243` |
-| `github:releases:list` | `electron/ipc/integrations/github.cjs:149` |
-| `github:repos:list` | `electron/ipc/integrations/github.cjs:77` |
-| `github:repos:refresh` | `electron/ipc/integrations/github.cjs:86` |
-| `github:repos:setSelected` | `electron/ipc/integrations/github.cjs:96` |
-| `github:sync:now` | `electron/ipc/integrations/github.cjs:365` |
+| `github:auth:disconnect` | `electron/ipc/integrations/github.cjs:68` |
+| `github:auth:poll` | `electron/ipc/integrations/github.cjs:46` |
+| `github:auth:start` | `electron/ipc/integrations/github.cjs:35` |
+| `github:auth:status` | `electron/ipc/integrations/github.cjs:59` |
+| `github:branches:list` | `electron/ipc/integrations/github.cjs:154` |
+| `github:image:resolve` | `electron/ipc/integrations/github.cjs:338` |
+| `github:issues:create` | `electron/ipc/integrations/github.cjs:203` |
+| `github:issues:createComment` | `electron/ipc/integrations/github.cjs:225` |
+| `github:issues:get` | `electron/ipc/integrations/github.cjs:144` |
+| `github:issues:list` | `electron/ipc/integrations/github.cjs:122` |
+| `github:issues:listComments` | `electron/ipc/integrations/github.cjs:214` |
+| `github:issues:listMentionables` | `electron/ipc/integrations/github.cjs:247` |
+| `github:issues:listTimeline` | `electron/ipc/integrations/github.cjs:236` |
+| `github:issues:move` | `electron/ipc/integrations/github.cjs:188` |
+| `github:issues:update` | `electron/ipc/integrations/github.cjs:175` |
+| `github:milestones:create` | `electron/ipc/integrations/github.cjs:270` |
+| `github:milestones:list` | `electron/ipc/integrations/github.cjs:112` |
+| `github:milestones:update` | `electron/ipc/integrations/github.cjs:258` |
+| `github:releases:list` | `electron/ipc/integrations/github.cjs:164` |
+| `github:repos:list` | `electron/ipc/integrations/github.cjs:80` |
+| `github:repos:refresh` | `electron/ipc/integrations/github.cjs:89` |
+| `github:repos:setSelected` | `electron/ipc/integrations/github.cjs:99` |
+| `github:sync:now` | `electron/ipc/integrations/github.cjs:380` |
 | `image:crop` | `electron/ipc/media/images.cjs:11` |
 | `image:metadata` | `electron/ipc/media/images.cjs:82` |
 | `image:resize` | `electron/ipc/media/images.cjs:37` |
