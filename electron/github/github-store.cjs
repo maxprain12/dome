@@ -127,6 +127,24 @@ function listMilestones(rId) {
   return db().prepare('SELECT * FROM github_milestones WHERE repo_id = ? ORDER BY due_on IS NULL, due_on').all(rId);
 }
 
+/** Metadata-only list for IPC/UI — excludes `description`. */
+function listMilestonesSummary(rId) {
+  return db()
+    .prepare(
+      `SELECT id, repo_id, number, title, due_on, closed_at, state, open_issues, closed_issues, html_url,
+              remote_updated_at, dome_updated_at, dirty, created_at, updated_at
+       FROM github_milestones WHERE repo_id = ? ORDER BY due_on IS NULL, due_on`,
+    )
+    .all(rId);
+}
+
+/** Milestones with a due date — for calendar projection (includes description). */
+function listMilestonesWithDueOn(rId) {
+  return db()
+    .prepare('SELECT * FROM github_milestones WHERE repo_id = ? AND due_on IS NOT NULL ORDER BY due_on')
+    .all(rId);
+}
+
 function getMilestone(id) {
   return db().prepare('SELECT * FROM github_milestones WHERE id = ?').get(id);
 }
@@ -224,19 +242,51 @@ function listIssues(rId) {
 }
 
 /** Metadata-only list for IPC/UI — excludes `body` to avoid OOM on large repos. */
-function listIssuesSummary(rId) {
-  return db()
-    .prepare(
-      `SELECT id, repo_id, number, title, state, milestone_number, due_date, labels, assignees, is_pull_request, html_url
-       FROM github_issues WHERE repo_id = ? AND is_pull_request = 0 ORDER BY number DESC`,
-    )
-    .all(rId);
+const ISSUE_LIST_DEFAULT_LIMIT = 5000;
+const ISSUE_LIST_MAX_LIMIT = 8000;
+
+function listIssuesSummary(rId, opts = {}) {
+  const state = opts.state === 'open' || opts.state === 'closed' ? opts.state : null;
+  const limit = Math.min(
+    Math.max(1, Number.isFinite(opts.limit) ? opts.limit : ISSUE_LIST_DEFAULT_LIMIT),
+    ISSUE_LIST_MAX_LIMIT,
+  );
+  const offset = Math.max(0, Number.isFinite(opts.offset) ? opts.offset : 0);
+
+  let sql = `SELECT id, repo_id, number, title, state, milestone_number, due_date, labels, assignees, is_pull_request, html_url
+       FROM github_issues WHERE repo_id = ? AND is_pull_request = 0`;
+  const params = [rId];
+  if (state) {
+    sql += ' AND state = ?';
+    params.push(state);
+  }
+  sql += ' ORDER BY number DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+  return db().prepare(sql).all(...params);
 }
 
-function countIssues(rId) {
+function countIssues(rId, state) {
+  if (state === 'open' || state === 'closed') {
+    return db()
+      .prepare(
+        'SELECT COUNT(*) AS count FROM github_issues WHERE repo_id = ? AND is_pull_request = 0 AND state = ?',
+      )
+      .get(rId, state).count;
+  }
   return db()
     .prepare('SELECT COUNT(*) AS count FROM github_issues WHERE repo_id = ? AND is_pull_request = 0')
     .get(rId).count;
+}
+
+/** Open issues with a parsed due date — for calendar projection (includes body). */
+function listIssuesForCalendar(rId) {
+  return db()
+    .prepare(
+      `SELECT id, repo_id, number, title, body, state, due_date, html_url
+       FROM github_issues
+       WHERE repo_id = ? AND is_pull_request = 0 AND state = 'open' AND due_date IS NOT NULL`,
+    )
+    .all(rId);
 }
 
 function getIssue(id) {
@@ -382,6 +432,8 @@ module.exports = {
   setEtag,
   upsertMilestoneFromRemote,
   listMilestones,
+  listMilestonesSummary,
+  listMilestonesWithDueOn,
   getMilestone,
   listDirtyMilestones,
   updateLocalMilestone,
@@ -389,7 +441,10 @@ module.exports = {
   upsertIssueFromRemote,
   listIssues,
   listIssuesSummary,
+  listIssuesForCalendar,
   countIssues,
+  ISSUE_LIST_DEFAULT_LIMIT,
+  ISSUE_LIST_MAX_LIMIT,
   getIssue,
   listDirtyIssues,
   updateLocalIssue,

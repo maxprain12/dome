@@ -11,6 +11,23 @@ let _unsubDataUpdated: (() => void) | null = null;
 let _subscribed = false;
 let _refreshDebounce: ReturnType<typeof setTimeout> | null = null;
 const REFRESH_DEBOUNCE_MS = 500;
+const ISSUES_PAGE_SIZE = 5000;
+
+/** Reuse in-flight loadRepoData for the same repo (sync burst + tab open). */
+let _loadRepoInflight: { repoId: string; promise: Promise<void> } | null = null;
+
+async function fetchAllIssues(repoId: string): Promise<GitHubIssueRow[]> {
+  const all: GitHubIssueRow[] = [];
+  let offset = 0;
+  for (;;) {
+    const res = await githubClient.issues.list(repoId, { limit: ISSUES_PAGE_SIZE, offset });
+    if (!res.success) throw new Error(res.error ?? 'Failed to load issues');
+    all.push(...(res.issues ?? []));
+    if (!res.truncated) break;
+    offset += res.limit ?? ISSUES_PAGE_SIZE;
+  }
+  return all;
+}
 
 interface GitHubState {
   connected: boolean;
@@ -129,23 +146,42 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
   },
 
   loadRepoData: async (repoId) => {
-    set({ loading: true, error: null });
+    if (_loadRepoInflight?.repoId === repoId) {
+      await _loadRepoInflight.promise;
+      return;
+    }
+
+    const run = (async () => {
+      set({ loading: true, error: null });
+      try {
+        const ms = await githubClient.milestones.list(repoId);
+        if (!ms.success) throw new Error(ms.error ?? 'Failed to load milestones');
+
+        const issues = await fetchAllIssues(repoId);
+
+        const br = await githubClient.branches.list(repoId);
+        if (!br.success) throw new Error(br.error ?? 'Failed to load branches');
+
+        const rel = await githubClient.releases.list(repoId);
+        if (!rel.success) throw new Error(rel.error ?? 'Failed to load releases');
+
+        set({
+          milestones: ms.milestones ?? [],
+          issues,
+          branches: br.branches ?? [],
+          releases: rel.releases ?? [],
+          loading: false,
+        });
+      } catch (e) {
+        set({ loading: false, error: e instanceof Error ? e.message : String(e) });
+      }
+    })();
+
+    _loadRepoInflight = { repoId, promise: run };
     try {
-      const [ms, iss, br, rel] = await Promise.all([
-        githubClient.milestones.list(repoId),
-        githubClient.issues.list(repoId),
-        githubClient.branches.list(repoId),
-        githubClient.releases.list(repoId),
-      ]);
-      set({
-        milestones: ms.milestones ?? [],
-        issues: iss.issues ?? [],
-        branches: br.branches ?? [],
-        releases: rel.releases ?? [],
-        loading: false,
-      });
-    } catch (e) {
-      set({ loading: false, error: e instanceof Error ? e.message : String(e) });
+      await run;
+    } finally {
+      if (_loadRepoInflight?.repoId === repoId) _loadRepoInflight = null;
     }
   },
 

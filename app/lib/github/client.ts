@@ -21,6 +21,22 @@ export function normalizeGithubHtmlImages(markdown: string): string {
   );
 }
 
+export interface GitHubIssuesListOptions {
+  state?: 'open' | 'closed';
+  limit?: number;
+  offset?: number;
+}
+
+export interface GitHubIssuesListResult {
+  success: boolean;
+  issues?: GitHubIssueRow[];
+  total?: number;
+  limit?: number;
+  offset?: number;
+  truncated?: boolean;
+  error?: string;
+}
+
 export const githubClient = {
   auth: {
     start: () => gh().auth.start(),
@@ -40,7 +56,7 @@ export const githubClient = {
     update: (id: string, patch: Record<string, unknown>) => gh().milestones.update(id, patch),
   },
   issues: {
-    list: (repoId: string) => gh().issues.list(repoId),
+    list: (repoId: string, opts?: GitHubIssuesListOptions) => gh().issues.list(repoId, opts) as Promise<GitHubIssuesListResult>,
     get: (id: string) => gh().issues.get(id),
     create: (repoId: string, data: { title: string; body?: string; milestoneNumber?: number; labels?: string[]; assignees?: string[] }) =>
       gh().issues.create(repoId, data),

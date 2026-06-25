@@ -11,6 +11,44 @@ const store = require('../../github/github-store.cjs');
 
 const ISSUE_LIST_WARN_THRESHOLD = 10_000;
 
+const IssuesListOptsSchema = z
+  .object({
+    state: z.enum(['open', 'closed']).optional(),
+    limit: z.number().int().positive().max(store.ISSUE_LIST_MAX_LIMIT).optional(),
+    offset: z.number().int().nonnegative().optional(),
+  })
+  .optional();
+
+/** Coalesce concurrent identical issues:list reads (sync broadcast + UI open). */
+const _issuesListInflight = new Map();
+
+function memoryPressureFail(label) {
+  if (!memoryMonitor.isMemoryPressureHigh()) return null;
+  const m = memoryMonitor.getMemoryInfo();
+  console.warn(
+    `[github IPC] ${label} skipped — memory pressure ${(m.heapUsedRatio * 100).toFixed(1)}% ` +
+    `(heapUsed ${(m.heapUsed / 1024 / 1024).toFixed(0)}MB / ${(m.heapTotal / 1024 / 1024).toFixed(0)}MB)`,
+  );
+  return { success: false, error: 'Memory pressure too high to load GitHub data. Try again in a moment.' };
+}
+
+async function fetchIssuesListPage(repoId, opts = {}) {
+  const parsed = IssuesListOptsSchema.safeParse(opts);
+  const safe = parsed.success ? parsed.data ?? {} : {};
+  const state = safe.state;
+  const limit = safe.limit ?? store.ISSUE_LIST_DEFAULT_LIMIT;
+  const offset = safe.offset ?? 0;
+  const total = store.countIssues(repoId, state);
+  const issues = store.listIssuesSummary(repoId, { state, limit, offset });
+  return {
+    issues,
+    total,
+    limit,
+    offset,
+    truncated: offset + issues.length < total,
+  };
+}
+
 const PollSchema = z.object({
   deviceCode: z.string().min(1),
   interval: z.number().int().positive().max(60).optional(),
@@ -112,30 +150,40 @@ function register({ ipcMain, windowManager }) {
   ipcMain.handle('github:milestones:list', async (event, repoId) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
+    const memFail = memoryPressureFail('github:milestones:list');
+    if (memFail) return memFail;
     try {
-      return ok({ milestones: store.listMilestones(repoId) });
+      return ok({ milestones: store.listMilestonesSummary(repoId) });
     } catch (err) {
       return fail(err);
     }
   });
 
-  ipcMain.handle('github:issues:list', async (event, repoId) => {
+  ipcMain.handle('github:issues:list', async (event, repoId, opts) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
+    const memFail = memoryPressureFail('github:issues:list');
+    if (memFail) return memFail;
     try {
-      const count = store.countIssues(repoId);
-      if (count > ISSUE_LIST_WARN_THRESHOLD) {
-        console.warn(`[github IPC] github:issues:list repo ${repoId} has ${count} issues (threshold ${ISSUE_LIST_WARN_THRESHOLD})`);
+      const cacheKey = `${repoId}:${JSON.stringify(opts ?? {})}`;
+      if (_issuesListInflight.has(cacheKey)) {
+        return ok(await _issuesListInflight.get(cacheKey));
       }
-      if (memoryMonitor.isMemoryPressureHigh()) {
-        const m = memoryMonitor.getMemoryInfo();
-        console.warn(
-          `[github IPC] github:issues:list skipped — memory pressure ${(m.heapUsedRatio * 100).toFixed(1)}% ` +
-          `(heapUsed ${(m.heapUsed / 1024 / 1024).toFixed(0)}MB / ${(m.heapTotal / 1024 / 1024).toFixed(0)}MB)`,
-        );
-        return fail('Memory pressure too high to load issues. Try again in a moment.');
+      const work = (async () => {
+        const total = store.countIssues(repoId);
+        if (total > ISSUE_LIST_WARN_THRESHOLD) {
+          console.warn(
+            `[github IPC] github:issues:list repo ${repoId} has ${total} issues (threshold ${ISSUE_LIST_WARN_THRESHOLD})`,
+          );
+        }
+        return fetchIssuesListPage(repoId, opts);
+      })();
+      _issuesListInflight.set(cacheKey, work);
+      try {
+        return ok(await work);
+      } finally {
+        _issuesListInflight.delete(cacheKey);
       }
-      return ok({ issues: store.listIssuesSummary(repoId) });
     } catch (err) {
       return fail(err);
     }
@@ -154,6 +202,8 @@ function register({ ipcMain, windowManager }) {
   ipcMain.handle('github:branches:list', async (event, repoId) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
+    const memFail = memoryPressureFail('github:branches:list');
+    if (memFail) return memFail;
     try {
       return ok({ branches: store.listBranches(repoId) });
     } catch (err) {
@@ -164,6 +214,8 @@ function register({ ipcMain, windowManager }) {
   ipcMain.handle('github:releases:list', async (event, repoId) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
+    const memFail = memoryPressureFail('github:releases:list');
+    if (memFail) return memFail;
     try {
       return ok({ releases: store.listReleases(repoId) });
     } catch (err) {
