@@ -22,13 +22,12 @@ export function useAnalytics(enabled: boolean) {
     [canTrack]
   );
 
-  // Errors go to Sentry (single source of truth); no-ops unless Sentry is initialized.
+  // Errors go to Sentry (single source of truth); always captured when Sentry is configured.
   const captureError = useCallback(
     (error: Error, context?: Record<string, unknown>) => {
-      if (!enabled) return;
       captureExceptionSentry(error, context);
     },
-    [enabled]
+    [],
   );
 
   return { track, captureError, ANALYTICS_EVENTS };

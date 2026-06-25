@@ -62,6 +62,7 @@ jobs:
           pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
+          node scripts/verify-sentry-build.cjs
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "No code signing credentials, building without signing..."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
@@ -90,6 +91,9 @@ jobs:
           # Both fall back to the same DSN secret so one value drives both.
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN || secrets.VITE_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: alder-dario-velasquez-obando
+          SENTRY_PROJECT: electron
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -131,6 +135,7 @@ jobs:
           pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
+          node scripts/verify-sentry-build.cjs
           pnpm run electron:pack -- --win --publish never
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
@@ -148,6 +153,9 @@ jobs:
           # Both fall back to the same DSN secret so one value drives both.
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN || secrets.VITE_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: alder-dario-velasquez-obando
+          SENTRY_PROJECT: electron
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -222,6 +230,7 @@ jobs:
           pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
+          node scripts/verify-sentry-build.cjs
           pnpm run electron:pack -- --linux AppImage flatpak --publish never
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
@@ -237,6 +246,9 @@ jobs:
           # Both fall back to the same DSN secret so one value drives both.
           VITE_SENTRY_DSN: ${{ secrets.VITE_SENTRY_DSN }}
           SENTRY_DSN: ${{ secrets.SENTRY_DSN || secrets.VITE_SENTRY_DSN }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: alder-dario-velasquez-obando
+          SENTRY_PROJECT: electron
 
       - name: Verify Linux artifacts
         run: |

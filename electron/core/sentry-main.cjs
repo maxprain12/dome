@@ -9,11 +9,11 @@
  * Activation: set `SENTRY_DSN` (the DSN is public by design — it ships in clients).
  * If unset, every export here is a silent no-op (same pattern as observability.cjs).
  *
- * Consent: Sentry honours the app's existing `analytics_enabled` toggle. The main
- * process starts with consent OFF (privacy-safe, opt-in) and the renderer flips it on
- * via `setSentryConsent(true)` once it resolves the setting (see AnalyticsProvider +
- * the `sentry:set-consent` IPC). `beforeSend` drops every event while consent is OFF,
- * so nothing leaves the machine unless the user opted in.
+ * Consent model (split):
+ * - Errors / crashes: always sent when DSN is configured (observability, not product analytics).
+ * - Performance spans: gated by the app's `analytics_enabled` toggle via `beforeSendTransaction`.
+ *   Consent is synced from SQLite on startup (`syncSentryConsentFromDatabase`) and mirrored
+ *   from the renderer via `sentry:set-consent` IPC when the user toggles settings.
  */
 
 let Sentry = null; // lazy-required @sentry/electron/main
@@ -70,14 +70,17 @@ function initSentryMain(app) {
       tracesSampleRate: isProd(app) ? 0.2 : 1.0,
       // Never attach IP / cookies / user PII automatically.
       sendDefaultPii: false,
-      // Consent gate: drop everything (incl. events built from native crashes)
-      // until the user has opted in via the analytics toggle.
+      // Errors/crashes always leave the machine when DSN is set.
       beforeSend(event) {
+        return event;
+      },
+      // Product-analytics consent gates performance spans only.
+      beforeSendTransaction(event) {
         return consentEnabled ? event : null;
       },
     });
     initialized = true;
-    console.log(`[Sentry] main process initialized → ${release || 'no release'} (consent pending)`);
+    console.log(`[Sentry] main process initialized → ${release || 'no release'} (spans consent pending)`);
   } catch (err) {
     console.warn('[Sentry] main init failed:', err?.message || err);
     Sentry = null;
@@ -86,14 +89,29 @@ function initSentryMain(app) {
 }
 
 /**
- * Flip the consent gate. Called from the renderer (`sentry:set-consent`) once the
- * `analytics_enabled` setting is known, and whenever the user toggles it.
+ * Flip the performance-span consent gate. Called from SQLite sync on startup and
+ * from the renderer (`sentry:set-consent`) when the user toggles analytics.
  * @param {boolean} enabled
  */
 function setSentryConsent(enabled) {
   consentEnabled = !!enabled;
   if (initialized) {
-    console.log(`[Sentry] consent → ${consentEnabled ? 'enabled' : 'disabled'}`);
+    console.log(`[Sentry] span consent → ${consentEnabled ? 'enabled' : 'disabled'}`);
+  }
+}
+
+/**
+ * Read `analytics_enabled` from SQLite and sync span consent before the renderer loads.
+ * @param {{ getQueries: () => { getSetting: { get: (key: string) => { value?: string } | undefined } } }} database
+ */
+function syncSentryConsentFromDatabase(database) {
+  if (!database || typeof database.getQueries !== 'function') return;
+  try {
+    const row = database.getQueries().getSetting.get('analytics_enabled');
+    const enabled = !row || row.value === 'true' || row.value === undefined;
+    setSentryConsent(enabled);
+  } catch (err) {
+    console.warn('[Sentry] consent sync from DB failed:', err?.message || err);
   }
 }
 
@@ -102,12 +120,12 @@ function isSentryConsentEnabled() {
 }
 
 /**
- * Report a main-process error directly to Sentry (no-op unless initialized AND consented).
+ * Report a main-process error directly to Sentry (no-op unless initialized).
  * @param {unknown} error
  * @param {Record<string, unknown>} [context]
  */
 function captureExceptionMain(error, context) {
-  if (!initialized || !consentEnabled || !Sentry) return;
+  if (!initialized || !Sentry) return;
   try {
     const err = error instanceof Error ? error : new Error(String(error));
     Sentry.captureException(err, context ? { extra: context } : undefined);
@@ -132,6 +150,7 @@ async function closeSentryMain(timeoutMs = 2000) {
 module.exports = {
   initSentryMain,
   setSentryConsent,
+  syncSentryConsentFromDatabase,
   isSentryConsentEnabled,
   captureExceptionMain,
   closeSentryMain,

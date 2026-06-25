@@ -1,6 +1,6 @@
 {
   "name": "dome",
-  "version": "2.7.1",
+  "version": "2.7.2",
   "description": "Aplicación de escritorio inteligente para gestión de conocimiento e investigación",
   "author": "Dome Team",
   "repository": {
@@ -23,6 +23,7 @@
     "electron:pack:verbose": "cross-env DEBUG=electron-builder electron-builder",
     "rebuild:natives": "electron-rebuild -f -w=better-sqlite3,sharp,@ffmpeg-installer/ffmpeg,@napi-rs/canvas,@lancedb/lancedb",
     "verify:natives": "node scripts/verify-natives.cjs",
+    "verify:sentry-build": "node scripts/verify-sentry-build.cjs",
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
     "patch:pptx-preview": "node scripts/patch-pptx-preview.mjs",
     "postinstall": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
