@@ -199,9 +199,11 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   }, [issueId]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (initial) {
       setTitle(initial.title);
-      setBody(initial.body ?? '');
+      setBody('');
       setState(initial.state);
       setMilestoneChoice(initial.milestone_number != null ? String(initial.milestone_number) : 'none');
       setAssignees(parseAssignees(initial.assignees));
@@ -211,7 +213,21 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       setAssigneePickerQuery('');
       setTab('comments');
     }
-  }, [issueId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    void (async () => {
+      const res = await githubClient.issues.get(issueId);
+      if (cancelled || !res.success || !res.issue) return;
+      setTitle(res.issue.title);
+      setBody(res.issue.body ?? '');
+      setState(res.issue.state);
+      setMilestoneChoice(res.issue.milestone_number != null ? String(res.issue.milestone_number) : 'none');
+      setAssignees(parseAssignees(res.issue.assignees));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [issueId, initial]);
 
   useEffect(() => {
     if (!editing) {
