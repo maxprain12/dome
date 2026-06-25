@@ -204,7 +204,7 @@ declare global {
     repo_id: string;
     number: number;
     title: string;
-    body: string | null;
+    body?: string | null;
     state: 'open' | 'closed';
     milestone_number: number | null;
     due_date: number | null;
@@ -607,7 +607,18 @@ declare global {
           update: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
         };
         issues: {
-          list: (repoId: string) => Promise<{ success: boolean; issues?: GitHubIssueRow[]; error?: string }>;
+          list: (
+            repoId: string,
+            opts?: { state?: 'open' | 'closed'; limit?: number; offset?: number },
+          ) => Promise<{
+            success: boolean;
+            issues?: GitHubIssueRow[];
+            total?: number;
+            limit?: number;
+            offset?: number;
+            truncated?: boolean;
+            error?: string;
+          }>;
           get: (id: string) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
           create: (repoId: string, data: { title: string; body?: string; milestoneNumber?: number; labels?: string[]; assignees?: string[] }) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;
           update: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; issue?: GitHubIssueRow; error?: string }>;

@@ -173,13 +173,10 @@ export function createGithubListIssuesTool(): AnyAgentTool {
       const params = args as Record<string, unknown>;
       const repoId = readStringParam(params, 'repo_id', { required: true });
       const state = readStringParam(params, 'state') ?? 'all';
-      const res = await githubClient.issues.list(repoId!);
+      const filterState = state === 'open' || state === 'closed' ? state : undefined;
+      const res = await githubClient.issues.list(repoId!, { state: filterState });
       if (!res.success) return jsonResult({ success: false, error: res.error });
-      let issues = res.issues ?? [];
-      if (state === 'open' || state === 'closed') {
-        issues = issues.filter((i) => i.state === state);
-      }
-      return jsonResult({ success: true, source: 'github', issues });
+      return jsonResult({ success: true, source: 'github', issues: res.issues ?? [] });
     },
   };
 }

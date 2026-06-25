@@ -3011,8 +3011,8 @@ async function githubUpcomingMilestones({ limit = 30, state = 'all', include_pas
 async function githubListIssues({ repo_id, state = 'all' } = {}) {
   try {
     if (!repo_id) return { success: false, error: 'repo_id is required' };
-    let issues = githubStore().listIssues(repo_id);
-    if (state === 'open' || state === 'closed') issues = issues.filter((i) => i.state === state);
+    const filterState = state === 'open' || state === 'closed' ? state : undefined;
+    const issues = githubStore().listIssuesSummary(repo_id, { state: filterState });
     return {
       success: true,
       source: 'github',

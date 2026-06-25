@@ -18,6 +18,7 @@
 const api = require('./github-api.cjs');
 const store = require('./github-store.cjs');
 const calendarBridge = require('./github-calendar-bridge.cjs');
+const memoryMonitor = require('../core/memory-monitor.cjs');
 
 let _syncing = false;
 let _windowManager = null;
@@ -311,7 +312,11 @@ async function syncNow() {
     for (const repo of repos) {
       await pullRepo(repo);
     }
-    await calendarBridge.syncCalendar();
+    if (memoryMonitor.isMemoryPressureHigh()) {
+      console.warn('[github-sync] skipping calendar projection — memory pressure');
+    } else {
+      await calendarBridge.syncCalendar();
+    }
     broadcast('github:sync:status', { status: 'idle', lastSync: Date.now() });
     broadcast('github:data:updated', {});
     return { success: true, repos: repos.length };

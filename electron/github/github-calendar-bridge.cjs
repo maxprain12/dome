@@ -169,7 +169,7 @@ async function syncCalendar() {
 
   for (const repo of repos) {
     // Milestones — always on due_on (fecha de entrega), open or closed
-    for (const m of store.listMilestones(repo.id)) {
+    for (const m of store.listMilestonesWithDueOn(repo.id)) {
       // Remove legacy completion-date events from earlier bridge versions
       await removeEvent('milestone', completedMilestoneLinkId(m.id));
 
@@ -193,8 +193,8 @@ async function syncCalendar() {
       await breathe();
     }
     // Issues with a parsed due date
-    for (const issue of store.listIssues(repo.id)) {
-      if (issuesOn && issue.due_date && issue.state === 'open') {
+    for (const issue of store.listIssuesForCalendar(repo.id)) {
+      if (issuesOn) {
         await upsertEvent('issue', issue.id, {
           title: `#${issue.number} ${issue.title}`,
           description: issue.body,

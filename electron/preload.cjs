@@ -1083,7 +1083,7 @@ const electronHandler = {
       update: (id, patch) => ipcRenderer.invoke('github:milestones:update', id, patch),
     },
     issues: {
-      list: (repoId) => ipcRenderer.invoke('github:issues:list', repoId),
+      list: (repoId, opts) => ipcRenderer.invoke('github:issues:list', repoId, opts),
       get: (id) => ipcRenderer.invoke('github:issues:get', id),
       create: (repoId, data) => ipcRenderer.invoke('github:issues:create', repoId, data),
       update: (id, patch) => ipcRenderer.invoke('github:issues:update', id, patch),
