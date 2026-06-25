@@ -60,8 +60,9 @@ const {
 
 // Initialize Sentry (main process) as EARLY as possible — before any domain module
 // loads — so native-addon load failures and early crashes are captured. No-op unless
-// SENTRY_DSN is set; events are gated behind the analytics_enabled consent toggle
-// (renderer flips it on via the `sentry:set-consent` IPC). See electron/core/sentry-main.cjs.
+// SENTRY_DSN is set; errors always report when DSN is set; performance spans are gated
+// behind the analytics_enabled toggle (synced from SQLite + `sentry:set-consent` IPC).
+// See electron/core/sentry-main.cjs.
 const sentryMain = require('./core/sentry-main.cjs');
 sentryMain.initSentryMain(app);
 
@@ -991,6 +992,14 @@ app
       }
     } catch (mcpErr) {
       console.warn('[Main] DomeMCP auto-start check failed:', mcpErr?.message);
+    }
+
+    // Sync Sentry span consent from SQLite before the renderer loads so main-process
+    // performance spans honour analytics_enabled without waiting for IPC.
+    try {
+      sentryMain.syncSentryConsentFromDatabase(database);
+    } catch (e) {
+      console.warn('[Main] Sentry consent sync:', e?.message || e);
     }
 
     // Crear ventana principal en cuanto la base de datos está lista (LanceDB ya se inicializó arriba).

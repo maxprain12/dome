@@ -34,8 +34,8 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
     }
   });
 
-  // Sentry consent gate — the renderer mirrors the analytics_enabled toggle here so
-  // the main-process SDK (errors + native crashes) honours the same opt-in.
+  // Sentry span consent — renderer mirrors the analytics_enabled toggle here so
+  // main-process performance spans honour the same opt-in. Errors are always sent.
   ipcMain.handle('sentry:set-consent', (event, enabled) => {
     try {
       validateSender(event, windowManager);
