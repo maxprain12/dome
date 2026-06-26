@@ -7,6 +7,7 @@
  */
 
 const crypto = require('crypto');
+const { safeStringify } = require('../tools/tool-result-cap.cjs');
 
 const RUN_EVENT_CHANNEL = 'runs:updated';
 const RUN_STEP_CHANNEL = 'runs:step';
@@ -46,7 +47,12 @@ function parseJsonSafely(value, fallback) {
 }
 
 function toJson(value) {
-  return value == null ? null : JSON.stringify(value);
+  // Backstop against ELECTRON-7: a raw JSON.stringify of run/step metadata (e.g.
+  // metadata.toolCalls with large tool results) that grew past the heap would
+  // OOM the main process inside V8's JsonStringify. safeStringify bounds the
+  // serialization and degrades to a small notice instead of crashing. Strings
+  // and normal-sized objects pass through unchanged.
+  return value == null ? null : safeStringify(value);
 }
 
 function emit(channel, payload) {

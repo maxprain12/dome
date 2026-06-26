@@ -25,6 +25,7 @@ const {
   mergeLlmUsage,
   getToolStepPatch,
 } = require('./run-helpers.cjs');
+const { capResultText } = require('../tools/tool-result-cap.cjs');
 const runStore = require('./run-store.cjs');
 const { topologicalLevels, mergePayloads, getInputPayloads } = require('./workflow-dag.cjs');
 
@@ -465,7 +466,11 @@ function createRunChunkEmitter(runId, context) {
       const entry = context.toolCalls.find((item) => item.id === data.toolCallId);
       if (entry) {
         entry.status = stepPatch.status === 'failed' ? 'error' : 'success';
-        entry.result = data.result;
+        // Bound the result we KEEP in context.toolCalls — it is persisted verbatim
+        // into automation_runs.metadata (and chat_messages.tool_calls) at run end.
+        // An unbounded multi-MB MCP result here is what made JSON.stringify(metadata)
+        // OOM the main process (ELECTRON-7) and bloated the DB with free pages.
+        entry.result = capResultText(data.result);
       }
       const stepId = context.toolStepIds.get(data.toolCallId);
       if (stepId) {

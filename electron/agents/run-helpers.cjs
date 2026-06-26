@@ -4,7 +4,7 @@
  */
 
 // Pure-CJS leaf (no Electron/DB deps) — keeps this module unit-testable.
-const { safeStringify } = require('../tools/tool-result-cap.cjs');
+const { safeStringify, capResultText } = require('../tools/tool-result-cap.cjs');
 
 function isRunAbortedError(error, signal) {
   if (signal?.aborted) return true;
@@ -82,13 +82,18 @@ function getToolStepPatch(toolCallId, result, extraMetadata = {}) {
     ? (typeof parsedResult.error === 'string' ? parsedResult.error : serializedResult)
     : null;
 
+  // capResultText bounds the persisted step content. serializeToolResult /
+  // safeStringify pass strings through untouched, so a multi-MB MCP result (e.g.
+  // a chrome_devtools snapshot, already a string) would otherwise land verbatim
+  // in automation_run_steps.content — bloating the DB and feeding the
+  // JSON.stringify OOM (ELECTRON-7). The model already got the full result.
   return {
     status: isErrorResult ? 'failed' : 'done',
-    content: errorMessage || serializedResult,
+    content: capResultText(errorMessage || serializedResult),
     metadata: {
       toolCallId,
       ...extraMetadata,
-      ...(isErrorResult ? { error: errorMessage } : {}),
+      ...(isErrorResult ? { error: capResultText(errorMessage, { budgetChars: 8192 }) } : {}),
     },
   };
 }

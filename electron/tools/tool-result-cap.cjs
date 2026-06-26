@@ -156,6 +156,45 @@ function boundToolDetails(value, opts = {}) {
 }
 
 /**
+ * Per-tool-call result budget for *persistence* (run metadata, run steps,
+ * chat_messages). This is independent of what the model sees: the harness
+ * already delivered the full (or harness-capped) result to the model during the
+ * run. We only bound the copy we WRITE TO SQLITE so it can neither (a) bloat the
+ * DB with multi-MB rows that pile up as unreclaimable free pages, nor (b) make a
+ * later `JSON.stringify(metadata.toolCalls)` OOM the main process (ELECTRON-7).
+ * 64k chars (~128KB UTF-16) is a generous human-readable preview yet keeps even
+ * a long run's aggregated toolCalls comfortably small.
+ */
+const PERSIST_RESULT_BUDGET_CHARS = 64 * 1024;
+
+/**
+ * Bound a tool result for persistence, ALWAYS returning a string no larger than
+ * roughly `budgetChars`. Unlike `safeStringify` (which passes strings through
+ * untouched — the exact gap that left 9MB strings in the DB), this also slices
+ * oversized *strings*. Objects are serialized within budget first; anything that
+ * still overflows is sliced with a truncation marker.
+ *
+ * @param {unknown} value
+ * @param {{ budgetChars?: number }} [opts]
+ * @returns {string | null | undefined}
+ */
+function capResultText(value, opts = {}) {
+  if (value == null) return value;
+  const budget =
+    typeof opts.budgetChars === 'number' && opts.budgetChars > 2000
+      ? opts.budgetChars
+      : PERSIST_RESULT_BUDGET_CHARS;
+  const text = typeof value === 'string' ? value : safeStringify(value, { budgetChars: budget });
+  if (typeof text !== 'string' || text.length <= budget) return text;
+  const head = Math.floor(budget * 0.5);
+  return (
+    `${text.slice(0, head)}\n\n` +
+    `[Dome: result truncated for storage — ${text.length} chars → ~${head} kept. ` +
+    'The full result was delivered to the model during the run.]'
+  );
+}
+
+/**
  * @param {string} toolName
  * @param {string} text
  * @param {{ maxChars?: number }} [opts]
@@ -174,12 +213,14 @@ function capToolResultString(toolName, text, opts = {}) {
 
 module.exports = {
   capToolResultString,
+  capResultText,
   safeStringify,
   boundToolDetails,
   getCapForTool,
   DEFAULT_MAX_CHARS,
   SAFE_STRINGIFY_BUDGET_CHARS,
   DETAILS_BUDGET_CHARS,
+  PERSIST_RESULT_BUDGET_CHARS,
   TOOL_RESULT_CAPS,
   DIRECTORY_TREE_HINT,
 };

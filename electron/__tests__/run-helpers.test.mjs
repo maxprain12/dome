@@ -47,6 +47,15 @@ describe('run-helpers', () => {
     assert.ok(patch.content.includes('success'));
   });
 
+  it('getToolStepPatch caps a multi-MB string result so it cannot bloat the DB (ELECTRON-7)', () => {
+    const huge = 'a'.repeat(9_000_000); // ~9MB, like the chrome_devtools snapshots we found in the DB
+    const patch = getToolStepPatch('tc3', huge);
+    assert.equal(patch.status, 'done');
+    assert.ok(patch.content.length < huge.length);
+    assert.ok(patch.content.length <= 64 * 1024);
+    assert.ok(patch.content.includes('truncated for storage'));
+  });
+
   it('isRunAbortedError detects abort signals and abort-like errors', () => {
     const controller = new AbortController();
     controller.abort();

@@ -12,6 +12,7 @@ const { app } = require('electron');
 const { buildQueries } = require('./db/queries.cjs');
 const { applyMigrations } = require('./db/migrations.cjs');
 const { createBaseSchema } = require('./db/schema.cjs');
+const { reclaimSpaceIfBloated } = require('./db-maintenance.cjs');
 const {
   removeWalSidecars,
   findLatestBackup,
@@ -137,6 +138,16 @@ function initDatabase() {
 
       console.log('✅ Database schema initialized');
       _schemaInitialized = true;
+
+      // One-time reclaim of historical bloat (ELECTRON-7): older builds stored
+      // unbounded multi-MB tool results that, once replaced/purged, left the file
+      // full of unreclaimable free pages (auto_vacuum was NONE). VACUUM here is
+      // cheap (only live pages are copied) and never blocks boot on failure.
+      try {
+        reclaimSpaceIfBloated(_db);
+      } catch (maintErr) {
+        console.warn('[DB] Space reclaim skipped:', maintErr?.message || maintErr);
+      }
       return;
     } catch (err) {
       lastError = err;

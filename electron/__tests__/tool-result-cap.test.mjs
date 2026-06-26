@@ -7,8 +7,10 @@ const {
   safeStringify,
   boundToolDetails,
   capToolResultString,
+  capResultText,
   DETAILS_BUDGET_CHARS,
   SAFE_STRINGIFY_BUDGET_CHARS,
+  PERSIST_RESULT_BUDGET_CHARS,
 } = require('../tools/tool-result-cap.cjs');
 
 /** Build an object that serializes far beyond `budget` chars without itself being huge to allocate. */
@@ -85,5 +87,38 @@ describe('tool-result-cap — ELECTRON-7 OOM guards', () => {
     const capped = capToolResultString('some_tool', long, { maxChars: 10_000 });
     assert.ok(capped.length < long.length);
     assert.ok(capped.includes('truncated'));
+  });
+
+  it('capResultText slices oversized STRINGS (the gap safeStringify left open)', () => {
+    const huge = 'q'.repeat(PERSIST_RESULT_BUDGET_CHARS + 500_000);
+    const capped = capResultText(huge);
+    assert.equal(typeof capped, 'string');
+    assert.ok(capped.length < huge.length);
+    assert.ok(capped.length <= PERSIST_RESULT_BUDGET_CHARS);
+    assert.ok(capped.includes('truncated for storage'));
+  });
+
+  it('capResultText passes through strings within budget unchanged', () => {
+    assert.equal(capResultText('small result'), 'small result');
+  });
+
+  it('capResultText bounds oversized OBJECTS to a small notice (no OOM)', () => {
+    const huge = makeOversizedObject(PERSIST_RESULT_BUDGET_CHARS + 2_000_000);
+    const capped = capResultText(huge);
+    assert.equal(typeof capped, 'string');
+    assert.ok(capped.length <= PERSIST_RESULT_BUDGET_CHARS);
+    const parsed = JSON.parse(capped);
+    assert.equal(parsed.error, 'tool_result_too_large');
+  });
+
+  it('capResultText serializes normal objects within budget', () => {
+    assert.equal(capResultText({ a: 1, b: 'x' }), '{"a":1,"b":"x"}');
+  });
+
+  it('capResultText respects a custom budget and leaves null/undefined intact', () => {
+    const capped = capResultText('a'.repeat(20_000), { budgetChars: 4_000 });
+    assert.ok(capped.length <= 4_000);
+    assert.equal(capResultText(null), null);
+    assert.equal(capResultText(undefined), undefined);
   });
 });
