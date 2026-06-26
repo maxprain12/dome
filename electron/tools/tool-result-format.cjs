@@ -1,6 +1,6 @@
 'use strict';
 
-const { capToolResultString } = require('./tool-result-cap.cjs');
+const { capToolResultString, safeStringify } = require('./tool-result-cap.cjs');
 const { buildNativeContentBlocks, resolveModelCapabilities } = require('../ai/message-multimodal.cjs');
 
 /** Cap slide QA images per call — full deck base64 blows trim budget and empties history. */
@@ -89,7 +89,7 @@ function formatToolResultForModel(toolName, rawResult, opts = {}) {
     }
   }
 
-  const text = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult ?? {});
+  const text = safeStringify(rawResult ?? {});
   return capToolResultString(toolName, text);
 }
 
@@ -121,7 +121,7 @@ function summarizeToolResultForUi(toolName, rawResult) {
     }
   }
 
-  const text = typeof rawResult === 'string' ? rawResult : JSON.stringify(rawResult ?? {});
+  const text = safeStringify(rawResult ?? {});
   return capToolResultString(toolName, text);
 }
 

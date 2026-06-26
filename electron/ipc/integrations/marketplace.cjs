@@ -9,7 +9,7 @@
 
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
+const { app, dialog, BrowserWindow } = require('electron');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
@@ -448,7 +448,7 @@ async function fetchSkills(config) {
 /**
  * Register IPC handlers
  */
-function register({ ipcMain, windowManager, validateSender }) {
+function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
   /**
    * Fetch all marketplace items from all sources
    */

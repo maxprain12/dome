@@ -11,7 +11,7 @@
  * - sse: url (required), SSE legacy transport
  */
 
-const { capToolResultString, getCapForTool } = require('../tools/tool-result-cap.cjs');
+const { capToolResultString, getCapForTool, safeStringify } = require('../tools/tool-result-cap.cjs');
 const {
   isMcpToolDisabledByDefault,
   normalizeMcpId,
@@ -335,7 +335,9 @@ function wrapMcpToolWithCap(tool) {
   const toolName = typeof tool.name === 'string' ? tool.name : 'mcp_tool';
   tool.invoke = async (input, config) => {
     const out = await originalInvoke(input, config);
-    const text = typeof out === 'string' ? out : JSON.stringify(out ?? '');
+    // safeStringify (not raw JSON.stringify): bounds serialization so a huge MCP
+    // payload can't OOM the main process before the char cap runs (ELECTRON-7).
+    const text = safeStringify(out ?? '');
     return capToolResultString(toolName, text, { maxChars: getCapForTool(toolName) });
   };
   return tool;

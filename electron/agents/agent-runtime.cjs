@@ -16,6 +16,10 @@
  * ESM runtime into the CommonJS main process at load time.
  */
 
+// Pure-CJS leaf (imports nothing) — safe to require at load without violating
+// the "never pull the ESM runtime at load time" guarantee documented above.
+const { safeStringify } = require('../tools/tool-result-cap.cjs');
+
 const DEFAULT_RECURSION_LIMIT = 25;
 
 /** Thrown when a tool requires HITL approval and the run should pause for resume. */
@@ -251,7 +255,9 @@ function toolResultText(result) {
   if (result.details == null) return '';
   if (typeof result.details === 'string') return result.details;
   try {
-    return JSON.stringify(result.details);
+    // safeStringify bounds serialization so a huge tool `details` payload can't
+    // OOM the main process inside V8's JsonStringify (ELECTRON-7).
+    return safeStringify(result.details);
   } catch {
     return String(result.details);
   }
