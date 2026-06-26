@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const database = require('../core/database.cjs');
+const { normalizeRemindersForStorage } = require('./calendar-reminders.cjs');
 
 const DEFAULT_REMINDER_MINUTES = 15;
 const MAX_TITLE_LENGTH = 200;
@@ -139,7 +140,8 @@ function validateEventData(data, isUpdate = false) {
       end_at: endAt ?? data.end_at,
       timezone: data.timezone ?? undefined,
       all_day: data.all_day ? 1 : 0,
-      reminders: data.reminders != null ? JSON.stringify(data.reminders) : undefined,
+      reminders:
+        data.reminders != null ? normalizeRemindersForStorage(data.reminders) : undefined,
     },
   };
 }

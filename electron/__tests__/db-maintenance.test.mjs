@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const {
   reclaimSpaceIfBloated,
   incrementalVacuum,
+  repairBloatedCalendarReminders,
   readPageStats,
 } = require('../core/db-maintenance.cjs');
 
@@ -15,9 +16,9 @@ const {
  * freelist. Lets us assert the decision logic without a native better-sqlite3
  * (which is compiled for Electron's ABI, not plain Node).
  */
-function makeFakeDb({ pageSize = 4096, pageCount, freelistCount, autoVacuum = 0 }) {
-  const state = { pageSize, pageCount, freelistCount, autoVacuum };
-  const calls = { execs: [], pragmas: [] };
+function makeFakeDb({ pageSize = 4096, pageCount, freelistCount, autoVacuum = 0, calendarRows = [] }) {
+  const state = { pageSize, pageCount, freelistCount, autoVacuum, calendarRows: [...calendarRows] };
+  const calls = { execs: [], pragmas: [], updates: [] };
   const db = {
     state,
     calls,
@@ -33,6 +34,34 @@ function makeFakeDb({ pageSize = 4096, pageCount, freelistCount, autoVacuum = 0 
         return undefined;
       }
       throw new Error(`Unexpected pragma: ${arg}`);
+    },
+    prepare(sql) {
+      const s = String(sql);
+      if (s.includes('COUNT(*)') && s.includes('calendar_events')) {
+        return {
+          get(threshold) {
+            const c = state.calendarRows.filter((len) => len > threshold).length;
+            return { c };
+          },
+        };
+      }
+      if (s.startsWith('UPDATE calendar_events')) {
+        return {
+          run(remindersJson, updatedAt, threshold) {
+            calls.updates.push({ remindersJson, updatedAt, threshold });
+            let changes = 0;
+            state.calendarRows = state.calendarRows.map((len) => {
+              if (len > threshold) {
+                changes += 1;
+                return remindersJson.length;
+              }
+              return len;
+            });
+            return { changes };
+          },
+        };
+      }
+      throw new Error(`Unexpected prepare: ${sql}`);
     },
     exec(sql) {
       calls.execs.push(sql);
@@ -102,5 +131,12 @@ describe('db-maintenance — ELECTRON-7 space reclaim', () => {
     assert.equal(res.ran, true);
     assert.ok(inc.calls.execs.includes('PRAGMA incremental_vacuum'));
     assert.equal(inc.state.freelistCount, 0);
+  });
+
+  it('repairBloatedCalendarReminders resets oversized reminders rows', () => {
+    const db = makeFakeDb({ calendarRows: [20, 9000, 100] });
+    const res = repairBloatedCalendarReminders(db);
+    assert.equal(res.repaired, 1);
+    assert.ok(db.calls.updates.length > 0);
   });
 });

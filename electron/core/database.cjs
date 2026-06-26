@@ -12,7 +12,7 @@ const { app } = require('electron');
 const { buildQueries } = require('./db/queries.cjs');
 const { applyMigrations } = require('./db/migrations.cjs');
 const { createBaseSchema } = require('./db/schema.cjs');
-const { reclaimSpaceIfBloated } = require('./db-maintenance.cjs');
+const { reclaimSpaceIfBloated, repairBloatedCalendarReminders } = require('./db-maintenance.cjs');
 const {
   removeWalSidecars,
   findLatestBackup,
@@ -143,6 +143,16 @@ function initDatabase() {
       // unbounded multi-MB tool results that, once replaced/purged, left the file
       // full of unreclaimable free pages (auto_vacuum was NONE). VACUUM here is
       // cheap (only live pages are copied) and never blocks boot on failure.
+      // Repair calendar reminders corrupted by double JSON.stringify on each sync,
+      // then reclaim the freed pages (can be multiple GB on long-running installs).
+      try {
+        const repair = repairBloatedCalendarReminders(_db);
+        if (repair.repaired > 0) {
+          console.log(`[DB] Repaired ${repair.repaired} bloated calendar reminder row(s)`);
+        }
+      } catch (repairErr) {
+        console.warn('[DB] Calendar reminders repair skipped:', repairErr?.message || repairErr);
+      }
       try {
         reclaimSpaceIfBloated(_db);
       } catch (maintErr) {

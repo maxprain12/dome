@@ -18,6 +18,7 @@
  */
 
 const logger = require('./logger.cjs');
+const { DEFAULT_REMINDERS_JSON, MAX_REMINDERS_JSON_CHARS } = require('../calendar/calendar-reminders.cjs');
 
 /** Reclaim once free space crosses ~200MB — well below any healthy working set. */
 const RECLAIM_FREE_BYTES_THRESHOLD = 200 * 1024 * 1024;
@@ -115,9 +116,59 @@ function incrementalVacuum(db) {
   }
 }
 
+/**
+ * Reset calendar_events.reminders rows corrupted by repeated JSON.stringify(string)
+ * on every update (GitHub calendar sync). Each bloated row can reach hundreds of MB.
+ *
+ * @param {import('better-sqlite3').Database} db
+ * @param {{ thresholdChars?: number }} [opts]
+ */
+function repairBloatedCalendarReminders(db, opts = {}) {
+  if (!db || typeof db.prepare !== 'function') return { repaired: 0, reason: 'no_db' };
+  const threshold =
+    typeof opts.thresholdChars === 'number' && opts.thresholdChars > 0
+      ? opts.thresholdChars
+      : MAX_REMINDERS_JSON_CHARS;
+
+  let count = 0;
+  try {
+    count =
+      db
+        .prepare(
+          'SELECT COUNT(*) AS c FROM calendar_events WHERE reminders IS NOT NULL AND length(reminders) > ?',
+        )
+        .get(threshold)?.c ?? 0;
+  } catch (err) {
+    return { repaired: 0, reason: 'count_failed', error: err?.message };
+  }
+
+  if (count <= 0) return { repaired: 0, reason: 'none_bloated' };
+
+  logger.warn('db-maintenance', 'Repairing bloated calendar_events.reminders', {
+    rows: count,
+    thresholdChars: threshold,
+  });
+
+  try {
+    const now = Date.now();
+    const result = db
+      .prepare(
+        `UPDATE calendar_events
+         SET reminders = ?, updated_at = ?
+         WHERE reminders IS NOT NULL AND length(reminders) > ?`,
+      )
+      .run(DEFAULT_REMINDERS_JSON, now, threshold);
+    return { repaired: result.changes ?? count };
+  } catch (err) {
+    logger.error('db-maintenance', 'calendar reminders repair failed', { error: err?.message });
+    return { repaired: 0, reason: 'update_failed', error: err?.message };
+  }
+}
+
 module.exports = {
   reclaimSpaceIfBloated,
   incrementalVacuum,
+  repairBloatedCalendarReminders,
   readPageStats,
   RECLAIM_FREE_BYTES_THRESHOLD,
 };
