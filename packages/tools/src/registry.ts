@@ -43,12 +43,84 @@ export function normalizeToolParameters(raw: unknown): Record<string, unknown> {
   return obj;
 }
 
+/**
+ * Model-facing serialization ceiling. A raw tool output that serializes beyond
+ * this is dropped to a notice instead of letting V8 build an unbounded string
+ * (the ELECTRON-7 OOM signature — `JsonStringify` "Zone" exhaustion).
+ */
+const OUTPUT_BUDGET_CHARS = 16 * 1024 * 1024;
+
+/**
+ * Structured `details` ceiling. The agent loop persists `details` verbatim into
+ * the session JSONL (`createToolResultMessage` → `appendEntry` →
+ * `JSON.stringify(entry)`), so an unbounded `details` OOMs the main process at
+ * persistence time even when the model-facing text is small. ~1M chars.
+ */
+const DETAILS_BUDGET_CHARS = 1024 * 1024;
+
+/**
+ * `JSON.stringify` that aborts once the (approximate) output passes `budget`
+ * instead of growing without bound. The replacer is invoked for every node
+ * before it is written, so throwing stops V8 before the output buffer can
+ * exceed the budget. Returns `null` when the value is too large; rethrows
+ * genuine serialization errors (circular refs, BigInt) to the caller.
+ */
+function stringifyWithinBudget(value: unknown, budget: number): string | null {
+  let approx = 0;
+  const ABORT = {};
+  try {
+    return (
+      JSON.stringify(value, (key, val) => {
+        approx += key.length + 2;
+        const t = typeof val;
+        if (t === 'string') approx += (val as string).length + 2;
+        else if (t === 'number' || t === 'boolean' || val === null) approx += 6;
+        if (approx > budget) throw ABORT;
+        return val;
+      }) ?? ''
+    );
+  } catch (err) {
+    if (err === ABORT) return null;
+    throw err;
+  }
+}
+
+const TOO_LARGE_NOTICE = JSON.stringify({
+  error: 'tool_result_too_large',
+  message:
+    'Dome: tool output exceeded the serialization limit and was dropped to protect the app from ' +
+    'running out of memory. Retry with pagination, filters, or a narrower query.',
+});
+
 function stringifyToolOutput(raw: unknown): string {
   if (typeof raw === 'string') return raw;
   try {
-    return JSON.stringify(raw);
+    const s = stringifyWithinBudget(raw, OUTPUT_BUDGET_CHARS);
+    return s === null ? TOO_LARGE_NOTICE : s;
   } catch {
     return String(raw);
+  }
+}
+
+/**
+ * Bound a tool result's `details` so the persisted session entry can never grow
+ * without limit. Returns the value untouched when it fits the budget, or a tiny
+ * marker when it is too large / unserializable (ELECTRON-7 guard).
+ */
+function boundToolDetails(raw: unknown): unknown {
+  if (raw == null) return raw;
+  if (typeof raw === 'string') {
+    return raw.length <= DETAILS_BUDGET_CHARS
+      ? raw
+      : { _domeOmitted: 'tool_result_too_large', approxChars: raw.length };
+  }
+  if (typeof raw !== 'object') return raw;
+  try {
+    return stringifyWithinBudget(raw, DETAILS_BUDGET_CHARS) === null
+      ? { _domeOmitted: 'tool_result_too_large' }
+      : raw;
+  } catch {
+    return { _domeOmitted: 'tool_result_unserializable' };
   }
 }
 
@@ -66,7 +138,7 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
     async execute(_toolCallId, params): Promise<AgentToolResult> {
       try {
         const raw = await ops.executeToolInMain(name, params);
-        return { content: [{ type: 'text', text: stringifyToolOutput(raw) }], details: raw };
+        return { content: [{ type: 'text', text: stringifyToolOutput(raw) }], details: boundToolDetails(raw) };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {

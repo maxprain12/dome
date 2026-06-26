@@ -3,6 +3,9 @@
  * No Electron, no DB — unit-tested in electron/__tests__/run-helpers.test.mjs.
  */
 
+// Pure-CJS leaf (no Electron/DB deps) — keeps this module unit-testable.
+const { safeStringify } = require('../tools/tool-result-cap.cjs');
+
 function isRunAbortedError(error, signal) {
   if (signal?.aborted) return true;
   if (!error) return false;
@@ -50,7 +53,9 @@ function mergeLlmUsage(current, delta) {
 function serializeToolResult(result) {
   if (typeof result === 'string') return result;
   try {
-    return JSON.stringify(result ?? null);
+    // safeStringify bounds serialization so a huge tool result can't OOM the
+    // main process inside V8's JsonStringify (ELECTRON-7).
+    return safeStringify(result ?? null);
   } catch {
     return String(result);
   }

@@ -145,7 +145,7 @@ function registerAll(deps) {
   chatHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   runsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   pipelinesHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
-  marketplaceHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
+  marketplaceHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender, sanitizePath });
   cloudStorageHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   transcriptionSession.setWindowManager(windowManager);
   transcriptionHandlers.register({

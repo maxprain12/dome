@@ -129,7 +129,7 @@ async function loadSkillsResources() {
  */
 async function buildMcpAgentTools(database, mcpServerIds) {
   if (!Array.isArray(mcpServerIds) || mcpServerIds.length === 0) return [];
-  const { capToolResultString, getCapForTool } = require('../tools/tool-result-cap.cjs');
+  const { capToolResultString, getCapForTool, safeStringify, boundToolDetails } = require('../tools/tool-result-cap.cjs');
   const { getMCPTools } = require('../mcp/mcp-client.cjs');
   const lcTools = await getMCPTools(database, mcpServerIds);
   if (!Array.isArray(lcTools) || lcTools.length === 0) return [];
@@ -149,9 +149,15 @@ async function buildMcpAgentTools(database, mcpServerIds) {
       parameters: schema,
       async execute(_toolCallId, params, signal) {
         const out = await lcTool.invoke(params, { signal });
-        const text = typeof out === 'string' ? out : JSON.stringify(out ?? '');
+        // safeStringify (not raw JSON.stringify): bounds serialization so a huge
+        // MCP payload can't OOM the main process before the char cap runs (ELECTRON-7).
+        const text = safeStringify(out ?? '');
         const capped = capToolResultString(name, text, { maxChars: getCapForTool(name) });
-        return { content: [{ type: 'text', text: capped }], details: out };
+        // boundToolDetails: the loop persists `details` verbatim into the session
+        // JSONL (createToolResultMessage → appendEntry → JSON.stringify). Returning
+        // the raw `out` would OOM the main process at persistence time even though
+        // `text` is capped — the actual ELECTRON-7 vector for huge snapshots.
+        return { content: [{ type: 'text', text: capped }], details: boundToolDetails(out) };
       },
     };
   });
