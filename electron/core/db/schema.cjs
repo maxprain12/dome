@@ -34,6 +34,16 @@ function createBaseSchema(db) {
   db.exec('PRAGMA synchronous = NORMAL');
   db.exec('PRAGMA temp_store = MEMORY');
   db.exec('PRAGMA mmap_size = 30000000000');
+  // INCREMENTAL auto-vacuum lets us reclaim freed pages (PRAGMA incremental_vacuum)
+  // after deleting large rows instead of letting the file grow forever. On a FRESH
+  // DB this takes effect immediately (set before any CREATE TABLE); on an EXISTING
+  // DB it only sticks after a VACUUM — db-maintenance.reclaimSpaceIfBloated runs
+  // that one-time VACUUM when the file is mostly free pages (ELECTRON-7 bloat).
+  try {
+    db.exec('PRAGMA auto_vacuum = INCREMENTAL');
+  } catch (err) {
+    console.warn('[DB] Could not set auto_vacuum = INCREMENTAL:', err?.message || err);
+  }
 
   // Projects table
   db.exec(`

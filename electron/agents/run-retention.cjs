@@ -11,6 +11,7 @@
  */
 
 const logger = require('../core/logger.cjs');
+const { incrementalVacuum } = require('../core/db-maintenance.cjs');
 
 const DEFAULT_RETENTION_DAYS = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -116,6 +117,15 @@ async function purgeExpiredRuns({ now = Date.now(), deps = defaultDeps() } = {})
 
   if (result.purgedRuns > 0 || result.purgedFeederRuns > 0 || result.purgedSessions > 0) {
     logger.info('run-retention', 'Purged expired run history', result);
+    // Return the pages freed by the deletes to the OS (no-op unless the DB is in
+    // INCREMENTAL auto-vacuum mode) so run history can't silently bloat the file.
+    try {
+      incrementalVacuum(db);
+    } catch (error) {
+      logger.warn('run-retention', 'incremental_vacuum after purge failed', {
+        error: error?.message,
+      });
+    }
   }
   return result;
 }
