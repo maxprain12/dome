@@ -17,7 +17,7 @@ const root = path.join(__dirname, '..');
 const scopeDir = path.join(root, 'node_modules', '@dome');
 
 /** Main-process runtime packages (dynamic import from electron/). */
-const WORKSPACE_PKGS = ['ai', 'agent-core', 'tools'];
+const WORKSPACE_PKGS = ['ai', 'agent-core', 'tools', 'db'];
 
 function fail(msg) {
   console.error(`[materialize-workspace-deps] ${msg}`);
