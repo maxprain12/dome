@@ -1,0 +1,29 @@
+# Excel → Notebook Tool — Usage Guide
+
+Load this doc (`dome_load_doc({ id: "excel_notebook_tool" })`) before the Excel → notebook pandas flow.
+
+## Tool map
+| Tool | When |
+| --- | --- |
+| `excel_get_file_path` | Absolute disk path for `pandas.read_excel` (`resource_id`) |
+| `notebook_get` | Inspect existing cells/structure before adding code |
+| `notebook_add_cell` | Append Python cell with pandas/sklearn analysis |
+| `notebook_update_cell` | Edit an existing cell by index |
+| `notebook_delete_cell` | Remove a cell by index |
+
+## When to use
+Use `excel_get_file_path` + `notebook_add_cell` when the user wants to extract or analyze Excel data in a Dome notebook using pandas, sklearn, or other Python libraries.
+
+## Excel + Notebook flow
+
+1. Call `excel_get_file_path` with `resource_id` (the Excel resource ID) to get the absolute file path on disk.
+2. Call `notebook_get` with `resource_id` (the current notebook's resource ID) to inspect its existing structure.
+3. Call `notebook_add_cell` with Python code that loads the file:
+
+```python
+import pandas as pd
+df = pd.read_excel(r"<file_path from step 1>")
+df.head()
+```
+
+Use the `file_path` returned in step 1 — never hardcode or guess paths.

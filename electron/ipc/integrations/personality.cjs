@@ -1,5 +1,19 @@
 /* eslint-disable no-console */
+const { shell } = require('electron');
+
 function register({ ipcMain, windowManager, personalityLoader }) {
+  ipcMain.handle('personality:get-context-files', (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const contextFiles = require('../../personality/context-files.cjs');
+      return { success: true, data: contextFiles.loadContextFiles() };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
   ipcMain.handle('personality:get-prompt', (event, params) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
@@ -74,6 +88,43 @@ function register({ ipcMain, windowManager, personalityLoader }) {
     try {
       personalityLoader.updateLongTermMemory(key, value);
       personalityLoader.addMemoryEntry(`**${key}**: ${value}`);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('personality:open-folder', (event) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const dir = personalityLoader.getPersonalityDir();
+      void shell.openPath(dir);
+      return { success: true, data: dir };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('personality:list-daily-memory', (event, days = 14) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const n = Math.min(Math.max(Number(days) || 14, 1), 60);
+      return { success: true, data: personalityLoader.getRecentMemory(n) };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('personality:write-daily-memory', (event, { date, content }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      personalityLoader.writeDailyMemory(date, content);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };

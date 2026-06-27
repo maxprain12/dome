@@ -18,6 +18,22 @@ const database = require('../core/database.cjs');
 const logger = require('../core/logger.cjs');
 const { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } = require('../prompts/prompt-sections.cjs');
 
+/** Lazy `@dome/tools` (ESM build consumed from main). */
+let _domeToolsPkg = null;
+function getDomeToolsPkg() {
+  if (!_domeToolsPkg) _domeToolsPkg = require('@dome/tools');
+  return _domeToolsPkg;
+}
+
+function getPackageFamilyDefinitions() {
+  const pkg = getDomeToolsPkg();
+  return [...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions()];
+}
+
+function getPackageFamilyToolNames() {
+  return new Set(getPackageFamilyDefinitions().map((d) => d?.function?.name).filter(Boolean));
+}
+
 const DEFAULT_TOOL_TIMEOUT_MS = Number(process.env.DOME_TOOL_TIMEOUT_MS) || 120_000;
 const TOOL_TIMEOUT_OVERRIDES = {
   transcribe_audio: 600_000,
@@ -141,6 +157,7 @@ const TOOL_HANDLER_MAP = {
   github_list_issues: 'githubListIssues',
   github_create_issue: 'githubCreateIssue',
   github_update_issue: 'githubUpdateIssue',
+  github_create_milestone: 'githubCreateMilestone',
   github_sync: 'githubSync',
 
   // Entity creation
@@ -711,20 +728,23 @@ async function executeToolInMainImpl(toolName, args, toolContext) {
           assigned_agent_id: args.assigned_agent_id,
         });
         break;
+      case 'emailListFolders':
+        result = await fn(toolContext);
+        break;
       case 'emailListEnvelopes':
-        result = await fn({ folder: args.folder, page: args.page, page_size: args.page_size });
+        result = await fn({ folder: args.folder, page: args.page, page_size: args.page_size }, toolContext);
         break;
       case 'emailSearchEnvelopes':
-        result = await fn({ query: args.query, folder: args.folder, page_size: args.page_size });
+        result = await fn({ query: args.query, folder: args.folder, page_size: args.page_size }, toolContext);
         break;
       case 'emailReadMessage':
-        result = await fn({ message_id: args.message_id, folder: args.folder });
+        result = await fn({ message_id: args.message_id, folder: args.folder }, toolContext);
         break;
       case 'emailSendMessage':
-        result = await fn({ to: args.to, subject: args.subject, body: args.body, cc: args.cc, bcc: args.bcc });
+        result = await fn({ to: args.to, subject: args.subject, body: args.body, cc: args.cc, bcc: args.bcc }, toolContext);
         break;
       case 'emailReplyMessage':
-        result = await fn({ message_id: args.message_id, body: args.body, folder: args.folder });
+        result = await fn({ message_id: args.message_id, body: args.body, folder: args.folder }, toolContext);
         break;
       case 'domeLoadDoc': {
         const { getSectionBody } = require('../prompts/prompt-sections.cjs');
@@ -1518,6 +1538,25 @@ function getAllToolDefinitions() {
             milestone_number: { type: 'number', description: 'Milestone number, or null to clear' },
           },
           required: ['issue_id'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'github_create_milestone',
+        description:
+          'Create a GitHub milestone in a synced repo. Writes to GitHub (HITL in Many). Use github_list_repos for repo_id. Source: GitHub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            repo_id: { type: 'string', description: 'Dome repo id from github_list_repos' },
+            title: { type: 'string', description: 'Milestone title' },
+            description: { type: 'string', description: 'Optional description (Markdown)' },
+            due_on: { type: 'string', description: 'Optional due date ISO 8601 (e.g. 2026-12-31)' },
+            state: { type: 'string', enum: ['open', 'closed'], description: 'Default open' },
+          },
+          required: ['repo_id', 'title'],
         },
       },
     },
@@ -2913,7 +2952,8 @@ function getAllToolDefinitions() {
         parameters: { type: 'object', properties: {} },
       },
     },
-  ];
+  ].filter((def) => !getPackageFamilyToolNames().has(def?.function?.name))
+    .concat(getPackageFamilyDefinitions());
 }
 
 function getToolDefinitionsByIds(toolIds) {

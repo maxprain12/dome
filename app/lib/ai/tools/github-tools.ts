@@ -211,6 +211,37 @@ export function createGithubCreateIssueTool(): AnyAgentTool {
   };
 }
 
+export function createGithubCreateMilestoneTool(): AnyAgentTool {
+  return {
+    label: 'Create GitHub milestone',
+    name: 'github_create_milestone',
+    description: 'Create a GitHub milestone in a synced repo (writes to GitHub). Source: GitHub.',
+    parameters: Type.Object({
+      repo_id: RepoIdSchema,
+      title: Type.String({ description: 'Milestone title.' }),
+      description: Type.Optional(Type.String({ description: 'Optional description (Markdown).' })),
+      due_on: Type.Optional(Type.String({ description: 'Optional due date ISO 8601 (e.g. 2026-12-31).' })),
+      state: Type.Optional(Type.Union([Type.Literal('open'), Type.Literal('closed')])),
+    }),
+    execute: async (_id, args) => {
+      const blocked = requireElectron();
+      if (blocked) return blocked;
+      const params = args as Record<string, unknown>;
+      const repoId = readStringParam(params, 'repo_id', { required: true });
+      const title = readStringParam(params, 'title', { required: true });
+      const dueOnStr = readStringParam(params, 'due_on');
+      const res = await githubClient.milestones.create(repoId!, {
+        title: title!,
+        description: readStringParam(params, 'description') ?? undefined,
+        dueOn: dueOnStr ? Date.parse(dueOnStr) : undefined,
+        state: readStringParam(params, 'state') ?? undefined,
+      });
+      if (!res.success) return jsonResult({ success: false, error: res.error });
+      return jsonResult({ success: true, source: 'github', milestone: res.milestone });
+    },
+  };
+}
+
 export function createGithubUpdateIssueTool(): AnyAgentTool {
   return {
     label: 'Update GitHub issue',
@@ -266,6 +297,7 @@ export function createGithubTools(): AnyAgentTool[] {
     createGithubListMilestonesTool(),
     createGithubListIssuesTool(),
     createGithubCreateIssueTool(),
+    createGithubCreateMilestoneTool(),
     createGithubUpdateIssueTool(),
     createGithubSyncTool(),
   ];

@@ -43,6 +43,10 @@ import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentT
 import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 import { buildDomeSystemPrompt } from '@/lib/chat/buildDomeSystemPrompt';
+import {
+  formatPersonalityMemoryBlock,
+  loadPersonalityContextFiles,
+} from '@/lib/personality/contextFiles';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
@@ -302,12 +306,18 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
   const buildSystemPrompt = useCallback(async () => {
     if (!agent) return '';
-    const baseInstructions =
+    const files = await loadPersonalityContextFiles();
+    const agentBody =
       agent.systemInstructions?.trim() || agent.description || `You are ${agent.name}.`;
+    const persona = files.soul.trim()
+      ? `${files.soul.trim()}\n\n## Agent role\n${agentBody}`
+      : agentBody;
+    const volatile = formatPersonalityMemoryBlock(files);
 
-    const prompt = buildDomeSystemPrompt({ staticPersona: baseInstructions });
-
-    return prompt;
+    return buildDomeSystemPrompt({
+      staticPersona: persona,
+      volatileContext: volatile || undefined,
+    });
   }, [agent]);
 
   // Rotate the streaming label every 3s while waiting (before any tools appear)
@@ -365,7 +375,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const controller = new AbortController();
     setAbortController(controller);
 
-    addMessage({ role: 'user', content: userMessage });
+    addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
     scrollToBottom(true);
 
     let fullResponse = '';
@@ -594,6 +604,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           toolCalls,
           citationMap: buildCitationMap(toolCalls),
           thinking: m.thinking,
+          attachments: m.attachments,
         };
       }),
     [messages]

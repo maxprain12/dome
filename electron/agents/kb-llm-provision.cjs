@@ -2,9 +2,7 @@
 /**
  * Provision / disable KB LLM scheduled automations per project.
  */
-const fs = require('fs');
-const path = require('path');
-const { getPromptsDir } = require('../paths.cjs');
+const { readSurfacePrompt } = require('../prompts/prompts-loader.cjs');
 const runEngine = require('./run-engine.cjs');
 const {
   KB_GLOBAL_KEY,
@@ -41,14 +39,11 @@ const HEALTH_TOOLS = [
 
 const PLACEHOLDER_AGENT_ID = 'kbllm-system';
 
-function readPromptFile(filename) {
-  const base = path.join(getPromptsDir(), filename);
-  try {
-    return fs.readFileSync(base, 'utf8');
-  } catch (e) {
-    console.warn('[KB LLM] Could not read prompt', filename, e?.message);
-    return `# ${filename}\n(Missing prompt file.)`;
-  }
+function readPromptFile(relPath) {
+  const text = readSurfacePrompt(relPath);
+  if (typeof text === 'string' && text.trim()) return text;
+  console.warn('[KB LLM] Could not read prompt', relPath);
+  return `# ${relPath}\n(Missing prompt file.)`;
 }
 
 function getGlobalFromDb(queries) {
@@ -107,8 +102,8 @@ function syncKbLlmForProject(database, projectId) {
         : 4;
 
   const allowWrite = global.allowAutoWrite !== false;
-  const compilePrompt = readPromptFile('kb-wiki-compile.md');
-  const healthPrompt = readPromptFile('kb-wiki-health.md');
+  const compilePrompt = readPromptFile('kb-wiki/compile.md');
+  const healthPrompt = readPromptFile('kb-wiki/health.md');
 
   const ids = automationIds(projectId);
   const userPreamble = `Project ID: ${projectId}\nGlobal KB LLM: enabled. Output may create or update notes when allowed.\n\n`;

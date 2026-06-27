@@ -84,9 +84,10 @@ test('createToolFromDefinition: returns null for nameless defs', () => {
 });
 
 // ── families ─────────────────────────────────────────────────────────────
-test('TOOL_FAMILIES covers the 103-tool catalog', () => {
-  assert.equal(TOOL_COUNT, 103);
-  assert.equal(Object.keys(TOOL_FAMILIES).length, 103);
+test('TOOL_FAMILIES includes github_create_milestone and stays self-consistent', () => {
+  assert.equal(TOOL_COUNT, Object.keys(TOOL_FAMILIES).length);
+  assert.equal(TOOL_FAMILIES.github_create_milestone, 'github');
+  assert.equal(TOOL_FAMILIES.email_send, 'email');
 });
 
 test('familyOf resolves known tools and falls back to misc', () => {

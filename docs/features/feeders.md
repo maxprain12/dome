@@ -78,7 +78,7 @@ No LLM in the refresh loop.
 | `electron/ipc/feeders.cjs` | IPC handlers |
 | `app/lib/ai/tools/feeder-tools.ts` | Agent tools |
 | `app/components/feeders/FeedersPanel.tsx` | UI in artifact workspace |
-| `prompts/martin/feeders.txt` | Agent guidance |
+| `packages/tools/src/domains/feeders/prompt.txt` | Agent guidance |
 
 ## Example: iDRAC monitor
 

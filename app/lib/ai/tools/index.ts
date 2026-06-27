@@ -107,6 +107,13 @@ export {
   type ToolRegistryInstance,
 } from './adapter';
 
+// Canonical OpenAI-style memory tool definitions (renderer-local; mirrors @dome/tools)
+export {
+  memoryToolDefinitions,
+  MEMORY_TOOL_NAMES,
+  type MemoryToolName,
+} from './memory-tool-definitions';
+
 // Tools - Web
 export { createWebSearchTool, type WebSearchConfig } from './web-search';
 export { createWebFetchTool, type WebFetchConfig } from './web-fetch';

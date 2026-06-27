@@ -1,6 +1,6 @@
 # Manual Técnico — Dome Desktop
 
-> Referencia técnica consolidada para desarrolladores de Dome (v2.3.5).
+> Referencia técnica consolidada para desarrolladores de Dome (v2.7.7).
 > Asume conocimiento de TypeScript, React y Electron.
 
 ---
@@ -71,17 +71,16 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 
 | Capa | Tecnología | Versión |
 |------|-----------|---------|
-| Runtime (dev) | npm (Node.js) | 20+ (ver `.nvmrc` / `engines` si aplica) |
-| Runtime (Electron) | Node.js | 20+ |
-| Desktop shell | Electron | 32 |
+| Package manager | pnpm | 11 (Node ≥ 22.13) |
+| Desktop shell | Electron | 41 |
 | Frontend bundler | Vite | 7 |
 | UI framework | React | 18 |
 | Routing | React Router | 7 (client-side SPA) |
 | UI components | Mantine | latest |
 | Styling | Tailwind CSS + CSS Variables | — |
-| Database | better-sqlite3 | latest |
+| Database | better-sqlite3 + `@dome/db` (Drizzle) | schema v53 |
 | Vector search | LangChain embeddings + LanceDB (`dome-lance`) | — |
-| AI orchestration | LangChain + LangGraph | latest |
+| Agent runtime | `@dome/agent-core` (loop nativo, sin LangGraph) | workspace |
 | AI providers | OpenAI, Anthropic, Google, Ollama, Dome | — |
 | Editor | Tiptap (ProseMirror) | — |
 | State (global) | Zustand | — |
@@ -95,33 +94,16 @@ const data = await window.electron.invoke('db:resources:getAll', projectId);
 
 ```
 dome/
-├── electron/                    # Main Process
-│   ├── main.cjs                # Entry: app lifecycle, window, protocols, IPC
-│   ├── preload.cjs             # contextBridge + ALLOWED_CHANNELS whitelist
-│   ├── database.cjs            # SQLite (better-sqlite3), schema, migrations
-│   ├── window-manager.cjs      # Multi-window management
-│   ├── run-engine.cjs          # Agent run execution engine
-│   ├── langgraph-agent.cjs     # LangGraph workflows
-│   ├── ai-chat-with-tools.cjs  # AI tool definitions + streaming
-│   ├── ai-tools-handler.cjs    # Tool execution (search, memory, etc.)
-│   ├── automation-service.cjs  # Scheduled automation tick loop
-│   ├── semantic-index-scheduler.cjs  # Cola de reindex semántico
-│   ├── services/               # indexing.pipeline, embeddings, cloud-llm, chunking
-│   ├── dome-oauth.cjs          # Dome Provider OAuth session management
-│   ├── plugin-loader.cjs       # Plugin validation and loading
-│   ├── marketplace-config.cjs  # Marketplace catalog
-│   ├── pdf-extractor.cjs       # PDF text/page extraction
-│   ├── ppt-slide-extractor.cjs # PPTX → screenshots (hidden BrowserWindow)
-│   ├── github-client.cjs       # GitHub API
-│   ├── crop-image.cjs          # Image utilities
-│   ├── ollama-service.cjs      # Local Ollama
-│   └── ipc/                    # IPC handlers por dominio (~35 archivos)
-│       ├── ai.cjs              # ai:* channels
-│       ├── agent-team.cjs      # agent-team:* channels
-│       ├── runs.cjs            # runs:* channels
-│       ├── storage.cjs         # storage:* channels
-│       ├── dome-auth.cjs       # dome-auth:* channels
-│       └── ...                 # (calendar, flashcards, studio, etc.)
+├── electron/                    # Main Process (dominio: core/, agents/, ipc/, workers/, …)
+│   ├── main.cjs                # Entry: lifecycle, protocols, worker shutdown
+│   ├── preload.cjs             # contextBridge + ALLOWED_CHANNELS
+│   ├── core/database.cjs       # Fachada SQLite + Drizzle repos
+│   ├── core/db/                # schema, migrations, queries, drizzle-bridge, fts
+│   ├── agents/                 # agent-runtime, run-engine, automation-service
+│   ├── workers/                # db-read, document-extract (worker_threads)
+│   └── ipc/                    # Handlers por subcarpeta (core/data/ai/agents/…)
+│
+├── packages/db/                 # @dome/db — schema Drizzle, migrator, repos piloto
 │
 ├── app/                         # Renderer Process
 │   ├── main.tsx                # Vite entry: MantineProvider + BrowserRouter
@@ -284,14 +266,26 @@ WHERE interactions_fts MATCH 'texto de anotación';
 
 Los triggers SQLite mantienen sincronizadas las tablas FTS automáticamente en INSERT/UPDATE/DELETE sobre `resources` e `resource_interactions`.
 
-### Migraciones
+### Migraciones y Drizzle
 
-Versionadas con `settings.schema_version`:
-- **v1**: Columnas de file storage (internal_path, hash, etc.)
-- **v2**: Tipo folder, folder_id
-- **v3**: Asegurar folder_id
-- **v4**: auth_profiles, martin_memory
-- **v5+**: automations, runs, calendar, flashcards
+1. **Legacy (v1…53):** `electron/core/db/migrations.cjs` — versión en `settings.schema_version`. Backup automático antes de migrar (`db-backup.cjs`).
+2. **Drizzle (post-v53):** `runDrizzleMigrations()` en `drizzle-bridge.cjs` — journal `__drizzle_migrations`, baseline `0000_baseline_v53`.
+3. **FTS5:** `fts-schema.cjs` — tablas virtuales + triggers (SQL crudo, idempotente).
+4. **Pilotos Drizzle:** `getSettingsRepo()`, `getTagsRepo()` — resto en `queries.cjs` hasta migración por dominio.
+
+Documentación completa: **[features/database.md](./features/database.md)** · ADR: [0002-drizzle-incremental-migration.md](./architecture/decisions/0002-drizzle-incremental-migration.md).
+
+```bash
+pnpm run build:packages
+pnpm run test:drizzle-spike
+pnpm run db:perf-baseline
+```
+
+### Workers (no bloquear main)
+
+- `electron/workers/db-read.worker.cjs` — FTS y listados read-only.
+- `electron/workers/document-extract.worker.cjs` — extracción PDF/DOCX/PPTX.
+- `shutdownWorkers()` en `before-quit` (`main.cjs`).
 
 ### Acceso desde renderer
 
@@ -785,4 +779,4 @@ Checklist:
 
 ---
 
-*Manual Técnico — Dome v2.3.5*
+*Manual Técnico — Dome v2.7.7*

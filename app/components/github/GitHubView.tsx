@@ -7,6 +7,7 @@ import GitHubConnect from './GitHubConnect';
 import KanbanBoard from './KanbanBoard';
 import GanttChart from './GanttChart';
 import IssueDetailPanel from './IssueDetailPanel';
+import MilestoneDetailModal from './MilestoneDetailModal';
 import GitHubSettings from './GitHubSettings';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 import DomeIconBox from '@/components/ui/DomeIconBox';
@@ -71,6 +72,7 @@ export default function GitHubView() {
 
   const [tab, setTab] = useState<GitHubTab>('kanban');
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
+  const [openMilestoneId, setOpenMilestoneId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<ViewMode>(() =>
     (typeof localStorage !== 'undefined' && localStorage.getItem(MODE_KEY) === 'developer' ? 'developer' : 'minimal'),
@@ -273,11 +275,21 @@ export default function GitHubView() {
         {settingsOpen ? (
           <GitHubSettings />
         ) : mode === 'minimal' ? (
-          <MinimalTracker query={query} onOpenIssue={setOpenIssueId} />
+          <MinimalTracker
+            query={query}
+            onOpenIssue={setOpenIssueId}
+            onOpenMilestone={setOpenMilestoneId}
+          />
         ) : (
           <>
-            {tab === 'kanban' && <KanbanBoard onOpenIssue={setOpenIssueId} query={query} />}
-            {tab === 'gantt' && <GanttChart query={query} />}
+            {tab === 'kanban' && (
+              <KanbanBoard
+                onOpenIssue={setOpenIssueId}
+                onOpenMilestone={setOpenMilestoneId}
+                query={query}
+              />
+            )}
+            {tab === 'gantt' && <GanttChart query={query} onOpenMilestone={setOpenMilestoneId} />}
             {tab === 'branches' && (
               <div className="p-4 overflow-auto h-full">
                 {branches.length === 0 ? (
@@ -300,6 +312,17 @@ export default function GitHubView() {
               </div>
             )}
           </>
+        )}
+
+        {openMilestoneId && !settingsOpen && (
+          <MilestoneDetailModal
+            milestoneId={openMilestoneId}
+            onClose={() => setOpenMilestoneId(null)}
+            onOpenIssue={(id) => {
+              setOpenMilestoneId(null);
+              setOpenIssueId(id);
+            }}
+          />
         )}
 
         {openIssueId && !settingsOpen && (

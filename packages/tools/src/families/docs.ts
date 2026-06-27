@@ -11,31 +11,14 @@
  */
 
 import type { ToolDefinition } from '../types.js';
+import { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } from '../domains/manifest.js';
 
 /** The docs-family tool names (subset of the 103-tool catalog). */
 export const DOCS_TOOL_NAMES = ['dome_load_doc', 'get_tool_definition', 'skill_read'] as const;
 
 export type DocsToolName = (typeof DOCS_TOOL_NAMES)[number];
 
-/** Mirror of `DOME_LOAD_DOC_IDS` (shared/prompt-assembler/index.cjs). */
-const DOME_LOAD_DOC_IDS = [
-  'entity_rules',
-  'artifacts',
-  'artifact_persisted',
-  'artifact_design',
-  'feeders',
-  'resource_links',
-  'ppt_tool',
-  'docx_tool',
-  'calendar_tool',
-  'flashcard_tool',
-  'excel_notebook_tool',
-  'excel_artifact_tool',
-] as const;
-
-/** Mirror of `DOME_LOAD_DOC_DESCRIPTION` (shared/prompt-assembler/index.cjs). */
-const DOME_LOAD_DOC_DESCRIPTION =
-  'Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel→notebook pandas flow), excel_artifact_tool (before Excel→artifact dashboard).';
+export { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS };
 
 export function docsToolDefinitions(): ToolDefinition[] {
   return [

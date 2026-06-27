@@ -1,5 +1,5 @@
 /** Bump when prompt structure or core section semantics change (bench A/B). */
-export const PROMPT_VERSION = 'minimax-v1';
+export const PROMPT_VERSION = 'minimax-v2';
 
 export const DOME_LOAD_DOC_IDS = [
   'entity_rules',
@@ -14,6 +14,8 @@ export const DOME_LOAD_DOC_IDS = [
   'flashcard_tool',
   'excel_notebook_tool',
   'excel_artifact_tool',
+  'email_tool',
+  'github_tool',
 ] as const;
 
 export const DOME_LOAD_DOC_DESCRIPTION =
@@ -29,7 +31,9 @@ export const DOME_LOAD_DOC_DESCRIPTION =
   'calendar_tool (before calendar_create_event), ' +
   'flashcard_tool (before flashcard_create), ' +
   'excel_notebook_tool (before Excel→notebook pandas flow), ' +
-  'excel_artifact_tool (before Excel→artifact dashboard).';
+  'excel_artifact_tool (before Excel→artifact dashboard), ' +
+  'email_tool (before email_list/email_search/email_send/email_reply), ' +
+  'github_tool (before github_create_issue/github_create_milestone/github_update_issue).';
 
 export type CorePromptSections = {
   roleMany?: string;

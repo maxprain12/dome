@@ -48,24 +48,6 @@ function readStoredHubTab(): HubTab {
   return 'agents';
 }
 
-function readStoredSelectedAgentId(): string | null {
-  try {
-    const v = sessionStorage.getItem(HUB_AGENT_STORAGE_KEY);
-    return v && v.length > 0 ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-function readStoredActiveWorkflowId(): string | null {
-  try {
-    const v = sessionStorage.getItem(HUB_WORKFLOW_STORAGE_KEY);
-    return v && v.length > 0 ? v : null;
-  } catch {
-    return null;
-  }
-}
-
 interface AutomationsHubViewProps {
   onAgentSelect?: (agentId: string) => void;
   shellHubTab?: HubTab;
@@ -86,8 +68,8 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
 
   const [activeTab, setActiveTab] = useState<HubTab>(() => shellHubTab ?? readStoredHubTab());
   const [automationsFilter, setAutomationsFilter] = useState<AutomationFilter | undefined>();
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(() => readStoredSelectedAgentId());
-  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(() => readStoredActiveWorkflowId());
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [automationsFormMode, setAutomationsFormMode] = useState<HubAutomationsFormMode>('hidden');
   const [runsDetailActive, setRunsDetailActive] = useState(false);
 
@@ -127,6 +109,17 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const hubProjectName = useAppStore((s) => s.currentProject?.name);
   const prevHubProjectId = useRef(hubProjectId);
+
+  // Do not restore agent/workflow detail views from sessionStorage — Electron keeps
+  // sessionStorage across restarts, which resurfaced stale chats from weeks ago.
+  useEffect(() => {
+    try {
+      sessionStorage.removeItem(HUB_AGENT_STORAGE_KEY);
+      sessionStorage.removeItem(HUB_WORKFLOW_STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const [agents, setAgents] = useState<ManyAgent[]>([]);
   const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);

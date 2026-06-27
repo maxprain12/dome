@@ -10,7 +10,7 @@ const path = require('path');
 
 const root = path.join(__dirname, '..');
 const scopeDir = path.join(root, 'node_modules', '@dome');
-const WORKSPACE_PKGS = ['ai', 'agent-core', 'tools'];
+const WORKSPACE_PKGS = ['ai', 'agent-core', 'tools', 'db'];
 
 let ok = true;
 

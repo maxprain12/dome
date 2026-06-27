@@ -6,7 +6,7 @@
  * nested AgentHarness turns with domain-specific tool subsets.
  */
 
-const { readPrompt } = require('../prompts/prompts-loader.cjs');
+const { readSubagentPrompt } = require('../prompts/prompts-loader.cjs');
 const { getToolDefsBySubagent } = require('../tools/tool-dispatcher.cjs');
 const { capToolResultString } = require('../tools/tool-result-cap.cjs');
 
@@ -27,7 +27,7 @@ const subagentPromptCache = new Map();
 
 function getSubagentSystemPrompt(name) {
   if (subagentPromptCache.has(name)) return subagentPromptCache.get(name);
-  const text = readPrompt(`martin/subagents/${name}.txt`);
+  const text = readSubagentPrompt(name);
   const prompt = typeof text === 'string' ? text.trim() : '';
   subagentPromptCache.set(name, prompt);
   return prompt;

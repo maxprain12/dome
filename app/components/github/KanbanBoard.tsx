@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
-import { CircleDot, CheckCircle2, Calendar, ExternalLink, GripVertical, Plus, X, Milestone } from 'lucide-react';
+import { CircleDot, CheckCircle2, Calendar, ExternalLink, GripVertical, Plus, X, Milestone, PanelRightOpen } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { useGitHubSortStore } from '@/lib/store/useGitHubSortStore';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import GitHubSortControls from './GitHubSortControls';
+import { DomeDatePicker } from '@/components/ui/DomeDatePicker';
 
 /**
  * Kanban matching GitHub milestones ⇄ Dome columns.
@@ -16,7 +17,15 @@ import GitHubSortControls from './GitHubSortControls';
  */
 type ColumnKey = number | 'none';
 
-export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: (id: string) => void; query?: string }) {
+export default function KanbanBoard({
+  onOpenIssue,
+  onOpenMilestone,
+  query = '',
+}: {
+  onOpenIssue: (id: string) => void;
+  onOpenMilestone?: (milestoneId: string) => void;
+  query?: string;
+}) {
   const { t } = useTranslation();
   const milestones = useGitHubStore((s) => s.milestones);
   const allIssues = useGitHubStore((s) => s.issues);
@@ -40,11 +49,11 @@ export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: 
   }, [allIssues, q]);
 
   const columns = useMemo(() => {
-    const cols: Array<{ key: ColumnKey; title: string; dueOn: number | null; milestoneNumber: number | null; url: string | null; state: 'open' | 'closed' | null }> = [
-      { key: 'none', title: t('github.no_milestone'), dueOn: null, milestoneNumber: null, url: null, state: null },
+    const cols: Array<{ key: ColumnKey; title: string; dueOn: number | null; milestoneNumber: number | null; milestoneId: string | null; url: string | null; state: 'open' | 'closed' | null }> = [
+      { key: 'none', title: t('github.no_milestone'), dueOn: null, milestoneNumber: null, milestoneId: null, url: null, state: null },
     ];
     for (const m of milestones) {
-      cols.push({ key: m.number, title: m.title, dueOn: m.due_on, milestoneNumber: m.number, url: m.html_url, state: m.state });
+      cols.push({ key: m.number, title: m.title, dueOn: m.due_on, milestoneNumber: m.number, milestoneId: m.id, url: m.html_url, state: m.state });
     }
     // "Sin milestone" always stays first regardless of the sort.
     const noneCol = cols.shift()!;
@@ -142,8 +151,10 @@ export default function KanbanBoard({ onOpenIssue, query = '' }: { onOpenIssue: 
             dueOn={col.dueOn}
             url={col.url}
             milestoneNumber={col.milestoneNumber}
+            milestoneId={col.milestoneId}
             issues={issuesByMilestone.get(col.key) ?? []}
             onOpenIssue={onOpenIssue}
+            onOpenMilestone={onOpenMilestone}
             onDrop={(issueId) => move(issueId, col.milestoneNumber)}
             onToggleState={toggleState}
           />
@@ -172,14 +183,16 @@ interface KanbanColumnProps {
   dueOn: number | null;
   url: string | null;
   milestoneNumber: number | null;
+  milestoneId: string | null;
   issues: GitHubIssueRow[];
   onOpenIssue: (id: string) => void;
+  onOpenMilestone?: (milestoneId: string) => void;
   onDrop: (issueId: string) => void;
   onToggleState: (issue: GitHubIssueRow) => Promise<void> | void;
 }
 
 function KanbanColumn({
-  title, dueOn, url, issues, onOpenIssue, onDrop, onToggleState,
+  title, dueOn, url, milestoneId, issues, onOpenIssue, onOpenMilestone, onDrop, onToggleState,
 }: KanbanColumnProps) {
   const { t } = useTranslation();
   const [isOver, setIsOver] = useState(false);
@@ -219,6 +232,24 @@ function KanbanColumn({
         <div className="flex items-center justify-between gap-1">
           <span className="font-semibold text-sm truncate" style={{ color: 'var(--dome-text)' }}>{title}</span>
           <div className="flex items-center gap-1 shrink-0">
+            {milestoneId && onOpenMilestone ? (
+              <button
+                type="button"
+                onClick={() => onOpenMilestone(milestoneId)}
+                className="inline-flex items-center justify-center rounded p-0.5"
+                style={{ color: 'var(--dome-text-muted)' }}
+                title={t('github.milestone_detail_open')}
+                aria-label={t('github.milestone_detail_open')}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                }}
+              >
+                <PanelRightOpen size={12} />
+              </button>
+            ) : null}
             {url && (
               <a href={url} target="_blank" rel="noreferrer" title={t('github.open_milestone_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
                 <ExternalLink size={12} />
@@ -510,18 +541,10 @@ function NewMilestoneColumn({ onCreate }: NewMilestoneColumnProps) {
             <Calendar size={10} />
             {t('github.new_milestone_due_label')}
           </span>
-          <input
-            type="date"
+          <DomeDatePicker
             value={dueDate}
-            onChange={(e) => setDueDate(e.target.value)}
+            onChange={setDueDate}
             placeholder={t('github.new_milestone_due_placeholder')}
-            className="text-sm rounded-md px-2 py-1 outline-none"
-            style={{
-              background: 'var(--dome-bg)',
-              color: 'var(--dome-text)',
-              border: '1px solid var(--dome-border)',
-              colorScheme: 'dark',
-            }}
           />
         </label>
 

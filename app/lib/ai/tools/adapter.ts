@@ -318,7 +318,8 @@ export function filterToolsByPolicy(
 // =============================================================================
 
 /**
- * Create a tool registry for managing tools.
+ * Renderer-side tool registry (IPC-backed execute handlers).
+ * Main-process agent runs use `@dome/tools` `createToolRegistry` instead.
  */
 export function createToolRegistry(initialTools: AnyAgentTool[] = []) {
   const tools = new Map<string, AnyAgentTool>();

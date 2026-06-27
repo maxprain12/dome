@@ -9,7 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const LATEST_SCHEMA_VERSION = 42;
+const LATEST_SCHEMA_VERSION = 53;
 const MAX_AUTO_BACKUPS = 5;
 const MAX_MIGRATION_BACKUPS = 3;
 /** Skip auto snapshots when the live DB exceeds this (prevents copying multi-GB bloat on Windows). */

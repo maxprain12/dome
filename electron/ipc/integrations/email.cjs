@@ -21,6 +21,46 @@ const AddAccountSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   is_default: z.boolean().optional(),
+  user_actions: z
+    .object({
+      list: z.boolean().optional(),
+      read: z.boolean().optional(),
+      search: z.boolean().optional(),
+      send: z.boolean().optional(),
+      reply: z.boolean().optional(),
+    })
+    .optional(),
+  agent_actions: z
+    .object({
+      list: z.boolean().optional(),
+      read: z.boolean().optional(),
+      search: z.boolean().optional(),
+      send: z.boolean().optional(),
+      reply: z.boolean().optional(),
+    })
+    .optional(),
+});
+
+const UpdatePermissionsSchema = z.object({
+  accountId: z.string().min(1),
+  user_actions: z
+    .object({
+      list: z.boolean().optional(),
+      read: z.boolean().optional(),
+      search: z.boolean().optional(),
+      send: z.boolean().optional(),
+      reply: z.boolean().optional(),
+    })
+    .optional(),
+  agent_actions: z
+    .object({
+      list: z.boolean().optional(),
+      read: z.boolean().optional(),
+      search: z.boolean().optional(),
+      send: z.boolean().optional(),
+      reply: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const ListEnvelopesSchema = z.object({
@@ -100,6 +140,19 @@ function register({ ipcMain, windowManager, validateSender }) {
       return emailService.removeAccount(parsed.data);
     } catch (err) {
       console.error('[Email IPC] removeAccount error:', err);
+      return fail(err);
+    }
+  });
+
+  ipcMain.handle('email:updateAccountPermissions', async (event, input) => {
+    try {
+      guard(event);
+      const parsed = UpdatePermissionsSchema.safeParse(input ?? {});
+      if (!parsed.success) return { success: false, error: 'Invalid permission payload' };
+      const { accountId, user_actions, agent_actions } = parsed.data;
+      return emailService.updateAccountPermissions(accountId, { user_actions, agent_actions });
+    } catch (err) {
+      console.error('[Email IPC] updateAccountPermissions error:', err);
       return fail(err);
     }
   });

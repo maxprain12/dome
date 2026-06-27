@@ -1,10 +1,12 @@
 import type { TFunction } from 'i18next';
 import type { ManyChatSession } from '@/lib/store/useManyStore';
-import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
+import { deriveManySessionTitle } from '@/lib/chat/manySessionTitle';
 
 function stripPreviewGarbage(text: string): string {
   return text
-    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
+    .replace(/!\[[^\]]*]\(dome-att:\/\/[^)]+\)/g, '[image]')
+    .replace(/!\[[^\]]*]\(data:image[^)]+\)/g, '[image]')
+    .replace(/data:image\/[^;\s]+;base64,[A-Za-z0-9+/=\s]{80,}/g, '[image]')
     .replace(/```[\s\S]*?```/g, '')
     .replace(/\{"tools"[\s\S]*?\}/g, '')
     .replace(/\s+/g, ' ')
@@ -19,12 +21,11 @@ export function sessionPreview(session: ManyChatSession): string {
 }
 
 export function displaySessionTitle(session: ManyChatSession, fallback: string): string {
-  const title = session.title?.trim();
-  if (!title || title === 'New chat') {
-    const firstUser = session.messages.find((m) => m.role === 'user')?.content ?? '';
-    return sanitizeManySessionTitle(firstUser) || fallback;
-  }
-  return sanitizeManySessionTitle(title);
+  const derived = deriveManySessionTitle({
+    storedTitle: session.title,
+    messages: session.messages,
+  });
+  return derived === 'New chat' ? fallback : derived;
 }
 
 export function formatHistoryTime(ts: number): string {

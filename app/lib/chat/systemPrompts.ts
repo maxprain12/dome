@@ -7,10 +7,10 @@ export const RESOURCE_LINK_INSTRUCTION = corePromptSections.resourceLinks;
 export const ENTITY_CREATION_RULES = corePromptSections.entityRules;
 export const APP_SECTION_GUIDE = (corePromptSections.appContext ?? '').replace(/^Context:\n/, '');
 
-/** @deprecated Consolidated into prompts/martin/core/tool-surface.txt */
+/** @deprecated Consolidated into packages/prompts/sections/tool-surface.txt */
 export const TOOL_USAGE_MODE = '';
 
-/** @deprecated Consolidated into prompts/martin/core/output-format.txt */
+/** @deprecated Consolidated into packages/prompts/sections/output-format.txt */
 export const CHAT_CITATION_INSTRUCTION = '';
 
 export { buildVoiceSuffix } from '@/lib/prompt-assembler/bridge';

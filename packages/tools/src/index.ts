@@ -92,3 +92,12 @@ export type { StudioToolName } from './families/studio.js';
 
 export { UI_TOOL_NAMES, uiToolDefinitions } from './families/ui.js';
 export type { UiToolName } from './families/ui.js';
+
+export { EMAIL_TOOL_NAMES, emailToolDefinitions } from './families/email.js';
+export type { EmailToolName } from './families/email.js';
+
+export { GITHUB_TOOL_NAMES, githubToolDefinitions } from './families/github.js';
+export type { GithubToolName } from './families/github.js';
+
+export { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } from './domains/manifest.js';
+export type { DomeLoadDocId } from './domains/manifest.js';

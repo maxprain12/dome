@@ -56,10 +56,35 @@ export function coalesceDuplicateToolCalls(calls: ToolCallData[]): ToolCallData[
     };
   });
 
-  // Ensure IDs are unique — keep the last (most complete) entry per id.
   const seen = new Map<string, number>();
   patched.forEach((tc, i) => seen.set(tc.id, i));
   return patched.filter((tc, i) => seen.get(tc.id) === i);
+}
+
+/** Prefer run metadata tool rows but keep streamed results when metadata omits them. */
+export function mergeTerminalToolCalls(
+  metadataCalls: ToolCallData[],
+  streamedCalls: ToolCallData[],
+): ToolCallData[] {
+  const base = metadataCalls.length > 0 ? metadataCalls : streamedCalls;
+  if (metadataCalls.length === 0) return coalesceDuplicateToolCalls(streamedCalls);
+  const streamedById = new Map(streamedCalls.map((tc) => [tc.id, tc]));
+  return coalesceDuplicateToolCalls(
+    base.map((tc) => {
+      const fromStream = streamedById.get(tc.id);
+      if (!fromStream) return tc;
+      const needsResult = tc.result === undefined && fromStream.result !== undefined;
+      const needsStatus =
+        (tc.status === 'running' || tc.status === 'pending')
+        && (fromStream.status === 'success' || fromStream.status === 'error');
+      if (!needsResult && !needsStatus) return tc;
+      return {
+        ...tc,
+        ...(needsResult ? { result: fromStream.result } : {}),
+        ...(needsStatus ? { status: fromStream.status, error: fromStream.error } : {}),
+      };
+    }),
+  );
 }
 
 /**

@@ -138,6 +138,18 @@
     "save_without_test": "Save without testing",
     "required_fields": "Email, IMAP host and SMTP host are required.",
     "test_failed": "Connection test failed.",
-    "add_failed": "Could not add the account."
+    "add_failed": "Could not add the account.",
+    "permissions_title": "Allowed actions",
+    "permissions_hint": "Control what the app UI and Many/agents may do with this account.",
+    "permissions_action": "Action",
+    "permissions_user": "User (app)",
+    "permissions_agent": "Agent (Many)",
+    "permissions_list": "List",
+    "permissions_read": "Read",
+    "permissions_search": "Search",
+    "permissions_send": "Send",
+    "permissions_reply": "Reply",
+    "permissions_user_aria": "User: {{action}}",
+    "permissions_agent_aria": "Agent: {{action}}"
   }
 }

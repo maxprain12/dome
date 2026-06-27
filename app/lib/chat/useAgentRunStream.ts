@@ -66,6 +66,10 @@ export interface AgentRunStreamOptions {
    */
   onUsage?: (usage: PersistentRunUsage, partial: boolean) => void;
   /**
+   * Called when the run emits visible content (text or tool activity).
+   */
+  onStreamingActivity?: () => void;
+  /**
    * i18next translator; used for streaming labels.
    */
   t: TFunction;
@@ -93,6 +97,7 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
     onBudget,
     onUsage,
     onCompaction,
+    onStreamingActivity,
     t,
   } = options;
 
@@ -131,6 +136,7 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
       }
 
       if (payload.type === 'text' && payload.text) {
+        onStreamingActivity?.();
         setStreamingMessage((prev) =>
           prev
             ? { ...prev, content: `${prev.content ?? ''}${payload.text ?? ''}` }
@@ -155,6 +161,7 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
       }
 
       if (payload.type === 'tool_call' && payload.toolCall) {
+        onStreamingActivity?.();
         const tc = payload.toolCall;
         const parsedArgs = (() => {
           try {
@@ -258,7 +265,7 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
       unsubChunk();
       unsubStep();
     };
-  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, onUsage, onCompaction, t]);
+  }, [activeRunId, setStreamingMessage, setPendingApproval, onRunStatus, onRunTerminal, onBudget, onUsage, onCompaction, onStreamingActivity, t]);
 }
 
 function upsertRunStep(steps: PersistentRunStep[], step: PersistentRunStep): PersistentRunStep[] {

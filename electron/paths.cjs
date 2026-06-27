@@ -52,6 +52,21 @@ function getPromptsDir() {
   return path.join(getAppRoot(), 'prompts');
 }
 
+/** Core + cross-tool prompt sections (`@dome/prompts/sections`). */
+function getPromptsSectionsDir() {
+  return path.join(getAppRoot(), 'packages', 'prompts', 'sections');
+}
+
+/** Tool-domain operational prompts (`@dome/tools/src/domains`). */
+function getToolsDomainsDir() {
+  return path.join(getAppRoot(), 'packages', 'tools', 'src', 'domains');
+}
+
+/** Surface-specific prompts (`@dome/prompts/surfaces` — subagents, agent-team). */
+function getPromptsSurfacesDir() {
+  return path.join(getAppRoot(), 'packages', 'prompts', 'surfaces');
+}
+
 function getScriptsDir() {
   return path.join(getAppRoot(), 'scripts');
 }
@@ -71,6 +86,9 @@ module.exports = {
   getDistIndexHtml,
   getPublicDir,
   getPromptsDir,
+  getPromptsSectionsDir,
+  getPromptsSurfacesDir,
+  getToolsDomainsDir,
   getScriptsDir,
   getPreloadPath,
   getPackageJsonPath,

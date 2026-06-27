@@ -8,6 +8,6 @@
 - [Aislamiento por worktree](worktree-isolation.md) — `DOME_PROFILE` y desarrollo en paralelo.
 - [Herramientas de runtime para agentes](agent-runtime-tools.md) — DevTools, observabilidad local.
 - [Runtime de agente](agent-runtime.md) — `@dome/agent-core`, loop nativo, skills, compactación.
-- [Decisiones (ADRs)](decisions/) — registro de decisiones numeradas.
+- [Decisiones (ADRs)](decisions/) — registro numerado (p. ej. `0002` Drizzle incremental, layered app structure).
 
 Las guías de **features** del producto están en [../features/](../features/).

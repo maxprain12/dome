@@ -1,16 +1,23 @@
-
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { RotateCcw } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
+import DomeButton from '@/components/ui/DomeButton';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 import ThemePicker from '@/components/settings/ThemePicker';
+import { resetLayoutPreferences } from '@/lib/shell/layoutReset';
 
 export default function AppearanceSettings() {
   const { t } = useTranslation();
   const currentTheme = useAppStore((s) => s.theme);
   const updateTheme = useAppStore((s) => s.updateTheme);
+
+  const handleResetLayout = useCallback(() => {
+    resetLayoutPreferences();
+  }, []);
 
   return (
     <SettingsPanel>
@@ -32,18 +39,25 @@ export default function AppearanceSettings() {
       <div>
         <DomeSectionLabel className="settings-section-label">{t('settings.appearance.customization')}</DomeSectionLabel>
         <DomeCard>
-          <div className="settings-coming-soon opacity-40">
-            <div className="size-8 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: 'var(--dome-bg-hover)' }}>
-              <div className="size-4 rounded-full" style={{ backgroundColor: 'var(--dome-accent-bg)' }} />
-            </div>
-            <div className="min-w-0">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
-                {t('settings.appearance.custom_label')}
+                {t('settings.appearance.reset_layout_label')}
               </p>
-              <p className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('settings.appearance.custom_desc')}
+              <p className="text-[10px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
+                {t('settings.appearance.reset_layout_desc')}
               </p>
             </div>
+            <DomeButton
+              type="button"
+              variant="secondary"
+              size="xs"
+              onClick={handleResetLayout}
+              className="shrink-0 gap-1"
+              leftIcon={<RotateCcw className="size-3" aria-hidden />}
+            >
+              {t('settings.appearance.reset_layout_action')}
+            </DomeButton>
           </div>
         </DomeCard>
       </div>

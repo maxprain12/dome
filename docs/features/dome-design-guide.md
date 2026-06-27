@@ -173,11 +173,9 @@ Respeta **prefers-reduced-motion** en web; en video, evita parpadeos rápidos.
 1. Fondo `--bg-tertiary` o bloque `--secondary` (#E0EAB4) con texto `--primary-text` (comprobar contraste).
 2. Cita en cuerpo 16–18 px; autor o fuente en `--tertiary-text`.
 
-### 7.3 Carrusel (LinkedIn / Instagram)
+### 7.3 Carrusel (redes sociales)
 
-- Slide 1: problema + promesa (máx. 2 líneas de título).
-- Slides intermedios: un concepto por slide; numeración discreta (`--tertiary-text`).
-- Último slide: CTA + URL o handle; fondo blanco o `#FAFAFA` con acento oliva en botón o subrayado.
+Material de marketing para redes (LinkedIn, Instagram, etc.) vive en el repo **`landing-page-dome`**, no en este repositorio desktop. Usar la guía de marca web en `dome-provider/docs/design-brand.md` para consistencia con el sitio público.
 
 ---
 

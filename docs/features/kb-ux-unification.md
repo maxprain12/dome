@@ -29,10 +29,10 @@ Implementación: `[app/components/shell/ContentRouter.tsx](../app/components/she
 ## Flujo recomendado para el usuario
 
 1. Ingesta en **Library** (recursos raw con `dome_kb.wikiRole: "raw"` cuando aplique).
-2. Ejecutar agente de compilación (chat o automation) usando `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.md)`.
+2. Ejecutar agente de compilación (chat o automation) usando [`packages/prompts/surfaces/kb-wiki/compile.md`](../packages/prompts/surfaces/kb-wiki/compile.md).
 3. Revisar **Runs** si la tarea fue programada.
 4. Abrir **Learn** o **Studio** para outputs; archivar outputs relevantes de vuelta al wiki (`wikiRole: "output"`).
-5. Ejecutar **health** (`[prompts/kb-wiki-health.md](../prompts/kb-wiki-health.md)`) de forma periódica.
+5. Ejecutar **health** ([`packages/prompts/surfaces/kb-wiki/health.md`](../packages/prompts/surfaces/kb-wiki/health.md)) de forma periódica.
 
 ## Mejoras futuras (no bloqueantes)
 

@@ -101,10 +101,17 @@ async function pullRepo(repo) {
   // STREAMED: a busy repo can return 10k+ issues with state=all; persisting
   // per page keeps main-process heap flat instead of accumulating the whole
   // array (root cause of the GitHub-pull OOM).
+  // When last_sync_at exists, use GitHub ?since= for incremental updates.
   const issEtag = store.getEtag(repo.id, 'issues');
+  const lastSyncAt = repo.last_sync_at;
+  const sinceIso =
+    typeof lastSyncAt === 'number' && lastSyncAt > 0
+      ? new Date(lastSyncAt - 60_000).toISOString()
+      : null;
   let issueCount = 0;
   const iss = await api.listIssuesStreamed(owner, name, {
-    etag: issEtag,
+    etag: sinceIso ? undefined : issEtag,
+    since: sinceIso || undefined,
     onPage: (items) => {
       for (const issue of items) store.upsertIssueFromRemote(repo.id, issue);
       issueCount += items.length;
@@ -112,10 +119,14 @@ async function pullRepo(repo) {
     },
   });
   if (!iss.notModified) {
-    store.setEtag(repo.id, 'issues', iss.etag);
+    if (!sinceIso) {
+      store.setEtag(repo.id, 'issues', iss.etag);
+    }
     if (iss.pages > 0) {
-      // streamPages already warns if the maxPages safety cap was hit.
-      console.log(`[github-sync] pulled ${issueCount} issues from ${repo.full_name} (${iss.pages} page(s))`);
+      const mode = sinceIso ? 'incremental' : 'full';
+      console.log(
+        `[github-sync] pulled ${issueCount} issues (${mode}) from ${repo.full_name} (${iss.pages} page(s))`,
+      );
     }
   }
 

@@ -453,8 +453,39 @@ declare global {
           username?: string;
           password?: string;
           is_default?: boolean;
+          user_actions?: {
+            list?: boolean;
+            read?: boolean;
+            search?: boolean;
+            send?: boolean;
+            reply?: boolean;
+          };
+          agent_actions?: {
+            list?: boolean;
+            read?: boolean;
+            search?: boolean;
+            send?: boolean;
+            reply?: boolean;
+          };
         }) => Promise<EmailResult<{ accountId?: string; accounts?: any[] }>>;
         removeAccount: (accountId: string) => Promise<EmailResult<{ accounts?: any[] }>>;
+        updateAccountPermissions: (input: {
+          accountId: string;
+          user_actions?: {
+            list?: boolean;
+            read?: boolean;
+            search?: boolean;
+            send?: boolean;
+            reply?: boolean;
+          };
+          agent_actions?: {
+            list?: boolean;
+            read?: boolean;
+            search?: boolean;
+            send?: boolean;
+            reply?: boolean;
+          };
+        }) => Promise<EmailResult<{ accounts?: any[] }>>;
         testConnection: (accountId?: string | null) => Promise<EmailResult>;
         listFolders: (accountId?: string | null) => Promise<EmailResult<{ folders?: any[] }>>;
         listEnvelopes: (params: {
@@ -603,6 +634,7 @@ declare global {
         };
         milestones: {
           list: (repoId: string) => Promise<{ success: boolean; milestones?: GitHubMilestoneRow[]; error?: string }>;
+          get: (id: string) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
           create: (repoId: string, data: { title: string; description?: string; dueOn?: number | null; state?: string }) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
           update: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
         };
@@ -2053,11 +2085,23 @@ declare global {
       // Personality / Memory API
       personality: {
         getPrompt: (params?: Record<string, unknown>) => Promise<{ success: boolean; data?: string; error?: string }>;
+        getContextFiles: () => Promise<{
+          success: boolean;
+          data?: { soul: string; user: string; memory: string; recentMemory: string };
+          error?: string;
+        }>;
         readFile: (filename: string) => Promise<{ success: boolean; data?: string; error?: string }>;
         writeFile: (filename: string, content: string) => Promise<{ success: boolean; error?: string }>;
         addMemory: (entry: string) => Promise<{ success: boolean; error?: string }>;
         listFiles: () => Promise<{ success: boolean; data?: string[]; error?: string }>;
         rememberFact: (key: string, value: string) => Promise<{ success: boolean; error?: string }>;
+        openFolder: () => Promise<{ success: boolean; data?: string; error?: string }>;
+        listDailyMemory: (days?: number) => Promise<{
+          success: boolean;
+          data?: Array<{ date: string; content: string }>;
+          error?: string;
+        }>;
+        writeDailyMemory: (date: string, content: string) => Promise<{ success: boolean; error?: string }>;
       };
 
       approval: {

@@ -1207,6 +1207,11 @@ app.on('before-quit', async () => {
   calendarSyncScheduler.stop();
   automationService.stop();
   runRetention.stop();
+  try {
+    require('./workers/worker-pool.cjs').shutdownWorkers();
+  } catch {
+    /* ignore */
+  }
   runEngine.stop();
   try {
     windowManager.closeAll();

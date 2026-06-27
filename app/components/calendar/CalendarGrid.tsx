@@ -14,6 +14,7 @@ import {
 import type { CalendarEvent, CalendarViewMode } from '@/lib/store/useCalendarStore';
 import type { Locale } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/i18n';
+import { getEventSpanDays } from '@/lib/calendar/dayEvents';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -64,30 +65,6 @@ function navigateDate(date: Date, mode: CalendarViewMode, dir: 1 | -1): Date {
     case 'month': return dir === 1 ? addMonths(date, 1) : subMonths(date, 1);
     case 'year':  return dir === 1 ? addYears(date, 1)  : subYears(date, 1);
   }
-}
-
-/** Inclusive calendar days occupied by an event (month view). */
-function getEventSpanDays(ev: CalendarEvent): Date[] {
-  const start = startOfDay(new Date(ev.start_at));
-  let end = startOfDay(new Date(ev.end_at));
-
-  if (ev.all_day && end > start) {
-    const endRaw = new Date(ev.end_at);
-    const isExclusiveMidnight =
-      endRaw.getHours() === 0 &&
-      endRaw.getMinutes() === 0 &&
-      endRaw.getSeconds() === 0 &&
-      endRaw.getMilliseconds() === 0;
-    const isGoogleExclusiveEnd =
-      endRaw.getUTCHours() === 23 && endRaw.getUTCMinutes() === 59;
-
-    if (isExclusiveMidnight || isGoogleExclusiveEnd) {
-      end = subDays(end, 1);
-    }
-  }
-
-  if (end < start || isSameDay(start, end)) return [start];
-  return eachDayOfInterval({ start, end });
 }
 
 // ─── EventChip (month view) ───────────────────────────────────────────────────

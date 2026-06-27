@@ -7,6 +7,11 @@ import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import type { ArtifactRecord } from '@/types';
 import { useDomeThemeSnapshot, buildDomeThemeStyleContent } from '@/lib/chat/useDomeThemeSnapshot';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
+import {
+  buildArtifactNavigateBootScript,
+  handleArtifactNavigateMessage,
+  openArtifactExternalUrl,
+} from '@/lib/chat/artifactIframeNavigate';
 import { notifications } from '@mantine/notifications';
 import FeedersPanel from '@/components/feeders/FeedersPanel';
 
@@ -157,7 +162,7 @@ window.addEventListener('message', function(e) {
 </script>
 ${bodyHtml}
 <script>
-window.__dome_updateState = function(newData) {
+  window.__dome_updateState = function(newData) {
   try {
     window.DOME_DATA = newData;
   } catch (e) {}
@@ -171,6 +176,9 @@ window.__dome_updateState = function(newData) {
     window.parent.postMessage({ type: 'dome:state:update', payload: newData }, '*');
   } catch (e3) {}
 };
+</script>
+<script>
+${buildArtifactNavigateBootScript()}
 </script>
 </body>
 </html>`;
@@ -304,9 +312,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     return () => remove?.();
   }, [resourceId]);
 
-  // Handle postMessage from iframe for state persistence
+  // Handle postMessage from iframe for state persistence + external link navigation
   useEffect(() => {
     const onMessage = async (event: MessageEvent) => {
+      if (handleArtifactNavigateMessage(event, iframeRef.current?.contentWindow, openArtifactExternalUrl)) {
+        return;
+      }
       if (event.source !== iframeRef.current?.contentWindow) return;
       const art = artifactRef.current;
       if (!art) return;

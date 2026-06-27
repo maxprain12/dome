@@ -1,39 +1,57 @@
 /**
  * Prompt loader for Electron main process.
- * Reads prompt templates from prompts/ folder (sync fs access).
+ * Reads prompt templates from prompts/ (surfaces) and packages/prompts (sections/surfaces).
  */
 
 const path = require('path');
 const fs = require('fs');
-const { app } = require('electron');
+const { getPromptsDir, getPromptsSectionsDir, getPromptsSurfacesDir } = require('../paths.cjs');
 
-function getPromptsDir() {
-  // In dev: project root. In prod: same level as app.asar
-  const appPath = app?.getAppPath ? app.getAppPath() : process.cwd();
-  return path.join(appPath, 'prompts');
-}
-
-function readPrompt(relativePath) {
+function readFileOrNull(fullPath) {
   try {
-    const fullPath = path.join(getPromptsDir(), relativePath);
     if (fs.existsSync(fullPath)) {
       return fs.readFileSync(fullPath, 'utf8');
     }
   } catch (err) {
-    console.error('[Prompts] Error reading', relativePath, err.message);
+    console.error('[Prompts] Error reading', fullPath, err.message);
   }
   return null;
 }
 
-/**
- * Read Martin capabilities section (used by personality-loader).
- */
+/** Legacy relative path under `prompts/` (editor, studio, review, audits). */
+function readPrompt(relativePath) {
+  return readFileOrNull(path.join(getPromptsDir(), relativePath));
+}
+
+/** Core or cross-tool section under `packages/prompts/sections/`. */
+function readSectionPrompt(filename) {
+  return readFileOrNull(path.join(getPromptsSectionsDir(), filename));
+}
+
+/** Surface-specific prompt under `packages/prompts/surfaces/` (subagents, agent-team). */
+function readSurfacePrompt(relativePath) {
+  return readFileOrNull(path.join(getPromptsSurfacesDir(), relativePath));
+}
+
+function readSubagentPrompt(name) {
+  return readSurfacePrompt(path.join('subagents', `${name}.txt`));
+}
+
+function getCapabilitiesPrompt() {
+  return readSectionPrompt('capabilities.txt');
+}
+
+/** @deprecated Use getCapabilitiesPrompt */
 function getMartinCapabilities() {
-  return readPrompt('martin/capabilities.txt');
+  return getCapabilitiesPrompt();
 }
 
 module.exports = {
   getPromptsDir,
   readPrompt,
+  readSectionPrompt,
+  readSurfacePrompt,
+  readSubagentPrompt,
+  getCapabilitiesPrompt,
   getMartinCapabilities,
 };

@@ -28,6 +28,7 @@ export default function ChatHistorySessionList({
 }: ChatHistorySessionListProps) {
   const { t } = useTranslation();
   const newChatLabel = t('chat.new_chat');
+  const activeRunBySessionId = useManyStore((s) => s.activeRunBySessionId);
 
   if (sections.length === 0) {
     return (
@@ -53,6 +54,7 @@ export default function ChatHistorySessionList({
             const pinLabel = session.pinned
               ? t('chat.unpin_conversation')
               : t('chat.pin_conversation');
+            const livePhase = activeRunBySessionId[session.id];
 
             return (
               <div key={session.id} className="chat-history-row-wrap group/row">
@@ -61,6 +63,18 @@ export default function ChatHistorySessionList({
                   className={cn('chat-history-row', isActive && 'chat-history-row--active')}
                   onClick={() => onSelectSession(session)}
                 >
+                  {livePhase ? (
+                    <span
+                      className="chat-history-row-live attach-chip__spinner"
+                      role="status"
+                      aria-busy="true"
+                      aria-label={t('chat.history_llm_active')}
+                      title={t('chat.history_llm_active')}
+                    />
+                  ) : (
+                    <span className="chat-history-row-live-spacer" aria-hidden />
+                  )}
+                  <div className="chat-history-row-body">
                   <div className="chat-history-row-title">
                     {session.pinned ? (
                       <Pin
@@ -87,6 +101,7 @@ export default function ChatHistorySessionList({
                       </span>
                     </div>
                   )}
+                  </div>
                 </button>
                 <div className="chat-history-row-actions" role="group" aria-label={t('chat.chats_title')}>
                   <button

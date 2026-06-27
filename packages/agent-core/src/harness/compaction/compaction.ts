@@ -407,6 +407,9 @@ Use this EXACT format:
 ## Next Steps
 1. [Ordered list of what should happen next]
 
+## Files & Artifacts Touched
+- [Exact file paths, resource IDs, or artifact types referenced]
+
 ## Critical Context
 - [Any data, examples, or references needed to continue]
 - [Or "(none)" if not applicable]
@@ -446,6 +449,9 @@ Use this EXACT format:
 
 ## Next Steps
 1. [Update based on current state]
+
+## Files & Artifacts Touched
+- [Exact file paths, resource IDs, or artifact types referenced]
 
 ## Critical Context
 - [Preserve important context, add new if needed]

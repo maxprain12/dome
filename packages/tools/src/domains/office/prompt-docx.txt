@@ -1,0 +1,24 @@
+# DOCX tools — operational guide
+
+Load this doc (`dome_load_doc({ id: "docx_tool" })`) before `docx_create`, `docx_update`, or `docx_delete`.
+
+## Tool map
+| Tool | When |
+| --- | --- |
+| `docx_create` | New .docx in library (`title` required; pass `markdown`, `html`, `blocks`, or `body`) |
+| `docx_get` | Read content before editing (`format`: `text` or `html`) |
+| `docx_update` | Replace full document (always send complete new content) |
+| `docx_delete` | Remove resource — user must confirm; set `confirm: true` |
+| `docx_get_file_path` | Absolute disk path for external tooling (`resource_id`) |
+
+## When to use
+Use the docx tools when the user asks to create or edit a Word document, report, brief, memo, or any file they want to download as .docx.
+
+## Working with Word documents
+
+1. **Decide format**: Use `docx_create` when the user explicitly wants a .docx file (downloadable, sendable). For plain notes, use `resource_create` (type: note) instead.
+2. **Content input**: Pass `markdown` (preferred for rich content), `html`, `blocks` (structured paragraphs + headings), or `body` (plain text with `\n\n` paragraph breaks).
+3. **Read before editing**: Call `docx_get` to read the current content before calling `docx_update`. Use `format: "text"` for reading, `format: "html"` if you need to preserve structure.
+4. **Update**: Call `docx_update` with the modified content. It replaces the full document — always include the complete new content, not just the diff.
+5. **Gather source material**: Use `resource_hybrid_search` + `resource_get` to pull relevant library resources into the document before writing.
+6. **Delete**: Call `docx_delete` only after explicit user confirmation; set `confirm: true`.

@@ -20,7 +20,7 @@ const agentRuntime = require('../../agents/agent-runtime.cjs');
 const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../../tools/tool-dispatcher.cjs');
 const { getAISettings } = require('../../ai/ai-settings.cjs');
 const { buildDomeSystemPrompt } = require('../../prompts/system-prompt.cjs');
-const { readPrompt } = require('../../prompts/prompts-loader.cjs');
+const { readSurfacePrompt } = require('../../prompts/prompts-loader.cjs');
 
 const agentTeamAbortControllers = new Map();
 
@@ -28,7 +28,7 @@ const TEAM_SUPERVISOR_PROMPT_FALLBACK =
   'You are the supervisor of an Agent Team in Dome. Use your tools to research and synthesize one coherent answer. The team members listed below describe the expertise available to you.';
 
 function getTeamSupervisorTemplate() {
-  const txt = readPrompt('martin/team-supervisor.txt');
+  const txt = readSurfacePrompt('agent-team.txt');
   return typeof txt === 'string' && txt.trim().length > 0
     ? txt
     : TEAM_SUPERVISOR_PROMPT_FALLBACK;

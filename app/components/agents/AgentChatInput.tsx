@@ -24,6 +24,8 @@ import { useSlashSkills, type SlashSkillItem } from '@/lib/chat/useSlashSkills';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
 import { ChatSkillChip } from '@/components/chat/ChatSkillChip';
 import { db } from '@/lib/db/client';
+import { showToast } from '@/lib/store/useToastStore';
+import { handleComposerImagePaste } from '@/lib/chat/composerPaste';
 import type { PinnedResource } from '@/lib/store/useManyStore';
 
 export interface AgentChatInputProps {
@@ -322,21 +324,12 @@ export default memo(function AgentChatInput({
           onInput={handleInput}
           aria-label={placeholder ?? t('chat.message_placeholder')}
           onPaste={(e) => {
-            if (!onAttachmentsChange || !multimodalCaps.supportsImage) return;
-            const items = e.clipboardData?.items;
-            if (!items) return;
-            for (const it of items) {
-              if (it.kind === 'file' && it.type.startsWith('image/')) {
-                e.preventDefault();
-                const f = it.getAsFile();
-                if (f) {
-                  const d = new DataTransfer();
-                  d.items.add(f);
-                  void handlePickFiles(d.files);
-                }
-                break;
-              }
-            }
+            if (!onAttachmentsChange) return;
+            void handleComposerImagePaste(e, {
+              supportsImage: multimodalCaps.supportsImage,
+              onUnsupported: () => showToast('info', t('chat.paste_image_unsupported')),
+              onFiles: (files) => { void handlePickFiles(files); },
+            });
           }}
           placeholder={placeholder}
           disabled={isLoading}

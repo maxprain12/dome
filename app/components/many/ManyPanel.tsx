@@ -14,6 +14,7 @@ import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRe
 import { useManyConversationSettings } from './useManyConversationSettings';
 import {
   filterOutDeletedSessions,
+  deriveManySessionTitle,
   persistManySessions,
   sanitizeManySessionTitle,
   syncManyDeletedIdsFromDb,
@@ -66,12 +67,14 @@ import UICursorOverlay from './UICursorOverlay';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
 import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
-import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
+import { coalesceDuplicateToolCalls, mergeTerminalToolCalls } from '@/lib/chat/coalesceToolCalls';
 import ManyHitlInlineSection from '@/components/many/ManyHitlInlineSection';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
 import { cn } from '@/lib/utils';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
 import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentTypes';
+import { syncManyActiveRunIndicators } from '@/lib/chat/syncManyActiveRunIndicators';
+import { redactBase64FromText } from '@/lib/chat/userMessageVisual';
 import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
 
@@ -136,6 +139,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const chatProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const pendingManyHandoff = useManyStore((s) => s.pendingManyHandoff);
   const setPendingManyHandoff = useManyStore((s) => s.setPendingManyHandoff);
+  const setSessionRunState = useManyStore((s) => s.setSessionRunState);
 
   const [input, setInput] = useState('');
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
@@ -147,6 +151,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     memoryEnabled, setMemoryEnabled,
     mcpEnabled,
     supportsTools,
+    soulContent,
     userMemory,
     providerInfo,
     providerId,
@@ -175,9 +180,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const hitlDecisionsRef = useRef<Array<unknown> | null>(null);
   const isSubmittingRef = useRef(false);
   const voiceAutoSpeakForRunIdRef = useRef<string | null>(null);
+  const activeRunSessionIdRef = useRef<string | null>(null);
   // Ref so the onRunUpdated listener always calls the latest refreshSessionFromThread
   // without re-registering the listener every time currentSession changes.
   const refreshSessionFromThreadRef = useRef<() => Promise<boolean>>(() => Promise.resolve(false));
+  const scrollToBottomRef = useRef<(force?: boolean) => void>(() => {});
   const currentSession = useMemo(
     () => sessions.find((session) => session.id === currentSessionId) ?? null,
     [sessions, currentSessionId],
@@ -234,7 +241,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             messages: nextMessages,
           });
         }
-        return hydrateFromThreads();
+        return hydrateFromThreads().then(() => {
+          const ids = useManyStore.getState().sessions.slice(0, 20).map((s) => s.id);
+          return syncManyActiveRunIndicators(ids);
+        });
       })
       .catch((err) => {
         console.warn('[Many] JSONL session hydration failed:', err);
@@ -269,7 +279,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const firstUser = threadMessages.find((m) => m.role === 'user')?.content ?? '';
       hydrateSession({
         id: currentSessionId,
-        title: sanitizeManySessionTitle(localSession?.title ?? firstUser),
+        title: deriveManySessionTitle({
+          storedTitle: localSession?.title,
+          messages: threadMessages,
+          firstUser,
+        }),
         messages: threadMessages,
         createdAt: localSession?.createdAt ?? threadMessages[0]?.timestamp ?? Date.now(),
         updatedAt: threadMessages[threadMessages.length - 1]?.timestamp ?? localSession?.updatedAt,
@@ -330,6 +344,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       setPendingApproval(null);
     }
     if (['queued', 'running', 'waiting_approval'].includes(run.status)) {
+      const sid = run.sessionId || currentSessionIdRef.current;
+      if (sid) {
+        activeRunSessionIdRef.current = sid;
+        setSessionRunState(sid, run.outputText?.trim() ? 'streaming' : 'thinking');
+      }
       setIsLoading(true);
       setStatus('thinking');
       setStreamingMessage((prev) => ({
@@ -350,7 +369,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setStatus('idle');
     setStreamingMessage(null);
     setPendingApproval(null);
-  }, [setStatus, t]);
+    if (activeRunSessionIdRef.current) {
+      setSessionRunState(activeRunSessionIdRef.current, null);
+      activeRunSessionIdRef.current = null;
+    }
+  }, [setStatus, t, setSessionRunState]);
 
   useEffect(() => {
     setLastBudget(null);
@@ -384,6 +407,18 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     };
   }, [applyRunSnapshot, currentSessionId, setStatus]);
 
+  const historySessionIdsKey = useMemo(
+    () => sessions.slice(0, 20).map((s) => s.id).join('\0'),
+    [sessions],
+  );
+
+  useEffect(() => {
+    if (!showHistory) return;
+    const ids = historySessionIdsKey.split('\0').filter(Boolean);
+    if (ids.length === 0) return;
+    void syncManyActiveRunIndicators(ids);
+  }, [showHistory, historySessionIdsKey]);
+
   const handleManyRunStatus = useCallback(
     (run: PersistentRun) => {
       if (!['completed', 'failed', 'cancelled'].includes(run.status)) {
@@ -403,6 +438,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       setIsLoading(false);
       setStatus('idle');
       setPendingApproval(null);
+      const runSid = run.sessionId || activeRunSessionIdRef.current;
+      if (runSid) {
+        setSessionRunState(runSid, null);
+      }
+      activeRunSessionIdRef.current = null;
 
       const isCancelled = run.status === 'cancelled';
       const isFailed = run.status === 'failed';
@@ -416,17 +456,15 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         const metaToolCallsRaw = Array.isArray(run.metadata?.toolCalls)
           ? (run.metadata.toolCalls as ToolCallData[])
           : [];
-        const metaToolCalls = coalesceDuplicateToolCalls(metaToolCallsRaw);
+        const streamToolCalls = coalesceDuplicateToolCalls(prev?.toolCalls ?? streamSnap?.toolCalls ?? []);
+        const toolCalls = mergeTerminalToolCalls(metaToolCallsRaw, streamToolCalls);
         if (prev) {
-          const toolCalls = metaToolCalls.length > 0 ? metaToolCalls : coalesceDuplicateToolCalls(prev.toolCalls ?? []);
-          // For failed runs with no output, append the error to the streamed content
           if (isFailed && errorMsg && !run.outputText) {
             return { ...prev, isStreaming: false, toolCalls, content: prev.content ? `${prev.content}\n\n${errorMsg}` : errorMsg };
           }
           return { ...prev, isStreaming: false, toolCalls };
         }
-        if (!run.outputText && metaToolCalls.length === 0) {
-          // For failed runs show the error instead of vanishing silently
+        if (!run.outputText && toolCalls.length === 0) {
           if (isFailed && errorMsg) {
             return {
               id: `run-${run.id}`,
@@ -445,15 +483,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           content: run.outputText || '',
           timestamp: run.updatedAt || Date.now(),
           isStreaming: false,
-          toolCalls: metaToolCalls,
+          toolCalls,
         };
       });
-      const metaToolCalls = coalesceDuplicateToolCalls(
+      const finalToolCalls = mergeTerminalToolCalls(
         Array.isArray(run.metadata?.toolCalls) ? (run.metadata.toolCalls as ToolCallData[]) : [],
+        coalesceDuplicateToolCalls(streamSnap?.toolCalls ?? []),
       );
-      const streamToolCalls = coalesceDuplicateToolCalls(streamSnap?.toolCalls ?? []);
-      const finalToolCalls: ToolCallData[] =
-        metaToolCalls.length > 0 ? metaToolCalls : streamToolCalls;
       const finalContent =
         (run.outputText || streamSnap?.content || '').trim() ||
         (isFailed && errorMsg ? errorMsg : '') ||
@@ -488,7 +524,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         void refreshSessionFromThreadRef
           .current()
           .then((hydrated) => {
-            if (!hydrated && attemptsLeft > 0) {
+            if (hydrated) {
+              requestAnimationFrame(() => scrollToBottomRef.current(true));
+            } else if (attemptsLeft > 0) {
               setTimeout(() => tryRefresh(attemptsLeft - 1), 600);
             }
           })
@@ -497,11 +535,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           });
       };
       tryRefresh(2);
+      requestAnimationFrame(() => scrollToBottomRef.current(true));
       if (run.status === 'completed') {
         window.dispatchEvent(new Event('dome:resources-changed'));
       }
     },
-    [addMessage, setStatus, t],
+    [addMessage, setStatus, t, setSessionRunState],
   );
 
   const handleManyPendingApproval = useCallback(
@@ -565,6 +604,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         };
       });
     },
+    onStreamingActivity: () => {
+      const sid = activeRunSessionIdRef.current;
+      if (sid) setSessionRunState(sid, 'streaming');
+    },
     t,
   });
 
@@ -593,6 +636,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     },
     [prefersReducedMotion],
   );
+  scrollToBottomRef.current = scrollToBottom;
 
   useEffect(() => {
     scrollToBottom();
@@ -627,8 +671,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     if (petPromptOverride) {
       return petPromptOverride;
     }
+    if (soulContent.trim()) {
+      return soulContent.trim();
+    }
     return buildManyFloatingPrompt();
-  }, [petPromptOverride]);
+  }, [petPromptOverride, soulContent]);
 
   const hasAgentStream = typeof window !== 'undefined' && !!window.electron?.ai?.streamAgent;
 
@@ -706,8 +753,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       preparedAttachments,
       t('chat.attachment_extraction_empty'),
     );
-    const userMessage = userRunMessage.content;
-    if (!userMessage) return;
+    const userMessage = redactBase64FromText(userRunMessage.content);
+    const hasAttachments =
+      (userRunMessage.attachments?.images?.length ?? 0) > 0 ||
+      (userRunMessage.attachments?.videos?.length ?? 0) > 0;
+    if (!userMessage && !hasAttachments) return;
 
     if (pdfRegionStreamingMessage?.isStreaming) return;
 
@@ -737,7 +787,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setCompactionNotice(null);
     setAbortController(null);
 
-    addMessage({ role: 'user', content: userMessage });
+    addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
+    if (currentSessionId) {
+      activeRunSessionIdRef.current = currentSessionId;
+      setSessionRunState(currentSessionId, 'thinking');
+    }
     scrollToBottom(true);
 
     const fullResponse = '';
@@ -999,6 +1053,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     pdfRegionStreamingMessage?.isStreaming,
     t,
     chatAttachments,
+    setSessionRunState,
   ]);
 
   useEffect(() => {
@@ -1077,6 +1132,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           citationMap: buildCitationMap(toolCalls as Array<{ name: string; result?: unknown }> | undefined),
           thinking: m.thinking,
           pdfRegionMeta: m.pdfRegionMeta,
+          attachments: m.attachments,
         };
       }),
     [messages],

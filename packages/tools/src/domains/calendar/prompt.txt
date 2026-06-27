@@ -1,0 +1,26 @@
+# Calendar tools — operational guide
+
+Load this doc (`dome_load_doc({ id: "calendar_tool" })`) before creating or mutating calendar events.
+
+## Tool map
+| Tool | Action | Notes |
+|------|--------|-------|
+| `calendar_list_events` | List events in range | Optional `start_at`, `end_at`, `calendar_ids` |
+| `calendar_get_upcoming` | Next N upcoming events | Optional `window_minutes` (default ~7 days / 10080; use 180 for hours, 1440 for ~1 day) and `limit` (default 10) |
+| `calendar_create_event` | Create event | **Never** generate .ics or ask user to import manually |
+| `calendar_update_event` | Patch event | Requires `event_id` from list; only send changed fields |
+| `calendar_delete_event` | Delete event | Confirm with user unless they explicitly asked to delete |
+
+## Parameters (IPC-backed)
+- **Times**: ISO 8601 strings, e.g. `2026-03-15T17:15:00` (required for create: `title`, `start_at`, `end_at`).
+- **All-day**: set `all_day: true` when appropriate.
+- **Reminders**: array of `{ minutes: N }` — default `[{"minutes": 1440}, {"minutes": 120}]` (1 day + 2 hours) when user does not specify.
+- **Infer dates**: "mañana"/"tomorrow" → next calendar day; "hoy"/"today" → today; "próxima semana" → appropriate day within 7 days.
+- **Infer time**: In Spain/Europe, "5:15" or "las 5" for meetings often means 17:15 (PM). Ask AM/PM only when truly ambiguous.
+
+## Flow
+1. User asks what's scheduled → `calendar_get_upcoming` or `calendar_list_events`.
+2. User asks to add event → infer date/time → `calendar_create_event`.
+3. User asks to change/cancel → `calendar_list_events` for `event_id` → `calendar_update_event` or `calendar_delete_event`.
+
+You have direct access to the user's calendar. USE calendar tools when they ask about events; NEVER say you lack access.

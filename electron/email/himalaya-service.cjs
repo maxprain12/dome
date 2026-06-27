@@ -117,9 +117,72 @@ function rowToAccount(row, { withSecret = false } = {}) {
     is_default: !!row.is_default,
     status: row.status || 'active',
     secret_masked: maskSecret(decryptSecret(row.secret)),
+    user_actions: parseEmailActionsJson(row.user_actions, DEFAULT_USER_ACTIONS),
+    agent_actions: parseEmailActionsJson(row.agent_actions, DEFAULT_AGENT_ACTIONS),
   };
   if (withSecret) account._secret = decryptSecret(row.secret);
   return account;
+}
+
+const DEFAULT_USER_ACTIONS = Object.freeze({
+  list: true, read: true, search: true, send: true, reply: true,
+});
+const DEFAULT_AGENT_ACTIONS = Object.freeze({
+  list: true, read: true, search: true, send: false, reply: false,
+});
+
+function parseEmailActionsJson(raw, fallback) {
+  if (!raw) return { ...fallback };
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object') return { ...fallback };
+    return {
+      list: parsed.list !== false,
+      read: parsed.read !== false,
+      search: parsed.search !== false,
+      send: typeof parsed.send === 'boolean' ? parsed.send : fallback.send,
+      reply: typeof parsed.reply === 'boolean' ? parsed.reply : fallback.reply,
+    };
+  } catch {
+    return { ...fallback };
+  }
+}
+
+function serializeEmailActions(actions, fallback) {
+  const merged = { ...fallback, ...(actions || {}) };
+  return JSON.stringify({
+    list: merged.list !== false,
+    read: merged.read !== false,
+    search: merged.search !== false,
+    send: merged.send === true,
+    reply: merged.reply === true,
+  });
+}
+
+function getAccountActionPermissions(accountId) {
+  const row = getAccountRow(accountId);
+  if (!row) {
+    return { user: { ...DEFAULT_USER_ACTIONS }, agent: { ...DEFAULT_AGENT_ACTIONS } };
+  }
+  return {
+    user: parseEmailActionsJson(row.user_actions, DEFAULT_USER_ACTIONS),
+    agent: parseEmailActionsJson(row.agent_actions, DEFAULT_AGENT_ACTIONS),
+  };
+}
+
+function updateAccountPermissions(accountId, { user_actions, agent_actions } = {}) {
+  const row = getAccountRow(accountId);
+  if (!row) return { success: false, error: 'Account not found' };
+  const userJson = user_actions
+    ? serializeEmailActions(user_actions, DEFAULT_USER_ACTIONS)
+    : row.user_actions || serializeEmailActions(DEFAULT_USER_ACTIONS, DEFAULT_USER_ACTIONS);
+  const agentJson = agent_actions
+    ? serializeEmailActions(agent_actions, DEFAULT_AGENT_ACTIONS)
+    : row.agent_actions || serializeEmailActions(DEFAULT_AGENT_ACTIONS, DEFAULT_AGENT_ACTIONS);
+  db()
+    .prepare('UPDATE email_accounts SET user_actions = ?, agent_actions = ?, updated_at = ? WHERE id = ?')
+    .run(userJson, agentJson, Date.now(), accountId);
+  return { success: true, accounts: listAccounts().accounts };
 }
 
 function getAccountRow(accountId) {
@@ -153,9 +216,11 @@ function addAccount(input) {
     .prepare(
       `INSERT INTO email_accounts
         (id, email, display_name, imap_host, imap_port, imap_encryption,
-         smtp_host, smtp_port, smtp_encryption, username, secret, is_default, status, created_at, updated_at)
+         smtp_host, smtp_port, smtp_encryption, username, secret, is_default, status,
+         user_actions, agent_actions, created_at, updated_at)
        VALUES (@id,@email,@display_name,@imap_host,@imap_port,@imap_encryption,
-         @smtp_host,@smtp_port,@smtp_encryption,@username,@secret,@is_default,'active',@now,@now)`,
+         @smtp_host,@smtp_port,@smtp_encryption,@username,@secret,@is_default,'active',
+         @user_actions,@agent_actions,@now,@now)`,
     )
     .run({
       id,
@@ -170,6 +235,8 @@ function addAccount(input) {
       username: input.username || input.email,
       secret: encryptSecret(input.password || ''),
       is_default: isDefault,
+      user_actions: serializeEmailActions(input.user_actions, DEFAULT_USER_ACTIONS),
+      agent_actions: serializeEmailActions(input.agent_actions, DEFAULT_AGENT_ACTIONS),
       now,
     });
 
@@ -527,6 +594,9 @@ module.exports = {
   listAccounts,
   addAccount,
   removeAccount,
+  updateAccountPermissions,
+  getAccountActionPermissions,
+  resolveAccountId,
   testConnection,
   listFolders,
   listEnvelopes,

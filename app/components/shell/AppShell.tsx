@@ -18,11 +18,16 @@ import { useTranscriptionStore } from '@/lib/transcription/useTranscriptionStore
 import ApprovalProvider from '@/components/approval/ApprovalProvider';
 import CommandPalette from '@/components/search/CommandPalette';
 import { installDomeUiActionBridge } from '@/lib/shell/domeUiActionBridge';
+import {
+  LAYOUT_DEFAULTS,
+  LAYOUT_RESET_EVENT,
+  MANY_PANEL_WIDTH_KEY,
+} from '@/lib/shell/layoutReset';
 
-const MANY_WIDTH_KEY = 'dome:many-panel-width-v1';
+const MANY_WIDTH_KEY = MANY_PANEL_WIDTH_KEY;
 const MANY_MIN = 280;
 const MANY_MAX = 600;
-const MANY_DEFAULT = 380;
+const MANY_DEFAULT = LAYOUT_DEFAULTS.manyPanelWidth;
 
 function readInt(key: string, fallback: number, min: number, max: number): number {
   try {
@@ -75,7 +80,7 @@ function ManyPanelWithSuspense(props: ManyPanelWithSuspenseProps) {
 
 export default function AppShell() {
   const { t } = useTranslation();
-  const [manyWidth, setManyWidth] = useState(MANY_DEFAULT);
+  const [manyWidth, setManyWidth] = useState<number>(MANY_DEFAULT);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
   /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
   const [manyRightOverride, setManyRightOverride] = useState(false);
@@ -102,6 +107,22 @@ export default function AppShell() {
 
   useEffect(() => {
     setManyWidth(readInt(MANY_WIDTH_KEY, MANY_DEFAULT, MANY_MIN, MANY_MAX));
+  }, []);
+
+  useEffect(() => {
+    const onLayoutReset = () => {
+      setManyWidth(MANY_DEFAULT);
+      useResizeStore.setState({
+        leftSidebarWidth: LAYOUT_DEFAULTS.leftSidebarWidth,
+        rightSidebarWidth: LAYOUT_DEFAULTS.rightSidebarWidth,
+        chatSidebarWidth: LAYOUT_DEFAULTS.chatSidebarWidth,
+        leftSidebarCollapsed: false,
+        rightSidebarCollapsed: true,
+        chatSidebarCollapsed: false,
+      });
+    };
+    window.addEventListener(LAYOUT_RESET_EVENT, onLayoutReset);
+    return () => window.removeEventListener(LAYOUT_RESET_EVENT, onLayoutReset);
   }, []);
 
   /** agent ui_* actions — exactly one ipcRenderer listener app-wide */

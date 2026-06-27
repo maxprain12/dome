@@ -2,7 +2,7 @@
 
 Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 
-**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → (VPS) AI review → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-010); `pnpm run lint` surfaces renderer rules in the IDE.
+**The only manual step is writing the initial prompt.** Branch → implement → PR → CI → auto-merge. See [docs/principles.md](docs/principles.md) for invariants (P-001…P-010); `pnpm run lint` surfaces renderer rules in the IDE.
 
 ---
 
@@ -10,7 +10,7 @@ Execution harness for AI agents (Cursor, Claude, Copilot, etc.).
 
 - **Stack**: Electron 41 + Vite 7 + React 18 + React Router 7 + TypeScript (strict)
 - **Renderer** (`app/`): SPA, entry `app/main.tsx`. **No Node.js APIs.**
-- **Main** (`electron/`): `better-sqlite3`, full OS. **IPC** via `electron/preload.cjs` → `window.electron.invoke('channel', args)`.
+- **Main** (`electron/`): `better-sqlite3` + `@dome/db` (Drizzle incremental), worker threads for heavy reads/extraction. **IPC** via `electron/preload.cjs` → `window.electron.invoke('channel', args)`.
 - **State**: Zustand (`app/lib/store/`), Jotai for local UI
 - **Styling**: Tailwind + CSS variables — never hardcoded hex in inline styles
 - **i18n**: `app/lib/i18n.ts` — en, es, fr, pt (default `es`)
@@ -69,23 +69,7 @@ gh pr merge --auto --squash
 
 ### Step 6 — Done
 
-- **CI** (GitHub): typecheck, lint, build, architecture guard, IPC inventory, dependency-cruiser
-- **AI code review (VPS)**: *not* `.github/workflows/ai-review.yml` — see [docs/architecture/decisions/0001-ai-review-on-vps.md](docs/architecture/decisions/0001-ai-review-on-vps.md)
-  - **Cron** `scripts/vps-pr-review.sh` (e.g. :23/:53) for open PRs; dedupe per PR SHA
-  - **Inline** in `scripts/vps-audit.sh` before `gh pr merge --auto` for audit PRs
-- Dashboard (operator): e.g. `/var/www/dome-audit/index.html` on the audit host
-
----
-
-## Prompts (versioned)
-
-
-| What                 | Where                                                             |
-| -------------------- | ----------------------------------------------------------------- |
-| AI review (3 passes) | `prompts/review/*.md` + `scripts/ai-review.mjs`                   |
-| VPS audits           | `prompts/audits/<focus>.md` + `prompts/shared/project-context.md` |
-| Version bump         | Change `version:` in frontmatter when prompt semantics change     |
-
+- **CI** (GitHub Actions, `.github/workflows/ci.yml`): typecheck, lint, build, architecture guard, IPC inventory, dependency-cruiser, asar-unpack check
 
 ---
 
@@ -103,8 +87,7 @@ gh pr merge --auto --squash
 | i18n                      | [app/lib/i18n.ts](app/lib/i18n.ts)                                                                                |
 | IPC domain files          | [electron/ipc/](electron/ipc/)                                                                                    |
 | Skills                    | `~/.dome/skills/`, `.dome/skills/`, [electron/skills/bundled/](electron/skills/bundled/) — [CLAUDE.md](CLAUDE.md) |
-| Audit milestones          | [scripts/audit-milestones.json](scripts/audit-milestones.json)                                                    |
-| VPS setup                 | [docs/vps-audit-setup.md](docs/vps-audit-setup.md)                                                                |
+| Database / Drizzle        | [docs/features/database.md](docs/features/database.md), [.claude/sops/drizzle-domain-migration.md](.claude/sops/drizzle-domain-migration.md) |
 
 
 

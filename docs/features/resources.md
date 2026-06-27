@@ -90,7 +90,7 @@ interface DBResponse<T> {
 
 Convenciones opcionales en `metadata.dome_kb` (`wikiRole`, `reindexOnSave`, `topicId`) para pipelines de investigación tipo wiki. Ver [kb-llm-wiki-model.md](./kb-llm-wiki-model.md) e [indexing.md](./indexing.md) (reindex semántico).
 
-Plantillas de prompt: `[prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.md)`, `[prompts/kb-wiki-health.md](../prompts/kb-wiki-health.md)`.
+Plantillas de prompt: [`packages/prompts/surfaces/kb-wiki/compile.md`](../packages/prompts/surfaces/kb-wiki/compile.md), [`health.md`](../packages/prompts/surfaces/kb-wiki/health.md).
 
 ## Design patterns
 

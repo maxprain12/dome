@@ -12,7 +12,7 @@ const streamingTts = require('../transcription/streaming-tts.cjs');
 const { getOpenAIKey } = require('../ai/openai-key.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
-const { readPrompt } = require('../prompts/prompts-loader.cjs');
+const { readCoreSection } = require('../prompts/tool-prompt-loader.cjs');
 const logger = require('../core/logger.cjs');
 const { notifyError } = require('../core/error-notify.cjs');
 const runLifecycle = require('./run-lifecycle.cjs');
@@ -367,6 +367,9 @@ function persistAssistantMessage(sessionId, payload) {
     timestamp,
     sessionId,
   );
+  if (_windowManager?.broadcast) {
+    _windowManager.broadcast('chat:session-updated', { sessionId, at: timestamp });
+  }
 }
 
 function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
@@ -610,9 +613,11 @@ async function executeAgentRun(runId, params) {
     useDirectTools: useDirectToolsRun,
     mcpServerIds: params.mcpServerIds,
     subagentIds: params.ownerType === 'many' ? manySubagentIds() : params.subagentIds,
-    skipHitl: !!params.skipHitl,
-    automationProjectId,
-    runtimeContext,
+      skipHitl: !!params.skipHitl,
+      automationProjectId,
+      automationId: params.automationId ?? null,
+      ownerType: params.ownerType,
+      runtimeContext,
   };
 
   // Single-agent surface: Many (ownerType 'many') and agent-chat (ownerType
@@ -638,6 +643,8 @@ async function executeAgentRun(runId, params) {
       signal: context.controller.signal,
       onChunk: createRunChunkEmitter(runId, context),
       automationProjectId,
+      automationId: params.automationId ?? null,
+      ownerType: params.ownerType,
       runtimeContext,
       userMemory: params.userMemory ?? null,
     });
@@ -1058,7 +1065,9 @@ function buildAutomationMessages(automation, title, targetLabel) {
     }
   }
   if (automation.targetType === 'many') {
-    const manyPersona = readPrompt('martin/floating-base.txt') || readPrompt('martin/base.txt') || '';
+    const contextFiles = require('../personality/context-files.cjs');
+    const { soul } = contextFiles.loadContextFiles();
+    const manyPersona = soul.trim() || readCoreSection('roleMany') || '';
     return [
       { role: 'system', content: buildDomeSystemPrompt({ staticPersona: manyPersona.trim() }) },
       { role: 'user', content: userContent },

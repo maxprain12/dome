@@ -1,5 +1,15 @@
 import type { ManyChatSession, ManyMessage } from '@/lib/store/useManyStore';
 import { db } from '@/lib/db/client';
+import {
+  deriveManySessionTitle,
+  sanitizeManySessionTitle,
+} from '@/lib/chat/manySessionTitle';
+
+export {
+  deriveManySessionTitle,
+  isTrivialManySessionTitle,
+  sanitizeManySessionTitle,
+} from '@/lib/chat/manySessionTitle';
 
 /** Legacy localStorage blob (pre-JSONL); read once for migration, not written anymore. */
 export const SESSIONS_STORAGE_KEY = 'dome-many-sessions:v1';
@@ -208,30 +218,16 @@ export function setPersistedCurrentManySessionId(sessionId: string | null): void
   persistManySessionsMeta(meta);
 }
 
-/** Avoid markdown images / JSON blobs as session titles in the sidebar. */
-export function sanitizeManySessionTitle(text: string): string {
-  let s = String(text || '').trim();
-  if (!s) return 'New chat';
-  s = s
-    .replace(/!\[[^\]]*]\([^)]+\)/g, '')
-    .replace(/```[\s\S]*?```/g, '')
-    .replace(/\{"tools"[\s\S]*?\}/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-  const firstLine = s.split('\n').map((line) => line.trim()).find(Boolean) ?? s;
-  const title = firstLine.slice(0, 50).trim();
-  return title || 'New chat';
-}
-
 function normalizeLoadedSession(session: ManyChatSession): ManyChatSession {
   const fallbackTitle =
     session.messages.find((m: ManyMessage) => m.role === 'user')?.content ?? '';
   return {
     ...session,
-    title:
-      !session.title || session.title === 'New chat'
-        ? sanitizeManySessionTitle(fallbackTitle)
-        : sanitizeManySessionTitle(session.title),
+    title: deriveManySessionTitle({
+      storedTitle: session.title,
+      messages: session.messages,
+      firstUser: fallbackTitle,
+    }),
     updatedAt:
       session.updatedAt ??
       session.messages[session.messages.length - 1]?.timestamp ??

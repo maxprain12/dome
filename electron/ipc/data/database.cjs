@@ -725,8 +725,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         const masked = maskSettingForRenderer(queries, key);
         return { success: true, data: masked, hasSecret: Boolean(masked) };
       }
-      const result = queries.getSetting.get(key);
-      return { success: true, data: result ? result.value : null };
+      const result = database.getSettingsRepo().get(key);
+      return { success: true, data: result };
     } catch (error) {
       console.error('[DB] Error getting setting:', error);
       return { success: false, error: error.message };
@@ -742,7 +742,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // would destroy the stored secret.
         if (!isMaskedSecret(value)) writeSettingSecret(queries, key, value);
       } else {
-        queries.setSetting.run(key, value, Date.now());
+        database.getSettingsRepo().set(key, value, Date.now());
       }
       return { success: true };
     } catch (error) {

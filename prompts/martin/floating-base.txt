@@ -1,3 +1,0 @@
-# DEPRECATED — use prompts/martin/core/role-many.txt
-
-This file is kept for backward compatibility only. Many persona is assembled from `core/role-many.txt` via `buildManyRolePrompt()` / `buildManyFloatingPrompt()`.

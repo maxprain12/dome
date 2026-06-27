@@ -114,9 +114,12 @@ IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
 **SQLite** (`electron/core/database.cjs` via `better-sqlite3`):
 
 - Stored at `app.getPath('userData')/dome.db`
-- Key tables: `projects`, `resources`, `sources`, `tags`, `interactions`, `settings`
-- Full-text search via FTS5
+- Legacy schema HEAD: `settings.schema_version = 53` (`electron/core/db/migrations.cjs`)
+- **Drizzle incremental:** `@dome/db` (`packages/db/`) — baseline post-v53, repos piloto (settings, tags); bridge in `electron/core/db/drizzle-bridge.cjs`
+- FTS5 + triggers: raw SQL in `electron/core/db/fts-schema.cjs` (not Drizzle)
+- Heavy reads/extraction: `electron/workers/` (db-read, document-extract)
 - Accessed via `db:*` IPC channels from renderer
+- Docs: [docs/features/database.md](docs/features/database.md), SOP [.claude/sops/drizzle-domain-migration.md](.claude/sops/drizzle-domain-migration.md)
 
 **Semantic index** (`electron/services/embeddings.service.cjs`, LanceDB `dome-lance`):
 
@@ -191,7 +194,7 @@ dome/
 │   └── types/                  # TypeScript type definitions (global.d.ts has window.electron types)
 │
 ├── shared/prompt-assembler/     # Unified system-prompt assembler (MiniMax M-series sections)
-├── prompts/                     # System prompt templates (martin/core/*.txt, dome_load_doc bodies)
+├── prompts/                     # Editor/studio/review surfaces; core lives in packages/prompts/sections
 ├── electron/skills/bundled/     # Shipped SKILL.md packs (Claude-style Agent Skills)
 ├── public/
 │   ├── agents/                  # Agent definition JSON bundles (one dir per agent)
@@ -262,7 +265,7 @@ Artifacts are interactive mini-apps. Two kinds:
 - `app/lib/chat/artifactSchemas.ts` — Zod schemas + `parseArtifactSegments()` for streaming
 - `app/lib/ai/tools/artifact-tools.ts` — agent tools (`artifact_create`, `artifact_get`, `artifact_update_state`)
 
-**Prompt guidance** (loaded on-demand via `dome_load_doc`): `prompts/martin/artifacts.txt` (decision matrix, inline format rules) and `prompts/martin/artifact-persisted.txt` (full `artifact_create` API + `__dome_updateState` contract).
+**Prompt guidance** (loaded on-demand via `dome_load_doc`): `packages/tools/src/domains/artifacts/prompt.txt` (decision matrix, inline format rules) and `packages/tools/src/domains/artifacts/prompt-persisted.txt` (full `artifact_create` API + `__dome_updateState` contract).
 
 **`linked_resource_id`**: the DB column exists and the IPC accepts it, but automatic data-refresh from the linked resource into `DOME_DATA` is not yet implemented. Currently the agent must call `excel_get` + `artifact_update_state` manually to refresh an artifact from an Excel.
 

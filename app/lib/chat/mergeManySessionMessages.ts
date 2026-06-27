@@ -1,8 +1,19 @@
 import type { ManyMessage } from '@/lib/store/useManyStore';
 
+function toolCallRichness(
+  tc: NonNullable<ManyMessage['toolCalls']>[number],
+): number {
+  let score = 1;
+  if (tc.result !== undefined) score += 200;
+  if (tc.status === 'success' || tc.status === 'error') score += 20;
+  return score;
+}
+
 function messageRichness(message: ManyMessage): number {
   let score = message.content.length;
-  if (message.toolCalls?.length) score += 1000 + message.toolCalls.length * 100;
+  if (message.toolCalls?.length) {
+    score += 1000 + message.toolCalls.reduce((sum, tc) => sum + toolCallRichness(tc), 0);
+  }
   if (message.thinking) score += 500;
   return score;
 }
@@ -15,8 +26,16 @@ function messagesLikelySame(a: ManyMessage, b: ManyMessage): boolean {
   if (aContent.length > 0 && bContent.length > 0) {
     const prefixLen = Math.min(120, aContent.length, bContent.length);
     if (aContent.slice(0, prefixLen) === bContent.slice(0, prefixLen)) return true;
+    if (aContent.includes(bContent) || bContent.includes(aContent)) return true;
   }
+  const aTools = a.toolCalls?.length ?? 0;
+  const bTools = b.toolCalls?.length ?? 0;
+  if (aTools > 0 && aTools === bTools && !aContent && !bContent) return true;
   return Math.abs(a.timestamp - b.timestamp) < 8000;
+}
+
+function totalRichness(messages: ManyMessage[]): number {
+  return messages.reduce((sum, message) => sum + messageRichness(message), 0);
 }
 
 /**
@@ -31,7 +50,9 @@ export function mergeManySessionMessages(local: ManyMessage[], db: ManyMessage[]
   const dbAssistants = db.filter((m) => m.role === 'assistant').length;
 
   if (db.length >= local.length && dbAssistants >= localAssistants) {
-    return [...db];
+    if (totalRichness(db) >= totalRichness(local)) {
+      return [...db];
+    }
   }
 
   const result = [...local];

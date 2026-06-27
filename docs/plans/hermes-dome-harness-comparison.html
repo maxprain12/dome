@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hermes vs Dome — Agent Harness Comparison</title>
+  <style>
+    :root {
+      --bg: #0f1419;
+      --surface: #1a2332;
+      --border: #2d3a4f;
+      --text: #e7ecf3;
+      --muted: #8b9cb3;
+      --accent: #3d9970;
+      --partial: #d4a017;
+      --gap: #c0392b;
+      --ok: #27ae60;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+    .subtitle { color: var(--muted); font-size: 0.9rem; }
+    nav.tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 1rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    nav.tabs button {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.85rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    nav.tabs button.active {
+      border-color: var(--accent);
+      background: rgba(61, 153, 112, 0.15);
+    }
+    .filters {
+      padding: 0.75rem 2rem;
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .filters label { display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+    main { padding: 1rem 2rem 3rem; max-width: 1200px; }
+    section.panel { display: none; }
+    section.panel.active { display: block; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 0.65rem 0.75rem;
+      vertical-align: top;
+      text-align: left;
+    }
+    th { background: var(--surface); }
+    .status { font-weight: 600; white-space: nowrap; }
+    .status.done { color: var(--ok); }
+    .status.partial { color: var(--partial); }
+    .status.gap { color: var(--gap); }
+    tr.hidden { display: none; }
+    pre.diagram {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.8rem;
+      border-radius: 8px;
+    }
+    .legend { display: flex; gap: 1.5rem; margin-top: 1rem; font-size: 0.8rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hermes vs Dome — Agent Harness</h1>
+    <p class="subtitle">Comparativa sin gateways (Telegram/Slack). Actualizado en rama <code>cleanup</code> — milestones 2.7 / 2.8.</p>
+  </header>
+
+  <nav class="tabs" id="tabs"></nav>
+
+  <div class="filters">
+    <span>Filtrar filas:</span>
+    <label><input type="checkbox" id="f-done" checked /> Implementado</label>
+    <label><input type="checkbox" id="f-partial" checked /> Parcial</label>
+    <label><input type="checkbox" id="f-gap" checked /> Pendiente</label>
+  </div>
+
+  <main id="main"></main>
+
+  <script>
+    const DATA = [
+      {
+        id: 'loop',
+        title: 'Agent loop',
+        rows: [
+          ['Turn loop (prompt → tools → repeat)', 'Core loop + tool results fed back', '@dome/agent-core AgentHarness + runAgentLoop', 'done', 'Nativo; sin LangGraph'],
+          ['Post-turn memory write', 'Analyze turn → update memory.md', 'remember_fact tool + manual MEMORY.md', 'partial', 'Sin reflexión automática post-turn'],
+          ['Scheduled / cron jobs', 'jobs.json + interval', 'Automations + run-engine', 'partial', 'Distinto modelo; no jobs.json'],
+        ],
+        diagram: `User message → build context → LLM → tools? → results → LLM → response
+                              ↓
+                    (Hermes) memory.md update
+                    (Dome)   JSONL session + optional SQLite trace`,
+      },
+      {
+        id: 'context',
+        title: 'Context files',
+        rows: [
+          ['soul.md in every turn', 'Always in context', 'SOUL.md via personality IPC → staticPersona', 'done', 'Many + agent-chat + automations Many'],
+          ['user.md in every turn', 'Always in context', 'USER.md in volatileContext / userMemory', 'done', 'Ya no gated por toggle lectura'],
+          ['memory.md in every turn', 'Always in context', 'MEMORY.md + recent daily logs', 'done', 'Toggle UI solo controla escritura (remember_fact)'],
+          ['Project AGENTS.md', 'N/A', 'project-memory.cjs optional block', 'partial', 'Solo si project root configurado'],
+        ],
+      },
+      {
+        id: 'memory',
+        title: 'Memory & sessions',
+        rows: [
+          ['Long-term markdown files', 'soul / user / memory', '~/.dome/martin/*.md', 'done', 'personality-loader + context-files.cjs'],
+          ['Session history store', 'SQLite per session id', 'JSONL agent-sessions/ (primary)', 'done', 'SQLite chat_sessions secundario (dashboard)'],
+          ['External memory (mem0, etc.)', 'Optional providers', 'MCP memory servers', 'partial', 'Integración vía MCP, no nativa'],
+        ],
+      },
+      {
+        id: 'compaction',
+        title: 'Compaction',
+        rows: [
+          ['Threshold (~50% window)', 'Configurable', 'DEFAULT_COMPACTION_SETTINGS + shouldCompact', 'done', 'buildCompaction en agent-runtime.cjs'],
+          ['Structured summary', 'Goal, progress, blockers, files', 'SUMMARIZATION_PROMPT + Files & Artifacts section', 'done', 'Alineado con Hermes en agent-core'],
+          ['UI visibility', 'N/A', 'ContextUsageIndicator + compaction chunk', 'done', 'Many header donut'],
+        ],
+      },
+      {
+        id: 'tools',
+        title: 'Tools',
+        rows: [
+          ['Definition source of truth', 'Co-located with runtime', '@dome/tools families + renderer IPC handlers', 'partial', 'Migración incremental; memory family unificada'],
+          ['Execution', 'In-process', 'Main process tool-dispatcher.cjs', 'done', 'Renderer define, main execute'],
+          ['MCP tools', 'N/A', 'mcp-client + policy', 'done', 'Dome-specific'],
+        ],
+      },
+      {
+        id: 'images',
+        title: 'Images in chat',
+        rows: [
+          ['Multimodal user messages', 'In history', 'message-multimodal.cjs + attachmentsToImageContent', 'done', 'runAgent prompt images'],
+          ['Persist in JSONL session', 'Yes', 'Harness session entries', 'partial', 'Verificar tras compactación en sesiones largas'],
+          ['Vision models catalog', 'Provider-specific', 'models.ts + STATIC_MODEL_INPUT', 'done', 'Multi-provider'],
+        ],
+      },
+    ];
+
+    const tabsEl = document.getElementById('tabs');
+    const mainEl = document.getElementById('main');
+
+    function statusClass(s) {
+      return s === 'done' ? 'done' : s === 'partial' ? 'partial' : 'gap';
+    }
+
+    function renderPanels() {
+      mainEl.innerHTML = DATA.map((panel) => `
+        <section class="panel" id="panel-${panel.id}" data-panel="${panel.id}">
+          <h2>${panel.title}</h2>
+          <table>
+            <thead><tr><th>Dimensión</th><th>Hermes</th><th>Dome</th><th>Estado</th><th>Notas</th></tr></thead>
+            <tbody>
+              ${panel.rows.map(([dim, hermes, dome, st, notes]) => `
+                <tr data-status="${st}">
+                  <td>${dim}</td>
+                  <td>${hermes}</td>
+                  <td>${dome}</td>
+                  <td class="status ${statusClass(st)}">${st}</td>
+                  <td>${notes}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          ${panel.diagram ? `<pre class="diagram">${panel.diagram}</pre>` : ''}
+          <div class="legend">
+            <span><span class="status done">done</span> — paridad o superior</span>
+            <span><span class="status partial">partial</span> — funcional con gaps</span>
+            <span><span class="status gap">gap</span> — pendiente roadmap</span>
+          </div>
+        </section>
+      `).join('');
+    }
+
+    function setActiveTab(id) {
+      document.querySelectorAll('.tabs button').forEach((b) => {
+        b.classList.toggle('active', b.dataset.tab === id);
+      });
+      document.querySelectorAll('section.panel').forEach((p) => {
+        p.classList.toggle('active', p.dataset.panel === id);
+      });
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const show = {
+        done: document.getElementById('f-done').checked,
+        partial: document.getElementById('f-partial').checked,
+        gap: document.getElementById('f-gap').checked,
+      };
+      document.querySelectorAll('tbody tr[data-status]').forEach((tr) => {
+        const st = tr.getAttribute('data-status');
+        tr.classList.toggle('hidden', !show[st]);
+      });
+    }
+
+    DATA.forEach((p, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = p.title;
+      btn.dataset.tab = p.id;
+      btn.addEventListener('click', () => setActiveTab(p.id));
+      if (i === 0) btn.classList.add('active');
+      tabsEl.appendChild(btn);
+    });
+
+    renderPanels();
+    setActiveTab(DATA[0].id);
+
+    ['f-done', 'f-partial', 'f-gap'].forEach((id) => {
+      document.getElementById(id).addEventListener('change', applyFilters);
+    });
+  </script>
+</body>
+</html>

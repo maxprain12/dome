@@ -24,7 +24,7 @@ export type EditorAIAction =
   | 'explain'
   | 'custom';
 
-// Action prompts are loaded from prompts/editor/actions/*.txt via getEditorActionPrompt
+// Action prompts are loaded from packages/prompts/surfaces/editor/actions/*.txt via getEditorActionPrompt
 
 // =============================================================================
 // Main Function

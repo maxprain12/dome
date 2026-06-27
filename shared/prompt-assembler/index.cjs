@@ -16,8 +16,8 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-var index_exports = {};
-__export(index_exports, {
+var prompt_assembler_exports = {};
+__export(prompt_assembler_exports, {
   CORE_SECTION_KEYS: () => CORE_SECTION_KEYS,
   DOME_LOAD_DOC_DESCRIPTION: () => DOME_LOAD_DOC_DESCRIPTION,
   DOME_LOAD_DOC_IDS: () => DOME_LOAD_DOC_IDS,
@@ -33,8 +33,8 @@ __export(index_exports, {
   formatVolatileSourceContext: () => formatVolatileSourceContext,
   todayEnLong: () => todayEnLong
 });
-module.exports = __toCommonJS(index_exports);
-const PROMPT_VERSION = "minimax-v1";
+module.exports = __toCommonJS(prompt_assembler_exports);
+const PROMPT_VERSION = "minimax-v2";
 const DOME_LOAD_DOC_IDS = [
   "entity_rules",
   "artifacts",
@@ -47,9 +47,11 @@ const DOME_LOAD_DOC_IDS = [
   "calendar_tool",
   "flashcard_tool",
   "excel_notebook_tool",
-  "excel_artifact_tool"
+  "excel_artifact_tool",
+  "email_tool",
+  "github_tool"
 ];
-const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard).";
+const DOME_LOAD_DOC_DESCRIPTION = "Load a reference doc section on demand. Call BEFORE using tools that require it. Valid ids: entity_rules (before agent_create/workflow_create/automation_create/marketplace_install), artifacts (before emitting any artifact block), artifact_persisted (before artifact_create/artifact_update_state/artifact_delete), artifact_design (before artifact_create or artifact_design tool), feeders (before feeder_create/feeder_run), resource_links (if unsure about dome:// link format), ppt_tool (before ppt_create), docx_tool (before docx_create/docx_update), calendar_tool (before calendar_create_event), flashcard_tool (before flashcard_create), excel_notebook_tool (before Excel\u2192notebook pandas flow), excel_artifact_tool (before Excel\u2192artifact dashboard), email_tool (before email_list/email_search/email_send/email_reply), github_tool (before github_create_issue/github_create_milestone/github_update_issue).";
 const VOICE_LANGUAGE_NAMES = {
   es: "Spanish",
   en: "English",
@@ -75,7 +77,8 @@ function buildCoreToolsBlock(sections) {
   const parts = [];
   for (const key of CORE_SECTION_KEYS_LIST) {
     const text = sections[key];
-    if (typeof text === "string" && text.trim()) parts.push(text.trim());
+    if (typeof text === "string" && text.trim())
+      parts.push(text.trim());
   }
   return parts.join("\n\n");
 }
@@ -136,38 +139,48 @@ ${lines}`
 function buildDomeSystemPrompt(options, coreSections) {
   const sections = [];
   const persona = String(options.staticPersona || "").trim();
-  if (persona) sections.push(persona);
+  if (persona)
+    sections.push(persona);
   if (options.coreToolsMode !== "minimal") {
-    if (coreSections.constraintsLanguage) sections.push(coreSections.constraintsLanguage.trim());
+    if (coreSections.constraintsLanguage)
+      sections.push(coreSections.constraintsLanguage.trim());
   }
   if (!options.omitCoreTools) {
-    if (coreSections.appContext) sections.push(coreSections.appContext.trim());
+    if (coreSections.appContext)
+      sections.push(coreSections.appContext.trim());
     const toolsBlock = buildCoreToolsBlock(coreSections);
-    if (toolsBlock) sections.push(toolsBlock);
+    if (toolsBlock)
+      sections.push(toolsBlock);
   } else if (coreSections.toolGuardrails) {
     sections.push(coreSections.toolGuardrails.trim());
   }
   const catalog = options.skillsCatalogMarkdown && String(options.skillsCatalogMarkdown).trim();
-  if (catalog) sections.push(catalog);
+  if (catalog)
+    sections.push(catalog);
   const volatileParts = [];
   if (options.includeDate !== false) {
     volatileParts.push(`Current date: ${todayEnLong()}.`);
   }
   const volatile = options.volatileContext && String(options.volatileContext).trim();
-  if (volatile) volatileParts.push(volatile);
-  if (volatileParts.length) sections.push(volatileParts.join("\n\n"));
+  if (volatile)
+    volatileParts.push(volatile);
+  if (volatileParts.length)
+    sections.push(volatileParts.join("\n\n"));
   if (Array.isArray(options.extraSections)) {
     for (const extra of options.extraSections) {
-      if (typeof extra === "string" && extra.trim()) sections.push(extra.trim());
+      if (typeof extra === "string" && extra.trim())
+        sections.push(extra.trim());
     }
   }
   let assembled = sections.join("\n\n");
-  if (options.voiceLanguage) assembled += buildVoiceSuffix(options.voiceLanguage);
+  if (options.voiceLanguage)
+    assembled += buildVoiceSuffix(options.voiceLanguage);
   return assembled;
 }
 function buildSubagentPrompt(roleBody, taskDescription, sections = {}) {
   const parts = [roleBody.trim()];
-  if (sections.toolGuardrails) parts.push(sections.toolGuardrails.trim());
+  if (sections.toolGuardrails)
+    parts.push(sections.toolGuardrails.trim());
   parts.push(`Task: ${taskDescription.trim()}`);
   return parts.join("\n\n");
 }
@@ -186,7 +199,8 @@ function buildEditorPrompt(opts) {
 }
 function buildStudioPrompt(studioTemplate, taskHint) {
   const parts = [studioTemplate.trim()];
-  if (taskHint?.trim()) parts.push(`Task: ${taskHint.trim()}`);
+  if (taskHint?.trim())
+    parts.push(`Task: ${taskHint.trim()}`);
   return parts.join("\n\n");
 }
 function buildBenchPrompt(opts) {

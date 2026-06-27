@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { extractChatAttachmentText } = require('../../documents/document-extractor.cjs');
+const { extractInWorker } = require('../../workers/document-extract-service.cjs');
 const pdfExtractor = require('../../documents/pdf-extractor.cjs');
 
 function register({ ipcMain, app, windowManager, sanitizePath }) {
@@ -221,7 +221,7 @@ function register({ ipcMain, app, windowManager, sanitizePath }) {
         return { success: false, error: 'File not found' };
       }
       const name = path.basename(safePath);
-      const text = await extractChatAttachmentText(safePath);
+      const text = await extractInWorker('chatAttachment', safePath);
       let pageCount = null;
       if (path.extname(safePath).toLowerCase() === '.pdf') {
         try {

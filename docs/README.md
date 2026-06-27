@@ -1,11 +1,11 @@
 # Dome – índice de documentación
 
-Documentación del proyecto Dome (v2.3.5). Además de este índice:
+Documentación del proyecto Dome Desktop (**v2.7.7**). Además de este índice:
 
 - **[Principios de ingeniería](principles.md)** — P-001…P-010, citados por linters y auditorías.
 - **[Arquitectura](architecture/README.md)** — capas, dominios, IPC, ADRs, worktree.
 - **[Planes](plans/README.md)** — planes de ejecución versionados.
-- **[Calidad](quality/methodology.md)** — metodología y scorecard.
+- **[Flujo AI-first](features/ai-first-workflow.md)** — prompt → PR → CI → merge.
 
 ## Para usuarios finales
 
@@ -17,7 +17,18 @@ Documentación del proyecto Dome (v2.3.5). Además de este índice:
 
 | Documento | Descripción |
 | --------- | ----------- |
-| [Manual Técnico](manual-tecnico.md) | Arquitectura, IPC, esquema DB, build |
+| [Manual Técnico](manual-tecnico.md) | Arquitectura, IPC, SQLite + Drizzle, workers, build |
+| [AGENTS.md](../AGENTS.md) | Protocolo para agentes de código |
+| [CLAUDE.md](../CLAUDE.md) | Reglas críticas de arquitectura Electron |
+
+### Comandos útiles (DB / packages)
+
+```bash
+pnpm run build:packages      # @dome/db, @dome/agent-core, …
+pnpm run test:drizzle-spike  # smoke Drizzle (settings + tags)
+pnpm run db:perf-baseline    # métricas locales de dome.db
+pnpm run check:ipc-inventory # tras añadir canales IPC
+```
 
 ---
 
@@ -68,19 +79,29 @@ Documentación del proyecto Dome (v2.3.5). Además de este índice:
 
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
-| **Database** | [database.md](features/database.md) | SQLite, FTS5 |
-| **IPC** | [ipc.md](features/ipc.md) | Whitelist, preload (canal canónico: [architecture/ipc-channels.md](architecture/ipc-channels.md)) |
+| **Database** | [database.md](features/database.md) | SQLite v53, `@dome/db`, Drizzle bridge, FTS5, workers |
+| **IPC** | [ipc.md](features/ipc.md) | Whitelist, preload (canónico: [architecture/ipc-channels.md](architecture/ipc-channels.md)) |
 | **File storage** | [file-storage.md](features/file-storage.md) | dome-files |
 | **Settings** | [settings.md](features/settings.md) | Preferencias |
 | **Onboarding** | [onboarding.md](features/onboarding.md) | Welcome |
 | **Ollama** | [guia-instalacion-ollama.md](features/guia-instalacion-ollama.md) | Instalación local |
-| **VPS audit** | [vps-audit-setup.md](vps-audit-setup.md) | Auditorías programadas **(raíz `docs/`)** |
+
+### SOPs (`.claude/sops/`)
+
+| SOP | Uso |
+|-----|-----|
+| [drizzle-domain-migration.md](../.claude/sops/drizzle-domain-migration.md) | Migrar un dominio SQL a Drizzle |
+| [new-ipc-channel.md](../.claude/sops/new-ipc-channel.md) | Añadir canal IPC |
+| [pr-checklist.md](../.claude/sops/pr-checklist.md) | Antes de abrir PR |
 
 ---
 
-## Provider (backend)
+## Provider y marketing (otros repos)
 
-Documentación hermanada en el repo `dome-provider/` (rutas descritas en [MASTER.md](../MASTER.md)).
+| Repo | Documentación |
+|------|----------------|
+| **dome-provider** | Backend OAuth, proxy IA, billing — ver [MASTER.md](../MASTER.md) |
+| **landing-page-dome** | Sitio Astro, descarga, marca web — no vive en este repo |
 
 ---
 

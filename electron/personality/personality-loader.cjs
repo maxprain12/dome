@@ -244,6 +244,22 @@ function getRecentMemory(days = 7) {
 }
 
 /**
+ * Write or replace a daily memory log file (memory/YYYY-MM-DD.md).
+ * @param {string} date - YYYY-MM-DD
+ * @param {string} content
+ */
+function writeDailyMemory(date, content) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+    throw new Error('Invalid date format (expected YYYY-MM-DD)');
+  }
+  const memoryDir = path.join(getMartinDir(), 'memory');
+  if (!fs.existsSync(memoryDir)) {
+    fs.mkdirSync(memoryDir, { recursive: true });
+  }
+  fs.writeFileSync(path.join(memoryDir, `${date}.md`), String(content ?? ''), 'utf8');
+}
+
+/**
  * Construye el system prompt completo de Many
  * @param {Object} params
  * @param {Object} params.resourceContext - Contexto del recurso actual (opcional)
@@ -324,7 +340,7 @@ function buildSystemPrompt(params = {}) {
     sections.push(resourceSection);
   }
 
-  // Sección: Capacidades disponibles (desde prompts/martin/capabilities.txt)
+  // Sección: Capacidades disponibles (desde packages/prompts/sections/capabilities.txt)
   const promptsLoader = require('../prompts/prompts-loader.cjs');
   const capabilities = promptsLoader.getMartinCapabilities();
   sections.push(capabilities || `## Capabilities in Dome
@@ -421,6 +437,7 @@ module.exports = {
   getTodayMemory,
   addMemoryEntry,
   getRecentMemory,
+  writeDailyMemory,
   updateLongTermMemory,
 
   // Usuario
