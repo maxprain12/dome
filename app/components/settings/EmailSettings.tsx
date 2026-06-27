@@ -24,7 +24,37 @@ interface EmailAccount {
   is_default?: boolean;
   status?: string;
   secret_masked?: string | null;
+  user_actions?: EmailActionPermissions;
+  agent_actions?: EmailActionPermissions;
 }
+
+type EmailActionKey = 'list' | 'read' | 'search' | 'send' | 'reply';
+
+interface EmailActionPermissions {
+  list: boolean;
+  read: boolean;
+  search: boolean;
+  send: boolean;
+  reply: boolean;
+}
+
+const DEFAULT_USER_ACTIONS: EmailActionPermissions = {
+  list: true,
+  read: true,
+  search: true,
+  send: true,
+  reply: true,
+};
+
+const DEFAULT_AGENT_ACTIONS: EmailActionPermissions = {
+  list: true,
+  read: true,
+  search: true,
+  send: false,
+  reply: false,
+};
+
+const ACTION_KEYS: EmailActionKey[] = ['list', 'read', 'search', 'send', 'reply'];
 
 const EMPTY_FORM = {
   email: '',
@@ -37,6 +67,8 @@ const EMPTY_FORM = {
   smtp_encryption: 'tls',
   username: '',
   password: '',
+  user_actions: { ...DEFAULT_USER_ACTIONS },
+  agent_actions: { ...DEFAULT_AGENT_ACTIONS },
 };
 
 export default function EmailSettings() {
@@ -129,6 +161,8 @@ export default function EmailSettings() {
       const res = await window.electron.email.addAccount({
         ...form,
         username: form.username || form.email,
+        user_actions: form.user_actions,
+        agent_actions: form.agent_actions,
       });
       if (!res.success) {
         setError({ error: res.error || t('email.settings.add_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });
@@ -155,7 +189,12 @@ export default function EmailSettings() {
       setTestState('fail');
       return;
     }
-    const res = await window.electron.email.addAccount({ ...form, username: form.username || form.email });
+    const res = await window.electron.email.addAccount({
+      ...form,
+      username: form.username || form.email,
+      user_actions: form.user_actions,
+      agent_actions: form.agent_actions,
+    });
     if (!res.success) {
       setError({ error: res.error || t('email.settings.add_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });
       setTestState('fail');
@@ -172,6 +211,19 @@ export default function EmailSettings() {
       if (res.accountId) await window.electron.email.removeAccount(res.accountId);
     }
     await load();
+  };
+
+  const saveAccountPermissions = async (
+    accountId: string,
+    user_actions: EmailActionPermissions,
+    agent_actions: EmailActionPermissions,
+  ) => {
+    const res = await window.electron.email.updateAccountPermissions({
+      accountId,
+      user_actions,
+      agent_actions,
+    });
+    if (res.success) await load();
   };
 
   return (
@@ -195,26 +247,33 @@ export default function EmailSettings() {
         {accounts.map((acc) => (
           <div
             key={acc.id}
-            className="settings-split-row rounded-lg px-4 py-3"
+            className="rounded-lg px-4 py-3 space-y-3"
             style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
           >
-            <div>
-              <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
-                {acc.display_name || acc.email}
+            <div className="settings-split-row">
+              <div>
+                <div className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                  {acc.display_name || acc.email}
+                </div>
+                <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                  {acc.email} · {acc.imap_host}
+                  {acc.is_default ? ` · ${t('email.settings.default')}` : ''}
+                </div>
               </div>
-              <div className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                {acc.email} · {acc.imap_host}
-                {acc.is_default ? ` · ${t('email.settings.default')}` : ''}
-              </div>
+              <button
+                type="button"
+                onClick={() => handleRemove(acc.id)}
+                className="p-2 rounded-md hover:bg-[var(--dome-bg-hover)]"
+                title={t('email.settings.remove')}
+              >
+                <Trash2 className="size-4" style={{ color: 'var(--dome-error)' }} />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => handleRemove(acc.id)}
-              className="p-2 rounded-md hover:bg-[var(--dome-bg-hover)]"
-              title={t('email.settings.remove')}
-            >
-              <Trash2 className="size-4" style={{ color: 'var(--dome-error)' }} />
-            </button>
+            <EmailPermissionsEditor
+              userActions={acc.user_actions ?? DEFAULT_USER_ACTIONS}
+              agentActions={acc.agent_actions ?? DEFAULT_AGENT_ACTIONS}
+              onChange={(user_actions, agent_actions) => saveAccountPermissions(acc.id, user_actions, agent_actions)}
+            />
           </div>
         ))}
       </div>
@@ -272,6 +331,14 @@ export default function EmailSettings() {
             {t('email.settings.app_password_hint')}
           </p>
 
+          <EmailPermissionsEditor
+            userActions={form.user_actions}
+            agentActions={form.agent_actions}
+            onChange={(user_actions, agent_actions) =>
+              setForm((f) => ({ ...f, user_actions, agent_actions }))
+            }
+          />
+
           <EmailErrorNotice info={error} compact />
           {error?.errorCode === 'app_password_required' && (
             <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
@@ -314,6 +381,76 @@ export default function EmailSettings() {
         </div>
       )}
     </SettingsPanel>
+  );
+}
+
+function EmailPermissionsEditor({
+  userActions,
+  agentActions,
+  onChange,
+}: {
+  userActions: EmailActionPermissions;
+  agentActions: EmailActionPermissions;
+  onChange: (user: EmailActionPermissions, agent: EmailActionPermissions) => void;
+}) {
+  const { t } = useTranslation();
+
+  const toggle = (scope: 'user' | 'agent', key: EmailActionKey, value: boolean) => {
+    if (scope === 'user') {
+      onChange({ ...userActions, [key]: value }, agentActions);
+    } else {
+      onChange(userActions, { ...agentActions, [key]: value });
+    }
+  };
+
+  return (
+    <div
+      className="rounded-lg p-3 space-y-2"
+      style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+    >
+      <p className="text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+        {t('email.settings.permissions_title')}
+      </p>
+      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+        {t('email.settings.permissions_hint')}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr style={{ color: 'var(--dome-text-muted)' }}>
+              <th className="text-left py-1 pr-3 font-medium">{t('email.settings.permissions_action')}</th>
+              <th className="text-left py-1 px-2 font-medium">{t('email.settings.permissions_user')}</th>
+              <th className="text-left py-1 px-2 font-medium">{t('email.settings.permissions_agent')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ACTION_KEYS.map((key) => (
+              <tr key={key}>
+                <td className="py-1 pr-3" style={{ color: 'var(--dome-text)' }}>
+                  {t(`email.settings.permissions_${key}`)}
+                </td>
+                <td className="py-1 px-2">
+                  <input
+                    type="checkbox"
+                    checked={userActions[key]}
+                    onChange={(e) => toggle('user', key, e.target.checked)}
+                    aria-label={t('email.settings.permissions_user_aria', { action: t(`email.settings.permissions_${key}`) })}
+                  />
+                </td>
+                <td className="py-1 px-2">
+                  <input
+                    type="checkbox"
+                    checked={agentActions[key]}
+                    onChange={(e) => toggle('agent', key, e.target.checked)}
+                    aria-label={t('email.settings.permissions_agent_aria', { action: t(`email.settings.permissions_${key}`) })}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 

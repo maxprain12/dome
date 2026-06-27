@@ -512,6 +512,12 @@ export function useDashboardData(projectId: string | null = null): DashboardData
     const unsubscribeCreated = window.electron.on('resource:created', scheduleSilentReload);
     const unsubscribeUpdated = window.electron.on('resource:updated', scheduleSilentReload);
     const unsubscribeDeleted = window.electron.on('resource:deleted', scheduleSilentReload);
+    let unsubscribeChat: (() => void) | undefined;
+    try {
+      unsubscribeChat = window.electron.on('chat:session-updated', scheduleSilentReload);
+    } catch {
+      /* channel unavailable */
+    }
     let unsubscribeRuns: (() => void) | undefined;
     try {
       unsubscribeRuns = onRunUpdated(() => scheduleSilentReload());
@@ -524,6 +530,7 @@ export function useDashboardData(projectId: string | null = null): DashboardData
       unsubscribeCreated();
       unsubscribeUpdated();
       unsubscribeDeleted();
+      unsubscribeChat?.();
       unsubscribeRuns?.();
     };
   }, [load]);

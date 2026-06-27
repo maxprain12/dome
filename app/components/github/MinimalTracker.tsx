@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { Plus, Circle, CheckCircle2, Calendar, ChevronRight, Inbox, Target, Hash, X, CheckCircle, FileText } from 'lucide-react';
+import { Plus, Circle, CheckCircle2, Calendar, ChevronRight, Inbox, Target, Hash, X, CheckCircle, FileText, PanelRightOpen } from 'lucide-react';
 import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
@@ -340,7 +340,15 @@ function IssueRow({ issue, onOpenIssue, toggle }: IssueRowProps) {
  * Minimal "chill" tracker — the default mode. A calm, list-first view of
  * milestones and their issues with a one-line quick-add. No Kanban/Gantt/tabs.
  */
-export default function MinimalTracker({ query = '', onOpenIssue }: { query?: string; onOpenIssue: (id: string) => void }) {
+export default function MinimalTracker({
+  query = '',
+  onOpenIssue,
+  onOpenMilestone,
+}: {
+  query?: string;
+  onOpenIssue: (id: string) => void;
+  onOpenMilestone?: (milestoneId: string) => void;
+}) {
   const { t } = useTranslation();
   const milestones = useGitHubStore((s) => s.milestones);
   const allIssues = useGitHubStore((s) => s.issues);
@@ -471,6 +479,24 @@ export default function MinimalTracker({ query = '', onOpenIssue }: { query?: st
                         ? t('github.minimal_open_count_one', { count: list.length })
                         : t('github.minimal_open_count_other', { count: list.length })}
                     </span>
+                    {onOpenMilestone ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenMilestone(m.id)}
+                        className="shrink-0 inline-flex items-center justify-center rounded-md p-1"
+                        style={{ color: 'var(--dome-text-muted)' }}
+                        title={t('github.milestone_detail_open')}
+                        aria-label={t('github.milestone_detail_open')}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                        }}
+                      >
+                        <PanelRightOpen size={14} />
+                      </button>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
                     {dueLabel && (

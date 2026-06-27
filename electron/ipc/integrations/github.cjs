@@ -159,6 +159,18 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
+  ipcMain.handle('github:milestones:get', async (event, id) => {
+    if (!guard(event)) return fail('Unauthorized');
+    if (typeof id !== 'string') return fail('Invalid id');
+    try {
+      const milestone = store.getMilestone(id);
+      if (!milestone) return fail('Milestone not found');
+      return ok({ milestone });
+    } catch (err) {
+      return fail(err);
+    }
+  });
+
   ipcMain.handle('github:issues:list', async (event, repoId, opts) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');

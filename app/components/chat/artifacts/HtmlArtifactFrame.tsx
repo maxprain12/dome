@@ -7,8 +7,14 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { buildDomeThemeStyleContent, useDomeThemeSnapshot } from '@/lib/chat/useDomeThemeSnapshot';
 import i18n from '@/lib/i18n';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
+import {
+  buildArtifactNavigateBootScript,
+  DOME_ARTIFACT_MSG,
+  handleArtifactNavigateMessage,
+  openArtifactExternalUrl,
+} from '@/lib/chat/artifactIframeNavigate';
 
-const DOME_ARTIFACT = 'dome-artifact';
+const DOME_ARTIFACT = DOME_ARTIFACT_MSG;
 const DOME_THEME = 'dome:theme';
 const DOME_CSP = [
   "default-src 'none'",
@@ -65,6 +71,7 @@ ${DOME_IFRAME_STORAGE_SHIM_SCRIPT}
   });
   ${js ? js : ''}
 })();
+${buildArtifactNavigateBootScript()}
 </script>`.trim();
 
   return `<!DOCTYPE html><html><head>
@@ -113,6 +120,9 @@ export default function HtmlArtifactFrame({
   }, [artifact]);
 
   const onMsg = useCallback((ev: MessageEvent) => {
+    if (handleArtifactNavigateMessage(ev, iframeRef.current?.contentWindow, openArtifactExternalUrl)) {
+      return;
+    }
     if (ev.source !== iframeRef.current?.contentWindow) return;
     const d = ev.data;
     if (!d || d.type !== DOME_ARTIFACT) return;

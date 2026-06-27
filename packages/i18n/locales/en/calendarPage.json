@@ -38,5 +38,7 @@
   "google_settings": "Google & sync",
   "google_settings_short": "Google",
   "import_ics_short": "Import",
-  "new_event_short": "New event"
+  "new_event_short": "New event",
+  "day_events_count_one": "{{count}} event",
+  "day_events_count_other": "{{count}} events"
 }

@@ -1,0 +1,34 @@
+# GitHub Seguimiento tools — operational guide
+
+Load this doc (`dome_load_doc({ id: "github_tool" })`) before mutating GitHub (`github_create_issue`, `github_create_milestone`, `github_update_issue`).
+
+## Sync model
+- Dome mirrors selected repos from **GitHub → Seguimiento** (SQLite + calendar projection).
+- **`repo_id`**: Dome id from `github_list_repos` (e.g. `ghr-…`), **not** `owner/repo` string.
+- **`issue_id`**: Dome id from `github_list_issues` (e.g. `ghi-…`).
+- Writes go to GitHub API then refresh local store; call `github_sync` if UI seems stale.
+
+## Read tools
+| Tool | Use when |
+|------|----------|
+| `github_list_repos` | Need `repo_id`; `selected_only` default true |
+| `github_upcoming_milestones` | Cross-repo delivery dates / roadmap |
+| `github_list_milestones` | Milestones for one repo |
+| `github_list_issues` | Issues for one repo; filter `state` |
+| `github_sync` | Force full sync now |
+
+## Write tools (GitHub API)
+| Tool | Required fields |
+|------|-----------------|
+| `github_create_issue` | `repo_id`, `title`; optional `body`, `milestone_number`, `labels`. Add `due:YYYY-MM-DD` in body for calendar. |
+| `github_update_issue` | `issue_id`; patch `title`, `body`, `state`, `milestone_number` |
+| `github_create_milestone` | `repo_id`, `title`; optional `description`, `due_on` (ISO date), `state` open/closed |
+
+## HITL (Many only)
+Creating/updating issues and milestones requires **user approval** in Many.
+Workflows and automations run with `skipHitl` — no approval card.
+
+## Tips
+- Always `github_list_repos` before first write if you do not have `repo_id`.
+- Milestone numbers are per-repo GitHub numbers, not Dome ids.
+- Source tag in results: `"source": "github"`.

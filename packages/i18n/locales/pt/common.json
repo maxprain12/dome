@@ -47,5 +47,9 @@
   "clear_all": "Limpar tudo",
   "loading_timeout_title": "O carregamento está demorando demais",
   "loading_timeout_message": "O Dome ainda está ocupado ao iniciar. Volte ao Início e tente novamente.",
-  "go_home": "Ir ao Início"
+  "go_home": "Ir ao Início",
+  "date_picker_placeholder": "Selecionar data",
+  "date_picker_clear": "Limpar data",
+  "date_picker_prev_month": "Mês anterior",
+  "date_picker_next_month": "Mês seguinte"
 }

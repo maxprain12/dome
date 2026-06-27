@@ -46,6 +46,9 @@ const HITL_TOOL_NAMES = new Set([
   'shell_exec',
   'email_send',
   'email_reply',
+  'github_create_issue',
+  'github_update_issue',
+  'github_create_milestone',
 ]);
 
 /** Per-conversation caps for creation/mutation tools (count over history). */
@@ -672,9 +675,15 @@ async function setupHarness(surface, opts) {
   await bridge.seedSessionIfEmpty(session, contextMessages);
 
   const executeToolInMain = (name, args, contextOverride) =>
-    dispatcher.executeToolInMain(name, args, contextOverride
-      ? { ...(opts.runtimeContext || {}), ...contextOverride }
-      : opts.runtimeContext);
+    dispatcher.executeToolInMain(name, args, {
+      ...(opts.runtimeContext || {}),
+      ownerType: opts.ownerType ?? null,
+      surface,
+      skipHitl: !!opts.skipHitl,
+      automationProjectId: opts.automationProjectId ?? null,
+      automationId: opts.automationId ?? null,
+      ...(contextOverride || {}),
+    });
   const mcpToolsList = await bridge.buildMcpAgentTools(database, opts.mcpServerIds);
   const mcpToolNames = mcpToolsList.map((t) => t.name);
   const tools = await bridge.buildAllTools(database, opts, executeToolInMain);

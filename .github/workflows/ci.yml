@@ -65,6 +65,18 @@ jobs:
       - name: Tool definitions vs handlers
         run: pnpm run check:tool-coverage
 
+      - name: Prompt tool parity (dome_load_doc)
+        run: pnpm run check:prompt-tool-parity
+
+      - name: MCP adapters smoke (langchain uuid v6)
+        run: pnpm run smoke:mcp-adapters
+
+      - name: Many thread bridge (tool results + coalescing)
+        run: pnpm run test:many-thread-bridge
+
+      - name: No legacy prompts/martin
+        run: pnpm run check:prompts-martin
+
       - name: Design system ratchet (hardcoded colors)
         run: pnpm run check:design-system
 

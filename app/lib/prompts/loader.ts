@@ -3,48 +3,22 @@
  * Loads prompt templates from bundled assets (imported at build time).
  */
 
-import roleMany from '../../../prompts/martin/core/role-many.txt?raw';
-import martinBaseLegacy from '../../../prompts/martin/base.txt?raw';
-import martinTools from '../../../prompts/martin/tools.txt?raw';
-import martinResourceContext from '../../../prompts/martin/resource-context.txt?raw';
-import martinNotebookContext from '../../../prompts/martin/notebook-context.txt?raw';
-import martinExcelContext from '../../../prompts/martin/excel-context.txt?raw';
-import martinPptContext from '../../../prompts/martin/ppt-context.txt?raw';
-import martinDocumentContext from '../../../prompts/martin/document-context.txt?raw';
-import martinArtifacts from '../../../prompts/martin/artifacts.txt?raw';
-import martinArtifactPersisted from '../../../prompts/martin/artifact-persisted.txt?raw';
-import martinFloatingBase from '../../../prompts/martin/core/role-many.txt?raw';
+import roleMany from '../../../packages/prompts/sections/role-many.txt?raw';
 import { buildEditorPromptFromTemplate } from '@/lib/prompt-assembler/bridge';
-import editorSystem from '../../../prompts/editor/system.txt?raw';
-import editorReview from '../../../prompts/editor/actions/review.txt?raw';
-import editorExpand from '../../../prompts/editor/actions/expand.txt?raw';
-import editorSummarize from '../../../prompts/editor/actions/summarize.txt?raw';
-import editorImprove from '../../../prompts/editor/actions/improve.txt?raw';
-import editorTranslate from '../../../prompts/editor/actions/translate.txt?raw';
-import editorContinue from '../../../prompts/editor/actions/continue.txt?raw';
-import editorShorten from '../../../prompts/editor/actions/shorten.txt?raw';
-import editorTodo from '../../../prompts/editor/actions/todo.txt?raw';
-import editorExplain from '../../../prompts/editor/actions/explain.txt?raw';
-import studioWithTools from '../../../prompts/studio/with-tools.txt?raw';
-import studioWithoutTools from '../../../prompts/studio/without-tools.txt?raw';
-
-const manyPromptSet = {
-  /** @deprecated Use core/role-many.txt via buildManyRolePrompt() */
-  base: martinBaseLegacy,
-  tools: martinTools,
-  resourceContext: martinResourceContext,
-  notebookContext: martinNotebookContext,
-  excelContext: martinExcelContext,
-  pptContext: martinPptContext,
-  documentContext: martinDocumentContext,
-  artifacts: martinArtifacts,
-  artifactPersisted: martinArtifactPersisted,
-  floatingBase: martinFloatingBase,
-};
+import editorSystem from '../../../packages/prompts/surfaces/editor/system.txt?raw';
+import editorReview from '../../../packages/prompts/surfaces/editor/actions/review.txt?raw';
+import editorExpand from '../../../packages/prompts/surfaces/editor/actions/expand.txt?raw';
+import editorSummarize from '../../../packages/prompts/surfaces/editor/actions/summarize.txt?raw';
+import editorImprove from '../../../packages/prompts/surfaces/editor/actions/improve.txt?raw';
+import editorTranslate from '../../../packages/prompts/surfaces/editor/actions/translate.txt?raw';
+import editorContinue from '../../../packages/prompts/surfaces/editor/actions/continue.txt?raw';
+import editorShorten from '../../../packages/prompts/surfaces/editor/actions/shorten.txt?raw';
+import editorTodo from '../../../packages/prompts/surfaces/editor/actions/todo.txt?raw';
+import editorExplain from '../../../packages/prompts/surfaces/editor/actions/explain.txt?raw';
+import studioWithTools from '../../../packages/prompts/surfaces/studio/with-tools.txt?raw';
+import studioWithoutTools from '../../../packages/prompts/surfaces/studio/without-tools.txt?raw';
 
 export const prompts = {
-  martin: manyPromptSet,
-  many: manyPromptSet,
   editor: {
     system: editorSystem,
     actions: {
@@ -65,14 +39,6 @@ export const prompts = {
   },
 } as const;
 
-function replaceAll(template: string, replacements: Record<string, string>): string {
-  let result = template;
-  for (const [key, value] of Object.entries(replacements)) {
-    result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
-  }
-  return result;
-}
-
 /** Coarse local time-of-day bucket (stable for prompt caching; avoids minute-level churn). */
 export function getPartOfDay(date: Date): 'morning' | 'afternoon' | 'evening' | 'night' {
   const h = date.getHours();
@@ -83,66 +49,10 @@ export function getPartOfDay(date: Date): 'morning' | 'afternoon' | 'evening' | 
 }
 
 /**
- * Build Martin base prompt with placeholders replaced.
- */
-export function buildMartinBasePrompt(options: {
-  location: 'workspace' | 'home';
-  date?: string;
-  time?: string;
-  resourceTitle?: string;
-  includeDateTime?: boolean;
-}): string {
-  const resourceTitleLine = options.resourceTitle
-    ? `- Active resource: "${options.resourceTitle}"\n`
-    : '';
-  const dateTimeSection =
-    options.includeDateTime !== false && options.date && options.time
-      ? `- Date: ${options.date}\n- Time: ${options.time}\n`
-      : '';
-  return replaceAll(prompts.martin.base, {
-    location: options.location === 'workspace' ? 'Workspace' : 'Home',
-    dateTimeSection,
-    resourceTitleLine,
-  });
-}
-
-/**
  * Build Many floating persona (stable prefix — no UI context, date, or resource).
  */
 export function buildManyFloatingPrompt(): string {
   return roleMany;
-}
-
-/**
- * Build Martin resource context section.
- */
-export function buildMartinResourceContext(options: {
-  type?: string;
-  summary?: string;
-  content?: string;
-  transcription?: string;
-  maxContentLen?: number;
-  maxTranscriptionLen?: number;
-}): string {
-  const maxContent = options.maxContentLen ?? 2000;
-  const maxTranscription = options.maxTranscriptionLen ?? 2000;
-  const resourceTypeLine = options.type ? `Type: ${options.type}` : '';
-  const resourceSummarySection = options.summary ? `\n\nSummary: ${options.summary}` : '';
-  const contentTruncated = (options.content?.length ?? 0) > maxContent;
-  const resourceContentSection = options.content
-    ? `\n\nContent${contentTruncated ? ' (excerpt)' : ''}:\n${options.content.substring(0, maxContent)}${contentTruncated ? '...' : ''}`
-    : '';
-  const transcriptionTruncated = (options.transcription?.length ?? 0) > maxTranscription;
-  const resourceTranscriptionSection = options.transcription
-    ? `\n\nTranscription${transcriptionTruncated ? ' (excerpt)' : ''}:\n${options.transcription.substring(0, maxTranscription)}${transcriptionTruncated ? '...' : ''}`
-    : '';
-
-  return replaceAll(prompts.martin.resourceContext, {
-    resourceTypeLine,
-    resourceSummarySection,
-    resourceContentSection,
-    resourceTranscriptionSection,
-  });
 }
 
 /**

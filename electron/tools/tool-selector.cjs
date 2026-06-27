@@ -107,6 +107,7 @@ const INTENT_RULES = [
       'github_list_issues',
       'github_create_issue',
       'github_update_issue',
+      'github_create_milestone',
       'github_sync',
     ],
   },

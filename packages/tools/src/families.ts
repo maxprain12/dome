@@ -19,6 +19,7 @@ export type ToolFamily =
   | 'memory'
   | 'calendar'
   | 'email'
+  | 'github'
   | 'artifacts'
   | 'feeders'
   | 'flashcards'
@@ -59,7 +60,12 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   calendar_delete_event: 'calendar',
   // email
   email_list_folders: 'email', email_list: 'email', email_search: 'email',
-  email_read: 'email', email_send: 'email', email_reply: 'email',
+  email_read: 'email',   email_send: 'email', email_reply: 'email',
+  // github
+  github_list_repos: 'github', github_upcoming_milestones: 'github',
+  github_list_milestones: 'github', github_list_issues: 'github',
+  github_create_issue: 'github', github_update_issue: 'github',
+  github_create_milestone: 'github', github_sync: 'github',
   // artifacts
   artifact_create: 'artifacts', artifact_get: 'artifacts', artifact_merge_data: 'artifacts',
   artifact_update_state: 'artifacts', artifact_list: 'artifacts', artifact_delete: 'artifacts',

@@ -1,0 +1,24 @@
+# Flashcard tool — operational guide
+
+Load this doc (`dome_load_doc({ id: "flashcard_tool" })`) before `flashcard_create`.
+
+## When to use
+Use when the user asks for flashcards, a study deck, spaced-repetition cards, or turning notes into cards.
+
+## Tool
+| Tool | Required | Optional |
+|------|----------|----------|
+| `flashcard_create` | `title`, `cards[]` with `{ question, answer }` | `description`, `project_id`, `resource_id`, `source_ids`, per-card `difficulty` (`easy`/`medium`/`hard`) |
+
+**Schema**: each card uses **`question`** and **`answer`** (strings). No other per-card fields.
+
+## Flow
+1. **Source material**: `resource_hybrid_search` + `resource_get` (or `resource_get_section` for long PDFs).
+2. **Card quality**: One concept per card. Question on front; concise answer (1–3 sentences).
+3. **Create**: `flashcard_create` with real Q&A pairs extracted from sources.
+4. **Coverage**: Key terms, definitions, formulas, dates, cause-effect, distinctions.
+5. **Format**: Use backticks in answers for code or math when needed.
+
+## Constraints
+- NEVER use `resource_create` or `artifact_create` for flashcards — always `flashcard_create`.
+- Cap: ≤ 8 decks per conversation turn (creation cap in harness).

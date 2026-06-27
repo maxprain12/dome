@@ -7,7 +7,7 @@
  */
 
 /** Bump when prompt structure or core section semantics change (bench A/B). */
-export const PROMPT_VERSION = 'minimax-v1';
+export const PROMPT_VERSION = 'minimax-v2';
 
 /**
  * On-demand reference doc ids consumed by the `dome_load_doc` tool.
@@ -26,6 +26,8 @@ export const DOME_LOAD_DOC_IDS = [
   'flashcard_tool',
   'excel_notebook_tool',
   'excel_artifact_tool',
+  'email_tool',
+  'github_tool',
 ] as const;
 
 export type DomeLoadDocId = (typeof DOME_LOAD_DOC_IDS)[number];
@@ -44,7 +46,9 @@ export const DOME_LOAD_DOC_DESCRIPTION =
   'calendar_tool (before calendar_create_event), ' +
   'flashcard_tool (before flashcard_create), ' +
   'excel_notebook_tool (before Excel→notebook pandas flow), ' +
-  'excel_artifact_tool (before Excel→artifact dashboard).';
+  'excel_artifact_tool (before Excel→artifact dashboard), ' +
+  'email_tool (before email_list/email_search/email_send/email_reply), ' +
+  'github_tool (before github_create_issue/github_create_milestone/github_update_issue).';
 
 /**
  * Summary entry for the `<available_skills>` block injected into the

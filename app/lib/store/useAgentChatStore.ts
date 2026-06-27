@@ -4,6 +4,7 @@
  */
 
 import { create } from 'zustand';
+import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 
 const MAX_SESSIONS = 20;
 
@@ -14,6 +15,7 @@ export interface AgentChatMessage {
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  attachments?: StructuredMessageAttachments;
   /** Tool calls for assistant messages (traceability) */
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Reasoning/chain-of-thought for assistant messages */

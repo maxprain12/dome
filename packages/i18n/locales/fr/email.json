@@ -138,6 +138,18 @@
     "save_without_test": "Enregistrer sans tester",
     "required_fields": "L'e-mail, le serveur IMAP et le serveur SMTP sont requis.",
     "test_failed": "Échec du test de connexion.",
-    "add_failed": "Impossible d'ajouter le compte."
+    "add_failed": "Impossible d'ajouter le compte.",
+    "permissions_title": "Actions autorisées",
+    "permissions_hint": "Contrôle ce que l'app et Many/agents peuvent faire avec ce compte.",
+    "permissions_action": "Action",
+    "permissions_user": "Utilisateur (app)",
+    "permissions_agent": "Agent (Many)",
+    "permissions_list": "Lister",
+    "permissions_read": "Lire",
+    "permissions_search": "Rechercher",
+    "permissions_send": "Envoyer",
+    "permissions_reply": "Répondre",
+    "permissions_user_aria": "Utilisateur : {{action}}",
+    "permissions_agent_aria": "Agent : {{action}}"
   }
 }

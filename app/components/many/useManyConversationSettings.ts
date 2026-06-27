@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getAIConfig, findModelById, providerSupportsTools, type AIProviderType } from '@/lib/ai';
 import { db } from '@/lib/db/client';
+import {
+  formatPersonalityMemoryBlock,
+  loadPersonalityContextFiles,
+} from '@/lib/personality/contextFiles';
 
 /**
  * Conversation-level settings for the Many panel (03/T02 — extracted from
@@ -19,6 +23,8 @@ export interface ManyConversationSettings {
   setMemoryEnabled: (v: boolean) => void;
   mcpEnabled: boolean;
   supportsTools: boolean;
+  /** SOUL.md content — preferred static persona when non-empty. */
+  soulContent: string;
   userMemory: string;
   providerInfo: string;
   providerId: string;
@@ -33,6 +39,7 @@ export function useManyConversationSettings(): ManyConversationSettings {
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [mcpEnabled, setMcpEnabledState] = useState(true);
   const [supportsTools, setSupportsTools] = useState(false);
+  const [soulContent, setSoulContent] = useState<string>('');
   const [userMemory, setUserMemory] = useState<string>('');
   const [providerInfo, setProviderInfo] = useState<string>('');
   const [providerId, setProviderId] = useState<string>('');
@@ -86,17 +93,11 @@ export function useManyConversationSettings(): ManyConversationSettings {
 
   useEffect(() => {
     const loadMemory = async () => {
-      if (!window.electron?.personality?.readFile) return;
-      const [memRes, userRes] = await Promise.all([
-        window.electron.personality.readFile('MEMORY.md'),
-        window.electron.personality.readFile('USER.md'),
-      ]);
-      const parts: string[] = [];
-      if (memRes?.data?.trim()) parts.push(memRes.data.trim());
-      if (userRes?.data?.trim()) parts.push(userRes.data.trim());
-      setUserMemory(parts.join('\n\n'));
+      const files = await loadPersonalityContextFiles();
+      setSoulContent(files.soul.trim());
+      setUserMemory(formatPersonalityMemoryBlock(files));
     };
-    loadMemory();
+    void loadMemory();
   }, []);
 
   return {
@@ -108,6 +109,7 @@ export function useManyConversationSettings(): ManyConversationSettings {
     setMemoryEnabled,
     mcpEnabled,
     supportsTools,
+    soulContent,
     userMemory,
     providerInfo,
     providerId,

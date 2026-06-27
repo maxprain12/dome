@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { Plus, X, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useManyStore, type ManyChatSession } from '@/lib/store/useManyStore';
-import { filterOutDeletedSessions, sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
+import { filterOutDeletedSessions, deriveManySessionTitle } from '@/lib/store/manySessionStorage';
 import ChatHistorySessionList from '@/components/chat/ChatHistorySessionList';
 import { buildChatHistorySections, filterAndSortSessions } from '@/components/chat/chatHistoryUtils';
 
@@ -34,10 +34,9 @@ export default function ManyChatHistoryPanel({
     if (!currentSessionId || liveMessages.length === 0 || visible.some((s) => s.id === currentSessionId)) {
       return visible;
     }
-    const firstUser = liveMessages.find((m) => m.role === 'user')?.content ?? '';
     const orphan: ManyChatSession = {
       id: currentSessionId,
-      title: sanitizeManySessionTitle(firstUser) || t('chat.new_chat'),
+      title: deriveManySessionTitle({ messages: liveMessages }) || t('chat.new_chat'),
       messages: liveMessages,
       createdAt: liveMessages[0]?.timestamp ?? Date.now(),
       updatedAt: liveMessages[liveMessages.length - 1]?.timestamp ?? Date.now(),

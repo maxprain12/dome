@@ -11,9 +11,9 @@ import {
   persistManySessions,
   pruneManySessionUiMeta,
   removeManySessionUiMeta,
-  sanitizeManySessionTitle,
   setPersistedCurrentManySessionId,
 } from '@/lib/store/manySessionStorage';
+import { deriveManySessionTitle } from '@/lib/chat/manySessionTitle';
 import {
   isNestedManyThreadId,
   listManyThreadSummariesResult,
@@ -44,11 +44,15 @@ export interface PdfRegionMeta {
   question: string;
 }
 
+import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
+
 export interface ManyMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: number;
+  /** Image/video attachments for resolving dome-att:// in content */
+  attachments?: StructuredMessageAttachments;
   /** Tool calls for assistant messages (traceability) */
   toolCalls?: Array<{ id: string; name: string; arguments: Record<string, unknown>; status?: string; result?: unknown; error?: string }>;
   /** Reasoning/chain-of-thought for assistant messages */
@@ -103,6 +107,8 @@ function ensureInitialSession(
 }
 
 const hydratedState = ensureInitialSession(initialState);
+
+export type SessionRunPhase = 'thinking' | 'streaming';
 
 interface ManyState {
   isOpen: boolean;
@@ -167,6 +173,9 @@ interface ManyState {
   pendingPdfRegion: PendingPdfRegion | null;
   setPendingPdfRegion: (value: PendingPdfRegion | null) => void;
   clearPendingPdfRegion: () => void;
+  /** Active LLM run indicator per session (history sidebar) */
+  activeRunBySessionId: Record<string, SessionRunPhase | undefined>;
+  setSessionRunState: (sessionId: string, state: SessionRunPhase | null) => void;
 }
 
 export const useManyStore = create<ManyState>((set, get) => ({
@@ -236,10 +245,10 @@ export const useManyStore = create<ManyState>((set, get) => ({
         ...session,
         messages: [...session.messages, newMessage],
         updatedAt: Date.now(),
-        title:
-          message.role === 'user' && (!session.title || session.title === 'New chat')
-            ? sanitizeManySessionTitle(message.content)
-            : session.title,
+        title: deriveManySessionTitle({
+          storedTitle: session.title,
+          messages: [...session.messages, newMessage],
+        }),
       };
       nextSessions = [...nextSessions];
       nextSessions[idx] = updated;
@@ -249,10 +258,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     } else {
       const newSession: ManyChatSession = {
         id: createSessionId(),
-        title:
-          message.role === 'user'
-            ? sanitizeManySessionTitle(message.content)
-            : 'New chat',
+        title: deriveManySessionTitle({ messages: [newMessage] }),
         messages: [newMessage],
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -349,6 +355,9 @@ export const useManyStore = create<ManyState>((set, get) => ({
       sessions: nextSessions,
       currentSessionId: nextId,
       messages: nextMessages,
+      activeRunBySessionId: Object.fromEntries(
+        Object.entries(get().activeRunBySessionId).filter(([sid]) => sid !== id),
+      ),
     });
     if (db.isAvailable()) {
       const result = await db.deleteManyChatSession(id);
@@ -391,7 +400,10 @@ export const useManyStore = create<ManyState>((set, get) => ({
       const meta = uiMeta[summary.id];
       byId.set(summary.id, {
         id: summary.id,
-        title: sanitizeManySessionTitle(meta?.title ?? local?.title ?? 'New chat'),
+        title: deriveManySessionTitle({
+          storedTitle: meta?.title ?? local?.title,
+          messages: local?.messages,
+        }),
         messages: local?.messages ?? [],
         createdAt: meta?.createdAt ?? local?.createdAt ?? summary.createdAt,
         updatedAt: meta?.updatedAt ?? local?.updatedAt ?? summary.updatedAt,
@@ -454,7 +466,11 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const firstUser = session.messages.find((m) => m.role === 'user')?.content ?? '';
     const normalizedSession: ManyChatSession = {
       ...session,
-      title: sanitizeManySessionTitle(session.title || firstUser),
+      title: deriveManySessionTitle({
+        storedTitle: session.title,
+        messages: session.messages,
+        firstUser,
+      }),
       createdAt: session.createdAt ?? Date.now(),
       updatedAt:
         session.updatedAt ??
@@ -552,4 +568,17 @@ export const useManyStore = create<ManyState>((set, get) => ({
   pendingPdfRegion: null,
   setPendingPdfRegion: (value) => set({ pendingPdfRegion: value }),
   clearPendingPdfRegion: () => set({ pendingPdfRegion: null }),
+
+  activeRunBySessionId: {},
+  setSessionRunState: (sessionId, state) => {
+    set((s) => {
+      const next = { ...s.activeRunBySessionId };
+      if (state == null) {
+        delete next[sessionId];
+      } else {
+        next[sessionId] = state;
+      }
+      return { activeRunBySessionId: next };
+    });
+  },
 }));

@@ -10,6 +10,7 @@ import CalendarGrid from '@/components/calendar/CalendarGrid';
 import type { EventDateChangePayload } from '@/components/calendar/CalendarGrid';
 import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import EventModal from '@/components/calendar/EventModal';
+import DayEventsModal from '@/components/calendar/DayEventsModal';
 import { CalendarHero } from '@/components/calendar/CalendarHero';
 import { CalendarUpcoming } from '@/components/calendar/CalendarUpcoming';
 import { useCalendarStore, type CalendarEvent } from '@/lib/store/useCalendarStore';
@@ -17,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { getEventsForDay } from '@/lib/calendar/dayEvents';
 
 type CalRow = { id: string; title: string; color?: string; account_id?: string; is_selected?: boolean };
 
@@ -37,6 +39,7 @@ export default function CalendarPage() {
   } = useCalendarStore();
 
   const [showModal, setShowModal] = useState(false);
+  const [dayModalDate, setDayModalDate] = useState<Date | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [initialModalDate, setInitialModalDate] = useState<Date | undefined>();
   const [loading, setLoading] = useState(true);
@@ -249,10 +252,20 @@ export default function CalendarPage() {
   };
 
   const handleDayClick = (date: Date) => {
-    setSelectedEvent(null);
-    setInitialModalDate(date);
-    setShowModal(true);
+    const dayEvents = getEventsForDay(date, events);
+    if (dayEvents.length === 0) {
+      setSelectedEvent(null);
+      setInitialModalDate(date);
+      setShowModal(true);
+      return;
+    }
+    setDayModalDate(date);
   };
+
+  const dayModalEvents = useMemo(
+    () => (dayModalDate ? getEventsForDay(dayModalDate, events) : []),
+    [dayModalDate, events],
+  );
 
   const handleEventClick = async (event: CalendarEvent) => {
     let full: CalendarEvent = event;
@@ -410,6 +423,25 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {dayModalDate ? (
+        <DayEventsModal
+          date={dayModalDate}
+          events={dayModalEvents}
+          onClose={() => setDayModalDate(null)}
+          onEventClick={(event) => {
+            setDayModalDate(null);
+            void handleEventClick(event);
+          }}
+          onCreateEvent={() => {
+            const d = dayModalDate;
+            setDayModalDate(null);
+            setSelectedEvent(null);
+            setInitialModalDate(d);
+            setShowModal(true);
+          }}
+        />
       ) : null}
 
       {showModal ? (

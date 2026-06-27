@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
+import { DomeDatePicker } from '@/components/ui/DomeDatePicker';
 import { DomeTextarea } from '@/components/ui/DomeInput';
 import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 import DomeContextMenu from '@/components/ui/DomeContextMenu';
@@ -410,44 +411,18 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
         </label>
 
         <div className="flex gap-3">
-          <label className="flex flex-col gap-1 flex-1">
-            <span
-              className="text-[11px] font-medium uppercase tracking-wide"
-              style={{ color: 'var(--tertiary-text)' }}
-            >
-              {t('pipelines.start_date')}
-            </span>
-            <input
-              type="date"
-              value={startInput}
-              onChange={(e) => setStartInput(e.target.value)}
-              className="text-sm rounded-md px-2 py-1.5 outline-none"
-              style={{
-                background: 'var(--bg)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-            />
-          </label>
-          <label className="flex flex-col gap-1 flex-1">
-            <span
-              className="text-[11px] font-medium uppercase tracking-wide"
-              style={{ color: 'var(--tertiary-text)' }}
-            >
-              {t('pipelines.end_date')}
-            </span>
-            <input
-              type="date"
-              value={endInput}
-              onChange={(e) => setEndInput(e.target.value)}
-              className="text-sm rounded-md px-2 py-1.5 outline-none"
-              style={{
-                background: 'var(--bg)',
-                color: 'var(--primary-text)',
-                border: '1px solid var(--border)',
-              }}
-            />
-          </label>
+          <DomeDatePicker
+            className="flex-1"
+            label={t('pipelines.start_date')}
+            value={startInput}
+            onChange={setStartInput}
+          />
+          <DomeDatePicker
+            className="flex-1"
+            label={t('pipelines.end_date')}
+            value={endInput}
+            onChange={setEndInput}
+          />
         </div>
 
         <DomeSegmentedControl

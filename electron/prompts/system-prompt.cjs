@@ -48,7 +48,7 @@ const ENTITY_CREATION_RULES = readCoreFile('entityRules') || '';
 /** @deprecated Use readCoreFile('resourceLinks') or dome_load_doc */
 const RESOURCE_LINK_INSTRUCTION = readCoreFile('resourceLinks') || '';
 
-/** @deprecated Sections moved to prompts/martin/core/app-context.txt */
+/** @deprecated Sections moved to packages/prompts/sections/app-context.txt */
 const APP_SECTION_GUIDE = readCoreFile('appContext')?.replace(/^Context:\n/, '') || '';
 
 /** @deprecated Moved to core/tool-surface.txt */

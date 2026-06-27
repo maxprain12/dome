@@ -280,7 +280,7 @@ Los siguientes tipos de trigger están planificados pero no implementados:
 
 Plantillas de prompt para agentes y automatizaciones:
 
-- [prompts/kb-wiki-compile.md](../prompts/kb-wiki-compile.md) — compilación incremental de la wiki
-- [prompts/kb-wiki-health.md](../prompts/kb-wiki-health.md) — lint / salud del corpus
+- [`packages/prompts/surfaces/kb-wiki/compile.md`](../packages/prompts/surfaces/kb-wiki/compile.md) — compilación incremental de la wiki
+- [`packages/prompts/surfaces/kb-wiki/health.md`](../packages/prompts/surfaces/kb-wiki/health.md) — lint / salud del corpus
 
 Modelo de metadatos: [kb-llm-wiki-model.md](./kb-llm-wiki-model.md).

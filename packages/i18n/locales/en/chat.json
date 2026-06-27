@@ -111,6 +111,8 @@
   "remove_attachment": "Remove attachment",
   "attach_files": "Attach files or images",
   "attachment_image_unsupported": "The selected model does not support images. Choose a vision-capable model (e.g. MiniMax-M3).",
+  "paste_image_unsupported": "This model does not support images. Paste was blocked to avoid base64 text in the chat.",
+  "history_llm_active": "Response in progress",
   "attachment_video_unsupported": "The selected model does not support video. Only MiniMax-M3 accepts video attachments.",
   "attachment_video_too_large": "Video exceeds 50 MB inline limit. It will be uploaded via MiniMax Files API when you send.",
   "attachment_extraction_empty": "(No text could be extracted from this file.)",

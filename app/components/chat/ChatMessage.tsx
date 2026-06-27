@@ -17,6 +17,7 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { PdfRegionMeta } from '@/lib/store/useManyStore';
 import { parseArtifactBlocks, stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
+import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
 import { calendarArtifactFromToolCalls } from '@/lib/chat/calendarToolArtifact';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
@@ -45,6 +46,8 @@ export interface ChatMessageData {
   agentLabel?: string;
   /** PDF region (cloud vision) — show handoff actions */
   pdfRegionMeta?: PdfRegionMeta;
+  /** Structured image attachments for resolving dome-att:// placeholders */
+  attachments?: StructuredMessageAttachments;
   /** Structured run steps streamed from the agent runtime / run engine. */
   runSteps?: PersistentRunStep[];
 }
@@ -106,7 +109,7 @@ export default function ChatMessage({
   // Copy message content to clipboard
   const userVisualSegments = useMemo(() => {
     if (!isUser || !message.content) return null;
-    const parsed = parseUserMessageVisualSegments(message.content);
+    const parsed = parseUserMessageVisualSegments(message.content, message.attachments?.images);
     const counts = new Map<string, number>();
     return parsed.map((seg) => {
       const payload =
@@ -116,7 +119,7 @@ export default function ChatMessage({
       counts.set(h, ord);
       return { ...seg, reactKey: `${message.id}:uv:${h}:${ord}` };
     });
-  }, [isUser, message.content, message.id]);
+  }, [isUser, message.content, message.attachments?.images, message.id]);
 
   const handleCopy = async () => {
     try {

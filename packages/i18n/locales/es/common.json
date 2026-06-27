@@ -47,5 +47,9 @@
   "clear_all": "Limpiar todo",
   "loading_timeout_title": "La carga está tardando demasiado",
   "loading_timeout_message": "Dome sigue ocupado al arrancar. Puedes volver a Inicio e intentarlo de nuevo.",
-  "go_home": "Ir a Inicio"
+  "go_home": "Ir a Inicio",
+  "date_picker_placeholder": "Seleccionar fecha",
+  "date_picker_clear": "Quitar fecha",
+  "date_picker_prev_month": "Mes anterior",
+  "date_picker_next_month": "Mes siguiente"
 }

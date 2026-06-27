@@ -47,5 +47,9 @@
   "clear_all": "Clear all",
   "loading_timeout_title": "Loading is taking too long",
   "loading_timeout_message": "Dome is still busy starting up. You can go back to Home and try again.",
-  "go_home": "Go to Home"
+  "go_home": "Go to Home",
+  "date_picker_placeholder": "Pick a date",
+  "date_picker_clear": "Clear date",
+  "date_picker_prev_month": "Previous month",
+  "date_picker_next_month": "Next month"
 }

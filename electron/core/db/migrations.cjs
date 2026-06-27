@@ -3558,6 +3558,31 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  if (version < 54) {
+    console.log('[DB] Running migration 54 - email account action permissions');
+    try {
+      const tableInfo = db.prepare('PRAGMA table_info(email_accounts)').all();
+      const cols = new Set(tableInfo.map((c) => c.name));
+      const defaultUser = '{"list":true,"read":true,"search":true,"send":true,"reply":true}';
+      const defaultAgent = '{"list":true,"read":true,"search":true,"send":false,"reply":false}';
+      if (!cols.has('user_actions')) {
+        db.exec(`ALTER TABLE email_accounts ADD COLUMN user_actions TEXT NOT NULL DEFAULT '${defaultUser}'`);
+      }
+      if (!cols.has('agent_actions')) {
+        db.exec(`ALTER TABLE email_accounts ADD COLUMN agent_actions TEXT NOT NULL DEFAULT '${defaultAgent}'`);
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '54', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '54', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 54 complete - email account permissions columns');
+    } catch (error) {
+      console.error('[DB] Migration 54 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

@@ -47,5 +47,9 @@
   "clear_all": "Tout effacer",
   "loading_timeout_title": "Le chargement prend trop de temps",
   "loading_timeout_message": "Dome est encore occupé au démarrage. Revenez à l'accueil et réessayez.",
-  "go_home": "Aller à l'accueil"
+  "go_home": "Aller à l'accueil",
+  "date_picker_placeholder": "Choisir une date",
+  "date_picker_clear": "Effacer la date",
+  "date_picker_prev_month": "Mois précédent",
+  "date_picker_next_month": "Mois suivant"
 }

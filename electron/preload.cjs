@@ -353,11 +353,15 @@ const ALLOWED_CHANNELS = {
     'domeauth:getQuota',
     // Personality Loader
     'personality:get-prompt',
+    'personality:get-context-files',
     'personality:read-file',
     'personality:write-file',
     'personality:add-memory',
     'personality:list-files',
     'personality:remember-fact',
+    'personality:open-folder',
+    'personality:list-daily-memory',
+    'personality:write-daily-memory',
     // AI Cloud (OpenAI, Anthropic, Google)
     'ai:chat',
     'ai:stream',
@@ -538,6 +542,7 @@ const ALLOWED_CHANNELS = {
     'email:listAccounts',
     'email:addAccount',
     'email:removeAccount',
+    'email:updateAccountPermissions',
     'email:testConnection',
     'email:listFolders',
     'email:listEnvelopes',
@@ -626,6 +631,7 @@ const ALLOWED_CHANNELS = {
     'github:repos:refresh',
     'github:repos:setSelected',
     'github:milestones:list',
+    'github:milestones:get',
     'github:milestones:create',
     'github:milestones:update',
     'github:issues:list',
@@ -654,6 +660,7 @@ const ALLOWED_CHANNELS = {
     'resource:created',
     'resource:updated',
     'resource:deleted',
+    'chat:session-updated',
     // Note events (Docmost-style)
     'note:created',
     'note:updated',
@@ -973,6 +980,7 @@ const electronHandler = {
     listAccounts: () => ipcRenderer.invoke('email:listAccounts'),
     addAccount: (input) => ipcRenderer.invoke('email:addAccount', input),
     removeAccount: (accountId) => ipcRenderer.invoke('email:removeAccount', accountId),
+    updateAccountPermissions: (input) => ipcRenderer.invoke('email:updateAccountPermissions', input),
     testConnection: (accountId) => ipcRenderer.invoke('email:testConnection', accountId),
     listFolders: (accountId) => ipcRenderer.invoke('email:listFolders', accountId),
     listEnvelopes: (params) => ipcRenderer.invoke('email:listEnvelopes', params),
@@ -1079,6 +1087,7 @@ const electronHandler = {
     },
     milestones: {
       list: (repoId) => ipcRenderer.invoke('github:milestones:list', repoId),
+      get: (id) => ipcRenderer.invoke('github:milestones:get', id),
       create: (repoId, data) => ipcRenderer.invoke('github:milestones:create', repoId, data),
       update: (id, patch) => ipcRenderer.invoke('github:milestones:update', id, patch),
     },
@@ -1913,6 +1922,9 @@ const electronHandler = {
     // Get system prompt
     getPrompt: (params) => ipcRenderer.invoke('personality:get-prompt', params),
 
+    /** SOUL / USER / MEMORY context files for harness assembly. */
+    getContextFiles: () => ipcRenderer.invoke('personality:get-context-files'),
+
     // Read context file
     readFile: (filename) => ipcRenderer.invoke('personality:read-file', filename),
 
@@ -1927,6 +1939,13 @@ const electronHandler = {
 
     // Remember a fact about the user in long-term memory
     rememberFact: (key, value) => ipcRenderer.invoke('personality:remember-fact', { key, value }),
+
+    openFolder: () => ipcRenderer.invoke('personality:open-folder'),
+
+    listDailyMemory: (days) => ipcRenderer.invoke('personality:list-daily-memory', days),
+
+    writeDailyMemory: (date, content) =>
+      ipcRenderer.invoke('personality:write-daily-memory', { date, content }),
   },
 
   // ============================================

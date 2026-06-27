@@ -1,0 +1,32 @@
+# Email tools — operational guide (himalaya IMAP/SMTP)
+
+Load this doc (`dome_load_doc({ id: "email_tool" })`) before any `email_*` tool call.
+
+## Prerequisites
+- User must connect at least one account in **Settings → Email** (IMAP + SMTP, app password for Gmail/Outlook/iCloud/Zoho).
+- Tools use the **default account** unless `account_id` is added in a future version.
+- If no account: return a clear error — do not claim email is unavailable without calling the tool.
+
+## Tool map
+| Tool | Action | Notes |
+|------|--------|-------|
+| `email_list_folders` | List folders | Call before browsing non-INBOX folders |
+| `email_list` | List envelopes in folder | Default folder INBOX; pagination `page`, `page_size` (default 30) |
+| `email_search` | Search mailbox | Requires `query`; himalaya filter syntax or plain words |
+| `email_read` | Full message body | Needs `message_id` from list/search; plain text returned (HTML stripped) |
+| `email_send` | Send new mail | **HITL approval** in Many; also blocked if agent send permission is off |
+| `email_reply` | Reply to message | **HITL approval** in Many; threading derived from original |
+
+## Parameters (IPC-backed)
+- **Folders**: standard names INBOX, Sent, Drafts, Trash, etc. (provider-specific).
+- **Send/reply**: plain-text `body`; `to` comma-separated; optional `cc`, `bcc`, `subject` (send only).
+- **Errors**: `app_password_required`, `auth_failed`, `connection_failed` — tell user to fix Settings → Email.
+
+## Agent permissions
+Per-account toggles in Settings → Email restrict what **Many / agent chat** may do (`list`, `read`, `search`, `send`, `reply`).
+Workflows and automations bypass these toggles (implicit approval).
+
+## Flow
+1. Check inbox → `email_list` or `email_search`.
+2. Open one message → `email_read` with `message_id`.
+3. Send/reply → confirm with user, ensure `email_tool` loaded, call tool (Many shows approval card for send/reply).

@@ -111,6 +111,8 @@
   "remove_attachment": "Quitar adjunto",
   "attach_files": "Adjuntar archivos o imágenes",
   "attachment_image_unsupported": "El modelo seleccionado no admite imágenes. Elige uno con visión (p. ej. MiniMax-M3).",
+  "paste_image_unsupported": "Este modelo no admite imágenes. El pegado fue bloqueado para evitar texto base64 en el chat.",
+  "history_llm_active": "Respuesta en curso",
   "attachment_video_unsupported": "El modelo seleccionado no admite video. Solo MiniMax-M3 acepta video en chat.",
   "attachment_video_too_large": "El video supera 50 MB en línea; se subirá vía MiniMax Files API al enviar.",
   "attachment_extraction_empty": "(No se pudo extraer texto de este archivo.)",

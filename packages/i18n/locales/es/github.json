@@ -162,5 +162,14 @@
   "sort_cards": "Ordenar tarjetas",
   "sort_cards_newest": "Más reciente primero",
   "sort_cards_oldest": "Más antiguo primero",
-  "sort_cards_status": "Por estado (abiertos primero)"
+  "sort_cards_status": "Por estado (abiertos primero)",
+  "milestone_detail_open": "Gestionar milestone",
+  "milestone_detail_load_error": "No se pudieron cargar los detalles del milestone",
+  "milestone_detail_save_error": "No se pudo guardar el milestone",
+  "milestone_detail_close": "Cerrar milestone",
+  "milestone_detail_reopen": "Reabrir milestone",
+  "milestone_detail_edit": "Editar",
+  "milestone_detail_subtitle": "{{open}} abiertas · {{closed}} cerradas · {{pct}}% completado",
+  "milestone_detail_issues": "Issues",
+  "milestone_detail_show_closed": "Mostrar cerradas"
 }

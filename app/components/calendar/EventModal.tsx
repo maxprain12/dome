@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
+import { DomeDatePicker } from '@/components/ui/DomeDatePicker';
+import { DomeDateTimePicker } from '@/components/ui/DomeDateTimePicker';
 import GithubMarkdownBody from '@/components/github/GithubMarkdownBody';
 import { useTranslation } from 'react-i18next';
 import type { CalendarEvent } from '@/lib/store/useCalendarStore';
@@ -684,57 +686,35 @@ export default function EventModal({
 
           {!allDay ? (
             <>
-              <div>
-                <label htmlFor="event-modal-start-dt" className="c-calendar-modal-label">
-                  {t('calendarPage.event_start')}
-                </label>
-                <input
-                  id="event-modal-start-dt"
-                  type="datetime-local"
-                  value={startAt}
-                  onChange={(e) => setStartAt(e.target.value)}
-                  className="c-calendar-modal-field"
-                />
-              </div>
-              <div>
-                <label htmlFor="event-modal-end-dt" className="c-calendar-modal-label">
-                  {t('calendarPage.event_end')}
-                </label>
-                <input
-                  id="event-modal-end-dt"
-                  type="datetime-local"
-                  value={endAt}
-                  onChange={(e) => setEndAt(e.target.value)}
-                  className="c-calendar-modal-field"
-                />
-              </div>
+              <DomeDateTimePicker
+                id="event-modal-start-dt"
+                label={t('calendarPage.event_start')}
+                value={startAt}
+                onChange={setStartAt}
+              />
+              <DomeDateTimePicker
+                id="event-modal-end-dt"
+                label={t('calendarPage.event_end')}
+                value={endAt}
+                onChange={setEndAt}
+              />
             </>
           ) : (
             <>
-              <div>
-                <label htmlFor="event-modal-start-date" className="c-calendar-modal-label">
-                  {t('calendarPage.start_date')}
-                </label>
-                <input
-                  id="event-modal-start-date"
-                  type="date"
-                  value={startAt.slice(0, 10)}
-                  onChange={(e) => setStartAt(`${e.target.value}T00:00`)}
-                  className="c-calendar-modal-field"
-                />
-              </div>
-              <div>
-                <label htmlFor="event-modal-end-date" className="c-calendar-modal-label">
-                  {t('calendarPage.end_date')}
-                </label>
-                <input
-                  id="event-modal-end-date"
-                  type="date"
-                  value={endAt.slice(0, 10)}
-                  onChange={(e) => setEndAt(`${e.target.value}T23:59`)}
-                  className="c-calendar-modal-field"
-                />
-              </div>
+              <DomeDatePicker
+                id="event-modal-start-date"
+                label={t('calendarPage.start_date')}
+                value={startAt.slice(0, 10)}
+                onChange={(d) => setStartAt(`${d}T00:00`)}
+                clearable={false}
+              />
+              <DomeDatePicker
+                id="event-modal-end-date"
+                label={t('calendarPage.end_date')}
+                value={endAt.slice(0, 10)}
+                onChange={(d) => setEndAt(`${d}T23:59`)}
+                clearable={false}
+              />
             </>
           )}
 

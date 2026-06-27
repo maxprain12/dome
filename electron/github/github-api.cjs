@@ -246,9 +246,15 @@ function listIssues(owner, repo, opts = {}) {
 }
 
 /** Streaming variant of listIssues — persist per page to keep heap flat.
- *  `onPage(items)` is called with each page of up to 100 issues/PRs. */
+ *  `onPage(items)` is called with each page of up to 100 issues/PRs.
+ *  Optional `since` (ISO 8601) limits to issues updated after that time. */
 function listIssuesStreamed(owner, repo, opts = {}) {
-  return streamPages(`/repos/${owner}/${repo}/issues?state=all`, opts);
+  const { since, ...rest } = opts;
+  let path = `/repos/${owner}/${repo}/issues?state=all`;
+  if (since) {
+    path += `&since=${encodeURIComponent(since)}`;
+  }
+  return streamPages(path, rest);
 }
 
 function getIssue(owner, repo, number) {

@@ -6,6 +6,7 @@
  */
 
 import { Type } from '@sinclair/typebox';
+import { memoryToolDefinitions } from '@dome/tools';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';
@@ -465,14 +466,19 @@ const RememberFactSchema = Type.Object({
   }),
 });
 
+const rememberFactDef = memoryToolDefinitions().find((d) => d.function?.name === 'remember_fact');
+
 /**
  * Create a tool that saves important facts about the user to long-term memory.
  */
 export function createRememberFactTool(): AnyAgentTool {
+  const canonicalDesc =
+    rememberFactDef?.function?.description ??
+    'Save an important fact about the user to long-term memory.';
   return {
     label: 'Remember Fact',
     name: 'remember_fact',
-    description: 'Save an important fact about the user to long-term memory. Use proactively when you learn the user\'s name, preferences, work style, or key topics.',
+    description: canonicalDesc,
     parameters: RememberFactSchema,
     execute: async (_toolCallId, args) => {
       try {

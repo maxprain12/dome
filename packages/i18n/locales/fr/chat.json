@@ -113,6 +113,8 @@
   "remove_attachment": "Retirer la pièce jointe",
   "attach_files": "Joindre des fichiers ou des images",
   "attachment_image_unsupported": "Le modèle sélectionné n’accepte pas les images. Choisissez un modèle vision (ex. MiniMax-M3).",
+  "paste_image_unsupported": "Ce modèle n’accepte pas les images. Le collage a été bloqué pour éviter du base64 dans le chat.",
+  "history_llm_active": "Réponse en cours",
   "attachment_video_unsupported": "Le modèle sélectionné n’accepte pas la vidéo. Seul MiniMax-M3 accepte la vidéo en chat.",
   "attachment_video_too_large": "La vidéo dépasse 50 Mo en ligne ; elle sera envoyée via l’API MiniMax Files à l’envoi.",
   "attachment_extraction_empty": "(Aucun texte n’a pu être extrait de ce fichier.)",

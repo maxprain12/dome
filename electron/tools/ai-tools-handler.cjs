@@ -3076,6 +3076,21 @@ async function githubSync() {
   }
 }
 
+async function githubCreateMilestone({ repo_id, title, description, due_on, state } = {}) {
+  try {
+    if (!repo_id || !title) return { success: false, error: 'repo_id and title are required' };
+    const milestone = await githubSyncService().createMilestone(repo_id, {
+      title,
+      description,
+      dueOn: due_on,
+      state,
+    });
+    return { success: true, source: 'github', milestone };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
 // =============================================================================
 // Email (himalaya IMAP/SMTP)
 // =============================================================================
@@ -3091,6 +3106,49 @@ function emailNotConfigured() {
     status: 'error',
     error: 'No email account configured. Ask the user to connect IMAP/SMTP in Settings → Email.',
   };
+}
+
+const DEFAULT_EMAIL_USER_ACTIONS = Object.freeze({
+  list: true, read: true, search: true, send: true, reply: true,
+});
+const DEFAULT_EMAIL_AGENT_ACTIONS = Object.freeze({
+  list: true, read: true, search: true, send: false, reply: false,
+});
+
+function parseEmailActions(raw, fallback) {
+  if (!raw) return { ...fallback };
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object') return { ...fallback };
+    return { ...fallback, ...parsed };
+  } catch {
+    return { ...fallback };
+  }
+}
+
+function assertEmailActionAllowed(action, toolContext) {
+  if (!action) return null;
+  const ctx = toolContext || {};
+  if (ctx.ownerType === 'workflow' || ctx.automationProjectId || ctx.automationId || ctx.skipHitl) {
+    return null;
+  }
+  const accountId = emailService().resolveAccountId(null);
+  if (!accountId) return null;
+  const perms = emailService().getAccountActionPermissions(accountId);
+  const isAgent =
+    ctx.ownerType === 'many' ||
+    ctx.ownerType === 'agent' ||
+    ctx.surface === 'many' ||
+    ctx.surface === 'agent-chat';
+  const scope = isAgent ? 'agent' : 'user';
+  const allowed = scope === 'agent' ? perms.agent : perms.user;
+  if (!allowed[action]) {
+    return {
+      status: 'error',
+      error: `Email action "${action}" is not permitted for this account. Adjust Settings → Email → allowed actions.`,
+    };
+  }
+  return null;
 }
 
 /** Shrink message body for the agent (plain text preferred; avoid huge HTML). */
@@ -3111,8 +3169,10 @@ function agentEmailBodyPayload(message, maxChars = 12000) {
   };
 }
 
-async function emailListFolders() {
+async function emailListFolders(toolContext) {
   try {
+    const denied = assertEmailActionAllowed('list', toolContext);
+    if (denied) return denied;
     const blocked = emailNotConfigured();
     if (blocked) return blocked;
     const res = await emailService().listFolders(null);
@@ -3123,8 +3183,10 @@ async function emailListFolders() {
   }
 }
 
-async function emailListEnvelopes({ folder, page, page_size } = {}) {
+async function emailListEnvelopes({ folder, page, page_size } = {}, toolContext) {
   try {
+    const denied = assertEmailActionAllowed('list', toolContext);
+    if (denied) return denied;
     const blocked = emailNotConfigured();
     if (blocked) return blocked;
     const res = await emailService().listEnvelopes(null, {
@@ -3146,8 +3208,10 @@ async function emailListEnvelopes({ folder, page, page_size } = {}) {
   }
 }
 
-async function emailSearchEnvelopes({ query, folder, page_size } = {}) {
+async function emailSearchEnvelopes({ query, folder, page_size } = {}, toolContext) {
   try {
+    const denied = assertEmailActionAllowed('search', toolContext);
+    if (denied) return denied;
     const blocked = emailNotConfigured();
     if (blocked) return blocked;
     if (!query || !String(query).trim()) {
@@ -3172,8 +3236,10 @@ async function emailSearchEnvelopes({ query, folder, page_size } = {}) {
   }
 }
 
-async function emailReadMessage({ message_id, folder } = {}) {
+async function emailReadMessage({ message_id, folder } = {}, toolContext) {
   try {
+    const denied = assertEmailActionAllowed('read', toolContext);
+    if (denied) return denied;
     const blocked = emailNotConfigured();
     if (blocked) return blocked;
     if (!message_id) return { status: 'error', error: 'message_id is required' };
@@ -3193,8 +3259,10 @@ async function emailReadMessage({ message_id, folder } = {}) {
   }
 }
 
-async function emailSendMessage({ to, subject, body, cc, bcc } = {}) {
+async function emailSendMessage({ to, subject, body, cc, bcc } = {}, toolContext) {
   try {
+    const denied = assertEmailActionAllowed('send', toolContext);
+    if (denied) return denied;
     const blocked = emailNotConfigured();
     if (blocked) return blocked;
     if (!to) return { status: 'error', error: 'to is required' };
@@ -3207,8 +3275,10 @@ async function emailSendMessage({ to, subject, body, cc, bcc } = {}) {
   }
 }
 
-async function emailReplyMessage({ message_id, body, folder } = {}) {
+async function emailReplyMessage({ message_id, body, folder } = {}, toolContext) {
   try {
+    const denied = assertEmailActionAllowed('reply', toolContext);
+    if (denied) return denied;
     const blocked = emailNotConfigured();
     if (blocked) return blocked;
     if (!message_id) return { status: 'error', error: 'message_id is required' };
@@ -4568,6 +4638,7 @@ module.exports = {
   githubListIssues,
   githubCreateIssue,
   githubUpdateIssue,
+  githubCreateMilestone,
   githubSync,
 
   // Entity creation

@@ -2,9 +2,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Menu } from '@mantine/core';
-import { Check, ChevronDown, Cloud, Search, MessageSquare, Mic, Layers, type LucideIcon } from 'lucide-react';
+import { Check, ChevronDown, Cloud, Search, MessageSquare, Mic, Layers, Brain, type LucideIcon } from 'lucide-react';
 import AIEmbeddingsTab from './ai/AIEmbeddingsTab';
 import AIWebSearchTab from './ai/AIWebSearchTab';
+import AgentContextSettingsTab from './ai/AgentContextSettingsTab';
 import { getAIConfig, saveAIConfig } from '@/lib/settings';
 import type { AISettings } from '@/types';
 import {
@@ -36,7 +37,7 @@ import SettingsPanel from '@/components/settings/SettingsPanel';
 import { cn } from '@/lib/utils';
 import '@/styles/ai-settings.css';
 
-type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools';
+type AISettingsTab = 'chat' | 'embeddings' | 'transcription' | 'tools' | 'context';
 
 const TAB_ICON_CLASS = 'size-3.5';
 const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: LucideIcon }> = [
@@ -44,6 +45,7 @@ const TAB_DEFINITIONS: Array<{ value: AISettingsTab; labelKey: string; icon: Luc
   { value: 'embeddings', labelKey: 'settings.ai.tab_embeddings', icon: Layers },
   { value: 'transcription', labelKey: 'settings.ai.tab_transcription', icon: Mic },
   { value: 'tools', labelKey: 'settings.ai.tab_tools', icon: Search },
+  { value: 'context', labelKey: 'settings.ai.tab_context', icon: Brain },
 ];
 
 function formatTokens(n: number): string {
@@ -698,6 +700,8 @@ export default function AISettingsPanel() {
       ) : null}
 
       {activeTab === 'tools' ? <AIWebSearchTab /> : null}
+
+      {activeTab === 'context' ? <AgentContextSettingsTab /> : null}
 
       {(activeTab === 'chat' || activeTab === 'transcription') ? (
         <>

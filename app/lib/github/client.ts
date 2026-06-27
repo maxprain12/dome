@@ -51,6 +51,7 @@ export const githubClient = {
   },
   milestones: {
     list: (repoId: string) => gh().milestones.list(repoId),
+    get: (id: string) => gh().milestones.get(id),
     create: (repoId: string, data: { title: string; description?: string; dueOn?: number | null; state?: string }) =>
       gh().milestones.create(repoId, data),
     update: (id: string, patch: Record<string, unknown>) => gh().milestones.update(id, patch),

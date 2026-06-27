@@ -55,7 +55,7 @@ export type ChatAttachment = ChatAttachmentImage | ChatAttachmentVideo | ChatAtt
 export const INLINE_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
 export type StructuredMessageAttachments = {
-  images: Array<{ dataUrl: string; mime: string; name: string }>;
+  images: Array<{ id?: string; dataUrl: string; mime: string; name: string }>;
   videos: Array<{
     dataUrl?: string;
     fileId?: string;
@@ -70,7 +70,7 @@ export function buildAttachmentPrefix(items: ChatAttachment[], emptyDocumentPlac
   const parts: string[] = [];
   for (const a of items) {
     if (a.kind === 'image') {
-      parts.push(`\n![${a.name}](${a.dataUrl})\n`);
+      parts.push(`\n![${a.name}](dome-att://${a.id})\n`);
     } else if (a.kind === 'video') {
       parts.push(`\n[Video: ${a.name}]\n`);
     } else {
@@ -86,7 +86,7 @@ export function buildStructuredAttachments(items: ChatAttachment[]): StructuredM
   const videos: StructuredMessageAttachments['videos'] = [];
   for (const a of items) {
     if (a.kind === 'image') {
-      images.push({ dataUrl: a.dataUrl, mime: a.mime, name: a.name });
+      images.push({ id: a.id, dataUrl: a.dataUrl, mime: a.mime, name: a.name });
     } else if (a.kind === 'video') {
       videos.push({
         dataUrl: a.dataUrl,

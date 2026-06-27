@@ -2623,8 +2623,9 @@ a:hover {
 
 .chat-history-row {
   display: flex;
-  flex-direction: column;
-  gap: 3px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
   width: 100%;
   padding: 7px 10px;
   border: none;
@@ -2633,6 +2634,41 @@ a:hover {
   cursor: pointer;
   background: transparent;
   transition: background 120ms ease;
+}
+
+.chat-history-row-live,
+.chat-history-row-live-spacer {
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
+  margin-top: 3px;
+}
+
+.chat-history-row-live {
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  background: transparent;
+  animation: attachChipSpin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-history-row-live {
+    animation: none;
+    border-top-color: var(--border);
+  }
+}
+
+.chat-history-row-live-spacer {
+  visibility: hidden;
+}
+
+.chat-history-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
 }
 
 .chat-history-row:hover {

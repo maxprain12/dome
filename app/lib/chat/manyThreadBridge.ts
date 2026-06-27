@@ -1,106 +1,14 @@
 import type { ManyMessage } from '@/lib/store/useManyStore';
+import { harnessMessagesToManyMessages as convertHarnessMessages } from '@/lib/chat/harnessToManyMessages';
 import { mergeManySessionMessages } from '@/lib/chat/mergeManySessionMessages';
 import {
   getDeletedManySessionIds,
   loadManySessionUiMeta,
+  deriveManySessionTitle,
   sanitizeManySessionTitle,
 } from '@/lib/store/manySessionStorage';
 
-type PiContentBlock = {
-  type?: string;
-  text?: string;
-  thinking?: string;
-  id?: string;
-  name?: string;
-  arguments?: Record<string, unknown>;
-};
-
-type PiMessage = {
-  role?: string;
-  content?: unknown;
-  timestamp?: number;
-};
-
-function extractTextFromContent(content: unknown): string {
-  if (typeof content === 'string') return content;
-  if (!Array.isArray(content)) return content != null ? String(content) : '';
-  return content
-    .map((block) => {
-      if (typeof block === 'string') return block;
-      if (block && typeof block === 'object') {
-        const b = block as PiContentBlock;
-        if (b.type === 'text' && typeof b.text === 'string') return b.text;
-      }
-      return '';
-    })
-    .filter(Boolean)
-    .join('\n');
-}
-
-function extractToolCalls(content: unknown): ManyMessage['toolCalls'] | undefined {
-  if (!Array.isArray(content)) return undefined;
-  const calls = content
-    .filter(
-      (block): block is PiContentBlock & { type: 'toolCall'; id: string; name: string } =>
-        Boolean(block && typeof block === 'object' && (block as PiContentBlock).type === 'toolCall'),
-    )
-    .map((tc) => ({
-      id: tc.id!,
-      name: tc.name!,
-      arguments: tc.arguments ?? {},
-    }));
-  return calls.length > 0 ? calls : undefined;
-}
-
-function extractThinking(content: unknown): string | undefined {
-  if (!Array.isArray(content)) return undefined;
-  const parts = content
-    .filter(
-      (block): block is PiContentBlock & { type: 'thinking'; thinking: string } =>
-        Boolean(block && typeof block === 'object' && (block as PiContentBlock).type === 'thinking'),
-    )
-    .map((b) => b.thinking!)
-    .filter(Boolean);
-  return parts.length > 0 ? parts.join('\n') : undefined;
-}
-
-/** Convert agent harness messages (JSONL context) into Many UI messages. */
-export function harnessMessagesToManyMessages(raw: unknown[]): ManyMessage[] {
-  const out: ManyMessage[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const msg = item as PiMessage;
-    const ts = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
-
-    if (msg.role === 'user') {
-      const text = extractTextFromContent(msg.content);
-      if (!text.trim()) continue;
-      out.push({
-        id: `msg-${ts}-${out.length}`,
-        role: 'user',
-        content: text,
-        timestamp: ts,
-      });
-      continue;
-    }
-
-    if (msg.role === 'assistant') {
-      const text = extractTextFromContent(msg.content);
-      const toolCalls = extractToolCalls(msg.content);
-      const thinking = extractThinking(msg.content);
-      if (!text.trim() && !toolCalls?.length) continue;
-      out.push({
-        id: `msg-${ts}-${out.length}`,
-        role: 'assistant',
-        content: text,
-        timestamp: ts,
-        toolCalls,
-        thinking,
-      });
-    }
-  }
-  return out;
-}
+export { harnessMessagesToManyMessages } from '@/lib/chat/harnessToManyMessages';
 
 function parseThreadCreatedAt(metadata: Record<string, unknown> | undefined): number {
   const raw = metadata?.createdAt;
@@ -183,7 +91,7 @@ export async function fetchManyMessagesFromThread(threadId: string): Promise<Man
     } | undefined;
     const raw = checkpoint?.channel_values?.messages;
     if (!Array.isArray(raw)) return [];
-    return harnessMessagesToManyMessages(raw);
+    return convertHarnessMessages(raw) as ManyMessage[];
   } catch (err) {
     console.warn('[Many] threads:get-state failed:', err);
     return [];
@@ -218,8 +126,13 @@ export async function refreshManySessionFromThread(
   }
 
   const firstUser = merged.find((m) => m.role === 'user')?.content ?? '';
+  const uiMeta = loadManySessionUiMeta();
   return {
     messages: merged,
-    title: sanitizeManySessionTitle(firstUser),
+    title: deriveManySessionTitle({
+      storedTitle: uiMeta[threadId]?.title,
+      messages: merged,
+      firstUser,
+    }),
   };
 }

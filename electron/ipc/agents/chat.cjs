@@ -24,6 +24,27 @@ function resolveChatProjectId(queries, { projectId, resourceId, agentId }) {
   return 'default';
 }
 
+function broadcastChatSessionUpdated(windowManager, sessionId) {
+  if (!sessionId || !windowManager?.broadcast) return;
+  windowManager.broadcast('chat:session-updated', { sessionId, at: Date.now() });
+}
+
+function touchChatSessionUpdatedAt(queries, sessionId) {
+  const session = queries.getChatSession.get(sessionId);
+  if (!session) return;
+  const now = Date.now();
+  queries.updateChatSession.run(
+    session.mode ?? null,
+    session.context_id ?? null,
+    session.thread_id ?? null,
+    session.title ?? null,
+    session.tool_ids ?? null,
+    session.mcp_server_ids ?? null,
+    now,
+    sessionId,
+  );
+}
+
 function register({ ipcMain, windowManager, database, validateSender }) {
   ipcMain.handle('db:chat:createSession', (event, { id: providedId, agentId, resourceId, mode, contextId, threadId, title, toolIds, mcpServerIds, projectId }) => {
     try {
@@ -44,6 +65,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
           now,
           id
         );
+        broadcastChatSessionUpdated(windowManager, id);
         return {
           success: true,
           data: {
@@ -76,6 +98,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         now,
         now
       );
+      broadcastChatSessionUpdated(windowManager, id);
       return {
         success: true,
         data: {
@@ -138,6 +161,7 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         now,
         id
       );
+      broadcastChatSessionUpdated(windowManager, id);
       return { success: true };
     } catch (error) {
       console.error('[DB] Error updating chat session:', error);
@@ -196,6 +220,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         cappedMetadata,
         now
       );
+      touchChatSessionUpdatedAt(queries, sessionId);
+      broadcastChatSessionUpdated(windowManager, sessionId);
       return { success: true, data: { id, sessionId, role, content, toolCalls, thinking, metadata, createdAt: now } };
     } catch (error) {
       console.error('[DB] Error adding chat message:', error);

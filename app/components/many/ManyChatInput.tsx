@@ -28,6 +28,8 @@ import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { db } from '@/lib/db/client';
+import { showToast } from '@/lib/store/useToastStore';
+import { handleComposerImagePaste } from '@/lib/chat/composerPaste';
 
 const MANY_PLACEHOLDER_HINT_KEYS = [
   'many.input_placeholder_docs',
@@ -477,17 +479,12 @@ export default memo(function ManyChatInput({
           onKeyDown={handleKeyDown}
           inputRef={inputRef}
           onPaste={(e) => {
-            if (!onAttachmentsChange || !multimodalCaps.supportsImage) return;
-            const items = e.clipboardData?.items;
-            if (!items) return;
-            for (const it of items) {
-              if (it.kind === 'file' && it.type.startsWith('image/')) {
-                e.preventDefault();
-                const f = it.getAsFile();
-                if (f) void handlePickFiles((() => { const d = new DataTransfer(); d.items.add(f); return d.files; })());
-                break;
-              }
-            }
+            if (!onAttachmentsChange) return;
+            void handleComposerImagePaste(e, {
+              supportsImage: multimodalCaps.supportsImage,
+              onUnsupported: () => showToast('info', t('chat.paste_image_unsupported')),
+              onFiles: (files) => { void handlePickFiles(files); },
+            });
           }}
           placeholder={composerPlaceholder}
           disabled={isLoading}
