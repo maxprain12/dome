@@ -3,6 +3,7 @@
  * IPC handlers for chat sessions and messages (traceability)
  */
 const crypto = require('crypto');
+const { capResultText } = require('../../tools/tool-result-cap.cjs');
 
 function generateId() {
   return crypto.randomUUID();
@@ -183,14 +184,16 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const queries = database.getQueries();
       const id = generateId();
       const now = Date.now();
+      const cappedContent = capResultText(content ?? '');
+      const cappedMetadata = metadata ? capResultText(JSON.stringify(metadata), { budgetChars: 32_768 }) : null;
       queries.createChatMessage.run(
         id,
         sessionId,
         role,
-        content ?? '',
+        cappedContent ?? '',
         toolCalls ? JSON.stringify(toolCalls) : null,
         thinking ?? null,
-        metadata ? JSON.stringify(metadata) : null,
+        cappedMetadata,
         now
       );
       return { success: true, data: { id, sessionId, role, content, toolCalls, thinking, metadata, createdAt: now } };
