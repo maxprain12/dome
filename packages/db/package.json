@@ -22,7 +22,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.7"
+    "drizzle-orm": "^0.45.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
