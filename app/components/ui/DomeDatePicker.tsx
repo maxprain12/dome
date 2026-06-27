@@ -331,7 +331,7 @@ export function DomeDatePicker({
                             ? 'color-mix(in srgb, var(--dome-accent, var(--accent)) 12%, transparent)'
                             : 'transparent',
                         color: isSelected
-                          ? 'var(--dome-on-accent, #fff)'
+                          ? 'var(--dome-on-accent)'
                           : 'var(--dome-text, var(--primary-text))',
                         fontWeight: today ? 700 : 400,
                         cursor: outOfRange ? 'not-allowed' : 'pointer',
