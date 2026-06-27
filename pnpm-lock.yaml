@@ -186,8 +186,8 @@ importers:
         specifier: ^7.0.1
         version: 7.0.1
       better-sqlite3:
-        specifier: ^12.6.2
-        version: 12.10.0
+        specifier: ^12.11.1
+        version: 12.11.1
       cheerio:
         specifier: ^1.1.2
         version: 1.2.0
@@ -513,14 +513,14 @@ importers:
     dependencies:
       drizzle-orm:
         specifier: ^0.44.7
-        version: 0.44.7(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.10.0)
+        version: 0.44.7(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.11.1)
     devDependencies:
       '@types/better-sqlite3':
         specifier: ^7.6.13
         version: 7.6.13
       better-sqlite3:
-        specifier: ^12.6.2
-        version: 12.10.0
+        specifier: ^12.11.1
+        version: 12.11.1
       drizzle-kit:
         specifier: ^0.31.8
         version: 0.31.10
@@ -3958,8 +3958,8 @@ packages:
     engines: {node: '>=6.0.0'}
     hasBin: true
 
-  better-sqlite3@12.10.0:
-    resolution: {integrity: sha512-CyzaZRQKyHkB2ZInfTTl2nvT33EbDpjkLEbE8/Zck3Ll6O0qqvuGdrJ45HgtH+HykRg88ITY3AdreBGN70aBSQ==}
+  better-sqlite3@12.11.1:
+    resolution: {integrity: sha512-dq9AtApgg5PGFtBzPFSBl3HZQjHok5gaQCM6zh2Yk0aSmDCs1CbnVI8/HgASQkNKsWFpseIO9beg5xxpYhbIfA==}
     engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x || 26.x}
 
   big-integer@1.6.52:
@@ -11653,7 +11653,7 @@ snapshots:
 
   baseline-browser-mapping@2.10.29: {}
 
-  better-sqlite3@12.10.0:
+  better-sqlite3@12.11.1:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
@@ -12353,12 +12353,12 @@ snapshots:
       esbuild: 0.25.12
       tsx: 4.22.0
 
-  drizzle-orm@0.44.7(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.10.0):
+  drizzle-orm@0.44.7(@opentelemetry/api@1.9.1)(@types/better-sqlite3@7.6.13)(@types/pg@8.15.6)(better-sqlite3@12.11.1):
     optionalDependencies:
       '@opentelemetry/api': 1.9.1
       '@types/better-sqlite3': 7.6.13
       '@types/pg': 8.15.6
-      better-sqlite3: 12.10.0
+      better-sqlite3: 12.11.1
 
   duck@0.1.12:
     dependencies:

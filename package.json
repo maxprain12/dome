@@ -135,7 +135,7 @@
     "adm-zip": "^0.5.17",
     "apache-arrow": "^18.1.0",
     "archiver": "^7.0.1",
-    "better-sqlite3": "^12.6.2",
+    "better-sqlite3": "^12.11.1",
     "cheerio": "^1.1.2",
     "chokidar": "^5.0.0",
     "clsx": "^2.1.0",
