@@ -3,7 +3,7 @@
 ## El principio central
 
 **Solo hay un paso manual: escribir el prompt.**
-El agente (Claude Code, Cursor, Windsurf, etc.) se encarga de todo lo demás.
+El agente (Claude Code, Cursor, Copilot, etc.) ejecuta el protocolo de [AGENTS.md](../../AGENTS.md).
 
 ---
 
@@ -17,34 +17,31 @@ El agente (Claude Code, Cursor, Windsurf, etc.) se encarga de todo lo demás.
  [AGENTE] Lee AGENTS.md y ejecuta el protocolo
      │
      ├─ 1. git checkout -b feat/export-pdf
-     ├─ 2. Implementa (respetando arch rules, i18n, CSS vars)
-     ├─ 3. pnpm run typecheck && lint && build   (si falla → arregla)
+     ├─ 2. Implementa (P-001…P-010, i18n, CSS vars, IPC whitelist)
+     ├─ 3. pnpm run typecheck && lint && build && check:ipc-inventory
      ├─ 4. gh pr create
      └─ 5. gh pr merge --auto --squash
                │
                ▼
- [CI AUTOMÁTICO] — ~3 min, en paralelo
-     ├─ TypeScript: tsc --noEmit
-     ├─ ESLint: eslint app/
-     ├─ Vite Build
-     └─ Architecture Guard: busca imports prohibidos en app/
-               │
-               ▼ (simultáneo al CI)
- [AI REVIEW AUTOMÁTICO] — ~2 min
-     ├─ Pass 1: Arquitectura (separación renderer/main, IPC whitelist)
-     ├─ Pass 2: Lógica (bugs, race conditions, error handling)
-     └─ Pass 3: Estilo (colores, i18n, convenciones)
-         → Comentario en el PR con los hallazgos
+ [CI — GitHub Actions] — workflow ci.yml
+     ├─ TypeScript (tsc --noEmit)
+     ├─ ESLint
+     ├─ Vite build
+     ├─ Architecture guard (imports prohibidos en app/)
+     ├─ IPC inventory
+     └─ dependency-cruiser
                │
                ▼ (cuando CI pasa)
- [AUTO-MERGE] — GitHub squash merge automático
+ [AUTO-MERGE] — squash merge automático (si branch protection lo permite)
 ```
+
+**No hay workflow de AI review en GitHub** (`.github/workflows/` solo incluye `ci.yml`, `build.yml`, `project-sync.yml`). La calidad en PR se apoya en CI + revisión humana opcional.
 
 ---
 
-## Lo que necesitas configurar una sola vez
+## Configuración única (maintainer)
 
-### 1. Branch protection en GitHub
+### Branch protection en GitHub
 
 `Settings → Branches → Add rule → Branch: main`
 
@@ -54,29 +51,18 @@ El agente (Claude Code, Cursor, Windsurf, etc.) se encarga de todo lo demás.
     ✅ Lint
     ✅ Vite Build
     ✅ Architecture Guard
+    (y el resto de jobs de ci.yml según aparezcan en la UI)
 ☑ Require branches to be up to date
-☑ Allow auto-merge (habilitar en Settings → General → Allow auto-merge)
+☑ Allow auto-merge (Settings → General → Allow auto-merge)
 ```
 
-Esto hace que `gh pr merge --auto --squash` funcione: el PR se mergeará solo cuando el CI pase.
-
-### 2. Secrets en GitHub (Settings → Secrets)
-
-```
-AI_REVIEW_API_KEY      → tu key de MiniMax / DeepSeek / OpenAI
-AI_REVIEW_BASE_URL     → https://api.deepseek.com/v1  (o el tuyo)
-AI_REVIEW_MODEL        → deepseek-chat  (o el tuyo)
-```
-
-### 3. Variables en GitHub (Settings → Variables)
-
-```
-AI_REVIEW_ENABLED = true
-```
+---
 
 ## Cómo darle una tarea al agente
 
-### En Claude Code
+### En Claude Code / Cursor / Windsurf
+
+El agente lee `AGENTS.md` y `CLAUDE.md` en la raíz. Ejemplo de prompt:
 
 ```
 "Añade soporte para exportar recursos como PDF.
@@ -84,19 +70,13 @@ AI_REVIEW_ENABLED = true
  El botón debe estar en la barra de herramientas del viewer."
 ```
 
-### En Cursor / Windsurf
-
-El agente lee `AGENTS.md` automáticamente (está en la raíz). El mismo prompt funciona.
-
 ### El agente hará exactamente:
 
 1. `git checkout -b feat/export-pdf`
-2. Implementar el IPC handler + UI + i18n en los 4 idiomas
+2. Implementar IPC handler + UI + i18n (en, es, fr, pt)
 3. `pnpm run typecheck && pnpm run lint && pnpm run build`
 4. `gh pr create --title "feat: export resources as PDF"`
 5. `gh pr merge --auto --squash`
-
-Tú recibes la notificación de GitHub cuando el PR se abre y otra cuando se mergea.
 
 ---
 
@@ -104,28 +84,26 @@ Tú recibes la notificación de GitHub cuando el PR se abre y otra cuando se mer
 
 ```
 dome/
-├── AGENTS.md                              ← Harness principal (agentes leen esto)
-├── CLAUDE.md                              ← Contexto del proyecto (Claude Code)
-├── .claude/sops/                          ← Guías paso a paso
-│   ├── pr-checklist.md
-│   ├── new-ipc-channel.md
-│   ├── new-feature.md
-│   └── release.md
+├── AGENTS.md                    ← Protocolo para agentes
+├── CLAUDE.md                    ← Contexto del proyecto
+├── .claude/sops/                ← Checklists (IPC, PR, release, Drizzle…)
 ├── .github/
-│   ├── PULL_REQUEST_TEMPLATE.md           ← Template estándar de PR
+│   ├── PULL_REQUEST_TEMPLATE.md
 │   └── workflows/
-│       ├── ci.yml                         ← TypeScript + ESLint + Build + Arch guard
-│       └── ai-review.yml                  ← 3-pass AI review en cada PR
-└── scripts/
-    └── ai-review.mjs                      ← Script de review (multi-provider)
+│       ├── ci.yml               ← Checks en cada PR
+│       ├── build.yml            ← Build empaquetado (releases)
+│       └── project-sync.yml
+└── docs/
+    ├── principles.md            ← P-001…P-010
+    └── architecture/            ← ADRs, IPC, agent runtime
 ```
 
 ---
 
 ## Preguntas frecuentes
 
-**¿Qué pasa si el AI review encuentra un problema grave?**
-El review es informativo (no bloquea el merge). Si el agente lo lee antes del auto-merge, puede arreglarlo. Si ya se mergeó, abre un issue y el pipeline lo trata como un bug fix normal.
+**¿Qué pasa si el CI falla?**
+El auto-merge no ocurre hasta que pasen los checks. El agente (o tú) corrige y empuja de nuevo.
 
-**¿Puedo hacer que el AI review bloquee el merge?**
-Sí: cambia el `event: 'COMMENT'` a `event: 'REQUEST_CHANGES'` en `scripts/ai-review.mjs`, y añade el check `AI Code Review` a los status checks requeridos en branch protection.
+**¿Dónde está la documentación de DB / Drizzle / workers?**
+[features/database.md](database.md) y [ADR-0002](../architecture/decisions/0002-drizzle-incremental-migration.md).

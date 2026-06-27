@@ -1,6 +1,6 @@
 # Auditoría de mejora de Dome — Junio 2026
 
-Auditoría completa del codebase (seguridad, UI visual, UX/componentes, harness de agentes, datos/rendimiento, calidad/observabilidad) realizada el **2026-06-09** sobre `main` (v2.3.7, commit `338646c`). Cada área tiene su carpeta con un README de resumen y tareas detalladas (`Txx-*.md`) con problema, evidencia (archivo:línea), pasos, criterios de aceptación y riesgos.
+Documentación del ecosistema Dome Desktop (**v2.7.7**, commit en `main`). Cada área tiene su carpeta con un README de resumen y tareas detalladas (`Txx-*.md`) con problema, evidencia, pasos, criterios de aceptación y riesgos. Algunas tareas pueden estar **implementadas** con notas de seguimiento (p. ej. Drizzle en T03).
 
 ## Metodología
 

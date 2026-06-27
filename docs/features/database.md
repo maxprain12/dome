@@ -1,83 +1,163 @@
-# Database Feature (Main Process)
+# Base de datos — SQLite en el main process
 
-Documentation for Dome's SQLite layer in the main process: schema, migrations, prepared queries, and FTS. Lives in `electron/database.cjs`; renderer uses IPC via `app/lib/db/client.ts` (see resources.md for client API).
+Dome persiste el estado de la app en **SQLite** (`better-sqlite3`) en el main process. El renderer **nunca** toca la DB directamente: usa IPC vía `app/lib/db/client.ts`.
+
+**Schema HEAD:** `settings.schema_version = 53` (migraciones legacy) + journal Drizzle (`__drizzle_migrations`).
 
 ---
 
-## Schema (tables)
+## Arquitectura en capas
 
-| Table | Purpose |
+```
+Renderer (app/lib/db/client.ts)
+        │  window.electron.invoke('db:*', …)
+        ▼
+IPC handlers (electron/ipc/data/*.cjs)
+        │
+        ├─► getQueries()          ← prepared statements (mayoría de dominios)
+        ├─► getSettingsRepo()     ← Drizzle piloto (settings)
+        ├─► getTagsRepo()         ← Drizzle piloto (tags)
+        └─► runDbReadTask()       ← lecturas pesadas en worker thread
+        │
+        ▼
+electron/core/database.cjs       ← fachada: getDB(), init, migraciones
+        │
+        ├─► electron/core/db/schema.cjs      — DDL base (install nueva)
+        ├─► electron/core/db/migrations.cjs  — migraciones legacy 1…53
+        ├─► electron/core/db/queries.cjs     — prepared statements
+        ├─► electron/core/db/drizzle-bridge.cjs — post-v53: Drizzle + FTS
+        ├─► electron/core/db/drizzle-repos.cjs  — adaptadores snake_case
+        └─► electron/core/db/fts-schema.cjs     — FTS5 + triggers (SQL crudo)
+        │
+        ▼
+packages/db (@dome/db)           — schema TypeScript, repos tipados, migrator Drizzle
+```
+
+### Reglas de diseño
+
+| Regla | Detalle |
 |-------|---------|
-| `projects` | id, name, description, parent_id, created_at, updated_at |
-| `resources` | id, project_id, type, title, content, file_path, metadata, created_at, updated_at; plus internal_path, file_mime_type, file_size, file_hash, thumbnail_data, original_filename, folder_id (migrations) |
-| `sources` | id, resource_id, type, title, authors, year, doi, url, publisher, journal, volume, issue, pages, isbn, metadata, created_at, updated_at |
-| `citations` | id, source_id, resource_id, quote, page_number, notes, created_at |
-| `tags` | id, name, color, created_at |
-| `resource_tags` | resource_id, tag_id (M:N) |
-| `settings` | key, value, updated_at |
-| `resource_interactions` | id, resource_id, type (note|annotation|chat), content, position_data, metadata, created_at, updated_at |
-| `resource_links` | id, source_id, target_id, link_type, weight, metadata, created_at |
-| `search_index` | id, resource_id, combined_text, keywords, last_indexed |
-| `auth_profiles` | id, provider, type (api_key|oauth|token), credentials, is_default, created_at, updated_at (migration 4) |
-| `martin_memory` | id, type, key, value, metadata, created_at, updated_at (migration 4) |
-
-### Virtual tables (FTS5)
-
-- **resources_fts**: resource_id, title, content (standalone). Triggers: resources_ai/ad/au sync from resources.
-- **interactions_fts**: interaction_id, content (standalone). Triggers: interactions_ai/ad/au sync from resource_interactions (content + json_extract(position_data, '$.selectedText')).
-
-### Indexes
-
-- resources: project_id, type, file_hash, internal_path, folder_id
-- citations: source_id, resource_id
-- sources: resource_id
-- resource_interactions: resource_id, type
-- resource_links: source_id, target_id
-- search_index: resource_id
-- auth_profiles: provider
-- martin_memory: type, key
+| **Un writer** | Una sola conexión `getDB()` en main; Drizzle envuelve la misma instancia |
+| **Legacy primero** | `applyMigrations()` debe llegar a v53 antes de `runDrizzleMigrations()` |
+| **FTS en SQL crudo** | Tablas virtuales FTS5 y triggers no van en Drizzle; viven en `fts-schema.cjs` |
+| **Migración incremental** | Nuevos dominios → Drizzle por PR; ver [.claude/sops/drizzle-domain-migration.md](../../.claude/sops/drizzle-domain-migration.md) |
+| **Offload de lecturas** | FTS híbrido, listados grandes → `electron/workers/db-read.worker.cjs` |
 
 ---
 
-## Migrations
+## Ubicación del archivo
 
-- **Version** stored in `settings.schema_version` (integer).
-- **Migration 1**: Add internal file storage columns to resources (internal_path, file_mime_type, file_size, file_hash, thumbnail_data, original_filename); indexes.
-- **Migration 2**: Add type 'folder' to resources CHECK (recreate table if needed); add folder_id, indexes.
-- **Migration 3**: Ensure folder_id column exists (add if missing).
-- **Migration 4**: Add auth_profiles, martin_memory tables and indexes (legacy installs may still carry dropped WhatsApp tables until migration 31 runs).
-- **Migration 31**: Drop whatsapp_messages / whatsapp_sessions if present; remove whatsapp_allowlist setting.
+| SO | Ruta |
+|----|------|
+| macOS | `~/Library/Application Support/dome/dome.db` |
+| Windows | `%APPDATA%\dome\dome.db` |
+| Linux | `~/.config/dome/dome.db` |
 
----
-
-## Prepared queries (getQueries())
-
-- **Projects**: createProject, getProjects, getProjectById.
-- **Resources**: createResource, getResourcesByProject, getResourceById, updateResource; createResourceWithFile, updateResourceFile, updateResourceThumbnail, findByHash, getAllInternalPaths, getResourcesWithLegacyPath, deleteResource; getResourcesByFolder, getRootResources, moveResourceToFolder, removeResourceFromFolder.
-- **Sources**: createSource, getSources, getSourceById.
-- **FTS**: searchResources (resources_fts MATCH), searchInteractions (interactions_fts MATCH).
-- **Settings**: getSetting, setSetting.
-- **Interactions**: createInteraction, getInteractionsByResource, getInteractionsByType, updateInteraction, deleteInteraction.
-- **Links**: createLink, getLinksBySource, getLinksByTarget, deleteLink.
-- **Search**: getAllResources(limit); searchForMention (LIKE title/id LIMIT 10); getBacklinks (links where target_id = ?).
-- **Unified search**: Implemented in IPC handler: query resources_fts and interactions_fts, return { resources, interactions }.
+Backups automáticos antes de migrar: `dome.db.backup-v{N}-{timestamp}` (ver `electron/core/db-backup.cjs`; `LATEST_SCHEMA_VERSION = 53`).
 
 ---
 
-## Design patterns
+## Flujo de arranque
 
-- **Lazy init**: getDB() and getQueries() create DB and prepared statements on first use.
-- **WAL**: PRAGMA journal_mode = WAL; synchronous = NORMAL; foreign_keys ON.
-- **FTS**: Standalone FTS tables (no external content) to avoid SQLITE_CORRUPT_VTAB; triggers keep FTS in sync.
-- **Metadata/JSON**: resources.metadata, resource_interactions.position_data and metadata stored as TEXT (JSON); parse in JS.
-- **IPC**: All access from renderer via IPC; main runs getQueries() and returns serializable results; see resources.md and ipc.md.
+1. `initDatabase()` — PRAGMAs (WAL, foreign_keys, synchronous NORMAL).
+2. `createBaseSchema()` — tablas base si DB nueva.
+3. `applyMigrations()` — runner legacy hasta v53 (transaccional + backup).
+4. `runDrizzleMigrations()` — baseline Drizzle + deltas futuros; luego `ensureFtsSchema()`.
+5. `scheduleDeferredDbMaintenance()` — `incremental_vacuum`, retención de runs, etc. (diferido post-arranque).
+6. Al cerrar: `PRAGMA optimize` + `shutdownWorkers()`.
 
 ---
 
-## Key files
+## Paquete `@dome/db`
 
-| Path | Role |
-|------|------|
-| `electron/database.cjs` | getDB, initDatabase, runMigrations, populateFTSTables, createDefaultProject, getQueries, checkIntegrity; IPC handlers call these |
-| `electron/main.cjs` | Registers IPC handlers for db:* (projects, resources, interactions, links, search, settings) |
-| `app/lib/db/client.ts` | Renderer DB client (see resources.md) |
+Workspace en `packages/db/`:
+
+| Ruta | Rol |
+|------|-----|
+| `src/schema/*.ts` | Tablas Drizzle reflejando HEAD v53 (core, agents, data, calendar, learn, …) |
+| `src/repos/settings.ts`, `repos/tags.ts` | Repos piloto ya cableados en main |
+| `src/client.ts` | `createDrizzle(sqlite)` sobre better-sqlite3 existente |
+| `src/migrate.ts` | `runDrizzleMigrate()` |
+| `drizzle/0000_baseline_v53.sql` | Baseline no-op (`SELECT 1;`) — schema real viene del legacy |
+| `src/constants.ts` | `LEGACY_SCHEMA_VERSION = 53` |
+
+Comandos útiles:
+
+```bash
+pnpm run build:packages          # compila @dome/db
+pnpm run test:drizzle-spike      # smoke: settings + tags vía repos Drizzle
+pnpm run db:perf-baseline        # tamaño DB, dbstat, latencia de queries
+pnpm --filter @dome/db run db:generate   # nueva migración Drizzle (cuando cambie DDL)
+```
+
+Tests de convergencia: `electron/__tests__/drizzle-bridge.test.mjs`.
+
+---
+
+## Workers (carga pesada fuera del main)
+
+| Worker | Uso |
+|--------|-----|
+| `document-extract.worker.cjs` | Extracción de texto PDF/DOCX/PPTX en adjuntos y recursos |
+| `db-read.worker.cjs` | FTS read-only, listados de IDs por proyecto |
+| `worker-pool.cjs` | Pool + `runDbReadTask()` / `runDocumentExtract()` |
+
+Integrado en: `electron/ipc/data/files.cjs`, `resources.cjs`, `electron/tools/ai-tools-handler.cjs` (hybrid search). `main.cjs` llama `shutdownWorkers()` en `before-quit`.
+
+---
+
+## Tablas principales (resumen)
+
+| Dominio | Tablas |
+|---------|--------|
+| Core | `projects`, `resources`, `sources`, `citations`, `tags`, `resource_tags`, `settings` |
+| Interacciones | `resource_interactions`, `resource_links`, `search_index` |
+| Auth / memoria | `auth_profiles`, `martin_memory` |
+| Agentes | `agents`, `agent_threads`, `runs`, `run_steps`, `workflows`, … |
+| Automatizaciones | `automations`, `automation_runs`, `automation_artifact_bindings` |
+| Learn | `flashcards`, `quiz_*`, decks FSRS |
+| Calendar | `calendar_events`, sync metadata |
+| Artifacts | `artifacts` |
+| FTS (virtual) | `resources_fts`, `interactions_fts` (+ triggers en `fts-schema.cjs`) |
+
+Schema completo en código: `electron/core/db/schema.cjs` y `packages/db/src/schema/`.
+
+---
+
+## Migraciones legacy (1…53)
+
+- Versión en `settings.schema_version`.
+- Historia congelada en `electron/core/db/migrations.cjs` (append-only).
+- Instalación **nueva**: `createBaseSchema()` + última migración pone HEAD v53.
+- Instalación **existente**: runner aplica solo deltas pendientes.
+
+Tras v53, cambios de DDL nuevos deben ir como migraciones Drizzle en `packages/db/drizzle/` (no añadir bloques al monolito legacy salvo hotfix excepcional).
+
+---
+
+## Acceso desde el renderer
+
+```typescript
+// app/lib/db/client.ts — siempre usar este wrapper
+const projects = await window.electron.invoke('db:projects:getAll');
+const tags = await window.electron.invoke('db:tags:getAll');
+```
+
+Ver también: [resources.md](resources.md), [ipc.md](ipc.md), [architecture/ipc-channels.md](../architecture/ipc-channels.md).
+
+---
+
+## Archivos clave
+
+| Path | Rol |
+|------|-----|
+| `electron/core/database.cjs` | Fachada pública: getDB, init, getQueries, repos Drizzle |
+| `electron/core/db-backup.cjs` | Backup pre-migración, integridad |
+| `electron/core/db/drizzle-bridge.cjs` | Puente legacy → Drizzle |
+| `electron/core/db/fts-schema.cjs` | FTS5 idempotente |
+| `electron/ipc/data/database.cjs` | IPC settings (Drizzle) |
+| `electron/ipc/data/tags.cjs` | IPC tags (Drizzle) |
+| `packages/db/` | Schema TS, migrator, repos |
+| `electron/workers/` | Pool de workers |
+
+**ADR:** [0002-drizzle-incremental-migration.md](../architecture/decisions/0002-drizzle-incremental-migration.md)

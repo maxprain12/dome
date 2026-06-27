@@ -1,6 +1,6 @@
 # Manual de Usuario — Dome
 
-> Guía completa para usuarios finales de Dome Desktop (v2.3.5).
+> Guía completa para usuarios finales de Dome Desktop (v2.7.7).
 > Este manual no requiere conocimientos técnicos.
 
 ---

@@ -114,9 +114,12 @@ IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
 **SQLite** (`electron/core/database.cjs` via `better-sqlite3`):
 
 - Stored at `app.getPath('userData')/dome.db`
-- Key tables: `projects`, `resources`, `sources`, `tags`, `interactions`, `settings`
-- Full-text search via FTS5
+- Legacy schema HEAD: `settings.schema_version = 53` (`electron/core/db/migrations.cjs`)
+- **Drizzle incremental:** `@dome/db` (`packages/db/`) — baseline post-v53, repos piloto (settings, tags); bridge in `electron/core/db/drizzle-bridge.cjs`
+- FTS5 + triggers: raw SQL in `electron/core/db/fts-schema.cjs` (not Drizzle)
+- Heavy reads/extraction: `electron/workers/` (db-read, document-extract)
 - Accessed via `db:*` IPC channels from renderer
+- Docs: [docs/features/database.md](docs/features/database.md), SOP [.claude/sops/drizzle-domain-migration.md](.claude/sops/drizzle-domain-migration.md)
 
 **Semantic index** (`electron/services/embeddings.service.cjs`, LanceDB `dome-lance`):
 

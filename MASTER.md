@@ -24,7 +24,7 @@
 │  y investigación académica. Combina editor, IA, agentes,    │
 │  organización de recursos y herramientas de estudio.        │
 │                                                              │
-│  v2.3.5  ·  pnpm  ·  Electron 41  ·  TypeScript             │
+│  v2.7.7  ·  pnpm 11  ·  Electron 41  ·  TypeScript             │
 └──────────────────────────────┬──────────────────────────────┘
                                │ OAuth PKCE + AI Proxy
                                │ dome://dome-auth/oauth/callback
@@ -64,7 +64,7 @@
 | [Manual Técnico](./docs/manual-tecnico.md) | Arquitectura, IPC, DB schema, AI, build, troubleshooting |
 | [CLAUDE.md](./CLAUDE.md) | Guía para Claude Code: reglas críticas de arquitectura |
 | [docs/ipc.md](./docs/features/ipc.md) | Whitelist de canales IPC, seguridad |
-| [docs/database.md](./docs/features/database.md) | Schema SQLite completo |
+| [docs/database.md](./docs/features/database.md) | SQLite v53, `@dome/db`, Drizzle bridge, workers |
 
 ### Para desarrolladores de Dome Provider
 
@@ -98,7 +98,7 @@
 | Feature | Doc | Estado |
 |---------|-----|--------|
 | Calendar + Google Calendar | [calendar.md](./docs/features/calendar.md) | ✅ v2.0.0 |
-| Flashcards FSRS | [flashcards.md](./docs/features/flashcards.md) | ✅ v2.3.5 |
+| Flashcards FSRS | [flashcards.md](./docs/features/flashcards.md) | ✅ v2.7.x |
 | Automatizaciones | [automations.md](./docs/features/automations.md) | ✅ v2.0.8 |
 | Run Engine | [runs.md](./docs/features/runs.md) | ✅ v2.0.8 |
 
@@ -124,7 +124,7 @@
 
 | Feature | Doc | Estado |
 |---------|-----|--------|
-| Database (SQLite) | [database.md](./docs/features/database.md) | ✅ Implementado |
+| Database (SQLite + Drizzle) | [database.md](./docs/features/database.md) | ✅ v53 + bridge |
 | IPC Architecture | [ipc.md](./docs/features/ipc.md) | ✅ Implementado |
 | File Storage | [file-storage.md](./docs/features/file-storage.md) | ✅ Implementado |
 | Settings | [settings.md](./docs/features/settings.md) | ✅ Implementado |
@@ -246,4 +246,4 @@ Ver: [CLAUDE.md](./CLAUDE.md) · [.claude/rules/architecture-rules.md](./.claude
 
 ---
 
-*Última actualización: v2.3.5 (2026-06-08) — Dome Desktop + Dome Provider Fase 1*
+*Última actualización: v2.7.7 (2026-06) — Dome Desktop + Drizzle incremental + workers*

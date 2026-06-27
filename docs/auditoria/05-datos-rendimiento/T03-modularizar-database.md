@@ -1,7 +1,7 @@
 # T03 — Modularizar database.cjs
 
 **Prioridad**: P2 · **Severidad**: Media · **Esfuerzo**: L · **Área**: Datos
-**Estado**: ✅ Implementado (fases a+b+c, 2026-06-13) — (a) `db/queries.cjs` (#360); (b) `db/migrations.cjs` con las 42 migraciones verbatim (#377); (c) **schema DDL → `db/schema.cjs`** (`createBaseSchema(db)`: PRAGMAs + todas las tablas/índices/FTS/triggers `IF NOT EXISTS`, byte-idéntico verificado por diff). `database.cjs` baja de ~5.000 a **657 líneas** (fachada: getDB/initDatabase/getQueries/integridad/reparación/borrados en cascada). La decisión de diseño se mantiene: instalación nueva = `createBaseSchema` + `schema_version` a HEAD vía la última migración; existente = runner. La plantilla para migraciones futuras está en la cabecera de `db/migrations.cjs`. Nota: `migrations.cjs` (2.899) es historia congelada (un bloque por versión, append-only) y `queries.cjs` (1.087) un mapa cohesivo de prepared statements — exceden las ~800 líneas por diseño, no por acoplamiento.
+**Estado**: ✅ Implementado (fases a+b+c, 2026-06-13) — (a) `db/queries.cjs` (#360); (b) `db/migrations.cjs` con las 42 migraciones verbatim (#377); (c) **schema DDL → `db/schema.cjs`**. `database.cjs` es fachada (~657 líneas). **Ampliación 2026-06:** `@dome/db` (Drizzle post-v53), `drizzle-bridge.cjs`, pilotos settings/tags, workers — [ADR-0002](../../architecture/decisions/0002-drizzle-incremental-migration.md), [database.md](../../features/database.md).
 
 ## Problema
 
