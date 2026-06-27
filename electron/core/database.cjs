@@ -10,7 +10,10 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { app } = require('electron');
 const { buildQueries } = require('./db/queries.cjs');
+const { createSettingsRepo, createTagsRepo } = require('./db/drizzle-repos.cjs');
 const { applyMigrations } = require('./db/migrations.cjs');
+const { runDrizzleMigrations, invalidateDrizzle } = require('./db/drizzle-bridge.cjs');
+const { invalidateDrizzleRepos } = require('./db/drizzle-repos.cjs');
 const { createBaseSchema } = require('./db/schema.cjs');
 const { reclaimSpaceIfBloated, repairBloatedCalendarReminders } = require('./db-maintenance.cjs');
 const {
@@ -139,25 +142,7 @@ function initDatabase() {
       console.log('✅ Database schema initialized');
       _schemaInitialized = true;
 
-      // One-time reclaim of historical bloat (ELECTRON-7): older builds stored
-      // unbounded multi-MB tool results that, once replaced/purged, left the file
-      // full of unreclaimable free pages (auto_vacuum was NONE). VACUUM here is
-      // cheap (only live pages are copied) and never blocks boot on failure.
-      // Repair calendar reminders corrupted by double JSON.stringify on each sync,
-      // then reclaim the freed pages (can be multiple GB on long-running installs).
-      try {
-        const repair = repairBloatedCalendarReminders(_db);
-        if (repair.repaired > 0) {
-          console.log(`[DB] Repaired ${repair.repaired} bloated calendar reminder row(s)`);
-        }
-      } catch (repairErr) {
-        console.warn('[DB] Calendar reminders repair skipped:', repairErr?.message || repairErr);
-      }
-      try {
-        reclaimSpaceIfBloated(_db);
-      } catch (maintErr) {
-        console.warn('[DB] Space reclaim skipped:', maintErr?.message || maintErr);
-      }
+      scheduleDeferredDbMaintenance();
       return;
     } catch (err) {
       lastError = err;
@@ -174,6 +159,33 @@ function initDatabase() {
   }
 
   throw lastError;
+}
+
+/**
+ * Defer heavy maintenance so initDatabase returns before VACUUM/repair work.
+ */
+function scheduleDeferredDbMaintenance() {
+  setImmediate(() => {
+    if (!_db) return;
+    try {
+      const repair = repairBloatedCalendarReminders(_db);
+      if (repair.repaired > 0) {
+        console.log(`[DB] Repaired ${repair.repaired} bloated calendar reminder row(s)`);
+      }
+    } catch (repairErr) {
+      console.warn('[DB] Calendar reminders repair skipped:', repairErr?.message || repairErr);
+    }
+    try {
+      reclaimSpaceIfBloated(_db);
+    } catch (maintErr) {
+      console.warn('[DB] Space reclaim skipped:', maintErr?.message || maintErr);
+    }
+    try {
+      _db.pragma('optimize');
+    } catch (optErr) {
+      console.warn('[DB] PRAGMA optimize skipped:', optErr?.message || optErr);
+    }
+  });
 }
 
 /**
@@ -268,6 +280,7 @@ function runMigrations(db) {
   // so whole-run atomicity is provided by restoring the pre-migration backup on failure.
   try {
     applyMigrations(db, version, invalidateQueries);
+    runDrizzleMigrations(db);
   } catch (err) {
     console.error(`[DB] Migration failed (upgrading from schema v${version}):`, err?.message);
     if (backupPath && db.name) {
@@ -365,6 +378,8 @@ function attemptFullDatabaseRepair() {
  */
 function invalidateQueries() {
   _queries = null;
+  invalidateDrizzle();
+  invalidateDrizzleRepos();
   console.log('[DB] Query cache invalidated');
 }
 
@@ -756,6 +771,11 @@ function deleteWorkflowFolderCascade(folderId) {
  */
 function closeDB() {
   if (_db) {
+    try {
+      _db.pragma('optimize');
+    } catch {
+      /* best-effort */
+    }
     _db.close();
     _db = null;
     _queries = null;
@@ -764,11 +784,28 @@ function closeDB() {
   }
 }
 
+
+/**
+ * Drizzle-backed settings repository (pilot).
+ */
+function getSettingsRepo() {
+  return createSettingsRepo(getDB());
+}
+
+/**
+ * Drizzle-backed tags repository (pilot).
+ */
+function getTagsRepo() {
+  return createTagsRepo(getDB());
+}
+
 module.exports = {
   getDB,
   getDbPath,
   initDatabase,
   getQueries,
+  getSettingsRepo,
+  getTagsRepo,
   closeDB,
   checkIntegrity,
   repairFTSTables,
