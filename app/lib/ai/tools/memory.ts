@@ -6,7 +6,7 @@
  */
 
 import { Type } from '@sinclair/typebox';
-import { memoryToolDefinitions } from '@dome/tools';
+import { memoryToolDefinitions } from './memory-tool-definitions';
 import type { AnyAgentTool } from './types';
 import { jsonResult, readStringParam, readNumberParam } from './common';
 import { isElectronAI } from '@/lib/utils/formatting';

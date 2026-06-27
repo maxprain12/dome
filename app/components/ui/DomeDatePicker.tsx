@@ -217,9 +217,17 @@ export function DomeDatePicker({
           {clearable && selected && !disabled ? (
             <span
               role="button"
-              tabIndex={-1}
+              tabIndex={0}
               aria-label={t('common.date_picker_clear')}
               onClick={clear}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onChange('');
+                  setOpen(false);
+                }
+              }}
               className="rounded p-0.5"
               style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
               onMouseEnter={(e) => {
