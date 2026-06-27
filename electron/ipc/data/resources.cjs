@@ -11,6 +11,17 @@ function generateId() {
   return crypto.randomUUID();
 }
 
+const { extractInWorker } = require('../../workers/document-extract-service.cjs');
+
+async function extractDocumentTextOffMain(fullPath, mimeType) {
+  try {
+    return await extractInWorker('documentText', fullPath, undefined, mimeType);
+  } catch (err) {
+    console.warn('[Resources] document extract worker fallback:', err?.message || err);
+    return documentExtractor.extractDocumentText(fullPath, mimeType);
+  }
+}
+
 function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath }) {
   semanticIndexScheduler.init(database);
   /**
@@ -63,7 +74,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       let contentText = null;
       if (effectiveType === 'document' || effectiveType === 'excel' || effectiveType === 'ppt') {
         try {
-          contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+          contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
         } catch (extractError) {
           console.warn('[Resource] Text extraction failed, continuing without content:', extractError.message);
         }
@@ -205,7 +216,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         let contentText = null;
         if (fileType === 'document' || fileType === 'excel' || fileType === 'ppt') {
           try {
-            contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+            contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
           } catch (e) {
             console.warn('[Resource] Document extraction failed:', e.message);
           }
@@ -493,7 +504,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
 
       let contentText = null;
       try {
-        contentText = await documentExtractor.extractDocumentText(fullPath, resource.file_mime_type);
+        contentText = await extractDocumentTextOffMain(fullPath, resource.file_mime_type);
       } catch (e) {
         console.warn('[Resource] Excel text extraction failed:', e?.message);
       }
@@ -851,7 +862,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
           if (effectiveType === 'pdf') {
             contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
           } else {
-            contentText = await documentExtractor.extractDocumentText(fullPath, importResult.mimeType);
+            contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
           }
         } catch {
           // Keep plain text content if extraction fails

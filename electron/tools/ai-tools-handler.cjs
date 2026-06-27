@@ -764,9 +764,16 @@ async function resourceHybridSearch(query, options = {}) {
 
     let inProject = null;
     if (options.project_id) {
-      inProject = new Set(
-        db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id).map((r) => r.id),
-      );
+      try {
+        const { listProjectResourceIdsInWorker } = require('../workers/document-extract-service.cjs');
+        const ids = await listProjectResourceIdsInWorker(options.project_id);
+        inProject = new Set(ids);
+      } catch (workerErr) {
+        console.warn('[AI Tools] hybrid search project filter worker fallback:', workerErr?.message);
+        inProject = new Set(
+          db.prepare('SELECT id FROM resources WHERE project_id = ?').all(options.project_id).map((r) => r.id),
+        );
+      }
     }
 
     const semanticMeta = new Map();
