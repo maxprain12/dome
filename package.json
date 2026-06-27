@@ -53,6 +53,8 @@
     "test:generate:wizard": "node scripts/test-generate-wizard.mjs",
     "test:multimodal": "node scripts/test-message-multimodal.mjs",
     "smoke:vision": "node scripts/smoke/vision-providers.mjs",
+    "smoke:mcp-adapters": "node scripts/smoke-mcp-adapters.mjs",
+    "smoke:dome-load-doc": "node scripts/smoke-dome-load-doc.mjs",
     "bench:generate-cases": "node scripts/bench/generate-cases.mjs",
     "bench:seed": "node scripts/bench/seed.mjs",
     "bench:run": "node scripts/bench/run.mjs",
