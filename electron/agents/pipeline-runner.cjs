@@ -11,10 +11,15 @@
  * the `pipelines:item:updated` broadcast.
  */
 
+const { buildRunInput, buildPipelineRunToolOptions } = require('./pipeline-card-context.cjs');
+
 let _database = null;
 let _windowManager = null;
 let _runEngine = null;
 let _logEvent = null;
+
+/** Serializes concurrent triggerStageRun calls for the same item. */
+const _triggerLocks = new Map();
 
 function init({ database, windowManager, runEngine, logEvent }) {
   _database = database;
@@ -71,76 +76,38 @@ function mapItem(row) {
 }
 
 /**
- * Render the todo list as a readable checklist string.
- * Each item: "[x] text" (done) or "[ ] text" (pending).
- */
-function renderTodos(todos) {
-  if (!Array.isArray(todos) || todos.length === 0) return '';
-  return todos
-    .map((td) => {
-      const mark = td && td.done ? '[x]' : '[ ]';
-      const text = (td && typeof td.text === 'string') ? td.text : '';
-      return `${mark} ${text}`;
-    })
-    .join('\n');
-}
-
-/**
- * Resolve `{{title}}`, `{{data.text}}`, `{{data.todos}}` and `{{data.foo}}`
- * placeholders against the item. Missing paths resolve to an empty string.
- * `{{data.todos}}` renders as a checklist (not raw JSON).
- */
-function interpolate(template, item) {
-  const data = parseJson(item.data_json, {}) || {};
-  return String(template).replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, path) => {
-    if (path === 'title') return item.title ?? '';
-    if (path === 'data.todos') return renderTodos(data.todos);
-    if (path.startsWith('data.')) {
-      const keys = path.slice(5).split('.');
-      let cur = data;
-      for (const k of keys) {
-        if (cur && typeof cur === 'object' && k in cur) cur = cur[k];
-        else return '';
-      }
-      return cur == null ? '' : typeof cur === 'object' ? JSON.stringify(cur) : String(cur);
-    }
-    return '';
-  });
-}
-
-function buildRunInput(stage, item) {
-  const template = stage.run_input_template && stage.run_input_template.trim()
-    ? stage.run_input_template
-    : 'Procesa esta tarjeta del pipeline:\nTítulo: {{title}}\nDatos: {{data}}';
-  // {{data}} → a readable summary: the text description (if any) followed by
-  // the todo checklist (if any). Legacy items with arbitrary JSON fall back
-  // to the raw JSON string.
-  const withData = template.replace(/\{\{\s*data\s*\}\}/g, () => {
-    const parsed = parseJson(item.data_json, null);
-    if (!parsed || typeof parsed !== 'object') return item.data_json || '{}';
-    const parts = [];
-    if (typeof parsed.text === 'string' && parsed.text.trim()) parts.push(parsed.text);
-    const todos = renderTodos(parsed.todos);
-    if (todos) parts.push(todos);
-    if (parts.length > 0) return parts.join('\n');
-    // Legacy arbitrary JSON with no text/todos keys.
-    return item.data_json || '{}';
-  });
-  return interpolate(withData, item);
-}
-
-/**
  * Trigger a run for an item that just entered (or was asked to run in) a stage.
  * Idempotent: if the item already has a live run, it is not relaunched.
  * Returns the updated item (mapped) or null if nothing was triggered.
  */
 async function triggerStageRun(itemId, { force = false } = {}) {
+  if (_triggerLocks.has(itemId)) {
+    return _triggerLocks.get(itemId);
+  }
+  const promise = triggerStageRunInner(itemId, { force });
+  _triggerLocks.set(itemId, promise);
+  try {
+    return await promise;
+  } finally {
+    _triggerLocks.delete(itemId);
+  }
+}
+
+async function triggerStageRunInner(itemId, { force = false } = {}) {
   const q = queries();
   if (!q || !_runEngine) return null;
   const item = q.getPipelineItemById.get(itemId);
   if (!item) return null;
   const stage = q.getPipelineStageById.get(item.stage_id);
   if (!stage) return null;
+
+  // Skip if already marked running with an active run.
+  if (item.exec_status === 'running' && item.current_run_id) {
+    const active = q.getAutomationRunById.get(item.current_run_id);
+    if (active && ['queued', 'running', 'waiting_approval'].includes(active.status)) {
+      return mapItem(item);
+    }
+  }
 
   // "Use Many" is stored as a config flag (config.useMany), not in
   // assigned_agent_id — that column has a FK to many_agents and 'many' is not
@@ -161,8 +128,36 @@ async function triggerStageRun(itemId, { force = false } = {}) {
     }
   }
 
-  const messages = [{ role: 'user', content: buildRunInput(stage, item) }];
   const now = Date.now();
+  // Mark running immediately so the board doesn't show a stale "ready" status
+  // while buildRunInput / startAgentRun are still in progress.
+  q.updatePipelineItemExecStatus.run('running', item.assigned_kind ?? 'auto', item.current_run_id, item.last_output, now, item.id);
+  emitItem(mapItem(q.getPipelineItemById.get(item.id)));
+
+  let runInput;
+  try {
+    runInput = await buildRunInput(stage, item, q, { database: _database });
+  } catch (e) {
+    console.error('[PipelineRunner] buildRunInput failed:', e?.message);
+    q.updatePipelineItemExecStatus.run('failed', item.assigned_kind, item.current_run_id, e?.message || 'Run failed', now, item.id);
+    if (_logEvent) _logEvent(item.id, 'run_failed', { actor: 'system', summary: e?.message || 'Run failed' });
+    emitItem(mapItem(q.getPipelineItemById.get(item.id)));
+    return null;
+  }
+
+  const messages = [{ role: 'user', content: runInput }];
+  const toolOpts = buildPipelineRunToolOptions(stage, q);
+  const agentRunBase = {
+    projectId: item.project_id,
+    title: item.title,
+    messages,
+    provider: stage.provider || undefined,
+    model: stage.model || undefined,
+    skipHitl: true,
+    toolDefinitions: toolOpts.toolDefinitions,
+    toolIds: toolOpts.toolIds,
+    ...(toolOpts.subagentIds !== undefined ? { subagentIds: toolOpts.subagentIds } : {}),
+  };
 
   try {
     let run;
@@ -171,29 +166,21 @@ async function triggerStageRun(itemId, { force = false } = {}) {
         workflowId: stage.assigned_workflow_id,
         projectId: item.project_id,
         title: item.title,
-        inputs: { prompt: buildRunInput(stage, item) },
+        inputs: { prompt: runInput },
       });
     } else if (useMany) {
       // Run the stage with Many (the default assistant) instead of a custom
-      // agent row. Mirrors the automation 'many' path.
+      // agent row. Mirrors the automation 'many' path (full tool catalog).
       run = await _runEngine.startAgentRun({
         ownerType: 'many',
         ownerId: 'many',
-        projectId: item.project_id,
-        title: item.title,
-        messages,
-        provider: stage.provider || undefined,
-        model: stage.model || undefined,
+        ...agentRunBase,
       });
     } else {
       run = await _runEngine.startAgentRun({
         ownerType: 'agent',
         ownerId: stage.assigned_agent_id,
-        projectId: item.project_id,
-        title: item.title,
-        messages,
-        provider: stage.provider || undefined,
-        model: stage.model || undefined,
+        ...agentRunBase,
       });
     }
     // Mark running and remember the run id so the terminal hook can map back.
@@ -263,6 +250,11 @@ function onRunTerminal(run) {
           const destCount = q.listItemsByStage.all(next.id).length;
           q.updatePipelineItemStageAndPosition.run(next.id, destCount, now, item.id);
           if (_logEvent) _logEvent(item.id, 'auto_advanced', { actor: 'system', summary: 'Auto-advanced to: ' + (next.title || '') });
+          if (next.execution_policy === 'auto_agent') {
+            void triggerStageRun(item.id).catch((e) => {
+              console.warn('[PipelineRunner] auto-run after advance failed:', e?.message);
+            });
+          }
         }
       }
     } catch (e) {

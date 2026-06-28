@@ -7,6 +7,7 @@
  * rows to these shapes.
  */
 
+export type StageDeliverable = 'auto' | 'text' | 'artifact';
 export type ExecutionPolicy = 'auto_agent' | 'manual_agent' | 'manual_resolve';
 export type ExecStatus = 'pending' | 'running' | 'ready' | 'failed' | 'blocked';
 export type AssignedKind = 'unassigned' | 'agent' | 'manual' | 'auto';
@@ -44,7 +45,7 @@ export interface PipelineStage {
   model?: string | null;
   isTerminal: boolean;
   wipLimit?: number | null;
-  /** Parsed JSON; e.g. { advanceOnComplete?: boolean }. */
+  /** Parsed JSON; e.g. { advanceOnComplete?: boolean; useMany?: boolean; deliverable?: 'auto' | 'text' | 'artifact' }. */
   config?: Record<string, unknown> | null;
   createdAt: number;
   updatedAt: number;

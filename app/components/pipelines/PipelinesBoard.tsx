@@ -79,7 +79,8 @@ export default function PipelinesBoard() {
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   // Horizontal wheel-scroll + drag for the Kanban columns row.
   const boardScrollRef = useRef<HTMLDivElement>(null);
-  useHorizontalScroll(boardScrollRef);
+  const boardScrollReady = !showDashboard && !loadingBoard;
+  useHorizontalScroll(boardScrollRef, boardScrollReady);
 
   // Re-run on projectId change: currentProject loads async on boot, so the
   // first init() may run under 'default' before the real project resolves.
@@ -183,7 +184,7 @@ export default function PipelinesBoard() {
   });
 
   return (
-    <div className="flex flex-col h-full" style={{ minWidth: 0 }}>
+    <div className="flex flex-col h-full min-h-0 min-w-0">
       {/* Header toolbar */}
       <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
         <button
@@ -345,7 +346,7 @@ export default function PipelinesBoard() {
           <Loader2 className="animate-spin" size={20} />
         </div>
       ) : (
-        <div className="flex flex-1" style={{ minWidth: 0, minHeight: 0 }}>
+        <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
           {sourcesOpen && (
             <DataSourcePanel
               sources={sources}
@@ -355,7 +356,10 @@ export default function PipelinesBoard() {
               onDelete={(sourceId) => deleteSource(sourceId)}
             />
           )}
-          <div ref={boardScrollRef} className="flex gap-3 overflow-x-auto flex-1 p-4" style={{ minWidth: 0 }}>
+          <div
+            ref={boardScrollRef}
+            className="flex flex-nowrap gap-3 overflow-x-auto overflow-y-hidden flex-1 min-w-0 min-h-0 p-4"
+          >
             {sortedStages.map((stage) => (
               <StageColumn
                 key={stage.id}
@@ -384,7 +388,7 @@ export default function PipelinesBoard() {
             await deleteItem(liveOpenItem.id);
             setOpenItem(null);
           }}
-          onRun={() => void runItem(liveOpenItem.id)}
+          onRun={() => runItem(liveOpenItem.id)}
         />
       )}
 

@@ -6,6 +6,25 @@ function hasHorizontalOverflow(element: HTMLElement) {
   return element.scrollWidth > element.clientWidth + 1;
 }
 
+/** Skip pan-to-scroll when the user is interacting with a card or control. */
+function shouldIgnorePanTarget(target: Element | null, container: HTMLElement): boolean {
+  let node = target instanceof Element ? target : null;
+  while (node && node !== container) {
+    if (!(node instanceof HTMLElement)) {
+      node = node.parentElement;
+      continue;
+    }
+    if (node.draggable) return true;
+    const tag = node.tagName;
+    if (tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+      return true;
+    }
+    if (node.isContentEditable) return true;
+    node = node.parentElement;
+  }
+  return false;
+}
+
 /**
  * Walk up from `target` to (but not including) `container` looking for the
  * nearest ancestor that can scroll vertically. Used so a Kanban column's card
@@ -31,8 +50,12 @@ function isAtVerticalBoundary(el: HTMLElement, deltaY: number): boolean {
   return false;
 }
 
-export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
+export function useHorizontalScroll(
+  ref: RefObject<HTMLElement | null>,
+  enabled = true,
+) {
   useEffect(() => {
+    if (!enabled) return;
     const element = ref.current;
     if (!element) return;
 
@@ -97,19 +120,28 @@ export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
     const handleWheel = (event: WheelEvent) => {
       if (!hasHorizontalOverflow(element)) return;
 
-      // If the wheel started inside a vertically-scrollable child (e.g. a
-      // Kanban column's card list) and that child can still scroll in the
-      // wheel direction, let the browser handle the vertical scroll and don't
-      // translate to horizontal — otherwise we'd steal column scrolling.
-      const verticalChild = findVerticalScrollableAncestor(event.target as Element | null, element);
-      if (verticalChild && !isAtVerticalBoundary(verticalChild, event.deltaY)) return;
+      const forceHorizontal = event.shiftKey;
+
+      // Shift + wheel: always pan horizontally (common desktop convention).
+      if (!forceHorizontal) {
+        const verticalChild = findVerticalScrollableAncestor(event.target as Element | null, element);
+        if (verticalChild && !isAtVerticalBoundary(verticalChild, event.deltaY)) return;
+      }
 
       const horizontalDelta = event.deltaX;
       const verticalDelta = event.deltaY;
-      const shouldTranslateVerticalWheel = Math.abs(verticalDelta) > Math.abs(horizontalDelta);
-      const delta = shouldTranslateVerticalWheel ? verticalDelta : horizontalDelta;
 
-      if (delta === 0) return;
+      // Trackpads often emit deltaX for horizontal pans; mice use deltaY — map both.
+      let delta: number;
+      if (forceHorizontal && verticalDelta !== 0) {
+        delta = verticalDelta;
+      } else if (horizontalDelta !== 0 && Math.abs(horizontalDelta) >= Math.abs(verticalDelta)) {
+        delta = horizontalDelta;
+      } else if (verticalDelta !== 0) {
+        delta = verticalDelta;
+      } else {
+        return;
+      }
 
       // Don't steal the event (and prevent default scroll chaining) if the
       // container is already at its horizontal boundary in this direction.
@@ -123,6 +155,7 @@ export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
 
     const handlePointerDown = (event: PointerEvent) => {
       if (event.button !== 0 || !hasHorizontalOverflow(element)) return;
+      if (shouldIgnorePanTarget(event.target as Element, element)) return;
 
       clearSuppressClickTimer();
       pointerId = event.pointerId;
@@ -177,8 +210,8 @@ export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
     };
 
     const handleDragStart = (event: DragEvent) => {
-      if (!pointerDown) return;
-      event.preventDefault();
+      // Only block native drag when we are actively panning the board horizontally.
+      if (dragging) event.preventDefault();
     };
 
     const resizeObserver = typeof ResizeObserver !== 'undefined'
@@ -211,5 +244,5 @@ export function useHorizontalScroll(ref: RefObject<HTMLElement | null>) {
       element.removeEventListener('dragstart', handleDragStart);
       window.removeEventListener('resize', updateCursor);
     };
-  }, [ref]);
+  }, [ref, enabled]);
 }

@@ -55,6 +55,13 @@ function manySubagentIds() {
   return ids();
 }
 
+/** Explicit `subagentIds` (including `[]`) overrides Many defaults. */
+function resolveSubagentIds(params) {
+  if (Array.isArray(params.subagentIds)) return params.subagentIds;
+  if (params.ownerType === 'many') return manySubagentIds();
+  return [];
+}
+
 function getApprovalSenderId() {
   const win = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed());
   return win?.webContents?.id ?? null;
@@ -584,7 +591,7 @@ async function executeAgentRun(runId, params) {
       provider: context.provider,
       model: context.model,
       mcpServerIds: params.mcpServerIds ?? [],
-      subagentIds: params.ownerType === 'many' ? manySubagentIds() : (params.subagentIds ?? []),
+      subagentIds: resolveSubagentIds(params),
       title: params.title ?? '',
       contextId: params.contextId ?? null,
       sessionTitle: params.sessionTitle ?? null,
@@ -612,7 +619,7 @@ async function executeAgentRun(runId, params) {
     toolDefinitions: params.toolDefinitions ?? [],
     useDirectTools: useDirectToolsRun,
     mcpServerIds: params.mcpServerIds,
-    subagentIds: params.ownerType === 'many' ? manySubagentIds() : params.subagentIds,
+    subagentIds: resolveSubagentIds(params),
       skipHitl: !!params.skipHitl,
       automationProjectId,
       automationId: params.automationId ?? null,
@@ -634,7 +641,7 @@ async function executeAgentRun(runId, params) {
       toolDefinitions: params.toolDefinitions ?? [],
       useDirectTools: useDirectToolsRun,
       mcpServerIds: params.mcpServerIds,
-      subagentIds: params.ownerType === 'many' ? manySubagentIds() : params.subagentIds,
+      subagentIds: resolveSubagentIds(params),
       threadId: context.threadId,
       sessionId: params.sessionId ?? null,
       skipHitl: !!params.skipHitl,
