@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2, Minus, Plus, RotateCcw, Search } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
@@ -153,10 +153,16 @@ export default function ProviderModelsConfigModal({
     }
   }, [provider, t, mergeCustomIntoCatalog]);
 
-  useEffect(() => {
-    if (!open || !provider) return;
+  const modalOpenKey = open && provider ? `${open}:${provider}` : '';
+  const prevModalOpenKeyRef = useRef(modalOpenKey);
+  if (modalOpenKey && modalOpenKey !== prevModalOpenKeyRef.current) {
+    prevModalOpenKeyRef.current = modalOpenKey;
     setSearch('');
     setCustomIdDraft('');
+  }
+
+  useEffect(() => {
+    if (!open || !provider) return;
     void load();
   }, [open, provider, load]);
 
@@ -182,9 +188,11 @@ export default function ProviderModelsConfigModal({
       contextWindow: 0,
       maxTokens: 0,
     });
-    return visibleIds
-      .map((id) => byId.get(id) ?? fallback(id))
-      .filter(matchesSearch);
+    return visibleIds.reduce<ModelDefinition[]>((acc, id) => {
+      const model = byId.get(id) ?? fallback(id);
+      if (matchesSearch(model)) acc.push(model);
+      return acc;
+    }, []);
   }, [catalog, visibleIds, matchesSearch]);
 
   const catalogModels = useMemo(

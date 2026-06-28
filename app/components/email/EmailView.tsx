@@ -309,27 +309,28 @@ export default function EmailView() {
             {t('email.folders.title')}
           </span>
         </div>
-        <div id="dome-email-folder-list" className="dome-email-view__folder-list" role="list">
+        <ul id="dome-email-folder-list" className="dome-email-view__folder-list list-none m-0 p-0">
           {folderOptions.map((f) => {
             const active = f.name === folder;
             const Icon = folderIcon(f.name);
             return (
-              <button
-                key={f.name}
-                type="button"
-                onClick={() => changeFolder(f.name)}
-                className={`dome-email-view__folder-btn${active ? ' dome-email-view__folder-btn--active' : ''}`}
-                title={f.name}
-                aria-current={active ? 'true' : undefined}
-              >
-                <Icon className="dome-email-view__folder-btn-icon" aria-hidden="true" />
-                <span className="dome-email-view__folder-btn-label">
-                  {emailFolderLabel(f.name, t)}
-                </span>
-              </button>
+              <li key={f.name}>
+                <button
+                  type="button"
+                  onClick={() => changeFolder(f.name)}
+                  className={`dome-email-view__folder-btn${active ? ' dome-email-view__folder-btn--active' : ''}`}
+                  title={f.name}
+                  aria-current={active ? 'true' : undefined}
+                >
+                  <Icon className="dome-email-view__folder-btn-icon" aria-hidden="true" />
+                  <span className="dome-email-view__folder-btn-label">
+                    {emailFolderLabel(f.name, t)}
+                  </span>
+                </button>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </aside>
 
       {/* Right column holds the top header (on narrow widths) and the list/reader panes. */}
@@ -476,24 +477,39 @@ function FolderMenuButton({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const prevOpenRef = useRef(open);
+  if (open !== prevOpenRef.current) {
+    prevOpenRef.current = open;
+    if (!open) {
+      setMenuPos(null);
+    } else {
+      const el = triggerRef.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setMenuPos({ top: r.bottom + 6, left: r.left, width: r.width });
+      }
+    }
+  }
 
-  // Position the menu under the trigger and update on scroll/resize.
+  // Reposition on scroll/resize while open (listeners stay mounted; openRef avoids prop-sync effect).
+  const openRef = useRef(open);
+  openRef.current = open;
+
   useEffect(() => {
-    if (!open) return;
     const update = () => {
+      if (!openRef.current) return;
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       setMenuPos({ top: r.bottom + 6, left: r.left, width: r.width });
     };
-    update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [open]);
+  }, []);
 
   // Close on outside click and on Escape.
   useEffect(() => {
@@ -611,7 +627,7 @@ function ReaderPane({ selected, reading, error, folder, message, onReply, onBack
   if (!selected) {
     return (
       <div className="dome-email-view__reader" aria-label={t('email.select_message')}>
-        <div className="dome-email-view__reader-empty-state" role="status">
+        <output className="dome-email-view__reader-empty-state">
           <Inbox className="dome-email-view__reader-empty-icon" aria-hidden="true" />
           <h3 className="dome-email-view__reader-empty-title">
             {t('email.reader.empty.title')}
@@ -619,7 +635,7 @@ function ReaderPane({ selected, reading, error, folder, message, onReply, onBack
           <p className="dome-email-view__reader-empty-subtitle">
             {t('email.reader.empty.subtitle')}
           </p>
-        </div>
+        </output>
       </div>
     );
   }
@@ -810,14 +826,14 @@ function ReaderPane({ selected, reading, error, folder, message, onReply, onBack
       {/* Body */}
         <div className="dome-email-view__reader-body-scroll">
           {reading ? (
-            <div className="dome-email-view__reader-loading" role="status">
+            <output className="dome-email-view__reader-loading">
               <Loader2
                 className="size-4 animate-spin"
                 style={{ color: 'var(--dome-text-muted)' }}
                 aria-hidden="true"
               />
               <span>{t('email.reader.loading')}</span>
-            </div>
+            </output>
           ) : (
             <div className="dome-email-view__reader-body-content">
               <EmailBody message={message} />

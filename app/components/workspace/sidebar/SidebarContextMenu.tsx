@@ -1,11 +1,12 @@
 /** Sidebar resource/folder context menu (03/T02 — extracted from UnifiedSidebar.tsx). */
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Edit3, Trash2, FolderInput, FolderPlus, Check, PanelRightOpen, Maximize2 } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import { FOLDER_COLOR_OPTIONS } from '@/lib/ui/palettes';
 import { parseMeta, type CtxState } from './sidebarHelpers';
+import './sidebar-context-menu.css';
 
 export interface ContextMenuProps {
   state: CtxState;
@@ -41,10 +42,17 @@ export default function ContextMenu({
   const [showColors, setShowColors] = useState(false);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
+  const prevVisibleRef = useRef(state.visible);
+  if (state.visible !== prevVisibleRef.current) {
+    prevVisibleRef.current = state.visible;
+    if (state.visible) {
+      setShowColors(false);
+      setHoveredColor(null);
+    }
+  }
+
   useEffect(() => {
     if (!state.visible) return;
-    setShowColors(false);
-    setHoveredColor(null);
     const handle = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose(); };
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('mousedown', handle);
@@ -162,16 +170,13 @@ export default function ContextMenu({
                         onClick={() => { onColorChange(r, opt.value); onClose(); }}
                         onMouseEnter={() => setHoveredColor(opt.value)}
                         onMouseLeave={() => setHoveredColor(null)}
-                        className="relative flex items-center justify-center transition-transform"
-                        style={{
-                          width: 22, height: 22, borderRadius: '50%',
-                          background: opt.value, border: 'none', cursor: 'pointer',
-                          outline: isActive ? `2.5px solid ${opt.value}` : '2px solid transparent',
-                          outlineOffset: isActive ? 2 : 0,
-                          transform: hoveredColor === opt.value ? 'scale(1.18)' : 'scale(1)',
-                          transition: 'transform 120ms, outline 120ms',
-                          boxShadow: hoveredColor === opt.value ? `0 2px 8px ${opt.value}66` : 'none',
-                        }}
+                        className={`sidebar-color-swatch relative flex items-center justify-center transition-transform${isActive ? ' is-active' : ''}${hoveredColor === opt.value ? ' is-hovered' : ''}`}
+                        style={
+                          {
+                            background: opt.value,
+                            '--swatch-color': opt.value,
+                          } as CSSProperties
+                        }
                       >
                         {isActive && <Check className="size-2.5 text-white" strokeWidth={3} />}
                       </button>
@@ -219,22 +224,13 @@ export default function ContextMenu({
 function CtxItem({ icon, label, onClick, danger = false }: {
   icon: React.ReactNode; label: string; onClick: () => void; danger?: boolean;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
-      className="flex items-center w-full text-left transition-colors"
-      style={{
-        gap: 8, padding: '6px 12px', fontSize: 12.5, border: 'none', cursor: 'pointer',
-        color: danger ? 'var(--dome-error)' : 'var(--dome-text)',
-        background: hovered ? (danger ? 'rgba(239,68,68,0.08)' : 'var(--dome-bg-hover)') : 'transparent',
-        fontWeight: 450,
-      }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className={`sidebar-ctx-item flex items-center w-full text-left transition-colors${danger ? ' is-danger' : ''}`}
       onClick={onClick}
     >
-      <span style={{ opacity: 0.75, color: danger ? 'var(--dome-error)' : 'var(--dome-text-muted)', display: 'flex' }}>{icon}</span>
+      <span className="sidebar-ctx-item-icon">{icon}</span>
       <span>{label}</span>
     </button>
   );

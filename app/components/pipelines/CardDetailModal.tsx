@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Trash2,
@@ -168,10 +168,16 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const openCalendarTab = useTabStore((s) => s.openCalendarTab);
   const runPending = usePipelinesStore((s) => Boolean(s.runInFlightIds[item.id]));
 
+  const activityFetchKey = `${tab}:${item.id}:${eventsReloadKey}`;
+  const prevActivityFetchKeyRef = useRef(activityFetchKey);
+  if (tab === 'activity' && activityFetchKey !== prevActivityFetchKeyRef.current) {
+    prevActivityFetchKeyRef.current = activityFetchKey;
+    setEventsLoading(true);
+  }
+
   useEffect(() => {
     if (tab !== 'activity') return;
     let cancelled = false;
-    setEventsLoading(true);
     pipelinesClient
       .listItemEvents(item.id)
       .then((rows) => {
@@ -209,7 +215,10 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const isRunning = item.execStatus === 'running' || runPending;
   const agentBusy = isRunning || launching;
 
-  useEffect(() => {
+  const execStatusKey = `${item.execStatus}:${item.updatedAt}`;
+  const prevExecStatusKeyRef = useRef(execStatusKey);
+  if (execStatusKey !== prevExecStatusKeyRef.current) {
+    prevExecStatusKeyRef.current = execStatusKey;
     if (item.execStatus === 'running') {
       setLaunching(false);
     }
@@ -217,7 +226,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
       setLaunching(false);
       setEventsReloadKey((k) => k + 1);
     }
-  }, [item.execStatus, item.updatedAt]);
+  }
 
   const addField = (type: CardField['type']) => {
     const id = newFieldId();
@@ -469,20 +478,19 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
         />
 
         {agentBusy && (
-          <div
+          <output
             className="flex items-center gap-2 rounded-md px-3 py-2"
             style={{
               background: 'var(--bg-secondary)',
               border: '1px solid var(--accent)',
             }}
-            role="status"
             aria-live="polite"
           >
             <Loader2 className="size-4 animate-spin shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
             <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
               {launching ? t('pipelines.run_launching') : t('pipelines.agent_running_overlay')}
             </span>
-          </div>
+          </output>
         )}
 
         <div style={{ position: 'relative' }}>

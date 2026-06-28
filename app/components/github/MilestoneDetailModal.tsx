@@ -87,10 +87,13 @@ export default function MilestoneDetailModal({
 
   const issues = useMemo(() => {
     if (milestoneNumber == null) return [];
-    return allIssues
-      .filter((i) => i.milestone_number === milestoneNumber)
-      .filter((i) => showClosedIssues || i.state === 'open')
-      .sort((a, b) => b.number - a.number);
+    const matched: typeof allIssues = [];
+    for (const i of allIssues) {
+      if (i.milestone_number !== milestoneNumber) continue;
+      if (!showClosedIssues && i.state !== 'open') continue;
+      matched.push(i);
+    }
+    return matched.sort((a, b) => b.number - a.number);
   }, [allIssues, milestoneNumber, showClosedIssues]);
 
   const totalIssues = (milestone?.open_issues ?? 0) + (milestone?.closed_issues ?? 0);
@@ -357,16 +360,7 @@ export default function MilestoneDetailModal({
                   return (
                     <div
                       key={issue.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onOpenIssue(issue.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          onOpenIssue(issue.id);
-                        }
-                      }}
-                      className="group flex items-start gap-2 w-full text-left px-2 py-1.5 rounded-md cursor-pointer"
+                      className="group flex items-start gap-2 w-full px-2 py-1.5 rounded-md"
                       style={{ color: 'var(--dome-text)' }}
                       onMouseEnter={(e) => {
                         (e.currentTarget as HTMLDivElement).style.background = 'var(--dome-bg-hover)';
@@ -381,13 +375,17 @@ export default function MilestoneDetailModal({
                           e.stopPropagation();
                           void toggleIssue(issue);
                         }}
-                        className="shrink-0 mt-0.5"
+                        className="shrink-0 mt-0.5 border-0 bg-transparent p-0"
                         style={{ color: issue.state === 'closed' ? 'var(--dome-success)' : 'var(--dome-text-muted)' }}
                         aria-label={issue.state === 'open' ? t('github.close_issue') : t('github.reopen_issue')}
                       >
                         {issue.state === 'closed' ? <CheckCircle2 size={15} /> : <Circle size={15} />}
                       </button>
-                      <div className="flex-1 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => onOpenIssue(issue.id)}
+                        className="flex-1 min-w-0 text-left border-0 bg-transparent p-0 cursor-pointer"
+                      >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-[11px] font-mono shrink-0 inline-flex items-center gap-0.5" style={{ color: 'var(--dome-text-muted)' }}>
                             <Hash size={11} />
@@ -411,7 +409,7 @@ export default function MilestoneDetailModal({
                             ))}
                           </div>
                         ) : null}
-                      </div>
+                      </button>
                     </div>
                   );
                 })

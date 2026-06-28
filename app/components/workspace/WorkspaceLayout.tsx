@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense, useRef } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import WorkspaceHeader from './WorkspaceHeader';
 import SidePanel from './SidePanel';
@@ -26,18 +26,24 @@ interface WorkspaceLayoutProps {
   initialPage?: number;
 }
 
+function isDocumentPdfResource(res: Resource): boolean {
+  const mimeType = res.file_mime_type || '';
+  const filename = (res.original_filename || res.title || '').toLowerCase();
+  return mimeType === 'application/pdf' || filename.endsWith('.pdf');
+}
+
 function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource; initialPage?: number }) {
   switch (resource.type) {
     case 'pdf':
-      return <PDFViewer resource={resource} initialPage={initialPage} />;
+      return <PDFViewer key={resource.id} resource={resource} initialPage={initialPage} />;
     case 'video':
-      return <VideoPlayer resource={resource} />;
+      return <VideoPlayer key={resource.id} resource={resource} />;
     case 'audio':
-      return <AudioPlayer resource={resource} />;
+      return <AudioPlayer key={resource.id} resource={resource} />;
     case 'image':
-      return <ImageViewer resource={resource} />;
+      return <ImageViewer key={resource.id} resource={resource} />;
     case 'excel':
-      return <SpreadsheetViewer resource={resource} />;
+      return <SpreadsheetViewer key={resource.id} resource={resource} />;
     case 'ppt':
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
@@ -83,13 +89,13 @@ function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource
       const mime = resource.file_mime_type || '';
       const name = (resource.original_filename || resource.title || '').toLowerCase();
       if (mime.includes('spreadsheetml') || /\.(xlsx|xls|csv)$/.test(name)) {
-        return <SpreadsheetViewer resource={resource} />;
+        return <SpreadsheetViewer key={resource.id} resource={resource} />;
       }
       if (mime.includes('wordprocessingml') || /\.(docx|doc)$/.test(name)) {
-        return <DocxViewer resource={resource} />;
+        return <DocxViewer key={resource.id} resource={resource} />;
       }
       if (mime.includes('presentationml') || /\.(pptx|ppt)$/.test(name)) {
-        return <PptViewerLazy resource={resource} activeIndex={0} />;
+        return <PptViewerLazy key={resource.id} resource={resource} activeIndex={0} />;
       }
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
@@ -129,6 +135,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   const activeStudioOutput = useAppStore((s) => s.activeStudioOutput);
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
   const setContext = useManyStore((s) => s.setContext);
+  const prevContextKeyRef = useRef<string | null>(null);
 
   // Load resource data
   useEffect(() => {
@@ -150,6 +157,10 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
         if (result.success && result.data) {
           setResource(result.data);
+          if (result.data.type === 'ppt') {
+            const { activeTabId, replaceTabType } = useTabStore.getState();
+            replaceTabType(activeTabId, 'ppt');
+          }
         } else {
           setError(result.error || 'Resource not found');
         }
@@ -164,32 +175,21 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
     loadResource();
     return () => { cancelled = true; };
-  }, [resourceId]);
-
-  // Detect ppt resources and replace tab type so ContentRouter mounts the correct component
-  useEffect(() => {
-    if (!resource) return;
-    if (resource.type === 'ppt') {
-      const { activeTabId, replaceTabType } = useTabStore.getState();
-      replaceTabType(activeTabId, 'ppt');
-      return;
-    }
-  }, [resource]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount via key={resourceId} on parent
+  }, []);
 
   // Update Many context when resource loads (ensures ManyFloatingButton has current resource)
   useEffect(() => {
-    if (resource) {
+    return () => setContext(null, null);
+  }, [setContext]);
+
+  if (resource) {
+    const contextKey = `${resourceId}:${resource.title}`;
+    if (contextKey !== prevContextKeyRef.current) {
+      prevContextKeyRef.current = contextKey;
       setContext(resourceId, resource.title);
     }
-    return () => setContext(null, null);
-  }, [resourceId, resource, setContext]);
-
-  // Set selected sources to current resource when opening workspace (for Studio generation)
-  useEffect(() => {
-    if (resourceId && typeof window !== 'undefined' && window.electron) {
-      useAppStore.getState().setSelectedSourceIds([resourceId]);
-    }
-  }, [resourceId]);
+  }
 
   // Setup event listener for resource updates
   useEffect(() => {
@@ -262,13 +262,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
     }
   }, [resource]);
 
-  // Check if a document resource is actually a PDF
-  const _isDocumentPdf = (res: Resource): boolean => {
-    const mimeType = res.file_mime_type || '';
-    const filename = (res.original_filename || res.title || '').toLowerCase();
-    return mimeType === 'application/pdf' || filename.endsWith('.pdf');
-  };
-
   // Render the appropriate viewer based on resource type
   const renderViewer = () => {
     if (!resource) return null;
@@ -281,7 +274,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
           </div>
         }
       >
-        <WorkspaceResourceViewer resource={resource} initialPage={initialPage} />
+        <WorkspaceResourceViewer key={resource.id} resource={resource} initialPage={initialPage} />
       </Suspense>
     );
   };
@@ -347,6 +340,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
         {/* Sources Panel */}
         {sourcesPanelOpen && resource && (
           <SourcesPanel
+            key={resource.project_id}
             resourceId={resourceId}
             projectId={resource.project_id}
           />
@@ -367,6 +361,7 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
 
         {/* Side Panel */}
         <SidePanel
+          key={resourceId}
           resourceId={resourceId}
           resource={resource}
           isOpen={sidePanelOpen}

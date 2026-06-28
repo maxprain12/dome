@@ -12,6 +12,7 @@ import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { Resource } from '@/types';
 import { processUrlResource } from '@/lib/web/processor';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface YouTubeWorkspaceClientProps {
   resourceId: string;
@@ -51,60 +52,58 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     }
   }, [resourceId]);
 
-  useEffect(() => {
-    async function loadResource() {
-      if (typeof window === 'undefined' || !window.electron?.db?.resources) {
-        setError('Electron API not available');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const result = await window.electron.db.resources.getById(resourceId);
-
-        if (result?.success && result.data) {
-          const resourceData = result.data;
-          if (resourceData.metadata && typeof resourceData.metadata === 'string') {
-            resourceData.metadata = JSON.parse(resourceData.metadata);
-          }
-          const res = resourceData as Resource;
-          const meta = res.metadata as Record<string, unknown> | undefined;
-          setResource(res);
-
-          if (meta?.processing_status === 'pending' || !meta?.video_id) {
-            setIsProcessing(true);
-            try {
-              await processUrlResource(resourceId);
-              const refetch = await window.electron.db.resources.getById(resourceId);
-              if (refetch?.success && refetch.data) {
-                const d = refetch.data;
-                if (d.metadata && typeof d.metadata === 'string') {
-                  d.metadata = JSON.parse(d.metadata);
-                }
-                setResource(d as Resource);
-              }
-            } catch (err) {
-              console.error('Error processing YouTube:', err);
-            } finally {
-              setIsProcessing(false);
-            }
-          }
-        } else {
-          setError(result?.error || 'Resource not found');
-        }
-      } catch (err) {
-        console.error('Error loading resource:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
-      }
+  const loadResource = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron?.db?.resources) {
+      setError('Electron API not available');
+      setIsLoading(false);
+      return;
     }
 
-    loadResource();
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const result = await window.electron.db.resources.getById(resourceId);
+
+      if (result?.success && result.data) {
+        const resourceData = result.data;
+        if (resourceData.metadata && typeof resourceData.metadata === 'string') {
+          resourceData.metadata = JSON.parse(resourceData.metadata);
+        }
+        const res = resourceData as Resource;
+        const meta = res.metadata as Record<string, unknown> | undefined;
+        setResource(res);
+
+        if (meta?.processing_status === 'pending' || !meta?.video_id) {
+          setIsProcessing(true);
+          try {
+            await processUrlResource(resourceId);
+            const refetch = await window.electron.db.resources.getById(resourceId);
+            if (refetch?.success && refetch.data) {
+              const d = refetch.data;
+              if (d.metadata && typeof d.metadata === 'string') {
+                d.metadata = JSON.parse(d.metadata);
+              }
+              setResource(d as Resource);
+            }
+          } catch (err) {
+            console.error('Error processing YouTube:', err);
+          } finally {
+            setIsProcessing(false);
+          }
+        }
+      } else {
+        setError(result?.error || 'Resource not found');
+      }
+    } catch (err) {
+      console.error('Error loading resource:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   }, [resourceId]);
+
+  const mountRef = useMountAction(loadResource);
 
   useEffect(() => {
     if (!resourceId || typeof window === 'undefined' || !window.electron?.on) return;
@@ -159,12 +158,6 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     };
   }, [resourceId]);
 
-  useEffect(() => {
-    if (resourceId) {
-      useAppStore.getState().setSelectedSourceIds([resourceId]);
-    }
-  }, [resourceId]);
-
   const handleSaveMetadata = useCallback(async (updates: Partial<Resource>): Promise<boolean> => {
     if (!resource || typeof window === 'undefined' || !window.electron) return false;
 
@@ -198,23 +191,10 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     }
   }, [resource]);
 
-  if (isLoading) {
+  if (error || (!isLoading && !resource)) {
     return (
       <div
-        className="flex items-center justify-center min-h-full"
-        style={{ background: 'var(--bg)' }}
-      >
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="size-8 animate-spin" style={{ color: 'var(--accent)' }} />
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading video...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !resource) {
-    return (
-      <div
+        ref={mountRef}
         className="flex flex-col items-center justify-center min-h-full p-8"
         style={{ background: 'var(--bg)' }}
       >
@@ -237,14 +217,21 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
     );
   }
 
-  const metadata = resource.metadata as Record<string, unknown> | undefined;
+  const metadata = resource?.metadata as Record<string, unknown> | undefined;
   const videoId = metadata?.video_id as string | undefined;
-  const embedUrl = videoId
-    ? `https://www.youtube.com/embed/${videoId}`
-    : null;
+  const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+      {isLoading || !resource ? (
+        <div className="flex items-center justify-center min-h-full flex-1">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--accent)' }} />
+            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>Loading video...</p>
+          </div>
+        </div>
+      ) : (
+        <>
       <WorkspaceHeader
         resource={resource}
         sidePanelOpen={sidePanelOpen}
@@ -254,7 +241,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
 
       <div className="flex flex-1 overflow-hidden relative">
         {sourcesPanelOpen && resource && (
-          <SourcesPanel resourceId={resourceId} projectId={resource.project_id} />
+          <SourcesPanel key={resource.project_id} resourceId={resourceId} projectId={resource.project_id} />
         )}
 
         <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
@@ -335,6 +322,7 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
         </div>
 
         <SidePanel
+          key={resourceId}
           resourceId={resourceId}
           resource={resource}
           isOpen={sidePanelOpen}
@@ -353,6 +341,8 @@ export default function YouTubeWorkspaceClient({ resourceId }: YouTubeWorkspaceC
         onClose={() => setShowMetadata(false)}
         onSave={handleSaveMetadata}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -1,0 +1,99 @@
+.dash-kpi-card {
+  text-align: left;
+  appearance: none;
+  font: inherit;
+  cursor: pointer;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 88px;
+  position: relative;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  box-shadow: none;
+  transition:
+    transform 160ms ease,
+    opacity 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease;
+}
+
+.dash-kpi-card.is-accent {
+  background: color-mix(in oklab, var(--accent) 8%, var(--bg-secondary));
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+}
+
+.dash-kpi-card.is-focused {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in oklab, var(--accent) 18%, transparent);
+}
+
+.dash-kpi-card.is-dimmed {
+  opacity: 0.55;
+}
+
+.dash-kpi-card:not(.is-focused):hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in oklab, var(--accent) 30%, var(--border));
+}
+
+.dash-section {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.dash-section:hover {
+  border-color: var(--border-hover);
+}
+
+.dash-section-toggle {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+  transition: border-color 160ms ease, padding-bottom 160ms ease;
+}
+
+.dash-section-toggle.is-collapsed {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.dash-map-cell {
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  text-align: center;
+  padding: 4px;
+  font-size: 12px;
+  vertical-align: middle;
+}
+
+.dash-map-cell.is-empty {
+  color: var(--tertiary-text);
+  background: var(--bg-secondary);
+}
+
+.dash-map-cell.is-filled {
+  background: var(--bg-hover);
+}

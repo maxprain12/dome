@@ -1275,6 +1275,52 @@ button.note-crumb--interactive {
   border-radius: 16px !important;
   box-shadow: 0 10px 40px rgb(0 0 0 / 0.14) !important;
 }
+
+.mention-suggestion-menu {
+  background: var(--dome-surface);
+  border: 1px solid var(--dome-border);
+  border-radius: 8px;
+  padding: 6px;
+  min-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.mention-suggestion-menu--empty {
+  overflow-y: hidden;
+  color: var(--dome-text-muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.mention-suggestion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.mention-suggestion-item.is-selected {
+  background: var(--dome-bg-hover);
+}
+
+.mention-suggestion-item__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dome-text);
+}
+
+.mention-suggestion-item__type {
+  font-size: 12px;
+  color: var(--dome-text-muted);
+}
+
 .note-slash-footer,
 .note-mention-footer {
   font-size: 11px !important;

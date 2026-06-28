@@ -133,6 +133,8 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
         });
     }, 150);
   }, []);
+  const scheduleRefreshSelectedRunRef = useRef(scheduleRefreshSelectedRun);
+  scheduleRefreshSelectedRunRef.current = scheduleRefreshSelectedRun;
 
   useEffect(() => {
     const unsubUpdated = onRunUpdated(({ run }) => {
@@ -173,13 +175,13 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
               }
             : prev,
         );
-        scheduleRefreshSelectedRun(run.id);
+        scheduleRefreshSelectedRunRef.current(run.id);
       }
     });
 
     const unsubStep = onRunStep(({ step }) => {
       if (selectedRunIdRef.current === step.runId) {
-        scheduleRefreshSelectedRun(step.runId);
+        scheduleRefreshSelectedRunRef.current(step.runId);
       }
       setAllRuns((prev) =>
         prev.map((run) =>
@@ -193,12 +195,19 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
     return () => {
       unsubUpdated();
       unsubStep();
-      if (detailRefreshTimeoutRef.current && typeof window !== 'undefined') {
-        window.clearTimeout(detailRefreshTimeoutRef.current);
+    };
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending detail refresh on unmount only
+  useEffect(() => {
+    return () => {
+      const pending = detailRefreshTimeoutRef.current;
+      if (typeof window !== 'undefined' && pending != null) {
+        window.clearTimeout(pending);
         detailRefreshTimeoutRef.current = null;
       }
     };
-  }, [scheduleRefreshSelectedRun]);
+  }, []);
 
   const filtered = useMemo(() => {
     let result = allRuns;
@@ -343,18 +352,15 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {!editorialHub ? (
-        <HubToolbar
-          dense
-          leading={
+        <HubToolbar dense>
+          <HubToolbar.Leading>
             <HubTitleBlock
               icon={Activity}
               title={t('automationHub.tab_runs')}
               subtitle={countLabel}
             />
-          }
-          center={null}
-          trailing={null}
-        />
+          </HubToolbar.Leading>
+        </HubToolbar>
       ) : null}
       {editorialHub ? (
         <div className="hub-runs-metrics" aria-label={t('runLog.metrics_total_today')}>
@@ -467,7 +473,7 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
           />
         ) : (
           <div className={editorialHub ? '' : 'p-4'}>
-            <div className={hubListClass} role="list">
+            <ul className={`${hubListClass} list-none m-0 p-0`}>
               {filtered.map((run) => {
                 const progress = getRunProgress(run);
                 const ownerLabel =
@@ -482,13 +488,16 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                 const progressPercent =
                   progress?.mode === 'determinate' ? (progress.percent ?? 0) : run.status === 'completed' ? 100 : 0;
                 return (
+                  <li key={run.id} className="list-none">
                   <HubBentoCard
-                    key={run.id}
                     variant={hubCardVariant}
                     onClick={() => void handleSelectRun(run)}
                     disabled={loadingDetail === run.id}
-                    icon={<HubEntityIcon kind={run.ownerType === 'agent' ? 'agent' : 'workflow'} size="md" />}
-                    title={
+                  >
+                    <HubBentoCard.Icon>
+                      <HubEntityIcon kind={run.ownerType === 'agent' ? 'agent' : 'workflow'} size="md" />
+                    </HubBentoCard.Icon>
+                    <HubBentoCard.Title>
                       <div className="flex items-start gap-2 min-w-0 flex-wrap">
                         <span
                           className={cn('min-w-0 flex-1 break-words', !editorialHub && 'text-sm font-semibold')}
@@ -511,8 +520,8 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                           </span>
                         ) : null}
                       </div>
-                    }
-                    subtitle={
+                    </HubBentoCard.Title>
+                    <HubBentoCard.Subtitle>
                       <span className="inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 min-w-0 break-words">
                         {!editorialHub ? <span>{ownerLabel}</span> : null}
                         {!editorialHub ? <span aria-hidden>·</span> : null}
@@ -535,9 +544,9 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                           </>
                         ) : null}
                       </span>
-                    }
-                    meta={
-                      editorialHub ? (
+                    </HubBentoCard.Subtitle>
+                    <HubBentoCard.Meta>
+                      {editorialHub ? (
                         <div className="hub-run-progress" aria-hidden>
                           <div
                             className="hub-run-progress-fill"
@@ -548,9 +557,9 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                         <p className="text-[11px] font-medium mt-1" style={{ color: 'var(--dome-accent)' }}>
                           {progress.percent ?? 0}% · {progress.completed}/{progress.total}
                         </p>
-                      ) : null
-                    }
-                    trailing={
+                      ) : null}
+                    </HubBentoCard.Meta>
+                    <HubBentoCard.Trailing>
                       <DomeButton
                         type="button"
                         variant="ghost"
@@ -568,11 +577,12 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                           <Trash2 className="size-3.5" aria-hidden />
                         )}
                       </DomeButton>
-                    }
-                  />
+                    </HubBentoCard.Trailing>
+                  </HubBentoCard>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         )}
       </div>

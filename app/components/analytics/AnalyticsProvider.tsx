@@ -2,7 +2,7 @@
  * Analytics provider - initializes PostHog and forwards main-process events
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import {
   initPostHog,
@@ -16,7 +16,9 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 
 export default function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   const { pathname: routePathname } = useLocation();
-  const [analyticsActive, setAnalyticsActive] = useState(false);
+  const analyticsActiveRef = useRef(false);
+  const routePathnameRef = useRef(routePathname);
+  routePathnameRef.current = routePathname;
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -37,7 +39,11 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
         const posthogReady = isPostHogConfigured();
         if (posthogReady) {
           await initPostHog(enabled);
-          setAnalyticsActive(true);
+          analyticsActiveRef.current = true;
+          capturePostHog(ANALYTICS_EVENTS.PAGEVIEW, {
+            path: routePathnameRef.current,
+            title: document.title,
+          });
         }
 
         const profile = await getUserProfile();
@@ -67,12 +73,12 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
   }, []);
 
   useEffect(() => {
-    if (!analyticsActive) return;
+    if (!analyticsActiveRef.current) return;
     capturePostHog(ANALYTICS_EVENTS.PAGEVIEW, {
       path: routePathname,
       title: document.title,
     });
-  }, [analyticsActive, routePathname]);
+  }, [routePathname]);
 
   return <>{children}</>;
 }

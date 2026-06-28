@@ -64,9 +64,8 @@ export default function TranscriptToolbar({
     'rounded-lg !p-1.5 min-w-0 text-[var(--dome-text-muted)] hover:bg-[var(--dome-bg-hover)] hover:text-[var(--dome-text)]';
 
   return (
-    <DomeToolbar
-      className="!px-4 !py-3 md:!px-6 !border-[var(--dome-border)] !bg-transparent"
-      leading={
+    <DomeToolbar className="!px-4 !py-3 md:!px-6 !border-[var(--dome-border)] !bg-transparent">
+      <DomeToolbar.Leading>
         <div className="min-w-0 flex-1">
           <h2 className="truncate text-base font-semibold tracking-tight text-[var(--dome-text)]">{resourceTitle}</h2>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-[var(--dome-text-muted)]">
@@ -83,8 +82,8 @@ export default function TranscriptToolbar({
             ) : null}
           </div>
         </div>
-      }
-      trailing={
+      </DomeToolbar.Leading>
+      <DomeToolbar.Trailing>
         <div className="flex flex-wrap items-center gap-1.5 justify-end">
           <div className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-[var(--dome-bg-hover)] transition-colors">
             <DomeToggle size="sm" checked={followPlayback} onChange={onFollowPlaybackChange} />
@@ -203,7 +202,7 @@ export default function TranscriptToolbar({
             </DomeButton>
           )}
         </div>
-      }
-    />
+      </DomeToolbar.Trailing>
+    </DomeToolbar>
   );
 }

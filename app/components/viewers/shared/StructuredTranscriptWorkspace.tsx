@@ -18,6 +18,7 @@ import TranscriptSearchBar from './transcript/TranscriptSearchBar';
 import TranscriptSegmentList from './transcript/TranscriptSegmentList';
 import TranscriptEmptyState from './transcript/TranscriptEmptyState';
 import { countOccurrences, getSpeakerColor, buildSpeakerOrder } from './transcript/transcriptUtils';
+import { lazyRef } from '@/lib/utils/lazyRef';
 
 interface StructuredTranscriptWorkspaceProps {
   resource: Resource;
@@ -55,16 +56,20 @@ export default function StructuredTranscriptWorkspace({
   const [searchQuery, setSearchQuery] = useState('');
   const [followPlayback, setFollowPlayback] = useState(true);
 
-  const rowRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
+  const rowRefs = useRef<Map<string, HTMLButtonElement | null> | null>(null);
+  const rowRefMap = lazyRef(rowRefs, () => new Map());
 
-  useEffect(() => {
+  const speakersMapKey = `${resource.id}:${JSON.stringify(speakersMap)}`;
+  const prevSpeakersMapKeyRef = useRef(speakersMapKey);
+  if (speakersMapKey !== prevSpeakersMapKeyRef.current) {
+    prevSpeakersMapKeyRef.current = speakersMapKey;
     const next: Record<string, string> = {};
     for (const k of Object.keys(speakersMap)) {
       const lab = speakersMap[k]?.label;
       if (lab) next[k] = lab;
     }
     setLocalSpeakerLabels((prev) => ({ ...next, ...prev }));
-  }, [resource.id, speakersMap]);
+  }
 
   const activeSegmentId = useMemo(() => {
     let best: TranscriptionSegment | null = null;
@@ -79,9 +84,9 @@ export default function StructuredTranscriptWorkspace({
   useEffect(() => {
     if (!followPlayback || !isPlaying) return;
     if (!activeSegmentId) return;
-    const el = rowRefs.current.get(activeSegmentId);
+    const el = rowRefMap.get(activeSegmentId);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [activeSegmentId, followPlayback, isPlaying]);
+  }, [activeSegmentId, followPlayback, isPlaying, rowRefMap]);
 
   const uniqueSpeakerIds = useMemo(() => {
     const s = new Set<string>();

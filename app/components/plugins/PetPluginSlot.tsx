@@ -36,5 +36,5 @@ export default function PetPluginSlot() {
     return null;
   }
 
-  return <PetMascot plugin={petPlugin} />;
+  return <PetMascot key={petPlugin.id} plugin={petPlugin} />;
 }

@@ -162,11 +162,10 @@ export default function DomeSyncSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title="Dome Sync"
-        subtitle="Sincroniza tu biblioteca entre dispositivos con tu suscripción Dome Pro."
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{"Dome Sync"}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{"Sincroniza tu biblioteca entre dispositivos con tu suscripción Dome Pro."}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {loading ? (
         <DomeListState variant="loading" loadingLabel="Comprobando estado de sincronización…" compact />

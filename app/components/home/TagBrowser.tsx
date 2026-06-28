@@ -49,6 +49,14 @@ function ResourceTypeIcon({ type }: { type: string }) {
   }
 }
 
+async function openTagResource(resource: TagResource) {
+  try {
+    await window.electron.workspace.open(resource.id, resource.type || 'url');
+  } catch (err) {
+    console.error('Error opening resource:', err);
+  }
+}
+
 export default function TagBrowser() {
   const { t } = useTranslation();
   const [tags, setTags] = useState<TagWithCount[]>([]);
@@ -88,15 +96,6 @@ export default function TagBrowser() {
       setLoadingResources(false);
     }
   };
-
-  const handleOpenResource = async (resource: TagResource) => {
-    try {
-      await window.electron.workspace.open(resource.id, resource.type || 'url');
-    } catch (err) {
-      console.error('Error opening resource:', err);
-    }
-  };
-
 
   if (loading) {
     return (
@@ -149,7 +148,7 @@ export default function TagBrowser() {
               <button
                 key={res.id}
                 type="button"
-                onClick={() => handleOpenResource(res)}
+                onClick={() => openTagResource(res)}
                 className="hub-tag-resource-row"
               >
                 <div

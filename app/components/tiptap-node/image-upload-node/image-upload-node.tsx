@@ -347,6 +347,14 @@ interface ImageUploadPreviewProps {
   onRemove: () => void
 }
 
+function formatUploadFileSize(bytes: number) {
+  if (bytes === 0) return "0 Bytes"
+  const k = 1024
+  const sizes = ["Bytes", "KB", "MB", "GB"]
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+}
+
 /**
  * Component that displays a preview of an uploading file with progress
  */
@@ -354,14 +362,6 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
   fileItem,
   onRemove,
 }) => {
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
-  }
-
   return (
     <div className="tiptap-image-upload-preview">
       {fileItem.status === "uploading" && (
@@ -381,7 +381,7 @@ const ImageUploadPreview: React.FC<ImageUploadPreviewProps> = ({
               {fileItem.file.name}
             </span>
             <span className="tiptap-image-upload-subtext">
-              {formatFileSize(fileItem.file.size)}
+              {formatUploadFileSize(fileItem.file.size)}
             </span>
           </div>
         </div>

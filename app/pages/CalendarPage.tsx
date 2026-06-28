@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Loader2 } from 'lucide-react';
 import {
   startOfWeek, endOfWeek,
@@ -21,6 +21,13 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { getEventsForDay } from '@/lib/calendar/dayEvents';
 
 type CalRow = { id: string; title: string; color?: string; account_id?: string; is_selected?: boolean };
+
+function openCalendarSettings() {
+  useTabStore.getState().openSettingsTab();
+  window.setTimeout(() => {
+    window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'calendar' }));
+  }, 80);
+}
 
 export default function CalendarPage() {
   const { t } = useTranslation();
@@ -49,7 +56,7 @@ export default function CalendarPage() {
   const [visibleCalendarIds, setVisibleCalendarIds] = useState<string[]>([]);
   const [showImport, setShowImport] = useState(false);
   const [importPreview, setImportPreview] = useState<{ events: unknown[]; rawCount: number } | null>(null);
-  const [importPath, setImportPath] = useState<string | null>(null);
+  const importPathRef = useRef<string | null>(null);
   const [importTargetId, setImportTargetId] = useState<string>('');
   const [importSkipDup, setImportSkipDup] = useState(true);
   const [importBusy, setImportBusy] = useState(false);
@@ -208,7 +215,7 @@ export default function CalendarPage() {
         showToast('error', prev.error || t('calendarPage.import_error'));
         return;
       }
-      setImportPath(p);
+      importPathRef.current = p;
       setImportPreview({ events: prev.events ?? [], rawCount: prev.rawCount ?? 0 });
       setShowImport(true);
     } catch (e) {
@@ -217,17 +224,17 @@ export default function CalendarPage() {
   };
 
   const runImport = async () => {
-    if (!importPath || !importTargetId) return;
+    if (!importPathRef.current || !importTargetId) return;
     setImportBusy(true);
     try {
-      const r = await window.electron.calendar.importIcs(importPath, importTargetId, { skipDuplicates: importSkipDup });
+      const r = await window.electron.calendar.importIcs(importPathRef.current, importTargetId, { skipDuplicates: importSkipDup });
       if (r.success) {
         showToast(
           'success',
           t('calendarPage.import_done', { n: r.imported ?? 0, s: r.skipped ?? 0 }),
         );
         setShowImport(false);
-        setImportPath(null);
+        importPathRef.current = null;
         setImportPreview(null);
         await Promise.all([loadEvents(), loadUpcoming()]);
       } else {
@@ -236,13 +243,6 @@ export default function CalendarPage() {
     } finally {
       setImportBusy(false);
     }
-  };
-
-  const openCalendarSettings = () => {
-    useTabStore.getState().openSettingsTab();
-    window.setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('dome:goto-settings-section', { detail: 'calendar' }));
-    }, 80);
   };
 
   const openNewEvent = () => {
@@ -385,11 +385,12 @@ export default function CalendarPage() {
       </div>
 
       {showImport && importPreview ? (
-        <div
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
           aria-modal="true"
           aria-labelledby="calendar-import-dialog-title"
+          onCancel={(e) => { e.preventDefault(); setShowImport(false); }}
         >
           <div className="p-projects-modal">
             <h3 id="calendar-import-dialog-title" className="p-projects-modal-title">
@@ -422,7 +423,7 @@ export default function CalendarPage() {
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
 
       {dayModalDate ? (

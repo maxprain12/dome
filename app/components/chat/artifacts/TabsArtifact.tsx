@@ -1,5 +1,6 @@
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import type { TabsArtifactV, TabContent } from '@/lib/chat/artifactSchemas';
+import './tabs-artifact.css';
 
 function TabInner({ content }: { content: TabContent }) {
   switch (content.type) {
@@ -11,19 +12,7 @@ function TabInner({ content }: { content: TabContent }) {
       );
     case 'code':
       return (
-        <pre
-          style={{
-            fontSize: 12,
-            overflowX: 'auto',
-            padding: '10px 12px',
-            borderRadius: 6,
-            backgroundColor: 'var(--bg-secondary)',
-            color: 'var(--primary-text)',
-            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-            margin: 0,
-            lineHeight: 1.55,
-          }}
-        >
+        <pre className="tabs-artifact-code-pre">
           <code>{content.code}</code>
         </pre>
       );
@@ -31,16 +20,7 @@ function TabInner({ content }: { content: TabContent }) {
       const ListTag = content.ordered ? 'ol' : 'ul';
       return (
         <ListTag
-          style={{
-            paddingLeft: 20,
-            margin: 0,
-            listStyleType: content.ordered ? 'decimal' : 'disc',
-            color: 'var(--primary-text)',
-            fontSize: 13,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 4,
-          }}
+          className={`tabs-artifact-list ${content.ordered ? 'is-ordered' : 'is-unordered'}`}
         >
           {content.items.map((item, idx) => (
             <li key={idx}>{item}</li>
@@ -162,23 +142,7 @@ export default function TabsArtifact({ artifact }: { artifact: TabsArtifactV }) 
               tabIndex={on ? 0 : -1}
               onClick={() => setActive(tab.id)}
               onKeyDown={(ev) => onKeyDown(ev, idx)}
-              style={{
-                padding: '6px 10px',
-                borderRadius: 'var(--radius-full)',
-                border: on ? '1px solid var(--accent)' : '1px solid var(--border)',
-                background: on
-                  ? 'color-mix(in oklab, var(--accent) 14%, transparent)'
-                  : 'transparent',
-                color: on ? 'var(--accent)' : 'var(--secondary-text)',
-                fontSize: 12,
-                fontWeight: 500,
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                transition:
-                  'background-color var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast)',
-              }}
+              className={`tabs-artifact-tab-btn ${on ? 'is-active' : 'is-inactive'}`}
             >
               {tab.label}
               {tab.badge && (

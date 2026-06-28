@@ -180,11 +180,11 @@ function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }
   const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
   const accentColor = folderColor ?? 'var(--dome-accent)';
   const isHubTab = HUB_TAB_IDS.has(tab.id);
-  useEffect(() => {
-    if (isActive) {
-      btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
-    }
-  }, [isActive]);
+  const prevIsActiveRef = useRef(isActive);
+  if (isActive && !prevIsActiveRef.current) {
+    btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }
+  prevIsActiveRef.current = isActive;
   return (
     <button
       ref={btnRef}
@@ -207,8 +207,9 @@ function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }
       <TabIcon tab={tab} />
       <span className="dome-tab-item-title">{displayTitle}</span>
       {!tab.pinned && (
+        // Close control lives inside the tab button — nested <button> is invalid HTML.
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
         <span
-          role="button"
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();
@@ -387,12 +388,10 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     [isCompact],
   );
 
-  useEffect(() => {
-    if (!hasHorizontalOverflow && overflowMenuOpen) {
-      setOverflowMenuOpen(false);
-      setOverflowAnchor(null);
-    }
-  }, [hasHorizontalOverflow, overflowMenuOpen]);
+  if (!hasHorizontalOverflow && overflowMenuOpen) {
+    setOverflowMenuOpen(false);
+    setOverflowAnchor(null);
+  }
 
   useEffect(() => {
     if (!overflowMenuOpen) return;
@@ -703,7 +702,7 @@ function TabContextMenuBridge({
           <ChevronLeft className="size-3.5 shrink-0" />
           {t('workspace.tab_menu_back')}
         </button>
-        <div className="flex flex-wrap gap-1.5 px-1 pb-1" role="group">
+        <fieldset className="flex flex-wrap gap-1.5 border-0 p-0 m-0 min-w-0 px-1 pb-1">
           {FOLDER_COLOR_SWATCHES.map((color) => (
             <button
               key={color}
@@ -720,7 +719,7 @@ function TabContextMenuBridge({
               aria-label={color}
             />
           ))}
-        </div>
+        </fieldset>
       </div>,
       document.body,
     );

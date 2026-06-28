@@ -1,32 +1,44 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { githubClient, isGithubHostedImageUrl } from '@/lib/github/client';
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+function resolveSyncState(src: string | null | undefined): { state: LoadState; displaySrc: string | null } {
+  if (typeof src !== 'string' || !src.trim()) {
+    return { state: 'error', displaySrc: null };
+  }
+  if (src.startsWith('data:') || src.startsWith('blob:') || !isGithubHostedImageUrl(src)) {
+    return { state: 'ready', displaySrc: src };
+  }
+  return { state: 'loading', displaySrc: null };
+}
+
 /** Fetch GitHub user-attachment images via main-process proxy (auth required). */
 export default function GithubProxyImage({ src, alt }: { src?: string | null; alt?: string | null }) {
   const { t } = useTranslation();
-  const [state, setState] = useState<LoadState>('loading');
-  const [displaySrc, setDisplaySrc] = useState<string | null>(null);
+  const [state, setState] = useState<LoadState>(() => resolveSyncState(src).state);
+  const [displaySrc, setDisplaySrc] = useState<string | null>(() => resolveSyncState(src).displaySrc);
+  const prevSrcRef = useRef(src);
+  if (src !== prevSrcRef.current) {
+    prevSrcRef.current = src;
+    const next = resolveSyncState(src);
+    setState(next.state);
+    setDisplaySrc(next.displaySrc);
+  }
+
+  const needsProxy =
+    typeof src === 'string' &&
+    src.trim().length > 0 &&
+    !src.startsWith('data:') &&
+    !src.startsWith('blob:') &&
+    isGithubHostedImageUrl(src);
 
   useEffect(() => {
-    if (typeof src !== 'string' || !src.trim()) {
-      setState('error');
-      setDisplaySrc(null);
-      return;
-    }
-
-    if (src.startsWith('data:') || src.startsWith('blob:') || !isGithubHostedImageUrl(src)) {
-      setDisplaySrc(src);
-      setState('ready');
-      return;
-    }
+    if (!needsProxy || typeof src !== 'string') return;
 
     let cancelled = false;
-    setState('loading');
-    setDisplaySrc(null);
 
     void githubClient
       .resolveImage(src)
@@ -46,7 +58,7 @@ export default function GithubProxyImage({ src, alt }: { src?: string | null; al
     return () => {
       cancelled = true;
     };
-  }, [src]);
+  }, [src, needsProxy]);
 
   if (state === 'loading') {
     return (

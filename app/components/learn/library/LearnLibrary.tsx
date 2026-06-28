@@ -40,7 +40,10 @@ export default function LearnLibrary() {
   }, [loadDecks, loadStudioOutputs]);
 
   useEffect(() => {
-    const missing = decks.filter((d) => !deckStats[d.id]).map((d) => d.id);
+    const missing: string[] = [];
+    for (const d of decks) {
+      if (!deckStats[d.id]) missing.push(d.id);
+    }
     if (missing.length > 0) void loadAllDeckStats(missing);
   }, [decks, deckStats, loadAllDeckStats]);
 

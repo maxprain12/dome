@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n, { getDateTimeLocaleTag } from '@/lib/i18n';
 import { getToolDisplayLabel } from '@/lib/chat/toolDisplayLabels';
 import {
   X,
@@ -31,13 +30,15 @@ import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeStatusBadge from '@/components/ui/DomeStatusBadge';
 import DomeCallout from '@/components/ui/DomeCallout';
-import DomeProgressBar from '@/components/ui/DomeProgressBar';
 import DomeListState from '@/components/ui/DomeListState';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
 import { getRunProgress } from '@/lib/automations/run-progress';
 import { statusLabel } from '@/lib/automations/run-status';
+import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
+import { RunProgressBar } from '@/lib/automations/run-log-ui';
+import { JsonPrettyPrinterRoot as JsonPrettyPrinter } from '@/lib/chat/jsonPrettyPrinter';
 
 // ─── Shared helpers (aligned with ChatToolCard icons + toolDisplayLabels) ───
 
@@ -90,9 +91,11 @@ function getIconForTool(name: string) {
 }
 
 function formatArgsSummary(args: Record<string, unknown>): string {
-  const parts = Object.entries(args || {})
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(args || {})) {
+    if (v === undefined || v === null || v === '') continue;
+    parts.push(`${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+  }
   const joined = parts.join(', ');
   return joined.length > 70 ? joined.slice(0, 70) + '…' : joined;
 }
@@ -103,14 +106,9 @@ function parseJson(raw: unknown): unknown {
   return raw;
 }
 
-import { JsonPrettyPrinterRoot as JsonPrettyPrinter } from '@/lib/chat/jsonPrettyPrinter';
-
-// ─── JsonPrettyPrinter ───────────────────────────────────────────────────────
-export { JsonPrettyPrinterRoot as JsonPrettyPrinter } from '@/lib/chat/jsonPrettyPrinter';
-
 // ─── RunStepCard ─────────────────────────────────────────────────────────────
 
-export function RunStepCard({ step }: { step: PersistentRunStep }) {
+function RunStepCard({ step }: { step: PersistentRunStep }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
@@ -253,40 +251,6 @@ export function RunStepCard({ step }: { step: PersistentRunStep }) {
   );
 }
 
-export { statusLabel, statusColor } from '@/lib/automations/run-status';
-
-export function formatRunDate(ts?: number | null) {
-  if (!ts) return i18n.t('runLog.em_dash');
-  return new Date(ts).toLocaleString(getDateTimeLocaleTag(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' });
-}
-
-export function formatDuration(startedAt?: number, finishedAt?: number | null): string {
-  if (!startedAt) return i18n.t('runLog.em_dash');
-  const end = finishedAt || Date.now();
-  const secs = Math.round((end - startedAt) / 1000);
-  if (secs < 60) return `${secs}s`;
-  const mins = Math.floor(secs / 60);
-  return `${mins}m ${secs % 60}s`;
-}
-
-export function RunProgressBar({ run }: { run: PersistentRun }) {
-  const progress = getRunProgress(run);
-  if (!progress) return null;
-
-  if (progress.mode === 'determinate') {
-    return (
-      <DomeProgressBar
-        value={progress.percent ?? 0}
-        max={100}
-        size="sm"
-        aria-label={statusLabel(run.status)}
-      />
-    );
-  }
-
-  return <DomeProgressBar indeterminate size="sm" aria-label={statusLabel(run.status)} />;
-}
-
 // ─── RunLogView ───────────────────────────────────────────────────────────────
 
 interface RunLogViewProps {
@@ -342,21 +306,19 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
         aria-label={t('runLog.close_panel')}
         onClick={onClose}
       />
-      <div
-        className="absolute right-0 top-0 flex h-full min-h-0 w-[min(720px,92vw)] flex-col border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)]"
+      <dialog
+        open
+        className="absolute right-0 top-0 flex h-full min-h-0 w-[min(720px,92vw)] flex-col border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)] m-0 max-w-none max-h-none p-0"
         style={{ animation: 'slideInRight 0.2s ease-out' }}
-        role="dialog"
-        aria-modal="true"
         aria-label={run.title || run.id}
       >
         <DomeDrawerLayout
           className="h-full border-0 shadow-none bg-transparent"
           header={
-            <DomeSubpageHeader
-              className="bg-[var(--bg-secondary)]"
-              title={run.title || run.id}
-              subtitle={subtitle}
-              trailing={
+            <DomeSubpageHeader className="bg-[var(--bg-secondary)]">
+              <DomeSubpageHeader.Title>{run.title || run.id}</DomeSubpageHeader.Title>
+              <DomeSubpageHeader.Subtitle>{subtitle}</DomeSubpageHeader.Subtitle>
+              <DomeSubpageHeader.Trailing>
                 <>
                   <DomeStatusBadge status={run.status} />
                   <DomeButton
@@ -370,8 +332,8 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
                     <X className="size-[18px]" aria-hidden />
                   </DomeButton>
                 </>
-              }
-            />
+              </DomeSubpageHeader.Trailing>
+            </DomeSubpageHeader>
           }
           afterHeader={
             isRunning ? (
@@ -381,15 +343,16 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
             ) : undefined
           }
           footer={
-            <DomeSubpageFooter
-              className="bg-[var(--bg-secondary)]"
-              leading={<span className="text-[11px] text-[var(--tertiary-text)]">ID: {run.id}</span>}
-              trailing={
+            <DomeSubpageFooter className="bg-[var(--bg-secondary)]">
+              <DomeSubpageFooter.Leading>
+                <span className="text-[11px] text-[var(--tertiary-text)]">ID: {run.id}</span>
+              </DomeSubpageFooter.Leading>
+              <DomeSubpageFooter.Trailing>
                 <DomeButton type="button" variant="secondary" size="sm" onClick={onClose}>
                   {t('runLog.close')}
                 </DomeButton>
-              }
-            />
+              </DomeSubpageFooter.Trailing>
+            </DomeSubpageFooter>
           }
         >
           <div className="px-5 py-4 space-y-5">
@@ -454,7 +417,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
             ) : null}
           </div>
         </DomeDrawerLayout>
-      </div>
+      </dialog>
 
       <style>{`
         @keyframes slideInRight {

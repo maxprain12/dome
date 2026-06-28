@@ -30,6 +30,9 @@ import { useManyStore } from '@/lib/store/useManyStore';
 import { db } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { handleComposerImagePaste } from '@/lib/chat/composerPaste';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
+
+const ContextUsage = defineSlot('ManyChatInput.ContextUsage');
 
 const MANY_PLACEHOLDER_HINT_KEYS = [
   'many.input_placeholder_docs',
@@ -63,11 +66,10 @@ export interface ManyChatInputProps {
   showComposerKeyboardHint?: boolean;
   /** Sidebar / narrow panel: icon-only toolbar, capabilities in + menu. */
   compact?: boolean;
-  /** Context donut + popup, shown before the send button. */
-  composerContextUsage?: React.ReactNode;
+  children?: ReactNode;
 }
 
-export default memo(function ManyChatInput({
+const ManyChatInput = memo(function ManyChatInput({
   input,
   setInput,
   inputRef,
@@ -88,8 +90,11 @@ export default memo(function ManyChatInput({
   variant = 'full',
   showComposerKeyboardHint = true,
   compact = false,
-  composerContextUsage = null,
+  children,
 }: ManyChatInputProps) {
+  const { contextUsage } = collectCompoundSlots(children, {
+    contextUsage: ContextUsage,
+  });
   const { t } = useTranslation();
   const multimodalCaps = useComposerMultimodalCapabilities();
   const fileAccept = useMemo(() => composerFileAccept(multimodalCaps), [multimodalCaps]);
@@ -114,8 +119,9 @@ export default memo(function ManyChatInput({
     void db.getAISkills().then((res) => {
       if (cancelled || !res.success || !Array.isArray(res.data)) return;
       const next: Record<string, string> = {};
+      const idSet = new Set(ids);
       for (const row of res.data as Array<{ id?: string; name?: string }>) {
-        if (row.id && ids.includes(row.id)) {
+        if (row.id && idSet.has(row.id)) {
           next[row.id] = row.name || row.id;
         }
       }
@@ -137,11 +143,12 @@ export default memo(function ManyChatInput({
     });
     void loadMcpServersSetting().then((servers) => {
       if (cancelled) return;
-      setMcpCatalog(
-        servers
-          .filter((s) => s.enabled !== false)
-          .map((s) => ({ name: s.name, description: undefined })),
-      );
+      const catalog: { name: string; description: undefined }[] = [];
+      for (const s of servers) {
+        if (s.enabled === false) continue;
+        catalog.push({ name: s.name, description: undefined });
+      }
+      setMcpCatalog(catalog);
     });
     return () => {
       cancelled = true;
@@ -286,8 +293,11 @@ export default memo(function ManyChatInput({
         slash.updateFromText(val, cursor);
         hash.updateFromText(val, cursor);
       }
+      const pinnedMentions = new Set(
+        pinnedResources.filter((pin) => val.includes(`@${pin.title}`)).map((pin) => pin.id),
+      );
       for (const pin of pinnedResources) {
-        if (!val.includes(`@${pin.title}`)) {
+        if (!pinnedMentions.has(pin.id)) {
           removePinnedResource(pin.id);
         }
       }
@@ -526,8 +536,8 @@ export default memo(function ManyChatInput({
               </span>
             ) : null}
 
-            {composerContextUsage ? (
-              <span className="many-composer-context">{composerContextUsage}</span>
+            {contextUsage ? (
+              <span className="many-composer-context">{contextUsage}</span>
             ) : null}
 
             {showDropdown && dropdownRect && typeof document !== 'undefined' && createPortal(
@@ -797,3 +807,7 @@ export default memo(function ManyChatInput({
     </div>
   );
 });
+
+const ManyChatInputWithSlots = Object.assign(ManyChatInput, { ContextUsage });
+
+export default ManyChatInputWithSlots;

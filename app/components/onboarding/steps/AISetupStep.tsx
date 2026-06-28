@@ -8,7 +8,8 @@ import {
   type AIProviderType,
 } from '@/lib/ai/models';
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
-import AIProviderSelection, { isCloudAIProvider } from '@/components/settings/ai/AIProviderSelection';
+import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
+import AIProviderSelection from '@/components/settings/ai/AIProviderSelection';
 import AICloudProviderConfig from '@/components/settings/ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from '@/components/settings/ai/AIOllamaProviderConfig';
 import AIDomeOnboardingCallout from '@/components/settings/ai/AIDomeOnboardingCallout';

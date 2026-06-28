@@ -1,32 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import { useTranslation } from 'react-i18next';
 import type { Project } from '@/types';
 import type { Resource } from '@/lib/hooks/useResources';
-
-/** Evita mover un hijo y un padre seleccionados: solo se mueven las raíces del conjunto. */
-export function filterMoveProjectRoots(selectedIds: Set<string>, byId: Map<string, Resource>): string[] {
-  const roots: string[] = [];
-  for (const id of selectedIds) {
-    if (!byId.has(id)) continue;
-    let cur: Resource | undefined = byId.get(id);
-    let nestedInSelection = false;
-    let guard = 0;
-    while (cur?.folder_id && guard++ < 500) {
-      if (selectedIds.has(cur.folder_id)) {
-        nestedInSelection = true;
-        break;
-      }
-      cur = byId.get(cur.folder_id);
-    }
-    if (!nestedInSelection) roots.push(id);
-  }
-  return roots;
-}
+import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 
 export interface MoveToProjectModalProps {
   opened: boolean;
@@ -55,9 +36,18 @@ export default function MoveToProjectModal({
 
   const byId = resourcesByIdProp ?? localById;
 
+  const prevOpenedRef = useRef(opened);
+  if (!opened && opened !== prevOpenedRef.current) {
+    prevOpenedRef.current = opened;
+    setPickedId(null);
+    setError(null);
+    setLocalById(null);
+  } else if (opened !== prevOpenedRef.current) {
+    prevOpenedRef.current = opened;
+  }
+
   useEffect(() => {
     if (!opened || resourcesByIdProp) {
-      if (!opened) setLocalById(null);
       return;
     }
     let cancelled = false;
@@ -75,10 +65,17 @@ export default function MoveToProjectModal({
     };
   }, [opened, resourcesByIdProp]);
 
+  const prevOpenedForLoadRef = useRef(opened);
+  if (opened && opened !== prevOpenedForLoadRef.current) {
+    prevOpenedForLoadRef.current = opened;
+    setPickedId(null);
+    setError(null);
+  } else if (!opened && opened !== prevOpenedForLoadRef.current) {
+    prevOpenedForLoadRef.current = opened;
+  }
+
   useEffect(() => {
     if (!opened) {
-      setPickedId(null);
-      setError(null);
       return;
     }
     let cancelled = false;

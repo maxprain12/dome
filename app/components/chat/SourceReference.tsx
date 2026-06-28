@@ -1,6 +1,7 @@
 
 import { FileText, Bookmark, PlusCircle, CheckCircle2 } from 'lucide-react';
 import { useManyStore } from '@/lib/store/useManyStore';
+import './source-reference.css';
 
 interface SourceRef {
   number: number;
@@ -44,55 +45,10 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
               <button
                 type="button"
                 onClick={() => onClickSource?.(source)}
-                style={{
-                  display: 'flex',
-                  maxWidth: '100%',
-                  alignItems: 'center',
-                  gap: 8,
-                  textAlign: 'left',
-                  borderRadius: 6,
-                  padding: '6px 10px',
-                  fontSize: 12,
-                  color: 'var(--secondary-text)',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  cursor: 'pointer',
-                  transition: 'background 150ms ease, border-color 150ms ease',
-                }}
-                onMouseOver={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = 'var(--bg-hover)';
-                  el.style.borderColor = 'var(--border-hover)';
-                }}
-                onMouseOut={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = 'var(--bg-secondary)';
-                  el.style.borderColor = 'var(--border)';
-                }}
-                onFocus={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = 'var(--bg-hover)';
-                  el.style.borderColor = 'var(--border-hover)';
-                }}
-                onBlur={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.background = 'var(--bg-secondary)';
-                  el.style.borderColor = 'var(--border)';
-                }}
+                className="source-ref-btn"
                 title={[source.title, source.pageLabel, source.nodeTitle].filter(Boolean).join(' · ')}
               >
-                <span
-                  style={{
-                    flexShrink: 0,
-                    background: 'var(--accent)',
-                    color: 'var(--base-text)',
-                    borderRadius: 4,
-                    padding: '1px 5px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    lineHeight: 1.4,
-                  }}
-                >
+                <span className="source-ref-number">
                   {source.number}
                 </span>
                 <FileText style={{ width: 12, height: 12, flexShrink: 0, color: 'var(--tertiary-text)' }} />
@@ -101,7 +57,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                     {source.title}
                   </span>
                   {source.nodeTitle && (
-                    <span style={{ fontSize: 12, color: 'var(--tertiary-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, display: 'block', marginTop: 1 }}>
+                    <span className="source-ref-node-title">
                       {source.nodeTitle}
                     </span>
                   )}
@@ -126,20 +82,7 @@ export default function SourceReference({ sources, onClickSource }: SourceRefere
                     }
                   }}
                   title={isPinned ? 'Quitar del contexto' : 'Añadir al contexto del chat'}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 22,
-                    height: 22,
-                    borderRadius: 5,
-                    border: '1px solid var(--border)',
-                    background: isPinned ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--bg-secondary)',
-                    color: isPinned ? 'var(--accent)' : 'var(--tertiary-text)',
-                    cursor: 'pointer',
-                    flexShrink: 0,
-                    transition: 'all 150ms ease',
-                  }}
+                  className={`source-ref-pin-btn ${isPinned ? 'is-pinned' : 'is-unpinned'}`}
                 >
                   {isPinned
                     ? <CheckCircle2 style={{ width: 13, height: 13 }} />

@@ -13,6 +13,7 @@ import {
   handleArtifactNavigateMessage,
   openArtifactExternalUrl,
 } from '@/lib/chat/artifactIframeNavigate';
+import './html-artifact-frame.css';
 
 const DOME_ARTIFACT = DOME_ARTIFACT_MSG;
 const DOME_THEME = 'dome:theme';
@@ -95,15 +96,28 @@ export default function HtmlArtifactFrame({
 }) {
   const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const iframeReadyRef = useRef(false);
   const [height, setHeight] = useState(artifact.height ?? 240);
   const [showSource, setShowSource] = useState(false);
-  const [iframeReady, setIframeReady] = useState(false);
 
   const themeSnapshot = useDomeThemeSnapshot();
   const themeCss = useMemo(
     () => buildDomeThemeStyleContent(themeSnapshot.vars),
     [themeSnapshot.vars],
   );
+
+  const postThemeToIframe = useCallback(() => {
+    if (!iframeReadyRef.current) return;
+    const w = iframeRef.current?.contentWindow;
+    if (!w) return;
+    try {
+      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, '*');
+    } catch {
+      // iframe was unloaded
+    }
+  }, [themeCss, themeSnapshot.vars]);
+  const postThemeRef = useRef(postThemeToIframe);
+  postThemeRef.current = postThemeToIframe;
 
   // We only want the initial `srcdoc` to be recomputed when the artifact payload
   // changes — theme updates after mount are pushed via postMessage so we avoid
@@ -127,7 +141,8 @@ export default function HtmlArtifactFrame({
     const d = ev.data;
     if (!d || d.type !== DOME_ARTIFACT) return;
     if (d.kind === 'ready') {
-      setIframeReady(true);
+      iframeReadyRef.current = true;
+      postThemeRef.current();
       return;
     }
     if (d.kind === 'resize' && typeof d.height === 'number' && d.height > 0) {
@@ -141,19 +156,14 @@ export default function HtmlArtifactFrame({
   }, [onMsg]);
 
   useEffect(() => {
-    if (!iframeReady) return;
-    const w = iframeRef.current?.contentWindow;
-    if (!w) return;
-    try {
-      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, '*');
-    } catch {
-      // iframe was unloaded
-    }
-  }, [iframeReady, themeCss, themeSnapshot.vars]);
+    postThemeToIframe();
+  }, [postThemeToIframe]);
 
-  useEffect(() => {
-    setIframeReady(false);
-  }, [srcdoc]);
+  const prevSrcdocRef = useRef(srcdoc);
+  if (srcdoc !== prevSrcdocRef.current) {
+    prevSrcdocRef.current = srcdoc;
+    iframeReadyRef.current = false;
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
@@ -203,21 +213,7 @@ export default function HtmlArtifactFrame({
         {t('chat.artifact_sandbox_note')}
       </div>
       {showSource && (
-        <pre
-          style={{
-            fontSize: 12,
-            maxHeight: 200,
-            overflow: 'auto',
-            padding: 8,
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--bg-secondary)',
-            color: 'var(--primary-text)',
-            border: '1px solid var(--border)',
-            margin: 0,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-          }}
-        >
+        <pre className="html-artifact-source-pre">
           {srcdoc}
         </pre>
       )}

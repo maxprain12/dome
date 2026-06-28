@@ -12,7 +12,7 @@
  * Cross-window sync is handled inside `NoteWorkspaceClient` via the
  * `resource:updated` broadcast.
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import NoteWorkspaceClient from '@/components/notes/NoteWorkspaceClient';
@@ -23,8 +23,18 @@ interface NoteFocusPageProps {
 
 export default function NoteFocusPage({ resourceId }: NoteFocusPageProps) {
   const { t } = useTranslation();
-  const [title, setTitle] = useState<string>('');
+  const titleRef = useRef('');
   const loadCurrentProject = useAppStore((s) => s.loadCurrentProject);
+
+  const applyDocumentTitle = useCallback(
+    (nextTitle: string) => {
+      titleRef.current = nextTitle;
+      document.title = nextTitle
+        ? `${nextTitle} — Dome`
+        : t('focused_editor.popout_title', 'Editor enfocado');
+    },
+    [t],
+  );
 
   useEffect(() => {
     void loadCurrentProject();
@@ -35,10 +45,10 @@ export default function NoteFocusPage({ resourceId }: NoteFocusPageProps) {
     if (!resourceId || !window.electron?.db?.resources) return;
     void window.electron.db.resources.getById(resourceId).then((res) => {
       if (res?.success && res.data) {
-        setTitle((res.data as { title?: string }).title ?? '');
+        applyDocumentTitle((res.data as { title?: string }).title ?? '');
       }
     });
-  }, [resourceId]);
+  }, [resourceId, applyDocumentTitle]);
 
   // Live-update the OS title when the note title changes elsewhere.
   useEffect(() => {
@@ -48,18 +58,12 @@ export default function NoteFocusPage({ resourceId }: NoteFocusPageProps) {
       (payload: { id?: string; updates?: { title?: string } }) => {
         if (payload?.id !== resourceId) return;
         if (typeof payload.updates?.title === 'string') {
-          setTitle(payload.updates.title);
+          applyDocumentTitle(payload.updates.title);
         }
       },
     );
     return () => unsub?.();
-  }, [resourceId]);
-
-  useEffect(() => {
-    document.title = title
-      ? `${title} — Dome`
-      : t('focused_editor.popout_title', 'Editor enfocado');
-  }, [title, t]);
+  }, [resourceId, applyDocumentTitle]);
 
   return (
     <div

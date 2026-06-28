@@ -37,14 +37,13 @@ export default function CompactionNotice({ event, onDismiss }: Props) {
         });
 
   return (
-    <div
+    <output
       className="mx-3 mb-2 flex items-start gap-2 rounded-lg border px-3 py-2 text-[12px]"
       style={{
         borderColor: 'var(--border-soft)',
         background: 'var(--bg-secondary)',
         color: 'var(--secondary-text)',
       }}
-      role="status"
     >
       <Layers className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: 'var(--accent)' }} />
       <div className="min-w-0 flex-1">
@@ -65,6 +64,6 @@ export default function CompactionNotice({ event, onDismiss }: Props) {
           {t('many.compaction_dismiss')}
         </button>
       ) : null}
-    </div>
+    </output>
   );
 }

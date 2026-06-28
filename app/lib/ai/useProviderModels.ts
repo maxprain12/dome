@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { fetchProviderModels, getCustomModelsByProvider, type ProviderModelRow } from '@/lib/ai/client';
 import { getCopilotModels } from '@/lib/ai/catalogs/copilot';
@@ -126,10 +126,14 @@ export function useProviderModels({
   const [error, setError] = useState<string | null>(null);
   const [visibleIds, setVisibleIds] = useState<string[]>(() => getDefaultVisibleModelIds(provider));
 
-  useEffect(() => {
+  const prevProviderRef = useRef(provider);
+  const prevStaticModelsRef = useRef(staticModels);
+  if (provider !== prevProviderRef.current || staticModels !== prevStaticModelsRef.current) {
+    prevProviderRef.current = provider;
+    prevStaticModelsRef.current = staticModels;
     setMergedModels(staticModels);
     setError(null);
-  }, [provider, staticModels]);
+  }
 
   useEffect(() => {
     if (!applyVisibleFilter) return;

@@ -8,7 +8,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
-import { formatRunDate } from '@/components/automations/RunLogView';
+import { formatRunDate } from '@/lib/automations/run-log-format';
 import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
 import { cn } from '@/lib/utils';
@@ -128,10 +128,9 @@ export function RunTimelineBar({
 
   return (
     <div className="shrink-0 space-y-1.5">
-      <div
+      <figure
         className="flex h-1 w-full min-w-0 overflow-hidden rounded-sm"
         style={{ background: 'var(--dome-border)' }}
-        role="img"
         aria-label={t('runLog.detail_timeline')}
       >
         {segments.map(({ step, widthPct, title, color }) => (
@@ -145,7 +144,7 @@ export function RunTimelineBar({
             }}
           />
         ))}
-      </div>
+      </figure>
 
       {agents.length > 1 ? (
         <div className="space-y-1 pl-0">

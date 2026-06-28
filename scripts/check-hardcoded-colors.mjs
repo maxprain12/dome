@@ -25,6 +25,7 @@ const ALLOWED_FILES = new Set([
   // Email HTML is rendered inside a sandboxed iframe against a white canvas;
   // CSS variables do not cross the iframe boundary, so literal colors are required.
   'app/components/email/EmailBody.tsx',
+  'app/lib/email/emailBodyParts.ts',
 ]);
 
 const SCAN_DIRS = ['app/components', 'app/pages', 'app/workspace', 'app/lib'];

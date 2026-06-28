@@ -32,7 +32,8 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
 
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedContentRef = useRef<string>('');
-  const reloadDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const contentRef = useRef(content);
+  contentRef.current = content;
 
   useEffect(() => {
     async function loadResource() {
@@ -61,37 +62,33 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
     }
 
     loadResource();
-  }, [resourceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount via key={resourceId} on parent
+  }, []);
 
   // Refresh when Many (AI) modifies the notebook via notebook_add_cell, notebook_update_cell, etc.
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on || !resource) return;
+    let reloadTimer: ReturnType<typeof setTimeout> | null = null;
     const unsubscribe = window.electron.on(
       'resource:updated',
       (payload: { id?: string; updates?: { content?: string } }) => {
         if (payload?.id !== resourceId) return;
-        if (content !== lastSavedContentRef.current) return; // avoid overwriting unsaved user edits
+        if (contentRef.current !== lastSavedContentRef.current) return; // avoid overwriting unsaved user edits
         const newContent = payload?.updates?.content;
         if (newContent === undefined) return;
-        if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
-        reloadDebounceRef.current = setTimeout(() => {
-          reloadDebounceRef.current = null;
+        if (reloadTimer) clearTimeout(reloadTimer);
+        reloadTimer = setTimeout(() => {
+          reloadTimer = null;
           setContent(newContent);
           lastSavedContentRef.current = newContent;
         }, 300);
       }
     );
     return () => {
-      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+      if (reloadTimer) clearTimeout(reloadTimer);
       unsubscribe();
     };
-  }, [resourceId, resource, content]);
-
-  useEffect(() => {
-    if (resourceId) {
-      useAppStore.getState().setSelectedSourceIds([resourceId]);
-    }
-  }, [resourceId]);
+  }, [resourceId, resource]);
 
   const saveContent = useCallback(async (newContent: string) => {
     if (!window.electron?.db?.resources || !resource) return;
@@ -206,6 +203,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
     [resource, handleSaveMetadata]
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending save timeout on unmount only
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
@@ -263,6 +261,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
       <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
         {sourcesPanelOpen && resource && (
           <SourcesPanel
+            key={resource.project_id}
             resourceId={resourceId}
             projectId={resource.project_id}
           />
@@ -290,6 +289,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         </div>
 
         <SidePanel
+          key={resourceId}
           resourceId={resourceId}
           resource={resource}
           isOpen={isPanelOpen}

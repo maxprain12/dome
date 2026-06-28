@@ -3,12 +3,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, FileEdit, FileText, Image as ImageIcon, Maximize2, Music, Notebook, Presentation, Video, Link as LinkIcon, PanelRightClose, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
 
 interface WorkspaceSplitViewProps {
   tab: DomeTab;
-  primary: ReactNode;
-  reference: ReactNode;
+  children?: ReactNode;
 }
+
+const Primary = defineSlot('WorkspaceSplitView.Primary');
+const Reference = defineSlot('WorkspaceSplitView.Reference');
 
 interface ReferenceMeta {
   icon: ReactNode;
@@ -41,7 +44,11 @@ function getReferenceMeta(resourceType: string, t: ReturnType<typeof useTranslat
   }
 }
 
-export default function WorkspaceSplitView({ tab, primary, reference }: WorkspaceSplitViewProps) {
+function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
+  const { primary, reference } = collectCompoundSlots(children, {
+    primary: Primary,
+    reference: Reference,
+  });
   const { t } = useTranslation();
   const startXRef = useRef(0);
   const startWidthRef = useRef(tab.splitWidth ?? 420);
@@ -68,6 +75,7 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
   }, []);
 
   // Cleanup residual pointer listeners if component unmounts during drag
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount listener cleanup via ref
   useEffect(() => {
     return () => {
       if (resizeListenersRef.current.move) {
@@ -79,7 +87,7 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     };
   }, []);
 
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLHRElement>) => {
     event.preventDefault();
     startXRef.current = event.clientX;
     startWidthRef.current = splitWidth;
@@ -118,12 +126,13 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
         {primary}
       </div>
 
-      <div
-        role="separator"
+      <hr
+        aria-orientation="vertical"
         aria-label={t('focused_editor.resize_reference')}
-        className="w-1.5 shrink-0 cursor-col-resize transition-colors duration-150"
+        className="w-1.5 shrink-0 cursor-col-resize transition-colors duration-150 border-0 p-0 m-0 min-w-0 self-stretch"
         style={{
           background: isResizing ? 'var(--dome-accent)' : 'var(--dome-border)',
+          height: 'auto',
         }}
         onMouseEnter={(e) => {
           if (!isResizing) (e.currentTarget as HTMLElement).style.background = 'var(--border-hover)';
@@ -208,3 +217,8 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     </div>
   );
 }
+
+WorkspaceSplitView.Primary = Primary;
+WorkspaceSplitView.Reference = Reference;
+
+export default WorkspaceSplitView;

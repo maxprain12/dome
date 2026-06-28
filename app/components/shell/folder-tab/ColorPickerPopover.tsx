@@ -15,7 +15,7 @@ export default function ColorPickerPopover({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const ref = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLFieldSetElement>(null);
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -30,16 +30,13 @@ export default function ColorPickerPopover({
   const clampedTop = Math.min(Math.max(8, pos.top), window.innerHeight - 100);
 
   return (
-    // onMouseDown only stops the outside-click closer (propagation barrier).
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
+    <fieldset
       ref={ref}
-      role="group"
       aria-label={t('folder.changeColor', 'Cambiar color')}
-      className="fixed z-[var(--z-popover)] rounded-xl shadow-lg p-2.5"
+      className="fixed z-[var(--z-popover)] rounded-xl shadow-lg p-2.5 border-0 m-0 min-w-0"
       style={{ top: clampedTop, left: clampedLeft, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-      onMouseDown={(e) => e.stopPropagation()}
     >
+      <div role="presentation" onMouseDown={(e) => e.stopPropagation()}>
       <div className="grid grid-cols-6 gap-1.5">
         {SWATCHES.map((color) => (
           <button
@@ -62,7 +59,8 @@ export default function ColorPickerPopover({
           />
         ))}
       </div>
-    </div>
+      </div>
+    </fieldset>
   );
 }
 

@@ -84,31 +84,19 @@ export default function UICursorOverlay() {
   const CURSOR_W = 22;
   const CURSOR_H = 26;
 
-  const ringAccent = 'color-mix(in srgb, var(--dome-accent) 55%, transparent)';
-
   return ReactDOM.createPortal(
     <div
       aria-hidden="true"
       className="dome-ui-cursor-overlay pointer-events-none"
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 99999,
-      }}
     >
       {/* Minimal focus ring */}
       <div
+        className="dome-ui-cursor-ring"
         style={{
-          position: 'absolute',
           left: pos.x - pos.w / 2 - 2,
           top: pos.y - pos.h / 2 - 2,
           width: pos.w + 4,
           height: pos.h + 4,
-          borderRadius: 'var(--radius-md)',
-          border: `1px solid ${ringAccent}`,
-          boxShadow:
-            '0 0 0 1px color-mix(in srgb, var(--dome-accent) 14%, transparent), 0 10px 28px color-mix(in srgb, var(--dome-bg) 88%, transparent)',
-          transition: 'all 260ms cubic-bezier(0.4,0,0.2,1)',
         }}
       />
 
@@ -116,13 +104,10 @@ export default function UICursorOverlay() {
         width={CURSOR_W}
         height={CURSOR_H}
         viewBox="0 0 13 18"
+        className="dome-ui-cursor-arrow"
         style={{
-          position: 'absolute',
           left: tipX,
           top: tipY,
-          overflow: 'visible',
-          filter: 'drop-shadow(0 1px 3px color-mix(in srgb, var(--dome-text) 18%, transparent))',
-          transition: 'left 240ms cubic-bezier(0.4,0,0.2,1), top 240ms cubic-bezier(0.4,0,0.2,1)',
         }}
       >
         <path
@@ -136,25 +121,10 @@ export default function UICursorOverlay() {
 
       {tooltip ? (
         <div
-          className="tabular-nums"
+          className="dome-ui-cursor-tooltip tabular-nums"
           style={{
-            position: 'absolute',
             left: tipX + CURSOR_W + 6,
             top: tipY + CURSOR_H * 0.35,
-            maxWidth: 280,
-            background: 'var(--dome-surface)',
-            color: 'var(--dome-text-muted)',
-            borderRadius: 'var(--radius-sm)',
-            border: '1px solid var(--dome-border)',
-            padding: '5px 10px',
-            fontSize: 12,
-            fontWeight: 500,
-            lineHeight: 1.35,
-            letterSpacing: '0.01em',
-            whiteSpace: 'normal',
-            boxShadow:
-              '0 4px 16px color-mix(in srgb, var(--dome-text) 8%, transparent), 0 0 1px color-mix(in srgb, var(--dome-border) 40%, transparent)',
-            transition: 'left 240ms cubic-bezier(0.4,0,0.2,1), top 240ms cubic-bezier(0.4,0,0.2,1)',
           }}
         >
           {tooltip}

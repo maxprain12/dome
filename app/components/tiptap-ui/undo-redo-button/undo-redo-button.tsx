@@ -95,7 +95,6 @@ export const UndoRedoButton = forwardRef<
         disabled={!canExecute}
         variant="ghost"
         data-disabled={!canExecute}
-        role="button"
         tabIndex={-1}
         aria-label={label}
         tooltip={label}

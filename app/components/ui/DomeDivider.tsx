@@ -10,7 +10,7 @@ export interface DomeDividerProps {
 }
 
 /**
- * Separador accesible (roles WAI-ARIA).
+ * Separador accesible con `<hr>` nativo.
  */
 export default function DomeDivider({
   orientation = 'horizontal',
@@ -21,12 +21,11 @@ export default function DomeDivider({
   const a11yLabel = ariaLabel ?? 'Separator';
   if (orientation === 'vertical') {
     return (
-      <div
-        role="separator"
+      <hr
         aria-orientation="vertical"
         aria-label={a11yLabel}
         className={cn(
-          'shrink-0 inline-block w-px self-stretch min-h-[12px]',
+          'shrink-0 inline-block border-0 w-px self-stretch min-h-[12px]',
           spacingClass ?? 'mx-2',
           'bg-[var(--border)]',
           className,
@@ -36,10 +35,9 @@ export default function DomeDivider({
   }
 
   return (
-    <div
-      role="separator"
+    <hr
       aria-label={a11yLabel}
-      className={cn('h-px w-full', spacingClass ?? 'my-3', 'bg-[var(--border)]', className)}
+      className={cn('border-0 h-px w-full', spacingClass ?? 'my-3', 'bg-[var(--border)]', className)}
     />
   );
 }

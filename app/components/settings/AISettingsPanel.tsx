@@ -19,7 +19,8 @@ import type { OpenAIProviderSettingsDetail } from '@/lib/ai/open-provider-settin
 import { DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { useProviderModels } from '@/lib/ai/useProviderModels';
 import { accentMix } from '@/lib/ui/accent';
-import AIProviderSelection, { isCloudAIProvider } from './ai/AIProviderSelection';
+import AIProviderSelection from './ai/AIProviderSelection';
+import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 import ProviderModelsConfigModal from './ai/ProviderModelsConfigModal';
 import AICloudProviderConfig from './ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from './ai/AIOllamaProviderConfig';

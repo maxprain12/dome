@@ -1,6 +1,7 @@
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { lazyRef } from '@/lib/utils/lazyRef';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -90,13 +91,44 @@ export default function AudioOverview({
   const [isAudioLoaded, setIsAudioLoaded] = useState(false);
 
   // Transcript state
-  const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
-  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const lineRefs = useRef<Map<number, HTMLDivElement> | null>(null);
+  const lineRefMap = lazyRef(lineRefs, () => new Map());
+
+  const lineIndexByRef = useMemo(
+    () => new Map(transcript.lines.map((line, idx) => [line, idx])),
+    [transcript.lines],
+  );
+
+  const activeLineIndex = useMemo(() => {
+    if (!audioUrl || !isAudioLoaded) return -1;
+
+    const linesWithTime = transcript.lines.filter((l) => l.startTime !== undefined);
+    if (linesWithTime.length === 0) return -1;
+
+    for (let i = linesWithTime.length - 1; i >= 0; i--) {
+      const line = linesWithTime[i];
+      if (line && currentTime >= (line.startTime ?? 0)) {
+        return lineIndexByRef.get(line) ?? -1;
+      }
+    }
+    return -1;
+  }, [audioUrl, isAudioLoaded, currentTime, transcript.lines, lineIndexByRef]);
+
+  useEffect(() => {
+    if (activeLineIndex < 0) return;
+    const lineEl = lineRefMap.get(activeLineIndex);
+    if (lineEl && transcriptRef.current) {
+      lineEl.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [activeLineIndex, prefersReducedMotion, lineRefMap]);
 
   // Progress bar ref for click-to-seek
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLInputElement>(null);
 
   // -------------------------------------------------------
   // Audio event handlers
@@ -157,41 +189,6 @@ export default function AudioOverview({
   }, [isMuted]);
 
   // -------------------------------------------------------
-  // Active line tracking (synced to audio)
-  // -------------------------------------------------------
-
-  useEffect(() => {
-    if (!audioUrl || !isAudioLoaded) return;
-
-    const linesWithTime = transcript.lines.filter((l) => l.startTime !== undefined);
-    if (linesWithTime.length === 0) return;
-
-    // Find the current active line based on currentTime
-    let activeIdx = -1;
-    for (let i = linesWithTime.length - 1; i >= 0; i--) {
-      const line = linesWithTime[i];
-      if (line && currentTime >= (line.startTime ?? 0)) {
-        // Map back to original index
-        activeIdx = transcript.lines.indexOf(line);
-        break;
-      }
-    }
-
-    if (activeIdx !== activeLineIndex) {
-      setActiveLineIndex(activeIdx);
-
-      // Auto-scroll to active line
-      const lineEl = lineRefs.current.get(activeIdx);
-      if (lineEl && transcriptRef.current) {
-        lineEl.scrollIntoView({
-          behavior: prefersReducedMotion ? 'auto' : 'smooth',
-          block: 'nearest',
-        });
-      }
-    }
-  }, [currentTime, audioUrl, isAudioLoaded, transcript.lines, activeLineIndex, prefersReducedMotion]);
-
-  // -------------------------------------------------------
   // Controls
   // -------------------------------------------------------
 
@@ -208,15 +205,14 @@ export default function AudioOverview({
   }, [isPlaying]);
 
   const handleSeek = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!progressBarRef.current || !audioRef.current || !isAudioLoaded) return;
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!audioRef.current || !isAudioLoaded) return;
+      const fraction = Number(e.target.value) / 100;
       const newTime = fraction * duration;
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
     },
-    [duration, isAudioLoaded]
+    [duration, isAudioLoaded],
   );
 
   const seekToFraction = useCallback(
@@ -231,7 +227,7 @@ export default function AudioOverview({
   );
 
   const handleSeekKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (!audioRef.current || !isAudioLoaded || duration <= 0) return;
       const frac = currentTime / duration;
       const step = 0.05;
@@ -345,35 +341,19 @@ export default function AudioOverview({
           style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
         >
           {/* Progress bar */}
-          <div
+          <input
             ref={progressBarRef}
-            role="slider"
-            tabIndex={0}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(progress)}
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={progress}
             aria-label={t('studio.seek_audio', { defaultValue: 'Buscar posición en audio' })}
-            className="w-full h-1.5 rounded-full cursor-pointer mb-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="w-full h-1.5 rounded-full cursor-pointer mb-3 accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ background: 'var(--bg-tertiary)' }}
-            onClick={handleSeek}
+            onChange={handleSeek}
             onKeyDown={handleSeekKeyDown}
-          >
-            <div
-              className="h-full rounded-full relative transition-all"
-              style={{
-                width: `${progress}%`,
-                background: 'var(--accent)',
-              }}
-            >
-              <div
-                className="absolute right-0 top-1/2 -translate-y-1/2 size-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{
-                  background: 'var(--accent)',
-                  boxShadow: '0 0 4px rgba(0,0,0,0.2)',
-                }}
-              />
-            </div>
-          </div>
+          />
 
           {/* Controls */}
           <div className="flex items-center justify-between">
@@ -471,15 +451,14 @@ export default function AudioOverview({
             const speakerColor = getSpeakerColor(line.speaker);
 
             return (
-              <div
+              <button
+                type="button"
                 key={index}
-                role="button"
-                tabIndex={0}
                 ref={(el) => {
-                  if (el) lineRefs.current.set(index, el);
-                  else lineRefs.current.delete(index);
+                  if (el) lineRefMap.set(index, el);
+                  else lineRefMap.delete(index);
                 }}
-                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 w-full text-left border-0"
                 style={{
                   background: isActive ? 'var(--bg-tertiary)' : 'transparent',
                   borderLeft: isActive
@@ -487,12 +466,6 @@ export default function AudioOverview({
                     : '3px solid transparent',
                 }}
                 onClick={() => handleLineClick(index)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleLineClick(index);
-                  }
-                }}
               >
                 {/* Speaker label */}
                 <div className="shrink-0 pt-0.5">
@@ -532,7 +505,7 @@ export default function AudioOverview({
                     </span>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

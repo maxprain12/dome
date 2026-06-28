@@ -168,6 +168,17 @@ export async function getPageTextContent(
 
 const THUMBNAIL_MAX_SIZE = 400;
 
+export function dataUrlToUint8Array(dataUrl: string): Uint8Array {
+  const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : dataUrl;
+  if (!base64) throw new Error('Invalid data URL');
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
 /**
  * Generate thumbnail (first page) from PDF data URL.
  * Uses browser canvas - no Node.js dependencies. Returns JPEG data URL.
@@ -176,14 +187,8 @@ export async function generatePdfThumbnailFromData(pdfDataUrl: string): Promise<
   if (typeof window === 'undefined') return null;
 
   try {
-    const base64 = pdfDataUrl.includes(',') ? pdfDataUrl.split(',')[1] : pdfDataUrl;
-    if (!base64) return null;
-
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
+    const bytes = dataUrlToUint8Array(pdfDataUrl);
+    if (!bytes.length) return null;
 
     const pdfDoc = await loadPDFDocument(bytes);
     const page = await getPDFPage(pdfDoc, 1);

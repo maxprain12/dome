@@ -82,7 +82,6 @@ export const ColorHighlightPopoverButton = forwardRef<
     className={className}
     variant="ghost"
     data-appearance="default"
-    role="button"
     tabIndex={-1}
     aria-label="Highlight text"
     tooltip="Highlight"

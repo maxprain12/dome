@@ -21,7 +21,15 @@ const MAX_NODE_WIDTH = 240;
 const PADDING_X = 12;
 const PADDING_Y = 8;
 const LINE_HEIGHT = 16;
-const FONT_SIZE = 12;
+
+/** Neutral depth gradient for mind map nodes (accent family, not semantic status colors). */
+const MIND_MAP_DEPTH_COLORS = [
+  'var(--accent)',
+  'var(--accent-hover)',
+  'var(--bg-tertiary)',
+  'var(--secondary-text)',
+  'var(--primary-text)',
+] as const;
 
 /** Estimate node dimensions from label (rough: ~8px per char at 12px font) */
 function estimateNodeSize(label: string): { w: number; h: number } {
@@ -101,7 +109,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -128,7 +136,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).closest('[data-mindmap-node]')) return;
       setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     },
     [pan]
   );
@@ -136,9 +144,9 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isDragging) return;
-      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+      setPan({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y });
     },
-    [isDragging, dragStart]
+    [isDragging]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -153,11 +161,6 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
       return next;
     });
   }, [onSelectedNodeChange]);
-
-  // TODO(tech-debt): depthColors are used for mind map node depth gradient.
-  // Using accent family for neutral gradient - semantic colors (warning/error) 
-  // should not imply depth/status. These form a neutral depth progression.
-  const depthColors = ['var(--accent)', 'var(--accent-hover)', 'var(--bg-tertiary)', 'var(--secondary-text)', 'var(--primary-text)'];
 
   const selectedNode = selectedNodeId ? data.nodes.find((n) => n.id === selectedNodeId) : null;
 
@@ -272,7 +275,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
 
                 const x = pos.x - minX + padding;
                 const y = pos.y - minY + padding;
-                const color = depthColors[Math.min(i % depthColors.length, depthColors.length - 1)];
+                const color = MIND_MAP_DEPTH_COLORS[Math.min(i % MIND_MAP_DEPTH_COLORS.length, MIND_MAP_DEPTH_COLORS.length - 1)];
                 const isSelected = selectedNodeId === node.id;
 
                 return (
@@ -301,21 +304,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
                       style={{ overflow: 'hidden', pointerEvents: 'none' }}
                     >
                       <div
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: `${PADDING_Y}px ${PADDING_X}px`,
-                          fontSize: FONT_SIZE,
-                          fontWeight: 500,
-                          color: 'var(--primary-text)',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'break-word',
-                          textAlign: 'center',
-                          lineHeight: 1.25,
-                        }}
+                        className="flex size-full items-center justify-center break-words px-3 py-2 text-center text-xs font-medium leading-[1.25] text-[var(--primary-text)] [overflow-wrap:anywhere]"
                       >
                         {node.label}
                       </div>

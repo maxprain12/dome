@@ -11,7 +11,9 @@ import { useResources, type Resource } from '@/lib/hooks/useResources';
 import { useTabStore, FOLDER_TAB_PREFIX } from '@/lib/store/useTabStore';
 import { useFolderNavigationHistory } from '@/lib/hooks/useFolderNavigationHistory';
 import { useAppStore } from '@/lib/store/useAppStore';
-import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
+import { lazyRef } from '@/lib/utils/lazyRef';
+import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
+import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import '@/styles/folder-view.css';
 
@@ -65,7 +67,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocusIndex, setSearchFocusIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const rowRefs = useRef<Map<string, HTMLDivElement> | null>(null);
+  const rowRefMap = lazyRef(rowRefs, () => new Map());
 
   const searchModHint =
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform) ? '⌘F' : 'Ctrl+F';
@@ -222,10 +225,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [goBack, goForward]);
 
-  useEffect(() => {
+  const prevListFolderIdRef = useRef<string | null | undefined>(listFolderId);
+  if (prevListFolderIdRef.current !== listFolderId) {
+    prevListFolderIdRef.current = listFolderId;
     setCurrentFolderId(listFolderId);
-    return () => { setCurrentFolderId(null); };
-  }, [listFolderId, setCurrentFolderId]);
+  }
+
+  useEffect(() => () => { setCurrentFolderId(null); }, [setCurrentFolderId]);
 
   // Folders available as move targets, flattened into a depth-indented tree so
   // the picker mirrors the real folder hierarchy instead of a flat list.
@@ -277,11 +283,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const folderColor = currentFolder ? getFolderColor(currentFolder) : 'var(--dome-accent)';
   const folderColorHex = folderColor.startsWith('#') ? folderColor : null;
 
-  useEffect(() => {
-    if (folderColorHex && !viewCtx.isProjectRoot) {
-      updateTab(`folder:${folderId}`, { color: folderColorHex });
-    }
-  }, [folderId, folderColorHex, updateTab, viewCtx.isProjectRoot]);
+  const tabColorKey =
+    folderColorHex && !viewCtx.isProjectRoot ? `${folderId}:${folderColorHex}` : '';
+  const prevTabColorKeyRef = useRef('');
+  if (tabColorKey && tabColorKey !== prevTabColorKeyRef.current) {
+    prevTabColorKeyRef.current = tabColorKey;
+    updateTab(`folder:${folderId}`, { color: folderColorHex! });
+  }
 
   const handleCurrentFolderColor = async (color: string) => {
     if (!currentFolder) return;
@@ -327,11 +335,12 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     if (!paths?.length) return;
     const result = await window.electron.resource.importMultiple(paths, effectiveProjectId);
     if (listFolderId && result?.data?.length) {
-      await Promise.all(
-        result.data
-          .filter((entry) => entry.success && entry.data?.id)
-          .map((entry) => window.electron?.db?.resources?.moveToFolder(entry.data!.id, listFolderId)),
-      );
+      const moves: Promise<unknown>[] = [];
+      for (const entry of result.data) {
+        if (!entry.success || !entry.data?.id) continue;
+        moves.push(window.electron?.db?.resources?.moveToFolder(entry.data.id, listFolderId));
+      }
+      await Promise.all(moves);
     }
     await refetch();
   }, [effectiveProjectId, listFolderId, refetch]);
@@ -413,9 +422,11 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [handleNavigateToFolder, openResourceTab, t, effectiveProjectId],
   );
 
-  useEffect(() => {
+  const prevFolderIdRef = useRef(folderId);
+  if (folderId !== prevFolderIdRef.current) {
+    prevFolderIdRef.current = folderId;
     closeSearch();
-  }, [folderId, closeSearch]);
+  }
 
   useEffect(() => {
     setSearchFocusIndex(0);
@@ -425,8 +436,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     if (!isFiltering || filteredListItems.length === 0) return;
     const focused = filteredListItems[Math.min(searchFocusIndex, filteredListItems.length - 1)];
     if (!focused) return;
-    rowRefs.current.get(focused.item.id)?.scrollIntoView({ block: 'nearest' });
-  }, [searchFocusIndex, filteredListItems, isFiltering]);
+    rowRefMap.get(focused.item.id)?.scrollIntoView({ block: 'nearest' });
+  }, [searchFocusIndex, filteredListItems, isFiltering, rowRefMap]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -567,9 +578,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         </nav>
 
         <div className="dome-folder-view__toolbar-end">
-          <div
-            className="dome-folder-view__view-toggle"
-            role="group"
+          <fieldset
+            className="dome-folder-view__view-toggle border-0 p-0 m-0 min-w-0"
             aria-label={t('folder.viewMode', 'Modo de vista')}
           >
             <button
@@ -592,7 +602,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             >
               <List className="size-3.5" />
             </button>
-          </div>
+          </fieldset>
 
           {searchOpen ? (
             <div className="dome-folder-view__search">
@@ -754,8 +764,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   isFolder={isFolder}
                   isLast={idx === rowsToRender.length - 1 && !creatingFolder}
                   rowRef={(el) => {
-                    if (el) rowRefs.current.set(item.id, el);
-                    else rowRefs.current.delete(item.id);
+                    if (el) rowRefMap.set(item.id, el);
+                    else rowRefMap.delete(item.id);
                   }}
                   onOpen={() => {
                     if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
@@ -796,8 +806,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     isFolder={isFolder}
                     isLast={idx === rowsToRender.length - 1 && !creatingFolder}
                     cardRef={(el) => {
-                      if (el) rowRefs.current.set(item.id, el as unknown as HTMLDivElement);
-                      else rowRefs.current.delete(item.id);
+                      if (el) rowRefMap.set(item.id, el as unknown as HTMLDivElement);
+                      else rowRefMap.delete(item.id);
                     }}
                     onOpen={() => {
                       if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));

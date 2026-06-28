@@ -46,16 +46,17 @@ export default function MarketplaceAgentDetail({
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden animate-fade-in"
+      <dialog
+        open
+        className="relative z-10 w-full max-w-lg mx-4 rounded-2xl shadow-2xl overflow-hidden animate-fade-in m-0 max-h-none p-0 border-0"
         style={{
           background: 'var(--dome-surface)',
           border: '1px solid var(--dome-border)',
           maxHeight: '85vh',
         }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="marketplace-agent-detail-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         {/* Close */}
         <button
@@ -255,7 +256,7 @@ export default function MarketplaceAgentDetail({
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

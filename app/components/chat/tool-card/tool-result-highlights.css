@@ -1,0 +1,23 @@
+.tool-codegen-pre {
+  font-size: 12px;
+  line-height: 1.5;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 280px;
+  color: var(--primary-text);
+  padding: 8px 10px;
+  margin: 0;
+}
+
+.tool-tree-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--secondary-text);
+  padding: 8px 10px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}

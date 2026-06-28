@@ -5,6 +5,7 @@ import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { useTranslation } from 'react-i18next';
 import { normalizeQuizData } from '@/lib/studio/normalizeQuizContent';
 import type { QuizData, QuizQuestion } from '@/types';
+import { lazyRef } from '@/lib/utils/lazyRef';
 
 interface QuizProps {
   data: QuizData;
@@ -97,18 +98,24 @@ export default function Quiz({
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now());
   const [elapsedSec, setElapsedSec] = useState(0);
   const persistedRef = useRef(false);
-  const sessionStartedAt = useRef(Date.now());
+  const sessionStartedAt = useRef<number | null>(null);
+  lazyRef(sessionStartedAt, () => Date.now());
 
   const questions = questionOrder;
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
   const correctCount = questionResults.filter((r) => r.correct).length;
-  const missedIds = useMemo(
-    () => new Set(questionResults.filter((r) => !r.correct).map((r) => r.questionId)),
-    [questionResults],
-  );
+  const missedIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of questionResults) {
+      if (!r.correct) ids.add(r.questionId);
+    }
+    return ids;
+  }, [questionResults]);
 
-  useEffect(() => {
+  const prevQuestionsRef = useRef(data.questions);
+  if (data.questions !== prevQuestionsRef.current) {
+    prevQuestionsRef.current = data.questions;
     setQuestionOrder(data.questions);
     setCurrentIndex(0);
     setSelectedAnswer(null);
@@ -118,7 +125,7 @@ export default function Quiz({
     setQuestionStartedAt(Date.now());
     sessionStartedAt.current = Date.now();
     persistedRef.current = false;
-  }, [data.questions]);
+  }
 
   useEffect(() => {
     if (isFinished) return;
@@ -133,7 +140,8 @@ export default function Quiz({
       if (!studioOutputId || persistedRef.current) return;
       persistedRef.current = true;
       const correct = results.filter((r) => r.correct).length;
-      const durationMs = Date.now() - sessionStartedAt.current;
+      const startedAt = lazyRef(sessionStartedAt, () => Date.now());
+      const durationMs = Date.now() - startedAt;
       try {
         await window.electron.db.quiz.createRun({
           studio_output_id: studioOutputId,
@@ -141,7 +149,7 @@ export default function Quiz({
           correct,
           duration_ms: durationMs,
           per_question: results,
-          started_at: sessionStartedAt.current,
+          started_at: startedAt,
           completed_at: Date.now(),
         });
       } catch (err) {
@@ -175,26 +183,35 @@ export default function Quiz({
     setShowExplanation(true);
   }, [selectedAnswer, currentQuestion, questionStartedAt]);
 
+  const finishQuiz = useCallback(
+    (results: QuestionResult[]) => {
+      setIsFinished(true);
+      if (results.length > 0) void persistRun(results);
+    },
+    [persistRun],
+  );
+
   const handleSkip = useCallback(() => {
     if (!currentQuestion || showExplanation) return;
-    setQuestionResults((prev) => [
-      ...prev,
+    const nextResults: QuestionResult[] = [
+      ...questionResults,
       {
         questionId: currentQuestion.id,
         correct: false,
         elapsedMs: Date.now() - questionStartedAt,
         selected: null,
       },
-    ]);
+    ];
+    setQuestionResults(nextResults);
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex((i) => i + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
       setQuestionStartedAt(Date.now());
     } else {
-      setIsFinished(true);
+      finishQuiz(nextResults);
     }
-  }, [currentQuestion, showExplanation, currentIndex, totalQuestions, questionStartedAt]);
+  }, [currentQuestion, showExplanation, currentIndex, totalQuestions, questionStartedAt, questionResults, finishQuiz]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < totalQuestions - 1) {
@@ -203,9 +220,9 @@ export default function Quiz({
       setShowExplanation(false);
       setQuestionStartedAt(Date.now());
     } else {
-      setIsFinished(true);
+      finishQuiz(questionResults);
     }
-  }, [currentIndex, totalQuestions]);
+  }, [currentIndex, totalQuestions, questionResults, finishQuiz]);
 
   const handleRestart = useCallback(
     (opts?: { onlyMissed?: boolean; shuffle?: boolean }) => {
@@ -282,12 +299,6 @@ export default function Quiz({
     handleNext,
     handleSelectAnswer,
   ]);
-
-  useEffect(() => {
-    if (isFinished && questionResults.length > 0) {
-      void persistRun(questionResults);
-    }
-  }, [isFinished, questionResults, persistRun]);
 
   const frameClass = learnMode ? 'lr-frame lr-quiz' : '';
   const headerClass = learnMode ? 'lr-quiz-hd' : 'flex items-center justify-between px-4 py-3 border-b';

@@ -17,7 +17,7 @@
 
 const { setMaxListeners } = require('events');
 const agentRuntime = require('../../agents/agent-runtime.cjs');
-const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../../tools/tool-dispatcher.cjs');
+const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../../tools/tool-definitions.cjs');
 const { getAISettings } = require('../../ai/ai-settings.cjs');
 const { buildDomeSystemPrompt } = require('../../prompts/system-prompt.cjs');
 const { readSurfacePrompt } = require('../../prompts/prompts-loader.cjs');

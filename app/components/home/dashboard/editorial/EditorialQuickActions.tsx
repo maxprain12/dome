@@ -26,6 +26,22 @@ const KBD: Record<HomeQuickActionId, string> = {
   calendar: 'G',
 };
 
+const EDITORIAL_QUICK_ACTION_LABEL_KEYS: Record<HomeQuickActionId, string> = {
+  newNote: 'dashboard.action_new_note',
+  upload: 'dashboard.action_upload',
+  newChat: 'dashboard.action_new_chat',
+  learn: 'dashboard.action_learn',
+  calendar: 'dashboard.action_calendar',
+};
+
+const EDITORIAL_QUICK_ACTION_DESC_KEYS: Record<HomeQuickActionId, string> = {
+  newNote: 'dashboard.action_new_note_desc',
+  upload: 'dashboard.action_upload_desc',
+  newChat: 'dashboard.action_new_chat_desc',
+  learn: 'dashboard.action_learn_desc',
+  calendar: 'dashboard.action_calendar_desc',
+};
+
 export function EditorialQuickActions({
   orderedIds,
   onAction,
@@ -38,22 +54,6 @@ export function EditorialQuickActions({
   const { t } = useTranslation();
 
   if (orderedIds.length === 0) return null;
-
-  const labelKey: Record<HomeQuickActionId, string> = {
-    newNote: 'dashboard.action_new_note',
-    upload: 'dashboard.action_upload',
-    newChat: 'dashboard.action_new_chat',
-    learn: 'dashboard.action_learn',
-    calendar: 'dashboard.action_calendar',
-  };
-
-  const descKey: Record<HomeQuickActionId, string> = {
-    newNote: 'dashboard.action_new_note_desc',
-    upload: 'dashboard.action_upload_desc',
-    newChat: 'dashboard.action_new_chat_desc',
-    learn: 'dashboard.action_learn_desc',
-    calendar: 'dashboard.action_calendar_desc',
-  };
 
   return (
     <section>
@@ -77,8 +77,8 @@ export function EditorialQuickActions({
               <span className="icon">
                 <Icon size={16} strokeWidth={2} aria-hidden />
               </span>
-              <span className="name">{t(labelKey[id])}</span>
-              <span className="sub">{t(descKey[id])}</span>
+              <span className="name">{t(EDITORIAL_QUICK_ACTION_LABEL_KEYS[id])}</span>
+              <span className="sub">{t(EDITORIAL_QUICK_ACTION_DESC_KEYS[id])}</span>
             </button>
           );
         })}

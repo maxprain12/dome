@@ -21,11 +21,10 @@ export default function AppearanceSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        title={t('settings.appearance.title')}
-        subtitle={t('settings.appearance.subtitle')}
-        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
-      />
+      <DomeSubpageHeader className={"rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"}>
+  <DomeSubpageHeader.Title>{t('settings.appearance.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.appearance.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       <div>
         <DomeSectionLabel className="settings-section-label">{t('settings.appearance.theme')}</DomeSectionLabel>

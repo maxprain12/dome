@@ -23,6 +23,13 @@ interface ResourceCardProps {
   onContextMenu?: (e: React.MouseEvent, resource: Resource) => void;
 }
 
+const listGridStyle = {
+  display: 'grid',
+  gridTemplateColumns: '1fr 100px 130px 90px 44px',
+  gap: 12,
+  alignItems: 'center',
+} as const;
+
 interface ArtifactMiniVisualProps {
   artifact: { artifactType: string; snippet: string; title: string | null } | null;
   fallbackColor: string;
@@ -199,19 +206,12 @@ export default memo(function ResourceCard({
   const isDraggable = resource.type !== 'folder';
 
   if (viewMode === 'list') {
-    const listGridStyle = {
-      display: 'grid',
-      gridTemplateColumns: '1fr 100px 130px 90px 44px',
-      gap: 12,
-      alignItems: 'center',
-    };
     return (
       <div
         className={`group relative rounded-lg transition-colors border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--dome-bg-secondary)] ${isSelected ? 'bg-[var(--dome-accent-bg)] border-[var(--dome-accent)] z-10' : 'bg-[var(--dome-surface)]'
           } ${onClick ? 'cursor-pointer' : ''}`}
         style={{ ...listGridStyle, padding: '8px 16px', height: '48px' }}
         onContextMenu={handleContextMenu}
-        role="group"
         aria-current={isSelected ? 'true' : undefined}
         draggable={isDraggable}
         onDragStart={handleDragStart}
@@ -377,14 +377,14 @@ export default memo(function ResourceCard({
   );
 
   return (
-    <div
+    <section
       className={`group relative flex flex-col rounded-xl overflow-hidden transition-all duration-200 border ${isSelected
           ? 'ring-2 ring-[var(--dome-accent)] border-transparent shadow-md'
           : 'border-[var(--border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent-hover)] hover:shadow-md'
         } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       style={{ aspectRatio: 'var(--card-aspect-ratio, 4/3)' }}
       onContextMenu={handleContextMenu}
-      role="group"
+      aria-label={resource.title || 'Recurso'}
       aria-current={isSelected ? 'true' : undefined}
       draggable={isDraggable}
       onDragStart={handleDragStart}
@@ -443,7 +443,7 @@ export default memo(function ResourceCard({
           />
         </div>
       )}
-    </div>
+    </section>
   );
 }, (prevProps, nextProps) => {
   return (

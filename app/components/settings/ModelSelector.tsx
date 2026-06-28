@@ -27,6 +27,13 @@ interface ModelSelectorProps {
   configuredHint?: boolean;
 }
 
+function formatContextWindow(ctx: number): string {
+  if (ctx === 0) return '';
+  if (ctx >= 1_000_000) return `${(ctx / 1_000_000).toFixed(0)}M`;
+  if (ctx >= 1_000) return `${(ctx / 1_000).toFixed(0)}K`;
+  return String(ctx);
+}
+
 export default function ModelSelector({
   models,
   selectedModelId,
@@ -48,7 +55,7 @@ export default function ModelSelector({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
   const rowRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selectedModel = useMemo(
@@ -75,8 +82,7 @@ export default function ModelSelector({
     setHighlightedIndex(idx >= 0 ? idx : 0);
     const raf = requestAnimationFrame(() => searchInputRef.current?.focus());
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, filteredModels, selectedModelId]);
 
   // Keep the highlight in range and scrolled into view.
   useEffect(() => {
@@ -101,13 +107,6 @@ export default function ModelSelector({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
-
-  const formatContextWindow = (ctx: number): string => {
-    if (ctx === 0) return '';
-    if (ctx >= 1_000_000) return `${(ctx / 1_000_000).toFixed(0)}M`;
-    if (ctx >= 1_000) return `${(ctx / 1_000).toFixed(0)}K`;
-    return String(ctx);
-  };
 
   const commitSelection = useCallback(
     (model: ModelDefinition | undefined) => {
@@ -247,7 +246,6 @@ export default function ModelSelector({
 
       {isOpen && (
         <div
-          role="listbox"
           className="absolute left-0 right-0 top-full mt-1 z-[600] rounded-xl border overflow-hidden shadow-lg bg-[var(--bg)] border-[var(--border)]"
         >
           {configuredHint && (
@@ -276,18 +274,18 @@ export default function ModelSelector({
               </div>
             </div>
           )}
-          <div ref={listRef} role="listbox" tabIndex={-1} className="max-h-60 overflow-y-auto py-1" onKeyDown={handleListKeyDown}>
+          <ul ref={listRef} role="listbox" tabIndex={-1} className="max-h-60 overflow-y-auto py-1 list-none m-0 p-0" onKeyDown={handleListKeyDown}>
             {filteredModels.length === 0 ? (
-              <div className="p-4 text-center text-sm text-[var(--secondary-text)]">
+              <li className="list-none p-4 text-center text-sm text-[var(--secondary-text)]">
                 {searchQuery ? t('settings.ai.no_models_found', { query: searchQuery }) : emptyMessage}
-              </div>
+              </li>
             ) : (
               filteredModels.map((model, idx) => {
                 const isCurrent = model.id === selectedModelId;
                 const isHighlighted = idx === highlightedIndex;
                 return (
+                  <li key={model.id} className="list-none">
                   <button
-                    key={model.id}
                     ref={(el) => { rowRefs.current[idx] = el; }}
                     type="button"
                     role="option"
@@ -321,10 +319,11 @@ export default function ModelSelector({
                       <Check size={14} className="ml-auto shrink-0 text-[var(--accent)]" aria-hidden />
                     )}
                   </button>
+                  </li>
                 );
               })
             )}
-          </div>
+          </ul>
 
           {footerModel && (
             <div className="border-t border-[var(--border)] px-3 py-2 flex items-center gap-2 flex-wrap">

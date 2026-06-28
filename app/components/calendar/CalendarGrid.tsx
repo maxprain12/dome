@@ -15,6 +15,7 @@ import type { CalendarEvent, CalendarViewMode } from '@/lib/store/useCalendarSto
 import type { Locale } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/i18n';
 import { getEventSpanDays } from '@/lib/calendar/dayEvents';
+import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -314,33 +315,31 @@ function DraggableTimeEvent({
 
   return (
     <div
-      className="absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden"
+      role="button"
+      tabIndex={0}
+      className={cn(
+        'calendar-time-event absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden text-[var(--dome-on-accent)] z-[2]',
+        dragging && 'calendar-time-event--dragging z-20 opacity-85',
+        onEventDateChange && (dragging === 'move' ? 'cursor-grabbing' : 'cursor-grab'),
+        !onEventDateChange && 'cursor-pointer',
+      )}
       style={{
         top: renderTop,
         height: renderHeight,
         backgroundColor: event.calendar_color ?? 'var(--dome-accent)',
-        color: 'var(--dome-on-accent)',
-        zIndex: dragging ? 20 : 2,
-        cursor: onEventDateChange ? (dragging === 'move' ? 'grabbing' : 'grab') : 'pointer',
-        opacity: dragging ? 0.85 : 1,
-        transition: dragging ? 'none' : 'top 0.1s, height 0.1s',
       }}
-      role="button"
-      tabIndex={0}
       aria-label={event.title || t('workspace.untitled')}
       onPointerDown={handleMoveStart}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
+      onClick={(e) => { if (!dragging) { e.stopPropagation(); onEventClick?.(event); } }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if ((e.key === 'Enter' || e.key === ' ') && !dragging) {
           e.preventDefault();
-          if (!dragging) {
-            e.stopPropagation();
-            onEventClick?.(event);
-          }
+          e.stopPropagation();
+          onEventClick?.(event);
         }
       }}
-      onClick={(e) => { if (!dragging) { e.stopPropagation(); onEventClick?.(event); } }}
       title={event.title}
     >
       <div className="font-medium leading-[16px] truncate">{event.title || t('workspace.untitled')}</div>
@@ -598,23 +597,16 @@ function YearView({
         const isCurrentMonth = isSameMonth(month, new Date());
 
         return (
-          <div
+          <button
             key={month.toISOString()}
-            role="button"
-            tabIndex={0}
+            type="button"
             aria-label={`${format(month, 'MMMM yyyy', { locale: dfLocale })}`}
-            className="rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md"
+            className="rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md w-full text-left"
             style={{
               borderColor: isCurrentMonth ? 'var(--dome-accent)' : 'var(--dome-border)',
               background: 'var(--dome-surface)',
             }}
             onClick={() => onMonthClick(month)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onMonthClick(month);
-              }
-            }}
           >
             <div
               className="text-[12px] font-semibold mb-2 capitalize"
@@ -663,7 +655,7 @@ function YearView({
                 {monthEvs.length} evento{monthEvs.length !== 1 ? 's' : ''}
               </div>
             )}
-          </div>
+          </button>
         );
       })}
     </div>
@@ -682,8 +674,8 @@ export default function CalendarGrid({
   onEventClick,
   onEventDateChange,
 }: CalendarGridProps) {
-  const { t, i18n } = useTranslation();
-  const dfLocale = useMemo(() => getDateFnsLocale(), [i18n.language]);
+  const { t } = useTranslation();
+  const dfLocale = getDateFnsLocale();
   const modeLabels = useMemo(
     (): Record<CalendarViewMode, string> => ({
       day: t('calendarPage.view_day'),

@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import type { Resource } from '@/types';
 import { useAppStore } from '@/lib/store/useAppStore';
+import './mention-header-input.css';
 
 type MenuItem =
   | { kind: 'tag'; id: string; label: string }
@@ -52,7 +53,7 @@ export default function MentionHeaderInput({
   const [items, setItems] = useState<MenuItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [allTags, setAllTags] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
+  const allTagsRef = useRef<Array<{ id: string; name: string; color?: string | null }>>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [committing, setCommitting] = useState(false);
 
@@ -64,7 +65,7 @@ export default function MentionHeaderInput({
       const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
       const res = await window.electron.db.tags.getAll(activeProjectId);
       if (!cancelled && res.success && Array.isArray(res.data)) {
-        setAllTags(res.data.map((row) => ({ id: row.id, name: row.name, color: row.color })));
+        allTagsRef.current = res.data.map((row) => ({ id: row.id, name: row.name, color: row.color }));
       }
     }
     loadTags();
@@ -84,16 +85,17 @@ export default function MentionHeaderInput({
     });
   }, []);
 
-  useEffect(() => {
+  const tokenKey = token ? `${token.kind}:${token.query}` : '';
+  const prevTokenKeyRef = useRef(tokenKey);
+  if (tokenKey !== prevTokenKeyRef.current) {
+    prevTokenKeyRef.current = tokenKey;
     if (!token) {
       setItems([]);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      return;
-    }
-    if (token.kind === 'tag') {
+    } else if (token.kind === 'tag') {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       const q = token.query.toLowerCase();
-      const filtered: MenuItem[] = allTags
+      const filtered: MenuItem[] = allTagsRef.current
         .filter((tag) => tag.name.toLowerCase().includes(q))
         .slice(0, 25)
         .map((tag) => ({ kind: 'tag' as const, id: tag.id, label: tag.name }));
@@ -111,8 +113,11 @@ export default function MentionHeaderInput({
       setItems(filtered);
       setSelectedIndex(0);
       updateMenuPosition();
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (!token || token.kind === 'tag') return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
@@ -121,14 +126,16 @@ export default function MentionHeaderInput({
         const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
         const res = await window.electron.db.resources.searchForMention(token.query, activeProjectId);
         const rows = (res.success && Array.isArray(res.data) ? res.data : []) as Resource[];
-        const filtered = rows
-          .filter((r) => r.id !== resourceId)
-          .map((r) => ({
+        const filtered: MenuItem[] = [];
+        for (const r of rows) {
+          if (r.id === resourceId) continue;
+          filtered.push({
             kind: 'mention' as const,
             id: r.id,
             label: r.title || 'Untitled',
             type: r.type,
-          }));
+          });
+        }
         setItems(filtered);
         setSelectedIndex(0);
       } finally {
@@ -140,7 +147,7 @@ export default function MentionHeaderInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [token, allTags, resourceId, updateMenuPosition]);
+  }, [token, resourceId, updateMenuPosition]);
 
   useEffect(() => {
     updateMenuPosition();
@@ -246,21 +253,11 @@ export default function MentionHeaderInput({
     showMenu &&
     createPortal(
       <div
-        className="rounded-lg border shadow-lg overflow-hidden"
-        style={{
-          position: 'fixed',
-          top: menuPos.top,
-          left: menuPos.left,
-          width: menuPos.width,
-          zIndex: 10000,
-          background: 'var(--dome-surface)',
-          borderColor: 'var(--dome-border)',
-          maxHeight: 240,
-          overflowY: 'auto',
-        }}
+        className="mention-header-menu rounded-lg border shadow-lg overflow-hidden"
+        style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
       >
         {loading ? (
-          <div className="px-3 py-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <div className="mention-header-loading px-3 py-2 text-xs">
             …
           </div>
         ) : (
@@ -270,11 +267,7 @@ export default function MentionHeaderInput({
               <button
                 key={`${item.kind}-${item.id}-${item.label}`}
                 type="button"
-                className="w-full text-left px-3 py-2 text-sm transition-colors"
-                style={{
-                  background: isSel ? 'var(--dome-bg-hover)' : 'transparent',
-                  color: 'var(--dome-text)',
-                }}
+                className={`mention-header-menu-item w-full text-left px-3 py-2 text-sm transition-colors${isSel ? ' is-selected' : ''}`}
                 onMouseEnter={() => setSelectedIndex(index)}
                 onClick={() => void handlePick(item)}
               >
@@ -286,7 +279,7 @@ export default function MentionHeaderInput({
                       : item.label}
                 </span>
                 {item.kind === 'mention' ? (
-                  <span className="text-[11px] capitalize" style={{ color: 'var(--dome-text-muted)' }}>
+                  <span className="mention-header-item-type text-[11px] capitalize">
                     {item.type}
                   </span>
                 ) : null}
@@ -303,8 +296,7 @@ export default function MentionHeaderInput({
       <div ref={wrapRef} className="relative">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="mention-header-search-icon absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
         />
         <input
           ref={inputRef}
@@ -321,12 +313,7 @@ export default function MentionHeaderInput({
           }}
           onKeyDown={(e) => void onKeyDown(e)}
           placeholder={t('workspace.relations_placeholder')}
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-          style={{
-            background: 'var(--dome-surface)',
-            border: '1px solid var(--dome-border)',
-            color: 'var(--dome-text)',
-          }}
+          className="mention-header-input w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
           aria-label={t('workspace.relations_input_aria')}
           autoComplete="off"
         />

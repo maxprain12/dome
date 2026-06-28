@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ExternalLink, CalendarClock, Loader2, Wrench, Activity as ActivityIcon } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
@@ -60,10 +60,15 @@ export default function RunSummaryModal({
   const [run, setRun] = useState<RunData | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const prevRunIdRef = useRef(runId);
+  if (runId !== prevRunIdRef.current) {
+    prevRunIdRef.current = runId;
+    setLoading(Boolean(runId));
+  }
+
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
-    setLoading(true);
     window.electron
       .invoke('runs:get', runId)
       .then((res: { success: boolean; data?: RunData }) => {

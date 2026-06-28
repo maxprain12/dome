@@ -10,23 +10,22 @@ import ColorPickerPopover from './ColorPickerPopover';
 import { getFolderColor, ResourceTypeIcon, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 
 function highlightName(text: string, query: string): ReactNode {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return text;
-  const lower = text.toLowerCase();
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   const parts: ReactNode[] = [];
-  let cursor = 0;
-  let match = lower.indexOf(q, cursor);
-  while (match !== -1) {
-    if (match > cursor) parts.push(text.slice(cursor, match));
+  let lastIndex = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
     parts.push(
-      <mark key={match} className="dome-folder-view__search-mark">
-        {text.slice(match, match + q.length)}
+      <mark key={idx} className="dome-folder-view__search-mark">
+        {match[0]}
       </mark>,
     );
-    cursor = match + q.length;
-    match = lower.indexOf(q, cursor);
+    lastIndex = idx + match[0].length;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts.length > 0 ? parts : text;
 }
 
@@ -80,9 +79,11 @@ export default function FolderListRow({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (renaming) renameRef.current?.focus();
-  }, [renaming]);
+  const startRenaming = () => {
+    setRenaming(true);
+    setRenameValue(item.title ?? '');
+    requestAnimationFrame(() => renameRef.current?.focus());
+  };
 
   const folderColor = isFolder ? getFolderColor(item) : undefined;
   const typeColor = isFolder ? (folderColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
@@ -242,7 +243,7 @@ export default function FolderListRow({
               style={{ top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), startRenaming)}
               {isFolder && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
                 setMenuOpen(false);
                 openColorPicker();

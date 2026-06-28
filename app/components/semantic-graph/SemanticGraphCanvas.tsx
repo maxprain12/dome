@@ -37,16 +37,7 @@ export interface GraphEdgeDatum {
 
 type SimEdge = GraphEdgeDatum & SimulationLinkDatum<GraphNodeDatum>;
 
-/** Fill by resource type (CSS variables from `globals.css` — avoid hardcoded hex). */
-export const SEMANTIC_RESOURCE_TYPE_FILL: Record<string, string> = {
-  note: 'var(--dome-accent)',
-  pdf: 'var(--error)',
-  url: 'var(--info)',
-  document: 'var(--dome-text-secondary)',
-  notebook: 'var(--warning)',
-  ppt: 'var(--success)',
-  excel: 'color-mix(in srgb, var(--info) 65%, var(--dome-accent))',
-};
+import { SEMANTIC_RESOURCE_TYPE_FILL } from '@/lib/semantic-graph/resourceTypeFill';
 
 function linkEndCoord(end: GraphNodeDatum | string | number, axis: 'x' | 'y'): number {
   if (typeof end === 'object' && end !== null) {

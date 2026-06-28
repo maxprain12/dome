@@ -460,8 +460,8 @@ export default function AutomationEditDrawer({
         </div>
       }
       footer={
-        <DomeSubpageFooter
-          trailing={
+        <DomeSubpageFooter>
+          <DomeSubpageFooter.Trailing>
             <>
               <DomeButton type="button" variant="secondary" size="sm" onClick={onCancel}>
                 {t('automation.cancel')}
@@ -477,8 +477,8 @@ export default function AutomationEditDrawer({
                 {isNew ? t('common.create') : t('automation.save_changes')}
               </DomeButton>
             </>
-          }
-        />
+          </DomeSubpageFooter.Trailing>
+        </DomeSubpageFooter>
       }
     >
       {formFields}

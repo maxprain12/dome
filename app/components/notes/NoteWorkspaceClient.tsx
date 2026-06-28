@@ -160,7 +160,9 @@ export default function NoteWorkspaceClient({
   const isPopout =
     typeof window !== 'undefined' && window.location.pathname.startsWith('/focus/note/');
 
-  useEffect(() => {
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
     editorRef.current = null;
     mirroredOnceRef.current = false;
     ignoreStaleCollaborationDirtyUntilMsRef.current = 0;
@@ -173,7 +175,7 @@ export default function NoteWorkspaceClient({
     setSaveError(null);
     setIsDirty(false);
     setResourceTags([]);
-  }, [resourceId]);
+  }
 
   // ── Load resource ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -258,9 +260,11 @@ export default function NoteWorkspaceClient({
     return () => unsub?.();
   }, [resourceId, isDirty]);
 
-  useEffect(() => {
-    if (resourceId) useAppStore.getState().setSelectedSourceIds([resourceId]);
-  }, [resourceId]);
+  const prevResourceIdForSelectionRef = useRef(resourceId);
+  if (resourceId && prevResourceIdForSelectionRef.current !== resourceId) {
+    prevResourceIdForSelectionRef.current = resourceId;
+    useAppStore.getState().setSelectedSourceIds([resourceId]);
+  }
 
   const savePillState: NoteSavePillState = saveError ? 'error' : isSaving ? 'saving' : isDirty ? 'dirty' : 'saved';
 

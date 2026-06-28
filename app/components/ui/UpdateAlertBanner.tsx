@@ -15,6 +15,18 @@ interface UpdaterState {
 
 const SHOW_STATUSES: UpdaterStatus[] = ['available', 'downloading', 'downloaded'];
 
+async function downloadAppUpdate() {
+  try {
+    await window.electron?.updater?.download();
+  } catch (e) {
+    console.error('[UpdateAlertBanner] Download failed:', e);
+  }
+}
+
+function installAppUpdate() {
+  window.electron?.updater?.install();
+}
+
 export default function UpdateAlertBanner() {
   const { t } = useTranslation();
   const [updaterState, setUpdaterState] = useState<UpdaterState>({ status: 'idle' });
@@ -31,18 +43,6 @@ export default function UpdateAlertBanner() {
 
   const handleDismiss = () => {
     setDismissedStatus(status);
-  };
-
-  const handleDownload = async () => {
-    try {
-      await window.electron?.updater?.download();
-    } catch (e) {
-      console.error('[UpdateAlertBanner] Download failed:', e);
-    }
-  };
-
-  const handleInstall = () => {
-    window.electron?.updater?.install();
   };
 
   const handleSkipVersion = async () => {
@@ -74,7 +74,7 @@ export default function UpdateAlertBanner() {
             </span>
             <button
               type="button"
-              onClick={handleDownload}
+              onClick={() => void downloadAppUpdate()}
               className="btn btn-secondary flex items-center gap-2 shrink-0"
               style={{
                 background: 'rgba(255,255,255,0.2)',
@@ -117,7 +117,7 @@ export default function UpdateAlertBanner() {
             <span className="text-sm font-medium">{t('updateBanner.ready_to_install')}</span>
             <button
               type="button"
-              onClick={handleInstall}
+              onClick={installAppUpdate}
               className="btn btn-secondary flex items-center gap-2 shrink-0"
               style={{
                 background: 'rgba(255,255,255,0.2)',

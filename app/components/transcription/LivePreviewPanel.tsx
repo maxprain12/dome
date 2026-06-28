@@ -17,7 +17,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
   const partialText = useTranscriptionStore((s) => s.partialText);
   const phase = useTranscriptionStore((s) => s.phase);
   const livePreview = useTranscriptionStore((s) => s.livePreview);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDialogElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<PanelPosition | null>(null);
 
@@ -74,25 +74,16 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
   const showPlaceholder = !partialText && livePreview && phase === 'recording';
 
   return (
-    <div
+    <dialog
       ref={containerRef}
-      role="dialog"
+      open
       aria-label={t('transcriptions.live_preview_title', 'Live transcript')}
+      className="live-preview-panel m-0 max-w-none max-h-none p-0 border-0 fixed z-[9998] flex w-[460px] max-h-80 flex-col animate-dropdown rounded-xl border border-[var(--dome-border)] bg-[var(--dome-bg)] shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
       style={{
-        position: 'fixed',
         top: position.top,
         right: position.right,
-        zIndex: 9998,
-        width: 460,
-        maxHeight: 320,
-        background: 'var(--dome-bg)',
-        border: '1px solid var(--dome-border)',
-        borderRadius: 12,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-        animation: 'dropdown-appear 0.15s ease-out',
-        display: 'flex',
-        flexDirection: 'column',
       }}
+      onCancel={(e) => { e.preventDefault(); onClose(); }}
     >
       <div
         className="flex items-center justify-between px-3 py-2"
@@ -116,6 +107,6 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
           ? t('transcriptions.state_no_partial', 'Live transcript will appear here…')
           : partialText || ''}
       </div>
-    </div>
+    </dialog>
   );
 }

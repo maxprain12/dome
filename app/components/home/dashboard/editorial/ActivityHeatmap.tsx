@@ -108,7 +108,7 @@ export function ActivityHeatmap({
       {loading ? (
         <div className="h-heat animate-pulse motion-reduce:animate-none" style={{ minHeight: 120 }} />
       ) : (
-        <div className="h-heat" role="img" aria-label={t('dashboard.heatmap_aria')}>
+        <figure className="h-heat" aria-label={t('dashboard.heatmap_aria')}>
           <div className="h-heat-months">
             {Array.from({ length: WEEKS }, (_, col) => (
               <span key={col} style={{ flex: 1, minWidth: 0 }}>
@@ -168,7 +168,7 @@ export function ActivityHeatmap({
               <span>{t('dashboard.heatmap_more')}</span>
             </div>
           </div>
-        </div>
+        </figure>
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import ZoomControls from './shared/ZoomControls';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface ImageViewerProps {
   resource: Resource;
@@ -17,37 +18,33 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
 
-  useEffect(() => {
-    async function loadImage() {
-      if (typeof window === 'undefined' || !window.electron) return;
+  const loadImage = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron) return;
 
-      try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        // First try thumbnail_data for quick preview
-        if (resource.thumbnail_data) {
-          setImageUrl(resource.thumbnail_data);
-        }
-
-        // Then load full image
-        const result = await window.electron.resource.readFile(resource.id);
-
-        if (result.success && result.data) {
-          setImageUrl(result.data);
-        } else {
-          setError(result.error || 'Failed to load image');
-        }
-      } catch (err) {
-        console.error('Error loading image:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
+      if (resource.thumbnail_data) {
+        setImageUrl(resource.thumbnail_data);
       }
-    }
 
-    loadImage();
+      const result = await window.electron.resource.readFile(resource.id);
+
+      if (result.success && result.data) {
+        setImageUrl(result.data);
+      } else {
+        setError(result.error || 'Failed to load image');
+      }
+    } catch (err) {
+      console.error('Error loading image:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   }, [resource.id, resource.thumbnail_data]);
+
+  const mountRef = useMountAction(loadImage);
 
   const handleZoomIn = useCallback(() => {
     setZoom((prev) => Math.min(prev + 0.25, 4));
@@ -102,7 +99,7 @@ function ImageViewerComponent({ resource }: ImageViewerProps) {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
+    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
       {/* Toolbar */}
       <div
         className="flex items-center justify-between px-4 py-2 border-b"

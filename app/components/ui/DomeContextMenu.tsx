@@ -175,9 +175,8 @@ export default function DomeContextMenu({
               {items.map((item, idx) => (
                 <div key={`${item.label}-${idx}`}>
                   {item.separator ? (
-                    <div
-                      role="separator"
-                      className="my-1 h-px bg-[var(--border)]"
+                    <hr
+                      className="my-1 h-px border-0 bg-[var(--border)]"
                       aria-hidden
                     />
                   ) : null}

@@ -6,6 +6,7 @@ import { useMenuNavigation } from "@/hooks/use-menu-navigation"
 import { useComposedRef } from "@/hooks/use-composed-ref"
 
 type BaseProps = React.HTMLAttributes<HTMLDivElement>
+type ToolbarGroupProps = React.HTMLAttributes<HTMLFieldSetElement>
 
 interface ToolbarProps extends BaseProps {
   variant?: "floating" | "fixed"
@@ -38,11 +39,12 @@ const useToolbarNavigation = (
     return () => observer.disconnect()
   }, [collectItems, toolbarRef])
 
-  const { selectedIndex } = useMenuNavigation<HTMLElement>({
+  useMenuNavigation<HTMLElement>({
     containerRef: toolbarRef,
     items,
     orientation: "horizontal",
     onSelect: (el) => el.click(),
+    onNavigate: (el) => el.focus(),
     autoSelectFirstItem: false,
   })
 
@@ -69,12 +71,6 @@ const useToolbarNavigation = (
       toolbar.removeEventListener("blur", handleBlur, true)
     }
   }, [toolbarRef])
-
-  useEffect(() => {
-    if (selectedIndex !== undefined && items[selectedIndex]) {
-      items[selectedIndex].focus()
-    }
-  }, [selectedIndex, items])
 }
 
 export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
@@ -99,16 +95,15 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
 )
 Toolbar.displayName = "Toolbar"
 
-export const ToolbarGroup = forwardRef<HTMLDivElement, BaseProps>(
+export const ToolbarGroup = forwardRef<HTMLFieldSetElement, ToolbarGroupProps>(
   ({ children, className, ...props }, ref) => (
-    <div
+    <fieldset
       ref={ref}
-      role="group"
-      className={cn("tiptap-toolbar-group", className)}
+      className={cn('tiptap-toolbar-group border-0 p-0 m-0 min-w-0', className)}
       {...props}
     >
       {children}
-    </div>
+    </fieldset>
   )
 )
 ToolbarGroup.displayName = "ToolbarGroup"

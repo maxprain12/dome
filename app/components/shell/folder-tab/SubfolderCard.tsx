@@ -47,9 +47,11 @@ export default function SubfolderCard({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (renaming) renameRef.current?.focus();
-  }, [renaming]);
+  const startRenaming = () => {
+    setRenaming(true);
+    setRenameValue(folder.title ?? '');
+    requestAnimationFrame(() => renameRef.current?.focus());
+  };
 
   const commitRename = () => {
     if (renameValue.trim() && renameValue.trim() !== folder.title) {
@@ -185,7 +187,7 @@ export default function SubfolderCard({
               style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(folder.title ?? ''); })}
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), startRenaming)}
               {menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
                 if (menuBtnRef.current) {
                   const rect = menuBtnRef.current.getBoundingClientRect();

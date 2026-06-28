@@ -1,33 +1,21 @@
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import { cva, type VariantProps } from "class-variance-authority"
+import type { VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/tiptap-utils"
 import { Separator } from "@/components/tiptap-ui-primitive/separator"
+import { buttonGroupVariants } from "./button-group-variants"
 import "./button-group.scss"
-
-const buttonGroupVariants = cva("tiptap-button-group", {
-  variants: {
-    orientation: {
-      horizontal: "tiptap-button-group-horizontal",
-      vertical: "tiptap-button-group-vertical",
-    },
-  },
-  defaultVariants: {
-    orientation: "horizontal",
-  },
-})
 
 function ButtonGroup({
   className,
   orientation,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof buttonGroupVariants>) {
+}: React.ComponentProps<"fieldset"> & VariantProps<typeof buttonGroupVariants>) {
   return (
-    <div
-      role="group"
+    <fieldset
       data-slot="tiptap-button-group"
       data-orientation={orientation}
-      className={cn(buttonGroupVariants({ orientation }), className)}
+      className={cn(buttonGroupVariants({ orientation }), 'border-0 p-0 m-0 min-w-0', className)}
       {...props}
     />
   )
@@ -68,5 +56,4 @@ export {
   ButtonGroup,
   ButtonGroupSeparator,
   ButtonGroupText,
-  buttonGroupVariants,
 }

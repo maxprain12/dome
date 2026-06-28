@@ -391,6 +391,14 @@
   padding-top: 4px;
 }
 
+.calendar-time-event {
+  transition: top 0.1s, height 0.1s;
+}
+
+.calendar-time-event--dragging {
+  transition: none;
+}
+
 @container home (max-width: 720px) {
   .h-hero.c-calendar-hero {
     grid-template-columns: 1fr;

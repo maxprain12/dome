@@ -22,32 +22,11 @@ export default function SelectionActionBar({
   if (count === 0) return null;
 
   return (
-    <div
-      className="selection-action-bar"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '10px 16px',
-        background: 'var(--translucent)',
-        border: '1px solid var(--border)',
-        borderRadius: 'var(--radius-lg)',
-        marginBottom: 16,
-        boxShadow: 'var(--shadow-sm)',
-        animation: 'selection-bar-in 0.2s ease-out',
-      }}
-    >
-      <span
-        className="selection-action-bar-count"
-        style={{
-          fontSize: 14,
-          fontWeight: 600,
-          color: 'var(--dome-text)',
-        }}
-      >
+    <div className="selection-action-bar">
+      <span className="selection-action-bar-count">
         {t(count === 1 ? 'selection.items_selected_one' : 'selection.items_selected_other', { count })}
       </span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <div className="selection-action-bar-actions">
         <button
           type="button"
           onClick={onMoveToFolder}

@@ -11,7 +11,8 @@ import { useAgentTeamStore } from '@/lib/store/useAgentTeamStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
-import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
+import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
+import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
@@ -375,13 +376,16 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
     addMessage,
     setStatus,
     setActiveAgentLabel,
+    setStreamingMessage,
+    setIsLoading,
+    setAbortController,
+    setInput,
     scrollToBottom,
     effectiveResourceId,
     currentResource,
     currentFolderId,
     pathname,
     homeSidebarSection,
-    memberAgents,
     currentSessionId,
     teamMcpServerIds,
     teamProjectId,
@@ -446,10 +450,8 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
 
   return (
     <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
-      <DomeToolbar
-        dense
-        className="!px-5 !py-3 !bg-[var(--dome-surface)] !border-[var(--dome-border)]"
-        leading={
+      <DomeToolbar dense className="!px-5 !py-3 !bg-[var(--dome-surface)] !border-[var(--dome-border)]">
+        <DomeToolbar.Leading>
           <div className="flex items-center gap-3 min-w-0">
             <div
               className="size-8 rounded-xl overflow-hidden shrink-0"
@@ -480,8 +482,8 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
               </div>
             </div>
           </div>
-        }
-        trailing={
+        </DomeToolbar.Leading>
+        <DomeToolbar.Trailing>
           <DomeButton
             type="button"
             variant="ghost"
@@ -493,8 +495,8 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             <PlusCircle className="size-3.5" />
             Nueva
           </DomeButton>
-        }
-      />
+        </DomeToolbar.Trailing>
+      </DomeToolbar>
 
       {teamMcpServerIds.length > 0 ? (
         <div className="shrink-0 px-5 pt-2">

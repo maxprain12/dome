@@ -49,12 +49,13 @@ export default function WorkflowDetail({
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
+      <dialog
+        open
+        className="relative z-10 w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden m-0 max-h-none p-0 border-0"
         style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', maxHeight: '85vh' }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="workflow-detail-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         {/* Header */}
         <div
@@ -286,7 +287,7 @@ export default function WorkflowDetail({
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

@@ -94,7 +94,6 @@ export const MarkButton = forwardRef<HTMLButtonElement, MarkButtonProps>(
         variant="ghost"
         data-active-state={isActive ? "on" : "off"}
         data-disabled={!canToggle}
-        role="button"
         tabIndex={-1}
         aria-label={label}
         aria-pressed={isActive}

@@ -200,15 +200,9 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'dashboard' | 'feeders'>('dashboard');
 
-  const htmlChunk = useMemo(() => {
-    if (!artifact?.state || typeof artifact.state !== 'object') return '';
-    const html = (artifact.state as { html?: string }).html;
-    return typeof html === 'string' ? html : '';
-  }, [artifact?.state]);
-
   const iframeSrcdoc = useMemo(() => {
-    const art = artifactRef.current;
-    if (!art) return '';
+    if (!artifact) return '';
+    const art = artifact;
     const st =
       art.state && typeof art.state === 'object'
         ? (art.state as { html?: string; data?: unknown; css?: string })
@@ -228,12 +222,17 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       ...(stRec.linkedData !== undefined ? { linkedData: stRec.linkedData } : {}),
     };
     return buildSrcdocFromParts(bodyHtml, domePayload, themeCss, artifactCss);
-  }, [resourceId, htmlChunk, themeSnapshot.themeKey]);
+  }, [artifact, themeSnapshot.vars]);
+
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
+    setLoading(true);
+    setError(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
 
     window.electron.artifacts.get(resourceId).then((result) => {
       if (cancelled) return;
@@ -252,7 +251,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [resourceId]);
+  }, [resourceId, t]);
 
   // When opening an artifact linked to a spreadsheet, auto-sync so DOME_DATA.linkedData
   // is populated immediately — the artifact:updated broadcast will refresh the iframe.
@@ -356,7 +355,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       { type: 'dome:theme:update', css: buildDomeThemeStyleContent(themeSnapshot.vars) },
       '*',
     );
-  }, [themeSnapshot.themeKey]);
+  }, [themeSnapshot.themeKey, themeSnapshot.vars]);
 
   const handleExport = useCallback(async () => {
     await window.electron.artifacts.export(resourceId);
@@ -455,14 +454,14 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       className="flex flex-col h-full min-h-0 overflow-hidden"
       style={{ background: 'var(--bg)' }}
     >
-      <DomeSubpageHeader
-        title={
+      <DomeSubpageHeader>
+        <DomeSubpageHeader.Title>
           <span className="flex items-center gap-2">
             <Layers className="size-4 shrink-0" style={{ color: 'var(--accent)' }} />
             <span style={{ color: 'var(--primary-text)' }}>{artifact.title}</span>
           </span>
-        }
-        trailing={
+        </DomeSubpageHeader.Title>
+        <DomeSubpageHeader.Trailing>
           <>
             <IndexStatusBadge resourceId={resourceId} resourceType="artifact" />
             {artifact.linkedResourceId && (
@@ -526,8 +525,8 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
               {t('artifacts.export_html')}
             </button>
           </>
-        }
-      />
+        </DomeSubpageHeader.Trailing>
+      </DomeSubpageHeader>
       <div
         className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}

@@ -74,7 +74,7 @@ export default function AIEmbeddingsTab() {
     chunksTotal?: number;
     indexedResourceCount?: number;
   } | null>(null);
-  const [initialKey, setInitialKey] = useState('');
+  const initialKeyRef = useRef('');
   const [selectorModels, setSelectorModels] = useState<ModelDefinition[]>(() =>
     embeddingModelsAsSelector('openai'),
   );
@@ -122,9 +122,8 @@ export default function AIEmbeddingsTab() {
     const rec = getRecommendedEmbeddingModel(safeProvider);
     setModel(config.embeddings_model || rec?.id || 'text-embedding-3-small');
     setBaseUrl(config.embeddings_base_url || 'http://localhost:11434');
-    setInitialKey(
-      `${safeProvider}|${config.embeddings_model || ''}|${config.embeddings_api_key || ''}|${config.embeddings_base_url || ''}`,
-    );
+    initialKeyRef.current =
+      `${safeProvider}|${config.embeddings_model || ''}|${config.embeddings_api_key || ''}|${config.embeddings_base_url || ''}`;
   }, []);
 
   const loadStatus = useCallback(async () => {
@@ -200,7 +199,7 @@ export default function AIEmbeddingsTab() {
 
   const handleSave = async () => {
     const nextKey = `${provider}|${model}|${apiKey}|${baseUrl}`;
-    const changed = nextKey !== initialKey;
+    const changed = nextKey !== initialKeyRef.current;
     if (changed) {
       const ok = window.confirm(t('settings.ai.embeddings.reindex_warning'));
       if (!ok) return;
@@ -213,7 +212,7 @@ export default function AIEmbeddingsTab() {
         embeddings_model: model,
         embeddings_base_url: provider === 'ollama' ? baseUrl : '',
       });
-      setInitialKey(nextKey);
+      initialKeyRef.current = nextKey;
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       if (changed && window.electron?.embeddings?.apply) {

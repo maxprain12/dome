@@ -118,14 +118,13 @@ function QuickCreateIssue({ selectedRepoId, loadRepoData, milestones }: QuickCre
           aria-label={t('github.minimal_quick_title_label')}
         />
         {success && (
-          <span
+          <output
             className="inline-flex items-center gap-1 text-[11px] shrink-0"
             style={{ color: 'var(--dome-success)' }}
-            role="status"
           >
             <CheckCircle size={12} />
             {t('github.minimal_quick_created')}
-          </span>
+          </output>
         )}
       </div>
 
@@ -150,9 +149,14 @@ function QuickCreateIssue({ selectedRepoId, loadRepoData, milestones }: QuickCre
           fullWidth={false}
           options={[
             { value: 'none', label: t('github.minimal_quick_milestone_none') },
-            ...milestones
-              .filter((m) => m.state === 'open')
-              .map((m) => ({ value: String(m.number), label: m.title })),
+            ...(() => {
+              const opts: { value: string; label: string }[] = [];
+              for (const m of milestones) {
+                if (m.state !== 'open') continue;
+                opts.push({ value: String(m.number), label: m.title });
+              }
+              return opts;
+            })(),
             { value: '__new__', label: t('github.minimal_quick_milestone_new') },
           ]}
         />
@@ -266,11 +270,7 @@ function IssueRow({ issue, onOpenIssue, toggle }: IssueRowProps) {
   const hiddenCount = labels.length - visibleLabels.length;
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpenIssue(issue.id)}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpenIssue(issue.id); } }}
-      className="group flex items-start gap-2 w-full text-left px-2 py-1.5 rounded-md cursor-pointer transition-colors"
+      className="group flex items-start gap-2 w-full px-2 py-1.5 rounded-md transition-colors"
       style={{ color: 'var(--dome-text)' }}
       onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--dome-bg-hover)'; }}
       onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}
@@ -280,7 +280,7 @@ function IssueRow({ issue, onOpenIssue, toggle }: IssueRowProps) {
         onClick={(e) => { e.stopPropagation(); void toggle(issue); }}
         title={t('github.minimal_mark_done')}
         aria-label={t('github.minimal_mark_done')}
-        className="shrink-0 mt-0.5 inline-flex items-center justify-center rounded"
+        className="shrink-0 mt-0.5 inline-flex items-center justify-center rounded border-0 bg-transparent p-0"
         style={{
           width: 18,
           height: 18,
@@ -292,7 +292,11 @@ function IssueRow({ issue, onOpenIssue, toggle }: IssueRowProps) {
         <Circle size={15} />
       </button>
 
-      <div className="flex-1 min-w-0">
+      <button
+        type="button"
+        onClick={() => onOpenIssue(issue.id)}
+        className="flex-1 min-w-0 text-left border-0 bg-transparent p-0 cursor-pointer"
+      >
         <div className="flex items-center gap-2 min-w-0">
           <span
             className="inline-flex items-center gap-0.5 shrink-0 text-[11px] font-mono"
@@ -325,7 +329,7 @@ function IssueRow({ issue, onOpenIssue, toggle }: IssueRowProps) {
             )}
           </div>
         )}
-      </div>
+      </button>
 
       <ChevronRight
         size={14}

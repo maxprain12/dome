@@ -21,6 +21,10 @@ interface MenuNavigationOptions<T> {
    */
   items: T[]
   /**
+   * Callback fired when keyboard navigation changes the selected item.
+   */
+  onNavigate?: (item: T, index: number) => void
+  /**
    * Callback fired when an item is selected.
    */
   onSelect?: (item: T) => void
@@ -55,6 +59,7 @@ export function useMenuNavigation<T>({
   query,
   items,
   onSelect,
+  onNavigate,
   onClose,
   orientation = "vertical",
   autoSelectFirstItem = true,
@@ -69,14 +74,20 @@ export function useMenuNavigation<T>({
 
       const moveNext = () =>
         setSelectedIndex((currentIndex) => {
-          if (currentIndex === -1) return 0
-          return (currentIndex + 1) % items.length
+          const nextIndex =
+            currentIndex === -1 ? 0 : (currentIndex + 1) % items.length
+          onNavigate?.(items[nextIndex], nextIndex)
+          return nextIndex
         })
 
       const movePrev = () =>
         setSelectedIndex((currentIndex) => {
-          if (currentIndex === -1) return items.length - 1
-          return (currentIndex - 1 + items.length) % items.length
+          const nextIndex =
+            currentIndex === -1
+              ? items.length - 1
+              : (currentIndex - 1 + items.length) % items.length
+          onNavigate?.(items[nextIndex], nextIndex)
+          return nextIndex
         })
 
       switch (event.key) {
@@ -120,13 +131,16 @@ export function useMenuNavigation<T>({
 
         case "Home": {
           event.preventDefault()
+          onNavigate?.(items[0], 0)
           setSelectedIndex(0)
           return true
         }
 
         case "End": {
           event.preventDefault()
-          setSelectedIndex(items.length - 1)
+          const lastIndex = items.length - 1
+          onNavigate?.(items[lastIndex], lastIndex)
+          setSelectedIndex(lastIndex)
           return true
         }
 
@@ -177,6 +191,7 @@ export function useMenuNavigation<T>({
     items,
     selectedIndex,
     onSelect,
+    onNavigate,
     onClose,
     orientation,
   ])

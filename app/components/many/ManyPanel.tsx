@@ -10,6 +10,7 @@ import ManyChatHeader from './ManyChatHeader';
 import ManyChatHistoryPanel from './ManyChatHistoryPanel';
 import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
+import ManyChatInput from '@/components/many/ManyChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
 import { useManyConversationSettings } from './useManyConversationSettings';
 import {
@@ -46,7 +47,8 @@ import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ManyMinimalStatusRow from './ManyMinimalStatusRow';
-import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
+import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
+import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
@@ -158,7 +160,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     budgetCapApprox,
   } = useManyConversationSettings();
   const [error, setError] = useState<string | null>(null);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ChatMessageData | null>(null);
@@ -202,10 +204,15 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     currentSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
 
-  useEffect(() => {
-    if (!isVisible || isHeadless) return;
-    if (!pendingManyHandoff) return;
+  const prevHandoffRef = useRef<string | null>(null);
+  if (
+    pendingManyHandoff &&
+    pendingManyHandoff !== prevHandoffRef.current &&
+    isVisible &&
+    !isHeadless
+  ) {
     const text = pendingManyHandoff;
+    prevHandoffRef.current = text;
     setInput(text);
     setPendingManyHandoff(null);
     requestAnimationFrame(() => {
@@ -215,7 +222,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const len = text.length;
       el.setSelectionRange(len, len);
     });
-  }, [isVisible, isHeadless, pendingManyHandoff, setPendingManyHandoff]);
+  } else if (!pendingManyHandoff && prevHandoffRef.current !== null) {
+    prevHandoffRef.current = null;
+  }
 
   // Hydrate session list from JSONL on startup.
   useEffect(() => {
@@ -785,7 +794,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setStreamingMessage(null);
     setLiveUsage(null);
     setCompactionNotice(null);
-    setAbortController(null);
+    abortControllerRef.current = null;
 
     addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
     if (currentSessionId) {
@@ -886,12 +895,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           : [];
       const toolDefinitions = rawToolDefinitions;
       const toolIds = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
-      const mcpServerIds =
-        toolsEnabled && mcpEnabled
-          ? (await loadMcpServersSetting())
-              .filter((server) => server.enabled !== false)
-              .map((server) => server.name)
-          : [];
+      const mcpServerIds: string[] = [];
+      if (toolsEnabled && mcpEnabled) {
+        const servers = await loadMcpServersSetting();
+        for (const server of servers) {
+          if (server.enabled === false) continue;
+          mcpServerIds.push(server.name);
+        }
+      }
 
       providerForAnalytics = config.provider;
       capturePostHog(ANALYTICS_EVENTS.AI_CHAT_STARTED, {
@@ -1019,7 +1030,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setStatus('idle');
         setStreamingMessage(null);
         setPendingApproval(null);
-        setAbortController(null);
+        abortControllerRef.current = null;
       }
       if (!isHeadless) inputRef.current?.focus();
     }
@@ -1082,8 +1093,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       void abortRun(activeRunId);
       return;
     }
-    if (abortController) abortController.abort();
-  }, [abortController, activeRunId]);
+    abortControllerRef.current?.abort();
+  }, [activeRunId]);
 
   const handleRegenerate = useCallback(
     async (messageId: string) => {
@@ -1217,14 +1228,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       (messages.length > 0 || isLoading || lastBudgetSessionId === currentSessionId),
   );
 
-  const contextUsageNode = showContextUsage ? (
-    <ContextUsageIndicator
-      key={currentSessionId ?? 'none'}
-      breakdown={displayBudget!}
-      liveUsage={sessionLiveUsage}
-      budgetCapApprox={budgetCapApprox}
-      variant="header"
-    />
+  const composerContextUsageSlot = showContextUsage ? (
+    <ManyChatInput.ContextUsage>
+      <ContextUsageIndicator
+        key={currentSessionId ?? 'none'}
+        breakdown={displayBudget!}
+        liveUsage={sessionLiveUsage}
+        budgetCapApprox={budgetCapApprox}
+        variant="header"
+      />
+    </ManyChatInput.ContextUsage>
   ) : null;
 
   const handleSelectSession = useCallback(
@@ -1241,14 +1254,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     [_switchSession, currentSessionId],
   );
 
-  /** Fullscreen: columna de historial a la derecha (mismo UI compacto). Sidebar: overlay. */
-  useEffect(() => {
-    if (isFullscreen) {
-      setShowHistory(true);
-    } else {
-      setShowHistory(false);
-    }
-  }, [isFullscreen]);
+  const prevIsFullscreenRef = useRef(isFullscreen);
+  if (isFullscreen !== prevIsFullscreenRef.current) {
+    prevIsFullscreenRef.current = isFullscreen;
+    setShowHistory(isFullscreen);
+  }
 
   const handleToggleHistory = useCallback(() => {
     setShowHistory((v) => !v);
@@ -1312,8 +1322,19 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         onClose={onClose}
         showClose={!isFullscreen}
         showHistoryToggle
-        contextUsage={!isFullscreen ? contextUsageNode : null}
-      />
+      >
+        {!isFullscreen && showContextUsage ? (
+          <ManyChatHeader.ContextUsage>
+            <ContextUsageIndicator
+              key={currentSessionId ?? 'none'}
+              breakdown={displayBudget!}
+              liveUsage={sessionLiveUsage}
+              budgetCapApprox={budgetCapApprox}
+              variant="header"
+            />
+          </ManyChatHeader.ContextUsage>
+        ) : null}
+      </ManyChatHeader>
 
       {showHistory && !isFullscreen ? (
         <ManyChatHistoryPanel
@@ -1567,8 +1588,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 attachments={chatAttachments}
                 onAttachmentsChange={setChatAttachments}
                 showComposerKeyboardHint
-                composerContextUsage={contextUsageNode}
-              />
+              >
+                {composerContextUsageSlot}
+              </UnifiedChatInput>
             </div>
           </div>
         ) : (
@@ -1594,8 +1616,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             onAttachmentsChange={setChatAttachments}
             showComposerKeyboardHint
             compact={!isFullscreen}
-            composerContextUsage={contextUsageNode}
-          />
+          >
+            {composerContextUsageSlot}
+          </UnifiedChatInput>
         )
       )}
         </div>

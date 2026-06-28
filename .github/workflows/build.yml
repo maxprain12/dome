@@ -20,10 +20,7 @@ permissions:
 
 env:
   NODE_VERSION: '24'
-  # electron-publish (dependencia de electron-builder) exige GH_TOKEN; Actions solo define GITHUB_TOKEN.
-  # Si el builder intenta publicar a GitHub (p. ej. por build.publish en package.json), sin esto falla:
-  # "GitHub Personal Access Token is not set ... env GH_TOKEN".
-  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # GH_TOKEN solo en attach-artifacts (no workflow-level: evita postinstall con secretos en el entorno).
   # Evita avisos de deprecación de Node 20 en actions/checkout, setup-node, etc. (hasta junio 2026)
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   # pnpm sin TTY (evita abortos tipo confirmModulesPurge / purga de node_modules)
@@ -51,14 +48,15 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Bootstrap release dependencies (trusted scripts only)
+        run: pnpm run bootstrap:release-deps
 
       - name: Build Vite, natives, embed env, pack (macOS)
         run: |
-          pnpm run build:packages
           pnpm run materialize:workspace-deps
           pnpm run build
-          pnpm run rebuild:natives
           pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
@@ -124,14 +122,15 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Bootstrap release dependencies (trusted scripts only)
+        run: pnpm run bootstrap:release-deps
 
       - name: Build Vite, natives, embed env, pack (Windows)
         run: |
-          pnpm run build:packages
           pnpm run materialize:workspace-deps
           pnpm run build
-          pnpm run rebuild:natives
           pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs
@@ -219,14 +218,15 @@ jobs:
             org.electronjs.Electron2.BaseApp//24.08
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Bootstrap release dependencies (trusted scripts only)
+        run: pnpm run bootstrap:release-deps
 
       - name: Build Vite, natives, embed env, pack (Linux)
         run: |
-          pnpm run build:packages
           pnpm run materialize:workspace-deps
           pnpm run build
-          pnpm run rebuild:natives
           pnpm run verify:workspace-deps
           pnpm run verify:natives
           node scripts/embed-env.cjs

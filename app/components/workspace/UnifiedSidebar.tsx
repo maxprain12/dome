@@ -21,6 +21,7 @@ import FileTree from './sidebar/SidebarFileTree';
 import { NewFolderModal, UrlInputModal } from './sidebar/SidebarModals';
 import AddResourceMenu from './sidebar/AddResourceMenu';
 import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
+import './unified-sidebar.css';
 
 interface UnifiedSidebarProps {
   collapsed: boolean;
@@ -150,6 +151,15 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     }, 400);
   }, [fetchResources]);
 
+  const fetchResourcesRef = useRef(fetchResources);
+  fetchResourcesRef.current = fetchResources;
+  const fetchProjectsRef = useRef(fetchProjects);
+  fetchProjectsRef.current = fetchProjects;
+  const scheduleDebouncedSilentRefetchRef = useRef(scheduleDebouncedSilentRefetch);
+  scheduleDebouncedSilentRefetchRef.current = scheduleDebouncedSilentRefetch;
+  const setResourcesRef = useRef(setResources);
+  setResourcesRef.current = setResources;
+
   const scopedResources = resources.filter((resource) => resource.project_id === hubProjectId);
 
   const getDefaultProjectId = useCallback(() => {
@@ -266,15 +276,15 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
-    const onCreated = () => { void fetchResources({ silent: true }); };
-    const onDeleted = () => { void fetchResources({ silent: true }); };
-    const onProjectCreated = () => { void fetchProjects(); };
+    const onCreated = () => { void fetchResourcesRef.current({ silent: true }); };
+    const onDeleted = () => { void fetchResourcesRef.current({ silent: true }); };
+    const onProjectCreated = () => { void fetchProjectsRef.current(); };
     const u1 = window.electron.on('resource:created', onCreated);
     const onUpdated = (payload: unknown) => {
       // Immediately apply metadata / title changes so folder colors refresh without waiting for the debounced refetch
       const p = payload as { id?: string; updates?: Record<string, unknown> };
       if (p?.id && p?.updates) {
-        setResources((prev) =>
+        setResourcesRef.current((prev) =>
           prev.map((r) => {
             if (r.id !== p.id) return r;
             const updates = p.updates!;
@@ -292,13 +302,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           })
         );
       }
-      scheduleDebouncedSilentRefetch();
+      scheduleDebouncedSilentRefetchRef.current();
     };
     const u2 = window.electron.on('resource:updated', onUpdated);
     const u3 = window.electron.on('resource:deleted', onDeleted);
     const u4 = window.electron.on('project:created', onProjectCreated);
     const onProjectDeleted = (payload: { id?: string }) => {
-      void fetchProjects();
+      void fetchProjectsRef.current();
       const deletedId = payload?.id;
       const cur = useAppStore.getState().currentProject;
       if (deletedId && cur?.id === deletedId) {
@@ -310,7 +320,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           }
         });
       }
-      void fetchResources({ silent: true });
+      void fetchResourcesRef.current({ silent: true });
     };
     const u5 = window.electron.on('project:deleted', onProjectDeleted);
     return () => {
@@ -319,9 +329,17 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       u3?.();
       u4?.();
       u5?.();
-      if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
     };
-  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch]);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending debounced refetch on unmount only
+  useEffect(() => {
+    return () => {
+      const pending = debouncedSilentRefetchRef.current;
+      if (pending) clearTimeout(pending);
+      debouncedSilentRefetchRef.current = null;
+    };
+  }, []);
 
   type UnifiedNavItem =
     | { key: string; kind: 'section'; sectionId: string; label: string; icon: ReactNode }
@@ -427,6 +445,22 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     ];
   }, [t, openLearnTab, openTagsTab, openMarketplaceTab]);
 
+  const visiblePrimaryUnifiedNavItems = useMemo(() => {
+    const visible: UnifiedNavItem[] = [];
+    for (const item of primaryUnifiedNavItems) {
+      if (navItemVisible(item.key)) visible.push(item);
+    }
+    return visible;
+  }, [primaryUnifiedNavItems, navItemVisible]);
+
+  const visibleSecondaryUnifiedNavItems = useMemo(() => {
+    const visible: UnifiedNavItem[] = [];
+    for (const item of secondaryUnifiedNavItems) {
+      if (navItemVisible(item.key)) visible.push(item);
+    }
+    return visible;
+  }, [secondaryUnifiedNavItems, navItemVisible]);
+
   const handleOpenProjectRootFolder = useCallback(() => {
     openFolderTab(hubProjectId, activeProjectLabel, undefined, hubProjectId);
     setWorkspaceOpen(true);
@@ -466,7 +500,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       {/* Navegación principal */}
       <div className="shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
         <div className="flex flex-col gap-0.5">
-          {primaryUnifiedNavItems.filter((item) => navItemVisible(item.key)).map((item) => {
+          {visiblePrimaryUnifiedNavItems.map((item) => {
             const isActive = getUnifiedNavActive(item);
             const count = item.kind === 'tab' ? item.count : undefined;
             return (
@@ -474,35 +508,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                 key={item.key}
                 type="button"
                 onClick={() => handleUnifiedNavClick(item)}
-                className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
-                style={{
-                  gap: 8,
-                  paddingLeft: 8,
-                  paddingRight: 8,
-                  minHeight: 30,
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  background: isActive ? 'var(--dome-surface)' : 'transparent',
-                  color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                }}
+                className={`sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md${isActive ? ' is-active' : ''}`}
               >
-                <span className="shrink-0" style={{ color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                <span className="sidebar-nav-btn-icon shrink-0">
                   {item.icon}
                 </span>
                 <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
                 {count !== undefined ? (
-                  <span
-                    className="shrink-0 tabular-nums"
-                    style={{ fontSize: 12, fontWeight: 500, color: 'var(--dome-text-muted)' }}
-                  >
+                  <span className="sidebar-nav-btn-count shrink-0 tabular-nums">
                     {count}
                   </span>
                 ) : null}
@@ -520,22 +533,16 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             <button
               type="button"
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
-              className="flex items-center justify-center shrink-0 rounded-md transition-colors"
-              style={{ width: 22, height: 22, color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+              className="sidebar-chevron-btn shrink-0 rounded-md transition-colors"
               aria-expanded={workspaceOpen}
               aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
               <ChevronDown className={`size-3 shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} strokeWidth={2.5} />
             </button>
             <button
               type="button"
               onClick={handleOpenProjectRootFolder}
-              className="flex items-center flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
-              style={{ color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              className="sidebar-workspace-title-btn flex items-center flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
             >
               <span>Workspace</span>
             </button>
@@ -643,7 +650,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             {t('sidebar.more_tools')}
           </p>
           <div className="flex flex-col gap-0.5">
-            {secondaryUnifiedNavItems.filter((item) => navItemVisible(item.key)).map((item) => {
+            {visibleSecondaryUnifiedNavItems.map((item) => {
               const isActive = getUnifiedNavActive(item);
               const count = item.kind === 'tab' ? item.count : undefined;
               return (
@@ -651,35 +658,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                   key={item.key}
                   type="button"
                   onClick={() => handleUnifiedNavClick(item)}
-                  className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
-                  style={{
-                    gap: 8,
-                    paddingLeft: 8,
-                    paddingRight: 8,
-                    minHeight: 30,
-                    fontSize: 12.5,
-                    fontWeight: 500,
-                    background: isActive ? 'var(--dome-surface)' : 'transparent',
-                    color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                  }}
+                  className={`sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md${isActive ? ' is-active' : ''}`}
                 >
-                  <span className="shrink-0" style={{ color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                  <span className="sidebar-nav-btn-icon shrink-0">
                     {item.icon}
                   </span>
                   <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
                   {count !== undefined ? (
-                    <span
-                      className="shrink-0 tabular-nums"
-                      style={{ fontSize: 12, fontWeight: 500, color: 'var(--dome-text-muted)' }}
-                    >
+                    <span className="sidebar-nav-btn-count shrink-0 tabular-nums">
                       {count}
                     </span>
                   ) : null}

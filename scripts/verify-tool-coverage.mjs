@@ -2,8 +2,8 @@
 /**
  * Ensures every tool listed in getAllToolDefinitions() has a TOOL_HANDLER_MAP entry.
  *
- * Does not require() tool-dispatcher.cjs (that pulls electron, database, native deps).
- * Safe for CI: pnpm install --frozen-lockfile --ignore-scripts
+ * Does not require() tool modules (that pulls electron, database, native deps).
+ * Parses tool-definitions.cjs (leaf registry) via static analysis.
  *
  * Run: node scripts/verify-tool-coverage.mjs
  */
@@ -166,8 +166,8 @@ function extractDefinitionToolNames(arrayBody) {
 }
 
 function main() {
-  const toolDispatcherPath = path.join(__dirname, '../electron/tools/tool-dispatcher.cjs');
-  const src = fs.readFileSync(toolDispatcherPath, 'utf8');
+  const toolDefinitionsPath = path.join(__dirname, '../electron/tools/tool-definitions.cjs');
+  const src = fs.readFileSync(toolDefinitionsPath, 'utf8');
 
   const mapMarker = 'const TOOL_HANDLER_MAP = ';
   const mapEq = src.indexOf(mapMarker);

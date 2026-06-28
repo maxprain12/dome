@@ -2,7 +2,7 @@
 
 import { useTranslation } from 'react-i18next';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
-import { formatRunDate, formatDuration } from '@/components/automations/RunLogView';
+import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
 import { getRunUsageFromRunMetadata } from '@/lib/automations/run-cost';
 import { getRunProgress } from '@/lib/automations/run-progress';
 import type { PersistentRun } from '@/lib/automations/api';

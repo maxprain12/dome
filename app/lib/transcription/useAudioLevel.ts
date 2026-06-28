@@ -14,21 +14,29 @@ export function useAudioLevel(stream: MediaStream | null): number {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
+  const prevStreamRef = useRef(stream);
+  const audioContextAvailable =
+    typeof window !== 'undefined' &&
+    Boolean(
+      (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
+        .AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext,
+    );
+
+  if (stream !== prevStreamRef.current) {
+    prevStreamRef.current = stream;
+    if (!stream || !audioContextAvailable) setLevel(0);
+  }
+
   useEffect(() => {
-    if (!stream) {
-      setLevel(0);
+    if (!stream || !audioContextAvailable) {
       return;
     }
 
     const AudioContextClass =
       (window as unknown as { AudioContext?: typeof AudioContext; webkitAudioContext?: typeof AudioContext })
         .AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-    if (!AudioContextClass) {
-      setLevel(0);
-      return;
-    }
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext!;
 
     const ctx = new AudioContextClass();
     const analyser = ctx.createAnalyser();

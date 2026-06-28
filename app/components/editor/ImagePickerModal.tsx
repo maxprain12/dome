@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
 import DomeModal from '@/components/ui/DomeModal';
 import { Image as ImageIcon } from 'lucide-react';
@@ -38,9 +38,11 @@ export default function ImagePickerModal({
     }
   }, [projectId]);
 
-  useEffect(() => {
+  const prevOpenedRef = useRef(opened);
+  if (opened !== prevOpenedRef.current) {
+    prevOpenedRef.current = opened;
     if (opened) void load();
-  }, [opened, load]);
+  }
 
   const pick = async (r: Resource) => {
     const read = window.electron?.resource?.readFile;

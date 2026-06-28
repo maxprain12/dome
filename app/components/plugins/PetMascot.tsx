@@ -21,18 +21,19 @@ export default function PetMascot({ plugin }: PetMascotProps) {
     wave?: string;
     think?: string;
   }>({});
-  const [prompt, setPrompt] = useState<string>('');
+  const promptRef = useRef('');
   const [loaded, setLoaded] = useState(false);
   const [position, setPosition] = useState({ x: 100, y: 150 });
   const [currentSprite, setCurrentSprite] = useState<'idle' | 'walk' | 'wave' | 'think'>('idle');
   const [walkFrame, setWalkFrame] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLButtonElement>(null);
   const moveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load assets from plugin
+  // Load assets on mount; parent keys by plugin.id so this re-runs when the pet plugin changes.
   useEffect(() => {
+    let cancelled = false;
     const loadAssets = async () => {
       const readAsset = window.electron?.plugins?.readAsset;
       if (!readAsset) return;
@@ -67,21 +68,24 @@ export default function PetMascot({ plugin }: PetMascotProps) {
           }
         }
 
-        setSpriteUrls(results);
+        if (!cancelled) setSpriteUrls(results);
 
         const promptRes = await readAsset(plugin.id, 'prompt.txt');
-        if (promptRes?.success && promptRes.text) {
-          setPrompt(promptRes.text);
+        if (!cancelled && promptRes?.success && promptRes.text) {
+          promptRef.current = promptRes.text;
         }
       } catch (e) {
         console.warn('[PetMascot] Failed to load assets:', e);
       } finally {
-        setLoaded(true);
+        if (!cancelled) setLoaded(true);
       }
     };
 
-    loadAssets();
-  }, [plugin.id, plugin.sprites]);
+    void loadAssets();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Navigation: move randomly within the main content area
   useEffect(() => {
@@ -146,40 +150,28 @@ export default function PetMascot({ plugin }: PetMascotProps) {
   }, [status, isHovered, currentSprite, walkFrame, spriteUrls]);
 
   const handleClick = useCallback(() => {
-    if (prompt) {
-      setPetPromptOverride(prompt);
+    if (promptRef.current) {
+      setPetPromptOverride(promptRef.current);
     }
     toggleOpen();
-  }, [prompt, setPetPromptOverride, toggleOpen]);
+  }, [setPetPromptOverride, toggleOpen]);
 
   const displaySrc = getDisplaySprite();
 
   if (!loaded) return null;
 
   return (
-    <div
+    <button
+      type="button"
       ref={containerRef}
-      role="button"
-      tabIndex={0}
       aria-label={`Open chat with ${plugin.name}`}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+      className="pet-mascot-btn absolute z-[9997] flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-transparent bg-transparent p-0 transition-[left,top] duration-[800ms] ease-out"
       style={{
-        position: 'absolute',
         left: position.x,
         top: position.y,
-        width: SPRITE_SIZE,
-        height: SPRITE_SIZE,
-        cursor: 'pointer',
-        zIndex: 9997,
-        transition: 'left 0.8s ease-out, top 0.8s ease-out',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: '50%',
-        border: '2px solid transparent',
       }}
       onFocus={(e) => {
         e.currentTarget.style.borderColor = 'var(--accent)';
@@ -200,21 +192,12 @@ export default function PetMascot({ plugin }: PetMascotProps) {
         />
       ) : (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: SPRITE_SIZE,
-            height: SPRITE_SIZE,
-            background: 'var(--dome-accent-bg)',
-            color: 'var(--dome-accent)',
-            borderRadius: '50%',
-          }}
+          className="flex size-12 items-center justify-center rounded-full bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]"
           aria-hidden
         >
           <Sparkles size={28} strokeWidth={1.5} />
         </div>
       )}
-    </div>
+    </button>
   );
 }

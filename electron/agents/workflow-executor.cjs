@@ -9,7 +9,7 @@
 
 const agentRuntime = require('./agent-runtime.cjs');
 const { parseRuntimeContext } = require('./agent-runtime-context.cjs');
-const { getToolDefinitionsByIds, getAllToolDefinitions } = require('../tools/tool-dispatcher.cjs');
+const { getToolDefinitionsByIds, getAllToolDefinitions } = require('../tools/tool-definitions.cjs');
 const { buildDomeSystemPrompt } = require('../prompts/system-prompt.cjs');
 const logger = require('../core/logger.cjs');
 const { notifyError } = require('../core/error-notify.cjs');

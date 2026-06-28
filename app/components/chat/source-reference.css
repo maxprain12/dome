@@ -1,0 +1,66 @@
+.source-ref-btn {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--secondary-text);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 150ms ease, border-color 150ms ease;
+}
+
+.source-ref-btn:hover,
+.source-ref-btn:focus-visible {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+}
+
+.source-ref-number {
+  flex-shrink: 0;
+  background: var(--accent);
+  color: var(--base-text);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.source-ref-node-title {
+  font-size: 12px;
+  color: var(--tertiary-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+  display: block;
+  margin-top: 1px;
+}
+
+.source-ref-pin-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 150ms ease;
+}
+
+.source-ref-pin-btn.is-pinned {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.source-ref-pin-btn.is-unpinned {
+  background: var(--bg-secondary);
+  color: var(--tertiary-text);
+}

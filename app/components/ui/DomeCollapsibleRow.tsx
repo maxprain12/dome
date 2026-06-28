@@ -65,13 +65,12 @@ export default function DomeCollapsibleRow({
         ) : null}
       </button>
       {hasBody && expanded ? (
-        <div
+        <section
           id={panelId}
-          role="region"
           className={cn('min-w-0 pt-1 pb-2 pl-1', panelClassName)}
         >
           {children}
-        </div>
+        </section>
       ) : null}
     </div>
   );

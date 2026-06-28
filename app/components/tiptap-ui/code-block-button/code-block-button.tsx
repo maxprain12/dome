@@ -94,7 +94,6 @@ export const CodeBlockButton = forwardRef<
         type="button"
         variant="ghost"
         data-active-state={isActive ? "on" : "off"}
-        role="button"
         disabled={!canToggle}
         data-disabled={!canToggle}
         tabIndex={-1}

@@ -2399,7 +2399,7 @@ function deepResearch(args) {
  * @returns {Promise<Object>} { success, definition?, error? }
  */
 async function getToolDefinition(toolName) {
-  const { getAllToolDefinitions, normalizeToolName } = require('./tool-dispatcher.cjs');
+  const { getAllToolDefinitions, normalizeToolName } = require('./tool-definitions.cjs');
   const norm = normalizeToolName(toolName);
   if (!norm) {
     return { success: false, error: 'tool_name is required' };
@@ -2837,7 +2837,11 @@ async function calendarDeleteEvent({ event_id } = {}) {
 // Pipelines (Kanban) — let agents drive pipelines/cards
 // =============================================================================
 
-const pipelineService = require('../agents/pipeline-service.cjs');
+let _pipelineService = null;
+function getPipelineService() {
+  if (!_pipelineService) _pipelineService = require('../agents/pipeline-service.cjs');
+  return _pipelineService;
+}
 
 function broadcastPipelineItem(item) {
   if (item && windowManagerRef) windowManagerRef.broadcast('pipelines:item:updated', { item });
@@ -2849,7 +2853,7 @@ function broadcastPipelineStage(stage) {
 async function pipelineList({ project_id } = {}) {
   try {
     const pid = project_id || 'default';
-    return { success: true, pipelines: pipelineService.listPipelines(pid) };
+    return { success: true, pipelines: getPipelineService().listPipelines(pid) };
   } catch (err) {
     return { success: false, error: err.message };
   }
@@ -2858,7 +2862,7 @@ async function pipelineList({ project_id } = {}) {
 async function pipelineGet({ pipeline_id } = {}) {
   try {
     if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
-    const data = pipelineService.getPipeline(pipeline_id);
+    const data = getPipelineService().getPipeline(pipeline_id);
     if (!data) return { success: false, error: 'Pipeline not found' };
     return { success: true, pipeline: data };
   } catch (err) {
@@ -2871,7 +2875,7 @@ async function pipelineCreateCard({ pipeline_id, stage_id, title, data, start_at
     if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
     const startAt = start_at != null ? new Date(start_at).getTime() : null;
     const endAt = end_at != null ? new Date(end_at).getTime() : null;
-    const item = await pipelineService.createCard({
+    const item = await getPipelineService().createCard({
       pipelineId: pipeline_id,
       stageId: stage_id || null,
       title,
@@ -2889,7 +2893,7 @@ async function pipelineCreateCard({ pipeline_id, stage_id, title, data, start_at
 async function pipelineMoveCard({ item_id, to_stage_id } = {}) {
   try {
     if (!item_id || !to_stage_id) return { success: false, error: 'item_id and to_stage_id are required' };
-    const item = await pipelineService.moveCard({ itemId: item_id, toStageId: to_stage_id });
+    const item = await getPipelineService().moveCard({ itemId: item_id, toStageId: to_stage_id });
     broadcastPipelineItem(item);
     return { success: true, item };
   } catch (err) {
@@ -2900,7 +2904,7 @@ async function pipelineMoveCard({ item_id, to_stage_id } = {}) {
 async function pipelineRunCard({ item_id } = {}) {
   try {
     if (!item_id) return { success: false, error: 'item_id is required' };
-    const item = await pipelineService.runCard({ itemId: item_id });
+    const item = await getPipelineService().runCard({ itemId: item_id });
     broadcastPipelineItem(item);
     return { success: true, item };
   } catch (err) {
@@ -2911,7 +2915,7 @@ async function pipelineRunCard({ item_id } = {}) {
 async function pipelineAddStage({ pipeline_id, title, execution_policy, assigned_agent_id } = {}) {
   try {
     if (!pipeline_id) return { success: false, error: 'pipeline_id is required' };
-    const stage = pipelineService.addStage({
+    const stage = getPipelineService().addStage({
       pipelineId: pipeline_id,
       title,
       executionPolicy: execution_policy,
@@ -3555,8 +3559,8 @@ async function automationCreate(args = {}) {
 
     const inputTemplate = prompt ? { prompt } : null;
 
-    const runEngine = require('../agents/run-engine.cjs');
-    const automation = runEngine.upsertAutomation({
+    const { upsertAutomation } = require('../agents/automation-persistence.cjs');
+    const automation = upsertAutomation({
       title,
       description,
       targetType,

@@ -13,6 +13,8 @@ interface CanvasToolbarProps {
   onRename: () => void;
 }
 
+const ghostBtnStyle = { color: 'var(--dome-text-secondary)' } as const;
+
 export default function CanvasToolbar({
   onRun,
   onStop,
@@ -32,7 +34,6 @@ export default function CanvasToolbar({
 
   const ghostBtn =
     'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors border border-transparent hover:border-[var(--dome-border)] hover:bg-[var(--dome-bg)]';
-  const ghostBtnStyle = { color: 'var(--dome-text-secondary)' } as const;
 
   return (
     <div

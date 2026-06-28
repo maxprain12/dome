@@ -1,21 +1,27 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
 
 export interface DomeToolbarProps {
-  /** Contenido principal (título, meta, chips). */
-  leading?: ReactNode;
-  /** Acciones / controles a la derecha. */
-  trailing?: ReactNode;
   className?: string;
   /** Padding vertical más compacto (p. ej. toolbars de viewers). */
   dense?: boolean;
+  children?: ReactNode;
 }
+
+const Leading = defineSlot('DomeToolbar.Leading');
+const Trailing = defineSlot('DomeToolbar.Trailing');
 
 /**
  * Barra de herramientas con borde inferior y slots leading/trailing.
  * Usa tokens `--dome-border` con fallback a `--border`.
  */
-export default function DomeToolbar({ leading, trailing, className, dense = false }: DomeToolbarProps) {
+function DomeToolbar({ className, dense = false, children }: DomeToolbarProps) {
+  const { leading, trailing } = collectCompoundSlots(children, {
+    leading: Leading,
+    trailing: Trailing,
+  });
+
   return (
     <div
       className={cn(
@@ -38,3 +44,8 @@ export default function DomeToolbar({ leading, trailing, className, dense = fals
     </div>
   );
 }
+
+DomeToolbar.Leading = Leading;
+DomeToolbar.Trailing = Trailing;
+
+export default DomeToolbar;

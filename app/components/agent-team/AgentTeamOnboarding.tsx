@@ -12,7 +12,6 @@ import { DomeInput, DomeTextarea } from '@/components/ui/DomeInput';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCallout from '@/components/ui/DomeCallout';
 import DomeSubpageFooter from '@/components/ui/DomeSubpageFooter';
-import DomeCard from '@/components/ui/DomeCard';
 import { cn } from '@/lib/utils';
 
 type Step = 'basics' | 'members' | 'capabilities' | 'supervisor' | 'icon';
@@ -200,11 +199,12 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                   const selected = selectedAgentIds.includes(agent.id);
                   const disabled = !selected && selectedAgentIds.length >= MAX_MEMBERS;
                   return (
-                    <DomeCard
+                    <button
                       key={agent.id}
-                      padding="sm"
+                      type="button"
+                      disabled={disabled}
                       className={cn(
-                        'flex items-center gap-3 transition-all cursor-pointer border-[var(--dome-border)]',
+                        'flex items-center gap-3 transition-all cursor-pointer border rounded-xl bg-[var(--bg-secondary)] p-3 w-full text-left border-[var(--dome-border)]',
                         selected && 'ring-2 ring-[var(--dome-accent)]',
                         disabled && 'opacity-40 cursor-not-allowed pointer-events-none',
                       )}
@@ -214,15 +214,6 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                           : undefined
                       }
                       onClick={() => !disabled && toggleAgent(agent.id)}
-                      onKeyDown={(e) => {
-                        if (disabled) return;
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          toggleAgent(agent.id);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={disabled ? -1 : 0}
                     >
                       <img
                         src={`/agents/sprite_${agent.iconIndex}.png`}
@@ -247,7 +238,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                       >
                         {selected && <Check size={12} />}
                       </div>
-                    </DomeCard>
+                    </button>
                   );
                 })}
               </div>
@@ -317,9 +308,8 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         {error && <p className="mt-3 text-xs text-[var(--dome-error)]">{error}</p>}
       </div>
 
-      <DomeSubpageFooter
-        className="!px-6 !py-4"
-        leading={
+      <DomeSubpageFooter className="!px-6 !py-4">
+        <DomeSubpageFooter.Leading>
           <DomeButton
             type="button"
             variant="outline"
@@ -329,9 +319,9 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
           >
             {currentStepIndex === 0 ? t('common.cancel') : t('common.back')}
           </DomeButton>
-        }
-        trailing={
-          step === 'icon' ? (
+        </DomeSubpageFooter.Leading>
+        <DomeSubpageFooter.Trailing>
+          {step === 'icon' ? (
             <DomeButton
               type="button"
               variant="primary"
@@ -354,9 +344,9 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
             >
               {t('onboarding.continue')}
             </DomeButton>
-          )
-        }
-      />
+          )}
+        </DomeSubpageFooter.Trailing>
+      </DomeSubpageFooter>
     </div>
   );
 }

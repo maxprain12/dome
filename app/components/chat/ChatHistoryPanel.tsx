@@ -10,6 +10,10 @@ import { DomeInput } from '@/components/ui/DomeInput';
 import ChatHistorySessionList from './ChatHistorySessionList';
 import { buildChatHistorySections, filterAndSortSessions } from './chatHistoryUtils';
 
+function deleteChatSession(sessionId: string) {
+  void useManyStore.getState().deleteSession(sessionId);
+}
+
 interface ChatHistoryPanelProps {
   onClose: () => void;
   /** Columna derecha dentro de Many fullscreen. */
@@ -48,10 +52,6 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
     useTabStore.getState().openChatTab(session.id, session.title || t('chat.new_chat'));
   };
 
-  const handleDeleteSession = (sessionId: string) => {
-    void useManyStore.getState().deleteSession(sessionId);
-  };
-
   const handleStartRename = (s: ManyChatSession) => {
     setRenameId(s.id);
     setRenameValue(s.title || t('chat.new_chat'));
@@ -76,7 +76,12 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
       )}
     >
       {renameId ? (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-3" role="presentation">
+        <dialog
+          open
+          className="fixed inset-0 z-[200] m-0 flex max-h-none max-w-none items-center justify-center border-0 bg-transparent p-3"
+          aria-labelledby="chat-rename-dialog-title"
+          onClose={() => setRenameId(null)}
+        >
           <button
             type="button"
             className="absolute inset-0 min-h-full w-full cursor-pointer border-0 p-0"
@@ -87,8 +92,6 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
           <form
             onSubmit={handleApplyRename}
             className="relative z-10 w-full max-w-sm rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-lg"
-            role="dialog"
-            aria-modal="true"
             aria-labelledby="chat-rename-dialog-title"
           >
             <p id="chat-rename-dialog-title" className="text-xs font-medium text-[var(--dome-text)] mb-2">
@@ -109,7 +112,7 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
               </DomeButton>
             </div>
           </form>
-        </div>
+        </dialog>
       ) : null}
 
       <header className="chat-history-hd">
@@ -152,7 +155,7 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
         emptyTitle={emptyTitle}
         onSelectSession={handleOpenSession}
         onStartRename={handleStartRename}
-        onDeleteSession={handleDeleteSession}
+        onDeleteSession={deleteChatSession}
       />
     </div>
   );

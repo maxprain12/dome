@@ -4,6 +4,12 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { FileText, NotebookPen, Link, Upload, Cloud, Layers } from 'lucide-react';
 
+const ADD_RESOURCE_MENU_ITEM_STYLE: React.CSSProperties = {
+  display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+  textAlign: 'left', padding: '7px 12px', fontSize: 12.5,
+  color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer',
+};
+
 export interface AddResourceMenuProps {
   x: number;
   y: number;
@@ -27,12 +33,6 @@ export default function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateN
     document.addEventListener('keydown', handleKey);
     return () => { document.removeEventListener('mousedown', handle); document.removeEventListener('keydown', handleKey); };
   }, [onClose]);
-
-  const itemStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-    textAlign: 'left', padding: '7px 12px', fontSize: 12.5,
-    color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer',
-  };
 
   const ITEMS = [
     { icon: <FileText className="size-3.5" strokeWidth={1.75} />, label: t('toolbar.note'), action: onCreateNote },
@@ -60,7 +60,7 @@ export default function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateN
         <button
           type="button"
           key={item.label}
-          style={itemStyle}
+          style={ADD_RESOURCE_MENU_ITEM_STYLE}
           onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
           onClick={() => { item.action(); onClose(); }}
@@ -72,23 +72,6 @@ export default function AddResourceMenu({ x, y, onClose, onCreateNote, onCreateN
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// timeAgo helper
-// ---------------------------------------------------------------------------
-export function timeAgo(ts: number): string {
-  const diff = Date.now() - ts;
-  const seconds = Math.floor(diff / 1000);
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-}
-
-// Silence unused warning
-void timeAgo;
 
 // ---------------------------------------------------------------------------
 // UnifiedSidebar

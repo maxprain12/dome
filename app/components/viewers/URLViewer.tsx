@@ -12,6 +12,7 @@ import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface URLViewerProps {
   resource: Resource;
@@ -48,12 +49,41 @@ function formatTags(v: unknown): string | null {
   return null;
 }
 
+function safeUrlDate(v: string | null): string | null {
+  if (!v) return null;
+  try {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+  } catch {
+    return null;
+  }
+}
+
+function urlPipelineStep(done: boolean, active: boolean, label: string) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {active ? (
+        <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+      ) : done ? (
+        <CircleDot className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+      ) : (
+        <Circle className="size-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
+      )}
+      <span
+        className="text-xs font-medium truncate"
+        style={{ color: active || done ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }: URLViewerProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
 
   const normalizeMetadata = useCallback((raw: unknown): Record<string, unknown> => {
     if (!raw) return {};
@@ -67,43 +97,50 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     return raw as Record<string, unknown>;
   }, []);
 
-  useEffect(() => {
-    setMetadata(normalizeMetadata(resource.metadata));
-  }, [resource.metadata, normalizeMetadata]);
+  const normalizedFromResource = useMemo(
+    () => normalizeMetadata(resource.metadata),
+    [resource.metadata, normalizeMetadata],
+  );
 
-  useEffect(() => {
-    async function loadURL() {
-      if (typeof window === 'undefined' || !window.electron) return;
+  const [metadata, setMetadata] = useState(normalizedFromResource);
 
-      try {
-        setIsLoading(true);
-        setError(null);
+  const [prevNormalizedFromResource, setPrevNormalizedFromResource] = useState(normalizedFromResource);
+  if (normalizedFromResource !== prevNormalizedFromResource) {
+    setPrevNormalizedFromResource(normalizedFromResource);
+    setMetadata(normalizedFromResource);
+  }
 
-        const resourceMetadata = normalizeMetadata(resource.metadata);
-        const resourceUrl =
-          (typeof resourceMetadata.url === 'string' && resourceMetadata.url) ||
-          (typeof resource.content === 'string' && resource.content ? resource.content : null);
+  const loadURL = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron) return;
 
-        if (!resourceUrl) {
-          setError('URL not found in resource');
-          return;
-        }
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        setUrl(resourceUrl);
+      const resourceMetadata = normalizeMetadata(resource.metadata);
+      const resourceUrl =
+        (typeof resourceMetadata.url === 'string' && resourceMetadata.url) ||
+        (typeof resource.content === 'string' && resource.content ? resource.content : null);
 
-        if (resourceMetadata.processing_status === 'pending' || !resourceMetadata.processed_at) {
-          await onRunUrlProcess();
-        }
-      } catch (err) {
-        console.error('Error loading URL:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
+      if (!resourceUrl) {
+        setError('URL not found in resource');
+        return;
       }
-    }
 
-    loadURL();
-  }, [resource.id, resource.content, resource.metadata, onRunUrlProcess, normalizeMetadata]);
+      setUrl(resourceUrl);
+
+      if (resourceMetadata.processing_status === 'pending' || !resourceMetadata.processed_at) {
+        await onRunUrlProcess();
+      }
+    } catch (err) {
+      console.error('Error loading URL:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [resource.content, resource.id, resource.metadata, normalizeMetadata, onRunUrlProcess]);
+
+  const mountRef = useMountAction(loadURL);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -155,16 +192,6 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     [resource.title, article.title, hostname, t],
   );
 
-  const safeDate = (v: string | null): string | null => {
-    if (!v) return null;
-    try {
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
-    } catch {
-      return null;
-    }
-  };
-
   const processedAt = useMemo(() => {
     const at = metadata?.processed_at;
     if (at == null) return null;
@@ -180,7 +207,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
   const bylineParts = [
     article.author,
-    safeDate(article.published_date),
+    safeUrlDate(article.published_date),
     article.section,
   ].filter(Boolean);
 
@@ -192,34 +219,16 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     }
   };
 
-  if (isLoading && !error) {
-    return <LoadingState message={t('viewer.loading_url')} />;
-  }
-
   if (error && !effectiveUrl) {
     return <ErrorState error={error} onRetry={() => { void onRunUrlProcess(); }} />;
   }
 
-  const pipelineStep = (done: boolean, active: boolean, label: string) => (
-    <div className="flex items-center gap-2 min-w-0">
-      {active ? (
-        <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-      ) : done ? (
-        <CircleDot className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-      ) : (
-        <Circle className="size-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
-      )}
-      <span
-        className="text-xs font-medium truncate"
-        style={{ color: active || done ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
-      >
-        {label}
-      </span>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full" style={{ background: 'var(--dome-bg)' }}>
+    <div ref={mountRef} className="flex flex-col flex-1 min-h-0 w-full" style={{ background: 'var(--dome-bg)' }}>
+      {isLoading && !error ? (
+        <LoadingState message={t('viewer.loading_url')} />
+      ) : (
+        <>
       {/* Unified in-view chrome: one light row; all URL actions live here */}
       <div
         className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b"
@@ -283,11 +292,11 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 {t('viewer.web_pipeline_title')}
               </p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {pipelineStep(true, false, t('viewer.web_step_saved'))}
+                {urlPipelineStep(true, false, t('viewer.web_step_saved'))}
                 <span style={{ color: 'var(--dome-border)' }} aria-hidden>—</span>
-                {pipelineStep(false, true, t('viewer.web_step_extracting'))}
+                {urlPipelineStep(false, true, t('viewer.web_step_extracting'))}
                 <span style={{ color: 'var(--dome-border)' }} aria-hidden>—</span>
-                {pipelineStep(false, false, t('viewer.web_step_ready'))}
+                {urlPipelineStep(false, false, t('viewer.web_step_ready'))}
               </div>
               <LoadingState message={t('viewer.processing_content')} />
             </div>
@@ -409,16 +418,16 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                         </dd>
                       </>
                     )}
-                    {safeDate(article.published_date) && (
+                    {safeUrlDate(article.published_date) && (
                       <>
                         <dt>{t('viewer.published')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{safeDate(article.published_date)}</dd>
+                        <dd style={{ color: 'var(--dome-text)' }}>{safeUrlDate(article.published_date)}</dd>
                       </>
                     )}
-                    {safeDate(article.modified_date) && (
+                    {safeUrlDate(article.modified_date) && (
                       <>
                         <dt>{t('viewer.date_modified')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{safeDate(article.modified_date)}</dd>
+                        <dd style={{ color: 'var(--dome-text)' }}>{safeUrlDate(article.modified_date)}</dd>
                       </>
                     )}
                     {article.tags && (
@@ -434,6 +443,8 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

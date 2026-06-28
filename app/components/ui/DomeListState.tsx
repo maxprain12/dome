@@ -42,12 +42,11 @@ export default function DomeListState({
   if (variant === 'loading') {
     const label = loadingLabel ?? t('ui.loading');
     return (
-      <div
+      <output
         className={cn(
           'flex flex-col items-center justify-center gap-2 px-4',
           fullHeight ? 'h-full p-8 gap-4' : py,
         )}
-        role="status"
         aria-live="polite"
       >
         <Loader2
@@ -60,7 +59,7 @@ export default function DomeListState({
         <p className={cn('text-center', fullHeight ? 'text-sm text-[var(--secondary-text)]' : 'text-xs text-[var(--tertiary-text)]')}>
           {label}
         </p>
-      </div>
+      </output>
     );
   }
 

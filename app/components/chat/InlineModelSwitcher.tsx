@@ -58,7 +58,7 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
   const [ollamaIds, setOllamaIds] = useState<string[]>([]);
   const [dynamicOpts, setDynamicOpts] = useState<ModelOption[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
-  const portalDropdownRef = useRef<HTMLDivElement>(null);
+  const portalDropdownRef = useRef<HTMLUListElement>(null);
   const [portalAnchor, setPortalAnchor] = useState<DOMRect | null>(null);
 
   const refresh = useCallback(async () => {
@@ -250,10 +250,10 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
       </button>
       {open && portalAnchor && typeof document !== 'undefined'
         ? createPortal(
-            <div
+            <ul
               ref={portalDropdownRef}
               role="listbox"
-              className="fixed z-[var(--z-popover)] max-h-56 min-w-[200px] overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] py-1 shadow-lg"
+              className="fixed z-[var(--z-popover)] max-h-56 min-w-[200px] list-none m-0 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] p-0 py-1 shadow-lg"
               style={{
                 right: window.innerWidth - portalAnchor.right,
                 bottom: window.innerHeight - portalAnchor.top + 8,
@@ -264,8 +264,8 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
               {options.map((o) => {
                 const sel = o.id === currentModelId;
                 return (
+                  <li key={o.id} className="list-none">
                   <button
-                    key={o.id}
                     type="button"
                     role="option"
                     aria-selected={sel}
@@ -278,10 +278,11 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
                     )}
                     <span className="min-w-0 flex-1 truncate">{o.label}</span>
                   </button>
+                  </li>
                 );
               })}
               {allowProviderSettings ? (
-                <div className="border-t border-[var(--border)] p-2">
+                <li className="list-none border-t border-[var(--border)] p-2">
                   <button
                     type="button"
                     className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[11px] font-medium text-[var(--accent)] hover:bg-[var(--bg-hover)]"
@@ -290,9 +291,9 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
                     <Settings2 className="size-3.5 shrink-0" aria-hidden />
                     <span>{t('chat.open_provider_settings')}</span>
                   </button>
-                </div>
+                </li>
               ) : null}
-            </div>,
+            </ul>,
             document.body,
           )
         : null}

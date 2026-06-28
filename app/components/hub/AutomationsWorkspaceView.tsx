@@ -63,6 +63,12 @@ interface AutomationsTabProps {
   onRegisterSilentRefresh?: (refresh: (() => void) | null) => void;
 }
 
+function automationTargetIconKind(a: AutomationDefinition): 'agent' | 'workflow' | 'feeder' {
+  if (a.targetType === 'agent') return 'agent';
+  if (a.targetType === 'feeder') return 'feeder';
+  return 'workflow';
+}
+
 function AutomationsTab({
   projectId,
   initialFilter,
@@ -153,25 +159,37 @@ function AutomationsTab({
   }, [formMode, filter.targetType]);
 
   // Update filter when initialFilter changes (from clicking "Automatizaciones" on an agent/workflow)
-  useEffect(() => {
-    if (initialFilter) setFilter(initialFilter);
-  }, [initialFilter]);
+  const prevInitialFilterRef = useRef(initialFilter);
+  if (initialFilter !== prevInitialFilterRef.current && initialFilter) {
+    prevInitialFilterRef.current = initialFilter;
+    setFilter(initialFilter);
+  }
+
+  const projectScopeKey = `${projectId}:${appProject?.id ?? ''}`;
+  const prevProjectScopeKeyRef = useRef(projectScopeKey);
+  if (projectScopeKey !== prevProjectScopeKeyRef.current) {
+    prevProjectScopeKeyRef.current = projectScopeKey;
+    if (appProject?.id === projectId) {
+      setScopeProjectName(appProject.name ?? null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
     if (appProject?.id === projectId) {
-      setScopeProjectName(appProject.name ?? null);
-    } else {
-      void (async () => {
-        try {
-          const res = await window.electron?.db?.projects?.getById(projectId);
-          if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
-          else if (!cancelled) setScopeProjectName(null);
-        } catch {
-          if (!cancelled) setScopeProjectName(null);
-        }
-      })();
+      return () => {
+        cancelled = true;
+      };
     }
+    void (async () => {
+      try {
+        const res = await window.electron?.db?.projects?.getById(projectId);
+        if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
+        else if (!cancelled) setScopeProjectName(null);
+      } catch {
+        if (!cancelled) setScopeProjectName(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -320,16 +338,21 @@ function AutomationsTab({
             },
         artifactBindings: isFeederTarget
           ? []
-          : draft.artifactBindings
-              .filter((b) => b.artifactResourceId.trim())
-              .map((b) => ({
-                id: b.id,
-                artifactResourceId: b.artifactResourceId.trim(),
-                slot: (b.slot || 'default').trim(),
-                updatePolicy: b.updatePolicy,
-                extractMode: b.extractMode,
-                enabled: b.enabled,
-              })),
+          : (() => {
+              const bindings: NonNullable<DraftState['artifactBindings']> = [];
+              for (const b of draft.artifactBindings) {
+                if (!b.artifactResourceId.trim()) continue;
+                bindings.push({
+                  id: b.id,
+                  artifactResourceId: b.artifactResourceId.trim(),
+                  slot: (b.slot || 'default').trim(),
+                  updatePolicy: b.updatePolicy,
+                  extractMode: b.extractMode,
+                  enabled: b.enabled,
+                });
+              }
+              return bindings;
+            })(),
         outputMode: isFeederTarget ? 'chat_only' : draft.outputMode,
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
@@ -450,11 +473,6 @@ function AutomationsTab({
     if (a.targetType === 'feeder') return feederName(a.targetId);
     return a.targetId;
   };
-  const targetIconKind = (a: AutomationDefinition): 'agent' | 'workflow' | 'feeder' => {
-    if (a.targetType === 'agent') return 'agent';
-    if (a.targetType === 'feeder') return 'feeder';
-    return 'workflow';
-  };
 
   // Full-screen create / edit — replaces the list entirely
   if (formMode === 'new' || formMode === 'edit') {
@@ -464,17 +482,23 @@ function AutomationsTab({
         className="bg-[var(--dome-bg)] h-full min-h-0"
         header={
           <DomeSubpageHeader
-            title={isNew ? t('automation.new_page_title') : t('automation.edit_page_title')}
-            subtitle={isNew ? t('automation.new_page_subtitle') : t('automation.edit_page_subtitle')}
             onBack={() => setFormMode('hidden')}
             backLabel={t('common.back')}
             className="border-[var(--dome-border)] bg-[var(--dome-bg)]"
-          />
+          >
+            <DomeSubpageHeader.Title>
+              {isNew ? t('automation.new_page_title') : t('automation.edit_page_title')}
+            </DomeSubpageHeader.Title>
+            <DomeSubpageHeader.Subtitle>
+              {isNew ? t('automation.new_page_subtitle') : t('automation.edit_page_subtitle')}
+            </DomeSubpageHeader.Subtitle>
+          </DomeSubpageHeader>
         }
         footer={
           <DomeSubpageFooter
             className="px-6 border-[var(--dome-border)] bg-[var(--dome-bg)]"
-            trailing={
+          >
+            <DomeSubpageFooter.Trailing>
               <>
                 <DomeButton type="button" variant="secondary" size="sm" onClick={() => setFormMode('hidden')}>
                   {t('automation.cancel')}
@@ -490,8 +514,8 @@ function AutomationsTab({
                   {isNew ? t('automation.create_footer') : t('automation.save_changes')}
                 </DomeButton>
               </>
-            }
-          />
+            </DomeSubpageFooter.Trailing>
+          </DomeSubpageFooter>
         }
       >
         <div className="max-w-2xl mx-auto p-6">
@@ -525,10 +549,9 @@ function AutomationsTab({
           aria-label={t('automationHub.import_automation_json', 'Import automation JSON file')}
           onChange={(ev) => void handleAutomationImportFile(ev)}
         />
-        <HubToolbar
-          dense
-          leading={
-            editorialHub ? undefined : (
+        <HubToolbar dense>
+          {!editorialHub ? (
+            <HubToolbar.Leading>
             <HubTitleBlock
               icon={Zap}
               title={t('automationHub.tab_automations')}
@@ -545,16 +568,16 @@ function AutomationsTab({
                 return base + scopeSuffix;
               })()}
             />
-            )
-          }
-          center={
+            </HubToolbar.Leading>
+          ) : null}
+          <HubToolbar.Center>
             <HubSearchField
               value={searchText}
               onChange={setSearchText}
               placeholder={t('automation.search_automations')}
             />
-          }
-          trailing={
+          </HubToolbar.Center>
+          <HubToolbar.Trailing>
             <>
               <DomeButton
                 type="button"
@@ -590,8 +613,8 @@ function AutomationsTab({
                 {t('automation.button_new')}
               </DomeButton>
             </>
-          }
-        />
+          </HubToolbar.Trailing>
+        </HubToolbar>
 
         {/* Active filter label */}
         {filter.targetId && (
@@ -643,19 +666,20 @@ function AutomationsTab({
             />
           ) : (
             <div className={editorialHub ? 'px-0' : 'p-4'}>
-              <div className={hubListClass} role="list">
+              <ul className={`${hubListClass} list-none m-0 p-0`}>
                 {filtered.map((a) => {
                   const desc = (a.description || '').trim();
                   const targetLine = `${targetName(a)} · ${triggerLabel(a.triggerType)}`;
                   return (
+                    <li key={a.id} className="list-none">
                     <HubBentoCard
-                      key={a.id}
                       variant={hubCardVariant}
                       onClick={() => handleEdit(a)}
-                      icon={
-                        <HubEntityIcon kind={targetIconKind(a)} size="md" />
-                      }
-                      title={
+                    >
+                      <HubBentoCard.Icon>
+                        <HubEntityIcon kind={automationTargetIconKind(a)} size="md" />
+                      </HubBentoCard.Icon>
+                      <HubBentoCard.Title>
                         <div className="flex w-full min-w-0 items-start gap-2 flex-wrap">
                           <span
                             className={cn(
@@ -689,9 +713,9 @@ function AutomationsTab({
                             {a.enabled ? t('automation.state_enabled') : t('automation.state_disabled')}
                           </span>
                         </div>
-                      }
-                      subtitle={
-                        desc ? (
+                      </HubBentoCard.Title>
+                      <HubBentoCard.Subtitle>
+                        {desc ? (
                           <span className="break-words" title={desc}>
                             {desc}
                           </span>
@@ -699,7 +723,8 @@ function AutomationsTab({
                           <span className="text-[11px] break-words">{targetLine}</span>
                         )
                       }
-                      meta={
+                      </HubBentoCard.Subtitle>
+                      <HubBentoCard.Meta>
                         <div
                           className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]"
                           style={{ color: 'var(--dome-text-muted)' }}
@@ -721,8 +746,8 @@ function AutomationsTab({
                             ) : null}
                           </span>
                         </div>
-                      }
-                      trailing={
+                      </HubBentoCard.Meta>
+                      <HubBentoCard.Trailing>
                         <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
                           <DomeButton
                             type="button"
@@ -784,11 +809,12 @@ function AutomationsTab({
                             <Trash2 className="size-3.5" aria-hidden />
                           </DomeButton>
                         </div>
-                      }
-                    />
+                      </HubBentoCard.Trailing>
+                    </HubBentoCard>
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </div>
           )}
         </div>

@@ -118,23 +118,22 @@ function pickThumbnail(item: Resource): string | null {
 }
 
 function highlightSnippet(text: string, query: string): ReactNode {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return text;
-  const lower = text.toLowerCase();
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   const parts: ReactNode[] = [];
-  let cursor = 0;
-  let match = lower.indexOf(q, cursor);
-  while (match !== -1) {
-    if (match > cursor) parts.push(text.slice(cursor, match));
+  let lastIndex = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
     parts.push(
-      <mark key={match} className="dome-folder-view__search-mark">
-        {text.slice(match, match + q.length)}
+      <mark key={idx} className="dome-folder-view__search-mark">
+        {match[0]}
       </mark>,
     );
-    cursor = match + q.length;
-    match = lower.indexOf(q, cursor);
+    lastIndex = idx + match[0].length;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts.length > 0 ? parts : text;
 }
 
@@ -188,9 +187,11 @@ function FolderCardImpl({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (renaming) renameRef.current?.focus();
-  }, [renaming]);
+  const startRenaming = () => {
+    setRenaming(true);
+    setRenameValue(item.title ?? '');
+    requestAnimationFrame(() => renameRef.current?.focus());
+  };
 
   const folderColor = isFolder ? getFolderColor(item) : undefined;
   const typeColor = isFolder ? (folderColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
@@ -367,22 +368,9 @@ function FolderCardImpl({
         ) : null}
       </div>
 
-      <div
-        className="dome-fs-card__body cursor-pointer select-none"
-        onClick={handleCardActivate}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (renaming) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-        aria-label={displayTitle}
-      >
-        <div className="dome-fs-card__title-row">
-          {renaming ? (
+      {renaming ? (
+        <div className="dome-fs-card__body cursor-pointer select-none">
+          <div className="dome-fs-card__title-row">
             <div className="dome-fs-card__rename">
               <input
                 ref={renameRef}
@@ -404,26 +392,35 @@ function FolderCardImpl({
                 <X className="size-3.5" />
               </button>
             </div>
-          ) : (
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="dome-fs-card__body cursor-pointer select-none w-full text-left border-0 bg-transparent p-0 font-inherit"
+          onClick={handleCardActivate}
+          aria-label={displayTitle}
+        >
+          <div className="dome-fs-card__title-row">
             <>
               <h3 className="dome-fs-card__title" title={displayTitle}>
                 {searchQuery ? highlightSnippet(displayTitle, searchQuery) : displayTitle}
               </h3>
               <span className="dome-folder-view__type-badge" title={typeLabel}>{typeLabel}</span>
             </>
-          )}
-        </div>
+          </div>
 
-        {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
-          <p className="dome-fs-card__snippet">
-            {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
-          </p>
-        ) : null}
+          {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
+            <p className="dome-fs-card__snippet">
+              {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
+            </p>
+          ) : null}
 
-        <div className="dome-fs-card__meta">
-          <span className="dome-fs-card__modified">{timeAgo}</span>
-        </div>
-      </div>
+          <div className="dome-fs-card__meta">
+            <span className="dome-fs-card__modified">{timeAgo}</span>
+          </div>
+        </button>
+      )}
 
       {/* Rendered via portal to `document.body`: the card is a containing block
           for fixed-position descendants (it has `container-type` + `overflow:
@@ -438,7 +435,7 @@ function FolderCardImpl({
               style={{ top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), startRenaming)}
               {isFolderCard && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
                 setMenuOpen(false);
                 openColorPicker();

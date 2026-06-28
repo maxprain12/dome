@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
@@ -512,11 +512,12 @@ export default function ProjectsDashboard({
       ) : null}
 
       {deleteTarget ? (
-        <div
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
           aria-modal="true"
           aria-labelledby="delete-project-title"
+          onCancel={(e) => { e.preventDefault(); setDeleteTarget(null); }}
         >
           <div className="p-projects-modal">
             <h3 id="delete-project-title" className="p-projects-modal-title">
@@ -601,15 +602,16 @@ export default function ProjectsDashboard({
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
 
       {bulkDeleteOpen ? (
-        <div
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
           aria-modal="true"
           aria-labelledby="projects-bulk-delete-title"
+          onCancel={(e) => { e.preventDefault(); setBulkDeleteOpen(false); }}
         >
           <div className="p-projects-modal">
             <h3 id="projects-bulk-delete-title" className="p-projects-modal-title">
@@ -617,11 +619,13 @@ export default function ProjectsDashboard({
             </h3>
             <p className="p-projects-modal-body">{t('projects.delete_critical_warning')}</p>
             <ul className="p-projects-modal-body max-h-40 overflow-y-auto space-y-1">
-              {[...selectedIds]
-                .filter((id) => id !== 'default')
-                .map((id) => {
+              {(() => {
+                const rows: ReactNode[] = [];
+                for (const id of selectedIds) {
+                  if (id === 'default') continue;
                   const p = projects.find((x) => x.id === id);
-                  return p ? (
+                  if (!p) continue;
+                  rows.push(
                     <li
                       key={id}
                       style={{
@@ -631,9 +635,11 @@ export default function ProjectsDashboard({
                       }}
                     >
                       {p.name}
-                    </li>
-                  ) : null;
-                })}
+                    </li>,
+                  );
+                }
+                return rows;
+              })()}
             </ul>
             <div className="p-projects-modal-actions">
               <button
@@ -658,7 +664,7 @@ export default function ProjectsDashboard({
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </>
   );

@@ -6,6 +6,8 @@ import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSect
 
 const WEEKS = 18;
 
+const LEGEND_LEVELS = [0, 1, 2, 3, 4] as const;
+
 /** Altura del bloque de 7 filas (celdas); el ancho lo llenan las columnas `flex-1`. */
 const HEATMAP_BODY_H = 'h-28';
 
@@ -105,7 +107,6 @@ export function DashboardWeeklyActivity({
 
   const monthLabelAtCol = (col: number) => monthLabels.find((m) => m.col === col)?.label ?? '';
 
-  const legendLevels = [0, 1, 2, 3, 4] as const;
   const weekdayLabel = (row: number) => {
     if (row === 0) return t('dashboard.weekday_mon_short');
     if (row === 2) return t('dashboard.weekday_wed_short');
@@ -126,7 +127,7 @@ export function DashboardWeeklyActivity({
             style={{ background: 'var(--dome-border, var(--border))' }}
           />
         ) : (
-          <div className="w-full min-w-0 pb-1" role="img" aria-label={t('dashboard.heatmap_aria')}>
+          <figure className="w-full min-w-0 pb-1" aria-label={t('dashboard.heatmap_aria')}>
             <div className="w-full min-w-0">
               <div className="mb-1 flex w-full min-w-0 gap-[3px]">
                 <div className="w-7 shrink-0" aria-hidden />
@@ -207,7 +208,7 @@ export function DashboardWeeklyActivity({
               >
                 <span>{t('dashboard.heatmap_less')}</span>
                 <div className="flex gap-1" aria-hidden>
-                  {legendLevels.map((lv) => (
+                  {LEGEND_LEVELS.map((lv) => (
                     <span
                       key={lv}
                       className="inline-block h-[11px] w-[11px] rounded-[3px]"
@@ -218,7 +219,7 @@ export function DashboardWeeklyActivity({
                 <span>{t('dashboard.heatmap_more')}</span>
               </div>
             </div>
-          </div>
+          </figure>
         )}
       </DomeCard>
     </section>

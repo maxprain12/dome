@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, type CSSProperties } from 'react';
 import { PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import './slide-thumbnail-strip.css';
 
 // Must match PptViewer's internal resolution
 const SLIDE_W = 960;
@@ -51,46 +52,14 @@ function ThumbnailCell({
   // Image-based thumbnail (from Python extraction)
   if (imageUrl) {
     return (
-      <div
-        style={{
-          width: THUMB_W,
-          height: THUMB_H,
-          overflow: 'hidden',
-          position: 'relative',
-          background: 'var(--bg)',
-          flexShrink: 0,
-        }}
-      >
+      <div className="ppt-thumb-cell">
         <img
           src={imageUrl}
           alt={`Slide ${index + 1}`}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'contain',
-            display: 'block',
-          }}
+          className="ppt-thumb-img"
         />
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 3,
-            right: 4,
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(3px)',
-            borderRadius: 3,
-            padding: '1px 5px',
-            zIndex: 2,
-          }}
-        >
-          <span
-            style={{
-              color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.6)',
-              fontSize: 12,
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
+        <div className="ppt-thumb-badge">
+          <span className={`ppt-thumb-badge-num${isActive ? ' is-active' : ''}`}>
             {index + 1}
           </span>
         </div>
@@ -100,52 +69,16 @@ function ThumbnailCell({
 
   if (element) {
     return (
-      <div
-        style={{
-          width: THUMB_W,
-          height: THUMB_H,
-          overflow: 'hidden',
-          position: 'relative',
-          background: 'var(--bg)',
-          flexShrink: 0,
-        }}
-      >
+      <div className="ppt-thumb-cell">
         {/* Mount point: scaled clone of the real slide */}
         <div
           ref={mountRef}
-          style={{
-            width: SLIDE_W,
-            height: SLIDE_H,
-            transform: `scale(${thumbScale})`,
-            transformOrigin: 'top left',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            pointerEvents: 'none',
-            userSelect: 'none',
-          }}
+          className="ppt-thumb-mount"
+          style={{ transform: `scale(${thumbScale})` } as CSSProperties}
         />
         {/* Slide number badge */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 3,
-            right: 4,
-            background: 'rgba(0,0,0,0.55)',
-            backdropFilter: 'blur(3px)',
-            borderRadius: 3,
-            padding: '1px 5px',
-            zIndex: 2,
-          }}
-        >
-          <span
-            style={{
-              color: isActive ? 'var(--accent)' : 'rgba(255,255,255,0.6)',
-              fontSize: 12,
-              fontWeight: 700,
-              fontVariantNumeric: 'tabular-nums',
-            }}
-          >
+        <div className="ppt-thumb-badge">
+          <span className={`ppt-thumb-badge-num${isActive ? ' is-active' : ''}`}>
             {index + 1}
           </span>
         </div>
@@ -220,59 +153,36 @@ function SlideThumbnailStripComponent({
 
   const handleSelect = useCallback(
     (index: number) => {
-      if (index >= 0 && index < slideCount) onSelect(index);
+      if (index >= 0 && index < slideCount) {
+        onSelect(index);
+        const el = scrollRef.current;
+        if (el) {
+          const item = el.querySelector(`[data-slide-index="${index}"]`);
+          if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
     },
-    [onSelect, slideCount]
+    [onSelect, slideCount],
   );
 
-  // Keep active item visible in the strip
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || slideCount === 0) return;
-    const item = el.querySelector(`[data-slide-index="${activeIndex}"]`);
-    if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [activeIndex, slideCount]);
+  const scrollActiveThumbRef = useCallback((node: HTMLButtonElement | null) => {
+    if (node) {
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeIndex]);
 
   if (slideCount === 0) return null;
 
   return (
     <div
-      style={{
-        width: collapsed ? 44 : 218,
-        minWidth: collapsed ? 44 : 218,
-        background: 'var(--bg)',
-        borderRight: '1px solid var(--border)',
-        display: 'flex',
-        flexDirection: 'column',
-        flexShrink: 0,
-        position: 'relative',
-        overflow: 'hidden',
-        transition: 'width 180ms ease, min-width 180ms ease',
-      }}
+      className={`ppt-thumb-strip${collapsed ? ' is-collapsed' : ' is-expanded'}`}
     >
       {/* Collapse toggle button */}
       {onToggleCollapsed && (
         <button
           type="button"
           onClick={onToggleCollapsed}
-          style={{
-            position: 'absolute',
-            right: -26,
-            top: '50%',
-            transform: 'translateY(-50%)',
-            zIndex: 10,
-            width: 26,
-            height: 44,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg)',
-            color: 'rgba(255,255,255,0.45)',
-            border: '1px solid var(--border)',
-            borderLeft: 'none',
-            borderRadius: '0 6px 6px 0',
-            cursor: 'pointer',
-          }}
+          className="ppt-thumb-collapse-btn"
           aria-label={collapsed ? 'Expandir miniaturas' : 'Colapsar miniaturas'}
         >
           {collapsed ? <PanelLeftOpen size={13} /> : <PanelLeftClose size={13} />}
@@ -282,14 +192,7 @@ function SlideThumbnailStripComponent({
       {/* Scrollable list */}
       <div
         ref={scrollRef}
-        className="ppt-thumb-scroll"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: collapsed ? '8px 4px' : '10px 16px',
-          scrollbarWidth: 'none',
-        }}
+        className={`ppt-thumb-scroll${collapsed ? ' is-collapsed' : ' is-expanded'}`}
       >
         {Array.from({ length: slideCount }, (_, i) => {
           const isActive = i === activeIndex;
@@ -298,19 +201,9 @@ function SlideThumbnailStripComponent({
               key={i}
               type="button"
               data-slide-index={i}
+              ref={isActive ? scrollActiveThumbRef : undefined}
               onClick={() => handleSelect(i)}
-              className="focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
-              style={{
-                width: '100%',
-                padding: 0,
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: collapsed ? 'center' : 'flex-start',
-                marginBottom: 8,
-              }}
+              className={`ppt-thumb-select-btn focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1${collapsed ? ' is-collapsed' : ' is-expanded'}`}
               aria-label={`Slide ${i + 1}`}
               aria-pressed={isActive}
             >

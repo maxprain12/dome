@@ -3,12 +3,15 @@ import { CheckCircle2, HardDrive, KeyRound, Lock, Settings2, Sparkles, Zap } fro
 import { PROVIDERS, type AIProviderType } from '@/lib/ai/models';
 import { AI_PROVIDER_OPTIONS, DOME_PROVIDER_ENABLED } from '@/lib/ai/provider-options';
 import { isVisibleModelsConfigurable } from '@/lib/ai/visible-models';
+import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
 import ProviderBrandIcon from '@/components/settings/ai/ProviderBrandIcon';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import { cn } from '@/lib/utils';
 // Self-contained: own the provider-card styles so the grid renders correctly in any
 // consumer (settings, onboarding, …), not just where AISettingsPanel imports the CSS.
 import '@/styles/ai-settings.css';
+
+const EMPTY_CONFIGURED_PROVIDERS: Record<string, boolean> = {};
 
 export interface AIProviderSelectionProps {
   provider: AIProviderType;
@@ -60,7 +63,7 @@ export default function AIProviderSelection({
   onProviderChange,
   showSectionLabel = true,
   highlightSelection = true,
-  configuredProviders = {},
+  configuredProviders = EMPTY_CONFIGURED_PROVIDERS,
   onConfigureModels,
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
@@ -217,20 +220,5 @@ export default function AIProviderSelection({
         })()}
       </div>
     </div>
-  );
-}
-
-export function isCloudAIProvider(provider: AIProviderType): boolean {
-  return (
-    provider === 'openai' ||
-    provider === 'anthropic' ||
-    provider === 'google' ||
-    provider === 'minimax' ||
-    provider === 'openrouter' ||
-    provider === 'deepseek' ||
-    provider === 'moonshot' ||
-    provider === 'qwen' ||
-    provider === 'opencode' ||
-    provider === 'opencode-go'
   );
 }

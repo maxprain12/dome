@@ -2,7 +2,7 @@
  * HITLReviewPanel — agent interrupt, inline in chat (prototype .hitl).
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import ManyHitlInlineCard from '@/components/many/ManyHitlInlineCard';
 import type { RunPendingApproval } from '@/lib/chat/useAgentRunStream';
@@ -38,17 +38,18 @@ export default function HITLReviewPanel({
   const { t } = useTranslation();
   const { actionRequests, reviewConfigs, submitResume } = pendingApproval;
 
-  const [decisions, setDecisions] = useState<ActionDecision[]>(() =>
+  const decisionsRef = useRef<ActionDecision[]>(
     actionRequests.map(() => ({ type: 'approve' as const })),
   );
+  if (decisionsRef.current.length !== actionRequests.length) {
+    decisionsRef.current = actionRequests.map(() => ({ type: 'approve' as const }));
+  }
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
 
   const setDecision = useCallback((idx: number, d: ActionDecision) => {
-    setDecisions((prev) => {
-      const next = prev.slice();
-      next[idx] = d;
-      return next;
-    });
+    const next = decisionsRef.current.slice();
+    next[idx] = d;
+    decisionsRef.current = next;
   }, []);
 
   const flushDecisions = useCallback(
@@ -69,14 +70,14 @@ export default function HITLReviewPanel({
     (idx: number, approved: boolean) => {
       const req = actionRequests[idx];
       if (!req) return;
-      const next = decisions.slice();
+      const next = decisionsRef.current.slice();
       next[idx] = approved
         ? { type: 'approve', args: req.args }
         : { type: 'reject', message: t('chat.rejected_by_user') };
-      setDecisions(next);
+      decisionsRef.current = next;
       flushDecisions(next);
     },
-    [actionRequests, decisions, flushDecisions, t],
+    [actionRequests, flushDecisions, t],
   );
 
   const wrapperCls = inline ? 'flex flex-col gap-3' : 'many-hitl-panel px-4 py-3 border-t border-[var(--border-soft)] bg-[var(--bg)]';
@@ -145,7 +146,7 @@ export default function HITLReviewPanel({
               className="btn btn-primary"
               onClick={() => {
                 flushDecisions(
-                  decisions.map((d, i) =>
+                  decisionsRef.current.map((d, i) =>
                     d.type === 'approve'
                       ? { type: 'approve', args: d.args ?? actionRequests[i]?.args }
                       : d,

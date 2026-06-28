@@ -311,11 +311,7 @@ function KanbanCard({ issue, onOpen, onToggleState }: KanbanCardProps) {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      onClick={onOpen}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
-      role="button"
-      tabIndex={0}
-      className="rounded-md p-2.5 cursor-grab active:cursor-grabbing transition-opacity"
+      className="rounded-md p-2.5 transition-opacity"
       style={{
         background: 'var(--dome-bg)',
         border: '1px solid var(--dome-border)',
@@ -335,9 +331,14 @@ function KanbanCard({ issue, onOpen, onToggleState }: KanbanCardProps) {
         >
           {issue.state === 'open' ? <CircleDot size={15} /> : <CheckCircle2 size={15} />}
         </button>
-        <span className="text-sm leading-snug flex-1" style={{ color: 'var(--dome-text)' }}>
+        <button
+          type="button"
+          onClick={onOpen}
+          className="text-sm leading-snug flex-1 text-left border-0 bg-transparent p-0 cursor-grab active:cursor-grabbing"
+          style={{ color: 'var(--dome-text)' }}
+        >
           <span style={{ color: 'var(--dome-text-muted)' }}>#{issue.number}</span> {issue.title}
-        </span>
+        </button>
         {issue.html_url && (
           <a
             href={issue.html_url}

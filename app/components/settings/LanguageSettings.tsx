@@ -6,23 +6,22 @@ import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import LanguagePicker from '@/components/settings/LanguagePicker';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 
+function selectLanguage(lang: SupportedLanguage) {
+  changeLanguage(lang);
+}
+
 export default function LanguageSettings() {
   const { t, i18n } = useTranslation();
-
-  const handleSelect = (lang: SupportedLanguage) => {
-    changeLanguage(lang);
-  };
 
   const currentLang =
     SUPPORTED_LANGUAGES.find((l) => i18n.language === l || i18n.language.startsWith(`${l}-`)) ?? 'es';
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title={t('settings.language.title')}
-        subtitle={t('settings.language.subtitle')}
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{t('settings.language.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.language.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       <div>
         <DomeSectionLabel className="settings-section-label">
@@ -34,7 +33,7 @@ export default function LanguageSettings() {
         <LanguagePicker
           aria-label={t('settings.language.select_label')}
           value={currentLang}
-          onChange={handleSelect}
+          onChange={selectLanguage}
         />
       </div>
     </SettingsPanel>

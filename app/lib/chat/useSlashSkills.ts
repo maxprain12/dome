@@ -158,9 +158,14 @@ export function useSlashSkills({
     [input, inputRef, setInput],
   );
 
+  const prevSlashActiveRef = useRef(slashActive);
+  if (slashActive !== prevSlashActiveRef.current) {
+    prevSlashActiveRef.current = slashActive;
+    if (!slashActive) setSlashRect(null);
+  }
+
   useEffect(() => {
     if (!slashActive || !containerRef.current) {
-      setSlashRect(null);
       return;
     }
     const rect = containerRef.current.getBoundingClientRect();

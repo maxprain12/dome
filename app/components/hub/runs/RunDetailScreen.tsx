@@ -1,9 +1,10 @@
 /** Full-page run detail (03/T02 — extracted from RunsWorkspaceView.tsx). */
 
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
-import { formatRunDate, formatDuration, RunProgressBar } from '@/components/automations/RunLogView';
+import { formatRunDate, formatDuration } from '@/lib/automations/run-log-format';
+import { RunProgressBar } from '@/lib/automations/run-log-ui';
 import {
   estimateRunCostUsd,
   formatUsdEstimate,
@@ -53,12 +54,13 @@ export default function RunDetailScreen({ run, onBack, onStop, onDelete, stoppin
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [transcriptFilter, setTranscriptFilter] = useState<string>('all');
-
-  useEffect(() => {
+  const prevRunIdRef = useRef(run.id);
+  if (run.id !== prevRunIdRef.current) {
+    prevRunIdRef.current = run.id;
     setSelectedStepId(null);
     setMobileDetailOpen(false);
     setTranscriptFilter('all');
-  }, [run.id]);
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -222,10 +224,14 @@ export default function RunDetailScreen({ run, onBack, onStop, onDelete, stoppin
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
       <DomeSubpageHeader
-        title={<span className="break-words">{run.title || run.id}</span>}
         onBack={onBack}
         backLabel={t('common.back')}
-        trailing={
+        className="px-4 py-3 border-[var(--dome-border)] bg-[var(--dome-bg)] shrink-0"
+      >
+        <DomeSubpageHeader.Title>
+          <span className="break-words">{run.title || run.id}</span>
+        </DomeSubpageHeader.Title>
+        <DomeSubpageHeader.Trailing>
           <div className="flex items-center gap-2">
             {isRunning && onStop ? (
               <DomeButton
@@ -259,10 +265,8 @@ export default function RunDetailScreen({ run, onBack, onStop, onDelete, stoppin
             ) : null}
             <DomeStatusBadge status={run.status} />
           </div>
-        }
-        className="px-4 py-3 border-[var(--dome-border)] bg-[var(--dome-bg)] shrink-0"
-        subtitle={null}
-      />
+        </DomeSubpageHeader.Trailing>
+      </DomeSubpageHeader>
 
       {metadataStrip}
 
@@ -422,12 +426,11 @@ export default function RunDetailScreen({ run, onBack, onStop, onDelete, stoppin
         </div>
       </div>
 
-      <DomeSubpageFooter
-        className="px-4 py-2 bg-[var(--dome-surface)] border-[var(--dome-border)] shrink-0"
-        leading={
+      <DomeSubpageFooter className="px-4 py-2 bg-[var(--dome-surface)] border-[var(--dome-border)] shrink-0">
+        <DomeSubpageFooter.Leading>
           <span className="text-[10px] font-mono text-[var(--dome-text-muted)] break-all">ID: {run.id}</span>
-        }
-      />
+        </DomeSubpageFooter.Leading>
+      </DomeSubpageFooter>
     </div>
   );
 }

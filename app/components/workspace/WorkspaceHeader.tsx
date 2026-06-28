@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
 import ReactDOM from 'react-dom';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import {
@@ -27,6 +27,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { type Resource } from '@/types';
+import './workspace-header.css';
 
 interface EditableTitle {
   value: string;
@@ -94,6 +95,10 @@ function HeaderIconBtn({
   onClick: () => void;
   forwardRef?: React.Ref<HTMLButtonElement>;
 }) {
+  const customColorStyle = active && activeColor
+    ? ({ '--active-color': activeColor } as CSSProperties)
+    : undefined;
+
   return (
     <button
       ref={forwardRef}
@@ -102,28 +107,8 @@ function HeaderIconBtn({
       title={label}
       aria-label={label}
       aria-pressed={active}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 32,
-        height: 32,
-        borderRadius: 8,
-        border: 'none',
-        cursor: 'pointer',
-        transition: 'all 120ms ease-in-out',
-        background: active ? (activeColor ? `${activeColor}18` : 'var(--dome-accent-bg)') : 'transparent',
-        color: active ? (activeColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)',
-        flexShrink: 0,
-      }}
-      onMouseEnter={(e) => {
-        if (!active) (e.currentTarget as HTMLElement).style.background = 'var(--dome-bg-hover)';
-        (e.currentTarget as HTMLElement).style.color = active ? (activeColor ?? 'var(--dome-accent)') : 'var(--dome-text)';
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.background = active ? (activeColor ? `${activeColor}18` : 'var(--dome-accent-bg)') : 'transparent';
-        (e.currentTarget as HTMLElement).style.color = active ? (activeColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
-      }}
+      className={`workspace-header-icon-btn${active ? ' is-active' : ''}${active && activeColor ? ' has-custom-color' : ''}`}
+      style={customColorStyle}
     >
       {icon}
     </button>
@@ -132,7 +117,7 @@ function HeaderIconBtn({
 
 // ── Divider ────────────────────────────────────────────────────────────────
 function HDivider() {
-  return <div style={{ width: 1, height: 18, background: 'var(--dome-border)', margin: '0 2px', flexShrink: 0 }} />;
+  return <div className="workspace-header-divider" />;
 }
 
 export default function WorkspaceHeader({
@@ -269,37 +254,19 @@ export default function WorkspaceHeader({
 
   return (
     <header
-      className="drag-region shrink-0"
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 0,
-        background: 'var(--dome-surface)',
-        borderBottom: '1px solid var(--dome-border)',
-        minHeight: 52,
-        paddingTop: `calc(10px + var(--safe-area-inset-top))`,
-        paddingBottom: 10,
-        paddingLeft: 16,
-        /** Inline pisaba `.win-titlebar-padding` desde globals; Win/Linux necesitan hueco derecho para controles nativos/decó. */
-        paddingRight: needsChromeRightInset ? 140 : 12,
-      }}
+      className={`workspace-header drag-region shrink-0${needsChromeRightInset ? ' has-chrome-inset' : ''}`}
     >
       {/* ── Left: type badge + title + saving ─────────────────────────── */}
       <div className="no-drag flex items-center gap-2.5 min-w-0 flex-1 mr-3">
         {/* Type badge */}
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 28,
-            height: 28,
-            borderRadius: 7,
-            background: typeMeta.bg,
-            color: typeMeta.color,
-            flexShrink: 0,
-            border: `1px solid ${typeMeta.color}26`,
-          }}
+          className="workspace-type-badge"
+          style={
+            {
+              '--type-bg': typeMeta.bg,
+              '--type-color': typeMeta.color,
+            } as CSSProperties
+          }
           title={typeMeta.label}
         >
           {typeMeta.icon}
@@ -315,46 +282,18 @@ export default function WorkspaceHeader({
               onBlur={editableTitle.onBlur}
               placeholder={editableTitle.placeholder ?? 'Sin título'}
               aria-label="Título del recurso"
-              className="focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-              style={{
-                flex: 1,
-                minWidth: 0,
-                background: 'transparent',
-                border: 'none',
-                fontSize: 13,
-                fontWeight: 500,
-                color: 'var(--dome-text)',
-                fontFamily: 'var(--font-sans)',
-                padding: '2px 4px',
-                borderRadius: 4,
-                letterSpacing: '-0.01em',
-              }}
-              onFocus={(e) => {
-                (e.currentTarget).style.background = 'var(--dome-bg-hover)';
-              }}
-              onBlurCapture={(e) => {
-                (e.currentTarget).style.background = 'transparent';
-              }}
+              className="workspace-title-input focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             />
           ) : (
             <div className="flex items-baseline gap-2 min-w-0">
               <h1
                 title={resource.title}
-                style={{
-                  fontSize: 13,
-                  fontWeight: 500,
-                  color: 'var(--dome-text)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: 400,
-                  letterSpacing: '-0.01em',
-                }}
+                className="workspace-title-heading"
               >
                 {resource.title}
               </h1>
               {subtitle && (
-                <span style={{ fontSize: 12, color: 'var(--dome-text-muted)', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                <span className="workspace-title-subtitle">
                   {subtitle}
                 </span>
               )}
@@ -370,22 +309,7 @@ export default function WorkspaceHeader({
           <button
             type="button"
             onClick={onOpenWorkspacePanel}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              height: 26,
-              padding: '0 8px',
-              borderRadius: 6,
-              border: '1px solid var(--dome-border)',
-              background: 'transparent',
-              fontSize: 12,
-              fontWeight: 500,
-              color: notebookWorkspacePath || notebookVenvPath ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-              cursor: 'pointer',
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
-            }}
+            className={`workspace-notebook-btn${notebookWorkspacePath || notebookVenvPath ? ' is-configured' : ' is-unconfigured'}`}
             title="Configurar carpeta de trabajo y entorno Python"
           >
             <FolderOpen size={12} />
@@ -482,19 +406,8 @@ export default function WorkspaceHeader({
       {menuOpen && ReactDOM.createPortal(
         <div
           ref={menuRef}
-          style={{
-            position: 'fixed',
-            top: menuPos.top,
-            right: menuPos.right,
-            zIndex: 'var(--z-max)' as string,
-            minWidth: 196,
-            background: 'var(--dome-surface)',
-            border: '1px solid var(--dome-border)',
-            borderRadius: 10,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
-            padding: 6,
-            animation: 'dropdown-appear 0.12s ease-out',
-          }}
+          className="workspace-header-menu"
+          style={{ top: menuPos.top, right: menuPos.right }}
           role="menu"
         >
           <MenuItem icon={<Info size={14} />} label={t('viewer.resource_info')} onClick={() => { setMenuOpen(false); onShowMetadata(); }} />
@@ -535,37 +448,19 @@ export default function WorkspaceHeader({
 }
 
 function MenuItem({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 9,
-        width: '100%',
-        padding: '8px 10px',
-        border: 'none',
-        borderRadius: 6,
-        background: hovered ? 'var(--dome-bg-hover)' : 'transparent',
-        cursor: 'pointer',
-        textAlign: 'left',
-        fontSize: 12.5,
-        fontWeight: 500,
-        color: 'var(--dome-text)',
-        transition: 'background 80ms',
-      }}
+      className="workspace-header-menu-item"
     >
-      <span style={{ color: 'var(--dome-text-muted)', display: 'flex' }}>{icon}</span>
+      <span className="workspace-header-menu-item-icon">{icon}</span>
       {label}
     </button>
   );
 }
 
 function MenuDivider() {
-  return <div style={{ height: 1, background: 'var(--dome-border)', margin: '4px 0' }} />;
+  return <div className="workspace-header-menu-divider" />;
 }

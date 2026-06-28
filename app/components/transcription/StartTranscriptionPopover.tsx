@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mic, Monitor, X, RefreshCw } from 'lucide-react';
 import { useTranscriptionStore, type TranscriptionSource } from '@/lib/transcription/useTranscriptionStore';
@@ -34,7 +34,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDialogElement | null>(null);
   const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
 
   // Position relative to anchor (right-aligned, just below the topbar)
@@ -71,7 +71,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
 
   const wantsSystem = sources.includes('system');
 
-  const loadSources = useMemo(() => async () => {
+  const loadSources = useCallback(async () => {
     setLoadingSources(true);
     setError(null);
     try {
@@ -88,15 +88,13 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
     }
   }, [t]);
 
-  useEffect(() => {
-    if (wantsSystem && captureSources.length === 0 && !loadingSources) void loadSources();
-  }, [wantsSystem, captureSources.length, loadingSources, loadSources]);
-
   const toggleSource = (s: TranscriptionSource) => {
+    const adding = !sources.includes(s);
     setSources((prev) => {
       if (prev.includes(s)) return prev.filter((x) => x !== s);
       return [...prev, s];
     });
+    if (adding && s === 'system') void loadSources();
   };
 
   const canStart = sources.length > 0 && (!wantsSystem || !!systemSourceId) && !submitting;
@@ -123,23 +121,16 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
   if (!position) return null;
 
   return (
-    <div
+    <dialog
       ref={containerRef}
-      role="dialog"
+      open
       aria-label={t('transcriptions.start_title', 'New transcription')}
+      className="transcription-start-popover m-0 max-w-none max-h-none fixed z-[9999] w-[360px] animate-dropdown rounded-xl border border-[var(--dome-border)] bg-[var(--dome-bg)] p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
       style={{
-        position: 'fixed',
         top: position.top,
         right: position.right,
-        width: 360,
-        zIndex: 9999,
-        background: 'var(--dome-bg)',
-        border: '1px solid var(--dome-border)',
-        borderRadius: 12,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-        padding: 14,
-        animation: 'dropdown-appear 0.15s ease-out',
       }}
+      onCancel={(e) => { e.preventDefault(); onClose(); }}
     >
       <div className="flex items-center justify-between mb-3">
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dome-text)' }}>
@@ -263,22 +254,11 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
         type="button"
         onClick={handleStart}
         disabled={!canStart}
-        style={{
-          width: '100%',
-          padding: '8px 12px',
-          fontSize: 13,
-          fontWeight: 600,
-          color: 'white',
-          background: canStart ? 'var(--dome-accent)' : 'var(--dome-bg-tertiary)',
-          border: 'none',
-          borderRadius: 8,
-          cursor: canStart ? 'pointer' : 'not-allowed',
-          transition: 'filter 150ms ease',
-        }}
+        className="transcription-start-btn w-full rounded-lg border-0 px-3 py-2 text-[13px] font-semibold text-white transition-[filter] duration-150 ease-in-out enabled:cursor-pointer enabled:bg-[var(--dome-accent)] disabled:cursor-not-allowed disabled:bg-[var(--dome-bg-tertiary)]"
       >
         {submitting ? t('transcriptions.starting', 'Starting…') : t('transcriptions.start_button', 'Start')}
       </button>
-    </div>
+    </dialog>
   );
 }
 

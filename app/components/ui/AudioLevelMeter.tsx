@@ -77,16 +77,19 @@ export const AudioLevelMeter = memo(function AudioLevelMeter({
         const wobble = active || level > 0.01 ? getWobble(i, now, level) : 0;
         const barH = Math.max(2, base + wobble);
         const isActive = active || level > 0.01;
+        const scaleY = barH / height;
         return (
           <div
             key={i}
             style={{
               width: barWidth,
-              height: barH,
+              height,
               borderRadius: 9999,
               background: isActive ? color : idleColor,
               opacity: isActive ? 1 : 0.3,
-              transition: 'height 80ms ease, opacity 200ms ease',
+              transform: `scaleY(${scaleY})`,
+              transformOrigin: 'bottom',
+              transition: 'transform 80ms ease, opacity 200ms ease',
               flexShrink: 0,
             }}
           />

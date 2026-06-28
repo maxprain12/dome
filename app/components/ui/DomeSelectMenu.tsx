@@ -51,7 +51,7 @@ export function DomeSelectMenu<T extends string = string>({
   const [activeIdx, setActiveIdx] = useState(0);
   const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLUListElement>(null);
   const listId = useId();
 
   const selected = options.find((o) => o.value === value) ?? null;
@@ -160,12 +160,12 @@ export function DomeSelectMenu<T extends string = string>({
 
       {open && rect
         ? createPortal(
-            <div
+            <ul
               ref={menuRef}
               role="listbox"
               id={listId}
               tabIndex={-1}
-              className="fixed z-[10001] rounded-lg py-1 shadow-lg overflow-y-auto outline-none"
+              className="fixed z-[10001] list-none m-0 rounded-lg p-0 py-1 shadow-lg overflow-y-auto outline-none"
               style={{
                 left: rect.left,
                 top: rect.top,
@@ -178,16 +178,16 @@ export function DomeSelectMenu<T extends string = string>({
               onKeyDown={onKeyDown}
             >
               {options.length === 0 ? (
-                <div className="px-3 py-2 text-sm" style={{ color: 'var(--tertiary-text)' }}>
+                <li className="list-none px-3 py-2 text-sm" style={{ color: 'var(--tertiary-text)' }}>
                   {placeholder}
-                </div>
+                </li>
               ) : (
                 options.map((opt, idx) => {
                   const isSelected = opt.value === value;
                   const isActive = idx === activeIdx;
                   return (
+                    <li key={opt.value} className="list-none">
                     <button
-                      key={opt.value}
                       type="button"
                       role="option"
                       aria-selected={isSelected}
@@ -211,10 +211,11 @@ export function DomeSelectMenu<T extends string = string>({
                       </span>
                       {isSelected ? <Check size={14} style={{ color: 'var(--accent)' }} /> : null}
                     </button>
+                    </li>
                   );
                 })
               )}
-            </div>,
+            </ul>,
             document.body,
           )
         : null}

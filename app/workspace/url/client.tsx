@@ -14,6 +14,7 @@ import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { Resource } from '@/types';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface URLWorkspaceClientProps {
   resourceId: string;
@@ -33,6 +34,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
   const setActiveStudioOutput = useAppStore((s) => s.setActiveStudioOutput);
 
   const navigate = useNavigate();
+  const hasScheduledIndexRef = useRef(false);
 
   const runUrlProcess = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.web?.process) return;
@@ -56,40 +58,37 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     }
   }, [resourceId]);
 
-  useEffect(() => {
-    async function loadResource() {
-      if (typeof window === 'undefined' || !window.electron?.db?.resources) {
-        setError('Electron API not available');
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        setError(null);
-
-        const result = await window.electron.db.resources.getById(resourceId);
-
-        if (result?.success && result.data) {
-          // Parse metadata if it's a string
-          const resourceData = result.data;
-          if (resourceData.metadata && typeof resourceData.metadata === 'string') {
-            resourceData.metadata = JSON.parse(resourceData.metadata);
-          }
-          setResource(resourceData as Resource);
-        } else {
-          setError(result?.error || 'Resource not found');
-        }
-      } catch (err) {
-        console.error('Error loading resource:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
-      }
+  const loadResource = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron?.db?.resources) {
+      setError('Electron API not available');
+      setIsLoading(false);
+      return;
     }
 
-    loadResource();
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const result = await window.electron.db.resources.getById(resourceId);
+
+      if (result?.success && result.data) {
+        const resourceData = result.data;
+        if (resourceData.metadata && typeof resourceData.metadata === 'string') {
+          resourceData.metadata = JSON.parse(resourceData.metadata);
+        }
+        setResource(resourceData as Resource);
+      } else {
+        setError(result?.error || 'Resource not found');
+      }
+    } catch (err) {
+      console.error('Error loading resource:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   }, [resourceId]);
+
+  const mountRef = useMountAction(loadResource);
 
   // Re-fetch resource when thumbnail is ready (web:process avoids broadcasting thumbnail_data to prevent OOM)
   useEffect(() => {
@@ -148,19 +147,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     };
   }, [resourceId]);
 
-  // Set selected sources to current resource when opening (for Studio generation)
-  useEffect(() => {
-    if (resourceId) {
-      useAppStore.getState().setSelectedSourceIds([resourceId]);
-    }
-  }, [resourceId]);
-
-  // Schedule indexing when article has scraped_content (embeddings generated later, like notes)
-  const hasScheduledIndex = useRef(false);
-  useEffect(() => {
-    if (!resource || !window.electron?.resource?.scheduleIndex) return;
-    if (hasScheduledIndex.current) return;
-
+  if (resource && !hasScheduledIndexRef.current && typeof window !== 'undefined' && window.electron?.resource?.scheduleIndex) {
     const metadata = resource.metadata as Record<string, unknown> | undefined;
     const processingStatus = metadata?.processing_status;
     const scrapedContent = metadata?.scraped_content;
@@ -172,12 +159,12 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
       scrapedContent.length >= 50 &&
       !isYouTube
     ) {
-      hasScheduledIndex.current = true;
-      window.electron.resource.scheduleIndex(resource.id).catch((err: unknown) =>
-        console.warn('[URLWorkspace] Failed to schedule indexing:', err)
+      hasScheduledIndexRef.current = true;
+      void window.electron.resource.scheduleIndex(resource.id).catch((err: unknown) =>
+        console.warn('[URLWorkspace] Failed to schedule indexing:', err),
       );
     }
-  }, [resource]);
+  }
 
   const handleSaveMetadata = useCallback(async (updates: Partial<Resource>): Promise<boolean> => {
     if (!resource || typeof window === 'undefined' || !window.electron) return false;
@@ -202,23 +189,10 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     }
   }, [resource]);
 
-  if (isLoading) {
+  if (error || (!isLoading && !resource)) {
     return (
       <div
-        className="flex items-center justify-center min-h-full"
-        style={{ background: 'var(--dome-bg)' }}
-      >
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('workspace.loading_resources')}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !resource) {
-    return (
-      <div
+        ref={mountRef}
         className="flex flex-col items-center justify-center min-h-full p-8"
         style={{ background: 'var(--dome-bg)' }}
       >
@@ -241,13 +215,23 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     );
   }
 
-  const meta = resource.metadata as Record<string, unknown> | undefined;
-  const pageUrl =
-    (typeof meta?.url === 'string' && meta.url.length > 0 ? meta.url : null) ||
-    (typeof resource.content === 'string' && resource.content.length > 0 ? resource.content : null);
+  const meta = resource?.metadata as Record<string, unknown> | undefined;
+  const pageUrl = resource
+    ? (typeof meta?.url === 'string' && meta.url.length > 0 ? meta.url : null) ||
+      (typeof resource.content === 'string' && resource.content.length > 0 ? resource.content : null)
+    : null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+      {isLoading || !resource ? (
+        <div className="flex items-center justify-center min-h-full flex-1">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
+            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('workspace.loading_resources')}</p>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Header — solo título + índice + paneles + más (acciones web en el visor) */}
       <WorkspaceHeader
         resource={resource}
@@ -261,6 +245,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         {/* Sources Panel */}
         {sourcesPanelOpen && resource && (
           <SourcesPanel
+            key={resource.project_id}
             resourceId={resourceId}
             projectId={resource.project_id}
           />
@@ -269,6 +254,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         {/* Viewer - min-h-0 allows flex child to shrink and fill available space */}
         <div className="flex-1 min-h-0 overflow-hidden relative flex flex-col">
           <URLViewer
+            key={resourceId}
             resource={resource}
             onRunUrlProcess={runUrlProcess}
             pageUrl={pageUrl}
@@ -286,6 +272,7 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
 
         {/* Side Panel */}
         <SidePanel
+          key={resourceId}
           resourceId={resourceId}
           resource={resource}
           isOpen={sidePanelOpen}
@@ -307,6 +294,8 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
         onClose={() => setShowMetadata(false)}
         onSave={handleSaveMetadata}
       />
+        </>
+      )}
     </div>
   );
 }

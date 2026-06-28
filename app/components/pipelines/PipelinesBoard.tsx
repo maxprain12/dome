@@ -26,6 +26,15 @@ import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard'
 
 type ManageView = 'agentsWorkflows' | 'automationsRuns';
 
+function pipelineToolbarBtnStyle(active: boolean) {
+  return {
+    background: active ? 'var(--bg-hover)' : 'transparent',
+    color: active ? 'var(--accent)' : 'var(--secondary-text)',
+    border: '1px solid var(--border)',
+    cursor: 'pointer',
+  };
+}
+
 export default function PipelinesBoard() {
   const { t } = useTranslation();
   const {
@@ -176,13 +185,6 @@ export default function PipelinesBoard() {
     );
   }
 
-  const toolbarBtn = (active: boolean) => ({
-    background: active ? 'var(--bg-hover)' : 'transparent',
-    color: active ? 'var(--accent)' : 'var(--secondary-text)',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
-  });
-
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
       {/* Header toolbar */}
@@ -191,7 +193,7 @@ export default function PipelinesBoard() {
           type="button"
           onClick={() => setShowDashboard(true)}
           className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md"
-          style={toolbarBtn(showDashboard)}
+          style={pipelineToolbarBtnStyle(showDashboard)}
           title={t('pipelines.dashboard_title')}
         >
           <LayoutDashboard size={14} />
@@ -269,7 +271,7 @@ export default function PipelinesBoard() {
             type="button"
             onClick={() => setCreatingPipeline(true)}
             className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md"
-            style={toolbarBtn(false)}
+            style={pipelineToolbarBtnStyle(false)}
             title={t('pipelines.new_pipeline')}
           >
             <Plus size={14} />
@@ -298,7 +300,7 @@ export default function PipelinesBoard() {
             type="button"
             onClick={() => setSourcesOpen((v) => !v)}
             className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md"
-            style={toolbarBtn(sourcesOpen)}
+            style={pipelineToolbarBtnStyle(sourcesOpen)}
             title={t('pipelines.data_sources')}
           >
             <Database size={14} />

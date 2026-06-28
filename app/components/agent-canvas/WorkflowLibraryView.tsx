@@ -1,46 +1,12 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef } from 'react';
-import {
-  FolderOpen,
-  Trash2,
-  Clock,
-  Plus,
-  Workflow,
-  Zap,
-  ChevronRight,
-  ChevronDown,
-  FolderPlus,
-  MoreHorizontal,
-  Download,
-  Upload,
-  Loader2,
-  Pencil,
-} from 'lucide-react';
+import { useMemo, useRef } from 'react';
+import { Plus, Workflow, FolderPlus, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import type { CanvasWorkflow } from '@/types/canvas';
-import type { DomeWorkflowFolder } from '@/types';
-import {
-  getWorkflows,
-  deleteWorkflow,
-  updateWorkflow,
-  listWorkflowFolders,
-  createWorkflowFolderRecord,
-  updateWorkflowFolderRecord,
-  deleteWorkflowFolderRecord,
-} from '@/lib/agent-canvas/api';
-import { syncMarketplaceOnWorkflowDelete } from '@/lib/marketplace/api';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useHubWorkspace } from '@/lib/context/HubWorkspaceContext';
-import { useHubListLoader } from '@/lib/hub/useHubListLoader';
-import {
-  HUB_WORKFLOWS_CHANGED,
-  notifyHubAgentsChanged,
-  notifyHubWorkflowsChanged,
-} from '@/lib/hub/hubEvents';
-import { showToast } from '@/lib/store/useToastStore';
-import { useTranslation } from 'react-i18next';
-import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import HubToolbar from '@/components/ui/HubToolbar';
 import HubTitleBlock from '@/components/ui/HubTitleBlock';
@@ -48,89 +14,29 @@ import HubSearchField from '@/components/ui/HubSearchField';
 import HubListState from '@/components/ui/HubListState';
 import DomeSkeletonGrid from '@/components/ui/DomeSkeletonGrid';
 import DomeButton from '@/components/ui/DomeButton';
-import HubBentoCard from '@/components/ui/HubBentoCard';
-import DomeContextMenu, { type DomeContextMenuItem } from '@/components/ui/DomeContextMenu';
-import { showPrompt } from '@/lib/store/usePromptStore';
 import { useEditorialHub } from '@/lib/context/EditorialHubContext';
+import { useWorkflowLibrary } from './useWorkflowLibrary';
+import WorkflowLibraryCard from './WorkflowLibraryCard';
+import WorkflowLibraryFolderTree from './WorkflowLibraryFolderTree';
+import { childFolders } from '@/lib/agent-canvas/workflow-library-folders';
 import {
-  exportWorkflowBundle,
-  downloadHubBundle,
-  slugExportFilenamePart,
-  parseHubExportBundle,
-  importWorkflowBundleOnly,
-} from '@/lib/hub-export/bundle';
-
-const DND_WORKFLOW_MIME = 'application/x-dome-workflow-id';
+  DND_WORKFLOW_MIME,
+  folderByIdMap,
+  folderVisibleInSearch,
+  wfVisibleInSearch,
+} from './workflow-library-utils';
 
 interface WorkflowLibraryViewProps {
   onShowAutomations?: (workflowId: string, workflowLabel: string) => void;
 }
 
-function folderByIdMap(folders: DomeWorkflowFolder[]): Map<string, DomeWorkflowFolder> {
-  const m = new Map<string, DomeWorkflowFolder>();
-  for (const f of folders) m.set(f.id, f);
-  return m;
-}
-
-function wfMatchesSearch(wf: CanvasWorkflow, q: string): boolean {
-  if (!q) return true;
-  const n = wf.name.toLowerCase();
-  const d = (wf.description || '').toLowerCase();
-  return n.includes(q) || d.includes(q);
-}
-
-function folderNameMatches(folder: DomeWorkflowFolder, q: string): boolean {
-  if (!q) return true;
-  return folder.name.toLowerCase().includes(q);
-}
-
-function wfVisibleInSearch(
-  wf: CanvasWorkflow,
-  q: string,
-  map: Map<string, DomeWorkflowFolder>,
-): boolean {
-  if (!q) return true;
-  if (wfMatchesSearch(wf, q)) return true;
-  let cur = wf.folderId ?? null;
-  while (cur) {
-    const f = map.get(cur);
-    if (!f) break;
-    if (folderNameMatches(f, q)) return true;
-    cur = f.parentId;
-  }
-  return false;
-}
-
-function folderVisibleInSearch(
-  folder: DomeWorkflowFolder,
-  q: string,
-  allFolders: DomeWorkflowFolder[],
-  workflows: CanvasWorkflow[],
-  map: Map<string, DomeWorkflowFolder>,
-): boolean {
-  if (!q) return true;
-  if (folderNameMatches(folder, q)) return true;
-  if (workflows.some((w) => w.folderId === folder.id && wfVisibleInSearch(w, q, map))) return true;
-  return allFolders
-    .filter((c) => c.parentId === folder.id)
-    .some((c) => folderVisibleInSearch(c, q, allFolders, workflows, map));
-}
-
 export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibraryViewProps) {
   const { t } = useTranslation();
   const editorialHub = useEditorialHub();
-  const hubCardVariant = editorialHub ? 'editorial' : 'card';
+  const hubCardVariant: 'editorial' | 'card' = editorialHub ? 'editorial' : 'card';
   const hubListClass = editorialHub
     ? 'hub-list-stack w-full max-w-full'
     : 'flex w-full max-w-full flex-col gap-3';
-  const [workflows, setWorkflows] = useState<CanvasWorkflow[]>([]);
-  const [folders, setFolders] = useState<DomeWorkflowFolder[]>([]);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const [dragOverFolderId, setDragOverFolderId] = useState<string | 'root' | null>(null);
-  const [deleteFolderTarget, setDeleteFolderTarget] = useState<DomeWorkflowFolder | null>(null);
-  const [importingBundle, setImportingBundle] = useState(false);
   const workflowImportInputRef = useRef<HTMLInputElement>(null);
 
   const loadWorkflow = useCanvasStore((s) => s.loadWorkflow);
@@ -139,25 +45,28 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
   const hubWorkspace = useHubWorkspace();
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
+  const {
+    state,
+    loading,
+    setSearch,
+    toggleExpand,
+    setDragOverFolderId,
+    setDeleteFolderTarget,
+    handleExportWorkflow,
+    handleWorkflowImportFile,
+    handleDelete,
+    moveWorkflowToFolder,
+    handleNewRootFolder,
+    handleNewChildFolder,
+    confirmDeleteFolder,
+    renameFolder,
+  } = useWorkflowLibrary(hubProjectId, t);
+
+  const { workflows, folders, search, expanded, dragOverFolderId, deleteFolderTarget, importingBundle, deletingId } =
+    state;
+
   const folderMap = useMemo(() => folderByIdMap(folders), [folders]);
   const q = search.trim().toLowerCase();
-
-  const fetchListData = useCallback(async () => {
-    const [wfs, fds] = await Promise.all([getWorkflows(hubProjectId), listWorkflowFolders(hubProjectId)]);
-    setWorkflows(wfs.sort((a, b) => b.updatedAt - a.updatedAt));
-    setFolders(fds);
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      for (const f of fds) next.add(f.id);
-      return next;
-    });
-  }, [hubProjectId]);
-
-  const { initialLoading: loading, reload: refresh } = useHubListLoader(
-    fetchListData,
-    [hubProjectId],
-    { eventName: HUB_WORKFLOWS_CHANGED },
-  );
 
   const visibleWorkflows = useMemo(() => {
     if (!q) return workflows;
@@ -168,20 +77,6 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
     if (!q) return folders;
     return folders.filter((f) => folderVisibleInSearch(f, q, folders, workflows, folderMap));
   }, [folders, q, workflows, folderMap]);
-
-  const childFolders = useCallback(
-    (parentId: string | null) =>
-      visibleFolders
-        .filter((f) => (f.parentId ?? null) === parentId)
-        .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)),
-    [visibleFolders],
-  );
-
-  const workflowsInFolder = useCallback(
-    (folderId: string) =>
-      visibleWorkflows.filter((w) => w.folderId === folderId).sort((a, b) => b.updatedAt - a.updatedAt),
-    [visibleWorkflows],
-  );
 
   const rootWorkflows = useMemo(
     () => visibleWorkflows.filter((w) => !w.folderId),
@@ -206,344 +101,6 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
     }
   };
 
-  const handleExportWorkflow = async (wf: CanvasWorkflow) => {
-    const built = await exportWorkflowBundle(wf.id, { title: wf.name });
-    if (!built.success) {
-      showToast('error', built.error ?? t('hubExport.error_export'));
-      return;
-    }
-    const name = `dome-workflow-${slugExportFilenamePart(wf.name)}-${new Date().toISOString().slice(0, 10)}.json`;
-    downloadHubBundle(name, built.bundle);
-    showToast('success', t('hubExport.export_done'));
-  };
-
-  const handlePickWorkflowImport = () => workflowImportInputRef.current?.click();
-
-  const handleWorkflowImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setImportingBundle(true);
-    try {
-      const text = await file.text();
-      const parsed = parseHubExportBundle(text);
-      if (!parsed.success) {
-        showToast('error', parsed.error ?? t('hubExport.invalid_bundle'));
-        return;
-      }
-      const result = await importWorkflowBundleOnly(parsed.data, hubProjectId);
-      if (!result.success) {
-        showToast('error', result.error ?? t('hubExport.error_import'));
-        return;
-      }
-      showToast(
-        'success',
-        t('hubExport.import_done_workflow', {
-          workflows: result.summary.workflowsCreated,
-          agents: result.summary.agentsCreated,
-        }),
-      );
-      await refresh();
-      notifyHubAgentsChanged();
-      notifyHubWorkflowsChanged();
-    } catch (err) {
-      showToast('error', err instanceof Error ? err.message : t('hubExport.error_import'));
-    } finally {
-      setImportingBundle(false);
-    }
-  };
-
-  const handleDelete = async (id: string) => {
-    setDeletingId(id);
-    const result = await deleteWorkflow(id);
-    if (result.success) {
-      await syncMarketplaceOnWorkflowDelete(id);
-      setWorkflows((prev) => prev.filter((w) => w.id !== id));
-      showToast('success', t('toast.workflow_deleted'));
-      notifyHubWorkflowsChanged();
-    } else {
-      showToast('error', result.error ?? t('toast.workflow_delete_error'));
-    }
-    setDeletingId(null);
-  };
-
-  const moveWorkflowToFolder = async (workflowId: string, folderId: string | null) => {
-    const result = await updateWorkflow(workflowId, { folderId: folderId ?? undefined });
-    if (result.success && result.data) {
-      setWorkflows((prev) => prev.map((w) => (w.id === workflowId ? result.data! : w)));
-      showToast('success', t('canvas.workflow_moved'));
-      notifyHubWorkflowsChanged();
-    } else {
-      showToast('error', result.error ?? t('toast.workflow_delete_error'));
-    }
-  };
-
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString(getDateTimeLocaleTag(), {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-
-  const toggleExpand = (id: string) => {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const handleNewRootFolder = async () => {
-    const name = await showPrompt(t('canvas.new_workflow_folder_name'), t('filter.new_folder'));
-    if (name === null) return;
-    const result = await createWorkflowFolderRecord(name || t('filter.new_folder'), null, hubProjectId);
-    if (result.success && result.data) {
-      setFolders((prev) => [...prev, result.data!]);
-      setExpanded((p) => new Set(p).add(result.data!.id));
-      showToast('success', t('canvas.workflow_folder_created'));
-      notifyHubWorkflowsChanged();
-    }
-  };
-
-  const handleNewChildFolder = async (parentId: string) => {
-    const name = await showPrompt(t('canvas.new_workflow_folder_name'), t('filter.new_folder'));
-    if (name === null) return;
-    const result = await createWorkflowFolderRecord(name || t('filter.new_folder'), parentId, hubProjectId);
-    if (result.success && result.data) {
-      setFolders((prev) => [...prev, result.data!]);
-      setExpanded((p) => new Set(p).add(result.data!.id));
-      showToast('success', t('canvas.workflow_folder_created'));
-      notifyHubWorkflowsChanged();
-    }
-  };
-
-  const confirmDeleteFolder = async () => {
-    if (!deleteFolderTarget) return;
-    const result = await deleteWorkflowFolderRecord(deleteFolderTarget.id);
-    if (result.success) {
-      setDeleteFolderTarget(null);
-      showToast('success', t('canvas.workflow_folder_deleted'));
-      await refresh();
-      notifyHubWorkflowsChanged();
-    } else {
-      showToast('error', result.error ?? t('toast.workflow_delete_error'));
-    }
-  };
-
-  const renderWorkflowRow = (wf: CanvasWorkflow) => {
-    const desc = (wf.description || '').trim();
-    const graphSummary = t('canvas.nodes_edges_summary', { nodes: wf.nodes.length, edges: wf.edges.length });
-
-    return (
-      <HubBentoCard
-        key={wf.id}
-        variant={hubCardVariant}
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(DND_WORKFLOW_MIME, wf.id);
-          e.dataTransfer.effectAllowed = 'move';
-        }}
-        onClick={() => handleOpen(wf)}
-        icon={
-          <div
-            className="size-10 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'var(--dome-accent-bg)' }}
-          >
-            <Workflow className="size-5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-          </div>
-        }
-        title={
-          editorialHub ? (
-            <span className="min-w-0 break-words">{wf.name}</span>
-          ) : (
-            <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
-              {wf.name}
-            </span>
-          )
-        }
-        subtitle={
-          <span className="break-words" title={desc || undefined}>
-            {desc || graphSummary}
-          </span>
-        }
-        meta={
-          <div
-            className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]"
-            style={{ color: 'var(--dome-text-muted)' }}
-          >
-            {desc ? <span>{graphSummary}</span> : null}
-            <span className="inline-flex items-center gap-1 shrink-0">
-              {desc ? <span aria-hidden>·</span> : null}
-              <Clock className="size-3 shrink-0" aria-hidden />
-              {formatDate(wf.updatedAt)}
-            </span>
-          </div>
-        }
-        trailing={
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
-            {onShowAutomations ? (
-              <DomeButton
-                type="button"
-                variant="ghost"
-                size="xs"
-                iconOnly
-                title={t('agents.automations')}
-                aria-label={t('agents.automations')}
-                onClick={() => onShowAutomations(wf.id, wf.name)}
-              >
-                <Zap className="size-3.5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-              </DomeButton>
-            ) : null}
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="xs"
-              iconOnly
-              title={t('hubExport.title_export_workflow')}
-              aria-label={t('hubExport.title_export_workflow')}
-              onClick={() => void handleExportWorkflow(wf)}
-            >
-              <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
-            </DomeButton>
-            <DomeButton
-              type="button"
-              variant="ghost"
-              size="xs"
-              iconOnly
-              title={t('common.delete')}
-              aria-label={t('common.delete')}
-              disabled={deletingId === wf.id}
-              className="!text-[var(--error)] hover:!bg-[var(--error-bg)] disabled:!opacity-50"
-              onClick={() => void handleDelete(wf.id)}
-            >
-              {deletingId === wf.id ? (
-                <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
-              ) : (
-                <Trash2 className="size-3.5" aria-hidden />
-              )}
-            </DomeButton>
-          </div>
-        }
-      />
-    );
-  };
-
-  const renderFolder = (folder: DomeWorkflowFolder, depth: number): React.ReactNode => {
-    const isOpen = expanded.has(folder.id);
-    const kids = childFolders(folder.id);
-    const wfs = workflowsInFolder(folder.id);
-    const pad = Math.min(depth * 12, 48);
-
-    const onDragOverRow = (e: React.DragEvent) => {
-      if (!e.dataTransfer.types.includes(DND_WORKFLOW_MIME)) return;
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      setDragOverFolderId(folder.id);
-    };
-
-    const onDropRow = (e: React.DragEvent) => {
-      e.preventDefault();
-      const id = e.dataTransfer.getData(DND_WORKFLOW_MIME);
-      setDragOverFolderId(null);
-      if (id) void moveWorkflowToFolder(id, folder.id);
-    };
-
-    return (
-      <div key={folder.id} className="flex flex-col gap-2">
-        <div
-          className="flex items-center gap-2 rounded-xl border p-2 transition-colors"
-          style={{
-            marginLeft: pad,
-            borderColor: dragOverFolderId === folder.id ? 'var(--dome-accent)' : 'var(--dome-border)',
-            background:
-              dragOverFolderId === folder.id ? 'var(--dome-accent-bg)' : 'var(--dome-surface)',
-          }}
-          onDragOver={onDragOverRow}
-          onDragLeave={() => setDragOverFolderId((cur) => (cur === folder.id ? null : cur))}
-          onDrop={onDropRow}
-        >
-          <DomeButton
-            iconOnly
-            variant="ghost"
-            size="sm"
-            aria-label={isOpen ? t('ui.collapse') : t('ui.expand')}
-            aria-expanded={isOpen}
-            onClick={() => toggleExpand(folder.id)}
-          >
-            {isOpen ? (
-              <ChevronDown className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-            ) : (
-              <ChevronRight className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-            )}
-          </DomeButton>
-          <FolderOpen className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-          <span className="flex-1 min-w-0 text-sm font-medium break-words" style={{ color: 'var(--dome-text)' }}>
-            {folder.name}
-          </span>
-          <div className="flex items-center gap-1">
-            <DomeButton
-              iconOnly
-              variant="ghost"
-              size="sm"
-              aria-label={t('filter.new_folder')}
-              onClick={() => void handleNewChildFolder(folder.id)}
-            >
-              <FolderPlus className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-            </DomeButton>
-            <DomeContextMenu
-              align="end"
-              trigger={
-                <DomeButton
-                  iconOnly
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t('canvas.workflow_folder_actions')}
-                >
-                  <MoreHorizontal className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
-                </DomeButton>
-              }
-              items={[
-                {
-                  label: t('canvas.rename_workflow_folder'),
-                  icon: <Pencil className="size-3.5" />,
-                  onClick: async () => {
-                    const name = await showPrompt(t('canvas.rename_workflow_folder'), folder.name);
-                    if (name === null) return;
-                    const trimmed = name.trim();
-                    if (!trimmed) return;
-                    const result = await updateWorkflowFolderRecord(folder.id, { name: trimmed });
-                    if (result.success) {
-                      setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, name: trimmed } : f)));
-                      showToast('success', t('canvas.workflow_folder_renamed'));
-                      notifyHubWorkflowsChanged();
-                    }
-                  },
-                },
-                {
-                  label: t('canvas.delete_workflow_folder'),
-                  icon: <Trash2 className="size-3.5" />,
-                  variant: 'danger',
-                  onClick: () => setDeleteFolderTarget(folder),
-                },
-              ] as DomeContextMenuItem[]}
-            />
-          </div>
-        </div>
-        {isOpen ? (
-          <div className="flex flex-col gap-2">
-            {kids.map((k) => renderFolder(k, depth + 1))}
-            {wfs.length > 0 ? (
-              <div className={hubListClass} style={{ marginLeft: pad + 8 }}>
-                {wfs.map((wf) => renderWorkflowRow(wf))}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-      </div>
-    );
-  };
-
   const rootDrop = {
     onDragOver: (e: React.DragEvent) => {
       if (!e.dataTransfer.types.includes(DND_WORKFLOW_MIME)) return;
@@ -551,13 +108,34 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
       e.dataTransfer.dropEffect = 'move';
       setDragOverFolderId('root');
     },
-    onDragLeave: () => setDragOverFolderId((cur) => (cur === 'root' ? null : cur)),
+    onDragLeave: () => setDragOverFolderId(dragOverFolderId === 'root' ? null : dragOverFolderId),
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
       const id = e.dataTransfer.getData(DND_WORKFLOW_MIME);
       setDragOverFolderId(null);
       if (id) void moveWorkflowToFolder(id, null);
     },
+  };
+
+  const folderTreeProps = {
+    folders,
+    visibleFolders,
+    visibleWorkflows,
+    expanded,
+    dragOverFolderId,
+    hubCardVariant,
+    hubListClass,
+    deletingId,
+    onToggleExpand: toggleExpand,
+    onSetDragOver: setDragOverFolderId,
+    onMoveWorkflow: moveWorkflowToFolder,
+    onNewChildFolder: handleNewChildFolder,
+    onRenameFolder: renameFolder,
+    onDeleteFolderTarget: setDeleteFolderTarget,
+    onOpenWorkflow: handleOpen,
+    onExportWorkflow: handleExportWorkflow,
+    onDeleteWorkflow: handleDelete,
+    onShowAutomations,
   };
 
   return (
@@ -568,35 +146,38 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
         accept="application/json,.json"
         className="hidden"
         aria-label={t('canvas.import_workflow_json', 'Import workflow JSON file')}
-        onChange={(ev) => void handleWorkflowImportFile(ev)}
+        onChange={(ev) => {
+          const file = ev.target.files?.[0];
+          ev.target.value = '';
+          if (file) void handleWorkflowImportFile(file);
+        }}
       />
-      <HubToolbar
-        dense
-        leading={
-          editorialHub ? undefined : (
-          <HubTitleBlock
-            icon={Workflow}
-            title={t('canvas.workflow_library')}
-            subtitle={t('canvas.workflows_saved_count', { count: workflows.length })}
-          />
-          )
-        }
-        center={
+      <HubToolbar dense>
+        {!editorialHub ? (
+          <HubToolbar.Leading>
+            <HubTitleBlock
+              icon={Workflow}
+              title={t('canvas.workflow_library')}
+              subtitle={t('canvas.workflows_saved_count', { count: workflows.length })}
+            />
+          </HubToolbar.Leading>
+        ) : null}
+        <HubToolbar.Center>
           <HubSearchField
             value={search}
             onChange={setSearch}
             placeholder={t('canvas.search_workflows_placeholder')}
             ariaLabel={t('canvas.search_workflows_placeholder')}
           />
-        }
-        trailing={
+        </HubToolbar.Center>
+        <HubToolbar.Trailing>
           <>
             <DomeButton
               type="button"
               variant="outline"
               size="xs"
               disabled={importingBundle}
-              onClick={() => handlePickWorkflowImport()}
+              onClick={() => workflowImportInputRef.current?.click()}
               leftIcon={<Upload className="size-3" aria-hidden />}
             >
               {t('hubExport.import_workflow')}
@@ -621,8 +202,8 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               {t('canvas.new_workflow')}
             </DomeButton>
           </>
-        }
-      />
+        </HubToolbar.Trailing>
+      </HubToolbar>
 
       <div
         className="flex-1 overflow-y-auto p-4"
@@ -638,10 +219,7 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           </p>
         ) : null}
         {loading ? (
-          <DomeSkeletonGrid
-            count={10}
-            className="animate-in fade-in duration-150 motion-reduce:animate-none"
-          />
+          <DomeSkeletonGrid count={10} className="animate-in fade-in duration-150 motion-reduce:animate-none" />
         ) : workflows.length === 0 ? (
           <HubListState
             variant="empty"
@@ -663,10 +241,10 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           />
         ) : (
           <div className="flex flex-col gap-4 animate-in fade-in duration-150 motion-reduce:animate-none">
-            {childFolders(null).map((f) => renderFolder(f, 0))}
+            <WorkflowLibraryFolderTree {...folderTreeProps} />
             {rootWorkflows.length > 0 ? (
               <div>
-                {childFolders(null).length > 0 ? (
+                {childFolders(visibleFolders, null).length > 0 ? (
                   <p
                     className="text-xs font-semibold mb-2 uppercase tracking-wide"
                     style={{ color: 'var(--dome-text-muted)' }}
@@ -675,7 +253,18 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
                   </p>
                 ) : null}
                 <div className={hubListClass}>
-                  {rootWorkflows.map((wf) => renderWorkflowRow(wf))}
+                  {rootWorkflows.map((wf) => (
+                    <WorkflowLibraryCard
+                      key={wf.id}
+                      wf={wf}
+                      hubCardVariant={hubCardVariant}
+                      deletingId={deletingId}
+                      onOpen={handleOpen}
+                      onExport={handleExportWorkflow}
+                      onDelete={handleDelete}
+                      onShowAutomations={onShowAutomations}
+                    />
+                  ))}
                 </div>
               </div>
             ) : null}

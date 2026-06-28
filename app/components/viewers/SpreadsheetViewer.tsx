@@ -61,8 +61,10 @@ function evalFormula(formula: string, cellMap: Map<string, number>): string {
       const vals: number[] = [];
       for (const arg of args.split(',')) {
         const a = arg.trim().replace(/\$/g, '').toUpperCase();
-        const targets = a.includes(':') ? expandRange(a) : [a];
-        for (const ref of targets) {
+        const isRange = /:/.test(a);
+        const targets = isRange ? expandRange(a) : [a];
+        const targetRefs = new Set(targets);
+        for (const ref of targetRefs) {
           const v = cellMap.get(ref);
           if (v !== undefined && isFinite(v)) vals.push(v);
         }

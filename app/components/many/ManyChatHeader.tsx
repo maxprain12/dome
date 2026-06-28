@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import ManyAvatar from './ManyAvatar';
 import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
+
+const ContextUsage = defineSlot('ManyChatHeader.ContextUsage');
 
 interface ManyChatHeaderProps {
   status: string;
@@ -22,11 +25,10 @@ interface ManyChatHeaderProps {
   showClose?: boolean;
   /** Sidebar Many: overlay; fullscreen: columna derecha interna */
   showHistoryToggle?: boolean;
-  /** Context window donut + popup */
-  contextUsage?: ReactNode;
+  children?: ReactNode;
 }
 
-export default memo(function ManyChatHeader({
+const ManyChatHeader = memo(function ManyChatHeader({
   status,
   providerInfo,
   providerId,
@@ -41,8 +43,11 @@ export default memo(function ManyChatHeader({
   historyOpen = false,
   showClose = true,
   showHistoryToggle = true,
-  contextUsage,
+  children,
 }: ManyChatHeaderProps) {
+  const { contextUsage } = collectCompoundSlots(children, {
+    contextUsage: ContextUsage,
+  });
   const { t } = useTranslation();
   const isThinking = status === 'thinking';
   const isSpeaking = status === 'speaking';
@@ -67,34 +72,12 @@ export default memo(function ManyChatHeader({
 
       {/* Title + subtitle */}
       <div className="min-w-0 flex-1 flex flex-col" style={{ gap: 2 }}>
-        <div className="flex items-center" style={{ gap: 6 }}>
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'var(--primary-text)',
-              lineHeight: 1.3,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: 200,
-            }}
-          >
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold text-[var(--primary-text)] leading-[1.3] overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px]">
             {titleText}
           </span>
           {(isThinking || isSpeaking) && (
-            <span
-              style={{
-                fontSize: 12,
-                color: 'var(--accent)',
-                fontWeight: 500,
-                padding: '1px 8px',
-                borderRadius: 999,
-                background: 'var(--accent-bg)',
-                lineHeight: 1.6,
-                flexShrink: 0,
-              }}
-            >
+            <span className="text-xs text-[var(--accent)] font-medium px-2 py-px rounded-full bg-[var(--accent-bg)] leading-[1.6] shrink-0">
               {isThinking ? t('many.thinking') : t('many.speaking')}
             </span>
           )}
@@ -169,3 +152,7 @@ export default memo(function ManyChatHeader({
     </div>
   );
 });
+
+const ManyChatHeaderWithSlots = Object.assign(ManyChatHeader, { ContextUsage });
+
+export default ManyChatHeaderWithSlots;

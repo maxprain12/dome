@@ -28,6 +28,10 @@ interface StudioPanelProps {
   resourceId?: string | null;
 }
 
+function formatStudioDate(timestamp: number): string {
+  return formatShortDistance(timestamp);
+}
+
 export default function StudioPanel({ projectId: projectIdProp, resourceId }: StudioPanelProps = {}) {
   const { t } = useTranslation();
   const currentProject = useAppStore((s) => s.currentProject);
@@ -112,8 +116,6 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
       setDeletingId(null);
     }
   }, [removeStudioOutput]);
-
-  const formatDate = (timestamp: number): string => formatShortDistance(timestamp);
 
   return (
     <div
@@ -275,7 +277,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId }: St
                       className="text-[10px]"
                       style={{ color: 'var(--tertiary-text)' }}
                     >
-                      {formatDate(output.created_at)}
+                      {formatStudioDate(output.created_at)}
                     </div>
                     {(() => {
                       const ids = parseSourceIds(output);

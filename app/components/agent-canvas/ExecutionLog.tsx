@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useLayoutEffect, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Terminal, Clock, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
 import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
@@ -31,6 +31,8 @@ const TYPE_STYLES = {
   error: { icon: AlertCircle, color: 'var(--error)' },
 };
 
+const EMPTY_HISTORY: WorkflowExecution[] = [];
+
 function formatElapsedFromRange(start: number, end?: number): string {
   const ms = (end ?? Date.now()) - start;
   if (ms < 1000) return `${ms}ms`;
@@ -42,7 +44,7 @@ export default function ExecutionLog({
   entries,
   status,
   startTime,
-  history = [],
+  history = EMPTY_HISTORY,
   selectedExecutionId = null,
   onSelectExecution,
 }: ExecutionLogProps) {
@@ -61,7 +63,7 @@ export default function ExecutionLog({
   const displayStatus = selectedExecution?.status ?? status;
 
   // Auto-scroll to bottom when new entries arrive (only when live)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!collapsed && status === 'running') {
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
@@ -78,10 +80,11 @@ export default function ExecutionLog({
     return () => clearInterval(interval);
   }, [status, startTime]);
 
-  // Reset timer on new run
-  useEffect(() => {
+  const prevStatusRef = useRef(status);
+  if (status !== prevStatusRef.current) {
+    prevStatusRef.current = status;
     if (status === 'running') setElapsed(0);
-  }, [status]);
+  }
 
   const hasContent = status === 'running' || entries.length > 0 || history.length > 0;
   if (!hasContent) return null;
@@ -111,7 +114,6 @@ export default function ExecutionLog({
       style={{
         background: 'var(--dome-surface)',
         borderColor: 'var(--dome-border)',
-        transition: 'height 0.2s ease',
       }}
     >
       {/* Header bar */}

@@ -11,6 +11,7 @@ import { useEffect, useRef } from 'react';
 import { PPT_SLIDE_LIGHT_DEFAULT } from '@/lib/ui/palettes';
 import { init as initPptxPreview } from '@/lib/pptx-preview';
 import { fixDarkSlideTextColors } from '@/lib/pptx-color-fix';
+import './ppt-capture-page.css';
 
 const SLIDE_W = 960;
 const SLIDE_H = 540;
@@ -168,27 +169,8 @@ export default function PptCapturePage() {
   }, []);
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: SLIDE_W,
-        height: SLIDE_H,
-        overflow: 'hidden',
-        background: 'var(--bg)',
-        margin: 0,
-        padding: 0,
-      }}
-    >
-      <div
-        ref={containerRef}
-        style={{
-          width: SLIDE_W,
-          height: SLIDE_H,
-          overflow: 'hidden',
-        }}
-      />
+    <div className="ppt-capture-root">
+      <div ref={containerRef} className="ppt-capture-container" />
     </div>
   );
 }

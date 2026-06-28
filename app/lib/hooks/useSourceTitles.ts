@@ -5,7 +5,7 @@
  * Used to display source attribution for studio outputs.
  */
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 
 const cache = new Map<string, string>();
 
@@ -21,15 +21,24 @@ export function useSourceTitles(sourceIds: string[]): {
     [sourceIds]
   );
 
-  useEffect(() => {
+  const idsKey = ids.join('\0');
+  const prevIdsKeyRef = useRef(idsKey);
+  if (idsKey !== prevIdsKeyRef.current) {
+    prevIdsKeyRef.current = idsKey;
     if (ids.length === 0) {
       setLoaded(new Map());
       setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (ids.length === 0) {
       return;
     }
 
     let cancelled = false;
-    setIsLoading(true);
 
     (async () => {
       const results = new Map<string, string>();

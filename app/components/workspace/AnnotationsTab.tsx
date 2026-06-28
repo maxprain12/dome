@@ -8,6 +8,31 @@ interface AnnotationsTabProps {
   resourceId: string;
 }
 
+function formatAnnotationDate(timestamp: number) {
+  return formatRelativeDate(timestamp);
+}
+
+function getAnnotationPositionLabel(annotation: ParsedInteraction) {
+  const pos = annotation.position_data as Record<string, unknown> | null;
+  if (!pos) return null;
+
+  const posType = pos.type as string;
+  if (posType === 'pdf_highlight') {
+    return `Page ${((pos.pageIndex as number) || 0) + 1}`;
+  } else if (posType === 'video_timestamp') {
+    const seconds = (pos.timestamp as number) || 0;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+  return null;
+}
+
+function getAnnotationSelectedText(annotation: ParsedInteraction) {
+  const pos = annotation.position_data as Record<string, unknown> | null;
+  return (pos?.selectedText as string) || null;
+}
+
 export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
   const {
     annotations,
@@ -24,29 +49,6 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
     },
     [deleteInteraction]
   );
-
-  const formatDate = (timestamp: number) => formatRelativeDate(timestamp);
-
-  const getPositionLabel = (annotation: ParsedInteraction) => {
-    const pos = annotation.position_data as Record<string, unknown> | null;
-    if (!pos) return null;
-
-    const posType = pos.type as string;
-    if (posType === 'pdf_highlight') {
-      return `Page ${((pos.pageIndex as number) || 0) + 1}`;
-    } else if (posType === 'video_timestamp') {
-      const seconds = (pos.timestamp as number) || 0;
-      const mins = Math.floor(seconds / 60);
-      const secs = Math.floor(seconds % 60);
-      return `${mins}:${secs.toString().padStart(2, '0')}`;
-    }
-    return null;
-  };
-
-  const getSelectedText = (annotation: ParsedInteraction) => {
-    const pos = annotation.position_data as Record<string, unknown> | null;
-    return (pos?.selectedText as string) || null;
-  };
 
   if (isLoading) {
     return (
@@ -99,7 +101,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
               }}
             >
               {/* Position indicator */}
-              {getPositionLabel(annotation) && (
+              {getAnnotationPositionLabel(annotation) && (
                 <div
                   className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2"
                   style={{
@@ -108,12 +110,12 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                   }}
                 >
                   <FileText size={12} />
-                  {getPositionLabel(annotation)}
+                  {getAnnotationPositionLabel(annotation)}
                 </div>
               )}
 
               {/* Selected text (quote) */}
-              {getSelectedText(annotation) && (
+              {getAnnotationSelectedText(annotation) && (
                 <div
                   className="p-2 rounded mb-2 text-sm italic"
                   style={{
@@ -122,7 +124,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
                     color: 'var(--secondary)',
                   }}
                 >
-                  "{getSelectedText(annotation)}"
+                  "{getAnnotationSelectedText(annotation)}"
                 </div>
               )}
 
@@ -143,7 +145,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
               >
                 <div className="flex items-center gap-1 text-xs" style={{ color: 'var(--tertiary)' }}>
                   <Clock size={12} />
-                  {formatDate(annotation.created_at)}
+                  {formatAnnotationDate(annotation.created_at)}
                 </div>
                 <button
                   type="button"

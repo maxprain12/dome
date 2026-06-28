@@ -19,7 +19,8 @@ import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
 import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
-import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
+import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
+import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import ReadingIndicator from '@/components/chat/ReadingIndicator';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
@@ -92,12 +93,12 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [providerInfo, setProviderInfo] = useState('');
   const [providerId, setProviderId] = useState('');
-  const [supportsTools, setSupportsTools] = useState(false);
+  const supportsToolsRef = useRef(false);
   const [disabledMcpIds, setDisabledMcpIds] = useState<Set<string>>(new Set());
   const [pinnedResources, setPinnedResources] = useState<PinnedResource[]>([]);
   const [pendingOneShotSkillId, setPendingOneShotSkillId] = useState<string | null>(null);
@@ -143,11 +144,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setProviderInfo(
           `${config.provider} / ${config.provider === 'ollama' ? config.ollamaModel || 'default' : config.model || 'default'}`
         );
-        setSupportsTools(providerSupportsTools(config.provider as AIProviderType));
+        supportsToolsRef.current = providerSupportsTools(config.provider as AIProviderType);
       } else {
         setProviderInfo('Not configured');
         setProviderId('');
-        setSupportsTools(false);
+        supportsToolsRef.current = false;
       }
     };
     void load();
@@ -348,7 +349,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   );
   const hasMcpForAgent =
     Array.isArray(agent?.mcpServerIds) && agent.mcpServerIds.length > 0;
-  const useToolsStream = supportsTools && hasAgentStream;
 
   const handleSend = useCallback(async () => {
     const textPart = input.trim();
@@ -373,7 +373,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     const userMessage = userRunMessage.content;
 
     const controller = new AbortController();
-    setAbortController(controller);
+    abortControllerRef.current = controller;
 
     addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
     scrollToBottom(true);
@@ -444,7 +444,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         userRunMessage as ChatRunMessage,
       ];
 
-      if (useToolsStream) {
+      if (supportsToolsRef.current && hasAgentStream) {
         if (enabledMcpIds.length > 0) {
           await loadMcpServersSetting();
         }
@@ -504,7 +504,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
           skipHitl: true,
         });
         delegatedToRunEngine = true;
-        setAbortController(null);
+        abortControllerRef.current = null;
         setActiveRunId(run.id);
         applyRunSnapshot(run);
       } else {
@@ -551,7 +551,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         setIsLoading(false);
         setStatus('idle');
         setStreamingMessage(null);
-        setAbortController(null);
+        abortControllerRef.current = null;
       }
       inputRef.current?.focus();
     }
@@ -564,7 +564,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     addMessage,
     setStatus,
     buildSystemPrompt,
-    useToolsStream,
+    hasAgentStream,
     toolDefs,
     activeToolIds,
     enabledMcpIds,
@@ -575,7 +575,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
     chatAttachments,
     pinnedResources,
-    hasAgentStream,
     pendingOneShotSkillId,
     activeStickySkillId,
   ]);
@@ -585,8 +584,8 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
       void abortRun(activeRunId);
       return;
     }
-    if (abortController) abortController.abort();
-  }, [abortController, activeRunId]);
+    abortControllerRef.current?.abort();
+  }, [activeRunId]);
 
   const chatMessages: ChatMessageData[] = useMemo(
     () =>

@@ -6,6 +6,8 @@ export interface TagRowItem {
   name: string;
 }
 
+const EMPTY_TAGS: TagRowItem[] = [];
+
 interface NoteMetaBarProps {
   wordCount: number;
   editedRelative?: string | null;
@@ -20,7 +22,7 @@ export default function NoteMetaBar({
   editedRelative,
   backlinksCount = 0,
   aiReadyHint = false,
-  tags = [],
+  tags = EMPTY_TAGS,
   onRequestAddTag,
 }: NoteMetaBarProps) {
   const { t } = useTranslation();

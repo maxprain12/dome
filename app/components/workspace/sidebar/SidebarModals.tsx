@@ -23,12 +23,13 @@ export function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 rounded-xl shadow-xl border flex flex-col"
+      <dialog
+        open
+        className="relative z-10 rounded-xl shadow-xl border flex flex-col m-0 max-w-none max-h-none p-0"
         style={{ width: 300, maxHeight: 400, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="move-folder-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         <div className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'var(--dome-border)' }}>
           <span id="move-folder-title" className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
@@ -63,7 +64,7 @@ export function MoveFolderModal({ resource, allFolders, onConfirm, onClose }: {
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('common.cancel')}</button>
           <button type="button" onClick={() => { onConfirm(selected); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'var(--base-text)' }}>{t('common.move')}</button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }
@@ -84,12 +85,13 @@ export function DeleteConfirmModal({ resource, onConfirm, onClose }: {
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3"
+      <dialog
+        open
+        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3 m-0 max-w-none max-h-none"
         style={{ width: 290, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="delete-confirm-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         <div>
           <p id="delete-confirm-title" className="font-medium text-sm mb-1" style={{ color: 'var(--dome-text)' }}>
@@ -103,7 +105,7 @@ export function DeleteConfirmModal({ resource, onConfirm, onClose }: {
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
           <button type="button" onClick={() => { onConfirm(); onClose(); }} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-error)', border: 'none', cursor: 'pointer', color: 'var(--base-text)' }}>{t('ui.delete')}</button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }
@@ -130,12 +132,13 @@ export function NewFolderModal({ parentId, onConfirm, onClose }: {
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3"
+      <dialog
+        open
+        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3 m-0 max-w-none max-h-none"
         style={{ width: 280, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="new-folder-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         <p id="new-folder-title" className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
           {t('ui.new_folder')}
@@ -150,7 +153,7 @@ export function NewFolderModal({ parentId, onConfirm, onClose }: {
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
           <button type="button" onClick={submit} disabled={!name.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: name.trim() ? 1 : 0.5 }}>{t('ui.create')}</button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }
@@ -179,12 +182,13 @@ export function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string)
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3"
+      <dialog
+        open
+        className="relative z-10 rounded-xl shadow-xl border p-5 flex flex-col gap-3 m-0 max-w-none max-h-none"
         style={{ width: 320, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="url-input-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         <p id="url-input-title" className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
           {t('ui.add_url')}
@@ -204,7 +208,7 @@ export function UrlInputModal({ onConfirm, onClose }: { onConfirm: (url: string)
           <button type="button" onClick={onClose} className="px-3 py-1.5 rounded-md text-xs" style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>{t('ui.cancel')}</button>
           <button type="button" onClick={submit} disabled={!url.trim()} className="px-3 py-1.5 rounded-md text-xs font-medium" style={{ background: 'var(--dome-accent)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: url.trim() ? 1 : 0.5 }}>{t('ui.add')}</button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

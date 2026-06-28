@@ -30,45 +30,26 @@ export default function ManyAvatar({
   return (
     <div
       className="many-avatar-wrap"
-      style={{
-        width: wrapSize,
-        height: wrapSize,
-        flexShrink: 0,
-      }}
+      style={{ width: wrapSize, height: wrapSize }}
     >
       <div
-        className={cn('many-avatar', `many-avatar--${state}`, className)}
-        style={{
-          width: px,
-          height: px,
-          borderRadius: isLg ? 20 : '50%',
-          backgroundColor: 'var(--accent-bg)',
-          color: 'var(--accent)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-        }}
+        className={cn(
+          'many-avatar flex items-center justify-center relative bg-[var(--accent-bg)] text-[var(--accent)]',
+          isLg ? 'rounded-[20px]' : 'rounded-full',
+          `many-avatar--${state}`,
+          className,
+        )}
+        style={{ width: px, height: px }}
       >
       <ManyIcon size={iconSize} />
       {showStateDot && (
         <span
           aria-hidden
-          style={{
-            position: 'absolute',
-            bottom: -2,
-            right: -2,
-            width: 10,
-            height: 10,
-            borderRadius: '50%',
-            border: '2px solid var(--bg)',
-            background:
-              state === 'thinking'
-                ? 'var(--warning)'
-                : state === 'speaking'
-                  ? 'var(--accent)'
-                  : 'var(--tertiary-text)',
-          }}
+          className={cn(
+            'many-avatar-dot',
+            state === 'thinking' && 'many-avatar-dot--thinking',
+            state === 'speaking' && 'many-avatar-dot--speaking',
+          )}
         />
       )}
       </div>

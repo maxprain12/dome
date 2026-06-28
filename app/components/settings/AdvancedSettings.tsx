@@ -103,11 +103,10 @@ export default function AdvancedSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title={t('settings.advanced.title')}
-        subtitle={t('settings.advanced.subtitle')}
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{t('settings.advanced.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.advanced.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {/* ── Updates ── */}
       <div>

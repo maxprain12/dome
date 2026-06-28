@@ -165,7 +165,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const [postingComment, setPostingComment] = useState(false);
 
   const [timeline, setTimeline] = useState<GitHubTimelineEvent[]>([]);
-  const [mentionables, setMentionables] = useState<Mentionable[]>([]);
+  const [apiMentionables, setApiMentionables] = useState<Mentionable[]>([]);
   const [assigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const [assigneePickerQuery, setAssigneePickerQuery] = useState('');
   const assigneePickerRef = useRef<HTMLInputElement>(null);
@@ -198,9 +198,9 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     }
   }, [issueId]);
 
-  useEffect(() => {
-    let cancelled = false;
-
+  const prevIssueIdRef = useRef(issueId);
+  if (issueId !== prevIssueIdRef.current) {
+    prevIssueIdRef.current = issueId;
     if (initial) {
       setTitle(initial.title);
       setBody('');
@@ -213,6 +213,10 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       setAssigneePickerQuery('');
       setTab('comments');
     }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
 
     void (async () => {
       const res = await githubClient.issues.get(issueId);
@@ -229,44 +233,45 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     };
   }, [issueId, initial]);
 
-  useEffect(() => {
-    if (!editing) {
-      void loadComments();
-      void loadTimeline();
-    }
-  }, [issueId, editing, loadComments, loadTimeline]);
+  const prevCommentsLoadKeyRef = useRef('');
+  const commentsLoadKey = `${issueId}:${editing}`;
+  if (!editing && commentsLoadKey !== prevCommentsLoadKeyRef.current) {
+    prevCommentsLoadKeyRef.current = commentsLoadKey;
+    void loadComments();
+    void loadTimeline();
+  }
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
+  const prevMentionablesIssueIdRef = useRef(issueId);
+  if (issueId !== prevMentionablesIssueIdRef.current) {
+    prevMentionablesIssueIdRef.current = issueId;
+    void (async () => {
       const res = await githubClient.issues.listMentionables(issueId);
-      if (cancelled) return;
-      const byLogin = new Map<string, Mentionable>();
-      for (const u of res.success ? res.users ?? [] : []) {
-        byLogin.set(u.login, u);
-      }
-      for (const c of comments) {
-        if (c.user && !byLogin.has(c.user)) {
-          byLogin.set(c.user, { login: c.user, avatar_url: c.user_avatar });
-        }
-      }
-      for (const ev of timeline) {
-        if (ev.actor && !byLogin.has(ev.actor)) {
-          byLogin.set(ev.actor, { login: ev.actor, avatar_url: ev.actor_avatar });
-        }
-      }
-      setMentionables([...byLogin.values()].sort((a, b) => a.login.localeCompare(b.login)));
+      setApiMentionables(res.success ? res.users ?? [] : []);
     })();
-    return () => {
-      cancelled = true;
-    };
-  }, [issueId, comments, timeline]);
+  }
 
-  useEffect(() => {
-    if (assigneePickerOpen) {
-      requestAnimationFrame(() => assigneePickerRef.current?.focus());
+  const mentionables = useMemo(() => {
+    const byLogin = new Map<string, Mentionable>();
+    for (const u of apiMentionables) {
+      byLogin.set(u.login, u);
     }
-  }, [assigneePickerOpen]);
+    for (const c of comments) {
+      if (c.user && !byLogin.has(c.user)) {
+        byLogin.set(c.user, { login: c.user, avatar_url: c.user_avatar });
+      }
+    }
+    for (const ev of timeline) {
+      if (ev.actor && !byLogin.has(ev.actor)) {
+        byLogin.set(ev.actor, { login: ev.actor, avatar_url: ev.actor_avatar });
+      }
+    }
+    return [...byLogin.values()].sort((a, b) => a.login.localeCompare(b.login));
+  }, [apiMentionables, comments, timeline]);
+
+  const openAssigneePicker = () => {
+    setAssigneePickerOpen(true);
+    requestAnimationFrame(() => assigneePickerRef.current?.focus());
+  };
 
   const featuredLogins = useMemo(() => {
     const set = new Set<string>();
@@ -276,13 +281,19 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     return [...set];
   }, [assignees, comments, timeline]);
 
+  const assignedSet = useMemo(() => new Set(assignees.map((a) => a.toLowerCase())), [assignees]);
+
   const assigneeSuggestions = useMemo(() => {
     const q = assigneePickerQuery.trim().toLowerCase();
-    return mentionables
-      .filter((u) => !assignees.includes(u.login))
-      .filter((u) => !q || u.login.toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [mentionables, assignees, assigneePickerQuery]);
+    const out: typeof mentionables = [];
+    for (const u of mentionables) {
+      if (assignedSet.has(u.login.toLowerCase())) continue;
+      if (q && !u.login.toLowerCase().includes(q)) continue;
+      out.push(u);
+      if (out.length >= 8) break;
+    }
+    return out;
+  }, [mentionables, assignedSet, assigneePickerQuery]);
 
   if (!initial) return null;
 
@@ -443,7 +454,14 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                 aria-label={t('github.milestone')}
                 options={[
                   { value: 'none', label: t('github.no_milestone_label') },
-                  ...milestones.filter((m) => m.state === 'open').map((m) => ({ value: String(m.number), label: m.title })),
+                  ...(() => {
+                    const opts: { value: string; label: string }[] = [];
+                    for (const m of milestones) {
+                      if (m.state !== 'open') continue;
+                      opts.push({ value: String(m.number), label: m.title });
+                    }
+                    return opts;
+                  })(),
                 ]}
               />
             </div>
@@ -491,7 +509,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
               {!assigneePickerOpen ? (
                 <button
                   type="button"
-                  onClick={() => setAssigneePickerOpen(true)}
+                  onClick={openAssigneePicker}
                   className="inline-flex items-center gap-1 rounded-full px-2.5 shrink-0"
                   style={{
                     height: 28,
