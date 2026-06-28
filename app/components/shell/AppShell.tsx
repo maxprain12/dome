@@ -192,19 +192,15 @@ export default function AppShell() {
   }, [currentProjectId]);
 
   // Auto-open the right Many panel when leaving chat; chat fullscreen keeps historial inside Many.
-  const prevActiveTabIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    const prev = prevActiveTabIdRef.current;
-    prevActiveTabIdRef.current = activeTabId ?? null;
-    if (prev === activeTabId) return;
+  const [prevActiveTabId, setPrevActiveTabId] = useState(activeTabId ?? null);
+  if ((activeTabId ?? null) !== prevActiveTabId) {
+    setPrevActiveTabId(activeTabId ?? null);
     if (isChatTab) {
       setRightSidebarOpen(false);
-      return;
-    }
-    if (!rightSidebarOpen) {
+    } else if (!rightSidebarOpen) {
       setRightSidebarOpen(true);
     }
-  }, [activeTabId, isChatTab, rightSidebarOpen]);
+  }
 
   useEffect(() => {
     const onReq = () => {

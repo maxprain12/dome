@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useLayoutEffect, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Terminal, Clock, CheckCircle2, AlertCircle, Wrench } from 'lucide-react';
 import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
@@ -61,7 +61,7 @@ export default function ExecutionLog({
   const displayStatus = selectedExecution?.status ?? status;
 
   // Auto-scroll to bottom when new entries arrive (only when live)
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!collapsed && status === 'running') {
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }

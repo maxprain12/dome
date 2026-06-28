@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface DocxViewerProps {
   resource: Resource;
@@ -13,68 +14,61 @@ function DocxViewerComponent({ resource }: DocxViewerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadDocx() {
-      if (typeof window === 'undefined' || !window.electron) return;
+  const loadDocx = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron) return;
 
-      try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        // Read file as base64 via IPC
-        const result = await window.electron.resource.readDocumentContent(resource.id);
-        if (!result.success || !result.data) {
-          throw new Error(result.error || 'Failed to read document');
-        }
-
-        // Decode base64 to ArrayBuffer
-        const binary = atob(result.data);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-          bytes[i] = binary.charCodeAt(i);
-        }
-
-        // Dynamically import mammoth to keep bundle size down
-        const mammoth = await import('mammoth');
-
-        // Convert DOCX to HTML
-        const mammothResult = await mammoth.convertToHtml(
-          { arrayBuffer: bytes.buffer },
-          {
-            styleMap: [
-              "p[style-name='Heading 1'] => h1:fresh",
-              "p[style-name='Heading 2'] => h2:fresh",
-              "p[style-name='Heading 3'] => h3:fresh",
-            ],
-          }
-        );
-
-        setHtml(mammothResult.value);
-
-        if (mammothResult.messages.length > 0) {
-          console.warn('[DocxViewer] Conversion warnings:', mammothResult.messages);
-        }
-      } catch (err) {
-        console.error('[DocxViewer] Error loading document:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load document');
-      } finally {
-        setIsLoading(false);
+      const result = await window.electron.resource.readDocumentContent(resource.id);
+      if (!result.success || !result.data) {
+        throw new Error(result.error || 'Failed to read document');
       }
-    }
 
-    loadDocx();
+      const binary = atob(result.data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+
+      const mammoth = await import('mammoth');
+      const mammothResult = await mammoth.convertToHtml(
+        { arrayBuffer: bytes.buffer },
+        {
+          styleMap: [
+            "p[style-name='Heading 1'] => h1:fresh",
+            "p[style-name='Heading 2'] => h2:fresh",
+            "p[style-name='Heading 3'] => h3:fresh",
+          ],
+        },
+      );
+
+      setHtml(mammothResult.value);
+
+      if (mammothResult.messages.length > 0) {
+        console.warn('[DocxViewer] Conversion warnings:', mammothResult.messages);
+      }
+    } catch (err) {
+      console.error('[DocxViewer] Error loading document:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load document');
+    } finally {
+      setIsLoading(false);
+    }
   }, [resource.id]);
 
-  if (isLoading) {
-    return <LoadingState message="Loading document..." />;
-  }
+  const mountRef = useMountAction(loadDocx);
 
   if (error) {
     return <ErrorState error={error} />;
   }
 
   return (
-    <div className="docx-viewer">
+    <div ref={mountRef} className="docx-viewer">
+      {isLoading ? (
+        <LoadingState message="Loading document..." />
+      ) : (
+        <>
       <div className="docx-content-wrapper">
         <div
           className="docx-content"
@@ -106,6 +100,8 @@ function DocxViewerComponent({ resource }: DocxViewerProps) {
       `,
         }}
       />
+        </>
+      )}
     </div>
   );
 }

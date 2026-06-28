@@ -39,11 +39,12 @@ const useToolbarNavigation = (
     return () => observer.disconnect()
   }, [collectItems, toolbarRef])
 
-  const { selectedIndex } = useMenuNavigation<HTMLElement>({
+  useMenuNavigation<HTMLElement>({
     containerRef: toolbarRef,
     items,
     orientation: "horizontal",
     onSelect: (el) => el.click(),
+    onNavigate: (el) => el.focus(),
     autoSelectFirstItem: false,
   })
 
@@ -70,12 +71,6 @@ const useToolbarNavigation = (
       toolbar.removeEventListener("blur", handleBlur, true)
     }
   }, [toolbarRef])
-
-  useEffect(() => {
-    if (selectedIndex !== undefined && items[selectedIndex]) {
-      items[selectedIndex].focus()
-    }
-  }, [selectedIndex, items])
 }
 
 export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(

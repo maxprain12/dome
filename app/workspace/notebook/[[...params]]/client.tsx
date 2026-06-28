@@ -62,7 +62,8 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
     }
 
     loadResource();
-  }, [resourceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount via key={resourceId} on parent
+  }, []);
 
   // Refresh when Many (AI) modifies the notebook via notebook_add_cell, notebook_update_cell, etc.
   useEffect(() => {
@@ -88,12 +89,6 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
       unsubscribe();
     };
   }, [resourceId, resource]);
-
-  useEffect(() => {
-    if (resourceId) {
-      useAppStore.getState().setSelectedSourceIds([resourceId]);
-    }
-  }, [resourceId]);
 
   const saveContent = useCallback(async (newContent: string) => {
     if (!window.electron?.db?.resources || !resource) return;
@@ -266,6 +261,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
       <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
         {sourcesPanelOpen && resource && (
           <SourcesPanel
+            key={resource.project_id}
             resourceId={resourceId}
             projectId={resource.project_id}
           />
@@ -293,6 +289,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
         </div>
 
         <SidePanel
+          key={resourceId}
           resourceId={resourceId}
           resource={resource}
           isOpen={isPanelOpen}

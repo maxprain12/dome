@@ -188,9 +188,11 @@ function FolderCardImpl({
     return () => document.removeEventListener('mousedown', close);
   }, [menuOpen]);
 
-  useEffect(() => {
-    if (renaming) renameRef.current?.focus();
-  }, [renaming]);
+  const startRenaming = () => {
+    setRenaming(true);
+    setRenameValue(item.title ?? '');
+    requestAnimationFrame(() => renameRef.current?.focus());
+  };
 
   const folderColor = isFolder ? getFolderColor(item) : undefined;
   const typeColor = isFolder ? (folderColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
@@ -434,7 +436,7 @@ function FolderCardImpl({
               style={{ top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {menuItem(<Pencil className="size-3" />, t('folder.rename'), () => { setRenaming(true); setRenameValue(item.title ?? ''); })}
+              {menuItem(<Pencil className="size-3" />, t('folder.rename'), startRenaming)}
               {isFolderCard && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
                 setMenuOpen(false);
                 openColorPicker();

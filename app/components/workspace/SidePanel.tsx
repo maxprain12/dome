@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link2, MessageSquare, X, FolderOpen, FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import WorkspaceFilesPanel from './WorkspaceFilesPanel';
@@ -86,29 +86,35 @@ export default function SidePanel({
     [isNotebook, isPdf],
   );
 
-  useEffect(() => {
-    setActiveTab((prev) => {
-      if (tabs.includes(prev)) return prev;
-      return isPdf ? 'pdf' : 'relations';
-    });
-  }, [resourceId, isPdf, tabs]);
+  const tabsKey = `${resourceId}:${tabs.join(',')}`;
+  const [prevTabsKey, setPrevTabsKey] = useState(tabsKey);
+  if (tabsKey !== prevTabsKey) {
+    setPrevTabsKey(tabsKey);
+    setActiveTab((prev) => (tabs.includes(prev) ? prev : isPdf ? 'pdf' : 'relations'));
+  }
+
+  const appliedPreferredRef = useRef<string | null>(null);
+  const preferredKey = preferredTab ?? '';
+  if (isOpen && preferredTab != null && tabs.includes(preferredTab) && appliedPreferredRef.current !== preferredKey) {
+    appliedPreferredRef.current = preferredKey;
+    setActiveTab(preferredTab);
+    queueMicrotask(() => onPreferredTabApplied?.());
+  } else if (!isOpen && appliedPreferredRef.current !== null) {
+    appliedPreferredRef.current = null;
+  }
 
   useEffect(() => {
-    if (!isOpen || preferredTab == null) return;
-    if (tabs.includes(preferredTab)) {
-      setActiveTab(preferredTab);
-      onPreferredTabApplied?.();
-    }
-  }, [isOpen, preferredTab, tabs, onPreferredTabApplied]);
-
-  useEffect(() => {
-    if (resource) {
-      setContext(resourceId, resource.title);
-    }
     return () => {
       setContext(null, null);
     };
-  }, [resourceId, resource, setContext]);
+  }, [setContext]);
+
+  const contextKey = `${resourceId}:${resource.title}`;
+  const prevContextKeyRef = useRef<string | null>(null);
+  if (contextKey !== prevContextKeyRef.current) {
+    prevContextKeyRef.current = contextKey;
+    setContext(resourceId, resource.title);
+  }
 
   if (!isOpen) return null;
 

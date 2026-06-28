@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Bot, Check, X } from 'lucide-react';
 import type { ManyAgent } from '@/types';
@@ -93,7 +93,9 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
   const [canProceed, setCanProceed] = useState((initialAgent?.name ?? '').trim().length > 0);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  const prevInitialAgentRef = useRef(initialAgent);
+  if (initialAgent !== prevInitialAgentRef.current) {
+    prevInitialAgentRef.current = initialAgent;
     if (initialAgent) {
       setName(initialAgent.name);
       setDescription(initialAgent.description);
@@ -102,7 +104,7 @@ export default function AgentOnboarding({ onComplete, onCancel, initialAgent, pr
       setIconIndex(initialAgent.iconIndex ?? 1);
       setCanProceed(initialAgent.name.trim().length > 0);
     }
-  }, [initialAgent]);
+  }
 
   const stepIndex = STEP_ORDER.indexOf(currentStep);
 

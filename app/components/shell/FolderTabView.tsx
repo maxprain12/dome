@@ -224,10 +224,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [goBack, goForward]);
 
-  useEffect(() => {
+  const prevListFolderIdRef = useRef<string | null | undefined>(listFolderId);
+  if (prevListFolderIdRef.current !== listFolderId) {
+    prevListFolderIdRef.current = listFolderId;
     setCurrentFolderId(listFolderId);
-    return () => { setCurrentFolderId(null); };
-  }, [listFolderId, setCurrentFolderId]);
+  }
+
+  useEffect(() => () => { setCurrentFolderId(null); }, [setCurrentFolderId]);
 
   // Folders available as move targets, flattened into a depth-indented tree so
   // the picker mirrors the real folder hierarchy instead of a flat list.
@@ -279,11 +282,13 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const folderColor = currentFolder ? getFolderColor(currentFolder) : 'var(--dome-accent)';
   const folderColorHex = folderColor.startsWith('#') ? folderColor : null;
 
-  useEffect(() => {
-    if (folderColorHex && !viewCtx.isProjectRoot) {
-      updateTab(`folder:${folderId}`, { color: folderColorHex });
-    }
-  }, [folderId, folderColorHex, updateTab, viewCtx.isProjectRoot]);
+  const tabColorKey =
+    folderColorHex && !viewCtx.isProjectRoot ? `${folderId}:${folderColorHex}` : '';
+  const prevTabColorKeyRef = useRef('');
+  if (tabColorKey && tabColorKey !== prevTabColorKeyRef.current) {
+    prevTabColorKeyRef.current = tabColorKey;
+    updateTab(`folder:${folderId}`, { color: folderColorHex! });
+  }
 
   const handleCurrentFolderColor = async (color: string) => {
     if (!currentFolder) return;

@@ -91,13 +91,8 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
       }
     }
     loadResource();
-  }, [resourceId]);
-
-  useEffect(() => {
-    if (resourceId) {
-      useAppStore.getState().setSelectedSourceIds([resourceId]);
-    }
-  }, [resourceId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remount via key={resourceId} on parent
+  }, []);
 
   useEffect(() => {
     if (!resourceId || typeof window === 'undefined' || !window.electron) return;
@@ -224,7 +219,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
       <div className="flex-1 flex relative min-h-0" style={{ overflow: 'clip' }}>
         {sourcesPanelOpen && resource && (
-          <SourcesPanel resourceId={resourceId} projectId={resource.project_id} />
+          <SourcesPanel key={resource.project_id} resourceId={resourceId} projectId={resource.project_id} />
         )}
 
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -250,6 +245,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
             <div className="flex-1 flex flex-col min-w-0 min-h-0 relative">
               <div className="flex-1 min-h-0 relative">
                 <PptViewer
+                  key={resource.id}
                   resource={resource}
                   activeIndex={activeSlideIndex}
                   onSlidesLoaded={handleSlidesLoaded}
@@ -312,6 +308,7 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
         </div>
 
         <SidePanel
+          key={resourceId}
           resourceId={resourceId}
           resource={resource}
           isOpen={isPanelOpen}

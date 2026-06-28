@@ -156,11 +156,19 @@ export default function GenerateSourceModal({
   }, [projectId, isOpen]);
 
   // Pre-select focusResourceId when in workspace
-  useEffect(() => {
-    if (isOpen && focusResourceId && allItems.some((r) => r.id === focusResourceId && r.type !== 'folder')) {
-      setSelectedIds((prev) => (prev.includes(focusResourceId) ? prev : [...prev, focusResourceId]));
+  const preselectKey =
+    isOpen && focusResourceId && allItems.length > 0
+      ? `${focusResourceId}:${allItems.length}`
+      : '';
+  const prevPreselectKeyRef = useRef('');
+  if (preselectKey && preselectKey !== prevPreselectKeyRef.current) {
+    prevPreselectKeyRef.current = preselectKey;
+    if (allItems.some((r) => r.id === focusResourceId && r.type !== 'folder')) {
+      setSelectedIds((prev) =>
+        focusResourceId && !prev.includes(focusResourceId) ? [...prev, focusResourceId] : prev,
+      );
     }
-  }, [isOpen, focusResourceId, allItems]);
+  }
 
   const expandFoldersKey = focusResourceId && allItems.length > 0
     ? `${focusResourceId}:${allItems.length}`

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import HubListState from '@/components/ui/HubListState';
@@ -102,9 +102,11 @@ function NoResource() {
 function ChatTabView({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   const [ManyPanelComp, setManyPanelComp] = useState<ManyPanelComponent | null>(null);
 
-  useEffect(() => {
-    if (sessionId) useManyStore.getState().switchSession(sessionId);
-  }, [sessionId]);
+  const prevSessionIdRef = useRef<string | null>(null);
+  if (sessionId && prevSessionIdRef.current !== sessionId) {
+    prevSessionIdRef.current = sessionId;
+    useManyStore.getState().switchSession(sessionId);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -183,7 +185,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <NotebookWorkspaceClient resourceId={tab.resourceId} />
+              <NotebookWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
             </div>
           </Suspense>
         </ErrorBoundary>
@@ -195,7 +197,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <WorkspaceClient resourceId={tab.resourceId} />
+              <WorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
             </div>
           </Suspense>
         </ErrorBoundary>
@@ -207,7 +209,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <URLWorkspaceClient resourceId={tab.resourceId} />
+              <URLWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
             </div>
           </Suspense>
         </ErrorBoundary>
@@ -219,7 +221,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <YouTubeWorkspaceClient resourceId={tab.resourceId} />
+              <YouTubeWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
             </div>
           </Suspense>
         </ErrorBoundary>
@@ -231,7 +233,7 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full overflow-hidden">
-              <PptWorkspaceClient resourceId={tab.resourceId} />
+              <PptWorkspaceClient key={tab.resourceId} resourceId={tab.resourceId} />
             </div>
           </Suspense>
         </ErrorBoundary>

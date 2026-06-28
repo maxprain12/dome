@@ -31,8 +31,9 @@ export default function PetMascot({ plugin }: PetMascotProps) {
   const moveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load assets from plugin
+  // Load assets on mount; parent keys by plugin.id so this re-runs when the pet plugin changes.
   useEffect(() => {
+    let cancelled = false;
     const loadAssets = async () => {
       const readAsset = window.electron?.plugins?.readAsset;
       if (!readAsset) return;
@@ -67,21 +68,24 @@ export default function PetMascot({ plugin }: PetMascotProps) {
           }
         }
 
-        setSpriteUrls(results);
+        if (!cancelled) setSpriteUrls(results);
 
         const promptRes = await readAsset(plugin.id, 'prompt.txt');
-        if (promptRes?.success && promptRes.text) {
+        if (!cancelled && promptRes?.success && promptRes.text) {
           promptRef.current = promptRes.text;
         }
       } catch (e) {
         console.warn('[PetMascot] Failed to load assets:', e);
       } finally {
-        setLoaded(true);
+        if (!cancelled) setLoaded(true);
       }
     };
 
-    loadAssets();
-  }, [plugin.id, plugin.sprites]);
+    void loadAssets();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Navigation: move randomly within the main content area
   useEffect(() => {

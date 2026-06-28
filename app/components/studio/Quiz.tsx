@@ -183,26 +183,35 @@ export default function Quiz({
     setShowExplanation(true);
   }, [selectedAnswer, currentQuestion, questionStartedAt]);
 
+  const finishQuiz = useCallback(
+    (results: QuestionResult[]) => {
+      setIsFinished(true);
+      if (results.length > 0) void persistRun(results);
+    },
+    [persistRun],
+  );
+
   const handleSkip = useCallback(() => {
     if (!currentQuestion || showExplanation) return;
-    setQuestionResults((prev) => [
-      ...prev,
+    const nextResults: QuestionResult[] = [
+      ...questionResults,
       {
         questionId: currentQuestion.id,
         correct: false,
         elapsedMs: Date.now() - questionStartedAt,
         selected: null,
       },
-    ]);
+    ];
+    setQuestionResults(nextResults);
     if (currentIndex < totalQuestions - 1) {
       setCurrentIndex((i) => i + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
       setQuestionStartedAt(Date.now());
     } else {
-      setIsFinished(true);
+      finishQuiz(nextResults);
     }
-  }, [currentQuestion, showExplanation, currentIndex, totalQuestions, questionStartedAt]);
+  }, [currentQuestion, showExplanation, currentIndex, totalQuestions, questionStartedAt, questionResults, finishQuiz]);
 
   const handleNext = useCallback(() => {
     if (currentIndex < totalQuestions - 1) {
@@ -211,9 +220,9 @@ export default function Quiz({
       setShowExplanation(false);
       setQuestionStartedAt(Date.now());
     } else {
-      setIsFinished(true);
+      finishQuiz(questionResults);
     }
-  }, [currentIndex, totalQuestions]);
+  }, [currentIndex, totalQuestions, questionResults, finishQuiz]);
 
   const handleRestart = useCallback(
     (opts?: { onlyMissed?: boolean; shuffle?: boolean }) => {
@@ -290,12 +299,6 @@ export default function Quiz({
     handleNext,
     handleSelectAnswer,
   ]);
-
-  useEffect(() => {
-    if (isFinished && questionResults.length > 0) {
-      void persistRun(questionResults);
-    }
-  }, [isFinished, questionResults, persistRun]);
 
   const frameClass = learnMode ? 'lr-frame lr-quiz' : '';
   const headerClass = learnMode ? 'lr-quiz-hd' : 'flex items-center justify-between px-4 py-3 border-b';

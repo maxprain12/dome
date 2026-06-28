@@ -12,6 +12,7 @@ import { type Resource } from '@/types';
 import LoadingState from '@/components/ui/LoadingState';
 import ErrorState from '@/components/ui/ErrorState';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface URLViewerProps {
   resource: Resource;
@@ -83,7 +84,6 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
   const [url, setUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null);
 
   const normalizeMetadata = useCallback((raw: unknown): Record<string, unknown> => {
     if (!raw) return {};
@@ -97,43 +97,50 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     return raw as Record<string, unknown>;
   }, []);
 
-  useEffect(() => {
-    setMetadata(normalizeMetadata(resource.metadata));
-  }, [resource.metadata, normalizeMetadata]);
+  const normalizedFromResource = useMemo(
+    () => normalizeMetadata(resource.metadata),
+    [resource.metadata, normalizeMetadata],
+  );
 
-  useEffect(() => {
-    async function loadURL() {
-      if (typeof window === 'undefined' || !window.electron) return;
+  const [metadata, setMetadata] = useState(normalizedFromResource);
 
-      try {
-        setIsLoading(true);
-        setError(null);
+  const [prevNormalizedFromResource, setPrevNormalizedFromResource] = useState(normalizedFromResource);
+  if (normalizedFromResource !== prevNormalizedFromResource) {
+    setPrevNormalizedFromResource(normalizedFromResource);
+    setMetadata(normalizedFromResource);
+  }
 
-        const resourceMetadata = normalizeMetadata(resource.metadata);
-        const resourceUrl =
-          (typeof resourceMetadata.url === 'string' && resourceMetadata.url) ||
-          (typeof resource.content === 'string' && resource.content ? resource.content : null);
+  const loadURL = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron) return;
 
-        if (!resourceUrl) {
-          setError('URL not found in resource');
-          return;
-        }
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        setUrl(resourceUrl);
+      const resourceMetadata = normalizeMetadata(resource.metadata);
+      const resourceUrl =
+        (typeof resourceMetadata.url === 'string' && resourceMetadata.url) ||
+        (typeof resource.content === 'string' && resource.content ? resource.content : null);
 
-        if (resourceMetadata.processing_status === 'pending' || !resourceMetadata.processed_at) {
-          await onRunUrlProcess();
-        }
-      } catch (err) {
-        console.error('Error loading URL:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
+      if (!resourceUrl) {
+        setError('URL not found in resource');
+        return;
       }
-    }
 
-    loadURL();
-  }, [resource.id, resource.content, resource.metadata, onRunUrlProcess, normalizeMetadata]);
+      setUrl(resourceUrl);
+
+      if (resourceMetadata.processing_status === 'pending' || !resourceMetadata.processed_at) {
+        await onRunUrlProcess();
+      }
+    } catch (err) {
+      console.error('Error loading URL:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [resource.content, resource.id, resource.metadata, normalizeMetadata, onRunUrlProcess]);
+
+  const mountRef = useMountAction(loadURL);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -212,16 +219,16 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     }
   };
 
-  if (isLoading && !error) {
-    return <LoadingState message={t('viewer.loading_url')} />;
-  }
-
   if (error && !effectiveUrl) {
     return <ErrorState error={error} onRetry={() => { void onRunUrlProcess(); }} />;
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 w-full" style={{ background: 'var(--dome-bg)' }}>
+    <div ref={mountRef} className="flex flex-col flex-1 min-h-0 w-full" style={{ background: 'var(--dome-bg)' }}>
+      {isLoading && !error ? (
+        <LoadingState message={t('viewer.loading_url')} />
+      ) : (
+        <>
       {/* Unified in-view chrome: one light row; all URL actions live here */}
       <div
         className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b"
@@ -436,6 +443,8 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

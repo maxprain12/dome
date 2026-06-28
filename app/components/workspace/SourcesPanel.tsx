@@ -1,10 +1,11 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, CheckSquare, Square, MinusSquare } from 'lucide-react';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { type Resource } from '@/types';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface SourcesPanelProps {
   resourceId: string;
@@ -21,31 +22,27 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
   const selectAllSources = useAppStore((s) => s.selectAllSources);
   const deselectAllSources = useAppStore((s) => s.deselectAllSources);
 
-  // Fetch resources for this project
-  useEffect(() => {
-    async function fetchResources() {
-      if (!projectId || typeof window === 'undefined' || !window.electron) {
-        setIsLoading(false);
-        return;
-      }
-
-      try {
-        setIsLoading(true);
-        const result = await window.electron.db.resources.getByProject(projectId);
-        if (result.success && result.data) {
-          // Filter out folders
-          const filtered = result.data.filter((r: Resource) => r.type !== 'folder');
-          setResources(filtered);
-        }
-      } catch (err) {
-        console.error('Error fetching project resources:', err);
-      } finally {
-        setIsLoading(false);
-      }
+  const fetchResources = useCallback(async () => {
+    if (!projectId || typeof window === 'undefined' || !window.electron) {
+      setIsLoading(false);
+      return;
     }
 
-    fetchResources();
+    try {
+      setIsLoading(true);
+      const result = await window.electron.db.resources.getByProject(projectId);
+      if (result.success && result.data) {
+        const filtered = result.data.filter((r: Resource) => r.type !== 'folder');
+        setResources(filtered);
+      }
+    } catch (err) {
+      console.error('Error fetching project resources:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [projectId]);
+
+  const mountRef = useMountAction(fetchResources);
 
   const allSelected = resources.length > 0 && selectedSourceIds.length === resources.length;
   const someSelected = selectedSourceIds.length > 0 && selectedSourceIds.length < resources.length;
@@ -80,6 +77,7 @@ export default function SourcesPanel({ resourceId, projectId }: SourcesPanelProp
 
   return (
     <div
+      ref={mountRef}
       className="flex flex-col border-r shrink-0 transition-all duration-300 ease-out"
       style={{
         width: 'min(18vw, 260px)',

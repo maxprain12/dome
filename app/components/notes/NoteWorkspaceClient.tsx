@@ -260,9 +260,11 @@ export default function NoteWorkspaceClient({
     return () => unsub?.();
   }, [resourceId, isDirty]);
 
-  useEffect(() => {
-    if (resourceId) useAppStore.getState().setSelectedSourceIds([resourceId]);
-  }, [resourceId]);
+  const prevResourceIdForSelectionRef = useRef(resourceId);
+  if (resourceId && prevResourceIdForSelectionRef.current !== resourceId) {
+    prevResourceIdForSelectionRef.current = resourceId;
+    useAppStore.getState().setSelectedSourceIds([resourceId]);
+  }
 
   const savePillState: NoteSavePillState = saveError ? 'error' : isSaving ? 'saving' : isDirty ? 'dirty' : 'saved';
 

@@ -180,11 +180,11 @@ function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }
   const folderColor = tab.type === 'folder' && tab.color ? tab.color : null;
   const accentColor = folderColor ?? 'var(--dome-accent)';
   const isHubTab = HUB_TAB_IDS.has(tab.id);
-  useEffect(() => {
-    if (isActive) {
-      btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
-    }
-  }, [isActive]);
+  const prevIsActiveRef = useRef(isActive);
+  if (isActive && !prevIsActiveRef.current) {
+    btnRef.current?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }
+  prevIsActiveRef.current = isActive;
   return (
     <button
       ref={btnRef}
@@ -386,12 +386,10 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     [isCompact],
   );
 
-  useEffect(() => {
-    if (!hasHorizontalOverflow && overflowMenuOpen) {
-      setOverflowMenuOpen(false);
-      setOverflowAnchor(null);
-    }
-  }, [hasHorizontalOverflow, overflowMenuOpen]);
+  if (!hasHorizontalOverflow && overflowMenuOpen) {
+    setOverflowMenuOpen(false);
+    setOverflowAnchor(null);
+  }
 
   useEffect(() => {
     if (!overflowMenuOpen) return;

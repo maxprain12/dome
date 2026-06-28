@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import i18n from '@/lib/i18n';
 import { migrateFolderHistory, removeFolderHistory } from '@/lib/folder/folderNavigationHistory';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 export type TabType =
   | 'home'
@@ -58,6 +59,23 @@ export interface DomeTab {
    * calendar, email, etc.) intentionally omit this field.
    */
   projectId?: string;
+}
+
+const RESOURCE_SOURCE_TAB_TYPES = new Set<TabType>([
+  'note',
+  'notebook',
+  'resource',
+  'url',
+  'youtube',
+  'ppt',
+  'docx',
+  'artifact',
+]);
+
+function syncSelectedSourceForTab(tab: Pick<DomeTab, 'type' | 'resourceId'> | undefined): void {
+  if (tab?.resourceId && RESOURCE_SOURCE_TAB_TYPES.has(tab.type)) {
+    useAppStore.getState().setSelectedSourceIds([tab.resourceId]);
+  }
 }
 
 /**
@@ -239,6 +257,7 @@ export const useTabStore = create<TabStore>((set, get) => {
       if (existingById) {
         set({ activeTabId: id });
         saveTabs(tabs, id);
+        syncSelectedSourceForTab(existingById);
         return;
       }
 
@@ -266,6 +285,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         if (existing) {
           set({ activeTabId: existing.id });
           saveTabs(tabs, existing.id);
+          syncSelectedSourceForTab(existing);
           return;
         }
       }
@@ -278,6 +298,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         if (existing) {
           set({ activeTabId: existing.id });
           saveTabs(tabs, existing.id);
+          syncSelectedSourceForTab(existing);
           return;
         }
       }
@@ -286,6 +307,7 @@ export const useTabStore = create<TabStore>((set, get) => {
       const newTabs = [...tabs, newTab];
       set({ tabs: newTabs, activeTabId: id });
       saveTabs(newTabs, id);
+      syncSelectedSourceForTab(newTab);
     },
 
     closeTab: (tabId) => {
@@ -456,10 +478,11 @@ export const useTabStore = create<TabStore>((set, get) => {
 
     activateTab: (tabId) => {
       const { tabs } = get();
-      const exists = tabs.find((t) => t.id === tabId);
-      if (!exists) return;
+      const tab = tabs.find((t) => t.id === tabId);
+      if (!tab) return;
       set({ activeTabId: tabId });
       saveTabs(tabs, tabId);
+      syncSelectedSourceForTab(tab);
     },
 
     replaceTabType: (tabId, newType) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Mic, Monitor, X, RefreshCw } from 'lucide-react';
 import { useTranscriptionStore, type TranscriptionSource } from '@/lib/transcription/useTranscriptionStore';
@@ -71,7 +71,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
 
   const wantsSystem = sources.includes('system');
 
-  const loadSources = useMemo(() => async () => {
+  const loadSources = useCallback(async () => {
     setLoadingSources(true);
     setError(null);
     try {
@@ -88,15 +88,13 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
     }
   }, [t]);
 
-  useEffect(() => {
-    if (wantsSystem && captureSources.length === 0 && !loadingSources) void loadSources();
-  }, [wantsSystem, captureSources.length, loadingSources, loadSources]);
-
   const toggleSource = (s: TranscriptionSource) => {
+    const adding = !sources.includes(s);
     setSources((prev) => {
       if (prev.includes(s)) return prev.filter((x) => x !== s);
       return [...prev, s];
     });
+    if (adding && s === 'system') void loadSources();
   };
 
   const canStart = sources.length > 0 && (!wantsSystem || !!systemSourceId) && !submitting;

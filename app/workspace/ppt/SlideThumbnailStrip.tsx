@@ -220,18 +220,23 @@ function SlideThumbnailStripComponent({
 
   const handleSelect = useCallback(
     (index: number) => {
-      if (index >= 0 && index < slideCount) onSelect(index);
+      if (index >= 0 && index < slideCount) {
+        onSelect(index);
+        const el = scrollRef.current;
+        if (el) {
+          const item = el.querySelector(`[data-slide-index="${index}"]`);
+          if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+      }
     },
-    [onSelect, slideCount]
+    [onSelect, slideCount],
   );
 
-  // Keep active item visible in the strip
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el || slideCount === 0) return;
-    const item = el.querySelector(`[data-slide-index="${activeIndex}"]`);
-    if (item) item.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [activeIndex, slideCount]);
+  const scrollActiveThumbRef = useCallback((node: HTMLButtonElement | null) => {
+    if (node) {
+      node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }, [activeIndex]);
 
   if (slideCount === 0) return null;
 
@@ -298,6 +303,7 @@ function SlideThumbnailStripComponent({
               key={i}
               type="button"
               data-slide-index={i}
+              ref={isActive ? scrollActiveThumbRef : undefined}
               onClick={() => handleSelect(i)}
               className="focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-1"
               style={{

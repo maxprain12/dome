@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, ExternalLink, MessageSquareText } from 'luci
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
 import { useInteractions } from '@/lib/hooks/useInteractions';
-import { loadPDFDocument, getPDFPage, getPDFOutline, type OutlineItem } from '@/lib/pdf/pdf-loader';
+import { loadPDFDocument, getPDFPage, getPDFOutline, dataUrlToUint8Array, type OutlineItem } from '@/lib/pdf/pdf-loader';
 import type { PDFAnnotation, AnnotationType } from '@/lib/pdf/annotation-utils';
 import { parseAnnotationFromDB, serializeAnnotationForDB } from '@/lib/pdf/annotation-utils';
 import { usePDFViewerStore } from '@/lib/store/usePDFViewerStore';
@@ -15,6 +15,7 @@ import PDFPageInput from './pdf/PDFPageInput';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import PDFViewerSkeleton from './pdf/PDFViewerSkeleton';
 import ErrorState from '@/components/ui/ErrorState';
+import { useMountAction } from '@/lib/hooks/useMountAction';
 
 interface PDFViewerProps {
   resource: Resource;
@@ -49,9 +50,6 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const pdfRegionSelectRef = useRef(pdfRegionSelect);
   pdfRegionSelectRef.current = pdfRegionSelect;
   
-  // Track if initial page has been set to avoid reloads
-  const initialPageSetRef = useRef(false);
-
   const { annotations: dbAnnotations, addInteraction, updateInteraction, deleteInteraction } = useInteractions(resource.id);
 
   const annotations = useMemo(() => {
@@ -65,71 +63,55 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
     return parsedAnnotations;
   }, [dbAnnotations]);
 
-  // Load PDF document - only reloads when resource.id changes, not when initialPage changes
-  useEffect(() => {
-    async function loadPDF() {
-      if (typeof window === 'undefined' || !window.electron) return;
+  const loadPDF = useCallback(async () => {
+    if (typeof window === 'undefined' || !window.electron) return;
 
-      try {
-        setIsLoading(true);
-        setError(null);
+    try {
+      setIsLoading(true);
+      setError(null);
 
-        // Reset initial page tracking when resource changes
-        initialPageSetRef.current = false;
+      const [pathResult, result] = await Promise.all([
+        window.electron.resource.getFilePath(resource.id),
+        window.electron.resource.readFile(resource.id),
+      ]);
 
-        // Get file path and read file in parallel (independent operations)
-        const [pathResult, result] = await Promise.all([
-          window.electron.resource.getFilePath(resource.id),
-          window.electron.resource.readFile(resource.id),
-        ]);
-
-        if (pathResult.success && pathResult.data) {
-          setFilePath(pathResult.data);
-        }
-
-        if (result.success && result.data) {
-          // Convert data URL to ArrayBuffer
-          const response = await fetch(result.data);
-          const arrayBuffer = await response.arrayBuffer();
-
-          // Load PDF document
-          const doc = await loadPDFDocument(arrayBuffer);
-          setPdfDocument(doc);
-
-          // Load all pages
-          const numPages = doc.numPages;
-          const pagePromises: Promise<PDFPageProxy>[] = [];
-          for (let i = 1; i <= numPages; i++) {
-            pagePromises.push(getPDFPage(doc, i));
-          }
-          const loadedPages = await Promise.all(pagePromises);
-          setPages(loadedPages);
-
-          const toc = await getPDFOutline(doc);
-          setOutline(toc);
-
-          // Set initial page only once when PDF first loads
-          if (!initialPageSetRef.current) {
-            if (initialPage != null && initialPage >= 1 && initialPage <= numPages) {
-              setCurrentPage(initialPage);
-            } else if (initialPage != null && initialPage > numPages) {
-              setCurrentPage(numPages);
-            }
-            initialPageSetRef.current = true;
-          }
-        } else {
-          setError(result.error || 'Failed to load PDF');
-        }
-      } catch (err) {
-        console.error('Error loading PDF:', err);
-        setError(err instanceof Error ? err.message : 'Unknown error');
-      } finally {
-        setIsLoading(false);
+      if (pathResult.success && pathResult.data) {
+        setFilePath(pathResult.data);
       }
-    }
 
-    loadPDF();
+      if (result.success && result.data) {
+        const bytes = dataUrlToUint8Array(result.data);
+        const doc = await loadPDFDocument(bytes);
+        setPdfDocument(doc);
+
+        const numPages = doc.numPages;
+        const pagePromises: Promise<PDFPageProxy>[] = [];
+        for (let i = 1; i <= numPages; i++) {
+          pagePromises.push(getPDFPage(doc, i));
+        }
+        const loadedPages = await Promise.all(pagePromises);
+        setPages(loadedPages);
+
+        const toc = await getPDFOutline(doc);
+        setOutline(toc);
+
+        if (initialPage != null && initialPage >= 1 && initialPage <= numPages) {
+          setCurrentPage(initialPage);
+        } else if (initialPage != null && initialPage > numPages) {
+          setCurrentPage(numPages);
+        }
+      } else {
+        setError(result.error || 'Failed to load PDF');
+      }
+    } catch (err) {
+      console.error('Error loading PDF:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsLoading(false);
+    }
   }, [resource.id, initialPage]);
+
+  const mountRef = useMountAction(loadPDF);
 
   // Calculate zoom based on mode; ResizeObserver for container resize
   useEffect(() => {
@@ -427,7 +409,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
+    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--bg-secondary)' }}>
       {/* Minimal toolbar: page nav + open */}
       <div
         className="flex items-center justify-between px-3 py-1.5 border-b shrink-0"

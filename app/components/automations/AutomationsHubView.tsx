@@ -84,9 +84,11 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
   const automationsSilentRefreshRef = useRef<(() => void) | null>(null);
   const runsSilentRefreshRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    if (shellHubTab) setActiveTab(shellHubTab);
-  }, [shellHubTab]);
+  const prevShellHubTabRef = useRef(shellHubTab);
+  if (shellHubTab && shellHubTab !== prevShellHubTabRef.current) {
+    prevShellHubTabRef.current = shellHubTab;
+    setActiveTab(shellHubTab);
+  }
 
   const automationsFilterGateKey =
     shellHubTab === 'automations' && automationsShellTabId && activeShellTabId === automationsShellTabId
@@ -169,35 +171,38 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     }
   }, [hubProjectId]);
 
-  useEffect(() => {
-    if (!selectedAgentId || agents.length === 0) return;
-    if (!agents.some((a) => a.id === selectedAgentId)) {
-      setSelectedAgentId(null);
-      try {
-        sessionStorage.removeItem(HUB_AGENT_STORAGE_KEY);
-      } catch {
-        /* ignore */
-      }
+  if (selectedAgentId && agents.length > 0 && !agents.some((a) => a.id === selectedAgentId)) {
+    setSelectedAgentId(null);
+    try {
+      sessionStorage.removeItem(HUB_AGENT_STORAGE_KEY);
+    } catch {
+      /* ignore */
     }
-  }, [agents, selectedAgentId]);
+  }
 
-  useEffect(() => {
-    const prev = prevAutomationsShellVisible.current;
-    const becameVisible = prev === false && automationsShellVisible;
+  if (prevAutomationsShellVisible.current !== automationsShellVisible) {
+    const wasVisible = prevAutomationsShellVisible.current;
     prevAutomationsShellVisible.current = automationsShellVisible;
-    if (becameVisible && (shellHubTab === 'automations' || activeTab === 'automations')) {
+    if (
+      wasVisible === false &&
+      automationsShellVisible &&
+      (shellHubTab === 'automations' || activeTab === 'automations')
+    ) {
       automationsSilentRefreshRef.current?.();
     }
-  }, [automationsShellVisible, activeTab, shellHubTab]);
+  }
 
-  useEffect(() => {
-    const prev = prevRunsShellVisible.current;
-    const becameVisible = prev === false && runsShellVisible;
+  if (prevRunsShellVisible.current !== runsShellVisible) {
+    const wasVisible = prevRunsShellVisible.current;
     prevRunsShellVisible.current = runsShellVisible;
-    if (becameVisible && (shellHubTab === 'runs' || activeTab === 'runs')) {
+    if (
+      wasVisible === false &&
+      runsShellVisible &&
+      (shellHubTab === 'runs' || activeTab === 'runs')
+    ) {
       runsSilentRefreshRef.current?.();
     }
-  }, [runsShellVisible, activeTab, shellHubTab]);
+  }
 
   const handleShowAutomations = useCallback(
     (targetType: 'agent' | 'workflow', targetId: string, targetLabel: string) => {
@@ -269,24 +274,6 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     }
   }, []);
 
-  const openWorkflowCanvas = useCallback((workflowId: string) => {
-    setActiveWorkflowId(workflowId);
-    try {
-      sessionStorage.setItem(HUB_WORKFLOW_STORAGE_KEY, workflowId);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const openNewWorkflowCanvas = useCallback(() => {
-    setActiveWorkflowId('new');
-    try {
-      sessionStorage.setItem(HUB_WORKFLOW_STORAGE_KEY, 'new');
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   const closeWorkflowCanvas = useCallback(() => {
     setActiveWorkflowId(null);
     try {
@@ -296,23 +283,48 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     }
   }, []);
 
-  useEffect(() => {
-    if (!activeWorkflowId) return;
-    if (activeWorkflowId === 'new') {
-      useCanvasStore.getState().clearCanvas();
-      return;
-    }
-    const canvas = useCanvasStore.getState();
-    if (canvas.activeWorkflowId === activeWorkflowId) return;
-    void getWorkflows(hubProjectId).then((wfs) => {
-      const wf = wfs.find((w) => w.id === activeWorkflowId);
-      if (wf) {
-        useCanvasStore.getState().loadWorkflow(wf);
-      } else {
-        closeWorkflowCanvas();
+  const loadWorkflowCanvas = useCallback(
+    (workflowId: string) => {
+      if (workflowId === 'new') {
+        useCanvasStore.getState().clearCanvas();
+        return;
       }
-    });
-  }, [activeWorkflowId, hubProjectId, closeWorkflowCanvas]);
+      const canvas = useCanvasStore.getState();
+      if (canvas.activeWorkflowId === workflowId) return;
+      void getWorkflows(hubProjectId).then((wfs) => {
+        const wf = wfs.find((w) => w.id === workflowId);
+        if (wf) {
+          useCanvasStore.getState().loadWorkflow(wf);
+        } else {
+          closeWorkflowCanvas();
+        }
+      });
+    },
+    [hubProjectId, closeWorkflowCanvas],
+  );
+
+  const openWorkflowCanvas = useCallback(
+    (workflowId: string) => {
+      setActiveWorkflowId(workflowId);
+      try {
+        sessionStorage.setItem(HUB_WORKFLOW_STORAGE_KEY, workflowId);
+      } catch {
+        /* ignore */
+      }
+      loadWorkflowCanvas(workflowId);
+    },
+    [loadWorkflowCanvas],
+  );
+
+  const openNewWorkflowCanvas = useCallback(() => {
+    setActiveWorkflowId('new');
+    try {
+      sessionStorage.setItem(HUB_WORKFLOW_STORAGE_KEY, 'new');
+    } catch {
+      /* ignore */
+    }
+    loadWorkflowCanvas('new');
+  }, [loadWorkflowCanvas]);
 
   const reportAutomationsFormMode = useCallback((mode: HubAutomationsFormMode) => {
     setAutomationsFormMode(mode);
