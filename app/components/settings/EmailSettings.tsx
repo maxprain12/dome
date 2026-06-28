@@ -454,6 +454,11 @@ function EmailPermissionsEditor({
   );
 }
 
+const ZOHO_REGION_OPTIONS: { id: ZohoRegionId; labelKey: string }[] = [
+  { id: 'eu', labelKey: 'email.settings.zoho_region_eu' },
+  { id: 'global', labelKey: 'email.settings.zoho_region_global' },
+];
+
 function ZohoRegionPicker({
   value,
   onChange,
@@ -462,10 +467,6 @@ function ZohoRegionPicker({
   onChange: (region: ZohoRegionId) => void;
 }) {
   const { t } = useTranslation();
-  const options: { id: ZohoRegionId; labelKey: string }[] = [
-    { id: 'eu', labelKey: 'email.settings.zoho_region_eu' },
-    { id: 'global', labelKey: 'email.settings.zoho_region_global' },
-  ];
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 min-w-0">
@@ -478,7 +479,7 @@ function ZohoRegionPicker({
         aria-label={t('email.settings.zoho_region_aria')}
         style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
       >
-        {options.map((opt) => {
+        {ZOHO_REGION_OPTIONS.map((opt) => {
           const selected = value === opt.id;
           return (
             <button

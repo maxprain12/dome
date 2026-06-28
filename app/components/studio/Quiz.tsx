@@ -5,6 +5,7 @@ import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { useTranslation } from 'react-i18next';
 import { normalizeQuizData } from '@/lib/studio/normalizeQuizContent';
 import type { QuizData, QuizQuestion } from '@/types';
+import { lazyRef } from '@/lib/utils/lazyRef';
 
 interface QuizProps {
   data: QuizData;
@@ -97,7 +98,8 @@ export default function Quiz({
   const [questionStartedAt, setQuestionStartedAt] = useState(() => Date.now());
   const [elapsedSec, setElapsedSec] = useState(0);
   const persistedRef = useRef(false);
-  const sessionStartedAt = useRef(Date.now());
+  const sessionStartedAt = useRef<number | null>(null);
+  lazyRef(sessionStartedAt, () => Date.now());
 
   const questions = questionOrder;
   const currentQuestion = questions[currentIndex];
@@ -133,7 +135,8 @@ export default function Quiz({
       if (!studioOutputId || persistedRef.current) return;
       persistedRef.current = true;
       const correct = results.filter((r) => r.correct).length;
-      const durationMs = Date.now() - sessionStartedAt.current;
+      const startedAt = lazyRef(sessionStartedAt, () => Date.now());
+      const durationMs = Date.now() - startedAt;
       try {
         await window.electron.db.quiz.createRun({
           studio_output_id: studioOutputId,
@@ -141,7 +144,7 @@ export default function Quiz({
           correct,
           duration_ms: durationMs,
           per_question: results,
-          started_at: sessionStartedAt.current,
+          started_at: startedAt,
           completed_at: Date.now(),
         });
       } catch (err) {

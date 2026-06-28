@@ -19,6 +19,22 @@ const ICONS: Record<HomeQuickActionId, LucideIcon> = {
   calendar: Calendar,
 };
 
+const QUICK_ACTION_LABEL_KEYS: Record<HomeQuickActionId, string> = {
+  newNote: 'dashboard.action_new_note',
+  upload: 'dashboard.action_upload',
+  newChat: 'dashboard.action_new_chat',
+  learn: 'dashboard.action_learn',
+  calendar: 'dashboard.action_calendar',
+};
+
+const QUICK_ACTION_DESC_KEYS: Record<HomeQuickActionId, string> = {
+  newNote: 'dashboard.action_new_note_desc',
+  upload: 'dashboard.action_upload_desc',
+  newChat: 'dashboard.action_new_chat_desc',
+  learn: 'dashboard.action_learn_desc',
+  calendar: 'dashboard.action_calendar_desc',
+};
+
 export function DashboardQuickActions({
   orderedIds,
   onAction,
@@ -27,22 +43,6 @@ export function DashboardQuickActions({
   onAction: (id: HomeQuickActionId) => void;
 }) {
   const { t } = useTranslation();
-
-  const labelKey: Record<HomeQuickActionId, string> = {
-    newNote: 'dashboard.action_new_note',
-    upload: 'dashboard.action_upload',
-    newChat: 'dashboard.action_new_chat',
-    learn: 'dashboard.action_learn',
-    calendar: 'dashboard.action_calendar',
-  };
-
-  const descKey: Record<HomeQuickActionId, string> = {
-    newNote: 'dashboard.action_new_note_desc',
-    upload: 'dashboard.action_upload_desc',
-    newChat: 'dashboard.action_new_chat_desc',
-    learn: 'dashboard.action_learn_desc',
-    calendar: 'dashboard.action_calendar_desc',
-  };
 
   if (orderedIds.length === 0) return null;
 
@@ -64,9 +64,9 @@ export function DashboardQuickActions({
               onClick={() => onAction(id)}
             >
               <span className="flex min-w-0 flex-col items-start gap-0.5 text-left">
-                <span className="text-sm font-semibold leading-tight">{t(labelKey[id])}</span>
+                <span className="text-sm font-semibold leading-tight">{t(QUICK_ACTION_LABEL_KEYS[id])}</span>
                 <span className={`text-xs font-medium ${isPrimary ? 'text-white/80' : 'text-[var(--tertiary-text)]'}`}>
-                  {t(descKey[id])}
+                  {t(QUICK_ACTION_DESC_KEYS[id])}
                 </span>
               </span>
             </DomeButton>

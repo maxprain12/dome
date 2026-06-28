@@ -22,6 +22,8 @@ interface DashboardProps {
   onOpenRuns?: () => void;
 }
 
+const pipelineDashboardCardStyle = { background: 'var(--bg-secondary)', border: '1px solid var(--border)' } as const;
+
 /**
  * Pipelines hub. The landing screen for the Pipelines tab: it surfaces metrics
  * across the whole workspace and acts as a router to the Kanban board, Agents,
@@ -144,8 +146,6 @@ export default function PipelinesDashboard({
     }
   };
 
-  const card = { background: 'var(--bg-secondary)', border: '1px solid var(--border)' };
-
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ minWidth: 0 }}>
       <div className="px-6 pt-6 pb-2">
@@ -168,7 +168,7 @@ export default function PipelinesDashboard({
               onClick={n.onClick}
               disabled={n.disabled}
               className="text-left rounded-xl p-4 flex flex-col gap-2 transition-colors group"
-              style={{ ...card, cursor: n.disabled ? 'not-allowed' : 'pointer', opacity: n.disabled ? 0.6 : 1 }}
+              style={{ ...pipelineDashboardCardStyle, cursor: n.disabled ? 'not-allowed' : 'pointer', opacity: n.disabled ? 0.6 : 1 }}
             >
               <div className="flex items-center justify-between">
                 <span
@@ -203,7 +203,7 @@ export default function PipelinesDashboard({
             {quickAccess.map((qa) => {
               const Icon = qa.icon;
               return (
-                <div key={qa.key} className="rounded-lg p-3 flex flex-col gap-2" style={card}>
+                <div key={qa.key} className="rounded-lg p-3 flex flex-col gap-2" style={pipelineDashboardCardStyle}>
                   <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
                       <Icon size={14} style={{ color: 'var(--accent)' }} />
@@ -252,7 +252,7 @@ export default function PipelinesDashboard({
                 type="button"
                 onClick={() => onOpenPipeline?.(p.id)}
                 className="text-left rounded-lg p-3 flex items-center gap-2 transition-colors"
-                style={{ ...card, cursor: 'pointer' }}
+                style={{ ...pipelineDashboardCardStyle, cursor: 'pointer' }}
               >
                 <LayoutGrid size={15} style={{ color: 'var(--accent)' }} />
                 <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
@@ -293,7 +293,7 @@ export default function PipelinesDashboard({
               onClick={() => void runTemplate(tpl)}
               disabled={busy !== null}
               className="text-left rounded-lg p-3 flex flex-col gap-1 transition-colors"
-              style={{ ...card, cursor: busy ? 'wait' : 'pointer' }}
+              style={{ ...pipelineDashboardCardStyle, cursor: busy ? 'wait' : 'pointer' }}
             >
               <span className="inline-flex items-center gap-1.5 font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
                 {busy === tpl.key ? (

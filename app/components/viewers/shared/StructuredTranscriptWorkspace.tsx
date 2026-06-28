@@ -18,6 +18,7 @@ import TranscriptSearchBar from './transcript/TranscriptSearchBar';
 import TranscriptSegmentList from './transcript/TranscriptSegmentList';
 import TranscriptEmptyState from './transcript/TranscriptEmptyState';
 import { countOccurrences, getSpeakerColor, buildSpeakerOrder } from './transcript/transcriptUtils';
+import { lazyRef } from '@/lib/utils/lazyRef';
 
 interface StructuredTranscriptWorkspaceProps {
   resource: Resource;
@@ -55,7 +56,8 @@ export default function StructuredTranscriptWorkspace({
   const [searchQuery, setSearchQuery] = useState('');
   const [followPlayback, setFollowPlayback] = useState(true);
 
-  const rowRefs = useRef<Map<string, HTMLButtonElement | null>>(new Map());
+  const rowRefs = useRef<Map<string, HTMLButtonElement | null> | null>(null);
+  const rowRefMap = lazyRef(rowRefs, () => new Map());
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -79,7 +81,7 @@ export default function StructuredTranscriptWorkspace({
   useEffect(() => {
     if (!followPlayback || !isPlaying) return;
     if (!activeSegmentId) return;
-    const el = rowRefs.current.get(activeSegmentId);
+    const el = rowRefMap.get(activeSegmentId);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }, [activeSegmentId, followPlayback, isPlaying]);
 

@@ -11,6 +11,7 @@ import { useResources, type Resource } from '@/lib/hooks/useResources';
 import { useTabStore, FOLDER_TAB_PREFIX } from '@/lib/store/useTabStore';
 import { useFolderNavigationHistory } from '@/lib/hooks/useFolderNavigationHistory';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { lazyRef } from '@/lib/utils/lazyRef';
 import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import '@/styles/folder-view.css';
@@ -65,7 +66,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocusIndex, setSearchFocusIndex] = useState(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const rowRefs = useRef<Map<string, HTMLDivElement> | null>(null);
+  const rowRefMap = lazyRef(rowRefs, () => new Map());
 
   const searchModHint =
     typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform) ? '⌘F' : 'Ctrl+F';
@@ -425,7 +427,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     if (!isFiltering || filteredListItems.length === 0) return;
     const focused = filteredListItems[Math.min(searchFocusIndex, filteredListItems.length - 1)];
     if (!focused) return;
-    rowRefs.current.get(focused.item.id)?.scrollIntoView({ block: 'nearest' });
+    rowRefMap.get(focused.item.id)?.scrollIntoView({ block: 'nearest' });
   }, [searchFocusIndex, filteredListItems, isFiltering]);
 
   useEffect(() => {
@@ -754,8 +756,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   isFolder={isFolder}
                   isLast={idx === rowsToRender.length - 1 && !creatingFolder}
                   rowRef={(el) => {
-                    if (el) rowRefs.current.set(item.id, el);
-                    else rowRefs.current.delete(item.id);
+                    if (el) rowRefMap.set(item.id, el);
+                    else rowRefMap.delete(item.id);
                   }}
                   onOpen={() => {
                     if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
@@ -796,8 +798,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     isFolder={isFolder}
                     isLast={idx === rowsToRender.length - 1 && !creatingFolder}
                     cardRef={(el) => {
-                      if (el) rowRefs.current.set(item.id, el as unknown as HTMLDivElement);
-                      else rowRefs.current.delete(item.id);
+                      if (el) rowRefMap.set(item.id, el as unknown as HTMLDivElement);
+                      else rowRefMap.delete(item.id);
                     }}
                     onOpen={() => {
                       if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));

@@ -217,7 +217,7 @@ function PlusMenuQuickActions({
 function PlusMenuCapabilitiesSection({ manyCapabilities, t }: { manyCapabilities: ManyCapabilitiesBlockProps; t: (key: string) => string }) {
   return (
     <>
-      <div className="mx-3 my-3 h-px bg-[var(--border)]" role="separator" aria-label="Separator" />
+      <hr className="mx-3 my-3 h-px border-0 bg-[var(--border)]" aria-label="Separator" />
       <p
         className="px-1 pb-1 text-[9px] font-semibold uppercase tracking-wider"
         style={{ color: 'var(--tertiary-text)' }}
@@ -332,6 +332,12 @@ function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers
  * Body of the "Claude-style" + menu: quick actions, then capabilities, then MCP/tools.
  * With `menuLayout="nested"`, capabilities / tools / skills open sub-panels.
  */
+const plusMenuShellStyle = {
+  background: 'var(--bg-secondary)',
+  borderColor: 'var(--border)',
+  boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
+} as const;
+
 export function ChatComposerPlusMenuContent({
   showAttach,
   onAttach,
@@ -363,15 +369,10 @@ export function ChatComposerPlusMenuContent({
 
   const menuShellClass =
     'flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl';
-  const menuShellStyle = {
-    background: 'var(--bg-secondary)',
-    borderColor: 'var(--border)',
-    boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
-  } as const;
 
   if (menuLayout === 'flat') {
     return (
-      <div className={menuShellClass} style={menuShellStyle}>
+      <div className={menuShellClass} style={plusMenuShellStyle}>
         {onCloseMenu ? (
           <div className="flex shrink-0 justify-end border-b border-[var(--border)] px-2 py-0.5">
             <button
@@ -417,11 +418,7 @@ export function ChatComposerPlusMenuContent({
   return (
     <div
       className="flex max-h-[min(400px,60vh)] w-[min(calc(100vw-20px),320px)] flex-col overflow-hidden rounded-2xl border shadow-2xl"
-      style={{
-        background: 'var(--bg-secondary)',
-        borderColor: 'var(--border)',
-        boxShadow: '0 12px 40px rgb(0 0 0 / 0.18)',
-      }}
+      style={plusMenuShellStyle}
     >
       {view !== 'root' ? (
         <div className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] p-2">

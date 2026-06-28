@@ -1,6 +1,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
+import { lazyRef } from '@/lib/utils/lazyRef';
 import { useTranslation } from 'react-i18next';
 import {
   X,
@@ -93,7 +94,8 @@ export default function AudioOverview({
   const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
-  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const lineRefs = useRef<Map<number, HTMLDivElement> | null>(null);
+  const lineRefMap = lazyRef(lineRefs, () => new Map());
 
   // Progress bar ref for click-to-seek
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -181,7 +183,7 @@ export default function AudioOverview({
       setActiveLineIndex(activeIdx);
 
       // Auto-scroll to active line
-      const lineEl = lineRefs.current.get(activeIdx);
+      const lineEl = lineRefMap.get(activeIdx);
       if (lineEl && transcriptRef.current) {
         lineEl.scrollIntoView({
           behavior: prefersReducedMotion ? 'auto' : 'smooth',
@@ -476,8 +478,8 @@ export default function AudioOverview({
                 role="button"
                 tabIndex={0}
                 ref={(el) => {
-                  if (el) lineRefs.current.set(index, el);
-                  else lineRefs.current.delete(index);
+                  if (el) lineRefMap.set(index, el);
+                  else lineRefMap.delete(index);
                 }}
                 className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
                 style={{

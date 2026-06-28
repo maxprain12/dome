@@ -11,6 +11,13 @@ const TOAST_ICONS = {
   info: Info,
 } as const;
 
+const TOAST_COLOR_VARS: Record<string, string> = {
+  success: 'var(--success)',
+  error: 'var(--error)',
+  warning: 'var(--warning)',
+  info: 'var(--accent)',
+};
+
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const { t } = useTranslation();
   const [isExiting, setIsExiting] = useState(false);
@@ -18,13 +25,6 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
   const handleDismiss = () => {
     setIsExiting(true);
     setTimeout(onDismiss, 200);
-  };
-
-  const colorVar: Record<string, string> = {
-    success: 'var(--success)',
-    error: 'var(--error)',
-    warning: 'var(--warning)',
-    info: 'var(--accent)',
   };
 
   return (
@@ -37,7 +37,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
         padding: '12px 16px',
         background: 'var(--bg)',
         border: '1px solid var(--border)',
-        borderLeft: `3px solid ${colorVar[toast.type] || 'var(--accent)'}`,
+        borderLeft: `3px solid ${TOAST_COLOR_VARS[toast.type] || 'var(--accent)'}`,
         borderRadius: 8,
         boxShadow: 'var(--shadow-md)',
         minWidth: 280,
@@ -48,7 +48,7 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
     >
       <span
         style={{
-          color: colorVar[toast.type] || 'var(--accent)',
+          color: TOAST_COLOR_VARS[toast.type] || 'var(--accent)',
           flexShrink: 0,
           width: 18,
           height: 18,

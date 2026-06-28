@@ -21,6 +21,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ResearchPlan, ResearchReport, ResearchLogEntry } from '@/types';
+import { lazyRef } from '@/lib/utils/lazyRef';
 
 // =============================================================================
 // Types
@@ -448,12 +449,13 @@ function ReportView({
     report.sections[0]?.id ?? null
   );
   const showToc = true;
-  const sectionRefs = useRef<Map<string, HTMLElement>>(new Map());
+  const sectionRefs = useRef<Map<string, HTMLElement> | null>(null);
+  const sectionRefMap = lazyRef(sectionRefs, () => new Map());
   const prefersReducedMotion = useReducedMotion();
 
   const handleSectionClick = (id: string) => {
     setActiveSection(id);
-    const element = sectionRefs.current.get(id);
+    const element = sectionRefMap.get(id);
     if (element) {
       element.scrollIntoView({
         behavior: prefersReducedMotion ? 'auto' : 'smooth',
@@ -475,7 +477,7 @@ function ReportView({
       { threshold: 0.3 }
     );
 
-    for (const [, element] of sectionRefs.current) {
+    for (const [, element] of sectionRefMap) {
       observer.observe(element);
     }
 
@@ -664,7 +666,7 @@ function ReportView({
               key={section.id}
               data-section-id={section.id}
               ref={(el) => {
-                if (el) sectionRefs.current.set(section.id, el);
+                if (el) sectionRefMap.set(section.id, el);
               }}
               className="mb-8"
             >

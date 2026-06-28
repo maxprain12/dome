@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
 
 export const JSON_PRETTY_MAX_NODES = 200;
 export const JSON_PRETTY_MAX_DEPTH = 6;
@@ -138,7 +138,7 @@ export function JsonPrettyPrinter({
 }
 
 export function JsonPrettyPrinterRoot({ value }: { value: unknown }) {
-  const budget: Budget = { nodes: 0, omitted: 0 };
+  const budget = useMemo(() => ({ nodes: 0, omitted: 0 }), [value]);
   return (
     <JsonPrettyBudgetProvider budget={budget}>
       <JsonPrettyPrinter value={value} depth={0} />
