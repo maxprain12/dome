@@ -643,13 +643,13 @@ function AutomationsTab({
             />
           ) : (
             <div className={editorialHub ? 'px-0' : 'p-4'}>
-              <div className={hubListClass} role="list">
+              <ul className={`${hubListClass} list-none m-0 p-0`}>
                 {filtered.map((a) => {
                   const desc = (a.description || '').trim();
                   const targetLine = `${targetName(a)} · ${triggerLabel(a.triggerType)}`;
                   return (
+                    <li key={a.id} className="list-none">
                     <HubBentoCard
-                      key={a.id}
                       variant={hubCardVariant}
                       onClick={() => handleEdit(a)}
                       icon={
@@ -786,9 +786,10 @@ function AutomationsTab({
                         </div>
                       }
                     />
+                    </li>
                   );
                 })}
-              </div>
+              </ul>
             </div>
           )}
         </div>

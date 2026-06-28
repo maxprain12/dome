@@ -34,7 +34,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDialogElement | null>(null);
   const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
 
   // Position relative to anchor (right-aligned, just below the topbar)
@@ -123,10 +123,11 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
   if (!position) return null;
 
   return (
-    <div
+    <dialog
       ref={containerRef}
-      role="dialog"
+      open
       aria-label={t('transcriptions.start_title', 'New transcription')}
+      className="m-0 max-w-none max-h-none border-0"
       style={{
         position: 'fixed',
         top: position.top,
@@ -140,6 +141,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
         padding: 14,
         animation: 'dropdown-appear 0.15s ease-out',
       }}
+      onCancel={(e) => { e.preventDefault(); onClose(); }}
     >
       <div className="flex items-center justify-between mb-3">
         <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--dome-text)' }}>
@@ -278,7 +280,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       >
         {submitting ? t('transcriptions.starting', 'Starting…') : t('transcriptions.start_button', 'Start')}
       </button>
-    </div>
+    </dialog>
   );
 }
 

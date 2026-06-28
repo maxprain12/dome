@@ -385,11 +385,12 @@ export default function CalendarPage() {
       </div>
 
       {showImport && importPreview ? (
-        <div
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
           aria-modal="true"
           aria-labelledby="calendar-import-dialog-title"
+          onCancel={(e) => { e.preventDefault(); setShowImport(false); }}
         >
           <div className="p-projects-modal">
             <h3 id="calendar-import-dialog-title" className="p-projects-modal-title">
@@ -422,7 +423,7 @@ export default function CalendarPage() {
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
 
       {dayModalDate ? (

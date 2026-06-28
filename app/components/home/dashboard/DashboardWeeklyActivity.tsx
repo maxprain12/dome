@@ -127,7 +127,7 @@ export function DashboardWeeklyActivity({
             style={{ background: 'var(--dome-border, var(--border))' }}
           />
         ) : (
-          <div className="w-full min-w-0 pb-1" role="img" aria-label={t('dashboard.heatmap_aria')}>
+          <figure className="w-full min-w-0 pb-1" aria-label={t('dashboard.heatmap_aria')}>
             <div className="w-full min-w-0">
               <div className="mb-1 flex w-full min-w-0 gap-[3px]">
                 <div className="w-7 shrink-0" aria-hidden />
@@ -219,7 +219,7 @@ export function DashboardWeeklyActivity({
                 <span>{t('dashboard.heatmap_more')}</span>
               </div>
             </div>
-          </div>
+          </figure>
         )}
       </DomeCard>
     </section>

@@ -98,7 +98,7 @@ export default function AudioOverview({
   const lineRefMap = lazyRef(lineRefs, () => new Map());
 
   // Progress bar ref for click-to-seek
-  const progressBarRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLInputElement>(null);
 
   // -------------------------------------------------------
   // Audio event handlers
@@ -210,15 +210,14 @@ export default function AudioOverview({
   }, [isPlaying]);
 
   const handleSeek = useCallback(
-    (e: React.MouseEvent<HTMLDivElement>) => {
-      if (!progressBarRef.current || !audioRef.current || !isAudioLoaded) return;
-      const rect = progressBarRef.current.getBoundingClientRect();
-      const fraction = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (!audioRef.current || !isAudioLoaded) return;
+      const fraction = Number(e.target.value) / 100;
       const newTime = fraction * duration;
       audioRef.current.currentTime = newTime;
       setCurrentTime(newTime);
     },
-    [duration, isAudioLoaded]
+    [duration, isAudioLoaded],
   );
 
   const seekToFraction = useCallback(
@@ -233,7 +232,7 @@ export default function AudioOverview({
   );
 
   const handleSeekKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (!audioRef.current || !isAudioLoaded || duration <= 0) return;
       const frac = currentTime / duration;
       const step = 0.05;
@@ -347,35 +346,19 @@ export default function AudioOverview({
           style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
         >
           {/* Progress bar */}
-          <div
+          <input
             ref={progressBarRef}
-            role="slider"
-            tabIndex={0}
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={Math.round(progress)}
+            type="range"
+            min={0}
+            max={100}
+            step={0.1}
+            value={progress}
             aria-label={t('studio.seek_audio', { defaultValue: 'Buscar posición en audio' })}
-            className="w-full h-1.5 rounded-full cursor-pointer mb-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="w-full h-1.5 rounded-full cursor-pointer mb-3 accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
             style={{ background: 'var(--bg-tertiary)' }}
-            onClick={handleSeek}
+            onChange={handleSeek}
             onKeyDown={handleSeekKeyDown}
-          >
-            <div
-              className="h-full rounded-full relative transition-all"
-              style={{
-                width: `${progress}%`,
-                background: 'var(--accent)',
-              }}
-            >
-              <div
-                className="absolute right-0 top-1/2 -translate-y-1/2 size-3 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                style={{
-                  background: 'var(--accent)',
-                  boxShadow: '0 0 4px rgba(0,0,0,0.2)',
-                }}
-              />
-            </div>
-          </div>
+          />
 
           {/* Controls */}
           <div className="flex items-center justify-between">

@@ -102,7 +102,7 @@ export default function ChatHistorySessionList({
                   )}
                   </div>
                 </button>
-                <div className="chat-history-row-actions" role="group" aria-label={t('chat.chats_title')}>
+                <section className="chat-history-row-actions" aria-label={t('chat.chats_title')}>
                   <button
                     type="button"
                     className="chat-history-action-btn"
@@ -147,7 +147,7 @@ export default function ChatHistorySessionList({
                       <X size={13} strokeWidth={2} />
                     </button>
                   ) : null}
-                </div>
+                </section>
               </div>
             );
           })}

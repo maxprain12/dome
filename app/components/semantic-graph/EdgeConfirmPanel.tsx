@@ -22,8 +22,9 @@ interface EdgeConfirmPanelProps {
 export function EdgeConfirmPanel({ edge, position, onConfirm, onReject, onClose }: EdgeConfirmPanelProps) {
   const { t } = useTranslation();
   return (
-    <div
-      className="absolute z-50 rounded-xl shadow-lg border p-3 min-w-[240px] max-w-[320px]"
+    <dialog
+      open
+      className="absolute z-50 rounded-xl shadow-lg border p-3 min-w-[240px] max-w-[320px] m-0 max-h-none"
       style={{
         left: position.x,
         top: position.y,
@@ -31,8 +32,8 @@ export function EdgeConfirmPanel({ edge, position, onConfirm, onReject, onClose 
         borderColor: 'var(--dome-border)',
         color: 'var(--dome-text)',
       }}
-      role="dialog"
       aria-label={t('semantic_graph.edge_panel_aria')}
+      onCancel={(e) => { e.preventDefault(); onClose(); }}
     >
       <button
         type="button"
@@ -96,6 +97,6 @@ export function EdgeConfirmPanel({ edge, position, onConfirm, onReject, onClose 
           </>
         ) : null}
       </div>
-    </div>
+    </dialog>
   );
 }

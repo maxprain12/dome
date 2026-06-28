@@ -467,7 +467,7 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
           />
         ) : (
           <div className={editorialHub ? '' : 'p-4'}>
-            <div className={hubListClass} role="list">
+            <ul className={`${hubListClass} list-none m-0 p-0`}>
               {filtered.map((run) => {
                 const progress = getRunProgress(run);
                 const ownerLabel =
@@ -482,8 +482,8 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                 const progressPercent =
                   progress?.mode === 'determinate' ? (progress.percent ?? 0) : run.status === 'completed' ? 100 : 0;
                 return (
+                  <li key={run.id} className="list-none">
                   <HubBentoCard
-                    key={run.id}
                     variant={hubCardVariant}
                     onClick={() => void handleSelectRun(run)}
                     disabled={loadingDetail === run.id}
@@ -570,9 +570,10 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
                       </DomeButton>
                     }
                   />
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </div>
         )}
       </div>

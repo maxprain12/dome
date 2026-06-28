@@ -569,9 +569,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         </nav>
 
         <div className="dome-folder-view__toolbar-end">
-          <div
-            className="dome-folder-view__view-toggle"
-            role="group"
+          <fieldset
+            className="dome-folder-view__view-toggle border-0 p-0 m-0 min-w-0"
             aria-label={t('folder.viewMode', 'Modo de vista')}
           >
             <button
@@ -594,7 +593,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             >
               <List className="size-3.5" />
             </button>
-          </div>
+          </fieldset>
 
           {searchOpen ? (
             <div className="dome-folder-view__search">

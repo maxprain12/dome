@@ -17,7 +17,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
   const partialText = useTranscriptionStore((s) => s.partialText);
   const phase = useTranscriptionStore((s) => s.phase);
   const livePreview = useTranscriptionStore((s) => s.livePreview);
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLDialogElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [position, setPosition] = useState<PanelPosition | null>(null);
 
@@ -74,10 +74,11 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
   const showPlaceholder = !partialText && livePreview && phase === 'recording';
 
   return (
-    <div
+    <dialog
       ref={containerRef}
-      role="dialog"
+      open
       aria-label={t('transcriptions.live_preview_title', 'Live transcript')}
+      className="m-0 max-w-none max-h-none p-0 border-0"
       style={{
         position: 'fixed',
         top: position.top,
@@ -93,6 +94,7 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
         display: 'flex',
         flexDirection: 'column',
       }}
+      onCancel={(e) => { e.preventDefault(); onClose(); }}
     >
       <div
         className="flex items-center justify-between px-3 py-2"
@@ -116,6 +118,6 @@ export default function LivePreviewPanel({ anchorRef, onClose }: Props) {
           ? t('transcriptions.state_no_partial', 'Live transcript will appear here…')
           : partialText || ''}
       </div>
-    </div>
+    </dialog>
   );
 }

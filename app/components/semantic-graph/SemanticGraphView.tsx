@@ -255,7 +255,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
             <span>{reindexBusy ? t('semantic_graph.indexing') : t('semantic_graph.reindex_all')}</span>
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label={t('semantic_graph.resource_types')}>
+        <section className="flex flex-wrap items-center gap-1.5" aria-label={t('semantic_graph.resource_types')}>
           <span className="text-[11px] shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
             {t('semantic_graph.resource_types')}
           </span>
@@ -278,7 +278,7 @@ export default function SemanticGraphView({ focusResourceId }: SemanticGraphView
               </button>
             );
           })}
-        </div>
+        </section>
         <div className="border-t pt-2" style={{ borderColor: 'var(--dome-border)' }}>
           <button
             type="button"

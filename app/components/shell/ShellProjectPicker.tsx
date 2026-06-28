@@ -120,11 +120,11 @@ export default function ShellProjectPicker({ compact = false }: ShellProjectPick
       </button>
 
       {menuOpen ? (
-        <div className="dome-shell-project-menu" role="listbox">
-          <div className="dome-shell-project-list">
+        <div className="dome-shell-project-menu">
+          <ul className="dome-shell-project-list list-none m-0 p-0" role="listbox">
             {projects.map((project) => (
+              <li key={project.id} className="list-none">
               <button
-                key={project.id}
                 type="button"
                 role="option"
                 aria-selected={project.id === hubProjectId}
@@ -134,8 +134,9 @@ export default function ShellProjectPicker({ compact = false }: ShellProjectPick
               >
                 {project.name}
               </button>
+              </li>
             ))}
-          </div>
+          </ul>
           <div className="dome-shell-project-quick">
             <input
               value={quickProjectName}

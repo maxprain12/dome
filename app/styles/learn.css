@@ -599,6 +599,12 @@
   flex-direction: column;
   overflow: hidden;
 }
+dialog.lr-modal {
+  padding: 0;
+  margin: 0;
+  max-height: unset;
+  color: inherit;
+}
 .lr-modal.lg { width: 680px; }
 .lr-modal-hd {
   padding: 14px 16px 12px;

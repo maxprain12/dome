@@ -152,18 +152,18 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
   if (isLoading) {
     return (
       <div className="lr-scrim" role="presentation">
-        <div className="lr-modal" role="dialog" aria-modal="true" aria-busy="true" aria-label={t('flashcard.edit_deck', 'Edit deck')}>
+        <dialog open className="lr-modal m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-busy="true" aria-label={t('flashcard.edit_deck', 'Edit deck')}>
           <div className="lr-modal-body" style={{ display: 'flex', justifyContent: 'center', padding: 48 }}>
             <Loader2 className="lr-spin" size={28} aria-label={t('ui.loading', 'Loading')} />
           </div>
-        </div>
+        </dialog>
       </div>
     );
   }
 
   return (
     <div className="lr-scrim" role="presentation">
-      <div className="lr-modal lg" role="dialog" aria-modal="true" aria-labelledby="deck-editor-heading">
+      <dialog open className="lr-modal lg m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-labelledby="deck-editor-heading" onCancel={(e) => { e.preventDefault(); onClose(); }}>
         <div className="lr-modal-hd">
           <div className="lr-modal-hd-text">
             <h2 id="deck-editor-heading">{t('flashcard.edit_deck', 'Edit deck')}</h2>
@@ -272,7 +272,7 @@ export default function DeckEditor({ onClose }: DeckEditorProps) {
             </button>
           </div>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

@@ -702,7 +702,7 @@ function TabContextMenuBridge({
           <ChevronLeft className="size-3.5 shrink-0" />
           {t('workspace.tab_menu_back')}
         </button>
-        <div className="flex flex-wrap gap-1.5 px-1 pb-1" role="group">
+        <fieldset className="flex flex-wrap gap-1.5 border-0 p-0 m-0 min-w-0 px-1 pb-1">
           {FOLDER_COLOR_SWATCHES.map((color) => (
             <button
               key={color}
@@ -719,7 +719,7 @@ function TabContextMenuBridge({
               aria-label={color}
             />
           ))}
-        </div>
+        </fieldset>
       </div>,
       document.body,
     );

@@ -291,48 +291,53 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
         </div>
       )}
 
-      {artifact.map && (
+      {(() => {
+        const map = artifact.map;
+        if (!map) return null;
+        return (
         <div>
-          <div
+          <table
             style={{
-              display: 'grid',
-              gridTemplateColumns: `repeat(${artifact.map.cols}, 1fr)`,
-              gap: 4,
+              width: '100%',
               maxWidth: 'min(100%, 480px)',
+              borderCollapse: 'separate',
+              borderSpacing: 4,
+              tableLayout: 'fixed',
             }}
             role="grid"
             aria-label={artifact.title ?? 'Dashboard map'}
           >
-            {Array.from({ length: artifact.map.rows * artifact.map.cols }, (_, i) => {
-              const m = artifact.map!;
-              const r = Math.floor(i / m.cols);
-              const c = i % m.cols;
-              const cell = m.cells.find((x) => x.r === r && x.c === c);
-              return (
-                <div
-                  key={i}
-                  role="gridcell"
-                  style={{
-                    minHeight: 36,
-                    borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 12,
-                    textAlign: 'center',
-                    padding: 4,
-                    color: cell ? toneColor[cell.tone ?? 'neutral'] : 'var(--tertiary-text)',
-                    background: cell ? 'var(--bg-hover)' : 'var(--bg-secondary)',
-                  }}
-                >
-                  {cell?.label ?? '·'}
-                </div>
-              );
-            })}
-          </div>
+            <tbody>
+              {Array.from({ length: map.rows }, (_, r) => (
+                <tr key={r}>
+                  {Array.from({ length: map.cols }, (_, c) => {
+                    const cell = map.cells.find((x) => x.r === r && x.c === c);
+                    return (
+                      <td
+                        key={c}
+                        style={{
+                          minHeight: 36,
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border)',
+                          textAlign: 'center',
+                          padding: 4,
+                          fontSize: 12,
+                          color: cell ? toneColor[cell.tone ?? 'neutral'] : 'var(--tertiary-text)',
+                          background: cell ? 'var(--bg-hover)' : 'var(--bg-secondary)',
+                          verticalAlign: 'middle',
+                        }}
+                      >
+                        {cell?.label ?? '·'}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+        );
+      })()}
 
       {artifact.items && artifact.items.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>

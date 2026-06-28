@@ -109,7 +109,7 @@ export default function DeckQuestionsTab({
 
       {editingId ? (
         <div className="lr-scrim" role="presentation">
-          <div className="lr-modal" role="dialog" aria-modal="true" aria-labelledby="deck-question-edit-title">
+          <dialog open className="lr-modal m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-labelledby="deck-question-edit-title" onCancel={(e) => { e.preventDefault(); setEditingId(null); }}>
             <div className="lr-modal-hd">
               <div className="lr-modal-hd-text">
                 <h2 id="deck-question-edit-title">{t('learn.edit_question', 'Edit question')}</h2>
@@ -152,7 +152,7 @@ export default function DeckQuestionsTab({
                 </button>
               </div>
             </div>
-          </div>
+          </dialog>
         </div>
       ) : null}
     </div>

@@ -176,16 +176,17 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
         aria-label={t('ui.close')}
         onClick={onClose}
       />
-      <div
-        className="relative z-10 flex flex-col rounded-2xl overflow-hidden"
+      <dialog
+        open
+        className="relative z-10 flex flex-col rounded-2xl overflow-hidden m-0 max-w-none max-h-none p-0 border-0"
         style={{
           width: 680, height: 520,
           backgroundColor: 'var(--bg)', border: '1px solid var(--border)',
           boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
         }}
-        role="dialog"
         aria-modal="true"
         aria-labelledby="cloud-file-picker-title"
+        onCancel={(e) => { e.preventDefault(); onClose(); }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--border)' }}>
@@ -389,7 +390,7 @@ export default function CloudFilePicker({ onClose, projectId, folderId }: Props)
             </div>
           </>
         )}
-      </div>
+      </dialog>
     </div>
   );
 }

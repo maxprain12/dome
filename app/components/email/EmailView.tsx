@@ -309,27 +309,28 @@ export default function EmailView() {
             {t('email.folders.title')}
           </span>
         </div>
-        <div id="dome-email-folder-list" className="dome-email-view__folder-list" role="list">
+        <ul id="dome-email-folder-list" className="dome-email-view__folder-list list-none m-0 p-0">
           {folderOptions.map((f) => {
             const active = f.name === folder;
             const Icon = folderIcon(f.name);
             return (
-              <button
-                key={f.name}
-                type="button"
-                onClick={() => changeFolder(f.name)}
-                className={`dome-email-view__folder-btn${active ? ' dome-email-view__folder-btn--active' : ''}`}
-                title={f.name}
-                aria-current={active ? 'true' : undefined}
-              >
-                <Icon className="dome-email-view__folder-btn-icon" aria-hidden="true" />
-                <span className="dome-email-view__folder-btn-label">
-                  {emailFolderLabel(f.name, t)}
-                </span>
-              </button>
+              <li key={f.name}>
+                <button
+                  type="button"
+                  onClick={() => changeFolder(f.name)}
+                  className={`dome-email-view__folder-btn${active ? ' dome-email-view__folder-btn--active' : ''}`}
+                  title={f.name}
+                  aria-current={active ? 'true' : undefined}
+                >
+                  <Icon className="dome-email-view__folder-btn-icon" aria-hidden="true" />
+                  <span className="dome-email-view__folder-btn-label">
+                    {emailFolderLabel(f.name, t)}
+                  </span>
+                </button>
+              </li>
             );
           })}
-        </div>
+        </ul>
       </aside>
 
       {/* Right column holds the top header (on narrow widths) and the list/reader panes. */}

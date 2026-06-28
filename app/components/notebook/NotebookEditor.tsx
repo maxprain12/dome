@@ -490,6 +490,7 @@ export default function NotebookEditor({ content, onChange, editable = true, tit
               </button>
             )}
           </div>
+          {/* Cell body: div[role=button] skipped — nested textarea/input inside CodeCell/MarkdownCell. */}
           <div
             role="button"
             tabIndex={0}

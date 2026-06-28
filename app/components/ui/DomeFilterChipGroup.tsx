@@ -42,14 +42,13 @@ export default function DomeFilterChipGroup<T extends string | number>({
   const vertical = layout === 'vertical';
 
   return (
-    <div
+    <fieldset
       className={cn(
-        'flex gap-1.5',
+        'flex gap-1.5 border-0 p-0 m-0 min-w-0',
         vertical ? 'flex-col items-stretch' : 'flex-wrap items-center',
         isEditorial && 'hub-filter-chip-group',
         className,
       )}
-      role="group"
       aria-label="Filter"
     >
       {options.map((opt) => {
@@ -88,6 +87,6 @@ export default function DomeFilterChipGroup<T extends string | number>({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }

@@ -101,7 +101,7 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
 
   return (
     <div className="lr-scrim" role="presentation">
-      <div className="lr-modal lg" role="dialog" aria-modal="true" aria-labelledby="generate-wizard-title">
+      <dialog open className="lr-modal lg m-0 max-w-none max-h-none p-0 border-0" aria-modal="true" aria-labelledby="generate-wizard-title" onCancel={(e) => { e.preventDefault(); if (!isGenerating) handleClose(); }}>
         <div className="lr-modal-hd">
           <div className="lr-modal-hd-text">
             <h2 id="generate-wizard-title">{t('learn.generate_title', 'Generate content')}</h2>
@@ -156,7 +156,7 @@ export default function GenerateWizard({ onClose }: GenerateWizardProps) {
             </div>
           </div>
         ) : null}
-      </div>
+      </dialog>
     </div>
   );
 }

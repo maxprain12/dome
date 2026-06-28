@@ -512,11 +512,12 @@ export default function ProjectsDashboard({
       ) : null}
 
       {deleteTarget ? (
-        <div
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
           aria-modal="true"
           aria-labelledby="delete-project-title"
+          onCancel={(e) => { e.preventDefault(); setDeleteTarget(null); }}
         >
           <div className="p-projects-modal">
             <h3 id="delete-project-title" className="p-projects-modal-title">
@@ -601,15 +602,16 @@ export default function ProjectsDashboard({
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
 
       {bulkDeleteOpen ? (
-        <div
-          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4"
-          role="dialog"
+        <dialog
+          open
+          className="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center bg-black/50 p-4 m-0 max-w-none max-h-none w-full h-full border-0"
           aria-modal="true"
           aria-labelledby="projects-bulk-delete-title"
+          onCancel={(e) => { e.preventDefault(); setBulkDeleteOpen(false); }}
         >
           <div className="p-projects-modal">
             <h3 id="projects-bulk-delete-title" className="p-projects-modal-title">
@@ -658,7 +660,7 @@ export default function ProjectsDashboard({
               </button>
             </div>
           </div>
-        </div>
+        </dialog>
       ) : null}
     </>
   );

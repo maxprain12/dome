@@ -413,11 +413,9 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
   if (!open) return null;
 
   return (
-    // onMouseDown-preventDefault keeps the editor selection while interacting
-    // with the dialog chrome (not an interaction with the dialog itself).
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
-      className="rounded-lg border p-3 shadow-xl"
+    <dialog
+      open
+      className="rounded-lg border p-3 shadow-xl m-0 max-w-none max-h-none"
       style={{
         position: 'fixed',
         zIndex: 'var(--z-popover)',
@@ -428,9 +426,9 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
         top: 88,
         transform: 'translateX(-50%)',
       }}
-      role="dialog"
       aria-label={t('notes.link_title')}
       onMouseDown={(e) => e.preventDefault()}
+      onCancel={(e) => { e.preventDefault(); onOpenChange(false); }}
     >
       <div className="text-xs mb-2 font-semibold" style={{ color: 'var(--dome-text)' }}>
         {t('notes.link_title')}
@@ -486,6 +484,6 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
           {t('notes.link_apply')}
         </button>
       </div>
-    </div>
+    </dialog>
   );
 }
