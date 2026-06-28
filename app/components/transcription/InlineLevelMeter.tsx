@@ -31,9 +31,11 @@ export default function InlineLevelMeter({ stream, bars = 6, active = true }: Pr
             display: 'inline-block',
             width: 2,
             borderRadius: 1,
-            height: `${Math.round(h * 100)}%`,
+            height: '100%',
             background: active ? 'var(--dome-accent)' : 'var(--dome-text-muted)',
-            transition: 'height 80ms linear',
+            transform: `scaleY(${h})`,
+            transformOrigin: 'bottom',
+            transition: 'transform 80ms linear',
           }}
         />
       ))}

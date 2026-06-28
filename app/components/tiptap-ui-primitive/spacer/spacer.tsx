@@ -1,9 +1,11 @@
 export type SpacerOrientation = "horizontal" | "vertical"
 
+const EMPTY_STYLE: React.CSSProperties = {}
+
 export function Spacer({
   orientation = "horizontal",
   size,
-  style = {},
+  style = EMPTY_STYLE,
   ...props
 }: React.ComponentProps<"div"> & {
   orientation?: SpacerOrientation

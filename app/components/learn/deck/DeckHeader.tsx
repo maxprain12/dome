@@ -2,6 +2,8 @@ import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { titleGlyph } from '@/lib/learn/deckItems';
 
+const EMPTY_SOURCE_TITLES: string[] = [];
+
 interface DeckHeaderProps {
   title: string;
   typeLabel: string;
@@ -17,7 +19,7 @@ export default function DeckHeader({
   title,
   typeLabel,
   description,
-  sourceTitles = [],
+  sourceTitles = EMPTY_SOURCE_TITLES,
   onBack,
   onStudy,
   onGenerate,

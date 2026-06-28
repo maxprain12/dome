@@ -678,9 +678,11 @@ function ChartContent({ artifact }: { artifact: ChartArtifact }) {
                   style={{
                     height: '100%',
                     borderRadius: 3,
-                    width: `${(dataset.data[idx] / maxValue) * 100}%`,
+                    width: '100%',
                     backgroundColor: sanitizeChartColor(dataset.color),
-                    transition: 'width 300ms ease',
+                    transform: `scaleX(${(dataset.data[idx] / maxValue)})`,
+                    transformOrigin: 'left',
+                    transition: 'transform 300ms ease',
                   }}
                 />
               ))}

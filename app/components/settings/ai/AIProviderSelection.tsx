@@ -10,6 +10,8 @@ import { cn } from '@/lib/utils';
 // consumer (settings, onboarding, …), not just where AISettingsPanel imports the CSS.
 import '@/styles/ai-settings.css';
 
+const EMPTY_CONFIGURED_PROVIDERS: Record<string, boolean> = {};
+
 export interface AIProviderSelectionProps {
   provider: AIProviderType;
   onProviderChange: (provider: AIProviderType) => void;
@@ -60,7 +62,7 @@ export default function AIProviderSelection({
   onProviderChange,
   showSectionLabel = true,
   highlightSelection = true,
-  configuredProviders = {},
+  configuredProviders = EMPTY_CONFIGURED_PROVIDERS,
   onConfigureModels,
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();

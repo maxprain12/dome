@@ -31,6 +31,8 @@ const TYPE_STYLES = {
   error: { icon: AlertCircle, color: 'var(--error)' },
 };
 
+const EMPTY_HISTORY: WorkflowExecution[] = [];
+
 function formatElapsedFromRange(start: number, end?: number): string {
   const ms = (end ?? Date.now()) - start;
   if (ms < 1000) return `${ms}ms`;
@@ -42,7 +44,7 @@ export default function ExecutionLog({
   entries,
   status,
   startTime,
-  history = [],
+  history = EMPTY_HISTORY,
   selectedExecutionId = null,
   onSelectExecution,
 }: ExecutionLogProps) {
@@ -112,7 +114,6 @@ export default function ExecutionLog({
       style={{
         background: 'var(--dome-surface)',
         borderColor: 'var(--dome-border)',
-        transition: 'height 0.2s ease',
       }}
     >
       {/* Header bar */}

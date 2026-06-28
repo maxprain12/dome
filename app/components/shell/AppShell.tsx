@@ -327,7 +327,6 @@ export default function AppShell() {
               style={{
                 width: manyWidth,
                 minWidth: manyWidth,
-                transition: 'width 200ms ease',
               }}
             >
               <ManyPanelWithSuspense
