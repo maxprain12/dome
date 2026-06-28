@@ -6,6 +6,7 @@ import { useMenuNavigation } from "@/hooks/use-menu-navigation"
 import { useComposedRef } from "@/hooks/use-composed-ref"
 
 type BaseProps = React.HTMLAttributes<HTMLDivElement>
+type ToolbarGroupProps = React.HTMLAttributes<HTMLFieldSetElement>
 
 interface ToolbarProps extends BaseProps {
   variant?: "floating" | "fixed"
@@ -99,16 +100,15 @@ export const Toolbar = forwardRef<HTMLDivElement, ToolbarProps>(
 )
 Toolbar.displayName = "Toolbar"
 
-export const ToolbarGroup = forwardRef<HTMLDivElement, BaseProps>(
+export const ToolbarGroup = forwardRef<HTMLFieldSetElement, ToolbarGroupProps>(
   ({ children, className, ...props }, ref) => (
-    <div
+    <fieldset
       ref={ref}
-      role="group"
-      className={cn("tiptap-toolbar-group", className)}
+      className={cn('tiptap-toolbar-group border-0 p-0 m-0 min-w-0', className)}
       {...props}
     >
       {children}
-    </div>
+    </fieldset>
   )
 )
 ToolbarGroup.displayName = "ToolbarGroup"

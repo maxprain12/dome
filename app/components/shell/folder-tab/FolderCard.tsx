@@ -367,22 +367,9 @@ function FolderCardImpl({
         ) : null}
       </div>
 
-      <div
-        className="dome-fs-card__body cursor-pointer select-none"
-        onClick={handleCardActivate}
-        role="button"
-        tabIndex={0}
-        onKeyDown={(e) => {
-          if (renaming) return;
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onOpen();
-          }
-        }}
-        aria-label={displayTitle}
-      >
-        <div className="dome-fs-card__title-row">
-          {renaming ? (
+      {renaming ? (
+        <div className="dome-fs-card__body cursor-pointer select-none">
+          <div className="dome-fs-card__title-row">
             <div className="dome-fs-card__rename">
               <input
                 ref={renameRef}
@@ -404,26 +391,35 @@ function FolderCardImpl({
                 <X className="size-3.5" />
               </button>
             </div>
-          ) : (
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="dome-fs-card__body cursor-pointer select-none w-full text-left border-0 bg-transparent p-0 font-inherit"
+          onClick={handleCardActivate}
+          aria-label={displayTitle}
+        >
+          <div className="dome-fs-card__title-row">
             <>
               <h3 className="dome-fs-card__title" title={displayTitle}>
                 {searchQuery ? highlightSnippet(displayTitle, searchQuery) : displayTitle}
               </h3>
               <span className="dome-folder-view__type-badge" title={typeLabel}>{typeLabel}</span>
             </>
-          )}
-        </div>
+          </div>
 
-        {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
-          <p className="dome-fs-card__snippet">
-            {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
-          </p>
-        ) : null}
+          {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
+            <p className="dome-fs-card__snippet">
+              {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
+            </p>
+          ) : null}
 
-        <div className="dome-fs-card__meta">
-          <span className="dome-fs-card__modified">{timeAgo}</span>
-        </div>
-      </div>
+          <div className="dome-fs-card__meta">
+            <span className="dome-fs-card__modified">{timeAgo}</span>
+          </div>
+        </button>
+      )}
 
       {/* Rendered via portal to `document.body`: the card is a containing block
           for fixed-position descendants (it has `container-type` + `overflow:

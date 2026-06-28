@@ -113,22 +113,15 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
       </div>
 
       <div className="lr-flash-body">
-        <div
-          className="flashcard-container lr-flash-card-host"
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
+          className="flashcard-container lr-flash-card-host border-0 bg-transparent p-0 w-full text-left"
           aria-label={
             isCardFlipped
               ? t('flashcard.show_question', 'Show question')
               : t('flashcard.show_answer', 'Show answer')
           }
           onClick={flipCard}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              flipCard();
-            }
-          }}
         >
           <div className={`flashcard-flip${isCardFlipped ? ' flipped' : ''}`}>
             <div className="flashcard-face flashcard-front">
@@ -149,7 +142,7 @@ export default function FlashPlayer({ onSessionEnd }: FlashPlayerProps) {
               </div>
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {isCardFlipped && currentCard ? (

@@ -69,7 +69,7 @@ export default function DomeModal({
 }: DomeModalProps) {
   const { t } = useTranslation();
   const titleId = useId();
-  const panelRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDialogElement>(null);
 
   // Escape + focus trap (Tab cycling within the panel)
   useEffect(() => {
@@ -143,13 +143,9 @@ export default function DomeModal({
         if (closeOnOverlay && e.target === e.currentTarget) onClose();
       }}
     >
-      {/* Dialog panel owns Escape/Tab handling (focus trap) — a standard
-          dialog pattern the static rule does not model. */}
-      {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
-      <div
+      <dialog
         ref={panelRef}
-        role="dialog"
-        aria-modal="true"
+        open
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
@@ -159,8 +155,12 @@ export default function DomeModal({
           sizeClass[size],
           className,
         )}
-        style={{ animation: 'modal-appear 0.2s ease-out' }}
+        style={{ animation: 'modal-appear 0.2s ease-out', margin: 'auto', maxWidth: 'unset' }}
         onMouseDown={(e) => e.stopPropagation()}
+        onCancel={(e) => {
+          e.preventDefault();
+          if (closeOnEscape) onClose();
+        }}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -196,7 +196,7 @@ export default function DomeModal({
             {footer}
           </div>
         ) : null}
-      </div>
+      </dialog>
     </div>,
     document.body,
   );

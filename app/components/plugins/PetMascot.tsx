@@ -27,7 +27,7 @@ export default function PetMascot({ plugin }: PetMascotProps) {
   const [currentSprite, setCurrentSprite] = useState<'idle' | 'walk' | 'wave' | 'think'>('idle');
   const [walkFrame, setWalkFrame] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLButtonElement>(null);
   const moveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const walkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -157,15 +157,14 @@ export default function PetMascot({ plugin }: PetMascotProps) {
   if (!loaded) return null;
 
   return (
-    <div
+    <button
+      type="button"
       ref={containerRef}
-      role="button"
-      tabIndex={0}
       aria-label={`Open chat with ${plugin.name}`}
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onKeyDown={(e) => e.key === 'Enter' && handleClick()}
+      className="border-0 bg-transparent p-0"
       style={{
         position: 'absolute',
         left: position.x,
@@ -215,6 +214,6 @@ export default function PetMascot({ plugin }: PetMascotProps) {
           <Sparkles size={28} strokeWidth={1.5} />
         </div>
       )}
-    </div>
+    </button>
   );
 }

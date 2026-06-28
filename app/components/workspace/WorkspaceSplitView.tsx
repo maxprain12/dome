@@ -79,7 +79,7 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     };
   }, []);
 
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLHRElement>) => {
     event.preventDefault();
     startXRef.current = event.clientX;
     startWidthRef.current = splitWidth;
@@ -118,12 +118,13 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
         {primary}
       </div>
 
-      <div
-        role="separator"
+      <hr
+        aria-orientation="vertical"
         aria-label={t('focused_editor.resize_reference')}
-        className="w-1.5 shrink-0 cursor-col-resize transition-colors duration-150"
+        className="w-1.5 shrink-0 cursor-col-resize transition-colors duration-150 border-0 p-0 m-0 min-w-0 self-stretch"
         style={{
           background: isResizing ? 'var(--dome-accent)' : 'var(--dome-border)',
+          height: 'auto',
         }}
         onMouseEnter={(e) => {
           if (!isResizing) (e.currentTarget as HTMLElement).style.background = 'var(--border-hover)';

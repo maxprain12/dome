@@ -11,10 +11,10 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const startPosRef = useRef<number>(0);
-  const handleRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLHRElement>(null);
 
   const handleMouseDown = useCallback(
-    (e: ReactMouseEvent<HTMLDivElement>) => {
+    (e: ReactMouseEvent<HTMLHRElement>) => {
       e.preventDefault();
       e.stopPropagation();
       
@@ -56,7 +56,7 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   }, [isDragging, direction, onResize]);
 
   const handleKeyDown = useCallback(
-    (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    (e: ReactKeyboardEvent<HTMLHRElement>) => {
       const step = 8;
       if (direction === 'horizontal') {
         if (e.key === 'ArrowLeft') {
@@ -85,19 +85,16 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   const isHorizontal = direction === 'horizontal';
 
   return (
-    // Focusable window-splitter (separator + tabIndex + arrow keys) — a valid
-    // ARIA pattern these static rules don't model.
+    // Focusable window-splitter — hr with pointer/keyboard handlers.
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
+    <hr
       ref={handleRef}
-      role="separator"
       aria-orientation={separatorOrientation}
       aria-label={t('workspace.panel_resize_handle')}
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable splitter
       tabIndex={0}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
-      className={`resize-handle ${isDragging ? 'dragging' : ''} ${className}`}
+      className={`resize-handle border-0 p-0 m-0 min-w-0 ${isDragging ? 'dragging' : ''} ${className}`}
       style={{
         position: 'relative',
         width: isHorizontal ? 4 : '100%',
@@ -106,31 +103,6 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
         flexShrink: 0,
         zIndex: 10,
       }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          top: isHorizontal ? 0 : '50%',
-          left: isHorizontal ? '50%' : 0,
-          transform: isHorizontal ? 'translateX(-50%)' : 'translateY(-50%)',
-          width: isHorizontal ? 4 : 24,
-          height: isHorizontal ? 24 : 4,
-          background: 'transparent',
-          borderRadius: 2,
-          transition: 'background 150ms ease',
-        }}
-        className="hover-show"
-      />
-      <style>{`
-        .resize-handle:hover .hover-show,
-        .resize-handle.dragging .hover-show {
-          background: var(--dome-accent);
-        }
-        .resize-handle.dragging {
-          background: var(--dome-accent);
-          opacity: 0.5;
-        }
-      `}</style>
-    </div>
+    />
   );
 }

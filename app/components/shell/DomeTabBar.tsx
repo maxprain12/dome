@@ -208,7 +208,6 @@ function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }
       <span className="dome-tab-item-title">{displayTitle}</span>
       {!tab.pinned && (
         <span
-          role="button"
           tabIndex={-1}
           onClick={(e) => {
             e.stopPropagation();

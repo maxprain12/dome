@@ -55,7 +55,7 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
   const isRunning = item.execStatus === 'running' || runPending;
   const displayStatus: ExecStatus = isRunning ? 'running' : item.execStatus;
 
-  const handleDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
+  const handleDragStart = (e: ReactDragEvent<HTMLButtonElement>) => {
     e.dataTransfer.setData(PIPELINE_ITEM_DRAG_TYPE, item.id);
     e.dataTransfer.effectAllowed = 'move';
     setDragging(true);
@@ -84,21 +84,14 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
   const lastOutputSnippet = showLastOutput ? toPreviewText(item.lastOutput!).slice(0, 80) : null;
 
   return (
-    <div
+    <button
+      type="button"
       draggable
       onDragStart={handleDragStart}
       onDragEnd={() => setDragging(false)}
       onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
-      role="button"
-      tabIndex={0}
       aria-grabbed={dragging}
-      className="rounded-md p-2.5 cursor-grab active:cursor-grabbing transition-opacity"
+      className="rounded-md p-2.5 cursor-grab active:cursor-grabbing transition-opacity w-full text-left"
       style={{
         background: 'var(--bg)',
         border: isRunning ? '1px solid var(--accent)' : '1px solid var(--border)',
@@ -210,6 +203,6 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
           )}
         </div>
       )}
-    </div>
+    </button>
   );
 }

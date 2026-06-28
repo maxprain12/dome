@@ -473,15 +473,14 @@ export default function AudioOverview({
             const speakerColor = getSpeakerColor(line.speaker);
 
             return (
-              <div
+              <button
+                type="button"
                 key={index}
-                role="button"
-                tabIndex={0}
                 ref={(el) => {
                   if (el) lineRefMap.set(index, el);
                   else lineRefMap.delete(index);
                 }}
-                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 w-full text-left border-0"
                 style={{
                   background: isActive ? 'var(--bg-tertiary)' : 'transparent',
                   borderLeft: isActive
@@ -489,12 +488,6 @@ export default function AudioOverview({
                     : '3px solid transparent',
                 }}
                 onClick={() => handleLineClick(index)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleLineClick(index);
-                  }
-                }}
               >
                 {/* Speaker label */}
                 <div className="shrink-0 pt-0.5">
@@ -534,7 +527,7 @@ export default function AudioOverview({
                     </span>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>

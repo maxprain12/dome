@@ -92,7 +92,6 @@ export const ListButton = forwardRef<HTMLButtonElement, ListButtonProps>(
         type="button"
         variant="ghost"
         data-active-state={isActive ? "on" : "off"}
-        role="button"
         tabIndex={-1}
         disabled={!canToggle}
         data-disabled={!canToggle}

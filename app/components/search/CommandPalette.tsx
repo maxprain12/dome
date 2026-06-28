@@ -61,7 +61,7 @@ export default function CommandPalette() {
 
   const [isOpen, setIsOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDialogElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
   const projectId = currentProject?.id ?? 'default';
@@ -275,16 +275,15 @@ export default function CommandPalette() {
       }}
       role="presentation"
     >
-      <div
+      <dialog
         ref={panelRef}
-        className="w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl"
+        open
+        className="w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl m-0 max-h-none p-0"
         style={{
           background: 'var(--dome-bg)',
           borderColor: 'var(--dome-border)',
           boxShadow: '0 24px 80px color-mix(in srgb, var(--dome-bg) 40%, transparent)',
         }}
-        role="dialog"
-        aria-modal="true"
         aria-label={t('command.palette_title')}
       >
         <div
@@ -350,7 +349,7 @@ export default function CommandPalette() {
           <span>{t('command.palette_hint')}</span>
           <span>{t('command.palette_esc')}</span>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

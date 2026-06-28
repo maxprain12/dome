@@ -528,8 +528,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
                 // Pointer-driven region selection surface; keyboard users have
                 // the annotation toolbar as the alternative path.
                 // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-                <div
-                  role="region"
+                <section
                   aria-label={t('pdf.region_selection', { defaultValue: 'Selección de región PDF' })}
                   className="absolute inset-0 z-20 cursor-crosshair"
                   style={{ touchAction: 'none' }}
@@ -578,7 +577,7 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
                       }}
                     />
                   )}
-                </div>
+                </section>
               )}
             </div>
           </div>

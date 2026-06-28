@@ -611,7 +611,7 @@ function ReaderPane({ selected, reading, error, folder, message, onReply, onBack
   if (!selected) {
     return (
       <div className="dome-email-view__reader" aria-label={t('email.select_message')}>
-        <div className="dome-email-view__reader-empty-state" role="status">
+        <output className="dome-email-view__reader-empty-state">
           <Inbox className="dome-email-view__reader-empty-icon" aria-hidden="true" />
           <h3 className="dome-email-view__reader-empty-title">
             {t('email.reader.empty.title')}
@@ -619,7 +619,7 @@ function ReaderPane({ selected, reading, error, folder, message, onReply, onBack
           <p className="dome-email-view__reader-empty-subtitle">
             {t('email.reader.empty.subtitle')}
           </p>
-        </div>
+        </output>
       </div>
     );
   }
@@ -810,14 +810,14 @@ function ReaderPane({ selected, reading, error, folder, message, onReply, onBack
       {/* Body */}
         <div className="dome-email-view__reader-body-scroll">
           {reading ? (
-            <div className="dome-email-view__reader-loading" role="status">
+            <output className="dome-email-view__reader-loading">
               <Loader2
                 className="size-4 animate-spin"
                 style={{ color: 'var(--dome-text-muted)' }}
                 aria-hidden="true"
               />
               <span>{t('email.reader.loading')}</span>
-            </div>
+            </output>
           ) : (
             <div className="dome-email-view__reader-body-content">
               <EmailBody message={message} />

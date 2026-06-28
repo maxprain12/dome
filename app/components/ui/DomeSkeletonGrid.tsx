@@ -18,7 +18,7 @@ export default function DomeSkeletonGrid({
   className,
 }: DomeSkeletonGridProps) {
   return (
-    <div className={cn(DEFAULT_LIST, className)} role="status" aria-live="polite">
+    <output className={cn(DEFAULT_LIST, className)} aria-live="polite">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -32,6 +32,6 @@ export default function DomeSkeletonGrid({
           }}
         />
       ))}
-    </div>
+    </output>
   );
 }

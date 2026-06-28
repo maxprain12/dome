@@ -113,7 +113,6 @@ export const TextAlignButton = forwardRef<
         variant="ghost"
         data-active-state={isActive ? "on" : "off"}
         data-disabled={!canAlign}
-        role="button"
         tabIndex={-1}
         aria-label={label}
         aria-pressed={isActive}

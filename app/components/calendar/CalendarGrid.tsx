@@ -166,8 +166,6 @@ function MonthView({
           return (
             <div
               key={key}
-              role="button"
-              tabIndex={0}
               aria-label={format(day, 'PPPP')}
               className="border-b border-r p-1 transition-colors cursor-pointer overflow-hidden"
               style={{
@@ -180,12 +178,6 @@ function MonthView({
                     : undefined,
               }}
               onClick={() => onDayClick(day)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onDayClick(day);
-                }
-              }}
               onDragOver={(e) => { e.preventDefault(); setDragOverDay(key); }}
               onDragLeave={() => setDragOverDay(null)}
               onDrop={(e) => {
@@ -325,21 +317,10 @@ function DraggableTimeEvent({
         opacity: dragging ? 0.85 : 1,
         transition: dragging ? 'none' : 'top 0.1s, height 0.1s',
       }}
-      role="button"
-      tabIndex={0}
       aria-label={event.title || t('workspace.untitled')}
       onPointerDown={handleMoveStart}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          if (!dragging) {
-            e.stopPropagation();
-            onEventClick?.(event);
-          }
-        }
-      }}
       onClick={(e) => { if (!dragging) { e.stopPropagation(); onEventClick?.(event); } }}
       title={event.title}
     >
@@ -598,23 +579,16 @@ function YearView({
         const isCurrentMonth = isSameMonth(month, new Date());
 
         return (
-          <div
+          <button
             key={month.toISOString()}
-            role="button"
-            tabIndex={0}
+            type="button"
             aria-label={`${format(month, 'MMMM yyyy', { locale: dfLocale })}`}
-            className="rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md"
+            className="rounded-xl border p-3 cursor-pointer transition-all hover:shadow-md w-full text-left"
             style={{
               borderColor: isCurrentMonth ? 'var(--dome-accent)' : 'var(--dome-border)',
               background: 'var(--dome-surface)',
             }}
             onClick={() => onMonthClick(month)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onMonthClick(month);
-              }
-            }}
           >
             <div
               className="text-[12px] font-semibold mb-2 capitalize"
@@ -663,7 +637,7 @@ function YearView({
                 {monthEvs.length} evento{monthEvs.length !== 1 ? 's' : ''}
               </div>
             )}
-          </div>
+          </button>
         );
       })}
     </div>

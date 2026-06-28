@@ -64,9 +64,8 @@ export default function ChatHistorySessionList({
                   onClick={() => onSelectSession(session)}
                 >
                   {livePhase ? (
-                    <span
+                    <output
                       className="chat-history-row-live attach-chip__spinner"
-                      role="status"
                       aria-busy="true"
                       aria-label={t('chat.history_llm_active')}
                       title={t('chat.history_llm_active')}

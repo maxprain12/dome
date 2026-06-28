@@ -355,29 +355,20 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     {pct}%
                   </span>
                 </div>
-                <div
-                  role="progressbar"
+                <progress
+                  value={pct}
+                  max={100}
                   aria-label={it.label}
-                  aria-valuenow={pct}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
+                  className="w-full block"
                   style={{
                     height: 6,
                     borderRadius: 'var(--radius-full)',
                     background: 'var(--bg-hover)',
                     overflow: 'hidden',
+                    appearance: 'none',
+                    WebkitAppearance: 'none',
                   }}
-                >
-                  <div
-                    style={{
-                      width: `${pct}%`,
-                      height: '100%',
-                      background: 'var(--accent)',
-                      borderRadius: 'var(--radius-full)',
-                      transition: 'width 0.3s ease',
-                    }}
-                  />
-                </div>
+                />
               </div>
             );
           })}

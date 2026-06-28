@@ -342,11 +342,10 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
         aria-label={t('runLog.close_panel')}
         onClick={onClose}
       />
-      <div
-        className="absolute right-0 top-0 flex h-full min-h-0 w-[min(720px,92vw)] flex-col border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)]"
+      <dialog
+        open
+        className="absolute right-0 top-0 flex h-full min-h-0 w-[min(720px,92vw)] flex-col border-l border-[var(--border)] bg-[var(--bg)] shadow-[-4px_0_16px_rgba(0,0,0,0.06)] m-0 max-w-none max-h-none p-0"
         style={{ animation: 'slideInRight 0.2s ease-out' }}
-        role="dialog"
-        aria-modal="true"
         aria-label={run.title || run.id}
       >
         <DomeDrawerLayout
@@ -454,7 +453,7 @@ export default function RunLogView({ run, onClose }: RunLogViewProps) {
             ) : null}
           </div>
         </DomeDrawerLayout>
-      </div>
+      </dialog>
 
       <style>{`
         @keyframes slideInRight {

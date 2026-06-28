@@ -18,9 +18,8 @@ export default function ManyMinimalStatusRow({
   variant = 'dots',
 }: ManyMinimalStatusRowProps) {
   return (
-    <div
+    <output
       className={cn('many-minimal-status inline-flex max-w-full items-center gap-2.5 min-w-0', className)}
-      role="status"
       aria-live="polite"
     >
       <span className="many-minimal-status-dots inline-flex shrink-0 gap-1" aria-hidden>
@@ -36,6 +35,6 @@ export default function ManyMinimalStatusRow({
       >
         {label}
       </span>
-    </div>
+    </output>
   );
 }

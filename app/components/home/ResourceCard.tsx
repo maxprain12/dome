@@ -212,7 +212,6 @@ export default memo(function ResourceCard({
           } ${onClick ? 'cursor-pointer' : ''}`}
         style={{ ...listGridStyle, padding: '8px 16px', height: '48px' }}
         onContextMenu={handleContextMenu}
-        role="group"
         aria-current={isSelected ? 'true' : undefined}
         draggable={isDraggable}
         onDragStart={handleDragStart}
@@ -378,14 +377,14 @@ export default memo(function ResourceCard({
   );
 
   return (
-    <div
+    <section
       className={`group relative flex flex-col rounded-xl overflow-hidden transition-all duration-200 border ${isSelected
           ? 'ring-2 ring-[var(--dome-accent)] border-transparent shadow-md'
           : 'border-[var(--border)] bg-[var(--dome-surface)] hover:border-[var(--dome-accent-hover)] hover:shadow-md'
         } ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
       style={{ aspectRatio: 'var(--card-aspect-ratio, 4/3)' }}
       onContextMenu={handleContextMenu}
-      role="group"
+      aria-label={resource.title || 'Recurso'}
       aria-current={isSelected ? 'true' : undefined}
       draggable={isDraggable}
       onDragStart={handleDragStart}
@@ -444,7 +443,7 @@ export default memo(function ResourceCard({
           />
         </div>
       )}
-    </div>
+    </section>
   );
 }, (prevProps, nextProps) => {
   return (

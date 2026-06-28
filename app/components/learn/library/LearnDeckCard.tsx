@@ -74,17 +74,10 @@ export default function LearnDeckCard({ item, onOpen, onEdit, onDelete }: LearnD
       : t('learn.card_count_items', '{{count}} items', { count: item.count });
 
   return (
-    <div
+    <button
+      type="button"
       className="lr-card"
-      role="button"
-      tabIndex={0}
       onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpen();
-        }
-      }}
     >
       <div className={`lr-card-visual ${visual}`}>
         <span className="lr-card-typebadge">
@@ -150,6 +143,6 @@ export default function LearnDeckCard({ item, onOpen, onEdit, onDelete }: LearnD
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }

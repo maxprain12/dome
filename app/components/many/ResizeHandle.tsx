@@ -60,24 +60,16 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
   );
 
   return (
-    // Focusable window-splitter (separator + tabIndex + arrow keys) — a valid
-    // ARIA pattern the static rule below doesn't model.
+    // Focusable window-splitter — hr with pointer/keyboard handlers.
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <div
-      role="separator"
+    <hr
       aria-orientation="vertical"
       aria-label="Resize panel"
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex -- focusable splitter
       tabIndex={0}
-      className="shrink-0 w-1.5 cursor-col-resize flex items-center justify-center group hover:bg-[var(--accent)]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
-      style={{ minWidth: 6 }}
+      className="shrink-0 w-1.5 cursor-col-resize flex items-center justify-center group hover:bg-[var(--accent)]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] border-0 p-0 m-0 min-w-0 self-stretch"
+      style={{ minWidth: 6, height: 'auto' }}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
-    >
-      <div
-        className="w-0.5 h-8 rounded-full opacity-0 group-hover:opacity-60 transition-opacity"
-        style={{ backgroundColor: 'var(--accent)' }}
-      />
-    </div>
+    />
   );
 }

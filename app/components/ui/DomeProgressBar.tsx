@@ -51,12 +51,11 @@ export default function DomeProgressBar({
         <div className="mb-1.5 text-xs text-[var(--tertiary-text)]">{label}</div>
       ) : null}
       {indeterminate ? (
-        <div
-          role="status"
+        <output
           aria-busy
           aria-label={ariaLabel}
           className={cn(
-            'w-full rounded-full overflow-hidden bg-[var(--bg-tertiary,var(--bg-secondary))]',
+            'block w-full rounded-full overflow-hidden bg-[var(--bg-tertiary,var(--bg-secondary))]',
             size === 'sm' ? 'h-1.5' : 'h-2.5',
           )}
         >
@@ -66,24 +65,18 @@ export default function DomeProgressBar({
               background: 'linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%)',
             }}
           />
-        </div>
+        </output>
       ) : (
-        <div
-          role="progressbar"
-          aria-valuenow={Math.round(pct)}
-          aria-valuemin={0}
-          aria-valuemax={100}
+        <progress
+          value={Math.round(pct)}
+          max={100}
           aria-label={ariaLabel}
           className={cn(
-            'w-full rounded-full overflow-hidden bg-[var(--bg-tertiary,var(--bg-secondary))]',
+            'block w-full rounded-full overflow-hidden bg-[var(--bg-tertiary,var(--bg-secondary))] [&::-webkit-progress-bar]:rounded-full [&::-webkit-progress-bar]:bg-[var(--bg-tertiary,var(--bg-secondary))] [&::-webkit-progress-value]:rounded-full [&::-moz-progress-bar]:rounded-full',
             size === 'sm' ? 'h-1.5' : 'h-2.5',
           )}
-        >
-          <div
-            className="h-full rounded-full transition-[width] duration-200 ease-out motion-reduce:transition-none"
-            style={{ width: `${pct}%`, backgroundColor: fillVar[variant] }}
-          />
-        </div>
+          style={{ accentColor: fillVar[variant] }}
+        />
       )}
     </div>
   );

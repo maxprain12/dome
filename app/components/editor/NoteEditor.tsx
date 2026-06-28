@@ -371,9 +371,9 @@ export default function NoteEditor({
       )}
 
       {aiError ? (
-        <div className="focused-editor-ai-error" role="status">
+        <output className="focused-editor-ai-error">
           {aiError}
-        </div>
+        </output>
       ) : null}
 
       {slashItems.length > 0 && slashClientRect ? (

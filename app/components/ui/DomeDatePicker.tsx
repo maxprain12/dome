@@ -97,7 +97,7 @@ export function DomeDatePicker({
   const [viewDate, setViewDate] = useState(() => selected ?? new Date());
   const [rect, setRect] = useState<{ left: number; top: number; width: number } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDialogElement>(null);
 
   const displayLabel = selected
     ? format(selected, 'PPP', { locale: dfLocale })
@@ -215,30 +215,25 @@ export function DomeDatePicker({
         </span>
         <span className="inline-flex items-center gap-1 shrink-0">
           {clearable && selected && !disabled ? (
-            <span
-              role="button"
-              tabIndex={0}
+            <button
+              type="button"
               aria-label={t('common.date_picker_clear')}
-              onClick={clear}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onChange('');
-                  setOpen(false);
-                }
+              onClick={(e) => {
+                e.stopPropagation();
+                onChange('');
+                setOpen(false);
               }}
-              className="rounded p-0.5"
+              className="rounded p-0.5 border-0 bg-transparent"
               style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLSpanElement).style.background = 'var(--dome-bg-hover, var(--bg-hover))';
+                (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover, var(--bg-hover))';
               }}
               onMouseLeave={(e) => {
-                (e.currentTarget as HTMLSpanElement).style.background = 'transparent';
+                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
               }}
             >
               <X size={12} />
-            </span>
+            </button>
           ) : null}
           <ChevronDown size={14} style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }} />
         </span>
@@ -246,19 +241,18 @@ export function DomeDatePicker({
 
       {open && rect
         ? createPortal(
-            <div
+            <dialog
               ref={popoverRef}
-              role="dialog"
-              aria-modal="false"
+              open
               aria-label={t('common.date_picker_placeholder')}
               tabIndex={-1}
-              className="fixed z-[10001] rounded-lg p-3 shadow-lg outline-none"
+              className="fixed z-[10001] rounded-lg p-3 shadow-lg outline-none border m-0 max-w-none w-auto"
               style={{
                 left: rect.left,
                 top: rect.top,
                 width: rect.width,
                 background: 'var(--dome-surface, var(--bg-secondary))',
-                border: '1px solid var(--dome-border, var(--border))',
+                borderColor: 'var(--dome-border, var(--border))',
                 boxShadow: 'var(--shadow-lg, 0 10px 15px -3px rgba(0,0,0,0.1))',
               }}
             >
@@ -384,7 +378,7 @@ export function DomeDatePicker({
                   </button>
                 ) : null}
               </div>
-            </div>,
+            </dialog>,
             document.body,
           )
         : null}
