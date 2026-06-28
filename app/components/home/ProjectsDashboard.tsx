@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Plus } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
@@ -619,11 +619,13 @@ export default function ProjectsDashboard({
             </h3>
             <p className="p-projects-modal-body">{t('projects.delete_critical_warning')}</p>
             <ul className="p-projects-modal-body max-h-40 overflow-y-auto space-y-1">
-              {[...selectedIds]
-                .filter((id) => id !== 'default')
-                .map((id) => {
+              {(() => {
+                const rows: ReactNode[] = [];
+                for (const id of selectedIds) {
+                  if (id === 'default') continue;
                   const p = projects.find((x) => x.id === id);
-                  return p ? (
+                  if (!p) continue;
+                  rows.push(
                     <li
                       key={id}
                       style={{
@@ -633,9 +635,11 @@ export default function ProjectsDashboard({
                       }}
                     >
                       {p.name}
-                    </li>
-                  ) : null;
-                })}
+                    </li>,
+                  );
+                }
+                return rows;
+              })()}
             </ul>
             <div className="p-projects-modal-actions">
               <button

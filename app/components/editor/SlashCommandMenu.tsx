@@ -30,14 +30,14 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
       );
     }, [items, menuFilter]);
 
-    const [prevVisibleItems, setPrevVisibleItems] = useState(visibleItems);
-    if (visibleItems !== prevVisibleItems) {
-      setPrevVisibleItems(visibleItems);
+    const prevVisibleItemsRef = useRef(visibleItems);
+    if (visibleItems !== prevVisibleItemsRef.current) {
+      prevVisibleItemsRef.current = visibleItems;
       setSelectedIndex(0);
     }
-    const [prevItems, setPrevItems] = useState(items);
-    if (items !== prevItems) {
-      setPrevItems(items);
+    const prevItemsRef = useRef(items);
+    if (items !== prevItemsRef.current) {
+      prevItemsRef.current = items;
       setMenuFilter('');
     }
 

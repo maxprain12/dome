@@ -27,6 +27,10 @@ function filenameForDoc(doc: Exclude<ContextDocId, 'daily'>): string {
   return `${doc === 'SOUL' ? 'SOUL' : doc === 'USER' ? 'USER' : 'MEMORY'}.md`;
 }
 
+function openAgentContextFolder() {
+  void window.electron?.personality?.openFolder?.();
+}
+
 export default function AgentContextSettingsTab() {
   const { t } = useTranslation();
   const [selectedDoc, setSelectedDoc] = useState<ContextDocId>('SOUL');
@@ -108,10 +112,6 @@ export default function AgentContextSettingsTab() {
     void loadDocument(selectedDoc, selectedDailyDate);
   };
 
-  const handleOpenFolder = () => {
-    void window.electron?.personality?.openFolder?.();
-  };
-
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(displayedContent);
@@ -176,7 +176,7 @@ export default function AgentContextSettingsTab() {
         <DomeButton
           variant="secondary"
           size="sm"
-          onClick={handleOpenFolder}
+          onClick={openAgentContextFolder}
           leftIcon={<FolderOpen size={14} />}
         >
           {t('settings.ai.context_open_folder')}

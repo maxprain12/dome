@@ -109,6 +109,14 @@ interface AgentManagementViewProps {
   onShowAutomations?: (agentId: string, agentLabel: string) => void;
 }
 
+function formatAgentDate(ts: number) {
+  return new Date(ts).toLocaleDateString(getDateTimeLocaleTag(), {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export default function AgentManagementView({ onAgentSelect, onShowAutomations }: AgentManagementViewProps) {
   const { t } = useTranslation();
   const editorialHub = useEditorialHub();
@@ -339,13 +347,6 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
     }
   };
 
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString(getDateTimeLocaleTag(), {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-
   const renderAgentRow = (agent: ManyAgent) => {
     const desc = (agent.description || '').trim();
     const subtitleText = desc || t('agents.all_tools_available');
@@ -400,7 +401,7 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               <span className="inline-flex items-center gap-1 shrink-0">
                 <span aria-hidden>·</span>
                 <Clock className="size-3 shrink-0" aria-hidden />
-                {formatDate(agent.updatedAt)}
+                {formatAgentDate(agent.updatedAt)}
               </span>
             ) : null}
           </div>

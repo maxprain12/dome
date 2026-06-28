@@ -48,6 +48,36 @@ function formatTags(v: unknown): string | null {
   return null;
 }
 
+function safeUrlDate(v: string | null): string | null {
+  if (!v) return null;
+  try {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
+  } catch {
+    return null;
+  }
+}
+
+function urlPipelineStep(done: boolean, active: boolean, label: string) {
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      {active ? (
+        <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+      ) : done ? (
+        <CircleDot className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+      ) : (
+        <Circle className="size-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
+      )}
+      <span
+        className="text-xs font-medium truncate"
+        style={{ color: active || done ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
 function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }: URLViewerProps) {
   const { t } = useTranslation();
   const [url, setUrl] = useState<string | null>(null);
@@ -155,16 +185,6 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
     [resource.title, article.title, hostname, t],
   );
 
-  const safeDate = (v: string | null): string | null => {
-    if (!v) return null;
-    try {
-      const d = new Date(v);
-      return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString();
-    } catch {
-      return null;
-    }
-  };
-
   const processedAt = useMemo(() => {
     const at = metadata?.processed_at;
     if (at == null) return null;
@@ -180,7 +200,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
   const bylineParts = [
     article.author,
-    safeDate(article.published_date),
+    safeUrlDate(article.published_date),
     article.section,
   ].filter(Boolean);
 
@@ -199,24 +219,6 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
   if (error && !effectiveUrl) {
     return <ErrorState error={error} onRetry={() => { void onRunUrlProcess(); }} />;
   }
-
-  const pipelineStep = (done: boolean, active: boolean, label: string) => (
-    <div className="flex items-center gap-2 min-w-0">
-      {active ? (
-        <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-      ) : done ? (
-        <CircleDot className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
-      ) : (
-        <Circle className="size-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
-      )}
-      <span
-        className="text-xs font-medium truncate"
-        style={{ color: active || done ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
-      >
-        {label}
-      </span>
-    </div>
-  );
 
   return (
     <div className="flex flex-col flex-1 min-h-0 w-full" style={{ background: 'var(--dome-bg)' }}>
@@ -283,11 +285,11 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 {t('viewer.web_pipeline_title')}
               </p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                {pipelineStep(true, false, t('viewer.web_step_saved'))}
+                {urlPipelineStep(true, false, t('viewer.web_step_saved'))}
                 <span style={{ color: 'var(--dome-border)' }} aria-hidden>—</span>
-                {pipelineStep(false, true, t('viewer.web_step_extracting'))}
+                {urlPipelineStep(false, true, t('viewer.web_step_extracting'))}
                 <span style={{ color: 'var(--dome-border)' }} aria-hidden>—</span>
-                {pipelineStep(false, false, t('viewer.web_step_ready'))}
+                {urlPipelineStep(false, false, t('viewer.web_step_ready'))}
               </div>
               <LoadingState message={t('viewer.processing_content')} />
             </div>
@@ -409,16 +411,16 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                         </dd>
                       </>
                     )}
-                    {safeDate(article.published_date) && (
+                    {safeUrlDate(article.published_date) && (
                       <>
                         <dt>{t('viewer.published')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{safeDate(article.published_date)}</dd>
+                        <dd style={{ color: 'var(--dome-text)' }}>{safeUrlDate(article.published_date)}</dd>
                       </>
                     )}
-                    {safeDate(article.modified_date) && (
+                    {safeUrlDate(article.modified_date) && (
                       <>
                         <dt>{t('viewer.date_modified')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{safeDate(article.modified_date)}</dd>
+                        <dd style={{ color: 'var(--dome-text)' }}>{safeUrlDate(article.modified_date)}</dd>
                       </>
                     )}
                     {article.tags && (

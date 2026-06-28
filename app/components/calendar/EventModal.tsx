@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   ExternalLink, Tag, GitBranch, CircleDot, CheckCircle2,
   Rocket, Milestone, Github, Pencil, MapPin, Clock, Workflow,
@@ -465,9 +465,9 @@ export default function EventModal({
   // the edit form.
   const [editing, setEditing] = useState(!event);
   const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
-  const [prevPipelineItemId, setPrevPipelineItemId] = useState(pipelineItemId);
-  if (pipelineItemId !== prevPipelineItemId) {
-    setPrevPipelineItemId(pipelineItemId);
+  const prevPipelineItemIdRef = useRef(pipelineItemId);
+  if (pipelineItemId !== prevPipelineItemIdRef.current) {
+    prevPipelineItemIdRef.current = pipelineItemId;
     if (!pipelineItemId) setPipelineInfo(null);
   }
 

@@ -224,9 +224,14 @@ export default function StageConfigModal({
                       // Inline-created agents first; the board list may already
                       // include them after a refresh, so dedupe by id.
                       ...extraAgents.map((a) => ({ value: a.id, label: a.name })),
-                      ...agents
-                        .filter((a) => !extraAgents.some((e) => e.id === a.id))
-                        .map((a) => ({ value: a.id, label: a.name })),
+                      ...(() => {
+                        const opts: { value: string; label: string }[] = [];
+                        for (const a of agents) {
+                          if (extraAgents.some((e) => e.id === a.id)) continue;
+                          opts.push({ value: a.id, label: a.name });
+                        }
+                        return opts;
+                      })(),
                     ]}
                   />
                 </div>

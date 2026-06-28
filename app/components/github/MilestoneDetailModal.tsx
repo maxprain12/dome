@@ -87,10 +87,13 @@ export default function MilestoneDetailModal({
 
   const issues = useMemo(() => {
     if (milestoneNumber == null) return [];
-    return allIssues
-      .filter((i) => i.milestone_number === milestoneNumber)
-      .filter((i) => showClosedIssues || i.state === 'open')
-      .sort((a, b) => b.number - a.number);
+    const matched: typeof allIssues = [];
+    for (const i of allIssues) {
+      if (i.milestone_number !== milestoneNumber) continue;
+      if (!showClosedIssues && i.state !== 'open') continue;
+      matched.push(i);
+    }
+    return matched.sort((a, b) => b.number - a.number);
   }, [allIssues, milestoneNumber, showClosedIssues]);
 
   const totalIssues = (milestone?.open_issues ?? 0) + (milestone?.closed_issues ?? 0);

@@ -92,17 +92,17 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     shellHubTab === 'automations' && automationsShellTabId && activeShellTabId === automationsShellTabId
       ? `${shellHubTab}:${activeShellTabId}`
       : '';
-  const [consumedAutomationsFilterGateKey, setConsumedAutomationsFilterGateKey] = useState('');
-  if (automationsFilterGateKey && automationsFilterGateKey !== consumedAutomationsFilterGateKey) {
+  const consumedAutomationsFilterGateKeyRef = useRef('');
+  if (automationsFilterGateKey && automationsFilterGateKey !== consumedAutomationsFilterGateKeyRef.current) {
     try {
       const raw = sessionStorage.getItem(PENDING_AUTOMATIONS_FILTER_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as AutomationFilter;
         sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
-        setConsumedAutomationsFilterGateKey(automationsFilterGateKey);
+        consumedAutomationsFilterGateKeyRef.current = automationsFilterGateKey;
         setAutomationsFilter(parsed);
       } else {
-        setConsumedAutomationsFilterGateKey(automationsFilterGateKey);
+        consumedAutomationsFilterGateKeyRef.current = automationsFilterGateKey;
       }
     } catch {
       try {
@@ -110,7 +110,7 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
       } catch {
         /* ignore */
       }
-      setConsumedAutomationsFilterGateKey(automationsFilterGateKey);
+      consumedAutomationsFilterGateKeyRef.current = automationsFilterGateKey;
     }
   }
 

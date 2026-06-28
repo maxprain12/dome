@@ -8,6 +8,14 @@ import DomeButton from '@/components/ui/DomeButton';
 import HubBentoCard from '@/components/ui/HubBentoCard';
 import { DND_WORKFLOW_MIME } from './workflow-library-utils';
 
+function formatWorkflowDate(ts: number) {
+  return new Date(ts).toLocaleDateString(getDateTimeLocaleTag(), {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 export default function WorkflowLibraryCard({
   wf,
   hubCardVariant,
@@ -28,13 +36,6 @@ export default function WorkflowLibraryCard({
   const { t } = useTranslation();
   const desc = (wf.description || '').trim();
   const graphSummary = t('canvas.nodes_edges_summary', { nodes: wf.nodes.length, edges: wf.edges.length });
-
-  const formatDate = (ts: number) =>
-    new Date(ts).toLocaleDateString(getDateTimeLocaleTag(), {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
 
   return (
     <HubBentoCard
@@ -76,7 +77,7 @@ export default function WorkflowLibraryCard({
           <span className="inline-flex items-center gap-1 shrink-0">
             {desc ? <span aria-hidden>·</span> : null}
             <Clock className="size-3 shrink-0" aria-hidden />
-            {formatDate(wf.updatedAt)}
+            {formatWorkflowDate(wf.updatedAt)}
           </span>
         </div>
       }

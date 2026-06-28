@@ -110,7 +110,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 50, y: 50 });
   const [isDragging, setIsDragging] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const dragStartRef = useRef({ x: 0, y: 0 });
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -137,7 +137,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).closest('[data-mindmap-node]')) return;
       setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
     },
     [pan]
   );
@@ -145,9 +145,9 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isDragging) return;
-      setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+      setPan({ x: e.clientX - dragStartRef.current.x, y: e.clientY - dragStartRef.current.y });
     },
-    [isDragging, dragStart]
+    [isDragging]
   );
 
   const handleMouseUp = useCallback(() => {

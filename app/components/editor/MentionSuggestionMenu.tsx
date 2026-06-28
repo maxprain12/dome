@@ -3,6 +3,7 @@ import {
   useCallback,
   forwardRef,
   useImperativeHandle,
+  useRef,
   type CSSProperties,
   type RefObject,
   type Ref,
@@ -36,9 +37,9 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
   ({ items, command }, ref) => {
     const { t } = useTranslation();
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [prevItems, setPrevItems] = useState(items);
-    if (items !== prevItems) {
-      setPrevItems(items);
+    const prevItemsRef = useRef(items);
+    if (items !== prevItemsRef.current) {
+      prevItemsRef.current = items;
       setSelectedIndex(0);
     }
 

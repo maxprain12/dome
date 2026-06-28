@@ -52,7 +52,7 @@ export default function MentionHeaderInput({
   const [items, setItems] = useState<MenuItem[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [allTags, setAllTags] = useState<Array<{ id: string; name: string; color?: string | null }>>([]);
+  const allTagsRef = useRef<Array<{ id: string; name: string; color?: string | null }>>([]);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [committing, setCommitting] = useState(false);
 
@@ -64,7 +64,7 @@ export default function MentionHeaderInput({
       const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
       const res = await window.electron.db.tags.getAll(activeProjectId);
       if (!cancelled && res.success && Array.isArray(res.data)) {
-        setAllTags(res.data.map((row) => ({ id: row.id, name: row.name, color: row.color })));
+        allTagsRef.current = res.data.map((row) => ({ id: row.id, name: row.name, color: row.color }));
       }
     }
     loadTags();
@@ -85,16 +85,16 @@ export default function MentionHeaderInput({
   }, []);
 
   const tokenKey = token ? `${token.kind}:${token.query}` : '';
-  const [prevTokenKey, setPrevTokenKey] = useState(tokenKey);
-  if (tokenKey !== prevTokenKey) {
-    setPrevTokenKey(tokenKey);
+  const prevTokenKeyRef = useRef(tokenKey);
+  if (tokenKey !== prevTokenKeyRef.current) {
+    prevTokenKeyRef.current = tokenKey;
     if (!token) {
       setItems([]);
       if (debounceRef.current) clearTimeout(debounceRef.current);
     } else if (token.kind === 'tag') {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       const q = token.query.toLowerCase();
-      const filtered: MenuItem[] = allTags
+      const filtered: MenuItem[] = allTagsRef.current
         .filter((tag) => tag.name.toLowerCase().includes(q))
         .slice(0, 25)
         .map((tag) => ({ kind: 'tag' as const, id: tag.id, label: tag.name }));
@@ -125,14 +125,16 @@ export default function MentionHeaderInput({
         const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
         const res = await window.electron.db.resources.searchForMention(token.query, activeProjectId);
         const rows = (res.success && Array.isArray(res.data) ? res.data : []) as Resource[];
-        const filtered = rows
-          .filter((r) => r.id !== resourceId)
-          .map((r) => ({
+        const filtered: MenuItem[] = [];
+        for (const r of rows) {
+          if (r.id === resourceId) continue;
+          filtered.push({
             kind: 'mention' as const,
             id: r.id,
             label: r.title || 'Untitled',
             type: r.type,
-          }));
+          });
+        }
         setItems(filtered);
         setSelectedIndex(0);
       } finally {
@@ -144,7 +146,7 @@ export default function MentionHeaderInput({
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [token, allTags, resourceId, updateMenuPosition]);
+  }, [token, resourceId, updateMenuPosition]);
 
   useEffect(() => {
     updateMenuPosition();

@@ -36,18 +36,19 @@ export default function ImageNode({
       const result = await window.electron?.invoke('db:resources:getAll');
       const resourcesList = Array.isArray(result) ? result : result?.data;
       if (Array.isArray(resourcesList)) {
-        setResources(
-          resourcesList
-            .filter((r: ImageResource) => r.type === 'image')
-            .map((r: ImageResource) => ({
-              id: r.id,
-              title: r.title,
-              type: r.type,
-              internal_path: r.internal_path,
-              thumbnail_data: r.thumbnail_data,
-              metadata: r.metadata,
-            })),
-        );
+        const mapped: ImageResource[] = [];
+        for (const r of resourcesList as ImageResource[]) {
+          if (r.type !== 'image') continue;
+          mapped.push({
+            id: r.id,
+            title: r.title,
+            type: r.type,
+            internal_path: r.internal_path,
+            thumbnail_data: r.thumbnail_data,
+            metadata: r.metadata,
+          });
+        }
+        setResources(mapped);
       }
     } catch {
       /* no resources */

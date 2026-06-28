@@ -230,9 +230,9 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     return buildSrcdocFromParts(bodyHtml, domePayload, themeCss, artifactCss);
   }, [resourceId, htmlChunk, themeSnapshot.themeKey]);
 
-  const [prevResourceId, setPrevResourceId] = useState(resourceId);
-  if (resourceId !== prevResourceId) {
-    setPrevResourceId(resourceId);
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
     setLoading(true);
     setError(null);
   }

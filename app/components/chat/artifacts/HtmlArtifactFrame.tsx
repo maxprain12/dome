@@ -95,15 +95,28 @@ export default function HtmlArtifactFrame({
 }) {
   const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const iframeReadyRef = useRef(false);
   const [height, setHeight] = useState(artifact.height ?? 240);
   const [showSource, setShowSource] = useState(false);
-  const [iframeReady, setIframeReady] = useState(false);
 
   const themeSnapshot = useDomeThemeSnapshot();
   const themeCss = useMemo(
     () => buildDomeThemeStyleContent(themeSnapshot.vars),
     [themeSnapshot.vars],
   );
+
+  const postThemeToIframe = useCallback(() => {
+    if (!iframeReadyRef.current) return;
+    const w = iframeRef.current?.contentWindow;
+    if (!w) return;
+    try {
+      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, '*');
+    } catch {
+      // iframe was unloaded
+    }
+  }, [themeCss, themeSnapshot.vars]);
+  const postThemeRef = useRef(postThemeToIframe);
+  postThemeRef.current = postThemeToIframe;
 
   // We only want the initial `srcdoc` to be recomputed when the artifact payload
   // changes — theme updates after mount are pushed via postMessage so we avoid
@@ -127,7 +140,8 @@ export default function HtmlArtifactFrame({
     const d = ev.data;
     if (!d || d.type !== DOME_ARTIFACT) return;
     if (d.kind === 'ready') {
-      setIframeReady(true);
+      iframeReadyRef.current = true;
+      postThemeRef.current();
       return;
     }
     if (d.kind === 'resize' && typeof d.height === 'number' && d.height > 0) {
@@ -141,20 +155,13 @@ export default function HtmlArtifactFrame({
   }, [onMsg]);
 
   useEffect(() => {
-    if (!iframeReady) return;
-    const w = iframeRef.current?.contentWindow;
-    if (!w) return;
-    try {
-      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, '*');
-    } catch {
-      // iframe was unloaded
-    }
-  }, [iframeReady, themeCss, themeSnapshot.vars]);
+    postThemeToIframe();
+  }, [postThemeToIframe]);
 
-  const [prevSrcdoc, setPrevSrcdoc] = useState(srcdoc);
-  if (srcdoc !== prevSrcdoc) {
-    setPrevSrcdoc(srcdoc);
-    setIframeReady(false);
+  const prevSrcdocRef = useRef(srcdoc);
+  if (srcdoc !== prevSrcdocRef.current) {
+    prevSrcdocRef.current = srcdoc;
+    iframeReadyRef.current = false;
   }
 
   return (

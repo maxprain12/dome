@@ -27,6 +27,13 @@ interface ModelSelectorProps {
   configuredHint?: boolean;
 }
 
+function formatContextWindow(ctx: number): string {
+  if (ctx === 0) return '';
+  if (ctx >= 1_000_000) return `${(ctx / 1_000_000).toFixed(0)}M`;
+  if (ctx >= 1_000) return `${(ctx / 1_000).toFixed(0)}K`;
+  return String(ctx);
+}
+
 export default function ModelSelector({
   models,
   selectedModelId,
@@ -101,13 +108,6 @@ export default function ModelSelector({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen]);
-
-  const formatContextWindow = (ctx: number): string => {
-    if (ctx === 0) return '';
-    if (ctx >= 1_000_000) return `${(ctx / 1_000_000).toFixed(0)}M`;
-    if (ctx >= 1_000) return `${(ctx / 1_000).toFixed(0)}K`;
-    return String(ctx);
-  };
 
   const commitSelection = useCallback(
     (model: ModelDefinition | undefined) => {

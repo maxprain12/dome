@@ -158,7 +158,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     budgetCapApprox,
   } = useManyConversationSettings();
   const [error, setError] = useState<string | null>(null);
-  const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ChatMessageData | null>(null);
@@ -202,15 +202,15 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     currentSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
 
-  const [prevHandoff, setPrevHandoff] = useState<string | null>(null);
+  const prevHandoffRef = useRef<string | null>(null);
   if (
     pendingManyHandoff &&
-    pendingManyHandoff !== prevHandoff &&
+    pendingManyHandoff !== prevHandoffRef.current &&
     isVisible &&
     !isHeadless
   ) {
     const text = pendingManyHandoff;
-    setPrevHandoff(text);
+    prevHandoffRef.current = text;
     setInput(text);
     setPendingManyHandoff(null);
     requestAnimationFrame(() => {
@@ -220,8 +220,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const len = text.length;
       el.setSelectionRange(len, len);
     });
-  } else if (!pendingManyHandoff && prevHandoff !== null) {
-    setPrevHandoff(null);
+  } else if (!pendingManyHandoff && prevHandoffRef.current !== null) {
+    prevHandoffRef.current = null;
   }
 
   // Hydrate session list from JSONL on startup.
@@ -792,7 +792,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setStreamingMessage(null);
     setLiveUsage(null);
     setCompactionNotice(null);
-    setAbortController(null);
+    abortControllerRef.current = null;
 
     addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
     if (currentSessionId) {
@@ -893,12 +893,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
           : [];
       const toolDefinitions = rawToolDefinitions;
       const toolIds = toolsEnabled ? activeTools.map((tool) => tool.name) : [];
-      const mcpServerIds =
-        toolsEnabled && mcpEnabled
-          ? (await loadMcpServersSetting())
-              .filter((server) => server.enabled !== false)
-              .map((server) => server.name)
-          : [];
+      const mcpServerIds: string[] = [];
+      if (toolsEnabled && mcpEnabled) {
+        const servers = await loadMcpServersSetting();
+        for (const server of servers) {
+          if (server.enabled === false) continue;
+          mcpServerIds.push(server.name);
+        }
+      }
 
       providerForAnalytics = config.provider;
       capturePostHog(ANALYTICS_EVENTS.AI_CHAT_STARTED, {
@@ -1026,7 +1028,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         setStatus('idle');
         setStreamingMessage(null);
         setPendingApproval(null);
-        setAbortController(null);
+        abortControllerRef.current = null;
       }
       if (!isHeadless) inputRef.current?.focus();
     }
@@ -1089,8 +1091,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       void abortRun(activeRunId);
       return;
     }
-    if (abortController) abortController.abort();
-  }, [abortController, activeRunId]);
+    abortControllerRef.current?.abort();
+  }, [activeRunId]);
 
   const handleRegenerate = useCallback(
     async (messageId: string) => {
@@ -1248,9 +1250,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     [_switchSession, currentSessionId],
   );
 
-  const [prevIsFullscreen, setPrevIsFullscreen] = useState(isFullscreen);
-  if (isFullscreen !== prevIsFullscreen) {
-    setPrevIsFullscreen(isFullscreen);
+  const prevIsFullscreenRef = useRef(isFullscreen);
+  if (isFullscreen !== prevIsFullscreenRef.current) {
+    prevIsFullscreenRef.current = isFullscreen;
     setShowHistory(isFullscreen);
   }
 

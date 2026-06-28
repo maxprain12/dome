@@ -63,6 +63,12 @@ interface AutomationsTabProps {
   onRegisterSilentRefresh?: (refresh: (() => void) | null) => void;
 }
 
+function automationTargetIconKind(a: AutomationDefinition): 'agent' | 'workflow' | 'feeder' {
+  if (a.targetType === 'agent') return 'agent';
+  if (a.targetType === 'feeder') return 'feeder';
+  return 'workflow';
+}
+
 function AutomationsTab({
   projectId,
   initialFilter,
@@ -153,16 +159,16 @@ function AutomationsTab({
   }, [formMode, filter.targetType]);
 
   // Update filter when initialFilter changes (from clicking "Automatizaciones" on an agent/workflow)
-  const [prevInitialFilter, setPrevInitialFilter] = useState(initialFilter);
-  if (initialFilter !== prevInitialFilter && initialFilter) {
-    setPrevInitialFilter(initialFilter);
+  const prevInitialFilterRef = useRef(initialFilter);
+  if (initialFilter !== prevInitialFilterRef.current && initialFilter) {
+    prevInitialFilterRef.current = initialFilter;
     setFilter(initialFilter);
   }
 
   const projectScopeKey = `${projectId}:${appProject?.id ?? ''}`;
-  const [prevProjectScopeKey, setPrevProjectScopeKey] = useState(projectScopeKey);
-  if (projectScopeKey !== prevProjectScopeKey) {
-    setPrevProjectScopeKey(projectScopeKey);
+  const prevProjectScopeKeyRef = useRef(projectScopeKey);
+  if (projectScopeKey !== prevProjectScopeKeyRef.current) {
+    prevProjectScopeKeyRef.current = projectScopeKey;
     if (appProject?.id === projectId) {
       setScopeProjectName(appProject.name ?? null);
     }
@@ -332,16 +338,21 @@ function AutomationsTab({
             },
         artifactBindings: isFeederTarget
           ? []
-          : draft.artifactBindings
-              .filter((b) => b.artifactResourceId.trim())
-              .map((b) => ({
-                id: b.id,
-                artifactResourceId: b.artifactResourceId.trim(),
-                slot: (b.slot || 'default').trim(),
-                updatePolicy: b.updatePolicy,
-                extractMode: b.extractMode,
-                enabled: b.enabled,
-              })),
+          : (() => {
+              const bindings: NonNullable<DraftState['artifactBindings']> = [];
+              for (const b of draft.artifactBindings) {
+                if (!b.artifactResourceId.trim()) continue;
+                bindings.push({
+                  id: b.id,
+                  artifactResourceId: b.artifactResourceId.trim(),
+                  slot: (b.slot || 'default').trim(),
+                  updatePolicy: b.updatePolicy,
+                  extractMode: b.extractMode,
+                  enabled: b.enabled,
+                });
+              }
+              return bindings;
+            })(),
         outputMode: isFeederTarget ? 'chat_only' : draft.outputMode,
       });
       showToast('success', draft.id ? t('toast.automation_updated') : t('toast.automation_created'));
@@ -461,11 +472,6 @@ function AutomationsTab({
     if (a.targetType === 'workflow') return workflowName(a.targetId);
     if (a.targetType === 'feeder') return feederName(a.targetId);
     return a.targetId;
-  };
-  const targetIconKind = (a: AutomationDefinition): 'agent' | 'workflow' | 'feeder' => {
-    if (a.targetType === 'agent') return 'agent';
-    if (a.targetType === 'feeder') return 'feeder';
-    return 'workflow';
   };
 
   // Full-screen create / edit — replaces the list entirely
@@ -665,7 +671,7 @@ function AutomationsTab({
                       variant={hubCardVariant}
                       onClick={() => handleEdit(a)}
                       icon={
-                        <HubEntityIcon kind={targetIconKind(a)} size="md" />
+                        <HubEntityIcon kind={automationTargetIconKind(a)} size="md" />
                       }
                       title={
                         <div className="flex w-full min-w-0 items-start gap-2 flex-wrap">

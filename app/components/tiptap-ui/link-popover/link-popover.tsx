@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useState } from "react"
+import { forwardRef, useCallback, useEffect, useState, useRef } from "react"
 import type { Editor } from "@tiptap/react"
 
 // --- Hooks ---
@@ -261,12 +261,12 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
       [onClick, isOpen]
     )
 
-    const [prevAutoOpenActive, setPrevAutoOpenActive] = useState(isActive);
-    if (autoOpenOnLinkActive && isActive !== prevAutoOpenActive) {
-      setPrevAutoOpenActive(isActive);
+    const prevAutoOpenActiveRef = useRef(isActive);
+    if (autoOpenOnLinkActive && isActive !== prevAutoOpenActiveRef.current) {
+      prevAutoOpenActiveRef.current = isActive;
       if (isActive) setIsOpen(true);
-    } else if (!autoOpenOnLinkActive && isActive !== prevAutoOpenActive) {
-      setPrevAutoOpenActive(isActive);
+    } else if (!autoOpenOnLinkActive && isActive !== prevAutoOpenActiveRef.current) {
+      prevAutoOpenActiveRef.current = isActive;
     }
 
     if (!isVisible) {

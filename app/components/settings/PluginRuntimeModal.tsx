@@ -59,9 +59,9 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
   const entry = plugin.entry || 'index.html';
 
   const pluginLoadKey = `${plugin.id}:${entry}:${reloadKey}`;
-  const [prevPluginLoadKey, setPrevPluginLoadKey] = useState(pluginLoadKey);
-  if (pluginLoadKey !== prevPluginLoadKey) {
-    setPrevPluginLoadKey(pluginLoadKey);
+  const prevPluginLoadKeyRef = useRef(pluginLoadKey);
+  if (pluginLoadKey !== prevPluginLoadKeyRef.current) {
+    prevPluginLoadKeyRef.current = pluginLoadKey;
     setLoading(true);
     setError(null);
   }

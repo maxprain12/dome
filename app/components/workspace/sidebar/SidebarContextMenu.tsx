@@ -41,9 +41,9 @@ export default function ContextMenu({
   const [showColors, setShowColors] = useState(false);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
-  const [prevVisible, setPrevVisible] = useState(state.visible);
-  if (state.visible !== prevVisible) {
-    setPrevVisible(state.visible);
+  const prevVisibleRef = useRef(state.visible);
+  if (state.visible !== prevVisibleRef.current) {
+    prevVisibleRef.current = state.visible;
     if (state.visible) {
       setShowColors(false);
       setHoveredColor(null);

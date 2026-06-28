@@ -75,14 +75,14 @@ export default function TranscriptionsListPage() {
 
   const items = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return resources
-      .map((r) => ({ r, meta: parseMeta(r.metadata) }))
-      .filter(({ r, meta }) => isTranscriptionResource(r, meta))
-      .filter(({ r }) => {
-        if (!q) return true;
-        return (r.title || '').toLowerCase().includes(q);
-      })
-      .sort((a, b) => (b.r.updated_at || 0) - (a.r.updated_at || 0));
+    const matched: { r: Resource; meta: Record<string, unknown> }[] = [];
+    for (const r of resources) {
+      const meta = parseMeta(r.metadata);
+      if (!isTranscriptionResource(r, meta)) continue;
+      if (q && !(r.title || '').toLowerCase().includes(q)) continue;
+      matched.push({ r, meta });
+    }
+    return matched.sort((a, b) => (b.r.updated_at || 0) - (a.r.updated_at || 0));
   }, [resources, query]);
 
   return (

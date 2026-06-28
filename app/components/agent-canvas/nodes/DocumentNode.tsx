@@ -35,17 +35,18 @@ export default function DocumentNode({
       const result = await window.electron?.invoke('db:resources:getAll');
       const resourcesList = Array.isArray(result) ? result : result?.data;
       if (Array.isArray(resourcesList)) {
-        setResources(
-          resourcesList
-            .filter((r: ResourceOption) => ['pdf', 'url'].includes(r.type))
-            .map((r: ResourceOption) => ({
-              id: r.id,
-              title: r.title,
-              type: r.type,
-              content: r.content,
-              metadata: r.metadata,
-            })),
-        );
+        const mapped: ResourceOption[] = [];
+        for (const r of resourcesList as ResourceOption[]) {
+          if (!['pdf', 'url'].includes(r.type)) continue;
+          mapped.push({
+            id: r.id,
+            title: r.title,
+            type: r.type,
+            content: r.content,
+            metadata: r.metadata,
+          });
+        }
+        setResources(mapped);
       }
     } catch {
       /* no resources */

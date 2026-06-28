@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Paperclip, AtSign, ChevronRight, ChevronLeft, X, Sparkles, Slash, Hash, type LucideIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, Brain, Globe, Plug2 } from 'lucide-react';
@@ -263,14 +263,16 @@ function PlusMenuSkillsList({ handlers }: { handlers: ChatComposerSkillsHandlers
         if (!cancelled) setSkills([]);
         return;
       }
-      const rows = res.data
-        .filter((s) => !!s.id)
-        .map((s) => ({
+      const rows: { id: string; name: string; description: string; prompt: string }[] = [];
+      for (const s of res.data) {
+        if (!s.id) continue;
+        rows.push({
           id: String(s.id),
           name: String(s.name),
           description: String(s.description),
           prompt: '',
-        }));
+        });
+      }
       if (!cancelled) setSkills(rows);
     })();
     return () => {
@@ -360,9 +362,9 @@ export function ChatComposerPlusMenuContent({
   const { t } = useTranslation();
   const [view, setView] = useState<PlusMenuView>('root');
 
-  const [prevIsMenuOpen, setPrevIsMenuOpen] = useState(isMenuOpen);
-  if (isMenuOpen !== prevIsMenuOpen) {
-    setPrevIsMenuOpen(isMenuOpen);
+  const prevIsMenuOpenRef = useRef(isMenuOpen);
+  if (isMenuOpen !== prevIsMenuOpenRef.current) {
+    prevIsMenuOpenRef.current = isMenuOpen;
     if (isMenuOpen) setView('root');
   }
 

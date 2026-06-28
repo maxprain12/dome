@@ -60,9 +60,9 @@ export default function StructuredTranscriptWorkspace({
   const rowRefMap = lazyRef(rowRefs, () => new Map());
 
   const speakersMapKey = `${resource.id}:${JSON.stringify(speakersMap)}`;
-  const [prevSpeakersMapKey, setPrevSpeakersMapKey] = useState(speakersMapKey);
-  if (speakersMapKey !== prevSpeakersMapKey) {
-    setPrevSpeakersMapKey(speakersMapKey);
+  const prevSpeakersMapKeyRef = useRef(speakersMapKey);
+  if (speakersMapKey !== prevSpeakersMapKeyRef.current) {
+    prevSpeakersMapKeyRef.current = speakersMapKey;
     const next: Record<string, string> = {};
     for (const k of Object.keys(speakersMap)) {
       const lab = speakersMap[k]?.label;

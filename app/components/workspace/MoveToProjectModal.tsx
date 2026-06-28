@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { Text, ScrollArea, UnstyledButton, Stack } from '@mantine/core';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
@@ -55,14 +55,14 @@ export default function MoveToProjectModal({
 
   const byId = resourcesByIdProp ?? localById;
 
-  const [prevOpened, setPrevOpened] = useState(opened);
-  if (!opened && opened !== prevOpened) {
-    setPrevOpened(opened);
+  const prevOpenedRef = useRef(opened);
+  if (!opened && opened !== prevOpenedRef.current) {
+    prevOpenedRef.current = opened;
     setPickedId(null);
     setError(null);
     setLocalById(null);
-  } else if (opened !== prevOpened) {
-    setPrevOpened(opened);
+  } else if (opened !== prevOpenedRef.current) {
+    prevOpenedRef.current = opened;
   }
 
   useEffect(() => {
@@ -84,13 +84,13 @@ export default function MoveToProjectModal({
     };
   }, [opened, resourcesByIdProp]);
 
-  const [prevOpenedForLoad, setPrevOpenedForLoad] = useState(opened);
-  if (opened && opened !== prevOpenedForLoad) {
-    setPrevOpenedForLoad(opened);
+  const prevOpenedForLoadRef = useRef(opened);
+  if (opened && opened !== prevOpenedForLoadRef.current) {
+    prevOpenedForLoadRef.current = opened;
     setPickedId(null);
     setError(null);
-  } else if (!opened && opened !== prevOpenedForLoad) {
-    setPrevOpenedForLoad(opened);
+  } else if (!opened && opened !== prevOpenedForLoadRef.current) {
+    prevOpenedForLoadRef.current = opened;
   }
 
   useEffect(() => {

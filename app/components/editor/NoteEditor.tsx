@@ -161,7 +161,7 @@ export default function NoteEditor({
   }, [isEditorSuggestionActive]);
 
   const [resourcePickerOpen, setResourcePickerOpen] = useState(false);
-  const [resourcePickerMode, setResourcePickerMode] = useState<'link' | 'split' | 'mention'>('link');
+  const resourcePickerModeRef = useRef<'link' | 'split' | 'mention'>('link');
   const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
   const [embedKind, setEmbedKind] = useState<NoteEmbedKind | null>(null);
@@ -307,7 +307,7 @@ export default function NoteEditor({
     const s = editor.storage.noteEditorBridge;
     s.projectId = projectId ?? '';
     s.openResourcePicker = (mode = 'link') => {
-      setResourcePickerMode(mode);
+      resourcePickerModeRef.current = mode;
       setResourcePickerOpen(true);
     };
     s.openImagePicker = () => setImagePickerOpen(true);
@@ -322,7 +322,7 @@ export default function NoteEditor({
     if (!isZen) return;
     const handleAI = () => runEditorAI('improve', 'replace_selection');
     const handleReference = () => {
-      setResourcePickerMode('split');
+      resourcePickerModeRef.current = 'split';
       setResourcePickerOpen(true);
     };
     window.addEventListener('dome:focused-editor-ai', handleAI);
@@ -401,25 +401,25 @@ export default function NoteEditor({
         opened={resourcePickerOpen}
         onClose={() => {
           setResourcePickerOpen(false);
-          setResourcePickerMode('link');
+          resourcePickerModeRef.current = 'link';
         }}
         projectId={projectId}
         excludeResourceId={currentResourceId}
         onSelect={(r) => {
-          if (resourcePickerMode === 'split') {
+          if (resourcePickerModeRef.current === 'split') {
             useTabStore.getState().openResourceInSplit(r.id, r.type, r.title);
             setResourcePickerOpen(false);
-            setResourcePickerMode('link');
+            resourcePickerModeRef.current = 'link';
             return;
           }
-          if (resourcePickerMode === 'mention') {
+          if (resourcePickerModeRef.current === 'mention') {
             editor.storage.noteEditorBridge.aiActions?.insertResourceMention({
               id: r.id,
               title: r.title,
               type: r.type,
             });
             setResourcePickerOpen(false);
-            setResourcePickerMode('link');
+            resourcePickerModeRef.current = 'link';
             return;
           }
           editor
@@ -432,7 +432,7 @@ export default function NoteEditor({
             })
             .run();
           setResourcePickerOpen(false);
-          setResourcePickerMode('link');
+          resourcePickerModeRef.current = 'link';
         }}
       />
 

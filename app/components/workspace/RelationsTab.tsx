@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link2, Share2 } from 'lucide-react';
 import MentionHeaderInput from './MentionHeaderInput';
@@ -19,6 +19,10 @@ interface OutEdgeRow {
   target_type: string;
   similarity: number;
   relation_type: string;
+}
+
+function openWorkspaceResource(id: string, type: string) {
+  window.electron.workspace.open(id, type);
 }
 
 export default function RelationsTab({ resourceId }: { resourceId: string }) {
@@ -83,9 +87,9 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
     }
   }, [resourceId]);
 
-  const [prevResourceId, setPrevResourceId] = useState(resourceId);
-  if (resourceId !== prevResourceId) {
-    setPrevResourceId(resourceId);
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
     setLoading(true);
   }
 
@@ -116,10 +120,6 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
     }
     return { mentionRows: mentions, webRows: webs };
   }, [outRows]);
-
-  const openResource = (id: string, type: string) => {
-    window.electron.workspace.open(id, type);
-  };
 
   const removeEdge = async (edgeId: string) => {
     setRemovingEdgeId(edgeId);
@@ -218,7 +218,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   resourceType={row.target_type}
                   similarity={row.similarity}
                   relationState={row.relation_type}
-                  onOpen={() => openResource(row.target_id, row.target_type || 'note')}
+                  onOpen={() => openWorkspaceResource(row.target_id, row.target_type || 'note')}
                   onRemove={() => void removeEdge(row.id)}
                   removeDisabled={removingEdgeId === row.id}
                 />
@@ -242,7 +242,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
                   resourceType="url"
                   similarity={row.similarity}
                   relationState={row.relation_type}
-                  onOpen={() => openResource(row.target_id, 'url')}
+                  onOpen={() => openWorkspaceResource(row.target_id, 'url')}
                   onRemove={() => void removeEdge(row.id)}
                   removeDisabled={removingEdgeId === row.id}
                 />

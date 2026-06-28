@@ -24,6 +24,90 @@ function sourceToString(source: string | string[]): string {
   return typeof source === 'string' ? source : source.join('');
 }
 
+function renderNotebookOutput(output: NotebookOutput) {
+  if (output.output_type === 'stream' && 'text' in output) {
+    const text = Array.isArray(output.text) ? output.text.join('') : output.text;
+    return (
+      <div className="overflow-x-auto max-w-full">
+        <pre
+          className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
+          style={{
+            background: output.name === 'stderr' ? 'var(--error-bg)' : 'var(--bg-secondary)',
+            color: output.name === 'stderr' ? 'var(--error)' : 'var(--primary-text)',
+          }}
+        >
+          {text}
+        </pre>
+      </div>
+    );
+  }
+  if ((output.output_type === 'execute_result' || output.output_type === 'display_data') && 'data' in output) {
+    const data = output.data as Record<string, string | string[]>;
+    const imagePng = data['image/png'];
+    const imageSvg = data['image/svg+xml'];
+    const textHtml = data['text/html'];
+    const textPlain = data['text/plain'];
+
+    if (imagePng) {
+      const src = typeof imagePng === 'string' ? imagePng : imagePng[0];
+      return (
+        <div className="p-2">
+          <img
+            src={`data:image/png;base64,${src}`}
+            alt="Notebook cell output"
+            className="max-w-full h-auto rounded"
+          />
+        </div>
+      );
+    }
+    if (imageSvg) {
+      const svg = typeof imageSvg === 'string' ? imageSvg : (Array.isArray(imageSvg) ? imageSvg[0] : '') ?? '';
+      return (
+        <div className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
+      );
+    }
+    if (textHtml) {
+      const html = Array.isArray(textHtml) ? textHtml.join('') : textHtml;
+      return (
+        <div
+          className="p-2 prose prose-sm max-w-none break-words overflow-x-auto"
+          style={{
+            color: 'var(--primary-text)',
+            minHeight: '400px',
+            overflow: 'auto',
+          }}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    }
+    const text = typeof textPlain === 'string' ? textPlain : Array.isArray(textPlain) ? textPlain.join('') : JSON.stringify(data);
+    return (
+      <div className="overflow-x-auto max-w-full">
+        <pre
+          className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
+          style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)' }}
+        >
+          {text}
+        </pre>
+      </div>
+    );
+  }
+  if (output.output_type === 'error') {
+    const tb = output.traceback?.join('\n') || `${output.ename}: ${output.evalue}`;
+    return (
+      <div className="overflow-x-auto max-w-full">
+        <pre
+          className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
+          style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
+        >
+          {tb}
+        </pre>
+      </div>
+    );
+  }
+  return null;
+}
+
 export default function CodeCell({
   cell,
   onChange,
@@ -80,90 +164,6 @@ export default function CodeCell({
       await doRun();
     }
   }, [externalRun, doRun]);
-
-  const renderOutput = (output: NotebookOutput) => {
-    if (output.output_type === 'stream' && 'text' in output) {
-      const text = Array.isArray(output.text) ? output.text.join('') : output.text;
-      return (
-        <div className="overflow-x-auto max-w-full">
-          <pre
-            className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-            style={{
-              background: output.name === 'stderr' ? 'var(--error-bg)' : 'var(--bg-secondary)',
-              color: output.name === 'stderr' ? 'var(--error)' : 'var(--primary-text)',
-            }}
-          >
-            {text}
-          </pre>
-        </div>
-      );
-    }
-    if ((output.output_type === 'execute_result' || output.output_type === 'display_data') && 'data' in output) {
-      const data = output.data as Record<string, string | string[]>;
-      const imagePng = data['image/png'];
-      const imageSvg = data['image/svg+xml'];
-      const textHtml = data['text/html'];
-      const textPlain = data['text/plain'];
-
-      if (imagePng) {
-        const src = typeof imagePng === 'string' ? imagePng : imagePng[0];
-        return (
-          <div className="p-2">
-            <img
-              src={`data:image/png;base64,${src}`}
-              alt="Notebook cell output"
-              className="max-w-full h-auto rounded"
-            />
-          </div>
-        );
-      }
-      if (imageSvg) {
-        const svg = typeof imageSvg === 'string' ? imageSvg : (Array.isArray(imageSvg) ? imageSvg[0] : '') ?? '';
-        return (
-          <div className="p-2" dangerouslySetInnerHTML={{ __html: svg }} />
-        );
-      }
-      if (textHtml) {
-        const html = Array.isArray(textHtml) ? textHtml.join('') : textHtml;
-        return (
-          <div
-            className="p-2 prose prose-sm max-w-none break-words overflow-x-auto"
-            style={{
-              color: 'var(--primary-text)',
-              minHeight: '400px',
-              overflow: 'auto',
-            }}
-            dangerouslySetInnerHTML={{ __html: html }}
-          />
-        );
-      }
-      const text = typeof textPlain === 'string' ? textPlain : Array.isArray(textPlain) ? textPlain.join('') : JSON.stringify(data);
-      return (
-        <div className="overflow-x-auto max-w-full">
-          <pre
-            className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-            style={{ background: 'var(--bg-secondary)', color: 'var(--primary-text)' }}
-          >
-            {text}
-          </pre>
-        </div>
-      );
-    }
-    if (output.output_type === 'error') {
-      const tb = output.traceback?.join('\n') || `${output.ename}: ${output.evalue}`;
-      return (
-        <div className="overflow-x-auto max-w-full">
-          <pre
-            className="text-sm font-mono whitespace-pre-wrap break-words p-2 rounded min-w-0"
-            style={{ background: 'var(--error-bg)', color: 'var(--error)' }}
-          >
-            {tb}
-          </pre>
-        </div>
-      );
-    }
-    return null;
-  };
 
   const executionCount = cell.execution_count;
 
@@ -268,7 +268,7 @@ export default function CodeCell({
               const ord = (counts.get(h) ?? 0) + 1;
               counts.set(h, ord);
               return (
-                <div key={`${h}:${ord}`}>{renderOutput(o)}</div>
+                <div key={`${h}:${ord}`}>{renderNotebookOutput(o)}</div>
               );
             });
           })()}

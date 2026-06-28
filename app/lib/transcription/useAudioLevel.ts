@@ -14,7 +14,7 @@ export function useAudioLevel(stream: MediaStream | null): number {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-  const [prevStream, setPrevStream] = useState(stream);
+  const prevStreamRef = useRef(stream);
   const audioContextAvailable =
     typeof window !== 'undefined' &&
     Boolean(
@@ -23,8 +23,8 @@ export function useAudioLevel(stream: MediaStream | null): number {
         (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext,
     );
 
-  if (stream !== prevStream) {
-    setPrevStream(stream);
+  if (stream !== prevStreamRef.current) {
+    prevStreamRef.current = stream;
     if (!stream || !audioContextAvailable) setLevel(0);
   }
 

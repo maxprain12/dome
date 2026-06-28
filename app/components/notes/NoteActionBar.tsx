@@ -48,6 +48,14 @@ interface NoteActionBarProps {
   hideWindowControls?: boolean;
 }
 
+function goHome() {
+  useTabStore.getState().activateTab(HOME_TAB_ID);
+}
+
+function openManySidebar() {
+  window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
+}
+
 export default function NoteActionBar({
   crumbs,
   saveState,
@@ -67,10 +75,6 @@ export default function NoteActionBar({
   const { t } = useTranslation();
   const sourcesOpen = useAppStore((s) => s.sourcesPanelOpen);
   const toggleSources = useAppStore((s) => s.toggleSourcesPanel);
-  const goHome = () => useTabStore.getState().activateTab(HOME_TAB_ID);
-
-  const openMany = () => window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
-
   const isMac =
     typeof window !== 'undefined' && Boolean(window.electron?.isMac ?? window.electron?.platform === 'darwin');
   const isWin = typeof window !== 'undefined' && Boolean(window.electron?.isWindows);
@@ -150,7 +154,7 @@ export default function NoteActionBar({
         className="note-ai-assist-btn no-drag"
         title={t('notes.open_many')}
         aria-label={t('notes.open_many')}
-        onClick={openMany}
+        onClick={openManySidebar}
       >
         <Sparkles size={13} strokeWidth={2} />
         <span>{t('notes.many')}</span>

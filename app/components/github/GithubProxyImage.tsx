@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { githubClient, isGithubHostedImageUrl } from '@/lib/github/client';
@@ -20,9 +20,9 @@ export default function GithubProxyImage({ src, alt }: { src?: string | null; al
   const { t } = useTranslation();
   const [state, setState] = useState<LoadState>(() => resolveSyncState(src).state);
   const [displaySrc, setDisplaySrc] = useState<string | null>(() => resolveSyncState(src).displaySrc);
-  const [prevSrc, setPrevSrc] = useState(src);
-  if (src !== prevSrc) {
-    setPrevSrc(src);
+  const prevSrcRef = useRef(src);
+  if (src !== prevSrcRef.current) {
+    prevSrcRef.current = src;
     const next = resolveSyncState(src);
     setState(next.state);
     setDisplaySrc(next.displaySrc);

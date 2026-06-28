@@ -69,6 +69,16 @@ import {
   renderTreeToolSummary,
 } from './tool-card/ToolResultHighlights';
 
+function formatToolResult(result: unknown): string {
+  if (typeof result === 'string') return result;
+  if (result === null || result === undefined) return '';
+  try { return JSON.stringify(result, null, 2); } catch { return String(result); }
+}
+
+function dispatchSoftConfirm(approved: boolean) {
+  const text = approved ? 'Sí, confirmo.' : 'No, cancela.';
+  window.dispatchEvent(new CustomEvent('dome:quick-reply', { detail: { text } }));
+}
 
 export default function ChatToolCard({ toolCall, className = '', surfaceVariant = 'default' }: ChatToolCardProps) {
   const { t } = useTranslation();
@@ -108,12 +118,6 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   }, [toolCall.name, toolCall.result]);
   const pinnedIds = useMemo(() => new Set(pinnedResources.map((r) => r.id)), [pinnedResources]);
 
-  const formatResult = (result: unknown): string => {
-    if (typeof result === 'string') return result;
-    if (result === null || result === undefined) return '';
-    try { return JSON.stringify(result, null, 2); } catch { return String(result); }
-  };
-
   const parsedResult = useMemo(() => {
     if (!toolCall.result) return null;
     if (typeof toolCall.result === 'object') return toolCall.result;
@@ -129,17 +133,12 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     if (todos.length > 0) return <ChatTodoList todos={todos} />;
   }
 
-  const resultText = formatResult(toolCall.result);
+  const resultText = formatToolResult(toolCall.result);
   const isPending = toolCall.status === 'pending' || toolCall.status === 'running';
   const argsSummary = formatArgsSummary(toolCall.arguments);
 
   // Soft confirmation requested by tool (needs_confirmation status)
   const needsConfirmation = (parsedResult as Record<string, unknown> | null)?.status === 'needs_confirmation';
-
-  const handleSoftConfirm = (approved: boolean) => {
-    const text = approved ? 'Sí, confirmo.' : 'No, cancela.';
-    window.dispatchEvent(new CustomEvent('dome:quick-reply', { detail: { text } }));
-  };
 
   const renderResultContent = () => {
     // Inline approval UI for soft confirmations (needs_confirmation pattern)
@@ -165,7 +164,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: 12, padding: '5px 12px' }}
-              onClick={() => handleSoftConfirm(false)}
+              onClick={() => dispatchSoftConfirm(false)}
             >
               Cancelar
             </button>
@@ -173,7 +172,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
               type="button"
               className="btn btn-primary"
               style={{ fontSize: 12, padding: '5px 12px' }}
-              onClick={() => handleSoftConfirm(true)}
+              onClick={() => dispatchSoftConfirm(true)}
             >
               Confirmar
             </button>

@@ -190,19 +190,27 @@ export default function ChatMessage({
     }
 
     const citationNumbers = extractCitationNumbers(message.content);
-    return citationNumbers
-      .filter((num) => message.citationMap!.has(num))
-      .map((num) => {
-        const citation = message.citationMap!.get(num)!;
-        return {
-          number: num,
-          id: citation.sourceId || '',
-          title: citation.sourceTitle || `Source ${num}`,
-          type: 'resource',
-          pageLabel: citation.pageLabel,
-          nodeTitle: citation.nodeTitle,
-        };
+    const refs: {
+      number: number;
+      id: string;
+      title: string;
+      type: string;
+      pageLabel?: string;
+      nodeTitle?: string;
+    }[] = [];
+    for (const num of citationNumbers) {
+      if (!message.citationMap!.has(num)) continue;
+      const citation = message.citationMap!.get(num)!;
+      refs.push({
+        number: num,
+        id: citation.sourceId || '',
+        title: citation.sourceTitle || `Source ${num}`,
+        type: 'resource',
+        pageLabel: citation.pageLabel,
+        nodeTitle: citation.nodeTitle,
       });
+    }
+    return refs;
   }, [message.content, message.citationMap]);
 
   const contentSegments = useMemo(() => {

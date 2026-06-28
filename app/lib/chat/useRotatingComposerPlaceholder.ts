@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 const DEFAULT_INTERVAL_MS = 4500;
@@ -13,9 +13,9 @@ export function useRotatingComposerPlaceholder(
   const keysSignature = useMemo(() => keys.join('\0'), [keys]);
   const [index, setIndex] = useState(0);
   const resetKey = `${keysSignature}:${i18n.language}`;
-  const [prevResetKey, setPrevResetKey] = useState(resetKey);
-  if (resetKey !== prevResetKey) {
-    setPrevResetKey(resetKey);
+  const prevResetKeyRef = useRef(resetKey);
+  if (resetKey !== prevResetKeyRef.current) {
+    prevResetKeyRef.current = resetKey;
     setIndex(0);
   }
 

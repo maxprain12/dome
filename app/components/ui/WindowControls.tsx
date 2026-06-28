@@ -2,6 +2,24 @@
 import { useEffect, useState } from 'react';
 import { Minus, Square, X } from 'lucide-react';
 
+function minimizeCurrentWindow() {
+  window.electron.invoke('window:minimize-current').catch((err) => {
+    console.error('[WindowControls] minimize failed:', err);
+  });
+}
+
+function toggleMaximizeCurrentWindow() {
+  window.electron.invoke('window:maximize-toggle').catch((err) => {
+    console.error('[WindowControls] maximize toggle failed:', err);
+  });
+}
+
+function closeCurrentWindow() {
+  window.electron.invoke('window:close-current').catch((err) => {
+    console.error('[WindowControls] close failed:', err);
+  });
+}
+
 /**
  * Controles de ventana (minimizar, maximizar, cerrar) para Linux.
  * En macOS se usan los traffic lights nativos.
@@ -26,24 +44,6 @@ export default function WindowControls() {
     return null;
   }
 
-  const handleMinimize = () => {
-    window.electron.invoke('window:minimize-current').catch((err) => {
-      console.error('[WindowControls] minimize failed:', err);
-    });
-  };
-
-  const handleMaximizeToggle = () => {
-    window.electron.invoke('window:maximize-toggle').catch((err) => {
-      console.error('[WindowControls] maximize toggle failed:', err);
-    });
-  };
-
-  const handleClose = () => {
-    window.electron.invoke('window:close-current').catch((err) => {
-      console.error('[WindowControls] close failed:', err);
-    });
-  };
-
   return (
     <div
       className="absolute top-0 right-0 flex items-center no-drag"
@@ -51,7 +51,7 @@ export default function WindowControls() {
     >
       <button
         type="button"
-        onClick={handleMinimize}
+        onClick={minimizeCurrentWindow}
         className="flex items-center justify-center transition-colors window-control-btn"
         style={{ width: 46, height: 'var(--dome-header-h, 40px)', color: 'var(--dome-text)' }}
         aria-label="Minimizar"
@@ -60,7 +60,7 @@ export default function WindowControls() {
       </button>
       <button
         type="button"
-        onClick={handleMaximizeToggle}
+        onClick={toggleMaximizeCurrentWindow}
         className="flex items-center justify-center transition-colors window-control-btn"
         style={{ width: 46, height: 'var(--dome-header-h, 40px)', color: 'var(--dome-text)' }}
         aria-label="Maximizar"
@@ -69,7 +69,7 @@ export default function WindowControls() {
       </button>
       <button
         type="button"
-        onClick={handleClose}
+        onClick={closeCurrentWindow}
         className="flex items-center justify-center transition-colors window-control-close"
         style={{ width: 46, height: 'var(--dome-header-h, 40px)', color: 'var(--dome-text)' }}
         aria-label="Cerrar"

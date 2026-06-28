@@ -18,6 +18,13 @@ interface AudioPlayerProps {
   resource: Resource;
 }
 
+function formatMediaTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function AudioPlayerComponent({ resource }: AudioPlayerProps) {
   const { t } = useTranslation();
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -47,16 +54,16 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
     });
   }, [resource.id, setPlaybackPartial]);
 
-  const [prevSourceError, setPrevSourceError] = useState(sourceError);
-  if (sourceError !== prevSourceError) {
-    setPrevSourceError(sourceError);
+  const prevSourceErrorRef = useRef(sourceError);
+  if (sourceError !== prevSourceErrorRef.current) {
+    prevSourceErrorRef.current = sourceError;
     setError(sourceError);
   }
 
   const sourceReady = !sourceLoading && Boolean(audioUrl || sourceError);
-  const [prevSourceReady, setPrevSourceReady] = useState(sourceReady);
-  if (sourceReady !== prevSourceReady) {
-    setPrevSourceReady(sourceReady);
+  const prevSourceReadyRef = useRef(sourceReady);
+  if (sourceReady !== prevSourceReadyRef.current) {
+    prevSourceReadyRef.current = sourceReady;
     if (sourceReady) setIsLoading(false);
   }
 
@@ -242,13 +249,6 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
     [resource.id, setPlaybackPartial],
   );
 
-  const formatTime = (seconds: number) => {
-    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   useEffect(() => {
     return () => {
       persistPlayback();
@@ -305,7 +305,7 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
                 currentTime={currentTime}
                 duration={duration}
                 onSeek={handleSeek}
-                formatTime={formatTime}
+                formatTime={formatMediaTime}
               />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <DomeSelectMenu

@@ -17,3 +17,9 @@ Patrones confirmados con grep/Read; no suprimir sin verificar el shape del códi
 - **Regla:** `react-doctor/prefer-tag-over-role`
 - **Motivo:** El contenedor de celda envuelve inputs/contentEditable; `<button>` sería HTML inválido (interactive anidado).
 - **Verificación:** grep `NotebookEditor.tsx:494` — mantiene `div` con comentario explícito.
+
+## `app/components/agents/AgentChatView.tsx` — `activeRunId`
+
+- **Regla:** `react-doctor/rerender-state-only-in-handlers`
+- **Motivo:** `activeRunId` no aparece en JSX pero es dependencia reactiva de `useAgentRunStream` (re-suscribe listeners IPC al iniciar/cerrar un run) y de `handleAbort`. Pasarlo a `useRef` rompería la suscripción al stream sin un contador auxiliar de re-render.
+- **Verificación:** grep `AgentChatView.tsx` — `useAgentRunStream({ activeRunId, … })` + `handleAbort` lee el id.

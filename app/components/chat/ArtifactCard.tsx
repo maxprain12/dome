@@ -778,15 +778,15 @@ function LegacyDoclingImagesNotice() {
   );
 }
 
+function navigateToSection(section: string) {
+  window.dispatchEvent(new CustomEvent('dome:navigate-section', { detail: section }));
+}
+
 function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact }) {
   const { t } = useTranslation();
   const isAgent = artifact.entityType === 'agent';
   const accentColor = isAgent ? 'var(--accent)' : 'var(--warning)';
   const Icon = isAgent ? Bot : Zap;
-
-  const navigate = (section: string) => {
-    window.dispatchEvent(new CustomEvent('dome:navigate-section', { detail: section }));
-  };
 
   const configEntries = artifact.config
     ? Object.entries(artifact.config).filter(([, v]) => v !== null && v !== undefined && v !== '')
@@ -836,7 +836,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
           <>
             <button
               type="button"
-              onClick={() => navigate(`agent:${artifact.id}`)}
+              onClick={() => navigateToSection(`agent:${artifact.id}`)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
@@ -847,7 +847,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
             </button>
             <button
               type="button"
-              onClick={() => navigate('automations-hub')}
+              onClick={() => navigateToSection('automations-hub')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
@@ -861,7 +861,7 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
           <>
             <button
               type="button"
-              onClick={() => navigate('automations-hub')}
+              onClick={() => navigateToSection('automations-hub')}
               style={{
                 display: 'flex', alignItems: 'center', gap: 5,
                 padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,

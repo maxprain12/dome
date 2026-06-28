@@ -247,7 +247,7 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
   const [moveResource, setMoveResource] = useState<Resource | null>(null);
   const [deleteResource, setDeleteResource] = useState<Resource | null>(null);
   const [newFolderParentId, setNewFolderParentId] = useState<string | null | undefined>(undefined);
-  const [dragNode, setDragNode] = useState<TreeNodeData | null>(null);
+  const dragNodeRef = useRef<TreeNodeData | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const dragEnterCountRef = useRef<Record<string, number>>({});
 
@@ -391,13 +391,13 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
 
   // Drag-and-drop handlers
   const handleDragStart = useCallback((node: TreeNodeData) => {
-    setDragNode(node);
+    dragNodeRef.current = node;
     dragEnterCountRef.current = {};
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, target: TreeNodeData) => {
-    if (!dragNode) return;
-    if (dragNode.id === target.id) return;
+    if (!dragNodeRef.current) return;
+    if (dragNodeRef.current.id === target.id) return;
     // Only allow drop on folders; also allow drop on root (handled separately)
     if (target.type !== 'folder') return;
     e.preventDefault();
@@ -405,7 +405,7 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
     if (dragOverId !== target.id) setDragOverId(target.id);
     // Auto-expand folder after hovering
     setExpandedIds((prev) => new Set(prev).add(target.id));
-  }, [dragNode, dragOverId]);
+  }, [dragOverId]);
 
   const handleDragLeave = useCallback(() => {
     setDragOverId(null);
@@ -413,19 +413,20 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
 
   const handleDrop = useCallback(async (e: React.DragEvent, target: TreeNodeData) => {
     e.preventDefault();
-    if (!dragNode || !dragNode.resource) { setDragOverId(null); setDragNode(null); return; }
-    if (dragNode.id === target.id) { setDragOverId(null); setDragNode(null); return; }
-    if (target.type !== 'folder') { setDragOverId(null); setDragNode(null); return; }
+    const dragNode = dragNodeRef.current;
+    if (!dragNode || !dragNode.resource) { setDragOverId(null); dragNodeRef.current = null; return; }
+    if (dragNode.id === target.id) { setDragOverId(null); dragNodeRef.current = null; return; }
+    if (target.type !== 'folder') { setDragOverId(null); dragNodeRef.current = null; return; }
     // Don't move a folder into itself or its descendant
-    if (dragNode.type === 'folder' && isDescendant(target, dragNode)) { setDragOverId(null); setDragNode(null); return; }
+    if (dragNode.type === 'folder' && isDescendant(target, dragNode)) { setDragOverId(null); dragNodeRef.current = null; return; }
     await window.electron?.db?.resources?.moveToFolder(dragNode.id, target.id);
-    setDragNode(null);
+    dragNodeRef.current = null;
     setDragOverId(null);
     onRefresh();
-  }, [dragNode, onRefresh]);
+  }, [onRefresh]);
 
   const handleDragEnd = useCallback(() => {
-    setDragNode(null);
+    dragNodeRef.current = null;
     setDragOverId(null);
   }, []);
 

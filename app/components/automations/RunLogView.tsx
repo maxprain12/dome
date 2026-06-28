@@ -90,9 +90,11 @@ function getIconForTool(name: string) {
 }
 
 function formatArgsSummary(args: Record<string, unknown>): string {
-  const parts = Object.entries(args || {})
-    .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(args || {})) {
+    if (v === undefined || v === null || v === '') continue;
+    parts.push(`${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`);
+  }
   const joined = parts.join(', ');
   return joined.length > 70 ? joined.slice(0, 70) + '…' : joined;
 }

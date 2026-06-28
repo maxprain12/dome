@@ -21,7 +21,7 @@ export default function PetMascot({ plugin }: PetMascotProps) {
     wave?: string;
     think?: string;
   }>({});
-  const [prompt, setPrompt] = useState<string>('');
+  const promptRef = useRef('');
   const [loaded, setLoaded] = useState(false);
   const [position, setPosition] = useState({ x: 100, y: 150 });
   const [currentSprite, setCurrentSprite] = useState<'idle' | 'walk' | 'wave' | 'think'>('idle');
@@ -71,7 +71,7 @@ export default function PetMascot({ plugin }: PetMascotProps) {
 
         const promptRes = await readAsset(plugin.id, 'prompt.txt');
         if (promptRes?.success && promptRes.text) {
-          setPrompt(promptRes.text);
+          promptRef.current = promptRes.text;
         }
       } catch (e) {
         console.warn('[PetMascot] Failed to load assets:', e);
@@ -146,11 +146,11 @@ export default function PetMascot({ plugin }: PetMascotProps) {
   }, [status, isHovered, currentSprite, walkFrame, spriteUrls]);
 
   const handleClick = useCallback(() => {
-    if (prompt) {
-      setPetPromptOverride(prompt);
+    if (promptRef.current) {
+      setPetPromptOverride(promptRef.current);
     }
     toggleOpen();
-  }, [prompt, setPetPromptOverride, toggleOpen]);
+  }, [setPetPromptOverride, toggleOpen]);
 
   const displaySrc = getDisplaySprite();
 

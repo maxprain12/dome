@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff, KeyRound, ShieldOff, Trash2, ShieldCheck } from 'lucide-react';
 import type { FeederSecretMeta } from '@/lib/feeders/api';
@@ -61,11 +61,11 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
     }
   }, []);
 
-  const [prevOpened, setPrevOpened] = useState(opened);
-  const [prevInitialName, setPrevInitialName] = useState(initialName);
-  if (opened !== prevOpened || initialName !== prevInitialName) {
-    setPrevOpened(opened);
-    setPrevInitialName(initialName);
+  const prevOpenedRef = useRef(opened);
+  const prevInitialNameRef = useRef(initialName);
+  if (opened !== prevOpenedRef.current || initialName !== prevInitialNameRef.current) {
+    prevOpenedRef.current = opened;
+    prevInitialNameRef.current = initialName;
     if (opened) {
       setName(initialName || '');
       setValue('');

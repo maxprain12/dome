@@ -128,9 +128,9 @@ export function useHashMcpMention({
     });
   }, [input, inputRef, setInput, updateFromText]);
 
-  const [prevHashActive, setPrevHashActive] = useState(hashActive);
-  if (hashActive !== prevHashActive) {
-    setPrevHashActive(hashActive);
+  const prevHashActiveRef = useRef(hashActive);
+  if (hashActive !== prevHashActiveRef.current) {
+    prevHashActiveRef.current = hashActive;
     if (!hashActive) setHashRect(null);
   }
 

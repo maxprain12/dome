@@ -38,9 +38,11 @@ function buildNotebookCellsWithStableKeys(cells: NotebookCell[]): Array<{ cell: 
 }
 
 function getCodeCellIndices(cells: NotebookCell[]): number[] {
-  return cells
-    .map((c, i) => (c.cell_type === 'code' ? i : -1))
-    .filter((i) => i >= 0);
+  const indices: number[] = [];
+  for (let i = 0; i < cells.length; i++) {
+    if (cells[i].cell_type === 'code') indices.push(i);
+  }
+  return indices;
 }
 
 const useIPCKernel = typeof window !== 'undefined' && !!window.electron?.notebook;

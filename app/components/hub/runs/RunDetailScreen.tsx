@@ -1,6 +1,6 @@
 /** Full-page run detail (03/T02 — extracted from RunsWorkspaceView.tsx). */
 
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useState, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react';
 import { formatRunDate, formatDuration, RunProgressBar } from '@/components/automations/RunLogView';
@@ -53,9 +53,9 @@ export default function RunDetailScreen({ run, onBack, onStop, onDelete, stoppin
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [transcriptFilter, setTranscriptFilter] = useState<string>('all');
-  const [prevRunId, setPrevRunId] = useState(run.id);
-  if (run.id !== prevRunId) {
-    setPrevRunId(run.id);
+  const prevRunIdRef = useRef(run.id);
+  if (run.id !== prevRunIdRef.current) {
+    prevRunIdRef.current = run.id;
     setSelectedStepId(null);
     setMobileDetailOpen(false);
     setTranscriptFilter('all');

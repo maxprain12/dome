@@ -329,11 +329,12 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     if (!paths?.length) return;
     const result = await window.electron.resource.importMultiple(paths, effectiveProjectId);
     if (listFolderId && result?.data?.length) {
-      await Promise.all(
-        result.data
-          .filter((entry) => entry.success && entry.data?.id)
-          .map((entry) => window.electron?.db?.resources?.moveToFolder(entry.data!.id, listFolderId)),
-      );
+      const moves: Promise<unknown>[] = [];
+      for (const entry of result.data) {
+        if (!entry.success || !entry.data?.id) continue;
+        moves.push(window.electron?.db?.resources?.moveToFolder(entry.data.id, listFolderId));
+      }
+      await Promise.all(moves);
     }
     await refetch();
   }, [effectiveProjectId, listFolderId, refetch]);
@@ -415,9 +416,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [handleNavigateToFolder, openResourceTab, t, effectiveProjectId],
   );
 
-  const [prevFolderId, setPrevFolderId] = useState(folderId);
-  if (folderId !== prevFolderId) {
-    setPrevFolderId(folderId);
+  const prevFolderIdRef = useRef(folderId);
+  if (folderId !== prevFolderIdRef.current) {
+    prevFolderIdRef.current = folderId;
     closeSearch();
   }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Bot,
   Loader2,
@@ -66,9 +66,9 @@ export default function AgentNode({
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const colors = STATUS_COLORS[data.status];
   const agentIconKey = `${data.agentId ?? ''}:${data.agentIconIndex ?? ''}`;
-  const [prevAgentIconKey, setPrevAgentIconKey] = useState(agentIconKey);
-  if (agentIconKey !== prevAgentIconKey) {
-    setPrevAgentIconKey(agentIconKey);
+  const prevAgentIconKeyRef = useRef(agentIconKey);
+  if (agentIconKey !== prevAgentIconKeyRef.current) {
+    prevAgentIconKeyRef.current = agentIconKey;
     setIconLoadFailed(false);
   }
 

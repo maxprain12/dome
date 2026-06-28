@@ -60,9 +60,9 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   // --- Resource loading ---
 
-  const [prevResourceId, setPrevResourceId] = useState(resourceId);
-  if (resourceId !== prevResourceId) {
-    setPrevResourceId(resourceId);
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
     setActiveSlideIndex(0);
     setSlideCount(0);
     setThumbnailElements([]);

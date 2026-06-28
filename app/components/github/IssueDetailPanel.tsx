@@ -198,9 +198,9 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     }
   }, [issueId]);
 
-  const [prevIssueId, setPrevIssueId] = useState(issueId);
-  if (issueId !== prevIssueId) {
-    setPrevIssueId(issueId);
+  const prevIssueIdRef = useRef(issueId);
+  if (issueId !== prevIssueIdRef.current) {
+    prevIssueIdRef.current = issueId;
     if (initial) {
       setTitle(initial.title);
       setBody('');
@@ -282,10 +282,14 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
 
   const assigneeSuggestions = useMemo(() => {
     const q = assigneePickerQuery.trim().toLowerCase();
-    return mentionables
-      .filter((u) => !assignees.includes(u.login))
-      .filter((u) => !q || u.login.toLowerCase().includes(q))
-      .slice(0, 8);
+    const out: typeof mentionables = [];
+    for (const u of mentionables) {
+      if (assignees.includes(u.login)) continue;
+      if (q && !u.login.toLowerCase().includes(q)) continue;
+      out.push(u);
+      if (out.length >= 8) break;
+    }
+    return out;
   }, [mentionables, assignees, assigneePickerQuery]);
 
   if (!initial) return null;
@@ -447,7 +451,14 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                 aria-label={t('github.milestone')}
                 options={[
                   { value: 'none', label: t('github.no_milestone_label') },
-                  ...milestones.filter((m) => m.state === 'open').map((m) => ({ value: String(m.number), label: m.title })),
+                  ...(() => {
+                    const opts: { value: string; label: string }[] = [];
+                    for (const m of milestones) {
+                      if (m.state !== 'open') continue;
+                      opts.push({ value: String(m.number), label: m.title });
+                    }
+                    return opts;
+                  })(),
                 ]}
               />
             </div>

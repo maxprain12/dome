@@ -4,6 +4,20 @@ import type { PendingTodayItem } from '@/lib/hooks/useDashboardData';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
 
+function pendingItemIcon(kind: PendingTodayItem['kind']) {
+  const cls = 'size-4 shrink-0';
+  switch (kind) {
+    case 'flashcards':
+      return <WalletCards className={cls} strokeWidth={2} aria-hidden />;
+    case 'calendar':
+      return <Calendar className={cls} strokeWidth={2} aria-hidden />;
+    case 'run':
+      return <PlayCircle className={cls} strokeWidth={2} aria-hidden />;
+    default:
+      return null;
+  }
+}
+
 export function DashboardPending({
   items,
   loading,
@@ -14,20 +28,6 @@ export function DashboardPending({
   onItemClick: (item: PendingTodayItem) => void;
 }) {
   const { t } = useTranslation();
-
-  function iconFor(kind: PendingTodayItem['kind']) {
-    const cls = 'size-4 shrink-0';
-    switch (kind) {
-      case 'flashcards':
-        return <WalletCards className={cls} strokeWidth={2} aria-hidden />;
-      case 'calendar':
-        return <Calendar className={cls} strokeWidth={2} aria-hidden />;
-      case 'run':
-        return <PlayCircle className={cls} strokeWidth={2} aria-hidden />;
-      default:
-        return null;
-    }
-  }
 
   function titleFor(item: PendingTodayItem) {
     if (item.kind === 'flashcards') {
@@ -91,7 +91,7 @@ export function DashboardPending({
                     color: 'var(--dome-accent, var(--accent))',
                   }}
                 >
-                  {iconFor(item.kind)}
+                  {pendingItemIcon(item.kind)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium" style={{ color: 'var(--dome-text, var(--primary-text))' }}>

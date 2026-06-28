@@ -13,6 +13,25 @@ interface MetadataModalProps {
   onSave: (updates: Partial<Resource>) => Promise<boolean>;
 }
 
+function formatMetadataFileSize(bytes?: number) {
+  if (!bytes) return 'Unknown';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let size = bytes;
+  let unitIndex = 0;
+
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024;
+    unitIndex++;
+  }
+
+  return `${size.toFixed(1)} ${units[unitIndex]}`;
+}
+
+function formatMetadataDate(timestamp?: number) {
+  if (!timestamp || !isFinite(timestamp)) return '—';
+  return formatDateFull(timestamp);
+}
+
 export default function MetadataModal({
   resource,
   isOpen,
@@ -37,25 +56,6 @@ export default function MetadataModal({
       onClose();
     }
   }, [title, resource.title, onSave, onClose]);
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return 'Unknown';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let size = bytes;
-    let unitIndex = 0;
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-      size /= 1024;
-      unitIndex++;
-    }
-
-    return `${size.toFixed(1)} ${units[unitIndex]}`;
-  };
-
-  const formatDate = (timestamp?: number) => {
-    if (!timestamp || !isFinite(timestamp)) return '—';
-    return formatDateFull(timestamp);
-  };
 
   const handleOpenFile = async () => {
     if (typeof window !== 'undefined' && window.electron) {
@@ -144,7 +144,7 @@ export default function MetadataModal({
                   File Size
                 </p>
                 <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
-                  {formatFileSize(resource.file_size)}
+                  {formatMetadataFileSize(resource.file_size)}
                 </p>
               </div>
             </div>
@@ -188,7 +188,7 @@ export default function MetadataModal({
                 Created
               </p>
               <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
-                {formatDate(resource.created_at)}
+                {formatMetadataDate(resource.created_at)}
               </p>
             </div>
           </div>
@@ -200,7 +200,7 @@ export default function MetadataModal({
                 Modified
               </p>
               <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
-                {formatDate(resource.updated_at)}
+                {formatMetadataDate(resource.updated_at)}
               </p>
             </div>
           </div>

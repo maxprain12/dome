@@ -1,6 +1,6 @@
 import type { Editor } from "@tiptap/react"
 import { useCurrentEditor, useEditorState } from "@tiptap/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 
 function getActivePageEditor(editor: Editor): Editor | null {
   const storage = editor.storage as unknown as Record<string, unknown>
@@ -18,9 +18,9 @@ export function useTiptapEditor(providedEditor?: Editor | null): {
   const mainEditor = providedEditor ?? coreEditor
 
   const [storageEditor, setStorageEditor] = useState<Editor | null>(null);
-  const [prevMainEditor, setPrevMainEditor] = useState(mainEditor);
-  if (mainEditor !== prevMainEditor) {
-    setPrevMainEditor(mainEditor);
+  const prevMainEditorRef = useRef(mainEditor);
+  if (mainEditor !== prevMainEditorRef.current) {
+    prevMainEditorRef.current = mainEditor;
     if (!mainEditor) setStorageEditor(null);
   }
 

@@ -149,9 +149,14 @@ function QuickCreateIssue({ selectedRepoId, loadRepoData, milestones }: QuickCre
           fullWidth={false}
           options={[
             { value: 'none', label: t('github.minimal_quick_milestone_none') },
-            ...milestones
-              .filter((m) => m.state === 'open')
-              .map((m) => ({ value: String(m.number), label: m.title })),
+            ...(() => {
+              const opts: { value: string; label: string }[] = [];
+              for (const m of milestones) {
+                if (m.state !== 'open') continue;
+                opts.push({ value: String(m.number), label: m.title });
+              }
+              return opts;
+            })(),
             { value: '__new__', label: t('github.minimal_quick_milestone_new') },
           ]}
         />

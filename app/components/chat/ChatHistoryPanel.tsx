@@ -10,6 +10,10 @@ import { DomeInput } from '@/components/ui/DomeInput';
 import ChatHistorySessionList from './ChatHistorySessionList';
 import { buildChatHistorySections, filterAndSortSessions } from './chatHistoryUtils';
 
+function deleteChatSession(sessionId: string) {
+  void useManyStore.getState().deleteSession(sessionId);
+}
+
 interface ChatHistoryPanelProps {
   onClose: () => void;
   /** Columna derecha dentro de Many fullscreen. */
@@ -46,10 +50,6 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
       useManyStore.getState().switchSession(session.id);
     });
     useTabStore.getState().openChatTab(session.id, session.title || t('chat.new_chat'));
-  };
-
-  const handleDeleteSession = (sessionId: string) => {
-    void useManyStore.getState().deleteSession(sessionId);
   };
 
   const handleStartRename = (s: ManyChatSession) => {
@@ -155,7 +155,7 @@ export default function ChatHistoryPanel({ onClose, placement = 'shell-right' }:
         emptyTitle={emptyTitle}
         onSelectSession={handleOpenSession}
         onStartRename={handleStartRename}
-        onDeleteSession={handleDeleteSession}
+        onDeleteSession={deleteChatSession}
       />
     </div>
   );

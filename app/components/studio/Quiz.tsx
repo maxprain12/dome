@@ -105,14 +105,17 @@ export default function Quiz({
   const currentQuestion = questions[currentIndex];
   const totalQuestions = questions.length;
   const correctCount = questionResults.filter((r) => r.correct).length;
-  const missedIds = useMemo(
-    () => new Set(questionResults.filter((r) => !r.correct).map((r) => r.questionId)),
-    [questionResults],
-  );
+  const missedIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const r of questionResults) {
+      if (!r.correct) ids.add(r.questionId);
+    }
+    return ids;
+  }, [questionResults]);
 
-  const [prevQuestions, setPrevQuestions] = useState(data.questions);
-  if (data.questions !== prevQuestions) {
-    setPrevQuestions(data.questions);
+  const prevQuestionsRef = useRef(data.questions);
+  if (data.questions !== prevQuestionsRef.current) {
+    prevQuestionsRef.current = data.questions;
     setQuestionOrder(data.questions);
     setCurrentIndex(0);
     setSelectedAnswer(null);

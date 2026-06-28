@@ -6,12 +6,12 @@ import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import LanguagePicker from '@/components/settings/LanguagePicker';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 
+function selectLanguage(lang: SupportedLanguage) {
+  changeLanguage(lang);
+}
+
 export default function LanguageSettings() {
   const { t, i18n } = useTranslation();
-
-  const handleSelect = (lang: SupportedLanguage) => {
-    changeLanguage(lang);
-  };
 
   const currentLang =
     SUPPORTED_LANGUAGES.find((l) => i18n.language === l || i18n.language.startsWith(`${l}-`)) ?? 'es';
@@ -34,7 +34,7 @@ export default function LanguageSettings() {
         <LanguagePicker
           aria-label={t('settings.language.select_label')}
           value={currentLang}
-          onChange={handleSelect}
+          onChange={selectLanguage}
         />
       </div>
     </SettingsPanel>

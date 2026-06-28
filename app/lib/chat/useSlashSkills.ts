@@ -158,9 +158,9 @@ export function useSlashSkills({
     [input, inputRef, setInput],
   );
 
-  const [prevSlashActive, setPrevSlashActive] = useState(slashActive);
-  if (slashActive !== prevSlashActive) {
-    setPrevSlashActive(slashActive);
+  const prevSlashActiveRef = useRef(slashActive);
+  if (slashActive !== prevSlashActiveRef.current) {
+    prevSlashActiveRef.current = slashActive;
     if (!slashActive) setSlashRect(null);
   }
 

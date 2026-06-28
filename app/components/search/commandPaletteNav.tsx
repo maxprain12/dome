@@ -68,9 +68,12 @@ export function buildNavigationDestinations(opts: BuildNavOptions): PaletteRow[]
     { key: 'settings', row: wrap('settings', opts.t('settings.title'), <Settings className={iconClass} strokeWidth={sw} />, opts.openSettingsTab) },
   ];
 
-  return items
-    .filter(({ key }) => key === 'library' || key === 'settings' || opts.navVisible(key))
-    .map(({ row }) => row);
+  const rows: PaletteRow[] = [];
+  for (const { key, row } of items) {
+    if (key !== 'library' && key !== 'settings' && !opts.navVisible(key)) continue;
+    rows.push(row);
+  }
+  return rows;
 }
 
 export function buildQuickActions(opts: {

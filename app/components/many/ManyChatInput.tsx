@@ -137,11 +137,12 @@ export default memo(function ManyChatInput({
     });
     void loadMcpServersSetting().then((servers) => {
       if (cancelled) return;
-      setMcpCatalog(
-        servers
-          .filter((s) => s.enabled !== false)
-          .map((s) => ({ name: s.name, description: undefined })),
-      );
+      const catalog: { name: string; description: undefined }[] = [];
+      for (const s of servers) {
+        if (s.enabled === false) continue;
+        catalog.push({ name: s.name, description: undefined });
+      }
+      setMcpCatalog(catalog);
     });
     return () => {
       cancelled = true;

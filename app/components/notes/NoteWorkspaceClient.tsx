@@ -160,9 +160,9 @@ export default function NoteWorkspaceClient({
   const isPopout =
     typeof window !== 'undefined' && window.location.pathname.startsWith('/focus/note/');
 
-  const [prevResourceId, setPrevResourceId] = useState(resourceId);
-  if (resourceId !== prevResourceId) {
-    setPrevResourceId(resourceId);
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
     editorRef.current = null;
     mirroredOnceRef.current = false;
     ignoreStaleCollaborationDirtyUntilMsRef.current = 0;

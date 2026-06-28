@@ -78,9 +78,9 @@ export default function ExecutionLog({
     return () => clearInterval(interval);
   }, [status, startTime]);
 
-  const [prevStatus, setPrevStatus] = useState(status);
-  if (status !== prevStatus) {
-    setPrevStatus(status);
+  const prevStatusRef = useRef(status);
+  if (status !== prevStatusRef.current) {
+    prevStatusRef.current = status;
     if (status === 'running') setElapsed(0);
   }
 

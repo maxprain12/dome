@@ -477,9 +477,9 @@ function FolderMenuButton({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  const [prevOpen, setPrevOpen] = useState(open);
-  if (open !== prevOpen) {
-    setPrevOpen(open);
+  const prevOpenRef = useRef(open);
+  if (open !== prevOpenRef.current) {
+    prevOpenRef.current = open;
     if (!open) {
       setMenuPos(null);
     } else {

@@ -22,9 +22,9 @@ export function useSafeMediaSource(resourceId: string | undefined): UseSafeMedia
   const [error, setError] = useState<string | null>(null);
   const urlRef = useRef<string | null>(null);
 
-  const [prevResourceId, setPrevResourceId] = useState(resourceId);
-  if (resourceId !== prevResourceId) {
-    setPrevResourceId(resourceId);
+  const prevResourceIdRef = useRef(resourceId);
+  if (resourceId !== prevResourceIdRef.current) {
+    prevResourceIdRef.current = resourceId;
     if (urlRef.current) {
       URL.revokeObjectURL(urlRef.current);
       urlRef.current = null;

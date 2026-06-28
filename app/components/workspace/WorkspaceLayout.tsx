@@ -26,6 +26,12 @@ interface WorkspaceLayoutProps {
   initialPage?: number;
 }
 
+function isDocumentPdfResource(res: Resource): boolean {
+  const mimeType = res.file_mime_type || '';
+  const filename = (res.original_filename || res.title || '').toLowerCase();
+  return mimeType === 'application/pdf' || filename.endsWith('.pdf');
+}
+
 function WorkspaceResourceViewer({ resource, initialPage }: { resource: Resource; initialPage?: number }) {
   switch (resource.type) {
     case 'pdf':
@@ -261,13 +267,6 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
       console.error('Failed to open file externally:', err);
     }
   }, [resource]);
-
-  // Check if a document resource is actually a PDF
-  const _isDocumentPdf = (res: Resource): boolean => {
-    const mimeType = res.file_mime_type || '';
-    const filename = (res.original_filename || res.title || '').toLowerCase();
-    return mimeType === 'application/pdf' || filename.endsWith('.pdf');
-  };
 
   // Render the appropriate viewer based on resource type
   const renderViewer = () => {

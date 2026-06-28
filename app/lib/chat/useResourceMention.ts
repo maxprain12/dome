@@ -118,9 +118,9 @@ export function useResourceMention({
     void loadMentionResources(mentionQuery);
   }, [mentionQuery, mentionActive, loadMentionResources]);
 
-  const [prevMentionActive, setPrevMentionActive] = useState(mentionActive);
-  if (mentionActive !== prevMentionActive) {
-    setPrevMentionActive(mentionActive);
+  const prevMentionActiveRef = useRef(mentionActive);
+  if (mentionActive !== prevMentionActiveRef.current) {
+    prevMentionActiveRef.current = mentionActive;
     if (!mentionActive) setMentionRect(null);
   }
 

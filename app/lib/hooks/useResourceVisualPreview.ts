@@ -424,9 +424,9 @@ export function useResourceVisualPreview(
   useEffect(() => () => observerRef.current?.disconnect(), []);
 
   const observeKey = `${kind}:${enabled}:${rootMargin}`;
-  const [prevObserveKey, setPrevObserveKey] = useState(observeKey);
-  if (observeKey !== prevObserveKey) {
-    setPrevObserveKey(observeKey);
+  const prevObserveKeyRef = useRef(observeKey);
+  if (observeKey !== prevObserveKeyRef.current) {
+    prevObserveKeyRef.current = observeKey;
     if (!enabled || kind === 'none') {
       setVisible(false);
     }

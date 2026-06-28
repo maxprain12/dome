@@ -18,6 +18,13 @@ interface VideoPlayerProps {
   resource: Resource;
 }
 
+function formatMediaTime(seconds: number) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function VideoPlayerComponent({ resource }: VideoPlayerProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -49,16 +56,16 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
     });
   }, [resource.id, setPlaybackPartial]);
 
-  const [prevSourceError, setPrevSourceError] = useState(sourceError);
-  if (sourceError !== prevSourceError) {
-    setPrevSourceError(sourceError);
+  const prevSourceErrorRef = useRef(sourceError);
+  if (sourceError !== prevSourceErrorRef.current) {
+    prevSourceErrorRef.current = sourceError;
     setError(sourceError);
   }
 
   const sourceReady = !sourceLoading && Boolean(videoUrl || sourceError);
-  const [prevSourceReady, setPrevSourceReady] = useState(sourceReady);
-  if (sourceReady !== prevSourceReady) {
-    setPrevSourceReady(sourceReady);
+  const prevSourceReadyRef = useRef(sourceReady);
+  if (sourceReady !== prevSourceReadyRef.current) {
+    prevSourceReadyRef.current = sourceReady;
     if (sourceReady) setIsLoading(false);
   }
 
@@ -299,13 +306,6 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [volume, handlePlayPause, handleSkip, handleVolumeChange, handleToggleMute, handleFullscreen]);
 
-  const formatTime = (seconds: number) => {
-    if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   if (error || sourceError) {
     return <ErrorState error={error || sourceError || t('media.playback_failed_generic')} />;
   }
@@ -353,18 +353,18 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
             style={{ background: 'rgba(0, 0, 0, 0.92)' }}
           >
             <div className="flex items-center gap-2">
-              <span className="min-w-[40px] text-xs text-white/70">{formatTime(currentTime)}</span>
+              <span className="min-w-[40px] text-xs text-white/70">{formatMediaTime(currentTime)}</span>
               <div className="flex-1">
                 <SeekBar
                   currentTime={currentTime}
                   duration={duration}
                   onSeek={handleSeek}
-                  formatTime={formatTime}
+                  formatTime={formatMediaTime}
                   showTimestamps={false}
                   variant="video"
                 />
               </div>
-              <span className="min-w-[40px] text-right text-xs text-white/70">{formatTime(duration)}</span>
+              <span className="min-w-[40px] text-right text-xs text-white/70">{formatMediaTime(duration)}</span>
             </div>
 
             <div className="flex items-center justify-between gap-2">

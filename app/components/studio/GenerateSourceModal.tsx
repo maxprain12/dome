@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   File,
@@ -165,9 +165,9 @@ export default function GenerateSourceModal({
   const expandFoldersKey = focusResourceId && allItems.length > 0
     ? `${focusResourceId}:${allItems.length}`
     : '';
-  const [prevExpandFoldersKey, setPrevExpandFoldersKey] = useState(expandFoldersKey);
-  if (expandFoldersKey && expandFoldersKey !== prevExpandFoldersKey) {
-    setPrevExpandFoldersKey(expandFoldersKey);
+  const prevExpandFoldersKeyRef = useRef(expandFoldersKey);
+  if (expandFoldersKey && expandFoldersKey !== prevExpandFoldersKeyRef.current) {
+    prevExpandFoldersKeyRef.current = expandFoldersKey;
     const res = allItems.find((r) => r.id === focusResourceId && r.type !== 'folder');
     if (res?.folder_id) {
       const ids = new Set<string>();
@@ -184,7 +184,12 @@ export default function GenerateSourceModal({
   const tree = useMemo(() => buildFolderTree(allItems), [allItems]);
 
   const allResourceIds = useMemo(() => {
-    return allItems.filter((r) => r.type !== 'folder').map((r) => r.id);
+    const ids: string[] = [];
+    for (const r of allItems) {
+      if (r.type === 'folder') continue;
+      ids.push(r.id);
+    }
+    return ids;
   }, [allItems]);
 
   const handleToggle = useCallback((id: string) => {

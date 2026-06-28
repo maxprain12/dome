@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Trash2,
@@ -169,9 +169,9 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const runPending = usePipelinesStore((s) => Boolean(s.runInFlightIds[item.id]));
 
   const activityFetchKey = `${tab}:${item.id}:${eventsReloadKey}`;
-  const [prevActivityFetchKey, setPrevActivityFetchKey] = useState(activityFetchKey);
-  if (tab === 'activity' && activityFetchKey !== prevActivityFetchKey) {
-    setPrevActivityFetchKey(activityFetchKey);
+  const prevActivityFetchKeyRef = useRef(activityFetchKey);
+  if (tab === 'activity' && activityFetchKey !== prevActivityFetchKeyRef.current) {
+    prevActivityFetchKeyRef.current = activityFetchKey;
     setEventsLoading(true);
   }
 
@@ -216,9 +216,9 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const agentBusy = isRunning || launching;
 
   const execStatusKey = `${item.execStatus}:${item.updatedAt}`;
-  const [prevExecStatusKey, setPrevExecStatusKey] = useState(execStatusKey);
-  if (execStatusKey !== prevExecStatusKey) {
-    setPrevExecStatusKey(execStatusKey);
+  const prevExecStatusKeyRef = useRef(execStatusKey);
+  if (execStatusKey !== prevExecStatusKeyRef.current) {
+    prevExecStatusKeyRef.current = execStatusKey;
     if (item.execStatus === 'running') {
       setLaunching(false);
     }

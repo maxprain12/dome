@@ -427,6 +427,22 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     ];
   }, [t, openLearnTab, openTagsTab, openMarketplaceTab]);
 
+  const visiblePrimaryUnifiedNavItems = useMemo(() => {
+    const visible: UnifiedNavItem[] = [];
+    for (const item of primaryUnifiedNavItems) {
+      if (navItemVisible(item.key)) visible.push(item);
+    }
+    return visible;
+  }, [primaryUnifiedNavItems, navItemVisible]);
+
+  const visibleSecondaryUnifiedNavItems = useMemo(() => {
+    const visible: UnifiedNavItem[] = [];
+    for (const item of secondaryUnifiedNavItems) {
+      if (navItemVisible(item.key)) visible.push(item);
+    }
+    return visible;
+  }, [secondaryUnifiedNavItems, navItemVisible]);
+
   const handleOpenProjectRootFolder = useCallback(() => {
     openFolderTab(hubProjectId, activeProjectLabel, undefined, hubProjectId);
     setWorkspaceOpen(true);
@@ -466,7 +482,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       {/* Navegación principal */}
       <div className="shrink-0 px-2 pt-2 pb-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
         <div className="flex flex-col gap-0.5">
-          {primaryUnifiedNavItems.filter((item) => navItemVisible(item.key)).map((item) => {
+          {visiblePrimaryUnifiedNavItems.map((item) => {
             const isActive = getUnifiedNavActive(item);
             const count = item.kind === 'tab' ? item.count : undefined;
             return (
@@ -643,7 +659,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             {t('sidebar.more_tools')}
           </p>
           <div className="flex flex-col gap-0.5">
-            {secondaryUnifiedNavItems.filter((item) => navItemVisible(item.key)).map((item) => {
+            {visibleSecondaryUnifiedNavItems.map((item) => {
               const isActive = getUnifiedNavActive(item);
               const count = item.kind === 'tab' ? item.count : undefined;
               return (
