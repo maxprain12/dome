@@ -57,26 +57,6 @@ export default function AnnotationLayer({
     return true;
   });
 
-  // Setup canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !page) return;
-
-    const viewport = page.getViewport({ scale });
-    const dpr = window.devicePixelRatio || 1;
-
-    canvas.width = viewport.width * dpr;
-    canvas.height = viewport.height * dpr;
-    canvas.style.width = `${viewport.width}px`;
-    canvas.style.height = `${viewport.height}px`;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.scale(dpr, dpr);
-    renderAllAnnotations(ctx, viewport.width, viewport.height);
-  }, [page, scale, pageAnnotations, selectedAnnotation]);
-
   const renderAllAnnotations = useCallback(
     (ctx: CanvasRenderingContext2D, width: number, height: number) => {
       ctx.clearRect(0, 0, width, height);
@@ -127,6 +107,26 @@ export default function AnnotationLayer({
     },
     [pageAnnotations, selectedAnnotation, isDrawing, startPoint, currentPoint, activeTool, color, page, scale]
   );
+
+  // Setup canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !page) return;
+
+    const viewport = page.getViewport({ scale });
+    const dpr = window.devicePixelRatio || 1;
+
+    canvas.width = viewport.width * dpr;
+    canvas.height = viewport.height * dpr;
+    canvas.style.width = `${viewport.width}px`;
+    canvas.style.height = `${viewport.height}px`;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.scale(dpr, dpr);
+    renderAllAnnotations(ctx, viewport.width, viewport.height);
+  }, [page, scale, pageAnnotations, selectedAnnotation, renderAllAnnotations]);
 
   const getCanvasCoordinates = useCallback(
     (event: MouseEvent | React.MouseEvent): { x: number; y: number } | null => {

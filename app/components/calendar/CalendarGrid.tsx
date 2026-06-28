@@ -656,8 +656,8 @@ export default function CalendarGrid({
   onEventClick,
   onEventDateChange,
 }: CalendarGridProps) {
-  const { t, i18n } = useTranslation();
-  const dfLocale = useMemo(() => getDateFnsLocale(), [i18n.language]);
+  const { t } = useTranslation();
+  const dfLocale = getDateFnsLocale();
   const modeLabels = useMemo(
     (): Record<CalendarViewMode, string> => ({
       day: t('calendarPage.view_day'),

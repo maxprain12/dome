@@ -65,7 +65,7 @@ export default function DiagramArtifact({ artifact }: { artifact: DiagramArtifac
     const w = PAD * 2 + Math.max(nodes.length, 1) * (LANE_GAP + 40);
     const h = PAD * 2 + laneIdx * (NODE_H + 24);
     return { positions: pos, width: w, height: h };
-  }, [artifact.nodes, artifact.edges, layout]);
+  }, [artifact.nodes, layout]);
 
   const nodeLabelById = new Map(artifact.nodes.map((n) => [n.id, n.label] as const));
 

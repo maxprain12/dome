@@ -431,7 +431,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     const focused = filteredListItems[Math.min(searchFocusIndex, filteredListItems.length - 1)];
     if (!focused) return;
     rowRefMap.get(focused.item.id)?.scrollIntoView({ block: 'nearest' });
-  }, [searchFocusIndex, filteredListItems, isFiltering]);
+  }, [searchFocusIndex, filteredListItems, isFiltering, rowRefMap]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

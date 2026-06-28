@@ -307,7 +307,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         setError(err instanceof Error ? err.message : 'Failed to load presentation');
         setIsLoading(false);
       }
-    }, [resource.id, mountPresentation]);
+    }, [resource, mountPresentation, onSlidesLoaded, onThumbnailElementsReady]);
 
     // Load on mount and when resource changes
     useEffect(() => {
@@ -318,6 +318,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     }, [loadPptx]);
 
     // Cleanup on unmount
+    // eslint-disable-next-line react-doctor/exhaustive-deps -- destroy previewer/DOM nodes on unmount only
     useEffect(() => {
       return () => {
         try { previewerRef.current?.destroy?.(); } catch {}

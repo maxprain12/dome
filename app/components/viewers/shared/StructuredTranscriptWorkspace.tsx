@@ -86,7 +86,7 @@ export default function StructuredTranscriptWorkspace({
     if (!activeSegmentId) return;
     const el = rowRefMap.get(activeSegmentId);
     el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [activeSegmentId, followPlayback, isPlaying]);
+  }, [activeSegmentId, followPlayback, isPlaying, rowRefMap]);
 
   const uniqueSpeakerIds = useMemo(() => {
     const s = new Set<string>();

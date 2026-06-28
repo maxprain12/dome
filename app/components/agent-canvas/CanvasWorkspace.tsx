@@ -69,7 +69,7 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
       if (cur && Math.abs(cur.w - width) < 0.5 && Math.abs(cur.h - height) < 0.5) return prev;
       return { ...prev, [id]: { w: width, h: height } };
     });
-  }, []);
+  }, [nodeElements]);
 
   const nodeIdsKey = useMemo(() => nodes.map((n) => n.id).join(','), [nodes]);
   const nodePositionsKey = useMemo(
@@ -90,7 +90,7 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
       observers.push(ro);
     }
     return () => observers.forEach((o) => o.disconnect());
-  }, [nodeIdsKey, nodePositionsKey]);
+  }, [nodeElements, nodeIdsKey, nodePositionsKey]);
 
   const canvasSize = useMemo(
     () => computeCanvasSize(nodes, nodeMetrics),

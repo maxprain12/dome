@@ -150,6 +150,15 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     }, 400);
   }, [fetchResources]);
 
+  const fetchResourcesRef = useRef(fetchResources);
+  fetchResourcesRef.current = fetchResources;
+  const fetchProjectsRef = useRef(fetchProjects);
+  fetchProjectsRef.current = fetchProjects;
+  const scheduleDebouncedSilentRefetchRef = useRef(scheduleDebouncedSilentRefetch);
+  scheduleDebouncedSilentRefetchRef.current = scheduleDebouncedSilentRefetch;
+  const setResourcesRef = useRef(setResources);
+  setResourcesRef.current = setResources;
+
   const scopedResources = resources.filter((resource) => resource.project_id === hubProjectId);
 
   const getDefaultProjectId = useCallback(() => {
@@ -266,15 +275,15 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron) return;
-    const onCreated = () => { void fetchResources({ silent: true }); };
-    const onDeleted = () => { void fetchResources({ silent: true }); };
-    const onProjectCreated = () => { void fetchProjects(); };
+    const onCreated = () => { void fetchResourcesRef.current({ silent: true }); };
+    const onDeleted = () => { void fetchResourcesRef.current({ silent: true }); };
+    const onProjectCreated = () => { void fetchProjectsRef.current(); };
     const u1 = window.electron.on('resource:created', onCreated);
     const onUpdated = (payload: unknown) => {
       // Immediately apply metadata / title changes so folder colors refresh without waiting for the debounced refetch
       const p = payload as { id?: string; updates?: Record<string, unknown> };
       if (p?.id && p?.updates) {
-        setResources((prev) =>
+        setResourcesRef.current((prev) =>
           prev.map((r) => {
             if (r.id !== p.id) return r;
             const updates = p.updates!;
@@ -292,13 +301,13 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           })
         );
       }
-      scheduleDebouncedSilentRefetch();
+      scheduleDebouncedSilentRefetchRef.current();
     };
     const u2 = window.electron.on('resource:updated', onUpdated);
     const u3 = window.electron.on('resource:deleted', onDeleted);
     const u4 = window.electron.on('project:created', onProjectCreated);
     const onProjectDeleted = (payload: { id?: string }) => {
-      void fetchProjects();
+      void fetchProjectsRef.current();
       const deletedId = payload?.id;
       const cur = useAppStore.getState().currentProject;
       if (deletedId && cur?.id === deletedId) {
@@ -310,7 +319,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
           }
         });
       }
-      void fetchResources({ silent: true });
+      void fetchResourcesRef.current({ silent: true });
     };
     const u5 = window.electron.on('project:deleted', onProjectDeleted);
     return () => {
@@ -319,9 +328,17 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       u3?.();
       u4?.();
       u5?.();
-      if (debouncedSilentRefetchRef.current) clearTimeout(debouncedSilentRefetchRef.current);
     };
-  }, [fetchProjects, fetchResources, scheduleDebouncedSilentRefetch]);
+  }, []);
+
+  // eslint-disable-next-line react-doctor/exhaustive-deps -- clear pending debounced refetch on unmount only
+  useEffect(() => {
+    return () => {
+      const pending = debouncedSilentRefetchRef.current;
+      if (pending) clearTimeout(pending);
+      debouncedSilentRefetchRef.current = null;
+    };
+  }, []);
 
   type UnifiedNavItem =
     | { key: string; kind: 'section'; sectionId: string; label: string; icon: ReactNode }

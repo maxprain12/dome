@@ -17,6 +17,8 @@ import { ANALYTICS_EVENTS } from '@/lib/analytics/events';
 export default function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   const { pathname: routePathname } = useLocation();
   const analyticsActiveRef = useRef(false);
+  const routePathnameRef = useRef(routePathname);
+  routePathnameRef.current = routePathname;
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.electron?.on) return;
@@ -39,7 +41,7 @@ export default function AnalyticsProvider({ children }: { children: React.ReactN
           await initPostHog(enabled);
           analyticsActiveRef.current = true;
           capturePostHog(ANALYTICS_EVENTS.PAGEVIEW, {
-            path: routePathname,
+            path: routePathnameRef.current,
             title: document.title,
           });
         }

@@ -82,8 +82,7 @@ export default function ModelSelector({
     setHighlightedIndex(idx >= 0 ? idx : 0);
     const raf = requestAnimationFrame(() => searchInputRef.current?.focus());
     return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, filteredModels, selectedModelId]);
 
   // Keep the highlight in range and scrolled into view.
   useEffect(() => {

@@ -78,7 +78,7 @@ export default function ChatMessage({
   surfaceVariant = 'default',
   className = '',
 }: ChatMessageProps) {
-  const { i18n, t } = useTranslation();
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const [savedAsNote, setSavedAsNote] = useState(false);
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
@@ -178,10 +178,11 @@ export default function ChatMessage({
   }, [message.content, message.pdfRegionMeta, t]);
 
   // Format timestamp
+  const dateTimeLocaleTag = getDateTimeLocaleTag();
   const formattedTime = useMemo(() => {
     const date = new Date(message.timestamp);
-    return date.toLocaleTimeString(getDateTimeLocaleTag(), { hour: '2-digit', minute: '2-digit' });
-  }, [message.timestamp, i18n.language]);
+    return date.toLocaleTimeString(dateTimeLocaleTag, { hour: '2-digit', minute: '2-digit' });
+  }, [message.timestamp, dateTimeLocaleTag]);
 
   // Build source references from citation map and message content
   const sourceReferences = useMemo(() => {

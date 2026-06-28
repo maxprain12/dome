@@ -31,7 +31,7 @@ export default function ManyHitlInlineSection({
       return;
     }
     setExpiresAt(Date.now() + current.timeoutMs);
-  }, [current?.approvalId, current?.timeoutMs]);
+  }, [current]);
 
   const [secondsLeft, setSecondsLeft] = useState(0);
   useEffect(() => {

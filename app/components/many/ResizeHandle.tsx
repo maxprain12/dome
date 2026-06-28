@@ -37,6 +37,7 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
     [onResize, onResizeEnd],
   );
 
+  // eslint-disable-next-line react-doctor/exhaustive-deps -- unmount listener cleanup via ref
   useEffect(() => {
     return () => {
       if (listenersRef.current) {

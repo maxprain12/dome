@@ -66,7 +66,7 @@ export function TabContentReadyNotifier() {
     return () => {
       cancelled = true;
     };
-  }, [ctx?.tabId, ctx?.activationKey, ctx?.signalReady]);
+  }, [ctx]);
 
   return null;
 }

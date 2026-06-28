@@ -133,6 +133,8 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
         });
     }, 150);
   }, []);
+  const scheduleRefreshSelectedRunRef = useRef(scheduleRefreshSelectedRun);
+  scheduleRefreshSelectedRunRef.current = scheduleRefreshSelectedRun;
 
   useEffect(() => {
     const unsubUpdated = onRunUpdated(({ run }) => {
@@ -173,13 +175,13 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
               }
             : prev,
         );
-        scheduleRefreshSelectedRun(run.id);
+        scheduleRefreshSelectedRunRef.current(run.id);
       }
     });
 
     const unsubStep = onRunStep(({ step }) => {
       if (selectedRunIdRef.current === step.runId) {
-        scheduleRefreshSelectedRun(step.runId);
+        scheduleRefreshSelectedRunRef.current(step.runId);
       }
       setAllRuns((prev) =>
         prev.map((run) =>
@@ -193,12 +195,19 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
     return () => {
       unsubUpdated();
       unsubStep();
-      if (detailRefreshTimeoutRef.current && typeof window !== 'undefined') {
-        window.clearTimeout(detailRefreshTimeoutRef.current);
+    };
+  }, []);
+
+  // eslint-disable-next-line react-doctor/exhaustive-deps -- clear pending detail refresh on unmount only
+  useEffect(() => {
+    return () => {
+      const pending = detailRefreshTimeoutRef.current;
+      if (typeof window !== 'undefined' && pending != null) {
+        window.clearTimeout(pending);
         detailRefreshTimeoutRef.current = null;
       }
     };
-  }, [scheduleRefreshSelectedRun]);
+  }, []);
 
   const filtered = useMemo(() => {
     let result = allRuns;

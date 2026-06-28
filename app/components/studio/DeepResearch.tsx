@@ -482,7 +482,7 @@ function ReportView({
     }
 
     return () => observer.disconnect();
-  }, [report.sections]);
+  }, [report.sections, sectionRefMap]);
 
   // Markdown components for custom styling
   const markdownComponents = useMemo(

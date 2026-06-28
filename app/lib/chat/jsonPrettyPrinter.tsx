@@ -138,7 +138,10 @@ export function JsonPrettyPrinter({
 }
 
 export function JsonPrettyPrinterRoot({ value }: { value: unknown }) {
-  const budget = useMemo(() => ({ nodes: 0, omitted: 0 }), [value]);
+  const budget = useMemo(() => {
+    void value;
+    return { nodes: 0, omitted: 0 };
+  }, [value]);
   return (
     <JsonPrettyBudgetProvider budget={budget}>
       <JsonPrettyPrinter value={value} depth={0} />
