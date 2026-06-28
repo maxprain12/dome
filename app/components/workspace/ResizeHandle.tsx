@@ -56,7 +56,7 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   }, [isDragging, direction, onResize]);
 
   const handleKeyDown = useCallback(
-    (e: ReactKeyboardEvent<HTMLHRElement>) => {
+    (e: ReactKeyboardEvent<HTMLButtonElement>) => {
       const step = 8;
       if (direction === 'horizontal') {
         if (e.key === 'ArrowLeft') {
