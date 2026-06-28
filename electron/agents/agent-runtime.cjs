@@ -705,6 +705,7 @@ async function setupHarness(surface, opts) {
         signal: opts.signal,
         threadId,
         subagentIds: enabledSubagents,
+        runAgent: (nestedSurface, nestedOpts) => runAgent(nestedSurface, nestedOpts),
       }));
     }
   }
@@ -721,6 +722,7 @@ async function setupHarness(surface, opts) {
       signal: opts.signal,
       threadId,
       mcpServerIds: opts.mcpServerIds,
+      runAgent: (nestedSurface, nestedOpts) => runAgent(nestedSurface, nestedOpts),
     }, opts.teamMemberAgents));
   }
 

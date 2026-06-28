@@ -7,7 +7,7 @@
  */
 
 const { readSubagentPrompt } = require('../prompts/prompts-loader.cjs');
-const { getToolDefsBySubagent } = require('../tools/tool-dispatcher.cjs');
+const { getToolDefsBySubagent } = require('../tools/tool-definitions.cjs');
 const { capToolResultString } = require('../tools/tool-result-cap.cjs');
 
 const SUBAGENT_NAMES = ['research', 'library', 'writer', 'data'];
@@ -54,7 +54,10 @@ function manySubagentIds() {
  * @param {object} parentOpts - provider/model/apiKey/baseUrl/runtimeContext/onChunk/signal
  */
 async function runSubagentTurn(agentName, query, parentOpts) {
-  const agentRuntime = require('./agent-runtime.cjs');
+  const runAgent = parentOpts?.runAgent;
+  if (typeof runAgent !== 'function') {
+    throw new Error('runSubagentTurn requires parentOpts.runAgent');
+  }
   const toolDefs = getToolDefsBySubagent()[agentName];
   if (!toolDefs?.length) {
     throw new Error(`No tools configured for subagent: ${agentName}`);
@@ -74,7 +77,7 @@ async function runSubagentTurn(agentName, query, parentOpts) {
       }
     : undefined;
 
-  const text = await agentRuntime.runAgent('subagent', {
+  const text = await runAgent('subagent', {
     provider: parentOpts.provider,
     model: parentOpts.model,
     apiKey: parentOpts.apiKey,
@@ -216,8 +219,14 @@ function buildDelegateToAgentTool(parentOpts, memberAgents) {
         };
       }
 
-      const agentRuntime = require('./agent-runtime.cjs');
-      const { getToolDefinitionsByIds } = require('../tools/tool-dispatcher.cjs');
+      const runAgent = parentOpts?.runAgent;
+      if (typeof runAgent !== 'function') {
+        return {
+          content: [{ type: 'text', text: 'delegate_to_agent: runAgent callback missing' }],
+          details: { error: true },
+        };
+      }
+      const { getToolDefinitionsByIds } = require('../tools/tool-definitions.cjs');
       const toolIds = Array.isArray(member.toolIds) ? member.toolIds : [];
       const toolDefinitions = toolIds.length > 0 ? getToolDefinitionsByIds(toolIds) : [];
 
@@ -236,7 +245,7 @@ function buildDelegateToAgentTool(parentOpts, memberAgents) {
         : undefined;
 
       try {
-        const text = await agentRuntime.runAgent('agent-team-member', {
+        const text = await runAgent('agent-team-member', {
           provider: parentOpts.provider,
           model: parentOpts.model,
           apiKey: parentOpts.apiKey,

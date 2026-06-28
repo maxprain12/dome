@@ -466,7 +466,7 @@ async function buildRunInput(stage, item, q, opts = {}) {
  * @returns {{ toolDefinitions: object[], toolIds: string[], subagentIds?: string[] }}
  */
 function buildPipelineRunToolOptions(stage, queries) {
-  const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../tools/tool-dispatcher.cjs');
+  const { getAllToolDefinitions, getToolDefinitionsByIds } = require('../tools/tool-definitions.cjs');
   const stageConfig = getStageConfig(stage);
   const useMany = stageConfig.useMany === true;
   const deliverable = getStageDeliverable(stage);
