@@ -1,22 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import type { AgentNodeData, CanvasNodeData, WorkflowExecution, WorkflowNode } from '@/types/canvas';
+import { useCallback, useState } from 'react';
+import type { CanvasNodeData, WorkflowNode } from '@/types/canvas';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
-import { getManyAgents } from '@/lib/agents/api';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { createWorkflow, updateWorkflow, saveExecution, getExecutionsByWorkflow } from '@/lib/agent-canvas/api';
-import { generateId } from '@/lib/utils';
-import { executeWorkflow, type ExecutionLogEntry } from '@/lib/agent-canvas/executor';
+import { createWorkflow, updateWorkflow } from '@/lib/agent-canvas/api';
 import { showToast } from '@/lib/store/useToastStore';
 import { showPrompt } from '@/lib/store/usePromptStore';
 import { useTranslation } from 'react-i18next';
-import { CANVAS_PALETTE_WIDTH_PX } from '@/lib/agent-canvas/canvas-layout';
 import CanvasToolbar from './CanvasToolbar';
 import CanvasSidebar from './CanvasSidebar';
 import CanvasWorkspace from './CanvasWorkspace';
 import PropertiesPanel from './PropertiesPanel';
 import ExecutionLog from './ExecutionLog';
+import AgentCanvasEmptyState from './AgentCanvasEmptyState';
+import { useAgentNodeIconSync } from './useAgentNodeIconSync';
+import { useCanvasDeleteKey } from './useCanvasDeleteKey';
+import { useAgentCanvasExecution } from './useAgentCanvasExecution';
 
 export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?: () => void }) {
   const { t } = useTranslation();
@@ -27,70 +27,18 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
   const setNodes = useCanvasStore((s) => s.setNodes);
   const removeNode = useCanvasStore((s) => s.removeNode);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [executionLog, setExecutionLog] = useState<ExecutionLogEntry[]>([]);
-  const [runStartTime, setRunStartTime] = useState<number | null>(null);
-  const [executionHistory, setExecutionHistory] = useState<WorkflowExecution[]>([]);
-  const [selectedExecutionId, setSelectedExecutionId] = useState<string | null>(null);
 
-  // Resolve agentIconIndex for agent nodes that have agentId but iconIndex 0 (e.g. loaded from old workflow)
-  useEffect(() => {
-    const agentNodesNeedingIcon = nodes.filter(
-      (n): n is WorkflowNode<AgentNodeData> =>
-        n.data?.type === 'agent' &&
-        (n.data as AgentNodeData).agentId != null &&
-        ((n.data as AgentNodeData).agentIconIndex ?? 0) === 0,
-    );
-    if (agentNodesNeedingIcon.length === 0) return;
+  useAgentNodeIconSync(hubProjectId);
+  useCanvasDeleteKey(selectedNodeId, removeNode, () => setSelectedNodeId(null));
 
-    getManyAgents(hubProjectId).then((agents) => {
-      const updates: { nodeId: string; iconIndex: number }[] = [];
-      for (const node of agentNodesNeedingIcon) {
-        const agentData = node.data as AgentNodeData;
-        const agent = agents.find((a) => a.id === agentData.agentId);
-        if (agent && agent.iconIndex > 0) {
-          updates.push({ nodeId: node.id, iconIndex: agent.iconIndex });
-        }
-      }
-      if (updates.length === 0) return;
-
-      const currentNodes = useCanvasStore.getState().nodes;
-      const newNodes = currentNodes.map((n) => {
-        const upd = updates.find((u) => u.nodeId === n.id);
-        if (upd && n.data?.type === 'agent') {
-          return {
-            ...n,
-            data: { ...n.data, agentIconIndex: upd.iconIndex } as AgentNodeData,
-          };
-        }
-        return n;
-      });
-      setNodes(newNodes);
-    });
-  }, [nodes, setNodes, hubProjectId]);
-
-  useEffect(() => {
-    if (store.activeWorkflowId) {
-      getExecutionsByWorkflow(store.activeWorkflowId).then(setExecutionHistory);
-      setSelectedExecutionId(null);
-    } else {
-      setExecutionHistory([]);
-      setSelectedExecutionId(null);
-    }
-  }, [store.activeWorkflowId]);
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Backspace' && e.key !== 'Delete') return;
-      const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) return;
-      if (!selectedNodeId) return;
-      e.preventDefault();
-      removeNode(selectedNodeId);
-      setSelectedNodeId(null);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedNodeId, removeNode]);
+  const {
+    executionLog,
+    runStartTime,
+    executionHistory,
+    selectedExecutionId,
+    handleRun,
+    selectExecution,
+  } = useAgentCanvasExecution(t);
 
   const handleAddNode = useCallback(
     (node: WorkflowNode<CanvasNodeData>) => {
@@ -106,78 +54,6 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
     },
     [removeNode],
   );
-
-  const handleRun = useCallback(async () => {
-    if (store.executionStatus === 'running') return;
-    const { nodes: storeNodes, edges: storeEdges } = useCanvasStore.getState();
-    if (storeNodes.length === 0) {
-      showToast('error', t('toast.canvas_empty'));
-      return;
-    }
-    const executionId = generateId();
-    const startedAt = Date.now();
-    setExecutionLog([]);
-    setRunStartTime(startedAt);
-    setSelectedExecutionId(null);
-    const storeSnapshot = useCanvasStore.getState();
-    const entries: ExecutionLogEntry[] = [];
-    try {
-      await executeWorkflow(storeNodes, storeEdges, storeSnapshot, (entry) => {
-        entries.push(entry);
-        setExecutionLog((prev) => [...prev, entry]);
-      });
-      if (storeSnapshot.activeWorkflowId) {
-        const nodeOutputs = Object.fromEntries(
-          Object.entries(useCanvasStore.getState().executionStates).map(([nodeId, state]) => [
-            nodeId,
-            {
-              output: state.output,
-              error: state.error,
-              payload: state.payload,
-            },
-          ]),
-        );
-        const execution: WorkflowExecution = {
-          id: executionId,
-          workflowId: storeSnapshot.activeWorkflowId,
-          workflowName: storeSnapshot.activeWorkflowName,
-          startedAt,
-          finishedAt: Date.now(),
-          status: 'done',
-          entries,
-          nodeOutputs,
-        };
-        await saveExecution(execution);
-        setExecutionHistory((prev) => [execution, ...prev]);
-      }
-    } catch {
-      if (storeSnapshot.activeWorkflowId) {
-        const nodeOutputs = Object.fromEntries(
-          Object.entries(useCanvasStore.getState().executionStates).map(([nodeId, state]) => [
-            nodeId,
-            {
-              output: state.output,
-              error: state.error,
-              payload: state.payload,
-            },
-          ]),
-        );
-        const execution: WorkflowExecution = {
-          id: executionId,
-          workflowId: storeSnapshot.activeWorkflowId,
-          workflowName: storeSnapshot.activeWorkflowName,
-          startedAt,
-          finishedAt: Date.now(),
-          status: 'error',
-          entries,
-          nodeOutputs,
-        };
-        await saveExecution(execution);
-        setExecutionHistory((prev) => [execution, ...prev]);
-      }
-      showToast('error', t('toast.workflow_execution_error'));
-    }
-  }, [store.executionStatus, t]);
 
   const handleClear = useCallback(() => {
     store.clearCanvas();
@@ -288,43 +164,10 @@ export default function AgentCanvasView({ onBackToLibrary }: { onBackToLibrary?:
         startTime={runStartTime}
         history={executionHistory}
         selectedExecutionId={selectedExecutionId}
-        onSelectExecution={setSelectedExecutionId}
+        onSelectExecution={selectExecution}
       />
 
-      {nodes.length === 0 && (
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
-          style={{ left: CANVAS_PALETTE_WIDTH_PX, top: 56 }}
-        >
-          <div className="text-center space-y-3 max-w-sm px-6 opacity-50">
-            <div
-              className="size-14 rounded-2xl flex items-center justify-center mx-auto"
-              style={{ background: 'var(--dome-accent-bg)' }}
-            >
-              <svg
-                className="size-7"
-                style={{ color: 'var(--dome-accent)' }}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1.5}
-                  d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"
-                />
-              </svg>
-            </div>
-            <p className="text-sm font-medium" style={{ color: 'var(--dome-text-secondary)' }}>
-              {t('canvas.empty_canvas_title')}
-            </p>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('canvas.empty_canvas_subtitle')}
-            </p>
-          </div>
-        </div>
-      )}
+      {nodes.length === 0 && <AgentCanvasEmptyState />}
     </div>
   );
 }

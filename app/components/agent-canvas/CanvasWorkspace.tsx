@@ -2,83 +2,23 @@
 
 import { useCallback, useEffect, useLayoutEffect, useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { pointer, select } from 'd3-selection';
-import { zoom as d3Zoom, zoomIdentity } from 'd3-zoom';
+import { pointer } from 'd3-selection';
 import './workflow-canvas.css';
 import type { CanvasNodeData, WorkflowNode } from '@/types/canvas';
 import { canvasSystemAgentNameKey } from '@/lib/agent-canvas/canvas-layout';
-import {
-  workflowNodeEstimatedHeight,
-  workflowNodeWidthForType,
-} from '@/lib/agent-canvas/canvas-layout';
 import { generateId } from '@/lib/utils';
+import { lazyRef } from '@/lib/utils/lazyRef';
 import type { ManyAgent } from '@/types';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
-import TextInputNode from './nodes/TextInputNode';
-import DocumentNode from './nodes/DocumentNode';
-import ImageNode from './nodes/ImageNode';
-import AgentNode from './nodes/AgentNode';
-import OutputNode from './nodes/OutputNode';
 import type { SystemAgentRole } from '@/types/canvas';
-
-type NodeMetrics = Record<string, { w: number; h: number }>;
-
-function getNodeTypeKey(type: string): string {
-  switch (type) {
-    case 'text-input':
-      return 'textInput';
-    case 'document':
-      return 'document';
-    case 'image':
-      return 'image';
-    case 'agent':
-      return 'agent';
-    case 'output':
-      return 'output';
-    default:
-      return 'textInput';
-  }
-}
-
-function bezierPath(x1: number, y1: number, x2: number, y2: number): string {
-  const dy = Math.max(40, Math.abs(y2 - y1) * 0.5);
-  return `M ${x1},${y1} C ${x1},${y1 + dy} ${x2},${y2 - dy} ${x2},${y2}`;
-}
-
-function installWorkflowCanvasZoom(
-  container: HTMLDivElement,
-  viewport: HTMLDivElement,
-  transformRef: { current: { x: number; y: number; k: number } },
-): () => void {
-  const zoomed = (event: { transform: { x: number; y: number; k: number } }) => {
-    const tr = event.transform;
-    transformRef.current = { x: tr.x, y: tr.y, k: tr.k };
-    viewport.style.transform = `translate(${tr.x}px,${tr.y}px) scale(${tr.k})`;
-  };
-
-  const zoomBehavior = d3Zoom<HTMLDivElement, unknown>()
-    .scaleExtent([0.2, 2])
-    .filter((event) => {
-      const el = event.target as HTMLElement;
-      if (el.closest('.wf-no-zoom-pan')) return false;
-      if (el.closest('.nodrag') || el.closest('textarea') || el.closest('input')) {
-        return event.type === 'wheel';
-      }
-      if (event.type === 'wheel' && el.closest('.nowheel')) return false;
-      if (event.type === 'mousedown' && (event as MouseEvent).button !== 0) return false;
-      return true;
-    })
-    .on('zoom', zoomed);
-
-  const sel = select(container);
-  sel.call(zoomBehavior as never);
-  sel.call(zoomBehavior.transform as never, zoomIdentity);
-
-  return function cleanupWorkflowCanvasZoom() {
-    zoomBehavior.on('zoom', null);
-    sel.on('.zoom', null);
-  };
-}
+import {
+  computeCanvasSize,
+  getNodeTypeKey,
+  installWorkflowCanvasZoom,
+  type NodeMetrics,
+} from './canvas-workspace-utils';
+import CanvasEdgesLayer from './CanvasEdgesLayer';
+import CanvasNodesLayer from './CanvasNodesLayer';
 
 interface CanvasWorkspaceProps {
   selectedNodeId: string | null;
@@ -107,7 +47,8 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const transformRef = useRef({ x: 0, y: 0, k: 1 });
-  const nodeElementsRef = useRef<Map<string, HTMLDivElement>>(new Map());
+  const nodeElementsRef = useRef<Map<string, HTMLDivElement> | null>(null);
+  const nodeElements = lazyRef(nodeElementsRef, () => new Map());
   const dragRef = useRef<DragState | null>(null);
   const [nodeMetrics, setNodeMetrics] = useState<NodeMetrics>({});
   const [connectDraft, setConnectDraft] = useState<{
@@ -118,10 +59,10 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
 
   const updateMetricsForNode = useCallback((id: string, el: HTMLDivElement | null) => {
     if (!el) {
-      nodeElementsRef.current.delete(id);
+      nodeElements.delete(id);
       return;
     }
-    nodeElementsRef.current.set(id, el);
+    nodeElements.set(id, el);
     const { width, height } = el.getBoundingClientRect();
     setNodeMetrics((prev) => {
       const cur = prev[id];
@@ -138,8 +79,8 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
 
   useLayoutEffect(() => {
     const observers: ResizeObserver[] = [];
-    for (const id of nodeElementsRef.current.keys()) {
-      const el = nodeElementsRef.current.get(id);
+    for (const id of nodeElements.keys()) {
+      const el = nodeElements.get(id);
       if (!el) continue;
       const ro = new ResizeObserver(() => {
         const r = el.getBoundingClientRect();
@@ -151,33 +92,9 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
     return () => observers.forEach((o) => o.disconnect());
   }, [nodeIdsKey, nodePositionsKey]);
 
-  const canvasSize = useMemo(() => {
-    let maxX = 880;
-    let maxY = 640;
-    for (const n of nodes) {
-      const m = nodeMetrics[n.id] ?? {
-        w: workflowNodeWidthForType(n.type ?? ''),
-        h: workflowNodeEstimatedHeight(n.type ?? ''),
-      };
-      maxX = Math.max(maxX, n.position.x + m.w + 80);
-      maxY = Math.max(maxY, n.position.y + m.h + 80);
-    }
-    return { w: maxX, h: maxY };
-  }, [nodes, nodeMetrics]);
-
-  const anchorForNode = useCallback(
-    (node: WorkflowNode<CanvasNodeData>, end: 'in' | 'out') => {
-      const m = nodeMetrics[node.id] ?? {
-        w: workflowNodeWidthForType(node.type ?? ''),
-        h: workflowNodeEstimatedHeight(node.type ?? ''),
-      };
-      const { x, y } = node.position;
-      if (end === 'in') {
-        return { x: x + m.w / 2, y };
-      }
-      return { x: x + m.w / 2, y: y + m.h };
-    },
-    [nodeMetrics],
+  const canvasSize = useMemo(
+    () => computeCanvasSize(nodes, nodeMetrics),
+    [nodes, nodeMetrics],
   );
 
   useEffect(() => {
@@ -357,104 +274,9 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
 
       window.addEventListener('pointermove', onMove);
       window.addEventListener('pointerup', onUp);
-      return () => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-      };
     },
     [addEdge],
   );
-
-  const renderNode = (node: WorkflowNode<CanvasNodeData>) => {
-    const selected = node.id === selectedNodeId;
-    const showIn = node.data.type === 'agent' || node.data.type === 'output';
-    const showOut =
-      node.data.type === 'text-input' ||
-      node.data.type === 'document' ||
-      node.data.type === 'image' ||
-      node.data.type === 'agent';
-
-    const accent =
-      node.data.type === 'document'
-        ? 'var(--success)'
-        : node.data.type === 'image'
-          ? 'var(--warning)'
-          : 'var(--dome-accent)';
-
-    return (
-      <div
-        key={node.id}
-        className="wf-node-wrapper wf-no-zoom-pan absolute left-0 top-0"
-        style={{
-          transform: `translate(${node.position.x}px, ${node.position.y}px)`,
-        }}
-        ref={(el) => updateMetricsForNode(node.id, el)}
-        onPointerDown={(e) => onNodePointerDown(e, node)}
-        onPointerMove={(e) => onNodePointerMove(e, node.id)}
-        onPointerUp={(e) => onNodePointerUp(e, node.id)}
-        onPointerCancel={(e) => onNodePointerUp(e, node.id)}
-        data-node-id={node.id}
-      >
-        {showIn ? (
-          <div
-            className="wf-handle wf-handle-in wf-no-zoom-pan"
-            data-wf-handle="in"
-            data-wf-node-id={node.id}
-            title={t('canvas.connect_input')}
-          />
-        ) : null}
-        <div className="wf-node-card-inner">
-          {node.type === 'textInput' && (
-            <TextInputNode id={node.id} data={node.data as never} selected={selected} />
-          )}
-          {node.type === 'document' && (
-            <DocumentNode id={node.id} data={node.data as never} selected={selected} />
-          )}
-          {node.type === 'image' && (
-            <ImageNode id={node.id} data={node.data as never} selected={selected} />
-          )}
-          {node.type === 'agent' && (
-            <AgentNode id={node.id} data={node.data as never} selected={selected} />
-          )}
-          {node.type === 'output' && (
-            <OutputNode id={node.id} data={node.data as never} selected={selected} />
-          )}
-        </div>
-        {showOut ? (
-          <button
-            type="button"
-            aria-label={t('canvas.connect_from_node', { defaultValue: 'Conectar desde este nodo' })}
-            className="wf-handle wf-handle-out wf-no-zoom-pan"
-            data-wf-handle="out"
-            data-wf-node-id={node.id}
-            title={t('canvas.connect_output')}
-            onPointerDown={(e) => onHandleOutPointerDown(e, node.id)}
-            style={{ ['--wf-handle-color' as string]: accent }}
-          />
-        ) : null}
-      </div>
-    );
-  };
-
-  const edgePaths = useMemo(() => {
-    return edges.map((edge) => {
-      const sNode = nodes.find((n) => n.id === edge.source);
-      const tNode = nodes.find((n) => n.id === edge.target);
-      if (!sNode || !tNode) return null;
-      const a = anchorForNode(sNode, 'out');
-      const b = anchorForNode(tNode, 'in');
-      return { id: edge.id, d: bezierPath(a.x, a.y, b.x, b.y) };
-    });
-  }, [edges, nodes, anchorForNode]);
-
-  let draftPath: string | null = null;
-  if (connectDraft) {
-    const sNode = nodes.find((n) => n.id === connectDraft.sourceId);
-    if (sNode) {
-      const a = anchorForNode(sNode, 'out');
-      draftPath = bezierPath(a.x, a.y, connectDraft.x, connectDraft.y);
-    }
-  }
 
   return (
     <div
@@ -464,59 +286,25 @@ export default function CanvasWorkspace({ selectedNodeId, onNodeSelect }: Canvas
       onDrop={handleDrop}
     >
       <div ref={viewportRef} className="wf-viewport absolute left-0 top-0 z-[1] origin-top-left will-change-transform">
-        <svg
-          className="wf-edges-svg block"
-          width={canvasSize.w}
-          height={canvasSize.h}
-          style={{ overflow: 'visible' }}
-        >
-          <defs>
-            <marker
-              id={arrowMarkerId}
-              markerWidth="10"
-              markerHeight="10"
-              refX="9"
-              refY="3"
-              orient="auto"
-              markerUnits="strokeWidth"
-            >
-              <path d="M0,0 L0,6 L9,3 z" fill="var(--dome-text-muted)" opacity="0.55" />
-            </marker>
-          </defs>
-          <g className="wf-edges-group">
-            {edgePaths.map(
-              (item) =>
-                item && (
-                  <path
-                    key={item.id}
-                    d={item.d}
-                    className="wf-edge-path"
-                    fill="none"
-                    markerEnd={`url(#${arrowMarkerId})`}
-                  />
-                ),
-            )}
-            {draftPath ? (
-              <path
-                d={draftPath}
-                className="wf-edge-path wf-edge-draft"
-                fill="none"
-                markerEnd={`url(#${arrowMarkerId})`}
-              />
-            ) : null}
-          </g>
-        </svg>
-        <div
-          className="wf-nodes-layer relative"
-          style={{ width: canvasSize.w, height: canvasSize.h }}
-          onPointerDown={(e) => {
-            if (e.target === e.currentTarget) {
-              onNodeSelect(null);
-            }
-          }}
-        >
-          {nodes.map(renderNode)}
-        </div>
+        <CanvasEdgesLayer
+          arrowMarkerId={arrowMarkerId}
+          canvasSize={canvasSize}
+          nodes={nodes}
+          edges={edges}
+          nodeMetrics={nodeMetrics}
+          connectDraft={connectDraft}
+        />
+        <CanvasNodesLayer
+          nodes={nodes}
+          canvasSize={canvasSize}
+          selectedNodeId={selectedNodeId}
+          onNodeSelect={onNodeSelect}
+          updateMetricsForNode={updateMetricsForNode}
+          onNodePointerDown={onNodePointerDown}
+          onNodePointerMove={onNodePointerMove}
+          onNodePointerUp={onNodePointerUp}
+          onHandleOutPointerDown={onHandleOutPointerDown}
+        />
       </div>
     </div>
   );

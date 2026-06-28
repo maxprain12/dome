@@ -27,6 +27,7 @@
     "copy:pdf-worker": "node scripts/copy-pdf-worker.cjs",
     "patch:pptx-preview": "node scripts/patch-pptx-preview.mjs",
     "postinstall": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
+    "bootstrap:release-deps": "electron-builder install-app-deps && pnpm run build:packages && pnpm run rebuild:natives && pnpm run copy:pdf-worker && pnpm run patch:pptx-preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint app/",
     "depcruise": "depcruise app --config .dependency-cruiser.cjs",
