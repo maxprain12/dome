@@ -101,7 +101,10 @@ async function runSubagentTurn(agentName, query, parentOpts) {
  * @returns {import('@dome/agent-core').AgentTool}
  */
 function buildTaskTool(parentOpts) {
-  const allowed = new Set(manySubagentIds());
+  const ids = Array.isArray(parentOpts.subagentIds) && parentOpts.subagentIds.length > 0
+    ? parentOpts.subagentIds.filter((n) => SUBAGENT_NAMES.includes(n))
+    : manySubagentIds();
+  const allowed = new Set(ids);
   return {
     name: 'task',
     label: 'Subagent',
@@ -113,7 +116,7 @@ function buildTaskTool(parentOpts) {
       properties: {
         subagent_type: {
           type: 'string',
-          enum: [...SUBAGENT_NAMES],
+          enum: ids.length > 0 ? ids : [...SUBAGENT_NAMES],
           description: 'Which subagent should handle this subtask',
         },
         prompt: {

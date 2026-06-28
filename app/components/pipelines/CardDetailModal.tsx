@@ -32,6 +32,7 @@ import { pipelinesClient, pipelinesEvents } from '@/lib/pipelines/client';
 import type { PipelineItem, PipelineStage, PipelineItemEvent } from '@/lib/pipelines/types';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import RunSummaryModal from './RunSummaryModal';
 
 interface TodoItem {
@@ -139,7 +140,7 @@ interface Props {
   onClose: () => void;
   onSave: (patch: Partial<PipelineItem>) => Promise<void>;
   onDelete: () => Promise<void>;
-  onRun: () => void;
+  onRun: () => void | Promise<void>;
 }
 
 export default function CardDetailModal({ item, stage, onClose, onSave, onDelete, onRun }: Props) {
@@ -157,6 +158,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   });
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [launching, setLaunching] = useState(false);
   const [tab, setTab] = useState<DetailTab>('details');
   const [events, setEvents] = useState<PipelineItemEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
@@ -164,6 +166,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const [summary, setSummary] = useState<{ runId?: string; resourceId?: string; title?: string } | null>(null);
   const openResourceTab = useTabStore((s) => s.openResourceTab);
   const openCalendarTab = useTabStore((s) => s.openCalendarTab);
+  const runPending = usePipelinesStore((s) => Boolean(s.runInFlightIds[item.id]));
 
   useEffect(() => {
     if (tab !== 'activity') return;
@@ -202,6 +205,19 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
     });
     return unsub;
   }, [item.id, t]);
+
+  const isRunning = item.execStatus === 'running' || runPending;
+  const agentBusy = isRunning || launching;
+
+  useEffect(() => {
+    if (item.execStatus === 'running') {
+      setLaunching(false);
+    }
+    if (item.execStatus === 'ready' || item.execStatus === 'failed') {
+      setLaunching(false);
+      setEventsReloadKey((k) => k + 1);
+    }
+  }, [item.execStatus, item.updatedAt]);
 
   const addField = (type: CardField['type']) => {
     const id = newFieldId();
@@ -308,6 +324,20 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
     }
   };
 
+  const handleRun = async () => {
+    if (agentBusy) return;
+    setLaunching(true);
+    try {
+      await onRun();
+      showToast('info', t('pipelines.run_started_toast'));
+      setTab('activity');
+      setEventsReloadKey((k) => k + 1);
+    } catch (err) {
+      setLaunching(false);
+      showToast('error', err instanceof Error ? err.message : t('pipelines.action_failed'));
+    }
+  };
+
   const canRun = stage && stage.executionPolicy !== 'manual_resolve';
 
   const tabOptions = [
@@ -361,11 +391,16 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
             <DomeButton
               variant="outline"
               size="sm"
-              onClick={onRun}
-              disabled={generating}
-              leftIcon={<Play className="size-4" />}
+              onClick={() => void handleRun()}
+              disabled={generating || agentBusy || saving}
+              loading={agentBusy}
+              leftIcon={agentBusy ? undefined : <Play className="size-4" />}
             >
-              {t('pipelines.run_now')}
+              {launching
+                ? t('pipelines.run_launching')
+                : isRunning
+                  ? t('pipelines.status_running')
+                  : t('pipelines.run_now')}
             </DomeButton>
           )}
           <DomeButton
@@ -373,7 +408,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
             size="sm"
             onClick={() => void generateReport()}
             loading={generating}
-            disabled={saving}
+            disabled={saving || agentBusy}
             leftIcon={<FileText className="size-4" />}
           >
             {t('pipelines.generate_report')}
@@ -382,7 +417,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
             variant="primary"
             size="sm"
             onClick={() => void save()}
-            disabled={saving}
+            disabled={saving || agentBusy}
             loading={saving}
           >
             {saving ? t('pipelines.saving') : t('pipelines.save')}
@@ -432,6 +467,23 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
           size="sm"
           aria-label={t('pipelines.tab_details')}
         />
+
+        {agentBusy && (
+          <div
+            className="flex items-center gap-2 rounded-md px-3 py-2"
+            style={{
+              background: 'var(--bg-secondary)',
+              border: '1px solid var(--accent)',
+            }}
+            role="status"
+            aria-live="polite"
+          >
+            <Loader2 className="size-4 animate-spin shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
+            <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              {launching ? t('pipelines.run_launching') : t('pipelines.agent_running_overlay')}
+            </span>
+          </div>
+        )}
 
         <div style={{ position: 'relative' }}>
           {generating && (

@@ -1,12 +1,19 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2 } from 'lucide-react';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
+import HorizontalScrollArea from '@/components/ui/HorizontalScrollArea';
 import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import ManyIcon from '@/components/many/ManyIcon';
 import { MANY_EXECUTOR_ID } from '@/lib/pipelines/types';
-import type { ExecutionPolicy, PipelineStage } from '@/lib/pipelines/types';
+import {
+  macroToken,
+  PIPELINE_TEMPLATE_MACRO_GROUPS,
+  PIPELINE_TEMPLATE_MACROS,
+  type PipelineMacroGroup,
+} from '@/lib/pipelines/templateMacros';
+import type { ExecutionPolicy, PipelineStage, StageDeliverable } from '@/lib/pipelines/types';
 import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
 import type { ManyAgent } from '@/types';
 
@@ -44,6 +51,9 @@ export default function StageConfigModal({
   const [policy, setPolicy] = useState<ExecutionPolicy>(stage.executionPolicy);
   const [isTerminal, setIsTerminal] = useState(stage.isTerminal);
   const [runInputTemplate, setRunInputTemplate] = useState(stage.runInputTemplate ?? '');
+  const [deliverable, setDeliverable] = useState<StageDeliverable>(
+    (stage.config?.deliverable as StageDeliverable | undefined) ?? 'auto',
+  );
   const [executorKind, setExecutorKind] = useState<ExecutorKind>(stage.assignedWorkflowId ? 'workflow' : 'agent');
   // Agent stages default to Many; the user can switch to / create a custom agent.
   const [agentId, setAgentId] = useState<string | null>(stage.assignedAgentId ?? MANY_EXECUTOR_ID);
@@ -52,6 +62,38 @@ export default function StageConfigModal({
   const [extraAgents, setExtraAgents] = useState<ExecutorOption[]>([]);
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [saving, setSaving] = useState(false);
+  const templateRef = useRef<HTMLTextAreaElement>(null);
+
+  const insertMacro = (key: string) => {
+    const token = macroToken(key);
+    const el = templateRef.current;
+    if (!el) {
+      setRunInputTemplate((prev) => (prev ? `${prev} ${token}` : token));
+      return;
+    }
+    const start = el.selectionStart ?? runInputTemplate.length;
+    const end = el.selectionEnd ?? start;
+    const next = runInputTemplate.slice(0, start) + token + runInputTemplate.slice(end);
+    setRunInputTemplate(next);
+    requestAnimationFrame(() => {
+      el.focus();
+      const pos = start + token.length;
+      el.setSelectionRange(pos, pos);
+    });
+  };
+
+  const macroGroupLabel = (group: PipelineMacroGroup) => {
+    switch (group) {
+      case 'card':
+        return t('pipelines.macro_group_card');
+      case 'pipeline':
+        return t('pipelines.macro_group_pipeline');
+      case 'advanced':
+        return t('pipelines.macro_group_advanced');
+      default:
+        return group;
+    }
+  };
 
   const handleAgentCreated = (agent: ManyAgent) => {
     setExtraAgents((prev) => [{ id: agent.id, name: agent.name }, ...prev]);
@@ -77,7 +119,7 @@ export default function StageConfigModal({
         runInputTemplate: runInputTemplate.trim() || null,
         assignedAgentId: realAgentId,
         assignedWorkflowId: usesExecutor && executorKind === 'workflow' ? workflowId : null,
-        config: { ...(stage.config ?? {}), useMany },
+        config: { ...(stage.config ?? {}), useMany, deliverable },
       });
       onClose();
     } finally {
@@ -109,7 +151,7 @@ export default function StageConfigModal({
       onClose={onClose}
       title={t('pipelines.configure')}
       subtitle={stage.title}
-      size="md"
+      size="lg"
       footer={
         <>
           <DomeButton variant="ghost" onClick={() => void onDelete()}>
@@ -218,22 +260,74 @@ export default function StageConfigModal({
         )}
 
         {showTemplate && (
-          <label className="flex flex-col gap-1">
-            <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-              {t('pipelines.run_input_template')}
-            </span>
-            <textarea
-              value={runInputTemplate}
-              onChange={(e) => setRunInputTemplate(e.target.value)}
-              rows={4}
-              placeholder={t('pipelines.run_input_template_hint')}
-              className="text-xs font-mono rounded-md px-2 py-1.5 outline-none resize-y"
-              style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
-            />
-            <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
-              {t('pipelines.run_input_template_hint')}
-            </span>
-          </label>
+          <DomeSelectMenu<StageDeliverable>
+            label={t('pipelines.stage_deliverable')}
+            value={deliverable}
+            onChange={setDeliverable}
+            options={[
+              { value: 'auto', label: t('pipelines.deliverable_auto') },
+              { value: 'artifact', label: t('pipelines.deliverable_artifact') },
+              { value: 'text', label: t('pipelines.deliverable_text') },
+            ]}
+          />
+        )}
+
+        {showTemplate && (
+          <div className="flex flex-col gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
+                {t('pipelines.run_input_template')}
+              </span>
+              <textarea
+                ref={templateRef}
+                value={runInputTemplate}
+                onChange={(e) => setRunInputTemplate(e.target.value)}
+                rows={4}
+                placeholder={t('pipelines.run_input_template_hint')}
+                className="text-xs font-mono rounded-md px-2 py-1.5 outline-none resize-y"
+                style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+              />
+              <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
+                {t('pipelines.run_input_context_auto_note')}
+              </span>
+            </label>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
+                {t('pipelines.run_input_macros_title')}
+              </span>
+              {PIPELINE_TEMPLATE_MACRO_GROUPS.map((group) => {
+                const macros = PIPELINE_TEMPLATE_MACROS.filter((m) => m.group === group);
+                if (macros.length === 0) return null;
+                return (
+                  <div key={group} className="flex flex-col gap-1">
+                    <span className="text-[10px] font-medium" style={{ color: 'var(--tertiary-text)' }}>
+                      {macroGroupLabel(group)}
+                    </span>
+                    <HorizontalScrollArea>
+                      {macros.map((macro) => (
+                        <button
+                          key={macro.key}
+                          type="button"
+                          onClick={() => insertMacro(macro.key)}
+                          className="text-[11px] font-mono rounded px-1.5 py-0.5 transition-colors shrink-0"
+                          style={{
+                            background: 'var(--bg)',
+                            color: 'var(--secondary-text)',
+                            border: '1px solid var(--border)',
+                            cursor: 'pointer',
+                          }}
+                          title={macroToken(macro.key)}
+                        >
+                          {t(`pipelines.${macro.labelKey}`)}
+                        </button>
+                      ))}
+                    </HorizontalScrollArea>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         <label className="flex items-center gap-2 cursor-pointer">

@@ -691,7 +691,10 @@ async function setupHarness(surface, opts) {
 
   if (surface === 'many') {
     const { manySubagentIds, buildTaskTool } = require('./subagents-native.cjs');
-    if (manySubagentIds().length > 0) {
+    const enabledSubagents = Array.isArray(opts.subagentIds)
+      ? opts.subagentIds
+      : manySubagentIds();
+    if (enabledSubagents.length > 0) {
       tools.push(buildTaskTool({
         provider,
         model,
@@ -701,6 +704,7 @@ async function setupHarness(surface, opts) {
         onChunk: opts.onChunk,
         signal: opts.signal,
         threadId,
+        subagentIds: enabledSubagents,
       }));
     }
   }

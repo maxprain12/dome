@@ -19,6 +19,7 @@ const crypto = require('crypto');
 const { serializeArtifactRecord } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
 const { buildReportHtml } = require('./report-markdown.cjs');
+const { buildCardContextBlock, resolveProviderConfigForStage } = require('./pipeline-card-context.cjs');
 
 let _database = null;
 let _windowManager = null;
@@ -39,42 +40,15 @@ function queries() {
   return _database?.getQueries?.();
 }
 
-function parseJson(value, fallback = null) {
-  if (value == null || value === '') return fallback;
-  try { return JSON.parse(value); } catch { return fallback; }
-}
-
-function renderTodos(todos) {
-  if (!Array.isArray(todos) || todos.length === 0) return '';
-  return todos.map((td) => `${td && td.done ? '[x]' : '[ ]'} ${(td && td.text) || ''}`).join('\n');
-}
-
 /** Assemble the human-readable card context fed to Many. */
-function buildReportContext(item, stage, events) {
-  const data = parseJson(item.data_json, {}) || {};
-  const parts = [];
-  parts.push(`# ${item.title || 'Tarjeta'}`);
-  if (stage?.title) parts.push(`Fase actual: ${stage.title}`);
-  if (typeof data.text === 'string' && data.text.trim()) {
-    parts.push(`\n## Descripción\n${data.text.trim()}`);
-  }
-  const todos = renderTodos(data.todos);
-  if (todos) parts.push(`\n## Tareas\n${todos}`);
-  if (item.start_at || item.end_at) {
-    const fmt = (ms) => (ms ? new Date(ms).toLocaleDateString() : '—');
-    parts.push(`\n## Fechas\nInicio: ${fmt(item.start_at)} · Fin: ${fmt(item.end_at)}`);
-  }
-  if (item.last_output && item.last_output.trim()) {
-    parts.push(`\n## Último análisis del agente\n${item.last_output.trim()}`);
-  }
-  if (Array.isArray(events) && events.length > 0) {
-    const lines = events
-      .slice(-12)
-      .map((e) => `- ${new Date(e.created_at).toLocaleDateString()} · ${e.event_type}: ${(e.summary || '').slice(0, 120)}`)
-      .join('\n');
-    parts.push(`\n## Actividad reciente\n${lines}`);
-  }
-  return parts.join('\n');
+async function buildReportContext(item, stage, events, pipeline) {
+  return buildCardContextBlock({
+    item,
+    stage,
+    pipeline,
+    events,
+    providerConfig: await resolveProviderConfigForStage(stage, _database),
+  });
 }
 
 const REPORT_INSTRUCTIONS = [
@@ -99,8 +73,9 @@ async function generateReport(itemId) {
   const item = q.getPipelineItemById.get(itemId);
   if (!item) return { success: false, error: 'Item not found' };
   const stage = q.getPipelineStageById.get(item.stage_id);
+  const pipeline = q.getPipelineById.get(item.pipeline_id);
   const events = (q.listPipelineItemEvents.all(itemId)) || [];
-  const context = buildReportContext(item, stage, events);
+  const context = await buildReportContext(item, stage, events, pipeline);
   const content = `${REPORT_INSTRUCTIONS}\n\n---\n\n${context}`;
 
   try {

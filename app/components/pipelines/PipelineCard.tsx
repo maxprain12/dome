@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Calendar, GripVertical, Play, Check, Bot, User, Zap, Loader2, CheckSquare, MessageSquare } from 'lucide-react';
 import type { PipelineItem, PipelineStage, ExecStatus } from '@/lib/pipelines/types';
 import { PIPELINE_ITEM_DRAG_TYPE } from '@/lib/pipelines/types';
+import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 
 const STATUS_COLOR: Record<ExecStatus, string> = {
   pending: 'var(--warning)',
@@ -50,6 +51,9 @@ interface Props {
 export default function PipelineCard({ item, stage, agentName, onOpen, onRun, onResolve }: Props) {
   const { t } = useTranslation();
   const [dragging, setDragging] = useState(false);
+  const runPending = usePipelinesStore((s) => Boolean(s.runInFlightIds[item.id]));
+  const isRunning = item.execStatus === 'running' || runPending;
+  const displayStatus: ExecStatus = isRunning ? 'running' : item.execStatus;
 
   const handleDragStart = (e: ReactDragEvent<HTMLDivElement>) => {
     e.dataTransfer.setData(PIPELINE_ITEM_DRAG_TYPE, item.id);
@@ -57,9 +61,9 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
     setDragging(true);
   };
 
-  const statusColor = STATUS_COLOR[item.execStatus];
+  const statusColor = STATUS_COLOR[displayStatus];
   const due = formatDate(item.endAt) ?? formatDate(item.startAt);
-  const canRun = stage?.executionPolicy === 'manual_agent' && item.execStatus !== 'running';
+  const canRun = stage?.executionPolicy === 'manual_agent' && !isRunning;
   const canResolve = stage?.executionPolicy === 'manual_resolve' && item.execStatus !== 'ready';
 
   const AssignedIcon =
@@ -74,7 +78,8 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
       ? toPreviewText(item.data.text)
       : null;
 
-  const showLastOutput = (item.execStatus === 'failed' || item.execStatus === 'ready') &&
+  const showLastOutput = !isRunning &&
+    (item.execStatus === 'failed' || item.execStatus === 'ready') &&
     typeof item.lastOutput === 'string' && item.lastOutput.trim().length > 0;
   const lastOutputSnippet = showLastOutput ? toPreviewText(item.lastOutput!).slice(0, 80) : null;
 
@@ -96,7 +101,7 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
       className="rounded-md p-2.5 cursor-grab active:cursor-grabbing transition-opacity"
       style={{
         background: 'var(--bg)',
-        border: '1px solid var(--border)',
+        border: isRunning ? '1px solid var(--accent)' : '1px solid var(--border)',
         opacity: dragging ? 0.55 : 1,
       }}
     >
@@ -115,13 +120,13 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
             {todoDone}/{todoTotal}
           </span>
         )}
-        {item.execStatus === 'running' ? (
+        {isRunning ? (
           <Loader2 size={13} className="shrink-0 mt-0.5 animate-spin" style={{ color: statusColor }} aria-hidden />
         ) : (
           <span
             className="shrink-0 mt-1 rounded-full"
             style={{ width: 8, height: 8, background: statusColor }}
-            aria-label={t(`pipelines.status_${item.execStatus}`)}
+            aria-label={t(`pipelines.status_${displayStatus}`)}
           />
         )}
       </div>
@@ -131,7 +136,7 @@ export default function PipelineCard({ item, stage, agentName, onOpen, onRun, on
           className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
           style={{ background: 'var(--bg-hover)', color: statusColor }}
         >
-          {t(`pipelines.status_${item.execStatus}`)}
+          {t(`pipelines.status_${displayStatus}`)}
         </span>
         {AssignedIcon && (
           <span className="inline-flex items-center gap-1 text-[10px]" style={{ color: 'var(--secondary-text)' }}>

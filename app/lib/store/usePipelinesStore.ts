@@ -31,6 +31,9 @@ function upsert<T extends { id: string }>(list: T[], item: T): T[] {
   return next;
 }
 
+/** Tracks in-flight run IPC calls to prevent duplicate agent launches. */
+const runInFlight = new Set<string>();
+
 interface PipelinesState {
   pipelines: Pipeline[];
   activePipelineId: string | null;
@@ -45,6 +48,8 @@ interface PipelinesState {
   loadingBoard: boolean;
   error: string | null;
   _subscribed: boolean;
+  /** Optimistic run-in-flight ids (manual Ejecutar) until IPC/broadcast catches up. */
+  runInFlightIds: Record<string, true>;
 
   init: () => Promise<void>;
   loadExecutors: () => Promise<void>;
@@ -92,6 +97,7 @@ export const usePipelinesStore = create<PipelinesState>((set, get) => ({
   loadingBoard: false,
   error: null,
   _subscribed: false,
+  runInFlightIds: {},
 
   loadExecutors: async () => {
     try {
@@ -117,7 +123,16 @@ export const usePipelinesStore = create<PipelinesState>((set, get) => ({
           return;
         }
         if (p.item && p.item.pipelineId === activeId) {
-          set((s) => ({ items: upsert(s.items, p.item!) }));
+          set((s) => {
+            const runInFlightIds = { ...s.runInFlightIds };
+            if (p.item!.execStatus === 'ready' || p.item!.execStatus === 'failed') {
+              delete runInFlightIds[p.item!.id];
+            }
+            return {
+              items: upsert(s.items, p.item!),
+              runInFlightIds,
+            };
+          });
         }
       });
       pipelinesEvents.onStageUpdated((p) => {
@@ -319,25 +334,83 @@ export const usePipelinesStore = create<PipelinesState>((set, get) => ({
   },
 
   moveItem: async (id, toStageId, toPosition) => {
-    // optimistic move
     const prev = get().items;
+    const fromItem = prev.find((i) => i.id === id);
+    const fromStageId = fromItem?.stageId;
+    const targetStage = get().stages.find((s) => s.id === toStageId);
+    const willAutoRun =
+      Boolean(fromStageId && fromStageId !== toStageId && targetStage?.executionPolicy === 'auto_agent');
+
     set((s) => ({
-      items: s.items.map((i) => (i.id === id ? { ...i, stageId: toStageId } : i)),
+      items: s.items.map((i) =>
+        i.id === id
+          ? {
+              ...i,
+              stageId: toStageId,
+              ...(willAutoRun ? { execStatus: 'running' as const } : null),
+            }
+          : i,
+      ),
+      runInFlightIds: willAutoRun ? { ...s.runInFlightIds, [id]: true } : s.runInFlightIds,
     }));
     try {
       const item = await pipelinesClient.moveItem(id, toStageId, toPosition);
-      set((s) => ({ items: upsert(s.items, item) }));
+      set((s) => {
+        const merged = upsert(s.items, item);
+        if (!willAutoRun) return { items: merged };
+        return {
+          items: merged.map((i) => (i.id === id ? { ...i, execStatus: 'running' } : i)),
+        };
+      });
     } catch (e) {
-      set({ items: prev, error: (e as Error).message });
+      set((s) => ({
+        items: prev,
+        runInFlightIds: (() => {
+          if (!willAutoRun) return s.runInFlightIds;
+          const next = { ...s.runInFlightIds };
+          delete next[id];
+          return next;
+        })(),
+        error: (e as Error).message,
+      }));
     }
   },
 
   runItem: async (id) => {
+    const existing = get().items.find((i) => i.id === id);
+    if (existing?.execStatus === 'running') return;
+    if (runInFlight.has(id)) return;
+
+    const previousStatus = existing?.execStatus ?? 'pending';
+    runInFlight.add(id);
+    set((s) => ({
+      runInFlightIds: { ...s.runInFlightIds, [id]: true },
+      items: s.items.map((i) => (i.id === id ? { ...i, execStatus: 'running' } : i)),
+    }));
     try {
       const item = await pipelinesClient.runItem(id);
-      set((s) => ({ items: upsert(s.items, item) }));
+      set((s) => {
+        const merged = upsert(s.items, item);
+        if (!s.runInFlightIds[id] || item.execStatus === 'running') return { items: merged };
+        return {
+          items: merged.map((i) => (i.id === id ? { ...i, execStatus: 'running' } : i)),
+        };
+      });
     } catch (e) {
-      set({ error: (e as Error).message });
+      set((s) => {
+        const runInFlightIds = { ...s.runInFlightIds };
+        delete runInFlightIds[id];
+        return {
+          error: (e as Error).message,
+          runInFlightIds,
+          items: s.items.map((i) =>
+            i.id === id ? { ...i, execStatus: previousStatus } : i,
+          ),
+        };
+      });
+      throw e;
+    } finally {
+      runInFlight.delete(id);
     }
   },
 
