@@ -69,7 +69,7 @@ export default function DomeModal({
 }: DomeModalProps) {
   const { t } = useTranslation();
   const titleId = useId();
-  const panelRef = useRef<HTMLDialogElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   // Escape + focus trap (Tab cycling within the panel)
   useEffect(() => {
@@ -143,9 +143,10 @@ export default function DomeModal({
         if (closeOnOverlay && e.target === e.currentTarget) onClose();
       }}
     >
-      <dialog
+      <div
         ref={panelRef}
-        open
+        role="dialog"
+        aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
@@ -155,12 +156,8 @@ export default function DomeModal({
           sizeClass[size],
           className,
         )}
-        style={{ animation: 'modal-appear 0.2s ease-out', margin: 'auto', maxWidth: 'unset' }}
+        style={{ animation: 'modal-appear 0.2s ease-out' }}
         onMouseDown={(e) => e.stopPropagation()}
-        onCancel={(e) => {
-          e.preventDefault();
-          if (closeOnEscape) onClose();
-        }}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -196,7 +193,7 @@ export default function DomeModal({
             {footer}
           </div>
         ) : null}
-      </dialog>
+      </div>
     </div>,
     document.body,
   );

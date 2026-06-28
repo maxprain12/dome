@@ -1,6 +1,7 @@
-{
-  "$schema": "https://react.doctor/schema/config.json",
-  "exclude": [
+import type { ReactDoctorConfig } from "react-doctor/api";
+
+export default {
+  exclude: [
     ".claude/**",
     "ds-bundle/**",
     "pi/**",
@@ -10,8 +11,8 @@
     ".design-sync/**",
     "**/*.d.ts"
   ],
-  "ignore": {
-    "files": [
+  ignore: {
+    files: [
       ".claude/**",
       "ds-bundle/**",
       "pi/**",
@@ -21,15 +22,15 @@
       ".design-sync/**",
       "**/*.d.ts"
     ],
-    "rules": [
+    rules: [
       "socket/low-supply-chain-score"
     ]
   },
-  "rules": {
+  rules: {
     "socket/low-supply-chain-score": "off"
   },
-  "supplyChain": {
-    "minScore": 35,
-    "severity": "warning"
+  supplyChain: {
+    minScore: 35,
+    severity: "warning"
   }
-}
+} satisfies ReactDoctorConfig;
