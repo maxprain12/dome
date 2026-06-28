@@ -162,20 +162,24 @@ export default function GenerateSourceModal({
     }
   }, [isOpen, focusResourceId, allItems]);
 
-  // Expand folders containing focusResourceId
-  useEffect(() => {
-    if (!focusResourceId || allItems.length === 0) return;
+  const expandFoldersKey = focusResourceId && allItems.length > 0
+    ? `${focusResourceId}:${allItems.length}`
+    : '';
+  const [prevExpandFoldersKey, setPrevExpandFoldersKey] = useState(expandFoldersKey);
+  if (expandFoldersKey && expandFoldersKey !== prevExpandFoldersKey) {
+    setPrevExpandFoldersKey(expandFoldersKey);
     const res = allItems.find((r) => r.id === focusResourceId && r.type !== 'folder');
-    if (!res?.folder_id) return;
-    const ids = new Set<string>();
-    let fid: string | null = res.folder_id;
-    while (fid) {
-      ids.add(fid);
-      const parent = allItems.find((r) => r.id === fid && r.type === 'folder');
-      fid = parent?.folder_id ?? null;
+    if (res?.folder_id) {
+      const ids = new Set<string>();
+      let fid: string | null = res.folder_id;
+      while (fid) {
+        ids.add(fid);
+        const parent = allItems.find((r) => r.id === fid && r.type === 'folder');
+        fid = parent?.folder_id ?? null;
+      }
+      setExpandedFolderIds((prev) => new Set([...prev, ...ids]));
     }
-    setExpandedFolderIds((prev) => new Set([...prev, ...ids]));
-  }, [focusResourceId, allItems]);
+  }
 
   const tree = useMemo(() => buildFolderTree(allItems), [allItems]);
 

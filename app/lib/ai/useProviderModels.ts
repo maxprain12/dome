@@ -126,10 +126,14 @@ export function useProviderModels({
   const [error, setError] = useState<string | null>(null);
   const [visibleIds, setVisibleIds] = useState<string[]>(() => getDefaultVisibleModelIds(provider));
 
-  useEffect(() => {
+  const [prevProvider, setPrevProvider] = useState(provider);
+  const [prevStaticModels, setPrevStaticModels] = useState(staticModels);
+  if (provider !== prevProvider || staticModels !== prevStaticModels) {
+    setPrevProvider(provider);
+    setPrevStaticModels(staticModels);
     setMergedModels(staticModels);
     setError(null);
-  }, [provider, staticModels]);
+  }
 
   useEffect(() => {
     if (!applyVisibleFilter) return;

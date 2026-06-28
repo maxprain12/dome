@@ -160,7 +160,9 @@ export default function NoteWorkspaceClient({
   const isPopout =
     typeof window !== 'undefined' && window.location.pathname.startsWith('/focus/note/');
 
-  useEffect(() => {
+  const [prevResourceId, setPrevResourceId] = useState(resourceId);
+  if (resourceId !== prevResourceId) {
+    setPrevResourceId(resourceId);
     editorRef.current = null;
     mirroredOnceRef.current = false;
     ignoreStaleCollaborationDirtyUntilMsRef.current = 0;
@@ -173,7 +175,7 @@ export default function NoteWorkspaceClient({
     setSaveError(null);
     setIsDirty(false);
     setResourceTags([]);
-  }, [resourceId]);
+  }
 
   // ── Load resource ───────────────────────────────────────────────────────────
   useEffect(() => {

@@ -153,25 +153,37 @@ function AutomationsTab({
   }, [formMode, filter.targetType]);
 
   // Update filter when initialFilter changes (from clicking "Automatizaciones" on an agent/workflow)
-  useEffect(() => {
-    if (initialFilter) setFilter(initialFilter);
-  }, [initialFilter]);
+  const [prevInitialFilter, setPrevInitialFilter] = useState(initialFilter);
+  if (initialFilter !== prevInitialFilter && initialFilter) {
+    setPrevInitialFilter(initialFilter);
+    setFilter(initialFilter);
+  }
+
+  const projectScopeKey = `${projectId}:${appProject?.id ?? ''}`;
+  const [prevProjectScopeKey, setPrevProjectScopeKey] = useState(projectScopeKey);
+  if (projectScopeKey !== prevProjectScopeKey) {
+    setPrevProjectScopeKey(projectScopeKey);
+    if (appProject?.id === projectId) {
+      setScopeProjectName(appProject.name ?? null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
     if (appProject?.id === projectId) {
-      setScopeProjectName(appProject.name ?? null);
-    } else {
-      void (async () => {
-        try {
-          const res = await window.electron?.db?.projects?.getById(projectId);
-          if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
-          else if (!cancelled) setScopeProjectName(null);
-        } catch {
-          if (!cancelled) setScopeProjectName(null);
-        }
-      })();
+      return () => {
+        cancelled = true;
+      };
     }
+    void (async () => {
+      try {
+        const res = await window.electron?.db?.projects?.getById(projectId);
+        if (!cancelled && res?.success && res.data?.name) setScopeProjectName(res.data.name);
+        else if (!cancelled) setScopeProjectName(null);
+      } catch {
+        if (!cancelled) setScopeProjectName(null);
+      }
+    })();
     return () => {
       cancelled = true;
     };

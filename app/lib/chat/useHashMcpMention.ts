@@ -128,9 +128,14 @@ export function useHashMcpMention({
     });
   }, [input, inputRef, setInput, updateFromText]);
 
+  const [prevHashActive, setPrevHashActive] = useState(hashActive);
+  if (hashActive !== prevHashActive) {
+    setPrevHashActive(hashActive);
+    if (!hashActive) setHashRect(null);
+  }
+
   useEffect(() => {
     if (!hashActive || !containerRef.current) {
-      setHashRect(null);
       return;
     }
     const rect = containerRef.current.getBoundingClientRect();

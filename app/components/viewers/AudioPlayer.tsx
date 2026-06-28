@@ -47,15 +47,18 @@ function AudioPlayerComponent({ resource }: AudioPlayerProps) {
     });
   }, [resource.id, setPlaybackPartial]);
 
-  useEffect(() => {
+  const [prevSourceError, setPrevSourceError] = useState(sourceError);
+  if (sourceError !== prevSourceError) {
+    setPrevSourceError(sourceError);
     setError(sourceError);
-  }, [sourceError]);
+  }
 
-  useEffect(() => {
-    if (!sourceLoading && (audioUrl || sourceError)) {
-      setIsLoading(false);
-    }
-  }, [sourceLoading, audioUrl, sourceError]);
+  const sourceReady = !sourceLoading && Boolean(audioUrl || sourceError);
+  const [prevSourceReady, setPrevSourceReady] = useState(sourceReady);
+  if (sourceReady !== prevSourceReady) {
+    setPrevSourceReady(sourceReady);
+    if (sourceReady) setIsLoading(false);
+  }
 
   useEffect(() => {
     if (!audioUrl || !audioRef.current) return;

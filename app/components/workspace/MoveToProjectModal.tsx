@@ -55,9 +55,18 @@ export default function MoveToProjectModal({
 
   const byId = resourcesByIdProp ?? localById;
 
+  const [prevOpened, setPrevOpened] = useState(opened);
+  if (!opened && opened !== prevOpened) {
+    setPrevOpened(opened);
+    setPickedId(null);
+    setError(null);
+    setLocalById(null);
+  } else if (opened !== prevOpened) {
+    setPrevOpened(opened);
+  }
+
   useEffect(() => {
     if (!opened || resourcesByIdProp) {
-      if (!opened) setLocalById(null);
       return;
     }
     let cancelled = false;
@@ -75,10 +84,17 @@ export default function MoveToProjectModal({
     };
   }, [opened, resourcesByIdProp]);
 
+  const [prevOpenedForLoad, setPrevOpenedForLoad] = useState(opened);
+  if (opened && opened !== prevOpenedForLoad) {
+    setPrevOpenedForLoad(opened);
+    setPickedId(null);
+    setError(null);
+  } else if (!opened && opened !== prevOpenedForLoad) {
+    setPrevOpenedForLoad(opened);
+  }
+
   useEffect(() => {
     if (!opened) {
-      setPickedId(null);
-      setError(null);
       return;
     }
     let cancelled = false;

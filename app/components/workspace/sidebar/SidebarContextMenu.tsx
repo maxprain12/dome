@@ -41,10 +41,17 @@ export default function ContextMenu({
   const [showColors, setShowColors] = useState(false);
   const [hoveredColor, setHoveredColor] = useState<string | null>(null);
 
+  const [prevVisible, setPrevVisible] = useState(state.visible);
+  if (state.visible !== prevVisible) {
+    setPrevVisible(state.visible);
+    if (state.visible) {
+      setShowColors(false);
+      setHoveredColor(null);
+    }
+  }
+
   useEffect(() => {
     if (!state.visible) return;
-    setShowColors(false);
-    setHoveredColor(null);
     const handle = (e: MouseEvent) => { if (menuRef.current && !menuRef.current.contains(e.target as Node)) onClose(); };
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('mousedown', handle);

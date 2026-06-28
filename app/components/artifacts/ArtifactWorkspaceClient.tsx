@@ -230,10 +230,15 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     return buildSrcdocFromParts(bodyHtml, domePayload, themeCss, artifactCss);
   }, [resourceId, htmlChunk, themeSnapshot.themeKey]);
 
-  useEffect(() => {
-    let cancelled = false;
+  const [prevResourceId, setPrevResourceId] = useState(resourceId);
+  if (resourceId !== prevResourceId) {
+    setPrevResourceId(resourceId);
     setLoading(true);
     setError(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
 
     window.electron.artifacts.get(resourceId).then((result) => {
       if (cancelled) return;

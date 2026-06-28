@@ -1,6 +1,5 @@
 import {
   useState,
-  useEffect,
   useCallback,
   forwardRef,
   useImperativeHandle,
@@ -37,8 +36,11 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
   ({ items, command }, ref) => {
     const { t } = useTranslation();
     const [selectedIndex, setSelectedIndex] = useState(0);
-
-    useEffect(() => setSelectedIndex(0), [items]);
+    const [prevItems, setPrevItems] = useState(items);
+    if (items !== prevItems) {
+      setPrevItems(items);
+      setSelectedIndex(0);
+    }
 
     const selectItem = useCallback(
       (index: number) => {

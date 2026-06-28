@@ -10,13 +10,14 @@ export function useRotatingComposerPlaceholder(
   const { t, i18n } = useTranslation();
   const enabled = options?.enabled ?? true;
   const intervalMs = options?.intervalMs ?? DEFAULT_INTERVAL_MS;
-  const [index, setIndex] = useState(0);
-
   const keysSignature = useMemo(() => keys.join('\0'), [keys]);
-
-  useEffect(() => {
+  const [index, setIndex] = useState(0);
+  const resetKey = `${keysSignature}:${i18n.language}`;
+  const [prevResetKey, setPrevResetKey] = useState(resetKey);
+  if (resetKey !== prevResetKey) {
+    setPrevResetKey(resetKey);
     setIndex(0);
-  }, [keysSignature, i18n.language]);
+  }
 
   useEffect(() => {
     if (!enabled || keys.length <= 1) return;

@@ -78,10 +78,11 @@ export default function ExecutionLog({
     return () => clearInterval(interval);
   }, [status, startTime]);
 
-  // Reset timer on new run
-  useEffect(() => {
+  const [prevStatus, setPrevStatus] = useState(status);
+  if (status !== prevStatus) {
+    setPrevStatus(status);
     if (status === 'running') setElapsed(0);
-  }, [status]);
+  }
 
   const hasContent = status === 'running' || entries.length > 0 || history.length > 0;
   if (!hasContent) return null;

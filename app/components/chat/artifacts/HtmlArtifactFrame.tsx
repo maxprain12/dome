@@ -151,9 +151,11 @@ export default function HtmlArtifactFrame({
     }
   }, [iframeReady, themeCss, themeSnapshot.vars]);
 
-  useEffect(() => {
+  const [prevSrcdoc, setPrevSrcdoc] = useState(srcdoc);
+  if (srcdoc !== prevSrcdoc) {
+    setPrevSrcdoc(srcdoc);
     setIframeReady(false);
-  }, [srcdoc]);
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>

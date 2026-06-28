@@ -415,9 +415,11 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     [handleNavigateToFolder, openResourceTab, t, effectiveProjectId],
   );
 
-  useEffect(() => {
+  const [prevFolderId, setPrevFolderId] = useState(folderId);
+  if (folderId !== prevFolderId) {
+    setPrevFolderId(folderId);
     closeSearch();
-  }, [folderId, closeSearch]);
+  }
 
   useEffect(() => {
     setSearchFocusIndex(0);

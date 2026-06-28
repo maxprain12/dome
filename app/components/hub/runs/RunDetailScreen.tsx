@@ -53,12 +53,13 @@ export default function RunDetailScreen({ run, onBack, onStop, onDelete, stoppin
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [transcriptFilter, setTranscriptFilter] = useState<string>('all');
-
-  useEffect(() => {
+  const [prevRunId, setPrevRunId] = useState(run.id);
+  if (run.id !== prevRunId) {
+    setPrevRunId(run.id);
     setSelectedStepId(null);
     setMobileDetailOpen(false);
     setTranscriptFilter('all');
-  }, [run.id]);
+  }
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

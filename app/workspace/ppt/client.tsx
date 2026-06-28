@@ -60,11 +60,13 @@ export default function PptWorkspaceClient({ resourceId }: PptWorkspaceClientPro
 
   // --- Resource loading ---
 
-  useEffect(() => {
+  const [prevResourceId, setPrevResourceId] = useState(resourceId);
+  if (resourceId !== prevResourceId) {
+    setPrevResourceId(resourceId);
     setActiveSlideIndex(0);
     setSlideCount(0);
     setThumbnailElements([]);
-  }, [resourceId]);
+  }
 
   useEffect(() => {
     async function loadResource() {

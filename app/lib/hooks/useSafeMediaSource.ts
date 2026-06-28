@@ -6,6 +6,12 @@ export interface UseSafeMediaSourceResult {
   error: string | null;
 }
 
+function canLoadMedia(resourceId: string | undefined): resourceId is string {
+  return Boolean(
+    resourceId && typeof window !== 'undefined' && window.electron?.resource?.readFileBuffer,
+  );
+}
+
 /**
  * Carga el archivo del recurso en un Blob URL para evitar `file://` en el renderer
  * cuando el origen es http: o app:.
@@ -16,24 +22,30 @@ export function useSafeMediaSource(resourceId: string | undefined): UseSafeMedia
   const [error, setError] = useState<string | null>(null);
   const urlRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    if (!resourceId || typeof window === 'undefined' || !window.electron?.resource?.readFileBuffer) {
-      setObjectUrl(null);
-      setLoading(false);
-      setError(resourceId ? null : null);
-      return;
-    }
-
-    let cancelled = false;
-
+  const [prevResourceId, setPrevResourceId] = useState(resourceId);
+  if (resourceId !== prevResourceId) {
+    setPrevResourceId(resourceId);
     if (urlRef.current) {
       URL.revokeObjectURL(urlRef.current);
       urlRef.current = null;
     }
+    if (!canLoadMedia(resourceId)) {
+      setObjectUrl(null);
+      setLoading(false);
+      setError(null);
+    } else {
+      setLoading(true);
+      setError(null);
+      setObjectUrl(null);
+    }
+  }
 
-    setLoading(true);
-    setError(null);
-    setObjectUrl(null);
+  useEffect(() => {
+    if (!canLoadMedia(resourceId)) {
+      return;
+    }
+
+    let cancelled = false;
 
     void (async () => {
       try {

@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { lazyRef } from '@/lib/utils/lazyRef';
 import { useTranslation } from 'react-i18next';
@@ -91,11 +91,36 @@ export default function AudioOverview({
   const [isAudioLoaded, setIsAudioLoaded] = useState(false);
 
   // Transcript state
-  const [activeLineIndex, setActiveLineIndex] = useState(-1);
   const transcriptRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const lineRefs = useRef<Map<number, HTMLDivElement> | null>(null);
   const lineRefMap = lazyRef(lineRefs, () => new Map());
+
+  const activeLineIndex = useMemo(() => {
+    if (!audioUrl || !isAudioLoaded) return -1;
+
+    const linesWithTime = transcript.lines.filter((l) => l.startTime !== undefined);
+    if (linesWithTime.length === 0) return -1;
+
+    for (let i = linesWithTime.length - 1; i >= 0; i--) {
+      const line = linesWithTime[i];
+      if (line && currentTime >= (line.startTime ?? 0)) {
+        return transcript.lines.indexOf(line);
+      }
+    }
+    return -1;
+  }, [audioUrl, isAudioLoaded, currentTime, transcript.lines]);
+
+  useEffect(() => {
+    if (activeLineIndex < 0) return;
+    const lineEl = lineRefMap.get(activeLineIndex);
+    if (lineEl && transcriptRef.current) {
+      lineEl.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [activeLineIndex, prefersReducedMotion, lineRefMap]);
 
   // Progress bar ref for click-to-seek
   const progressBarRef = useRef<HTMLInputElement>(null);
@@ -157,41 +182,6 @@ export default function AudioOverview({
       audioRef.current.muted = isMuted;
     }
   }, [isMuted]);
-
-  // -------------------------------------------------------
-  // Active line tracking (synced to audio)
-  // -------------------------------------------------------
-
-  useEffect(() => {
-    if (!audioUrl || !isAudioLoaded) return;
-
-    const linesWithTime = transcript.lines.filter((l) => l.startTime !== undefined);
-    if (linesWithTime.length === 0) return;
-
-    // Find the current active line based on currentTime
-    let activeIdx = -1;
-    for (let i = linesWithTime.length - 1; i >= 0; i--) {
-      const line = linesWithTime[i];
-      if (line && currentTime >= (line.startTime ?? 0)) {
-        // Map back to original index
-        activeIdx = transcript.lines.indexOf(line);
-        break;
-      }
-    }
-
-    if (activeIdx !== activeLineIndex) {
-      setActiveLineIndex(activeIdx);
-
-      // Auto-scroll to active line
-      const lineEl = lineRefMap.get(activeIdx);
-      if (lineEl && transcriptRef.current) {
-        lineEl.scrollIntoView({
-          behavior: prefersReducedMotion ? 'auto' : 'smooth',
-          block: 'nearest',
-        });
-      }
-    }
-  }, [currentTime, audioUrl, isAudioLoaded, transcript.lines, activeLineIndex, prefersReducedMotion]);
 
   // -------------------------------------------------------
   // Controls

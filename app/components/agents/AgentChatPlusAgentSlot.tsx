@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plug2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
@@ -22,10 +22,11 @@ export function AgentChatPlusAgentSlot({
 }) {
   const { t } = useTranslation();
   const [subview, setSubview] = useState<Subview>(null);
-
-  useEffect(() => {
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
+  if (isOpen !== prevIsOpen) {
+    setPrevIsOpen(isOpen);
     if (!isOpen) setSubview(null);
-  }, [isOpen]);
+  }
 
   const backRow = (
     <button

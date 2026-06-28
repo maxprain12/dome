@@ -168,10 +168,16 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const openCalendarTab = useTabStore((s) => s.openCalendarTab);
   const runPending = usePipelinesStore((s) => Boolean(s.runInFlightIds[item.id]));
 
+  const activityFetchKey = `${tab}:${item.id}:${eventsReloadKey}`;
+  const [prevActivityFetchKey, setPrevActivityFetchKey] = useState(activityFetchKey);
+  if (tab === 'activity' && activityFetchKey !== prevActivityFetchKey) {
+    setPrevActivityFetchKey(activityFetchKey);
+    setEventsLoading(true);
+  }
+
   useEffect(() => {
     if (tab !== 'activity') return;
     let cancelled = false;
-    setEventsLoading(true);
     pipelinesClient
       .listItemEvents(item.id)
       .then((rows) => {
@@ -209,7 +215,10 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const isRunning = item.execStatus === 'running' || runPending;
   const agentBusy = isRunning || launching;
 
-  useEffect(() => {
+  const execStatusKey = `${item.execStatus}:${item.updatedAt}`;
+  const [prevExecStatusKey, setPrevExecStatusKey] = useState(execStatusKey);
+  if (execStatusKey !== prevExecStatusKey) {
+    setPrevExecStatusKey(execStatusKey);
     if (item.execStatus === 'running') {
       setLaunching(false);
     }
@@ -217,7 +226,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
       setLaunching(false);
       setEventsReloadKey((k) => k + 1);
     }
-  }, [item.execStatus, item.updatedAt]);
+  }
 
   const addField = (type: CardField['type']) => {
     const id = newFieldId();

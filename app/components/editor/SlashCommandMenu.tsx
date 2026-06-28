@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
+import { useState, useCallback, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Slash } from 'lucide-react';
@@ -30,8 +30,16 @@ export const SlashCommandMenu = forwardRef<SlashMenuHandle, SlashMenuProps>(
       );
     }, [items, menuFilter]);
 
-    useEffect(() => setSelectedIndex(0), [visibleItems]);
-    useEffect(() => setMenuFilter(''), [items]);
+    const [prevVisibleItems, setPrevVisibleItems] = useState(visibleItems);
+    if (visibleItems !== prevVisibleItems) {
+      setPrevVisibleItems(visibleItems);
+      setSelectedIndex(0);
+    }
+    const [prevItems, setPrevItems] = useState(items);
+    if (items !== prevItems) {
+      setPrevItems(items);
+      setMenuFilter('');
+    }
 
     const selectItem = useCallback(
       (index: number) => {

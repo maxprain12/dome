@@ -61,11 +61,20 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
     }
   }, []);
 
+  const [prevOpened, setPrevOpened] = useState(opened);
+  const [prevInitialName, setPrevInitialName] = useState(initialName);
+  if (opened !== prevOpened || initialName !== prevInitialName) {
+    setPrevOpened(opened);
+    setPrevInitialName(initialName);
+    if (opened) {
+      setName(initialName || '');
+      setValue('');
+      setShowValue(false);
+    }
+  }
+
   useEffect(() => {
     if (!opened) return;
-    setName(initialName || '');
-    setValue('');
-    setShowValue(false);
     void reload();
   }, [opened, initialName, reload]);
 

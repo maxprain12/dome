@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Bot,
   Loader2,
@@ -65,10 +65,12 @@ export default function AgentNode({
   const { t } = useTranslation();
   const [iconLoadFailed, setIconLoadFailed] = useState(false);
   const colors = STATUS_COLORS[data.status];
-
-  useEffect(() => {
+  const agentIconKey = `${data.agentId ?? ''}:${data.agentIconIndex ?? ''}`;
+  const [prevAgentIconKey, setPrevAgentIconKey] = useState(agentIconKey);
+  if (agentIconKey !== prevAgentIconKey) {
+    setPrevAgentIconKey(agentIconKey);
     setIconLoadFailed(false);
-  }, [data.agentIconIndex, data.agentId]);
+  }
 
   const isSystemAgent = !data.agentId && !!data.systemAgentRole;
   const systemDef = data.systemAgentRole ? SYSTEM_AGENTS[data.systemAgentRole] : null;

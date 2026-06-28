@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ExternalLink, MessageSquareText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Resource } from '@/types';
@@ -33,7 +33,6 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1.0);
   const [zoomMode, setZoomMode] = useState<ZoomMode>('fit-width');
-  const [annotations, setAnnotations] = useState<PDFAnnotation[]>([]);
   const [activeTool, setActiveTool] = useState<AnnotationType | null>(null);
   const [color, setColor] = useState('var(--accent)');
   const [strokeWidth, _setStrokeWidth] = useState(2);
@@ -54,6 +53,17 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
   const initialPageSetRef = useRef(false);
 
   const { annotations: dbAnnotations, addInteraction, updateInteraction, deleteInteraction } = useInteractions(resource.id);
+
+  const annotations = useMemo(() => {
+    const parsedAnnotations: PDFAnnotation[] = [];
+    dbAnnotations.forEach((interaction) => {
+      const annotation = parseAnnotationFromDB(interaction);
+      if (annotation) {
+        parsedAnnotations.push(annotation);
+      }
+    });
+    return parsedAnnotations;
+  }, [dbAnnotations]);
 
   // Load PDF document - only reloads when resource.id changes, not when initialPage changes
   useEffect(() => {
@@ -120,18 +130,6 @@ function PDFViewerComponent({ resource, initialPage }: PDFViewerProps) {
 
     loadPDF();
   }, [resource.id, initialPage]);
-
-  // Parse annotations from database
-  useEffect(() => {
-    const parsedAnnotations: PDFAnnotation[] = [];
-    dbAnnotations.forEach((interaction) => {
-      const annotation = parseAnnotationFromDB(interaction);
-      if (annotation) {
-        parsedAnnotations.push(annotation);
-      }
-    });
-    setAnnotations(parsedAnnotations);
-  }, [dbAnnotations]);
 
   // Calculate zoom based on mode; ResizeObserver for container resize
   useEffect(() => {

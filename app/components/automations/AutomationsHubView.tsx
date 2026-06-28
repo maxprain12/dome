@@ -88,23 +88,31 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
     if (shellHubTab) setActiveTab(shellHubTab);
   }, [shellHubTab]);
 
-  useEffect(() => {
-    if (shellHubTab !== 'automations') return;
-    if (!automationsShellTabId || activeShellTabId !== automationsShellTabId) return;
+  const automationsFilterGateKey =
+    shellHubTab === 'automations' && automationsShellTabId && activeShellTabId === automationsShellTabId
+      ? `${shellHubTab}:${activeShellTabId}`
+      : '';
+  const [consumedAutomationsFilterGateKey, setConsumedAutomationsFilterGateKey] = useState('');
+  if (automationsFilterGateKey && automationsFilterGateKey !== consumedAutomationsFilterGateKey) {
     try {
       const raw = sessionStorage.getItem(PENDING_AUTOMATIONS_FILTER_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as AutomationFilter;
-      sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
-      setAutomationsFilter(parsed);
+      if (raw) {
+        const parsed = JSON.parse(raw) as AutomationFilter;
+        sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
+        setConsumedAutomationsFilterGateKey(automationsFilterGateKey);
+        setAutomationsFilter(parsed);
+      } else {
+        setConsumedAutomationsFilterGateKey(automationsFilterGateKey);
+      }
     } catch {
       try {
         sessionStorage.removeItem(PENDING_AUTOMATIONS_FILTER_KEY);
       } catch {
         /* ignore */
       }
+      setConsumedAutomationsFilterGateKey(automationsFilterGateKey);
     }
-  }, [shellHubTab, activeShellTabId, automationsShellTabId]);
+  }
 
   const hubProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const hubProjectName = useAppStore((s) => s.currentProject?.name);

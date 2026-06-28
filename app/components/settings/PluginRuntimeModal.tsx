@@ -58,10 +58,16 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
   const permissions = useMemo(() => new Set(plugin.permissions || []), [plugin.permissions]);
   const entry = plugin.entry || 'index.html';
 
-  useEffect(() => {
-    let cancelled = false;
+  const pluginLoadKey = `${plugin.id}:${entry}:${reloadKey}`;
+  const [prevPluginLoadKey, setPrevPluginLoadKey] = useState(pluginLoadKey);
+  if (pluginLoadKey !== prevPluginLoadKey) {
+    setPrevPluginLoadKey(pluginLoadKey);
     setLoading(true);
     setError(null);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
 
     void window.electron?.plugins?.readAsset?.(plugin.id, entry).then((result) => {
       if (cancelled) {

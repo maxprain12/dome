@@ -118,9 +118,14 @@ export function useResourceMention({
     void loadMentionResources(mentionQuery);
   }, [mentionQuery, mentionActive, loadMentionResources]);
 
+  const [prevMentionActive, setPrevMentionActive] = useState(mentionActive);
+  if (mentionActive !== prevMentionActive) {
+    setPrevMentionActive(mentionActive);
+    if (!mentionActive) setMentionRect(null);
+  }
+
   useEffect(() => {
     if (!mentionActive || !containerRef.current) {
-      setMentionRect(null);
       return;
     }
     const rect = containerRef.current.getBoundingClientRect();

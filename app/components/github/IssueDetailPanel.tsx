@@ -198,9 +198,9 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     }
   }, [issueId]);
 
-  useEffect(() => {
-    let cancelled = false;
-
+  const [prevIssueId, setPrevIssueId] = useState(issueId);
+  if (issueId !== prevIssueId) {
+    setPrevIssueId(issueId);
     if (initial) {
       setTitle(initial.title);
       setBody('');
@@ -213,6 +213,10 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       setAssigneePickerQuery('');
       setTab('comments');
     }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
 
     void (async () => {
       const res = await githubClient.issues.get(issueId);

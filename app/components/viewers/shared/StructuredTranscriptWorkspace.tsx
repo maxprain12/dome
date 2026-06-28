@@ -59,14 +59,17 @@ export default function StructuredTranscriptWorkspace({
   const rowRefs = useRef<Map<string, HTMLButtonElement | null> | null>(null);
   const rowRefMap = lazyRef(rowRefs, () => new Map());
 
-  useEffect(() => {
+  const speakersMapKey = `${resource.id}:${JSON.stringify(speakersMap)}`;
+  const [prevSpeakersMapKey, setPrevSpeakersMapKey] = useState(speakersMapKey);
+  if (speakersMapKey !== prevSpeakersMapKey) {
+    setPrevSpeakersMapKey(speakersMapKey);
     const next: Record<string, string> = {};
     for (const k of Object.keys(speakersMap)) {
       const lab = speakersMap[k]?.label;
       if (lab) next[k] = lab;
     }
     setLocalSpeakerLabels((prev) => ({ ...next, ...prev }));
-  }, [resource.id, speakersMap]);
+  }
 
   const activeSegmentId = useMemo(() => {
     let best: TranscriptionSegment | null = null;

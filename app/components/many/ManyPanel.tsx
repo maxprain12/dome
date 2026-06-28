@@ -202,10 +202,15 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     currentSessionIdRef.current = currentSessionId;
   }, [currentSessionId]);
 
-  useEffect(() => {
-    if (!isVisible || isHeadless) return;
-    if (!pendingManyHandoff) return;
+  const [prevHandoff, setPrevHandoff] = useState<string | null>(null);
+  if (
+    pendingManyHandoff &&
+    pendingManyHandoff !== prevHandoff &&
+    isVisible &&
+    !isHeadless
+  ) {
     const text = pendingManyHandoff;
+    setPrevHandoff(text);
     setInput(text);
     setPendingManyHandoff(null);
     requestAnimationFrame(() => {
@@ -215,7 +220,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       const len = text.length;
       el.setSelectionRange(len, len);
     });
-  }, [isVisible, isHeadless, pendingManyHandoff, setPendingManyHandoff]);
+  } else if (!pendingManyHandoff && prevHandoff !== null) {
+    setPrevHandoff(null);
+  }
 
   // Hydrate session list from JSONL on startup.
   useEffect(() => {
@@ -1241,14 +1248,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     [_switchSession, currentSessionId],
   );
 
-  /** Fullscreen: columna de historial a la derecha (mismo UI compacto). Sidebar: overlay. */
-  useEffect(() => {
-    if (isFullscreen) {
-      setShowHistory(true);
-    } else {
-      setShowHistory(false);
-    }
-  }, [isFullscreen]);
+  const [prevIsFullscreen, setPrevIsFullscreen] = useState(isFullscreen);
+  if (isFullscreen !== prevIsFullscreen) {
+    setPrevIsFullscreen(isFullscreen);
+    setShowHistory(isFullscreen);
+  }
 
   const handleToggleHistory = useCallback(() => {
     setShowHistory((v) => !v);

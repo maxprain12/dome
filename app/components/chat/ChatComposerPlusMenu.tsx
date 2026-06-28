@@ -360,9 +360,11 @@ export function ChatComposerPlusMenuContent({
   const { t } = useTranslation();
   const [view, setView] = useState<PlusMenuView>('root');
 
-  useEffect(() => {
+  const [prevIsMenuOpen, setPrevIsMenuOpen] = useState(isMenuOpen);
+  if (isMenuOpen !== prevIsMenuOpen) {
+    setPrevIsMenuOpen(isMenuOpen);
     if (isMenuOpen) setView('root');
-  }, [isMenuOpen]);
+  }
 
   const showSkillsNav = Boolean(skillsHandlers);
   const showToolsNav = Boolean(toolsSlot);

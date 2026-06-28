@@ -477,24 +477,39 @@ function FolderMenuButton({
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (!open) {
+      setMenuPos(null);
+    } else {
+      const el = triggerRef.current;
+      if (el) {
+        const r = el.getBoundingClientRect();
+        setMenuPos({ top: r.bottom + 6, left: r.left, width: r.width });
+      }
+    }
+  }
 
-  // Position the menu under the trigger and update on scroll/resize.
+  // Reposition on scroll/resize while open (listeners stay mounted; openRef avoids prop-sync effect).
+  const openRef = useRef(open);
+  openRef.current = open;
+
   useEffect(() => {
-    if (!open) return;
     const update = () => {
+      if (!openRef.current) return;
       const el = triggerRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
       setMenuPos({ top: r.bottom + 6, left: r.left, width: r.width });
     };
-    update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
-  }, [open]);
+  }, []);
 
   // Close on outside click and on Escape.
   useEffect(() => {

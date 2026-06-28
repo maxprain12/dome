@@ -49,15 +49,18 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
     });
   }, [resource.id, setPlaybackPartial]);
 
-  useEffect(() => {
+  const [prevSourceError, setPrevSourceError] = useState(sourceError);
+  if (sourceError !== prevSourceError) {
+    setPrevSourceError(sourceError);
     setError(sourceError);
-  }, [sourceError]);
+  }
 
-  useEffect(() => {
-    if (!sourceLoading && (videoUrl || sourceError)) {
-      setIsLoading(false);
-    }
-  }, [sourceLoading, videoUrl, sourceError]);
+  const sourceReady = !sourceLoading && Boolean(videoUrl || sourceError);
+  const [prevSourceReady, setPrevSourceReady] = useState(sourceReady);
+  if (sourceReady !== prevSourceReady) {
+    setPrevSourceReady(sourceReady);
+    if (sourceReady) setIsLoading(false);
+  }
 
   useEffect(() => {
     if (!videoUrl || !videoRef.current) return;

@@ -153,10 +153,16 @@ export default function ProviderModelsConfigModal({
     }
   }, [provider, t, mergeCustomIntoCatalog]);
 
-  useEffect(() => {
-    if (!open || !provider) return;
+  const modalOpenKey = open && provider ? `${open}:${provider}` : '';
+  const [prevModalOpenKey, setPrevModalOpenKey] = useState(modalOpenKey);
+  if (modalOpenKey && modalOpenKey !== prevModalOpenKey) {
+    setPrevModalOpenKey(modalOpenKey);
     setSearch('');
     setCustomIdDraft('');
+  }
+
+  useEffect(() => {
+    if (!open || !provider) return;
     void load();
   }, [open, provider, load]);
 

@@ -60,10 +60,15 @@ export default function RunSummaryModal({
   const [run, setRun] = useState<RunData | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [prevRunId, setPrevRunId] = useState(runId);
+  if (runId !== prevRunId) {
+    setPrevRunId(runId);
+    setLoading(Boolean(runId));
+  }
+
   useEffect(() => {
     if (!runId) return;
     let cancelled = false;
-    setLoading(true);
     window.electron
       .invoke('runs:get', runId)
       .then((res: { success: boolean; data?: RunData }) => {

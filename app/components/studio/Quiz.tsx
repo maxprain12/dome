@@ -110,7 +110,9 @@ export default function Quiz({
     [questionResults],
   );
 
-  useEffect(() => {
+  const [prevQuestions, setPrevQuestions] = useState(data.questions);
+  if (data.questions !== prevQuestions) {
+    setPrevQuestions(data.questions);
     setQuestionOrder(data.questions);
     setCurrentIndex(0);
     setSelectedAnswer(null);
@@ -120,7 +122,7 @@ export default function Quiz({
     setQuestionStartedAt(Date.now());
     sessionStartedAt.current = Date.now();
     persistedRef.current = false;
-  }, [data.questions]);
+  }
 
   useEffect(() => {
     if (isFinished) return;

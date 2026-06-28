@@ -261,11 +261,13 @@ export const LinkPopover = forwardRef<HTMLButtonElement, LinkPopoverProps>(
       [onClick, isOpen]
     )
 
-    useEffect(() => {
-      if (autoOpenOnLinkActive && isActive) {
-        setIsOpen(true)
-      }
-    }, [autoOpenOnLinkActive, isActive])
+    const [prevAutoOpenActive, setPrevAutoOpenActive] = useState(isActive);
+    if (autoOpenOnLinkActive && isActive !== prevAutoOpenActive) {
+      setPrevAutoOpenActive(isActive);
+      if (isActive) setIsOpen(true);
+    } else if (!autoOpenOnLinkActive && isActive !== prevAutoOpenActive) {
+      setPrevAutoOpenActive(isActive);
+    }
 
     if (!isVisible) {
       return null

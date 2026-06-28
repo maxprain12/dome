@@ -83,8 +83,13 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
     }
   }, [resourceId]);
 
-  useEffect(() => {
+  const [prevResourceId, setPrevResourceId] = useState(resourceId);
+  if (resourceId !== prevResourceId) {
+    setPrevResourceId(resourceId);
     setLoading(true);
+  }
+
+  useEffect(() => {
     void loadAll();
   }, [loadAll]);
 

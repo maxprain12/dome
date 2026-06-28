@@ -465,10 +465,14 @@ export default function EventModal({
   // the edit form.
   const [editing, setEditing] = useState(!event);
   const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
+  const [prevPipelineItemId, setPrevPipelineItemId] = useState(pipelineItemId);
+  if (pipelineItemId !== prevPipelineItemId) {
+    setPrevPipelineItemId(pipelineItemId);
+    if (!pipelineItemId) setPipelineInfo(null);
+  }
 
   useEffect(() => {
     if (!pipelineItemId) {
-      setPipelineInfo(null);
       return;
     }
     let cancelled = false;

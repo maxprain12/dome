@@ -17,12 +17,16 @@ export function useTiptapEditor(providedEditor?: Editor | null): {
   const { editor: coreEditor } = useCurrentEditor()
   const mainEditor = providedEditor ?? coreEditor
 
-  const [storageEditor, setStorageEditor] = useState<Editor | null>(null)
+  const [storageEditor, setStorageEditor] = useState<Editor | null>(null);
+  const [prevMainEditor, setPrevMainEditor] = useState(mainEditor);
+  if (mainEditor !== prevMainEditor) {
+    setPrevMainEditor(mainEditor);
+    if (!mainEditor) setStorageEditor(null);
+  }
 
   useEffect(() => {
     if (!mainEditor) {
-      setStorageEditor(null)
-      return
+      return;
     }
 
     const updateHandler = () =>

@@ -21,15 +21,24 @@ export function useSourceTitles(sourceIds: string[]): {
     [sourceIds]
   );
 
-  useEffect(() => {
+  const idsKey = ids.join('\0');
+  const [prevIdsKey, setPrevIdsKey] = useState(idsKey);
+  if (idsKey !== prevIdsKey) {
+    setPrevIdsKey(idsKey);
     if (ids.length === 0) {
       setLoaded(new Map());
       setIsLoading(false);
+    } else {
+      setIsLoading(true);
+    }
+  }
+
+  useEffect(() => {
+    if (ids.length === 0) {
       return;
     }
 
     let cancelled = false;
-    setIsLoading(true);
 
     (async () => {
       const results = new Map<string, string>();

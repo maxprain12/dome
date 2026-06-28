@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ArtifactRecord, Resource } from '@/types';
 
 /**
@@ -386,40 +386,51 @@ export function useResourceVisualPreview(
   const [preview, setPreview] = useState<ResourceVisualPreview>(() => initialPreview(resource));
   const [el, setEl] = useState<Element | null>(null);
   const [visible, setVisible] = useState(false);
-  const ref = useCallback((node: Element | null) => setEl(node), []);
+  const observerRef = useRef<IntersectionObserver | null>(null);
 
   const kind: ResourcePreviewKind = kindForType(resource?.type);
   const enabled = options.enabled !== false;
+  const rootMargin = options.rootMargin ?? '200px 0px';
 
-  // Mark the card visible once it intersects the viewport (kept true after),
-  // so the fetch below runs both for initially-visible and scrolled-in cards.
-  useEffect(() => {
-    if (!enabled || kind === 'none' || !el) {
-      return;
-    }
-    if (typeof IntersectionObserver === 'undefined') {
-      setVisible(true);
-      return;
-    }
-    if (isElementInViewport(el)) {
-      setVisible(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setVisible(true);
-            observer.disconnect();
-            break;
+  const ref = useCallback(
+    (node: Element | null) => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+      setEl(node);
+      if (!node || !enabled || kind === 'none') return;
+      if (typeof IntersectionObserver === 'undefined' || isElementInViewport(node)) {
+        setVisible(true);
+        return;
+      }
+      const observer = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (entry.isIntersecting) {
+              setVisible(true);
+              observer.disconnect();
+              observerRef.current = null;
+              break;
+            }
           }
-        }
-      },
-      { rootMargin: options.rootMargin ?? '200px 0px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [el, kind, enabled, options.rootMargin]);
+        },
+        { rootMargin },
+      );
+      observer.observe(node);
+      observerRef.current = observer;
+    },
+    [enabled, kind, rootMargin],
+  );
+
+  useEffect(() => () => observerRef.current?.disconnect(), []);
+
+  const observeKey = `${kind}:${enabled}:${rootMargin}`;
+  const [prevObserveKey, setPrevObserveKey] = useState(observeKey);
+  if (observeKey !== prevObserveKey) {
+    setPrevObserveKey(observeKey);
+    if (!enabled || kind === 'none') {
+      setVisible(false);
+    }
+  }
 
   useEffect(() => {
     if (!enabled || !resource || kind === 'none' || !visible) return;

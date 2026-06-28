@@ -84,13 +84,14 @@ export default function MentionHeaderInput({
     });
   }, []);
 
-  useEffect(() => {
+  const tokenKey = token ? `${token.kind}:${token.query}` : '';
+  const [prevTokenKey, setPrevTokenKey] = useState(tokenKey);
+  if (tokenKey !== prevTokenKey) {
+    setPrevTokenKey(tokenKey);
     if (!token) {
       setItems([]);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      return;
-    }
-    if (token.kind === 'tag') {
+    } else if (token.kind === 'tag') {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       const q = token.query.toLowerCase();
       const filtered: MenuItem[] = allTags
@@ -111,8 +112,11 @@ export default function MentionHeaderInput({
       setItems(filtered);
       setSelectedIndex(0);
       updateMenuPosition();
-      return;
     }
+  }
+
+  useEffect(() => {
+    if (!token || token.kind === 'tag') return;
 
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
