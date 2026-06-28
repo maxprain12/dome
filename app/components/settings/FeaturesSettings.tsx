@@ -29,11 +29,10 @@ export default function FeaturesSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        title={t('features.title')}
-        subtitle={t('features.subtitle')}
-        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
-      />
+      <DomeSubpageHeader className={"rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"}>
+  <DomeSubpageHeader.Title>{t('features.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('features.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       <div
         className="settings-split-row rounded-xl px-4 py-3"

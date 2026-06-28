@@ -12,7 +12,8 @@ import { useTabStore, FOLDER_TAB_PREFIX } from '@/lib/store/useTabStore';
 import { useFolderNavigationHistory } from '@/lib/hooks/useFolderNavigationHistory';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { lazyRef } from '@/lib/utils/lazyRef';
-import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
+import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
+import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import '@/styles/folder-view.css';
 

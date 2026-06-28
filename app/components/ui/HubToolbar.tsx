@@ -1,21 +1,33 @@
 import type { ReactNode } from 'react';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
 
 export interface HubToolbarProps {
-  /** Left: title block or custom node */
-  leading?: ReactNode;
-  /** Center: typically search */
-  center?: ReactNode;
-  /** Right: actions, chips, CTAs */
-  trailing?: ReactNode;
   /** Compact variant: less vertical padding */
   dense?: boolean;
   className?: string;
+  children?: ReactNode;
 }
+
+const Leading = defineSlot('HubToolbar.Leading');
+const Center = defineSlot('HubToolbar.Center');
+const Trailing = defineSlot('HubToolbar.Trailing');
 
 /**
  * Unified top bar for hub workspaces — dense, single border-bottom.
+ *
+ * @example
+ * <HubToolbar dense>
+ *   <HubToolbar.Leading>...</HubToolbar.Leading>
+ *   <HubToolbar.Center>...</HubToolbar.Center>
+ *   <HubToolbar.Trailing>...</HubToolbar.Trailing>
+ * </HubToolbar>
  */
-export default function HubToolbar({ leading, center, trailing, dense, className = '' }: HubToolbarProps) {
+function HubToolbar({ dense, className = '', children }: HubToolbarProps) {
+  const { leading, center, trailing } = collectCompoundSlots(children, {
+    leading: Leading,
+    center: Center,
+    trailing: Trailing,
+  });
   const py = dense ? 'py-2' : 'py-2.5';
   return (
     <header
@@ -34,3 +46,9 @@ export default function HubToolbar({ leading, center, trailing, dense, className
     </header>
   );
 }
+
+HubToolbar.Leading = Leading;
+HubToolbar.Center = Center;
+HubToolbar.Trailing = Trailing;
+
+export default HubToolbar;

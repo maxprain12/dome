@@ -18,11 +18,10 @@ export default function LanguageSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title={t('settings.language.title')}
-        subtitle={t('settings.language.subtitle')}
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{t('settings.language.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.language.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       <div>
         <DomeSectionLabel className="settings-section-label">

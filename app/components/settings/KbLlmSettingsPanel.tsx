@@ -144,16 +144,15 @@ export default function KbLlmSettingsPanel() {
 
   return (
     <SettingsPanel className="!gap-6">
-      <DomeSubpageHeader
-        title={t('settings.kb_llm.title')}
-        subtitle={t('settings.kb_llm.subtitle')}
-        trailing={
+      <DomeSubpageHeader className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2">
+        <DomeSubpageHeader.Title>{t('settings.kb_llm.title')}</DomeSubpageHeader.Title>
+        <DomeSubpageHeader.Subtitle>{t('settings.kb_llm.subtitle')}</DomeSubpageHeader.Subtitle>
+        <DomeSubpageHeader.Trailing>
           <DomeIconBox size="md" className="!w-10 !h-10">
             <BookMarked className="size-5 text-[var(--accent)]" aria-hidden />
           </DomeIconBox>
-        }
-        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
-      />
+        </DomeSubpageHeader.Trailing>
+      </DomeSubpageHeader>
 
       <DomeCard>
         <DomeSectionLabel className="mb-3 font-bold uppercase tracking-widest opacity-60 text-[var(--dome-text-muted)]">

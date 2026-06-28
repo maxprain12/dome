@@ -14,7 +14,8 @@ import {
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import type { Resource } from '@/lib/hooks/useResources';
-import MoveToProjectModal, { filterMoveProjectRoots } from '@/components/workspace/MoveToProjectModal';
+import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
+import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import { useTranslation } from 'react-i18next';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import { ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';

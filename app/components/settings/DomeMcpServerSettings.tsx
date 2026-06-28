@@ -107,10 +107,10 @@ export default function DomeMcpServerSettings() {
 
   return (
     <SettingsPanel className="!gap-6">
-      <DomeSubpageHeader
-        title={t('dome_mcp.title')}
-        subtitle={t('dome_mcp.subtitle')}
-      />
+      <DomeSubpageHeader>
+  <DomeSubpageHeader.Title>{t('dome_mcp.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('dome_mcp.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {/* Toggle + status */}
       <DomeCard>

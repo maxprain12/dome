@@ -482,17 +482,23 @@ function AutomationsTab({
         className="bg-[var(--dome-bg)] h-full min-h-0"
         header={
           <DomeSubpageHeader
-            title={isNew ? t('automation.new_page_title') : t('automation.edit_page_title')}
-            subtitle={isNew ? t('automation.new_page_subtitle') : t('automation.edit_page_subtitle')}
             onBack={() => setFormMode('hidden')}
             backLabel={t('common.back')}
             className="border-[var(--dome-border)] bg-[var(--dome-bg)]"
-          />
+          >
+            <DomeSubpageHeader.Title>
+              {isNew ? t('automation.new_page_title') : t('automation.edit_page_title')}
+            </DomeSubpageHeader.Title>
+            <DomeSubpageHeader.Subtitle>
+              {isNew ? t('automation.new_page_subtitle') : t('automation.edit_page_subtitle')}
+            </DomeSubpageHeader.Subtitle>
+          </DomeSubpageHeader>
         }
         footer={
           <DomeSubpageFooter
             className="px-6 border-[var(--dome-border)] bg-[var(--dome-bg)]"
-            trailing={
+          >
+            <DomeSubpageFooter.Trailing>
               <>
                 <DomeButton type="button" variant="secondary" size="sm" onClick={() => setFormMode('hidden')}>
                   {t('automation.cancel')}
@@ -508,8 +514,8 @@ function AutomationsTab({
                   {isNew ? t('automation.create_footer') : t('automation.save_changes')}
                 </DomeButton>
               </>
-            }
-          />
+            </DomeSubpageFooter.Trailing>
+          </DomeSubpageFooter>
         }
       >
         <div className="max-w-2xl mx-auto p-6">
@@ -543,10 +549,9 @@ function AutomationsTab({
           aria-label={t('automationHub.import_automation_json', 'Import automation JSON file')}
           onChange={(ev) => void handleAutomationImportFile(ev)}
         />
-        <HubToolbar
-          dense
-          leading={
-            editorialHub ? undefined : (
+        <HubToolbar dense>
+          {!editorialHub ? (
+            <HubToolbar.Leading>
             <HubTitleBlock
               icon={Zap}
               title={t('automationHub.tab_automations')}
@@ -563,16 +568,16 @@ function AutomationsTab({
                 return base + scopeSuffix;
               })()}
             />
-            )
-          }
-          center={
+            </HubToolbar.Leading>
+          ) : null}
+          <HubToolbar.Center>
             <HubSearchField
               value={searchText}
               onChange={setSearchText}
               placeholder={t('automation.search_automations')}
             />
-          }
-          trailing={
+          </HubToolbar.Center>
+          <HubToolbar.Trailing>
             <>
               <DomeButton
                 type="button"
@@ -608,8 +613,8 @@ function AutomationsTab({
                 {t('automation.button_new')}
               </DomeButton>
             </>
-          }
-        />
+          </HubToolbar.Trailing>
+        </HubToolbar>
 
         {/* Active filter label */}
         {filter.targetId && (
@@ -670,10 +675,11 @@ function AutomationsTab({
                     <HubBentoCard
                       variant={hubCardVariant}
                       onClick={() => handleEdit(a)}
-                      icon={
+                    >
+                      <HubBentoCard.Icon>
                         <HubEntityIcon kind={automationTargetIconKind(a)} size="md" />
-                      }
-                      title={
+                      </HubBentoCard.Icon>
+                      <HubBentoCard.Title>
                         <div className="flex w-full min-w-0 items-start gap-2 flex-wrap">
                           <span
                             className={cn(
@@ -707,9 +713,9 @@ function AutomationsTab({
                             {a.enabled ? t('automation.state_enabled') : t('automation.state_disabled')}
                           </span>
                         </div>
-                      }
-                      subtitle={
-                        desc ? (
+                      </HubBentoCard.Title>
+                      <HubBentoCard.Subtitle>
+                        {desc ? (
                           <span className="break-words" title={desc}>
                             {desc}
                           </span>
@@ -717,7 +723,8 @@ function AutomationsTab({
                           <span className="text-[11px] break-words">{targetLine}</span>
                         )
                       }
-                      meta={
+                      </HubBentoCard.Subtitle>
+                      <HubBentoCard.Meta>
                         <div
                           className="mt-1 flex w-full min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 text-[11px]"
                           style={{ color: 'var(--dome-text-muted)' }}
@@ -739,8 +746,8 @@ function AutomationsTab({
                             ) : null}
                           </span>
                         </div>
-                      }
-                      trailing={
+                      </HubBentoCard.Meta>
+                      <HubBentoCard.Trailing>
                         <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
                           <DomeButton
                             type="button"
@@ -802,8 +809,8 @@ function AutomationsTab({
                             <Trash2 className="size-3.5" aria-hidden />
                           </DomeButton>
                         </div>
-                      }
-                    />
+                      </HubBentoCard.Trailing>
+                    </HubBentoCard>
                     </li>
                   );
                 })}

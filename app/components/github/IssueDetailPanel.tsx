@@ -281,17 +281,19 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     return [...set];
   }, [assignees, comments, timeline]);
 
+  const assignedSet = useMemo(() => new Set(assignees.map((a) => a.toLowerCase())), [assignees]);
+
   const assigneeSuggestions = useMemo(() => {
     const q = assigneePickerQuery.trim().toLowerCase();
     const out: typeof mentionables = [];
     for (const u of mentionables) {
-      if (assignees.includes(u.login)) continue;
+      if (assignedSet.has(u.login.toLowerCase())) continue;
       if (q && !u.login.toLowerCase().includes(q)) continue;
       out.push(u);
       if (out.length >= 8) break;
     }
     return out;
-  }, [mentionables, assignees, assigneePickerQuery]);
+  }, [mentionables, assignedSet, assigneePickerQuery]);
 
   if (!initial) return null;
 

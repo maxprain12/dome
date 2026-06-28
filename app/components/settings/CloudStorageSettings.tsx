@@ -110,11 +110,10 @@ export default function CloudStorageSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title="Cloud Storage"
-        subtitle="Conecta Google Drive para explorar e importar archivos directamente en Dome."
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{"Cloud Storage"}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{"Conecta Google Drive para explorar e importar archivos directamente en Dome."}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {/* Connected accounts */}
       {loading ? (

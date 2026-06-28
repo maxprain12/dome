@@ -8,7 +8,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Clock, Loader2, XCircle } from 'lucide-react';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
-import { formatRunDate } from '@/components/automations/RunLogView';
+import { formatRunDate } from '@/lib/automations/run-log-format';
 import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import type { PersistentRun, PersistentRunStep } from '@/lib/automations/api';
 import { cn } from '@/lib/utils';

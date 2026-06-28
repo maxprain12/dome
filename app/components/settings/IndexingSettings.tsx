@@ -154,11 +154,10 @@ export default function IndexingSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title={t('settings.indexing.title')}
-        subtitle={t('settings.indexing.subtitle')}
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{t('settings.indexing.title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.indexing.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {/* Full library index (cloud vision transcription + Nomic embeddings) */}
       <div>
@@ -233,11 +232,10 @@ export default function IndexingSettings() {
       </DomeSectionLabel>
 
       <div className="pt-2 border-t" style={{ borderColor: 'var(--dome-border)' }}>
-        <DomeSubpageHeader
-          className="!border-0 p-0 bg-transparent mt-2"
-          title={t('settings.embeddings.section_title')}
-          subtitle={t('settings.embeddings.section_hint')}
-        />
+        <DomeSubpageHeader className={"!border-0 p-0 bg-transparent mt-2"}>
+  <DomeSubpageHeader.Title>{t('settings.embeddings.section_title')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.embeddings.section_hint')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
         {embedStatus && embedStatus.configured === false && !embedLoading ? (
           <DomeCallout tone="warning" className="mt-3">

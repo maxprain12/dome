@@ -204,11 +204,10 @@ export default function MCPSettingsPanel() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title="MCP"
-        subtitle={t('settings.mcp.subtitle')}
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{t('settings.mcp.subtitle')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.mcp.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {error ? <DomeCallout tone="error">{error}</DomeCallout> : null}
 

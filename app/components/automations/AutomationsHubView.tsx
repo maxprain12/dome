@@ -458,13 +458,12 @@ export default function AutomationsHubView({ onAgentSelect, shellHubTab }: Autom
 
   return (
     <HubWorkspaceProvider value={hubWorkspaceValue}>
-      <HubPageLayout
-        secondaryNav={
-          !shellHubTab ? (
+      <HubPageLayout>
+        {!shellHubTab ? (
+          <HubPageLayout.SecondaryNav>
             <HubSecondaryNav tabs={hubTabs} activeId={activeTab} onChange={handleTabChange} />
-          ) : undefined
-        }
-      >
+          </HubPageLayout.SecondaryNav>
+        ) : null}
         {workspaceBody}
       </HubPageLayout>
     </HubWorkspaceProvider>

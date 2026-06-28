@@ -45,10 +45,10 @@ export default function SkillsSettingsPanel() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        title={t('settings.skills.title', 'Skills')}
-        subtitle={t('settings.skills.subtitle_file', 'Skills live as SKILL.md files in ~/.dome/skills. Each skill is automatically available to every AI agent.')}
-      />
+      <DomeSubpageHeader>
+  <DomeSubpageHeader.Title>{t('settings.skills.title', 'Skills')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.skills.subtitle_file', 'Skills live as SKILL.md files in ~/.dome/skills. Each skill is automatically available to every AI agent.')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       <div className="settings-action-row mb-5">
         <DomeButton

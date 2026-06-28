@@ -4,10 +4,10 @@ import { ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 import HubListState from '@/components/ui/HubListState';
 import { useTabStore } from '@/lib/store/useTabStore';
 import SemanticGraphCanvas, {
-  SEMANTIC_RESOURCE_TYPE_FILL,
   type GraphEdgeDatum,
   type GraphNodeDatum,
 } from './SemanticGraphCanvas';
+import { SEMANTIC_RESOURCE_TYPE_FILL } from '@/lib/semantic-graph/resourceTypeFill';
 import { EdgeConfirmPanel, type SemanticEdgePanelData } from './EdgeConfirmPanel';
 import './semantic-graph-toolbar.css';
 

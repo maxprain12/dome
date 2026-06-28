@@ -308,9 +308,8 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         {error && <p className="mt-3 text-xs text-[var(--dome-error)]">{error}</p>}
       </div>
 
-      <DomeSubpageFooter
-        className="!px-6 !py-4"
-        leading={
+      <DomeSubpageFooter className="!px-6 !py-4">
+        <DomeSubpageFooter.Leading>
           <DomeButton
             type="button"
             variant="outline"
@@ -320,9 +319,9 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
           >
             {currentStepIndex === 0 ? t('common.cancel') : t('common.back')}
           </DomeButton>
-        }
-        trailing={
-          step === 'icon' ? (
+        </DomeSubpageFooter.Leading>
+        <DomeSubpageFooter.Trailing>
+          {step === 'icon' ? (
             <DomeButton
               type="button"
               variant="primary"
@@ -345,9 +344,9 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
             >
               {t('onboarding.continue')}
             </DomeButton>
-          )
-        }
-      />
+          )}
+        </DomeSubpageFooter.Trailing>
+      </DomeSubpageFooter>
     </div>
   );
 }

@@ -17,7 +17,8 @@ import DomeButton from '@/components/ui/DomeButton';
 import { useEditorialHub } from '@/lib/context/EditorialHubContext';
 import { useWorkflowLibrary } from './useWorkflowLibrary';
 import WorkflowLibraryCard from './WorkflowLibraryCard';
-import WorkflowLibraryFolderTree, { childFolders } from './WorkflowLibraryFolderTree';
+import WorkflowLibraryFolderTree from './WorkflowLibraryFolderTree';
+import { childFolders } from '@/lib/agent-canvas/workflow-library-folders';
 import {
   DND_WORKFLOW_MIME,
   folderByIdMap,
@@ -151,26 +152,25 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
           if (file) void handleWorkflowImportFile(file);
         }}
       />
-      <HubToolbar
-        dense
-        leading={
-          editorialHub ? undefined : (
+      <HubToolbar dense>
+        {!editorialHub ? (
+          <HubToolbar.Leading>
             <HubTitleBlock
               icon={Workflow}
               title={t('canvas.workflow_library')}
               subtitle={t('canvas.workflows_saved_count', { count: workflows.length })}
             />
-          )
-        }
-        center={
+          </HubToolbar.Leading>
+        ) : null}
+        <HubToolbar.Center>
           <HubSearchField
             value={search}
             onChange={setSearch}
             placeholder={t('canvas.search_workflows_placeholder')}
             ariaLabel={t('canvas.search_workflows_placeholder')}
           />
-        }
-        trailing={
+        </HubToolbar.Center>
+        <HubToolbar.Trailing>
           <>
             <DomeButton
               type="button"
@@ -202,8 +202,8 @@ export default function WorkflowLibraryView({ onShowAutomations }: WorkflowLibra
               {t('canvas.new_workflow')}
             </DomeButton>
           </>
-        }
-      />
+        </HubToolbar.Trailing>
+      </HubToolbar>
 
       <div
         className="flex-1 overflow-y-auto p-4"

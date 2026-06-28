@@ -453,11 +453,14 @@ function TabContentWithSplit({ tab }: { tab: DomeTab }) {
 
   return (
     <>
-      <WorkspaceSplitView
-        tab={tab}
-        primary={<TabContent tab={tab} />}
-        reference={<TabContent tab={referenceTab} referenceMode />}
-      />
+      <WorkspaceSplitView tab={tab}>
+        <WorkspaceSplitView.Primary>
+          <TabContent tab={tab} />
+        </WorkspaceSplitView.Primary>
+        <WorkspaceSplitView.Reference>
+          <TabContent tab={referenceTab} referenceMode />
+        </WorkspaceSplitView.Reference>
+      </WorkspaceSplitView>
       <TabContentReadyNotifier />
     </>
   );

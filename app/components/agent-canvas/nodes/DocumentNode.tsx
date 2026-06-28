@@ -14,6 +14,8 @@ interface ResourceOption {
   metadata?: Record<string, unknown>;
 }
 
+const ALLOWED_RESOURCE_TYPES = new Set(['pdf', 'url']);
+
 export default function DocumentNode({
   id,
   data,
@@ -37,7 +39,7 @@ export default function DocumentNode({
       if (Array.isArray(resourcesList)) {
         const mapped: ResourceOption[] = [];
         for (const r of resourcesList as ResourceOption[]) {
-          if (!['pdf', 'url'].includes(r.type)) continue;
+          if (!ALLOWED_RESOURCE_TYPES.has(r.type)) continue;
           mapped.push({
             id: r.id,
             title: r.title,

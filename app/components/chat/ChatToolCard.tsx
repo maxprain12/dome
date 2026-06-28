@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import ArtifactCard from './ArtifactCard';
-import ChatTodoList, { parseTodos } from './ChatTodoList';
+import ChatTodoList from './ChatTodoList';
+import type { TodoItem } from '@/lib/chat/todos';
+import { parseTodos } from '@/lib/chat/todos';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-utils';
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
@@ -65,10 +67,10 @@ import {
   getCodegenPreview,
 } from './tool-card/toolResultParsers';
 import {
-  renderToolSuccessHighlight,
   CodegenPreview,
-  renderTreeToolSummary,
 } from './tool-card/ToolResultHighlights';
+import { renderToolSuccessHighlight } from '@/lib/chat/toolResultHighlights';
+import { renderTreeToolSummary } from '@/lib/chat/renderTreeToolSummary';
 
 function formatToolResult(result: unknown): string {
   if (typeof result === 'string') return result;

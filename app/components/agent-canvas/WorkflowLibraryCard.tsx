@@ -46,29 +46,30 @@ export default function WorkflowLibraryCard({
         e.dataTransfer.effectAllowed = 'move';
       }}
       onClick={() => onOpen(wf)}
-      icon={
+    >
+      <HubBentoCard.Icon>
         <div
           className="size-10 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: 'var(--dome-accent-bg)' }}
         >
           <Workflow className="size-5" style={{ color: 'var(--dome-accent)' }} aria-hidden />
         </div>
-      }
-      title={
-        hubCardVariant === 'editorial' ? (
+      </HubBentoCard.Icon>
+      <HubBentoCard.Title>
+        {hubCardVariant === 'editorial' ? (
           <span className="min-w-0 break-words">{wf.name}</span>
         ) : (
           <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
             {wf.name}
           </span>
-        )
-      }
-      subtitle={
+        )}
+      </HubBentoCard.Title>
+      <HubBentoCard.Subtitle>
         <span className="break-words" title={desc || undefined}>
           {desc || graphSummary}
         </span>
-      }
-      meta={
+      </HubBentoCard.Subtitle>
+      <HubBentoCard.Meta>
         <div
           className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]"
           style={{ color: 'var(--dome-text-muted)' }}
@@ -80,8 +81,8 @@ export default function WorkflowLibraryCard({
             {formatWorkflowDate(wf.updatedAt)}
           </span>
         </div>
-      }
-      trailing={
+      </HubBentoCard.Meta>
+      <HubBentoCard.Trailing>
         <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
           {onShowAutomations ? (
             <DomeButton
@@ -125,7 +126,7 @@ export default function WorkflowLibraryCard({
             )}
           </DomeButton>
         </div>
-      }
-    />
+      </HubBentoCard.Trailing>
+    </HubBentoCard>
   );
 }

@@ -3,12 +3,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, FileEdit, FileText, Image as ImageIcon, Maximize2, Music, Notebook, Presentation, Video, Link as LinkIcon, PanelRightClose, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
 
 interface WorkspaceSplitViewProps {
   tab: DomeTab;
-  primary: ReactNode;
-  reference: ReactNode;
+  children?: ReactNode;
 }
+
+const Primary = defineSlot('WorkspaceSplitView.Primary');
+const Reference = defineSlot('WorkspaceSplitView.Reference');
 
 interface ReferenceMeta {
   icon: ReactNode;
@@ -41,7 +44,11 @@ function getReferenceMeta(resourceType: string, t: ReturnType<typeof useTranslat
   }
 }
 
-export default function WorkspaceSplitView({ tab, primary, reference }: WorkspaceSplitViewProps) {
+function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
+  const { primary, reference } = collectCompoundSlots(children, {
+    primary: Primary,
+    reference: Reference,
+  });
   const { t } = useTranslation();
   const startXRef = useRef(0);
   const startWidthRef = useRef(tab.splitWidth ?? 420);
@@ -210,3 +217,8 @@ export default function WorkspaceSplitView({ tab, primary, reference }: Workspac
     </div>
   );
 }
+
+WorkspaceSplitView.Primary = Primary;
+WorkspaceSplitView.Reference = Reference;
+
+export default WorkspaceSplitView;

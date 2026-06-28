@@ -71,11 +71,10 @@ export default function PluginsSettings() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        className="!border-0 p-0 bg-transparent"
-        title="Plugins"
-        subtitle={t('settings.plugins.subtitle')}
-      />
+      <DomeSubpageHeader className={"!border-0 p-0 bg-transparent"}>
+  <DomeSubpageHeader.Title>{t('settings.plugins.subtitle')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.plugins.subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       {message ? (
         <DomeCallout tone={message.type === 'success' ? 'success' : 'error'}>{message.text}</DomeCallout>

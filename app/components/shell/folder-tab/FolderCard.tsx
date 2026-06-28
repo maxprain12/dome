@@ -118,23 +118,22 @@ function pickThumbnail(item: Resource): string | null {
 }
 
 function highlightSnippet(text: string, query: string): ReactNode {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   if (!q) return text;
-  const lower = text.toLowerCase();
+  const re = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   const parts: ReactNode[] = [];
-  let cursor = 0;
-  let match = lower.indexOf(q, cursor);
-  while (match !== -1) {
-    if (match > cursor) parts.push(text.slice(cursor, match));
+  let lastIndex = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
     parts.push(
-      <mark key={match} className="dome-folder-view__search-mark">
-        {text.slice(match, match + q.length)}
+      <mark key={idx} className="dome-folder-view__search-mark">
+        {match[0]}
       </mark>,
     );
-    cursor = match + q.length;
-    match = lower.indexOf(q, cursor);
+    lastIndex = idx + match[0].length;
   }
-  if (cursor < text.length) parts.push(text.slice(cursor));
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
   return parts.length > 0 ? parts : text;
 }
 

@@ -88,8 +88,9 @@ export default memo(function AgentChatInput({
     void db.getAISkills().then((res) => {
       if (cancelled || !res.success || !Array.isArray(res.data)) return;
       const next: Record<string, string> = {};
+      const idSet = new Set(ids);
       for (const row of res.data as Array<{ id?: string; name?: string }>) {
-        if (row.id && ids.includes(row.id)) {
+        if (row.id && idSet.has(row.id)) {
           next[row.id] = row.name || row.id;
         }
       }

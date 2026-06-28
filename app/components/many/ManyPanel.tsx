@@ -10,6 +10,7 @@ import ManyChatHeader from './ManyChatHeader';
 import ManyChatHistoryPanel from './ManyChatHistoryPanel';
 import ChatHistoryPanel from '@/components/chat/ChatHistoryPanel';
 import UnifiedChatInput from '@/components/chat/UnifiedChatInput';
+import ManyChatInput from '@/components/many/ManyChatInput';
 import { useManyStore, type ManyChatSession, type ManyMessage, type PendingPdfRegion } from '@/lib/store/useManyStore';
 import { useManyConversationSettings } from './useManyConversationSettings';
 import {
@@ -46,7 +47,8 @@ import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { showToast } from '@/lib/store/useToastStore';
 import ManyAvatar from './ManyAvatar';
 import ManyMinimalStatusRow from './ManyMinimalStatusRow';
-import ChatMessageGroup, { groupMessagesByRole } from '@/components/chat/ChatMessageGroup';
+import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
+import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
@@ -1226,14 +1228,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       (messages.length > 0 || isLoading || lastBudgetSessionId === currentSessionId),
   );
 
-  const contextUsageNode = showContextUsage ? (
-    <ContextUsageIndicator
-      key={currentSessionId ?? 'none'}
-      breakdown={displayBudget!}
-      liveUsage={sessionLiveUsage}
-      budgetCapApprox={budgetCapApprox}
-      variant="header"
-    />
+  const composerContextUsageSlot = showContextUsage ? (
+    <ManyChatInput.ContextUsage>
+      <ContextUsageIndicator
+        key={currentSessionId ?? 'none'}
+        breakdown={displayBudget!}
+        liveUsage={sessionLiveUsage}
+        budgetCapApprox={budgetCapApprox}
+        variant="header"
+      />
+    </ManyChatInput.ContextUsage>
   ) : null;
 
   const handleSelectSession = useCallback(
@@ -1318,8 +1322,19 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         onClose={onClose}
         showClose={!isFullscreen}
         showHistoryToggle
-        contextUsage={!isFullscreen ? contextUsageNode : null}
-      />
+      >
+        {!isFullscreen && showContextUsage ? (
+          <ManyChatHeader.ContextUsage>
+            <ContextUsageIndicator
+              key={currentSessionId ?? 'none'}
+              breakdown={displayBudget!}
+              liveUsage={sessionLiveUsage}
+              budgetCapApprox={budgetCapApprox}
+              variant="header"
+            />
+          </ManyChatHeader.ContextUsage>
+        ) : null}
+      </ManyChatHeader>
 
       {showHistory && !isFullscreen ? (
         <ManyChatHistoryPanel
@@ -1573,8 +1588,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                 attachments={chatAttachments}
                 onAttachmentsChange={setChatAttachments}
                 showComposerKeyboardHint
-                composerContextUsage={contextUsageNode}
-              />
+              >
+                {composerContextUsageSlot}
+              </UnifiedChatInput>
             </div>
           </div>
         ) : (
@@ -1600,8 +1616,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
             onAttachmentsChange={setChatAttachments}
             showComposerKeyboardHint
             compact={!isFullscreen}
-            composerContextUsage={contextUsageNode}
-          />
+          >
+            {composerContextUsageSlot}
+          </UnifiedChatInput>
         )
       )}
         </div>

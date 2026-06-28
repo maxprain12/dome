@@ -96,6 +96,11 @@ export default function AudioOverview({
   const lineRefs = useRef<Map<number, HTMLDivElement> | null>(null);
   const lineRefMap = lazyRef(lineRefs, () => new Map());
 
+  const lineIndexByRef = useMemo(
+    () => new Map(transcript.lines.map((line, idx) => [line, idx])),
+    [transcript.lines],
+  );
+
   const activeLineIndex = useMemo(() => {
     if (!audioUrl || !isAudioLoaded) return -1;
 
@@ -105,11 +110,11 @@ export default function AudioOverview({
     for (let i = linesWithTime.length - 1; i >= 0; i--) {
       const line = linesWithTime[i];
       if (line && currentTime >= (line.startTime ?? 0)) {
-        return transcript.lines.indexOf(line);
+        return lineIndexByRef.get(line) ?? -1;
       }
     }
     return -1;
-  }, [audioUrl, isAudioLoaded, currentTime, transcript.lines]);
+  }, [audioUrl, isAudioLoaded, currentTime, transcript.lines, lineIndexByRef]);
 
   useEffect(() => {
     if (activeLineIndex < 0) return;

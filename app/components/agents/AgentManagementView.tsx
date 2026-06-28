@@ -361,7 +361,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
           e.dataTransfer.effectAllowed = 'move';
         }}
         onClick={() => onAgentSelect?.(agent.id)}
-        icon={
+      >
+        <HubBentoCard.Icon>
           <div
             className="size-10 rounded-lg flex items-center justify-center shrink-0 overflow-hidden"
             style={{ background: 'var(--dome-accent-bg)' }}
@@ -372,22 +373,22 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               className="size-full object-contain"
             />
           </div>
-        }
-        title={
-          editorialHub ? (
+        </HubBentoCard.Icon>
+        <HubBentoCard.Title>
+          {editorialHub ? (
             <span className="min-w-0 break-words">{agent.name}</span>
           ) : (
             <span className="text-sm font-semibold min-w-0 break-words" style={{ color: 'var(--dome-text)' }}>
               {agent.name}
             </span>
-          )
-        }
-        subtitle={
+          )}
+        </HubBentoCard.Title>
+        <HubBentoCard.Subtitle>
           <span className="break-words" title={desc || undefined}>
             {subtitleText}
           </span>
-        }
-        meta={
+        </HubBentoCard.Subtitle>
+        <HubBentoCard.Meta>
           <div
             className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]"
             style={{ color: 'var(--dome-text-muted)' }}
@@ -405,9 +406,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               </span>
             ) : null}
           </div>
-        }
-        persistentTrailing={
-          editorialHub ? (
+        </HubBentoCard.Meta>
+        {editorialHub ? (
+          <HubBentoCard.PersistentTrailing>
             <DomeButton
               type="button"
               variant="ghost"
@@ -426,9 +427,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 aria-hidden
               />
             </DomeButton>
-          ) : undefined
-        }
-        trailing={
+          </HubBentoCard.PersistentTrailing>
+        ) : null}
+        <HubBentoCard.Trailing>
           <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-0.5 sm:gap-1">
             {!editorialHub ? (
               <DomeButton
@@ -487,8 +488,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
               <Trash2 className="size-3.5" aria-hidden />
             </DomeButton>
           </div>
-        }
-      />
+        </HubBentoCard.Trailing>
+      </HubBentoCard>
     );
   };
 
@@ -653,10 +654,9 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
   return (
     <>
       <div className="h-full flex flex-col overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
-        <HubToolbar
-          dense
-          leading={
-            editorialHub ? undefined : (
+        <HubToolbar dense>
+          {!editorialHub ? (
+            <HubToolbar.Leading>
             <HubTitleBlock
               icon={Bot}
               title={t('agents.agent_library')}
@@ -666,17 +666,17 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                   : t('agents.agents_configured_other', { count: agents.length })
               }
             />
-            )
-          }
-          center={
+            </HubToolbar.Leading>
+          ) : null}
+          <HubToolbar.Center>
             <HubSearchField
               value={search}
               onChange={setSearch}
               placeholder={t('agents.search_placeholder')}
               ariaLabel={t('agents.search_placeholder')}
             />
-          }
-          trailing={
+          </HubToolbar.Center>
+          <HubToolbar.Trailing>
             <>
               <button
                 type="button"
@@ -746,8 +746,8 @@ export default function AgentManagementView({ onAgentSelect, onShowAutomations }
                 {t('ui.add')}
               </button>
             </>
-          }
-        />
+          </HubToolbar.Trailing>
+        </HubToolbar>
 
         <div
           className="flex-1 overflow-y-auto p-4"

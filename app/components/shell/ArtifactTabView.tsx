@@ -68,7 +68,10 @@ export default function ArtifactTabView({ rawJson }: { rawJson: string }) {
       className="flex flex-1 min-h-0 flex-col overflow-hidden"
       style={{ background: 'var(--dome-bg)' }}
     >
-      <DomeSubpageHeader title={title} subtitle={subtitle} />
+      <DomeSubpageHeader>
+  <DomeSubpageHeader.Title>{title}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{subtitle}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
       <div className="flex-1 min-h-0 overflow-y-auto p-4">
         <div className="w-full mx-auto" style={{ maxWidth: 'min(100%, 1400px)' }}>
           <ArtifactCard artifact={parsed.artifact} />

@@ -167,10 +167,10 @@ export default function AgentContextSettingsTab() {
 
   return (
     <div className="space-y-4">
-      <DomeSubpageHeader
-        title={t('settings.ai.tab_context')}
-        subtitle={t('settings.ai.context_subtitle')}
-      />
+      <DomeSubpageHeader>
+  <DomeSubpageHeader.Title>{t('settings.ai.tab_context')}</DomeSubpageHeader.Title>
+  <DomeSubpageHeader.Subtitle>{t('settings.ai.context_subtitle')}</DomeSubpageHeader.Subtitle>
+</DomeSubpageHeader>
 
       <div className="settings-action-row flex-wrap">
         <DomeButton

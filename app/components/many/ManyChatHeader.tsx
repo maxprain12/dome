@@ -4,6 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import ManyAvatar from './ManyAvatar';
 import { sanitizeManySessionTitle } from '@/lib/store/manySessionStorage';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
+
+const ContextUsage = defineSlot('ManyChatHeader.ContextUsage');
 
 interface ManyChatHeaderProps {
   status: string;
@@ -22,11 +25,10 @@ interface ManyChatHeaderProps {
   showClose?: boolean;
   /** Sidebar Many: overlay; fullscreen: columna derecha interna */
   showHistoryToggle?: boolean;
-  /** Context window donut + popup */
-  contextUsage?: ReactNode;
+  children?: ReactNode;
 }
 
-export default memo(function ManyChatHeader({
+const ManyChatHeader = memo(function ManyChatHeader({
   status,
   providerInfo,
   providerId,
@@ -41,8 +43,11 @@ export default memo(function ManyChatHeader({
   historyOpen = false,
   showClose = true,
   showHistoryToggle = true,
-  contextUsage,
+  children,
 }: ManyChatHeaderProps) {
+  const { contextUsage } = collectCompoundSlots(children, {
+    contextUsage: ContextUsage,
+  });
   const { t } = useTranslation();
   const isThinking = status === 'thinking';
   const isSpeaking = status === 'speaking';
@@ -147,3 +152,7 @@ export default memo(function ManyChatHeader({
     </div>
   );
 });
+
+const ManyChatHeaderWithSlots = Object.assign(ManyChatHeader, { ContextUsage });
+
+export default ManyChatHeaderWithSlots;

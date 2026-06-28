@@ -17,8 +17,8 @@ function UnifiedChatInput(props: UnifiedChatInputProps) {
     const { mode: _m, ...rest } = props;
     return <AgentChatInput {...rest} />;
   }
-  const { mode: _m, ...rest } = props;
-  return <ManyChatInput {...rest} />;
+  const { mode: _m, children, ...rest } = props;
+  return <ManyChatInput {...rest}>{children}</ManyChatInput>;
 }
 
 export default memo(UnifiedChatInput);

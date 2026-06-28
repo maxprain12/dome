@@ -454,14 +454,14 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
       className="flex flex-col h-full min-h-0 overflow-hidden"
       style={{ background: 'var(--bg)' }}
     >
-      <DomeSubpageHeader
-        title={
+      <DomeSubpageHeader>
+        <DomeSubpageHeader.Title>
           <span className="flex items-center gap-2">
             <Layers className="size-4 shrink-0" style={{ color: 'var(--accent)' }} />
             <span style={{ color: 'var(--primary-text)' }}>{artifact.title}</span>
           </span>
-        }
-        trailing={
+        </DomeSubpageHeader.Title>
+        <DomeSubpageHeader.Trailing>
           <>
             <IndexStatusBadge resourceId={resourceId} resourceType="artifact" />
             {artifact.linkedResourceId && (
@@ -525,8 +525,8 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
               {t('artifacts.export_html')}
             </button>
           </>
-        }
-      />
+        </DomeSubpageHeader.Trailing>
+      </DomeSubpageHeader>
       <div
         className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
         style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}

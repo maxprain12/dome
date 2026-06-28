@@ -1,27 +1,34 @@
 import type { ReactNode } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
 
 export interface DomeSubpageHeaderProps {
-  title: ReactNode;
-  subtitle?: ReactNode;
   onBack?: () => void;
   backLabel?: string;
-  trailing?: ReactNode;
   className?: string;
+  children?: ReactNode;
 }
+
+const Title = defineSlot('DomeSubpageHeader.Title');
+const Subtitle = defineSlot('DomeSubpageHeader.Subtitle');
+const Trailing = defineSlot('DomeSubpageHeader.Trailing');
 
 /**
  * Cabecera de subpágina (volver + título + acciones).
  */
-export default function DomeSubpageHeader({
-  title,
-  subtitle,
+function DomeSubpageHeader({
   onBack,
   backLabel = 'Back',
-  trailing,
   className,
+  children,
 }: DomeSubpageHeaderProps) {
+  const { title, subtitle, trailing } = collectCompoundSlots(children, {
+    title: Title,
+    subtitle: Subtitle,
+    trailing: Trailing,
+  });
+
   return (
     <header
       className={cn(
@@ -41,7 +48,9 @@ export default function DomeSubpageHeader({
         </button>
       ) : null}
       <div className="min-w-0 flex-1">
-        <h1 className="text-base font-semibold text-[var(--primary-text)] break-words line-clamp-4">{title}</h1>
+        {title != null ? (
+          <h1 className="text-base font-semibold text-[var(--primary-text)] break-words line-clamp-4">{title}</h1>
+        ) : null}
         {subtitle != null && subtitle !== '' ? (
           <div className="text-xs text-[var(--secondary-text)] mt-0.5 line-clamp-4">{subtitle}</div>
         ) : null}
@@ -50,3 +59,9 @@ export default function DomeSubpageHeader({
     </header>
   );
 }
+
+DomeSubpageHeader.Title = Title;
+DomeSubpageHeader.Subtitle = Subtitle;
+DomeSubpageHeader.Trailing = Trailing;
+
+export default DomeSubpageHeader;

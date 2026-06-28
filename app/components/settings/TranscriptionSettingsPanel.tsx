@@ -30,21 +30,20 @@ export default function TranscriptionSettingsPanel() {
 
   return (
     <SettingsPanel>
-      <DomeSubpageHeader
-        title={t('settings.transcription.title')}
-        subtitle={
+      <DomeSubpageHeader className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2">
+        <DomeSubpageHeader.Title>{t('settings.transcription.title')}</DomeSubpageHeader.Title>
+        <DomeSubpageHeader.Subtitle>
           <div className="space-y-2">
             <p>{t('settings.transcription.subtitle')}</p>
             <p className="text-[11px] leading-relaxed opacity-95">{t('settings.transcription.hub_floating_note')}</p>
           </div>
-        }
-        trailing={
+        </DomeSubpageHeader.Subtitle>
+        <DomeSubpageHeader.Trailing>
           <DomeIconBox size="md" className="!w-10 !h-10">
             <Mic className="size-5 text-[var(--accent)]" aria-hidden />
           </DomeIconBox>
-        }
-        className="rounded-xl border border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] px-4 py-3 mb-2"
-      />
+        </DomeSubpageHeader.Trailing>
+      </DomeSubpageHeader>
       <TranscriptionSettingsSections
         summaryModels={models.length > 0 ? models : PROVIDERS[provider]?.models ?? []}
         summaryModelsLoading={loading}

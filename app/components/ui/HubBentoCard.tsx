@@ -1,14 +1,8 @@
-import type { ReactNode, KeyboardEvent, DragEventHandler } from 'react';
+import type { KeyboardEvent, DragEventHandler, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
 
 export interface HubBentoCardProps {
-  icon?: ReactNode;
-  title: ReactNode;
-  subtitle?: ReactNode;
-  meta?: ReactNode;
-  trailing?: ReactNode;
-  /** Always visible actions (e.g. favorite star) — editorial rows only. */
-  persistentTrailing?: ReactNode;
   onClick?: () => void;
   selected?: boolean;
   disabled?: boolean;
@@ -23,18 +17,20 @@ export interface HubBentoCardProps {
   layout?: 'card' | 'list';
   /** `editorial` = fila plana con divisor (hub tabs); `card` = tarjeta con borde (legacy). */
   variant?: 'card' | 'editorial';
+  children?: ReactNode;
 }
+
+const Icon = defineSlot('HubBentoCard.Icon');
+const Title = defineSlot('HubBentoCard.Title');
+const Subtitle = defineSlot('HubBentoCard.Subtitle');
+const Meta = defineSlot('HubBentoCard.Meta');
+const Trailing = defineSlot('HubBentoCard.Trailing');
+const PersistentTrailing = defineSlot('HubBentoCard.PersistentTrailing');
 
 /**
  * Bento-style card for automations, agents, workflows, and runs.
  */
-export default function HubBentoCard({
-  icon,
-  title,
-  subtitle,
-  meta,
-  trailing,
-  persistentTrailing,
+function HubBentoCard({
   onClick,
   selected,
   disabled,
@@ -44,7 +40,17 @@ export default function HubBentoCard({
   onDragEnd,
   layout = 'list',
   variant = 'card',
+  children,
 }: HubBentoCardProps) {
+  const { icon, title, subtitle, meta, trailing, persistentTrailing } = collectCompoundSlots(children, {
+    icon: Icon,
+    title: Title,
+    subtitle: Subtitle,
+    meta: Meta,
+    trailing: Trailing,
+    persistentTrailing: PersistentTrailing,
+  });
+
   const isEditorial = variant === 'editorial';
   const interactive = Boolean(onClick) && !disabled;
   const surfaceRole = interactive ? 'button' : draggable ? 'group' : undefined;
@@ -200,3 +206,12 @@ export default function HubBentoCard({
     </div>
   );
 }
+
+HubBentoCard.Icon = Icon;
+HubBentoCard.Title = Title;
+HubBentoCard.Subtitle = Subtitle;
+HubBentoCard.Meta = Meta;
+HubBentoCard.Trailing = Trailing;
+HubBentoCard.PersistentTrailing = PersistentTrailing;
+
+export default HubBentoCard;
