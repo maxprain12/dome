@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 import type { DashboardArtifactV } from '@/lib/chat/artifactSchemas';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
+import './dashboard-artifact.css';
 
 const toneColor: Record<string, string> = {
   neutral: 'var(--secondary-text)',
@@ -68,49 +69,20 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
             const isFocused = focusedKpi === key;
             const isDimmed = focusedKpi !== null && !isFocused;
             const sub = k.sub ?? k.subtitle;
-            const accentBg = 'color-mix(in oklab, var(--accent) 8%, var(--bg-secondary))';
-            const accentBorder = 'color-mix(in oklab, var(--accent) 30%, var(--border))';
             return (
               <button
                 key={key}
                 type="button"
                 onClick={() => setFocusedKpi(isFocused ? null : key)}
                 aria-pressed={isFocused}
-                style={{
-                  textAlign: 'left',
-                  appearance: 'none',
-                  font: 'inherit',
-                  cursor: 'pointer',
-                  padding: 'var(--space-4)',
-                  borderRadius: 'var(--radius-lg)',
-                  background: isFocused || isLead ? accentBg : 'var(--bg-secondary)',
-                  border: `1px solid ${isFocused || isLead ? accentBorder : 'var(--border)'}`,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 4,
-                  minHeight: 88,
-                  position: 'relative',
-                  overflow: 'hidden',
-                  opacity: isDimmed ? 0.55 : 1,
-                  transform: isFocused ? 'translateY(-2px)' : 'translateY(0)',
-                  boxShadow: isFocused
-                    ? '0 4px 12px color-mix(in oklab, var(--accent) 18%, transparent)'
-                    : 'none',
-                  transition:
-                    'transform 160ms ease, opacity 160ms ease, box-shadow 160ms ease, background 160ms ease, border-color 160ms ease',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isFocused) {
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                    e.currentTarget.style.borderColor = accentBorder;
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isFocused) {
-                    e.currentTarget.style.transform = 'translateY(0)';
-                    e.currentTarget.style.borderColor = isLead ? accentBorder : 'var(--border)';
-                  }
-                }}
+                className={[
+                  'dash-kpi-card',
+                  (isFocused || isLead) && 'is-accent',
+                  isFocused && 'is-focused',
+                  isDimmed && 'is-dimmed',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
               >
                 <div
                   style={{
@@ -198,45 +170,13 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
             const collapsed = collapsedSections.has(key);
             const bodyId = `dash-section-${key}`;
             return (
-              <section
-                key={key}
-                style={{
-                  padding: 'var(--space-4)',
-                  borderRadius: 'var(--radius-lg)',
-                  background: 'var(--bg-secondary)',
-                  border: '1px solid var(--border)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 'var(--space-2)',
-                  transition: 'border-color 160ms ease, box-shadow 160ms ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'var(--border)';
-                }}
-              >
+              <section key={key} className="dash-section">
                 <button
                   type="button"
                   onClick={() => toggleSection(key)}
                   aria-expanded={!collapsed}
                   aria-controls={bodyId}
-                  style={{
-                    appearance: 'none',
-                    background: 'transparent',
-                    border: 0,
-                    padding: 0,
-                    cursor: 'pointer',
-                    color: 'inherit',
-                    font: 'inherit',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    paddingBottom: collapsed ? 0 : 8,
-                    borderBottom: collapsed ? 'none' : '1px solid var(--border)',
-                    transition: 'border-color 160ms ease, padding-bottom 160ms ease',
-                  }}
+                  className={`dash-section-toggle ${collapsed ? 'is-collapsed' : ''}`}
                 >
                   <span
                     aria-hidden
@@ -315,17 +255,8 @@ export default function DashboardArtifact({ artifact }: { artifact: DashboardArt
                     return (
                       <td
                         key={c}
-                        style={{
-                          minHeight: 36,
-                          borderRadius: 'var(--radius-sm)',
-                          border: '1px solid var(--border)',
-                          textAlign: 'center',
-                          padding: 4,
-                          fontSize: 12,
-                          color: cell ? toneColor[cell.tone ?? 'neutral'] : 'var(--tertiary-text)',
-                          background: cell ? 'var(--bg-hover)' : 'var(--bg-secondary)',
-                          verticalAlign: 'middle',
-                        }}
+                        className={`dash-map-cell ${cell ? 'is-filled' : 'is-empty'}`}
+                        style={{ color: cell ? toneColor[cell.tone ?? 'neutral'] : undefined }}
                       >
                         {cell?.label ?? '·'}
                       </td>

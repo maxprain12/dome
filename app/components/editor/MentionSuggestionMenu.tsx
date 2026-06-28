@@ -4,12 +4,12 @@ import {
   forwardRef,
   useImperativeHandle,
   useRef,
-  type CSSProperties,
   type RefObject,
   type Ref,
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import type { DomeMentionItem } from '@/lib/tiptap/extensions/resource-mention';
 import { useSuggestionPortalPosition } from './useSuggestionPortalPosition';
 
@@ -23,15 +23,7 @@ interface MentionSuggestionMenuProps {
   clientRect: (() => DOMRect | null) | null;
 }
 
-const menuContainerStyle: CSSProperties = {
-  background: 'var(--dome-surface)',
-  border: '1px solid var(--dome-border)',
-  borderRadius: 8,
-  padding: '6px',
-  minWidth: 220,
-  maxHeight: 260,
-  overflowY: 'auto',
-};
+const menuContainerClassName = 'mention-suggestion-menu note-mention-menu-shell';
 
 export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSuggestionMenuProps>(
   ({ items, command }, ref) => {
@@ -77,14 +69,7 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
     if (!items.length) {
       return (
         <div
-          className="mention-suggestion-menu note-mention-menu-shell mention-suggestion-menu--empty"
-          style={{
-            ...menuContainerStyle,
-            overflowY: 'hidden',
-            color: 'var(--dome-text-muted)',
-            fontSize: 13,
-            lineHeight: 1.4,
-          }}
+          className={cn(menuContainerClassName, 'mention-suggestion-menu--empty')}
         >
           {t('focused_editor.mention_no_matches')}
         </div>
@@ -92,7 +77,7 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
     }
 
     return (
-      <div className="mention-suggestion-menu note-mention-menu-shell" style={menuContainerStyle}>
+      <div className={menuContainerClassName}>
         {items.map((item, index) => {
           const isSelected = index === selectedIndex;
           return (
@@ -101,21 +86,10 @@ export const MentionSuggestionMenu = forwardRef<MentionMenuHandle, MentionSugges
               type="button"
               onClick={() => selectItem(index)}
               onMouseEnter={() => setSelectedIndex(index)}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                width: '100%',
-                padding: '7px 10px',
-                border: 'none',
-                borderRadius: 6,
-                background: isSelected ? 'var(--dome-bg-hover)' : 'transparent',
-                cursor: 'pointer',
-                textAlign: 'left',
-              }}
+              className={cn('mention-suggestion-item', isSelected && 'is-selected')}
             >
-              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--dome-text)' }}>{item.label}</span>
-              <span style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>{item.type}</span>
+              <span className="mention-suggestion-item__label">{item.label}</span>
+              <span className="mention-suggestion-item__type">{item.type}</span>
             </button>
           );
         })}

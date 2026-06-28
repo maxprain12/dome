@@ -67,34 +67,12 @@ export default memo(function ManyChatHeader({
 
       {/* Title + subtitle */}
       <div className="min-w-0 flex-1 flex flex-col" style={{ gap: 2 }}>
-        <div className="flex items-center" style={{ gap: 6 }}>
-          <span
-            style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: 'var(--primary-text)',
-              lineHeight: 1.3,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              maxWidth: 200,
-            }}
-          >
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-semibold text-[var(--primary-text)] leading-[1.3] overflow-hidden text-ellipsis whitespace-nowrap max-w-[200px]">
             {titleText}
           </span>
           {(isThinking || isSpeaking) && (
-            <span
-              style={{
-                fontSize: 12,
-                color: 'var(--accent)',
-                fontWeight: 500,
-                padding: '1px 8px',
-                borderRadius: 999,
-                background: 'var(--accent-bg)',
-                lineHeight: 1.6,
-                flexShrink: 0,
-              }}
-            >
+            <span className="text-xs text-[var(--accent)] font-medium px-2 py-px rounded-full bg-[var(--accent-bg)] leading-[1.6] shrink-0">
               {isThinking ? t('many.thinking') : t('many.speaking')}
             </span>
           )}

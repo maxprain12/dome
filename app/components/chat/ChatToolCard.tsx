@@ -24,6 +24,7 @@ import { getToolDisplayLabelForCall } from '@/lib/chat/toolDisplayLabels';
 import { JsonPrettyPrinterRoot } from '@/lib/chat/jsonPrettyPrinter';
 import { isFilesystemTreeTool, parseTreeToolSummary } from '@/lib/chat/treeToolSummary';
 import { stableStringHash } from '@/lib/utils/stableStringHash';
+import './chat-tool-card.css';
 
 /**
  * ChatToolCard - Polished display for tool calls with category color system
@@ -213,20 +214,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
 
     if (showRawJson) {
       return (
-        <pre
-          style={{
-            fontSize: 12,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            overflowY: 'auto',
-            maxHeight: 256,
-            color: 'var(--secondary-text)',
-            background: 'var(--bg-tertiary)',
-            borderRadius: 4,
-            padding: '8px 10px',
-            margin: 0,
-          }}
-        >
+        <pre className="chat-tool-result-pre">
           {resultText}
         </pre>
       );
@@ -409,20 +397,7 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
     }
 
     return (
-      <pre
-        style={{
-          fontSize: 12,
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word',
-          overflowY: 'auto',
-          maxHeight: 256,
-          color: 'var(--secondary-text)',
-          background: 'var(--bg-tertiary)',
-          borderRadius: 4,
-          padding: '8px 10px',
-          margin: 0,
-        }}
-      >
+      <pre className="chat-tool-result-pre">
         {resultText}
       </pre>
     );

@@ -125,19 +125,10 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       ref={containerRef}
       open
       aria-label={t('transcriptions.start_title', 'New transcription')}
-      className="m-0 max-w-none max-h-none border-0"
+      className="transcription-start-popover m-0 max-w-none max-h-none fixed z-[9999] w-[360px] animate-dropdown rounded-xl border border-[var(--dome-border)] bg-[var(--dome-bg)] p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.18)]"
       style={{
-        position: 'fixed',
         top: position.top,
         right: position.right,
-        width: 360,
-        zIndex: 9999,
-        background: 'var(--dome-bg)',
-        border: '1px solid var(--dome-border)',
-        borderRadius: 12,
-        boxShadow: '0 12px 32px rgba(0,0,0,0.18)',
-        padding: 14,
-        animation: 'dropdown-appear 0.15s ease-out',
       }}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
     >
@@ -263,18 +254,7 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
         type="button"
         onClick={handleStart}
         disabled={!canStart}
-        style={{
-          width: '100%',
-          padding: '8px 12px',
-          fontSize: 13,
-          fontWeight: 600,
-          color: 'white',
-          background: canStart ? 'var(--dome-accent)' : 'var(--dome-bg-tertiary)',
-          border: 'none',
-          borderRadius: 8,
-          cursor: canStart ? 'pointer' : 'not-allowed',
-          transition: 'filter 150ms ease',
-        }}
+        className="transcription-start-btn w-full rounded-lg border-0 px-3 py-2 text-[13px] font-semibold text-white transition-[filter] duration-150 ease-in-out enabled:cursor-pointer enabled:bg-[var(--dome-accent)] disabled:cursor-not-allowed disabled:bg-[var(--dome-bg-tertiary)]"
       >
         {submitting ? t('transcriptions.starting', 'Starting…') : t('transcriptions.start_button', 'Start')}
       </button>

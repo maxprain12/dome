@@ -12,6 +12,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useTranslation } from 'react-i18next';
+import './markdown-renderer.css';
 
 /** UUID v4 pattern for resource IDs */
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -462,23 +463,9 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
               type="button"
               data-dome-href={href}
               onClick={handleAllClicks}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 3,
-                color: 'var(--accent)',
-                fontWeight: 500,
-                textDecoration: 'none',
-                cursor: 'pointer',
-                background: 'color-mix(in srgb, var(--accent) 10%, transparent)',
-                border: 'none',
-                borderRadius: 4,
-                padding: '1px 6px 1px 4px',
-                font: 'inherit',
-                fontSize: '0.95em',
-              }}
+              className="md-dome-link"
             >
-              <span style={{ fontSize: '0.85em', opacity: 0.8 }}>↗</span>
+              <span className="md-dome-link-icon">↗</span>
               {children}
             </button>
           );
@@ -489,16 +476,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
             type="button"
             data-dome-href={undefined}
             onClick={handleAllClicks}
-            style={{
-              color: 'var(--accent)',
-              textDecoration: 'underline',
-              textUnderlineOffset: 2,
-              cursor: 'pointer',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              font: 'inherit',
-            }}
+            className="md-external-link"
           >
             {children}
           </button>
@@ -511,23 +489,7 @@ export default function MarkdownRenderer({ content, citationMap, onClickCitation
         const isBlock = className?.startsWith('language-');
         if (isBlock) {
           return (
-            <code
-              style={{
-                display: 'block',
-                width: '100%',
-                maxWidth: '100%',
-                whiteSpace: 'pre-wrap',
-                overflowWrap: 'anywhere',
-                padding: '10px 12px',
-                backgroundColor: 'var(--bg-tertiary)',
-                borderRadius: 6,
-                fontSize: 12,
-                fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-                overflowX: 'auto',
-                lineHeight: 1.5,
-                color: 'var(--primary-text)',
-              }}
-            >
+            <code className="md-code-block">
               {children}
             </code>
           );

@@ -15,6 +15,7 @@ import type { CalendarEvent, CalendarViewMode } from '@/lib/store/useCalendarSto
 import type { Locale } from 'date-fns';
 import { getDateFnsLocale } from '@/lib/i18n';
 import { getEventSpanDays } from '@/lib/calendar/dayEvents';
+import { cn } from '@/lib/utils';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -306,16 +307,16 @@ function DraggableTimeEvent({
 
   return (
     <div
-      className="absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden"
+      className={cn(
+        'calendar-time-event absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden text-[var(--dome-on-accent)] z-[2]',
+        dragging && 'calendar-time-event--dragging z-20 opacity-85',
+        onEventDateChange && (dragging === 'move' ? 'cursor-grabbing' : 'cursor-grab'),
+        !onEventDateChange && 'cursor-pointer',
+      )}
       style={{
         top: renderTop,
         height: renderHeight,
         backgroundColor: event.calendar_color ?? 'var(--dome-accent)',
-        color: 'var(--dome-on-accent)',
-        zIndex: dragging ? 20 : 2,
-        cursor: onEventDateChange ? (dragging === 'move' ? 'grabbing' : 'grab') : 'pointer',
-        opacity: dragging ? 0.85 : 1,
-        transition: dragging ? 'none' : 'top 0.1s, height 0.1s',
       }}
       aria-label={event.title || t('workspace.untitled')}
       onPointerDown={handleMoveStart}

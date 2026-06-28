@@ -168,21 +168,10 @@ export default function PetMascot({ plugin }: PetMascotProps) {
       onClick={handleClick}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="border-0 bg-transparent p-0"
+      className="pet-mascot-btn absolute z-[9997] flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-transparent bg-transparent p-0 transition-[left,top] duration-[800ms] ease-out"
       style={{
-        position: 'absolute',
         left: position.x,
         top: position.y,
-        width: SPRITE_SIZE,
-        height: SPRITE_SIZE,
-        cursor: 'pointer',
-        zIndex: 9997,
-        transition: 'left 0.8s ease-out, top 0.8s ease-out',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: '50%',
-        border: '2px solid transparent',
       }}
       onFocus={(e) => {
         e.currentTarget.style.borderColor = 'var(--accent)';
@@ -203,16 +192,7 @@ export default function PetMascot({ plugin }: PetMascotProps) {
         />
       ) : (
         <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: SPRITE_SIZE,
-            height: SPRITE_SIZE,
-            background: 'var(--dome-accent-bg)',
-            color: 'var(--dome-accent)',
-            borderRadius: '50%',
-          }}
+          className="flex size-12 items-center justify-center rounded-full bg-[var(--dome-accent-bg)] text-[var(--dome-accent)]"
           aria-hidden
         >
           <Sparkles size={28} strokeWidth={1.5} />

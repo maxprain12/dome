@@ -21,6 +21,7 @@ import { ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import './file-manager-tree.css';
 
 type TreeNodeData = {
   id: string;
@@ -102,28 +103,15 @@ function TreeNodeComponent({
         type="button"
         onClick={handleClick}
         onContextMenu={handleContextMenu}
-        className="flex items-center w-full text-left transition-colors duration-100 rounded-md"
-        style={{
-          gap: 6,
-          paddingLeft: paddingLeft,
-          paddingRight: 8,
-          height,
-          fontSize: compact ? 12 : 13,
-          color: 'var(--dome-text-secondary)',
-          background: selected ? 'var(--dome-bg-hover)' : 'transparent',
-          border: selected ? '1px solid var(--dome-accent)' : 'none',
-          cursor: 'pointer',
-          minWidth: 0,
-        }}
+        className={`fm-tree-node-btn flex items-center w-full text-left transition-colors duration-100 rounded-md${selected ? ' is-selected' : ''}`}
+        style={
+          {
+            '--tree-pl': `${paddingLeft}px`,
+            '--tree-h': `${height}px`,
+            '--tree-fs': compact ? '12px' : '13px',
+          } as React.CSSProperties
+        }
         title={node.name}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-          (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-secondary)';
-        }}
       >
         {showSelChrome ? (
           // Handlers only stop the row click from firing (propagation barrier);

@@ -8,6 +8,7 @@ import { Calendar, Layers, FileText, FileCode2 } from 'lucide-react';
 import DomeBadge from '@/components/ui/DomeBadge';
 import { extractCalendarEventFromToolResult, unwrapToolResultPayload } from '@/lib/chat/calendarToolArtifact';
 import type { parseTreeToolSummary } from '@/lib/chat/treeToolSummary';
+import './tool-result-highlights.css';
 
 export function renderToolSuccessHighlight(
   toolName: string,
@@ -147,20 +148,7 @@ export function CodegenPreview({
           <DomeBadge label={preview.lang} variant="soft" size="xs" color="var(--tertiary-text)" className="shrink-0" />
         ) : null}
       </div>
-      <pre
-        style={{
-          fontSize: 12,
-          lineHeight: 1.5,
-          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-          whiteSpace: 'pre',
-          overflowX: 'auto',
-          overflowY: 'auto',
-          maxHeight: 280,
-          color: 'var(--primary-text)',
-          padding: '8px 10px',
-          margin: 0,
-        }}
-      >
+      <pre className="tool-codegen-pre">
         {preview.code}
       </pre>
       {preview.truncated ? (
@@ -178,18 +166,7 @@ export function CodegenPreview({
 export function renderTreeToolSummary(summary: ReturnType<typeof parseTreeToolSummary>, t: (key: string, opts?: { defaultValue?: string }) => string) {
   if (!summary) return null;
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 6,
-        fontSize: 12,
-        color: 'var(--secondary-text)',
-        padding: '8px 10px',
-        background: 'var(--bg-tertiary)',
-        borderRadius: 4,
-      }}
-    >
+    <div className="tool-tree-summary">
       {summary.path ? (
         <div>
           <span style={{ fontWeight: 600, color: 'var(--primary-text)' }}>{t('chat.tree_tool_path', { defaultValue: 'Ruta' })}: </span>

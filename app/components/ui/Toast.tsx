@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check, X, AlertTriangle, Info } from 'lucide-react';
 import { useToastStore, type Toast } from '@/lib/store/useToastStore';
@@ -21,6 +21,7 @@ const TOAST_COLOR_VARS: Record<string, string> = {
 function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }) {
   const { t } = useTranslation();
   const [isExiting, setIsExiting] = useState(false);
+  const accent = TOAST_COLOR_VARS[toast.type] || 'var(--accent)';
 
   const handleDismiss = () => {
     setIsExiting(true);
@@ -29,68 +30,24 @@ function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: () => void }
 
   return (
     <div
-      className="toast-item"
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 10,
-        padding: '12px 16px',
-        background: 'var(--bg)',
-        border: '1px solid var(--border)',
-        borderLeft: `3px solid ${TOAST_COLOR_VARS[toast.type] || 'var(--accent)'}`,
-        borderRadius: 8,
-        boxShadow: 'var(--shadow-md)',
-        minWidth: 280,
-        maxWidth: 420,
-        animation: isExiting ? 'toast-exit 0.2s ease-in forwards' : 'toast-enter 0.25s ease-out',
-        pointerEvents: 'auto',
-      }}
+      className={`toast-item${isExiting ? ' toast-item--exit' : ''}`}
+      style={{ '--toast-accent': accent } as CSSProperties}
     >
-      <span
-        style={{
-          color: TOAST_COLOR_VARS[toast.type] || 'var(--accent)',
-          flexShrink: 0,
-          width: 18,
-          height: 18,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginTop: 1,
-        }}
-      >
+      <span className="toast-item__icon">
         {(() => {
           const Icon = TOAST_ICONS[toast.type] ?? Info;
           return <Icon size={14} strokeWidth={2.5} />;
         })()}
       </span>
 
-      <span
-        style={{
-          flex: 1,
-          fontSize: 13,
-          lineHeight: '1.45',
-          color: 'var(--primary-text)',
-          wordBreak: 'break-word',
-        }}
-      >
+      <span className="toast-item__message">
         {toast.message}
       </span>
 
       <button
         type="button"
         onClick={handleDismiss}
-        className="min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-        style={{
-          background: 'none',
-          border: 'none',
-          cursor: 'pointer',
-          color: 'var(--tertiary-text)',
-          fontSize: 14,
-          padding: 10,
-          flexShrink: 0,
-          lineHeight: 1,
-          marginTop: -1,
-        }}
+        className="toast-item__dismiss min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
         aria-label={t('common.close')}
       >
         <X size={14} strokeWidth={2.5} />
@@ -129,18 +86,7 @@ export default function ToastContainer() {
           }
         }
       `}</style>
-      <div
-        style={{
-          position: 'fixed',
-          top: 56,
-          right: 16,
-          zIndex: 'var(--z-toast)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-          pointerEvents: 'none',
-        }}
-      >
+      <div className="toast-container">
         {toasts.map((toast) => (
           <ToastItem
             key={toast.id}

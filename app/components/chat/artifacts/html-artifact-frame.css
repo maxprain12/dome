@@ -1,0 +1,13 @@
+.html-artifact-source-pre {
+  font-size: 12px;
+  max-height: 200px;
+  overflow: auto;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--primary-text);
+  border: 1px solid var(--border);
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+}

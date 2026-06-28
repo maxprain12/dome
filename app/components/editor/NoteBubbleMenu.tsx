@@ -415,17 +415,7 @@ export function NoteLinkPopoverField({ editor, open, onOpenChange }: NoteLinkPop
   return (
     <dialog
       open
-      className="rounded-lg border p-3 shadow-xl m-0 max-w-none max-h-none"
-      style={{
-        position: 'fixed',
-        zIndex: 'var(--z-popover)',
-        background: 'var(--dome-surface)',
-        borderColor: 'var(--dome-border)',
-        minWidth: 288,
-        left: '50%',
-        top: 88,
-        transform: 'translateX(-50%)',
-      }}
+      className="note-link-dialog fixed left-1/2 top-[88px] z-[var(--z-popover)] min-w-[288px] -translate-x-1/2 rounded-lg border border-[var(--dome-border)] bg-[var(--dome-surface)] p-3 shadow-xl m-0 max-w-none max-h-none"
       aria-label={t('notes.link_title')}
       onMouseDown={(e) => e.preventDefault()}
       onCancel={(e) => { e.preventDefault(); onOpenChange(false); }}

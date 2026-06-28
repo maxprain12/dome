@@ -53,6 +53,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
 import { getWorkflow } from '@/lib/agent-canvas/api';
 import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import MarketplaceAgentDetail from './MarketplaceAgentDetail';
 import WorkflowDetail from './WorkflowDetail';
 
@@ -88,11 +89,7 @@ const TYPE_CONFIG = {
 function TypeIconBox({ type }: { type: Exclude<FilterType, 'all'> }) {
   const { Icon, iconBg, iconColor } = TYPE_CONFIG[type];
   return (
-    <div style={{
-      width: 38, height: 38, borderRadius: 10, flexShrink: 0,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: iconBg,
-    }}>
+    <div className="hub-marketplace-type-icon" style={{ backgroundColor: iconBg }}>
       <Icon size={18} color={iconColor} strokeWidth={2} />
     </div>
   );
@@ -100,11 +97,7 @@ function TypeIconBox({ type }: { type: Exclude<FilterType, 'all'> }) {
 
 function TagChip({ tag }: { tag: string }) {
   return (
-    <span style={{
-      fontSize: 12, fontWeight: 600, padding: '2px 6px', borderRadius: 999,
-      backgroundColor: 'var(--bg-tertiary)', color: 'var(--tertiary-text)',
-      letterSpacing: '0.02em', textTransform: 'uppercase',
-    }}>
+    <span className="hub-marketplace-tag-chip">
       {tag}
     </span>
   );
@@ -118,9 +111,8 @@ interface ItemCardProps {
 }
 
 function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
-  const { label } = TYPE_CONFIG[item.type];
+  const { label, iconBg, iconColor } = TYPE_CONFIG[item.type];
   const interactive = Boolean(onClick);
-  const [hovered, setHovered] = useState(false);
 
   return (
     <div
@@ -128,19 +120,11 @@ function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
       tabIndex={interactive ? 0 : undefined}
       onClick={onClick}
       onKeyDown={(e) => { if (interactive && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); onClick?.(); } }}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: 'flex', flexDirection: 'column', gap: 12,
-        padding: featured ? '18px 20px' : '14px 16px',
-        borderRadius: 12,
-        border: `1px solid ${hovered && interactive ? 'var(--border-hover)' : 'var(--border)'}`,
-        backgroundColor: hovered && interactive ? 'var(--bg-secondary)' : 'var(--bg)',
-        cursor: interactive ? 'pointer' : 'default',
-        transition: 'border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease',
-        boxShadow: hovered && interactive ? '0 2px 8px rgba(0,0,0,0.06)' : 'none',
-        outline: 'none',
-      }}
+      className={cn(
+        'hub-marketplace-item-card',
+        featured && 'hub-marketplace-item-card--featured',
+        interactive && 'hub-marketplace-item-card--interactive',
+      )}
     >
       {/* Header row: icon + name + star + action */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -154,19 +138,14 @@ function ItemCard({ item, action, onClick, featured }: ItemCardProps) {
               {item.name}
             </span>
             {item.featured && <Star size={13} fill="var(--warning)" color="var(--warning)" />}
-            <span style={{
-              fontSize: 12, fontWeight: 600, padding: '1px 6px', borderRadius: 999,
-              backgroundColor: TYPE_CONFIG[item.type].iconBg,
-              color: TYPE_CONFIG[item.type].iconColor,
-              letterSpacing: '0.03em',
-            }}>
+            <span
+              className="hub-marketplace-item-type-badge"
+              style={{ backgroundColor: iconBg, color: iconColor }}
+            >
               {label}
             </span>
           </div>
-          <p style={{
-            fontSize: 12.5, color: 'var(--secondary-text)', lineHeight: 1.5, margin: 0,
-            display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          }}>
+          <p className="hub-marketplace-item-desc">
             {item.description}
           </p>
         </div>

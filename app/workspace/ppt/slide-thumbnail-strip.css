@@ -1,0 +1,124 @@
+.ppt-thumb-strip {
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  transition:
+    width 180ms ease,
+    min-width 180ms ease;
+}
+
+.ppt-thumb-strip.is-expanded {
+  width: 218px;
+  min-width: 218px;
+}
+
+.ppt-thumb-strip.is-collapsed {
+  width: 44px;
+  min-width: 44px;
+}
+
+.ppt-thumb-cell {
+  width: 186px;
+  height: 105px;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+.ppt-thumb-mount {
+  width: 960px;
+  height: 540px;
+  transform-origin: top left;
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ppt-thumb-badge {
+  position: absolute;
+  bottom: 3px;
+  right: 4px;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(3px);
+  border-radius: 3px;
+  padding: 1px 5px;
+  z-index: 2;
+}
+
+.ppt-thumb-badge-num {
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgb(255 255 255 / 0.6);
+}
+
+.ppt-thumb-badge-num.is-active {
+  color: var(--accent);
+}
+
+.ppt-thumb-collapse-btn {
+  position: absolute;
+  right: -26px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 26px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  color: rgb(255 255 255 / 0.45);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 6px 6px 0;
+  cursor: pointer;
+}
+
+.ppt-thumb-select-btn {
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.ppt-thumb-select-btn.is-expanded {
+  justify-content: flex-start;
+}
+
+.ppt-thumb-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+}
+
+.ppt-thumb-scroll.is-expanded {
+  padding: 10px 16px;
+}
+
+.ppt-thumb-scroll.is-collapsed {
+  padding: 8px 4px;
+}
+
+.ppt-thumb-select-btn.is-collapsed {
+  justify-content: center;
+}
+
+.ppt-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}

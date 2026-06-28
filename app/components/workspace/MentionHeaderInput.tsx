@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Search } from 'lucide-react';
 import type { Resource } from '@/types';
 import { useAppStore } from '@/lib/store/useAppStore';
+import './mention-header-input.css';
 
 type MenuItem =
   | { kind: 'tag'; id: string; label: string }
@@ -252,21 +253,11 @@ export default function MentionHeaderInput({
     showMenu &&
     createPortal(
       <div
-        className="rounded-lg border shadow-lg overflow-hidden"
-        style={{
-          position: 'fixed',
-          top: menuPos.top,
-          left: menuPos.left,
-          width: menuPos.width,
-          zIndex: 10000,
-          background: 'var(--dome-surface)',
-          borderColor: 'var(--dome-border)',
-          maxHeight: 240,
-          overflowY: 'auto',
-        }}
+        className="mention-header-menu rounded-lg border shadow-lg overflow-hidden"
+        style={{ top: menuPos.top, left: menuPos.left, width: menuPos.width }}
       >
         {loading ? (
-          <div className="px-3 py-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+          <div className="mention-header-loading px-3 py-2 text-xs">
             …
           </div>
         ) : (
@@ -276,11 +267,7 @@ export default function MentionHeaderInput({
               <button
                 key={`${item.kind}-${item.id}-${item.label}`}
                 type="button"
-                className="w-full text-left px-3 py-2 text-sm transition-colors"
-                style={{
-                  background: isSel ? 'var(--dome-bg-hover)' : 'transparent',
-                  color: 'var(--dome-text)',
-                }}
+                className={`mention-header-menu-item w-full text-left px-3 py-2 text-sm transition-colors${isSel ? ' is-selected' : ''}`}
                 onMouseEnter={() => setSelectedIndex(index)}
                 onClick={() => void handlePick(item)}
               >
@@ -292,7 +279,7 @@ export default function MentionHeaderInput({
                       : item.label}
                 </span>
                 {item.kind === 'mention' ? (
-                  <span className="text-[11px] capitalize" style={{ color: 'var(--dome-text-muted)' }}>
+                  <span className="mention-header-item-type text-[11px] capitalize">
                     {item.type}
                   </span>
                 ) : null}
@@ -309,8 +296,7 @@ export default function MentionHeaderInput({
       <div ref={wrapRef} className="relative">
         <Search
           size={14}
-          className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ color: 'var(--dome-text-muted)' }}
+          className="mention-header-search-icon absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
         />
         <input
           ref={inputRef}
@@ -327,12 +313,7 @@ export default function MentionHeaderInput({
           }}
           onKeyDown={(e) => void onKeyDown(e)}
           placeholder={t('workspace.relations_placeholder')}
-          className="w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
-          style={{
-            background: 'var(--dome-surface)',
-            border: '1px solid var(--dome-border)',
-            color: 'var(--dome-text)',
-          }}
+          className="mention-header-input w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
           aria-label={t('workspace.relations_input_aria')}
           autoComplete="off"
         />

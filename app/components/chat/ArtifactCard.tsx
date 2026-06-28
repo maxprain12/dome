@@ -66,6 +66,7 @@ import {
   buildDomeThemeStyleContent,
   useDomeThemeSnapshot,
 } from '@/lib/chat/useDomeThemeSnapshot';
+import './artifact-card.css';
 
 /** Whitelist of accepted chart dataset colors — must reference Dome tokens. */
 const DOME_CHART_COLORS = new Set([
@@ -523,17 +524,7 @@ function PDFSummaryContent({ artifact }: { artifact: PDFSummaryArtifact }) {
           <button
             type="button"
             onClick={() => setShowFull(!showFull)}
-            style={{
-              marginTop: 8,
-              fontSize: 12,
-              fontWeight: 500,
-              color: 'var(--accent)',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              textDecoration: 'underline',
-            }}
+            className="artifact-card-show-more"
           >
             {showFull ? t('artifacts.show_less') : t('artifacts.show_more')}
           </button>
@@ -639,18 +630,7 @@ function ActionItemsContent({ artifact }: { artifact: ActionItemsArtifact }) {
       {artifact.items.map((item, idx) => (
         <div key={item.id || idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13 }}>
           <div
-            style={{
-              width: 16,
-              height: 16,
-              marginTop: 2,
-              borderRadius: 3,
-              border: item.completed ? 'none' : '1px solid var(--border)',
-              backgroundColor: item.completed ? 'var(--success)' : 'transparent',
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            className={`artifact-card-checkbox ${item.completed ? 'is-completed' : 'is-pending'}`}
           >
             {item.completed && <Check style={{ width: 10, height: 10, color: 'var(--bg)' }} />}
           </div>
@@ -723,19 +703,7 @@ function CodeContent({ artifact }: { artifact: CodeArtifact }) {
           {artifact.language}
         </span>
       </div>
-      <pre
-        style={{
-          fontSize: 12,
-          overflowX: 'auto',
-          padding: '10px 12px',
-          borderRadius: 6,
-          backgroundColor: 'var(--bg-secondary)',
-          color: 'var(--primary-text)',
-          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-          margin: 0,
-          lineHeight: 1.55,
-        }}
-      >
+      <pre className="artifact-card-code-pre">
         <code>{artifact.code}</code>
       </pre>
     </div>
@@ -749,16 +717,7 @@ function ListContent({ artifact }: { artifact: ListArtifact }) {
   return (
     <div style={{ padding: 12 }}>
       <ListTag
-        style={{
-          paddingLeft: 20,
-          margin: 0,
-          listStyleType: artifact.ordered ? 'decimal' : 'disc',
-          color: 'var(--primary-text)',
-          fontSize: 13,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 4,
-        }}
+        className={`artifact-card-list ${artifact.ordered ? 'is-ordered' : 'is-unordered'}`}
       >
         {items.map((item, idx) => (
           <li key={idx}>{item}</li>
@@ -796,11 +755,10 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
     <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Entity header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-          background: `color-mix(in srgb, ${accentColor} 15%, transparent)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+        <div
+          className="artifact-card-entity-icon"
+          style={{ background: `color-mix(in srgb, ${accentColor} 15%, transparent)` }}
+        >
           <Icon style={{ width: 18, height: 18, color: accentColor }} />
         </div>
         <div>
@@ -837,22 +795,15 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
             <button
               type="button"
               onClick={() => navigateToSection(`agent:${artifact.id}`)}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: accentColor, color: 'var(--base-text)', border: 'none', cursor: 'pointer',
-              }}
+              className="artifact-card-action-btn is-primary"
+              style={{ background: accentColor }}
             >
               <MessageCircle style={{ width: 12, height: 12 }} /> {t('artifacts.chat')}
             </button>
             <button
               type="button"
               onClick={() => navigateToSection('automations-hub')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: 'var(--bg-hover)', color: 'var(--secondary-text)', border: 'none', cursor: 'pointer',
-              }}
+              className="artifact-card-action-btn is-secondary"
             >
               <ArrowUpRight style={{ width: 12, height: 12 }} /> {t('artifacts.view_in_hub')}
             </button>
@@ -862,11 +813,8 @@ function CreatedEntityContent({ artifact }: { artifact: CreatedEntityArtifact })
             <button
               type="button"
               onClick={() => navigateToSection('automations-hub')}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 5,
-                padding: '5px 10px', borderRadius: 6, fontSize: 12, fontWeight: 500,
-                background: accentColor, color: 'var(--base-text)', border: 'none', cursor: 'pointer',
-              }}
+              className="artifact-card-action-btn is-primary"
+              style={{ background: accentColor }}
             >
               <Play style={{ width: 12, height: 12 }} /> {t('artifacts.view_and_run')}
             </button>

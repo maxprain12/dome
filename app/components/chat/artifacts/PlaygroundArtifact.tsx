@@ -2,6 +2,7 @@ import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import type { PlaygroundArtifactV } from '@/lib/chat/artifactSchemas';
+import './playground-artifact.css';
 
 export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundArtifactV }) {
   const { t } = useTranslation();
@@ -75,18 +76,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                   onClick={() => setOpen((s) => ({ ...s, [ex.id]: !s[ex.id] }))}
                   aria-expanded={hintOpen}
                   aria-controls={hintPanelId}
-                  style={{
-                    marginTop: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: 12,
-                    color: 'var(--accent)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 0,
-                  }}
+                  className="playground-toggle-btn is-hint"
                 >
                   {hintOpen ? (
                     <ChevronDown className="size-3.5" aria-hidden />
@@ -116,18 +106,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                   onClick={() => setOpenSol((s) => ({ ...s, [ex.id]: !s[ex.id] }))}
                   aria-expanded={solOpen}
                   aria-controls={solPanelId}
-                  style={{
-                    marginTop: 8,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    fontSize: 12,
-                    color: 'var(--secondary-text)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    padding: 0,
-                  }}
+                  className="playground-toggle-btn is-solution"
                 >
                   {solOpen ? (
                     <ChevronDown className="size-3.5" aria-hidden />
@@ -139,16 +118,7 @@ export default function PlaygroundArtifact({ artifact }: { artifact: PlaygroundA
                 {solOpen && (
                   <pre
                     id={solPanelId}
-                    style={{
-                      marginTop: 6,
-                      fontSize: 12,
-                      whiteSpace: 'pre-wrap',
-                      color: 'var(--primary-text)',
-                      background: 'var(--bg-secondary)',
-                      border: '1px solid var(--border)',
-                      padding: 8,
-                      borderRadius: 'var(--radius-md)',
-                    }}
+                    className="playground-solution-pre"
                   >
                     {ex.solution}
                   </pre>

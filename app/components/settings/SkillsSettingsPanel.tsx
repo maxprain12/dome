@@ -13,6 +13,7 @@ import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeListState from '@/components/ui/DomeListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
+import { cn } from '@/lib/utils';
 
 export default function SkillsSettingsPanel() {
   const { t } = useTranslation();
@@ -189,25 +190,15 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
   }
 
   return (
-    <div style={{
-      marginBottom: 20,
-      border: '1px solid var(--border)',
-      borderRadius: 10,
-      overflow: 'hidden',
-      backgroundColor: 'var(--bg-secondary)',
-    }}>
+    <div className="skills-github-panel">
       <button
         type="button"
         onClick={() => { setExpanded((e) => !e); setMessage(null); setRepoSkills([]); }}
-        style={{
-          width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 14px', background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--primary-text)',
-        }}
+        className="skills-github-panel__toggle"
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div className="skills-github-panel__toggle-label">
           <Github size={15} color="var(--secondary-text)" />
-          <span style={{ fontWeight: 600, fontSize: 13.5 }}>
+          <span className="skills-github-panel__toggle-title">
             {t('settings.skills.install_from_github', 'Install from GitHub')}
           </span>
         </div>
@@ -228,14 +219,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
               onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
               placeholder={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
               aria-label={t('settings.skills.repo_url_placeholder', 'https://github.com/anthropics/skills')}
-              style={{
-                width: '100%', padding: '8px 11px', fontSize: 13,
-                border: '1px solid var(--border)', borderRadius: 7,
-                backgroundColor: 'var(--bg-tertiary)', color: 'var(--primary-text)',
-                outline: 'none', boxSizing: 'border-box',
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+              className="skills-github-input skills-github-input--full"
             />
             <div style={{ display: 'flex', gap: 6 }}>
               <input
@@ -245,14 +229,7 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
                 onKeyDown={(e) => { if (e.key === 'Enter') void handleInstall(); }}
                 placeholder={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
                 aria-label={t('settings.skills.skill_name_placeholder', 'Skill name (e.g. pptx)')}
-                style={{
-                  flex: 1, padding: '8px 11px', fontSize: 13,
-                  border: '1px solid var(--border)', borderRadius: 7,
-                  backgroundColor: 'var(--bg-tertiary)', color: 'var(--primary-text)',
-                  outline: 'none',
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = 'var(--accent)'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; }}
+                className="skills-github-input skills-github-input--grow"
               />
               <DomeButton
                 variant="ghost"
@@ -318,38 +295,17 @@ function InstallFromGitHub({ onInstalled }: { onInstalled: () => void }) {
 
 function SkillRow({ skill }: { skill: SkillItem }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 12,
-        padding: '11px 14px',
-        borderRadius: 8,
-        border: '1px solid var(--border)',
-        backgroundColor: 'var(--bg-secondary)',
-        transition: 'border-color 150ms ease',
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-hover)'; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)'; }}
-    >
-      <div style={{
-        width: 30, height: 30, borderRadius: 6, flexShrink: 0, marginTop: 1,
-        backgroundColor: 'var(--accent-bg, var(--bg-tertiary))',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
+    <div className="skills-row">
+      <div className="skills-row__icon">
         <Zap size={14} color="var(--accent)" strokeWidth={2.2} />
       </div>
 
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: skill.description ? 3 : 0 }}>
-          <span style={{ fontWeight: 600, fontSize: 13.5, color: 'var(--primary-text)', lineHeight: 1.3 }}>
+      <div className="skills-row__body">
+        <div className={cn('skills-row__header', skill.description && 'skills-row__header--with-desc')}>
+          <span className="skills-row__name">
             {skill.name}
           </span>
-          <span style={{
-            fontSize: 12, fontWeight: 500, padding: '1px 7px', borderRadius: 999,
-            backgroundColor: 'var(--bg-tertiary)', color: 'var(--tertiary-text)',
-            fontFamily: 'var(--font-mono, monospace)', letterSpacing: '0.01em',
-          }}>
+          <span className="skills-row__slug">
             {skill.slug}
           </span>
         </div>

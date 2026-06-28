@@ -1,0 +1,30 @@
+.playground-toggle-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.playground-toggle-btn.is-hint {
+  color: var(--accent);
+}
+
+.playground-toggle-btn.is-solution {
+  color: var(--secondary-text);
+}
+
+.playground-solution-pre {
+  margin-top: 6px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  color: var(--primary-text);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  padding: 8px;
+  border-radius: var(--radius-md);
+}

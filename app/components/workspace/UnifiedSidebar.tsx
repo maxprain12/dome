@@ -21,6 +21,7 @@ import FileTree from './sidebar/SidebarFileTree';
 import { NewFolderModal, UrlInputModal } from './sidebar/SidebarModals';
 import AddResourceMenu from './sidebar/AddResourceMenu';
 import ShellProjectPicker from '@/components/shell/ShellProjectPicker';
+import './unified-sidebar.css';
 
 interface UnifiedSidebarProps {
   collapsed: boolean;
@@ -507,35 +508,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                 key={item.key}
                 type="button"
                 onClick={() => handleUnifiedNavClick(item)}
-                className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
-                style={{
-                  gap: 8,
-                  paddingLeft: 8,
-                  paddingRight: 8,
-                  minHeight: 30,
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  background: isActive ? 'var(--dome-surface)' : 'transparent',
-                  color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                }}
+                className={`sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md${isActive ? ' is-active' : ''}`}
               >
-                <span className="shrink-0" style={{ color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                <span className="sidebar-nav-btn-icon shrink-0">
                   {item.icon}
                 </span>
                 <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
                 {count !== undefined ? (
-                  <span
-                    className="shrink-0 tabular-nums"
-                    style={{ fontSize: 12, fontWeight: 500, color: 'var(--dome-text-muted)' }}
-                  >
+                  <span className="sidebar-nav-btn-count shrink-0 tabular-nums">
                     {count}
                   </span>
                 ) : null}
@@ -553,22 +533,16 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             <button
               type="button"
               onClick={() => setWorkspaceOpen(!workspaceOpen)}
-              className="flex items-center justify-center shrink-0 rounded-md transition-colors"
-              style={{ width: 22, height: 22, color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+              className="sidebar-chevron-btn shrink-0 rounded-md transition-colors"
               aria-expanded={workspaceOpen}
               aria-label={workspaceOpen ? t('sidebar.collapse_workspace', 'Contraer workspace') : t('sidebar.expand_workspace', 'Expandir workspace')}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >
               <ChevronDown className={`size-3 shrink-0 transition-transform ${workspaceOpen ? '' : '-rotate-90'}`} strokeWidth={2.5} />
             </button>
             <button
               type="button"
               onClick={handleOpenProjectRootFolder}
-              className="flex items-center flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
-              style={{ color: 'var(--dome-text)', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
+              className="sidebar-workspace-title-btn flex items-center flex-1 min-w-0 text-left rounded-md px-1 py-0.5 transition-colors"
             >
               <span>Workspace</span>
             </button>
@@ -684,35 +658,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                   key={item.key}
                   type="button"
                   onClick={() => handleUnifiedNavClick(item)}
-                  className="flex items-center w-full text-left transition-colors duration-150 rounded-md"
-                  style={{
-                    gap: 8,
-                    paddingLeft: 8,
-                    paddingRight: 8,
-                    minHeight: 30,
-                    fontSize: 12.5,
-                    fontWeight: 500,
-                    background: isActive ? 'var(--dome-surface)' : 'transparent',
-                    color: isActive ? 'var(--dome-text)' : 'var(--dome-text-secondary)',
-                    border: 'none',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                  }}
+                  className={`sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md${isActive ? ' is-active' : ''}`}
                 >
-                  <span className="shrink-0" style={{ color: isActive ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}>
+                  <span className="sidebar-nav-btn-icon shrink-0">
                     {item.icon}
                   </span>
                   <span className="truncate flex-1 min-w-0 text-left">{item.label}</span>
                   {count !== undefined ? (
-                    <span
-                      className="shrink-0 tabular-nums"
-                      style={{ fontSize: 12, fontWeight: 500, color: 'var(--dome-text-muted)' }}
-                    >
+                    <span className="sidebar-nav-btn-count shrink-0 tabular-nums">
                       {count}
                     </span>
                   ) : null}

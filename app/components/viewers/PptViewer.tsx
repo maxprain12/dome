@@ -343,16 +343,11 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
         style={{ backgroundColor: 'var(--bg-secondary)', overflow: 'hidden' }}
       >
         <div
+          className="ppt-viewer-stage relative shrink-0 overflow-hidden rounded-sm bg-[var(--bg)] shadow-[0_16px_56px_-8px_rgba(0,0,0,0.75),0_4px_20px_rgba(0,0,0,0.5)]"
           style={{
             width: scaledW,
             height: scaledH,
-            flexShrink: 0,
-            position: 'relative',
-            borderRadius: 3,
-            overflow: 'hidden',
-            boxShadow: '0 16px 56px -8px rgba(0,0,0,0.75), 0 4px 20px rgba(0,0,0,0.5)',
             visibility: isLoading ? 'hidden' : 'visible',
-            background: 'var(--bg)',
           }}
         >
           {/* pptx-preview renders directly into this div */}

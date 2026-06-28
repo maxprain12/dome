@@ -1,0 +1,39 @@
+.mention-header-menu {
+  position: fixed;
+  z-index: 10000;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--dome-surface);
+  border-color: var(--dome-border);
+}
+
+.mention-header-menu-item {
+  background: transparent;
+  color: var(--dome-text);
+}
+
+.mention-header-menu-item.is-selected {
+  background: var(--dome-bg-hover);
+}
+
+.mention-header-menu-item:hover {
+  background: var(--dome-bg-hover);
+}
+
+.mention-header-input {
+  background: var(--dome-surface);
+  border: 1px solid var(--dome-border);
+  color: var(--dome-text);
+}
+
+.mention-header-search-icon {
+  color: var(--dome-text-muted);
+}
+
+.mention-header-item-type {
+  color: var(--dome-text-muted);
+}
+
+.mention-header-loading {
+  color: var(--dome-text-muted);
+}

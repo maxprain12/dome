@@ -21,7 +21,6 @@ const MAX_NODE_WIDTH = 240;
 const PADDING_X = 12;
 const PADDING_Y = 8;
 const LINE_HEIGHT = 16;
-const FONT_SIZE = 12;
 
 /** Neutral depth gradient for mind map nodes (accent family, not semantic status colors). */
 const MIND_MAP_DEPTH_COLORS = [
@@ -305,21 +304,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
                       style={{ overflow: 'hidden', pointerEvents: 'none' }}
                     >
                       <div
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          padding: `${PADDING_Y}px ${PADDING_X}px`,
-                          fontSize: FONT_SIZE,
-                          fontWeight: 500,
-                          color: 'var(--primary-text)',
-                          wordBreak: 'break-word',
-                          overflowWrap: 'break-word',
-                          textAlign: 'center',
-                          lineHeight: 1.25,
-                        }}
+                        className="flex size-full items-center justify-center break-words px-3 py-2 text-center text-xs font-medium leading-[1.25] text-[var(--primary-text)] [overflow-wrap:anywhere]"
                       >
                         {node.label}
                       </div>

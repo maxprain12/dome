@@ -2035,6 +2035,25 @@ a:hover {
   pointer-events: none;
 }
 
+.many-avatar-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  background: var(--tertiary-text);
+}
+
+.many-avatar-dot--thinking {
+  background: var(--warning);
+}
+
+.many-avatar-dot--speaking {
+  background: var(--accent);
+}
+
 @keyframes manyAvatarSpin { to { transform: rotate(360deg); } }
 
 @keyframes manyAvatarPulse {
@@ -2088,6 +2107,48 @@ a:hover {
 .many-icon-btn:hover {
   background: var(--bg-hover);
   color: var(--primary-text);
+}
+
+.dome-ui-cursor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+}
+
+.dome-ui-cursor-ring {
+  position: absolute;
+  border-radius: var(--radius-md);
+  border: 1px solid color-mix(in srgb, var(--dome-accent) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--dome-accent) 14%, transparent),
+    0 10px 28px color-mix(in srgb, var(--dome-bg) 88%, transparent);
+  transition: all 260ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dome-ui-cursor-arrow {
+  position: absolute;
+  overflow: visible;
+  filter: drop-shadow(0 1px 3px color-mix(in srgb, var(--dome-text) 18%, transparent));
+  transition: left 240ms cubic-bezier(0.4, 0, 0.2, 1), top 240ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dome-ui-cursor-tooltip {
+  position: absolute;
+  max-width: 280px;
+  background: var(--dome-surface);
+  color: var(--dome-text-muted);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--dome-border);
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  white-space: normal;
+  box-shadow:
+    0 4px 16px color-mix(in srgb, var(--dome-text) 8%, transparent),
+    0 0 1px color-mix(in srgb, var(--dome-border) 40%, transparent);
+  transition: left 240ms cubic-bezier(0.4, 0, 0.2, 1), top 240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Subagent delegation section (nested tools under research/library/…) */
@@ -4618,6 +4679,32 @@ a:hover {
 }
 
 /* Selection Action Bar */
+.selection-action-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--translucent);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+  animation: selection-bar-in 0.2s ease-out;
+}
+
+.selection-action-bar-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dome-text);
+}
+
+.selection-action-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .selection-action-btn {
   display: flex;
   align-items: center;
@@ -4660,6 +4747,68 @@ a:hover {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.toast-container {
+  position: fixed;
+  top: 56px;
+  right: 16px;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--toast-accent, var(--accent));
+  border-radius: 8px;
+  box-shadow: var(--shadow-md);
+  min-width: 280px;
+  max-width: 420px;
+  animation: toast-enter 0.25s ease-out;
+  pointer-events: auto;
+}
+
+.toast-item--exit {
+  animation: toast-exit 0.2s ease-in forwards;
+}
+
+.toast-item__icon {
+  color: var(--toast-accent, var(--accent));
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.toast-item__message {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--primary-text);
+  word-break: break-word;
+}
+
+.toast-item__dismiss {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--tertiary-text);
+  font-size: 14px;
+  padding: 10px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: -1px;
 }
 
 /* Folder Tree Pane — minimal */

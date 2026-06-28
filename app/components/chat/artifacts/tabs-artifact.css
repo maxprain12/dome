@@ -1,0 +1,56 @@
+.tabs-artifact-code-pre {
+  font-size: 12px;
+  overflow-x: auto;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  color: var(--primary-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin: 0;
+  line-height: 1.55;
+}
+
+.tabs-artifact-list {
+  padding-left: 20px;
+  margin: 0;
+  color: var(--primary-text);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tabs-artifact-list.is-ordered {
+  list-style-type: decimal;
+}
+
+.tabs-artifact-list.is-unordered {
+  list-style-type: disc;
+}
+
+.tabs-artifact-tab-btn {
+  padding: 6px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.tabs-artifact-tab-btn.is-active {
+  border: 1px solid var(--accent);
+  background: color-mix(in oklab, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.tabs-artifact-tab-btn.is-inactive {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--secondary-text);
+}

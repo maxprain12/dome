@@ -13,6 +13,7 @@ import {
   handleArtifactNavigateMessage,
   openArtifactExternalUrl,
 } from '@/lib/chat/artifactIframeNavigate';
+import './html-artifact-frame.css';
 
 const DOME_ARTIFACT = DOME_ARTIFACT_MSG;
 const DOME_THEME = 'dome:theme';
@@ -212,21 +213,7 @@ export default function HtmlArtifactFrame({
         {t('chat.artifact_sandbox_note')}
       </div>
       {showSource && (
-        <pre
-          style={{
-            fontSize: 12,
-            maxHeight: 200,
-            overflow: 'auto',
-            padding: 8,
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--bg-secondary)',
-            color: 'var(--primary-text)',
-            border: '1px solid var(--border)',
-            margin: 0,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-all',
-          }}
-        >
+        <pre className="html-artifact-source-pre">
           {srcdoc}
         </pre>
       )}
