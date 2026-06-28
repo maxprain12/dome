@@ -11,10 +11,10 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   const { t } = useTranslation();
   const [isDragging, setIsDragging] = useState(false);
   const startPosRef = useRef<number>(0);
-  const handleRef = useRef<HTMLHRElement>(null);
+  const handleRef = useRef<HTMLButtonElement>(null);
 
   const handleMouseDown = useCallback(
-    (e: ReactMouseEvent<HTMLHRElement>) => {
+    (e: ReactMouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
       e.stopPropagation();
       
@@ -85,13 +85,10 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
   const isHorizontal = direction === 'horizontal';
 
   return (
-    // Focusable window-splitter — hr with pointer/keyboard handlers.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <hr
+    <button
+      type="button"
       ref={handleRef}
-      aria-orientation={separatorOrientation}
       aria-label={t('workspace.panel_resize_handle')}
-      tabIndex={0}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
       className={`resize-handle border-0 p-0 m-0 min-w-0 ${isDragging ? 'dragging' : ''} ${className}`}
@@ -102,6 +99,7 @@ export default function ResizeHandle({ onResize, direction, className = '' }: Re
         cursor: isHorizontal ? 'col-resize' : 'row-resize',
         flexShrink: 0,
         zIndex: 10,
+        background: 'transparent',
       }}
     />
   );

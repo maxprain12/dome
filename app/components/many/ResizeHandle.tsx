@@ -37,7 +37,7 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
     [onResize, onResizeEnd],
   );
 
-  // eslint-disable-next-line react-doctor/exhaustive-deps -- unmount listener cleanup via ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount listener cleanup via ref
   useEffect(() => {
     return () => {
       if (listenersRef.current) {
@@ -61,12 +61,9 @@ export default function ResizeHandle({ onResize, onResizeEnd }: ResizeHandleProp
   );
 
   return (
-    // Focusable window-splitter — hr with pointer/keyboard handlers.
-    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
-    <hr
-      aria-orientation="vertical"
+    <button
+      type="button"
       aria-label="Resize panel"
-      tabIndex={0}
       className="shrink-0 w-1.5 cursor-col-resize flex items-center justify-center group hover:bg-[var(--accent)]/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] border-0 p-0 m-0 min-w-0 self-stretch"
       style={{ minWidth: 6, height: 'auto' }}
       onMouseDown={handleMouseDown}

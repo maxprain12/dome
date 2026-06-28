@@ -332,7 +332,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     };
   }, []);
 
-  // eslint-disable-next-line react-doctor/exhaustive-deps -- clear pending debounced refetch on unmount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending debounced refetch on unmount only
   useEffect(() => {
     return () => {
       const pending = debouncedSilentRefetchRef.current;

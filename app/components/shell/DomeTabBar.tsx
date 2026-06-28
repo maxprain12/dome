@@ -207,6 +207,8 @@ function TabItem({ tab, isActive, iconOnly, onActivate, onClose, onContextMenu }
       <TabIcon tab={tab} />
       <span className="dome-tab-item-title">{displayTitle}</span>
       {!tab.pinned && (
+        // Close control lives inside the tab button — nested <button> is invalid HTML.
+        // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
         <span
           tabIndex={-1}
           onClick={(e) => {

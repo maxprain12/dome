@@ -157,7 +157,6 @@ export default function DomeModal({
           className,
         )}
         style={{ animation: 'modal-appear 0.2s ease-out' }}
-        onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">

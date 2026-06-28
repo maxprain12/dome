@@ -75,7 +75,7 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
   }, []);
 
   // Cleanup residual pointer listeners if component unmounts during drag
-  // eslint-disable-next-line react-doctor/exhaustive-deps -- unmount listener cleanup via ref
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount listener cleanup via ref
   useEffect(() => {
     return () => {
       if (resizeListenersRef.current.move) {

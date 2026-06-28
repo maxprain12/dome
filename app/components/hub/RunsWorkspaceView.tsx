@@ -198,7 +198,7 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
     };
   }, []);
 
-  // eslint-disable-next-line react-doctor/exhaustive-deps -- clear pending detail refresh on unmount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending detail refresh on unmount only
   useEffect(() => {
     return () => {
       const pending = detailRefreshTimeoutRef.current;

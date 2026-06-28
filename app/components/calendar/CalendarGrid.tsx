@@ -167,6 +167,8 @@ function MonthView({
           return (
             <div
               key={key}
+              role="button"
+              tabIndex={0}
               aria-label={format(day, 'PPPP')}
               className="border-b border-r p-1 transition-colors cursor-pointer overflow-hidden"
               style={{
@@ -179,6 +181,12 @@ function MonthView({
                     : undefined,
               }}
               onClick={() => onDayClick(day)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onDayClick(day);
+                }
+              }}
               onDragOver={(e) => { e.preventDefault(); setDragOverDay(key); }}
               onDragLeave={() => setDragOverDay(null)}
               onDrop={(e) => {
@@ -307,6 +315,8 @@ function DraggableTimeEvent({
 
   return (
     <div
+      role="button"
+      tabIndex={0}
       className={cn(
         'calendar-time-event absolute left-0.5 right-0.5 rounded-md px-1.5 text-[12px] select-none overflow-hidden text-[var(--dome-on-accent)] z-[2]',
         dragging && 'calendar-time-event--dragging z-20 opacity-85',
@@ -323,6 +333,13 @@ function DraggableTimeEvent({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onClick={(e) => { if (!dragging) { e.stopPropagation(); onEventClick?.(event); } }}
+      onKeyDown={(e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && !dragging) {
+          e.preventDefault();
+          e.stopPropagation();
+          onEventClick?.(event);
+        }
+      }}
       title={event.title}
     >
       <div className="font-medium leading-[16px] truncate">{event.title || t('workspace.untitled')}</div>

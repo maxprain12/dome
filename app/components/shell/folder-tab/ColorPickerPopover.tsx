@@ -35,8 +35,8 @@ export default function ColorPickerPopover({
       aria-label={t('folder.changeColor', 'Cambiar color')}
       className="fixed z-[var(--z-popover)] rounded-xl shadow-lg p-2.5 border-0 m-0 min-w-0"
       style={{ top: clampedTop, left: clampedLeft, background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}
-      onMouseDown={(e) => e.stopPropagation()}
     >
+      <div role="presentation" onMouseDown={(e) => e.stopPropagation()}>
       <div className="grid grid-cols-6 gap-1.5">
         {SWATCHES.map((color) => (
           <button
@@ -58,6 +58,7 @@ export default function ColorPickerPopover({
             }}
           />
         ))}
+      </div>
       </div>
     </fieldset>
   );

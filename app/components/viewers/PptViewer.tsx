@@ -318,7 +318,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
     }, [loadPptx]);
 
     // Cleanup on unmount
-    // eslint-disable-next-line react-doctor/exhaustive-deps -- destroy previewer/DOM nodes on unmount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- destroy previewer/DOM nodes on unmount only
     useEffect(() => {
       return () => {
         try { previewerRef.current?.destroy?.(); } catch {}

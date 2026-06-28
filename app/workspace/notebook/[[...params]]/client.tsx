@@ -203,7 +203,7 @@ export default function NotebookWorkspaceClient({ resourceId }: NotebookWorkspac
     [resource, handleSaveMetadata]
   );
 
-  // eslint-disable-next-line react-doctor/exhaustive-deps -- clear pending save timeout on unmount only
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending save timeout on unmount only
   useEffect(() => {
     return () => {
       if (saveTimeoutRef.current) {
