@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { RefreshCw, LayoutGrid, GanttChartSquare, GitBranch, Settings as SettingsIcon, ListTodo, Search, ExternalLink, Calendar, Leaf, Code2, Github } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import MinimalTracker from './MinimalTracker';
 import GitHubConnect from './GitHubConnect';
 import KanbanBoard from './KanbanBoard';
@@ -49,6 +50,7 @@ function openStandalone(id: string, route: string, title: string) {
 
 export default function GitHubView() {
   const { t } = useTranslation();
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const init = useGitHubStore((s) => s.init);
   const dispose = useGitHubStore((s) => s.dispose);
   const connected = useGitHubStore((s) => s.connected);
@@ -56,9 +58,15 @@ export default function GitHubView() {
   const repos = useGitHubStore((s) => s.repos);
   const selectedRepoId = useGitHubStore((s) => s.selectedRepoId);
   const selectRepo = useGitHubStore((s) => s.selectRepo);
-  const syncStatus = useGitHubStore((s) => s.syncStatus);
   const syncNow = useGitHubStore((s) => s.syncNow);
   const branches = useGitHubStore((s) => s.branches);
+  const [manualSyncing, setManualSyncing] = useState(false);
+
+  const handleSyncClick = useCallback(() => {
+    if (manualSyncing) return;
+    setManualSyncing(true);
+    void syncNow(projectId).finally(() => setManualSyncing(false));
+  }, [manualSyncing, projectId, syncNow]);
 
   const tabs = useMemo(
     () =>
@@ -92,9 +100,9 @@ export default function GitHubView() {
   // Init IPC subscriptions on mount, tear them down on unmount so repeated
   // navigation (and popout windows) don't leak ipcRenderer listeners.
   useEffect(() => {
-    void init();
+    void init(projectId);
     return () => dispose();
-  }, [init, dispose]);
+  }, [init, dispose, projectId]);
 
   if (checkingAuth) {
     return (
@@ -103,7 +111,7 @@ export default function GitHubView() {
       </div>
     );
   }
-  if (!connected) return <GitHubConnect />;
+  if (!connected) return <GitHubConnect projectId={projectId} />;
 
   const selectedRepos = repos.filter((r) => r.selected === 1);
   const selectedRepo = repos.find((r) => r.id === selectedRepoId) ?? null;
@@ -240,11 +248,11 @@ export default function GitHubView() {
               variant="outline"
               size="sm"
               aria-label={t('github.sync_now')}
-              onClick={() => void syncNow()}
+              onClick={handleSyncClick}
             >
               <RefreshCw
                 size={14}
-                className={syncStatus === 'syncing' ? 'animate-spin text-[var(--accent)]' : undefined}
+                className={manualSyncing ? 'animate-spin text-[var(--accent)]' : undefined}
               />
             </DomeButton>
             <DomeButton
@@ -273,7 +281,7 @@ export default function GitHubView() {
 
       <div className="relative flex-1 overflow-hidden">
         {settingsOpen ? (
-          <GitHubSettings />
+          <GitHubSettings projectId={projectId} />
         ) : mode === 'minimal' ? (
           <MinimalTracker
             query={query}

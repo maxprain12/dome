@@ -17,6 +17,7 @@ import ChatTodoList from './ChatTodoList';
 import type { TodoItem } from '@/lib/chat/todos';
 import { parseTodos } from '@/lib/chat/todos';
 import { useManyStore } from '@/lib/store/useManyStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { parseContentImages, parseImageResult } from '@/lib/chat/image-tool-utils';
 import DomeCollapsibleRow from '@/components/ui/DomeCollapsibleRow';
 import DomeButton from '@/components/ui/DomeButton';
@@ -61,6 +62,7 @@ import {
 import {
   parseDocumentResult,
   parseArtifactResult,
+  parsePersistedArtifactCreateResult,
   parseResourceItems,
   formatArgsSummary,
   smartToolSummary,
@@ -112,6 +114,10 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
 
   const documentItems = useMemo(() => parseDocumentResult(toolCall.result), [toolCall.result]);
   const artifactItems = useMemo(() => parseArtifactResult(toolCall.result), [toolCall.result]);
+  const persistedArtifact = useMemo(() => {
+    if (toolCall.name !== 'artifact_create') return null;
+    return parsePersistedArtifactCreateResult(toolCall.result);
+  }, [toolCall.name, toolCall.result]);
   const imageItems = useMemo(() => parseImageResult(toolCall.result), [toolCall.result]);
   const contentImages = useMemo(() => parseContentImages(toolCall.result), [toolCall.result]);
   const resourceItems = useMemo(() => parseResourceItems(toolCall.name, toolCall.result), [toolCall.name, toolCall.result]);
@@ -245,6 +251,45 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
             </div>
             );
           })}
+        </div>
+      );
+    }
+
+    if (persistedArtifact) {
+      return (
+        <div
+          style={{
+            marginTop: 6,
+            padding: '10px 12px',
+            borderRadius: 8,
+            border: '1px solid var(--border)',
+            background: 'var(--bg-secondary)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+          }}
+        >
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--primary-text)' }}>
+              {persistedArtifact.title}
+            </p>
+            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--secondary-text)' }}>
+              {persistedArtifact.artifactType}
+            </p>
+          </div>
+          <DomeButton
+            size="xs"
+            variant="primary"
+            onClick={() =>
+              useTabStore.getState().openResourceTab(
+                persistedArtifact.resourceId,
+                'artifact',
+                persistedArtifact.title,
+              )
+            }
+          >
+            {t('artifacts.open_artifact', { defaultValue: 'Abrir artifact' })}
+          </DomeButton>
         </div>
       );
     }

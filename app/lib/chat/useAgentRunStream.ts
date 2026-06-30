@@ -15,6 +15,7 @@ import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import type { BudgetBreakdown } from '@/lib/chat/contextUsage';
 import {
+  getRun,
   onRunChunk,
   onRunStep,
   onRunUpdated,
@@ -23,7 +24,7 @@ import {
   type PersistentRunStep,
   type PersistentRunUsage,
 } from '@/lib/automations/api';
-import { streamingLabelForToolCall } from './streamingLabels';
+import { streamingLabelForActiveRun, streamingLabelForToolCall } from './streamingLabels';
 import { coalesceDuplicateToolCalls, applyToolResultChunk } from './coalesceToolCalls';
 
 export interface RunPendingApproval {
@@ -104,29 +105,83 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
   useEffect(() => {
     if (!activeRunId) return;
 
-    const unsubUpdated = onRunUpdated(({ run }) => {
-      if (run.id !== activeRunId) return;
+    let cancelled = false;
+    let terminalHandled = false;
+
+    const handleRunUpdate = (run: PersistentRun) => {
+      if (cancelled || run.id !== activeRunId) return;
       onRunStatus?.(run);
       if (['completed', 'failed', 'cancelled'].includes(run.status)) {
+        if (terminalHandled) return;
+        terminalHandled = true;
         onRunTerminal?.(run);
       }
+    };
+
+    void getRun(activeRunId)
+      .then((run) => {
+        if (run) handleRunUpdate(run);
+      })
+      .catch((error) => {
+        console.warn('[AgentRunStream] Could not load run snapshot:', error);
+      });
+
+    const unsubUpdated = onRunUpdated(({ run }) => {
+      handleRunUpdate(run);
     });
 
     const unsubChunk = onRunChunk((payload) => {
       if (payload.runId !== activeRunId) return;
+
+      if (payload.type === 'phase') {
+        const label = payload.labelKey
+          ? t(payload.labelKey)
+          : payload.detail
+            ? streamingLabelForToolCall({ name: payload.detail, arguments: {} }, t)
+            : t('chat.processing');
+        setStreamingMessage((prev) =>
+          prev
+            ? { ...prev, streamingLabel: label }
+            : {
+                id: `run-${payload.runId}`,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+                isStreaming: true,
+                toolCalls: [],
+                streamingLabel: label,
+              },
+        );
+        return;
+      }
+
+      if (payload.type === 'tool_progress' && payload.toolCallId) {
+        const label = payload.toolName
+          ? streamingLabelForToolCall({ name: payload.toolName, arguments: {} }, t)
+          : t('chat.tool_running');
+        setStreamingMessage((prev) =>
+          prev ? { ...prev, streamingLabel: label } : prev,
+        );
+        return;
+      }
 
       if (payload.type === 'budget' && payload.breakdown && onBudget) {
         onBudget(payload.breakdown);
         return;
       }
 
-      if (payload.type === 'compaction' && onCompaction) {
-        onCompaction({
-          tokensBefore: payload.tokensBefore,
-          tokensAfter: payload.tokensAfter,
-          summaryPreview: payload.summaryPreview,
-          automatic: payload.automatic,
-        });
+      if (payload.type === 'compaction') {
+        if (onCompaction) {
+          onCompaction({
+            tokensBefore: payload.tokensBefore,
+            tokensAfter: payload.tokensAfter,
+            summaryPreview: payload.summaryPreview,
+            automatic: payload.automatic,
+          });
+        }
+        setStreamingMessage((prev) =>
+          prev ? { ...prev, streamingLabel: t('chat.compacting_context') } : prev,
+        );
         return;
       }
 
@@ -139,7 +194,11 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
         onStreamingActivity?.();
         setStreamingMessage((prev) =>
           prev
-            ? { ...prev, content: `${prev.content ?? ''}${payload.text ?? ''}` }
+            ? {
+                ...prev,
+                content: `${prev.content ?? ''}${payload.text ?? ''}`,
+                streamingLabel: t('chat.generating_response'),
+              }
             : {
                 id: `run-${payload.runId}`,
                 role: 'assistant',
@@ -147,7 +206,7 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
                 timestamp: Date.now(),
                 isStreaming: true,
                 toolCalls: [],
-                streamingLabel: t('chat.running_background'),
+                streamingLabel: t('chat.generating_response'),
               },
         );
         return;
@@ -155,7 +214,24 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
 
       if (payload.type === 'thinking' && payload.text) {
         setStreamingMessage((prev) =>
-          prev ? { ...prev, thinking: `${prev.thinking || ''}${payload.text}` } : prev,
+          prev
+            ? {
+                ...prev,
+                thinking: `${prev.thinking || ''}${payload.text}`,
+                streamingLabel: prev.content?.trim()
+                  ? prev.streamingLabel
+                  : t('chat.thinking'),
+              }
+            : {
+                id: `run-${payload.runId}`,
+                role: 'assistant',
+                content: '',
+                timestamp: Date.now(),
+                isStreaming: true,
+                toolCalls: [],
+                thinking: payload.text,
+                streamingLabel: t('chat.thinking'),
+              },
         );
         return;
       }
@@ -237,6 +313,11 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
             void resumeRun(payload.runId, decisions as Array<unknown>);
           },
         });
+        setStreamingMessage((prev) =>
+          prev
+            ? { ...prev, streamingLabel: t('chat.waiting_approval'), isStreaming: false }
+            : prev,
+        );
       }
     });
 
@@ -254,13 +335,14 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
               timestamp: Date.now(),
               isStreaming: true,
               toolCalls: [],
-              streamingLabel: t('chat.running_background'),
+              streamingLabel: streamingLabelForActiveRun(t, { reconnecting: true }),
               runSteps: nextSteps,
             };
       });
     });
 
     return () => {
+      cancelled = true;
       unsubUpdated();
       unsubChunk();
       unsubStep();

@@ -19,6 +19,7 @@
   "filter_owner_all": "All",
   "filter_owner_agent": "Agents",
   "filter_owner_workflow": "Workflows",
+  "filter_owner_many": "Many (diagnostics)",
   "filter_group_type": "Type",
   "filter_status_all": "All",
   "filter_group_status": "Status",

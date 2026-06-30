@@ -32,33 +32,48 @@ export function useComposerMultimodalCapabilities(): ComposerMultimodalCapabilit
 
   useEffect(() => {
     let cancelled = false;
-    void getAIConfig().then((cfg) => {
-      if (cancelled || !cfg) {
-        setCaps((prev) => ({ ...prev, loading: false }));
-        return;
-      }
-      const provider = cfg.provider as AIProviderType;
-      const modelId =
-        provider === 'ollama' ? (cfg.ollamaModel ?? cfg.model ?? '') : (cfg.model ?? '');
-      const model = resolveModel(provider, modelId);
-      if (model) {
+
+    const loadCaps = () => {
+      void getAIConfig().then((cfg) => {
+        if (cancelled || !cfg) {
+          setCaps((prev) => ({ ...prev, loading: false }));
+          return;
+        }
+        const provider = cfg.provider as AIProviderType;
+        const modelId =
+          provider === 'ollama' ? (cfg.ollamaModel ?? cfg.model ?? '') : (cfg.model ?? '');
+        const model = resolveModel(provider, modelId);
+        if (model) {
+          setCaps({
+            supportsImage: modelSupportsVision(model),
+            supportsVideo: modelSupportsVideo(model),
+            modelId,
+            loading: false,
+          });
+          return;
+        }
+        // Unknown model: be permissive (don't block paste) except for the one
+        // provider whose non-vision variants are common (minimax text models).
         setCaps({
-          supportsImage: modelSupportsVision(model),
-          supportsVideo: modelSupportsVideo(model),
+          supportsImage: provider !== 'minimax' || /^MiniMax-M3$/i.test(modelId),
+          supportsVideo: /^MiniMax-M3$/i.test(modelId),
           modelId,
           loading: false,
         });
-        return;
-      }
-      setCaps({
-        supportsImage: provider !== 'minimax' || /^MiniMax-M3$/i.test(modelId),
-        supportsVideo: /^MiniMax-M3$/i.test(modelId),
-        modelId,
-        loading: false,
       });
-    });
+    };
+
+    loadCaps();
+
+    // Re-evaluate when the active model changes (InlineModelSwitcher dispatches
+    // this). Without it the caps stayed frozen at the model present on mount, so
+    // switching from a text-only model (e.g. MiniMax M2.7) to a vision model
+    // (MiniMax M3) kept image paste blocked — GH issue 453.
+    const onConfigChanged = () => loadCaps();
+    window.addEventListener('dome:ai-config-changed', onConfigChanged);
     return () => {
       cancelled = true;
+      window.removeEventListener('dome:ai-config-changed', onConfigChanged);
     };
   }, []);
 

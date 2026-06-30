@@ -3,9 +3,6 @@ import { githubClient } from '@/lib/github/client';
 
 type SyncStatus = 'idle' | 'syncing' | 'error';
 
-// Module-private state so it never triggers React re-renders.
-// Keeps the IPC unsubscribers + a debounce handle so GitHubView mount/unmount
-// cycles don't leak listeners or fan out N× full-data reloads per broadcast.
 let _unsubSyncStatus: (() => void) | null = null;
 let _unsubDataUpdated: (() => void) | null = null;
 let _subscribed = false;
@@ -13,14 +10,14 @@ let _refreshDebounce: ReturnType<typeof setTimeout> | null = null;
 const REFRESH_DEBOUNCE_MS = 500;
 const ISSUES_PAGE_SIZE = 5000;
 
-/** Reuse in-flight loadRepoData for the same repo (sync burst + tab open). */
 let _loadRepoInflight: { repoId: string; promise: Promise<void> } | null = null;
+let _activeProjectId = 'default';
 
-async function fetchAllIssues(repoId: string): Promise<GitHubIssueRow[]> {
+async function fetchAllIssues(repoId: string, projectId: string): Promise<GitHubIssueRow[]> {
   const all: GitHubIssueRow[] = [];
   let offset = 0;
   for (;;) {
-    const res = await githubClient.issues.list(repoId, { limit: ISSUES_PAGE_SIZE, offset });
+    const res = await githubClient.issues.list(repoId, { limit: ISSUES_PAGE_SIZE, offset, projectId });
     if (!res.success) throw new Error(res.error ?? 'Failed to load issues');
     all.push(...(res.issues ?? []));
     if (!res.truncated) break;
@@ -33,8 +30,11 @@ interface GitHubState {
   connected: boolean;
   login: string | null;
   checkingAuth: boolean;
+  projectId: string;
 
   repos: GitHubRepoRow[];
+  catalog: GitHubCatalogRepoRow[];
+  assignments: Record<string, string[]>;
   selectedRepoId: string | null;
 
   milestones: GitHubMilestoneRow[];
@@ -47,23 +47,40 @@ interface GitHubState {
   loading: boolean;
   error: string | null;
 
-  init: () => Promise<void>;
-  /** Tear down IPC subscriptions — call on view unmount to avoid listener leaks. */
+  init: (projectId: string) => Promise<void>;
   dispose: () => void;
   refreshStatus: () => Promise<void>;
-  refreshRepos: () => Promise<void>;
+  refreshRepos: (projectId?: string) => Promise<void>;
+  refreshCatalog: (projectId?: string) => Promise<void>;
   selectRepo: (repoId: string) => Promise<void>;
-  toggleRepoSelected: (repoId: string, selected: boolean) => Promise<void>;
-  loadRepoData: (repoId: string) => Promise<void>;
-  syncNow: () => Promise<void>;
+  toggleRepoSelected: (
+    payload: { repoId?: string; remote?: GitHubCatalogRepoRow; selected: boolean },
+    projectId?: string,
+  ) => Promise<void>;
+  loadRepoData: (repoId: string, projectId?: string) => Promise<void>;
+  patchLocalIssue: (issue: GitHubIssueRow) => void;
+  syncNow: (projectId?: string) => Promise<void>;
   disconnect: () => Promise<void>;
+}
+
+function resetRepoData(set: (partial: Partial<GitHubState>) => void) {
+  set({
+    selectedRepoId: null,
+    milestones: [],
+    issues: [],
+    branches: [],
+    releases: [],
+  });
 }
 
 export const useGitHubStore = create<GitHubState>((set, get) => ({
   connected: false,
   login: null,
   checkingAuth: true,
+  projectId: 'default',
   repos: [],
+  catalog: [],
+  assignments: {},
   selectedRepoId: null,
   milestones: [],
   issues: [],
@@ -74,37 +91,54 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
   loading: false,
   error: null,
 
-  init: async () => {
+  init: async (projectId) => {
+    const pid = projectId.trim() || 'default';
+    if (_activeProjectId !== pid) {
+      _activeProjectId = pid;
+      resetRepoData(set);
+      set({ projectId: pid, repos: [], catalog: [], assignments: {} });
+    } else {
+      set({ projectId: pid });
+    }
+
     await get().refreshStatus();
 
-    // Subscribe exactly once: GitHubView can mount in the main window AND in
-    // popout windows, and navigation remounts it. Without this guard every
-    // mount leaked two permanent ipcRenderer listeners, and each stale one
-    // re-fetched the full dataset on every broadcast (N× amplification).
     if (!_subscribed) {
       _subscribed = true;
       _unsubSyncStatus = githubClient.onSyncStatus((d) => {
+        const status = (d.status as SyncStatus) || 'idle';
+        // Background mutation sync is silent in main — never show a global spinner for it.
+        if (status === 'syncing') return;
         set({
-          syncStatus: (d.status as SyncStatus) || 'idle',
+          syncStatus: status,
           lastSync: d.lastSync ?? get().lastSync,
           error: d.error ?? null,
         });
       });
-      // Debounce the data-updated reload: the main process broadcasts once per
-      // repo during a sync, so a multi-repo sync fired N reloads per window.
-      // Collapse a burst into a single refresh.
-      _unsubDataUpdated = githubClient.onDataUpdated(() => {
-        if (_refreshDebounce) clearTimeout(_refreshDebounce);
-        _refreshDebounce = setTimeout(() => {
-          _refreshDebounce = null;
+      _unsubDataUpdated = githubClient.onDataUpdated((payload) => {
+        const refresh = () => {
+          set({ syncStatus: 'idle' });
           void get().refreshRepos();
           const id = get().selectedRepoId;
           if (id) void get().loadRepoData(id);
+        };
+        if (payload?.local === true) {
+          if (_refreshDebounce) {
+            clearTimeout(_refreshDebounce);
+            _refreshDebounce = null;
+          }
+          refresh();
+          return;
+        }
+        if (_refreshDebounce) clearTimeout(_refreshDebounce);
+        _refreshDebounce = setTimeout(() => {
+          _refreshDebounce = null;
+          refresh();
         }, REFRESH_DEBOUNCE_MS);
       });
     }
 
-    if (get().connected) await get().refreshRepos();
+    if (get().connected) await get().refreshRepos(pid);
   },
 
   dispose: () => {
@@ -124,13 +158,30 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
     set({ connected: !!res.connected, login: res.login ?? null, checkingAuth: false });
   },
 
-  refreshRepos: async () => {
-    const res = await githubClient.repos.list();
+  refreshRepos: async (projectId) => {
+    const pid = projectId?.trim() || get().projectId || 'default';
+    const res = await githubClient.repos.list(pid);
     if (res.success && res.repos) {
-      set({ repos: res.repos });
+      set({ repos: res.repos, projectId: pid });
       const selectedId = get().selectedRepoId;
-      const firstSelected = res.repos.find((r) => r.selected) ?? null;
-      if (!selectedId && firstSelected) void get().selectRepo(firstSelected.id);
+      const firstSelected = res.repos.find((r) => r.selected === 1) ?? null;
+      if (!selectedId || !res.repos.some((r) => r.id === selectedId)) {
+        if (firstSelected) void get().selectRepo(firstSelected.id);
+        else resetRepoData(set);
+      }
+    }
+  },
+
+  refreshCatalog: async (projectId) => {
+    const pid = projectId?.trim() || get().projectId || 'default';
+    const res = await githubClient.repos.refresh(pid);
+    if (res.success) {
+      set({
+        catalog: res.catalog ?? [],
+        repos: res.tracked ?? get().repos,
+        assignments: res.assignments ?? {},
+        projectId: pid,
+      });
     }
   },
 
@@ -139,30 +190,45 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
     await get().loadRepoData(repoId);
   },
 
-  toggleRepoSelected: async (repoId, selected) => {
-    await githubClient.repos.setSelected(repoId, selected);
-    await get().refreshRepos();
-    if (selected) await get().selectRepo(repoId);
+  toggleRepoSelected: async ({ repoId, remote, selected }, projectId) => {
+    const pid = projectId?.trim() || get().projectId || 'default';
+    set({ error: null });
+    const res = await githubClient.repos.setSelected({
+      projectId: pid,
+      selected,
+      repoId,
+      remote,
+    });
+    if (!res.success) {
+      set({ error: res.error ?? 'Failed to update repo selection' });
+      return;
+    }
+    await get().refreshRepos(pid);
+    if (selected && res.repo) {
+      await get().selectRepo(res.repo.id);
+    }
   },
 
-  loadRepoData: async (repoId) => {
+  loadRepoData: async (repoId, projectId) => {
     if (_loadRepoInflight?.repoId === repoId) {
       await _loadRepoInflight.promise;
       return;
     }
 
+    const pid = projectId?.trim() || get().projectId || 'default';
+
     const run = (async () => {
       set({ loading: true, error: null });
       try {
-        const ms = await githubClient.milestones.list(repoId);
+        const ms = await githubClient.milestones.list(repoId, pid);
         if (!ms.success) throw new Error(ms.error ?? 'Failed to load milestones');
 
-        const issues = await fetchAllIssues(repoId);
+        const issues = await fetchAllIssues(repoId, pid);
 
-        const br = await githubClient.branches.list(repoId);
+        const br = await githubClient.branches.list(repoId, pid);
         if (!br.success) throw new Error(br.error ?? 'Failed to load branches');
 
-        const rel = await githubClient.releases.list(repoId);
+        const rel = await githubClient.releases.list(repoId, pid);
         if (!rel.success) throw new Error(rel.error ?? 'Failed to load releases');
 
         set({
@@ -185,13 +251,24 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
     }
   },
 
-  syncNow: async () => {
-    set({ syncStatus: 'syncing' });
-    const res = await githubClient.syncNow();
-    if (!res.success) set({ syncStatus: 'error', error: res.error ?? 'Sync failed' });
-    await get().refreshRepos();
-    const id = get().selectedRepoId;
-    if (id) await get().loadRepoData(id);
+  patchLocalIssue: (issue) => {
+    set((state) => ({
+      syncStatus: 'idle',
+      issues: state.issues.map((row) => (row.id === issue.id ? { ...row, ...issue } : row)),
+    }));
+  },
+
+  syncNow: async (projectId?: string) => {
+    const pid = projectId?.trim() || get().projectId || 'default';
+    const res = await githubClient.syncNow(pid);
+    if (res.success) {
+      set({ syncStatus: 'idle', lastSync: Date.now(), error: null });
+    } else if (res.error === 'Sync already in progress') {
+      // Background sync from a mutation is already running — not an error.
+      set({ syncStatus: 'idle', error: null });
+    } else {
+      set({ syncStatus: 'error', error: res.error ?? 'Sync failed' });
+    }
   },
 
   disconnect: async () => {
@@ -200,6 +277,8 @@ export const useGitHubStore = create<GitHubState>((set, get) => ({
       connected: false,
       login: null,
       repos: [],
+      catalog: [],
+      assignments: {},
       selectedRepoId: null,
       milestones: [],
       issues: [],

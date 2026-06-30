@@ -31,7 +31,7 @@ export default function KanbanBoard({
   const allIssues = useGitHubStore((s) => s.issues);
   const selectedRepoId = useGitHubStore((s) => s.selectedRepoId);
   const loadRepoData = useGitHubStore((s) => s.loadRepoData);
-  const syncNow = useGitHubStore((s) => s.syncNow);
+  const patchLocalIssue = useGitHubStore((s) => s.patchLocalIssue);
 
   const q = query.trim().toLowerCase();
   const columnSort = useGitHubSortStore((s) => s.milestones);
@@ -120,13 +120,15 @@ export default function KanbanBoard({
   }, [issues, cardSort]);
 
   const move = async (issueId: string, milestoneNumber: number | null) => {
-    await githubClient.issues.move(issueId, { milestoneNumber });
-    void syncNow();
+    const res = await githubClient.issues.move(issueId, { milestoneNumber });
+    if (res.success && res.issue) patchLocalIssue(res.issue);
   };
 
   const toggleState = async (issue: GitHubIssueRow) => {
-    await githubClient.issues.move(issue.id, { state: issue.state === 'open' ? 'closed' : 'open' });
-    void syncNow();
+    const res = await githubClient.issues.move(issue.id, {
+      state: issue.state === 'open' ? 'closed' : 'open',
+    });
+    if (res.success && res.issue) patchLocalIssue(res.issue);
   };
 
   // Horizontal wheel-scroll + drag for the columns row (mouse wheel → scrollLeft).
@@ -169,7 +171,6 @@ export default function KanbanBoard({
               });
               // Full reload so the new milestone + column appear in the store.
               await loadRepoData(selectedRepoId);
-              void syncNow();
             }}
           />
         )}

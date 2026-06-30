@@ -185,6 +185,15 @@ declare global {
     html_url: string | null;
     selected: number;
     last_sync_at: number | null;
+    project_id: string;
+  }
+  interface GitHubCatalogRepoRow {
+    id: number;
+    full_name: string;
+    name: string;
+    owner: string;
+    private: number;
+    html_url: string | null;
   }
   interface GitHubMilestoneRow {
     id: string;
@@ -440,7 +449,7 @@ declare global {
 
       // Email API (himalaya)
       email: {
-        listAccounts: () => Promise<EmailResult<{ accounts?: any[] }>>;
+        listAccounts: (params?: { projectId?: string }) => Promise<EmailResult<{ accounts?: any[] }>>;
         addAccount: (input: {
           email: string;
           display_name?: string;
@@ -453,6 +462,8 @@ declare global {
           username?: string;
           password?: string;
           is_default?: boolean;
+          projectId?: string;
+          project_id?: string;
           user_actions?: {
             list?: boolean;
             read?: boolean;
@@ -487,21 +498,23 @@ declare global {
           };
         }) => Promise<EmailResult<{ accounts?: any[] }>>;
         testConnection: (accountId?: string | null) => Promise<EmailResult>;
-        listFolders: (accountId?: string | null) => Promise<EmailResult<{ folders?: any[] }>>;
+        listFolders: (params?: { accountId?: string | null; projectId?: string } | string | null) => Promise<EmailResult<{ folders?: any[] }>>;
         listEnvelopes: (params: {
           accountId?: string | null;
+          projectId?: string;
           folder?: string;
           page?: number;
           pageSize?: number;
         }) => Promise<EmailResult<{ envelopes?: any[]; accountId?: string; folder?: string }>>;
-        read: (params: { accountId?: string | null; messageId: string; folder?: string }) => Promise<
+        read: (params: { accountId?: string | null; messageId: string; projectId?: string; folder?: string }) => Promise<
           EmailResult<{ message?: any; accountId?: string }>
         >;
-        search: (params: { accountId?: string | null; query: string; folder?: string; pageSize?: number }) => Promise<
+        search: (params: { accountId?: string | null; projectId?: string; query: string; folder?: string; pageSize?: number }) => Promise<
           EmailResult<{ envelopes?: any[]; accountId?: string }>
         >;
         send: (params: {
           accountId?: string | null;
+          projectId?: string;
           to: string;
           cc?: string;
           bcc?: string;
@@ -510,6 +523,7 @@ declare global {
         }) => Promise<EmailResult>;
         reply: (params: {
           accountId?: string | null;
+          projectId?: string;
           messageId: string;
           body?: string;
           folder?: string;
@@ -518,16 +532,16 @@ declare global {
 
       // Calendar API
       calendar: {
-        connectGoogle: () => Promise<{ success: boolean; accountId?: string; error?: string }>;
-        getGoogleAccounts: () => Promise<{ success: boolean; accounts?: { id: string; account_email: string; status: string }[]; error?: string }>;
-        listCalendars: (accountId?: string | null) => Promise<{ success: boolean; calendars?: any[]; error?: string }>;
-        listEvents: (params: { startMs: number; endMs: number; calendarIds?: string[] }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
+        connectGoogle: (params?: { projectId?: string }) => Promise<{ success: boolean; accountId?: string; error?: string }>;
+        getGoogleAccounts: (params?: { projectId?: string }) => Promise<{ success: boolean; accounts?: { id: string; account_email: string; status: string }[]; error?: string }>;
+        listCalendars: (params?: { accountId?: string | null; projectId?: string } | string | null) => Promise<{ success: boolean; calendars?: any[]; error?: string }>;
+        listEvents: (params: { startMs: number; endMs: number; calendarIds?: string[]; projectId?: string }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
         getEvent: (eventId: string) => Promise<{ success: boolean; event?: any; error?: string }>;
         createEvent: (data: any) => Promise<{ success: boolean; event?: any; error?: string }>;
         updateEvent: (eventId: string, updates: any) => Promise<{ success: boolean; event?: any; error?: string }>;
         deleteEvent: (eventId: string) => Promise<{ success: boolean; deleted?: boolean; error?: string }>;
-        syncNow: () => Promise<{ success: boolean; synced?: boolean; message?: string; error?: string }>;
-        getUpcoming: (params?: { windowMinutes?: number; limit?: number }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
+        syncNow: (params?: { projectId?: string }) => Promise<{ success: boolean; synced?: boolean; message?: string; error?: string }>;
+        getUpcoming: (params?: { windowMinutes?: number; limit?: number; projectId?: string }) => Promise<{ success: boolean; events?: any[]; error?: string }>;
         getSettings: () => Promise<{
           success: boolean;
           settings?: {
@@ -628,12 +642,23 @@ declare global {
           disconnect: () => Promise<{ success: boolean; error?: string }>;
         };
         repos: {
-          list: () => Promise<{ success: boolean; repos?: GitHubRepoRow[]; error?: string }>;
-          refresh: () => Promise<{ success: boolean; repos?: GitHubRepoRow[]; error?: string }>;
-          setSelected: (repoId: string, selected: boolean) => Promise<{ success: boolean; repo?: GitHubRepoRow; error?: string }>;
+          list: (payload?: { projectId?: string }) => Promise<{ success: boolean; repos?: GitHubRepoRow[]; error?: string }>;
+          refresh: (payload?: { projectId?: string }) => Promise<{
+            success: boolean;
+            catalog?: GitHubCatalogRepoRow[];
+            tracked?: GitHubRepoRow[];
+            assignments?: Record<string, string[]>;
+            error?: string;
+          }>;
+          setSelected: (payload: {
+            projectId: string;
+            selected: boolean;
+            repoId?: string;
+            remote?: GitHubCatalogRepoRow;
+          }) => Promise<{ success: boolean; repo?: GitHubRepoRow; error?: string }>;
         };
         milestones: {
-          list: (repoId: string) => Promise<{ success: boolean; milestones?: GitHubMilestoneRow[]; error?: string }>;
+          list: (repoId: string, opts?: { projectId?: string }) => Promise<{ success: boolean; milestones?: GitHubMilestoneRow[]; error?: string }>;
           get: (id: string) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
           create: (repoId: string, data: { title: string; description?: string; dueOn?: number | null; state?: string }) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
           update: (id: string, patch: Record<string, unknown>) => Promise<{ success: boolean; milestone?: GitHubMilestoneRow; error?: string }>;
@@ -660,12 +685,12 @@ declare global {
           listTimeline: (issueId: string) => Promise<{ success: boolean; timeline?: GitHubTimelineEvent[]; error?: string }>;
           listMentionables: (issueId: string) => Promise<{ success: boolean; users?: GitHubMentionableUser[]; error?: string }>;
         };
-        branches: { list: (repoId: string) => Promise<{ success: boolean; branches?: GitHubBranchRow[]; error?: string }> };
-        releases: { list: (repoId: string) => Promise<{ success: boolean; releases?: GitHubReleaseRow[]; error?: string }> };
+        branches: { list: (repoId: string, opts?: { projectId?: string }) => Promise<{ success: boolean; branches?: GitHubBranchRow[]; error?: string }> };
+        releases: { list: (repoId: string, opts?: { projectId?: string }) => Promise<{ success: boolean; releases?: GitHubReleaseRow[]; error?: string }> };
         resolveImage: (url: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
-        syncNow: () => Promise<{ success: boolean; repos?: number; error?: string }>;
+        syncNow: (params?: { projectId?: string }) => Promise<{ success: boolean; repos?: number; error?: string }>;
         onSyncStatus: (cb: (data: { status: string; lastSync?: number; error?: string }) => void) => () => void;
-        onDataUpdated: (cb: (data: Record<string, unknown>) => void) => () => void;
+        onDataUpdated: (cb: (data: { local?: boolean }) => void) => () => void;
       };
 
       // Plugins API

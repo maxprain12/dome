@@ -13,6 +13,7 @@ import {
   type ZohoRegionId,
 } from '@/lib/email/providerPresets';
 import { cn } from '@/lib/utils';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 interface EmailAccount {
   id: string;
@@ -73,6 +74,7 @@ const EMPTY_FORM = {
 
 export default function EmailSettings() {
   const { t } = useTranslation();
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [providerId, setProviderId] = useState<EmailProviderId>('custom');
@@ -83,9 +85,9 @@ export default function EmailSettings() {
   const [testState, setTestState] = useState<'idle' | 'testing' | 'ok' | 'fail'>('idle');
 
   const load = useCallback(async () => {
-    const res = await window.electron.email.listAccounts();
+    const res = await window.electron.email.listAccounts({ projectId });
     if (res.success) setAccounts((res.accounts as EmailAccount[]) || []);
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     load();
@@ -163,6 +165,7 @@ export default function EmailSettings() {
         username: form.username || form.email,
         user_actions: form.user_actions,
         agent_actions: form.agent_actions,
+        projectId,
       });
       if (!res.success) {
         setError({ error: res.error || t('email.settings.add_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });

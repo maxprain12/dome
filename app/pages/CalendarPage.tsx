@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { getEventsForDay } from '@/lib/calendar/dayEvents';
 
 type CalRow = { id: string; title: string; color?: string; account_id?: string; is_selected?: boolean };
@@ -44,6 +45,8 @@ export default function CalendarPage() {
     setSyncStatus,
     setLastSyncAt,
   } = useCalendarStore();
+
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const [showModal, setShowModal] = useState(false);
   const [dayModalDate, setDayModalDate] = useState<Date | null>(null);
@@ -98,7 +101,7 @@ export default function CalendarPage() {
 
   const loadCalendars = useCallback(async () => {
     if (!window.electron?.calendar?.listCalendars) return;
-    const r = await window.electron.calendar.listCalendars(null);
+    const r = await window.electron.calendar.listCalendars({ projectId });
     if (r.success && r.calendars) {
       const rows = r.calendars as CalRow[];
       setCalendars(rows);
@@ -110,12 +113,15 @@ export default function CalendarPage() {
       const def = rows.find((c) => c.account_id === 'local' || !c.account_id) ?? rows[0];
       if (def) setImportTargetId((tid) => (tid && rows.some((c) => c.id === tid) ? tid : def.id));
     }
-  }, []);
+  }, [projectId]);
 
   const loadEvents = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.calendar) return;
     const range = getDateRange(currentDate, viewMode);
-    const params: { startMs: number; endMs: number; calendarIds?: string[] } = { ...range };
+    const params: { startMs: number; endMs: number; calendarIds?: string[]; projectId: string } = {
+      ...range,
+      projectId,
+    };
     if (calendarIdsParam !== undefined) {
       if (calendarIdsParam.length === 0) {
         setEvents([]);
@@ -127,19 +133,23 @@ export default function CalendarPage() {
     if (result.success && result.events) {
       setEvents(result.events as CalendarEvent[]);
     }
-  }, [currentDate, viewMode, getDateRange, setEvents, calendarIdsParam]);
+  }, [currentDate, viewMode, getDateRange, setEvents, calendarIdsParam, projectId]);
 
   const loadUpcoming = useCallback(async () => {
     if (typeof window === 'undefined' || !window.electron?.calendar) return;
-    const result = await window.electron.calendar.getUpcoming({ windowMinutes: 60 * 24 * 7, limit: 12 });
+    const result = await window.electron.calendar.getUpcoming({
+      windowMinutes: 60 * 24 * 7,
+      limit: 12,
+      projectId,
+    });
     if (result.success && result.events) {
       setUpcomingEvents(result.events as CalendarEvent[]);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void loadCalendars();
-  }, [loadCalendars]);
+  }, [loadCalendars, projectId]);
 
   useEffect(() => {
     setLoading(true);
@@ -179,7 +189,7 @@ export default function CalendarPage() {
     setSyncing(true);
     setSyncStatus('syncing');
     try {
-      const r = await window.electron.calendar.syncNow();
+      const r = await window.electron.calendar.syncNow({ projectId });
       if (r.success) {
         setLastSyncAt(Date.now());
         setSyncStatus('idle');
@@ -191,7 +201,7 @@ export default function CalendarPage() {
     } finally {
       setSyncing(false);
     }
-  }, [loadEvents, loadUpcoming, setLastSyncAt, setSyncStatus]);
+  }, [loadEvents, loadUpcoming, setLastSyncAt, setSyncStatus, projectId]);
 
   const toggleCalendarFilter = (id: string) => {
     setVisibleCalendarIds((prev) => {
@@ -303,7 +313,7 @@ export default function CalendarPage() {
     if (selectedEvent) {
       await window.electron.calendar.updateEvent(selectedEvent.id, data);
     } else {
-      await window.electron.calendar.createEvent(data);
+      await window.electron.calendar.createEvent({ ...data, projectId });
     }
     loadEvents();
   };

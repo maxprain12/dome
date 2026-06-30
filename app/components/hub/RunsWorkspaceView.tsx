@@ -34,7 +34,7 @@ import DomeFilterChipGroup from '@/components/ui/DomeFilterChipGroup';
 import { HubFilterBar, HubFilterRow } from '@/components/ui/HubFilterBar';
 
 interface RunFilter {
-  ownerType: 'all' | 'agent' | 'workflow';
+  ownerType: 'all' | 'agent' | 'workflow' | 'many';
   status: 'all' | 'running' | 'completed' | 'failed' | 'cancelled';
 }
 
@@ -78,10 +78,14 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
 
   const fetchListData = useCallback(async () => {
     const all = await listRuns({ limit: 100, projectId });
+    if (filter.ownerType === 'many') {
+      setAllRuns(all.filter((r) => r.ownerType === 'many'));
+      return;
+    }
     setAllRuns(all.filter((r) => r.ownerType !== 'many'));
-  }, [projectId]);
+  }, [projectId, filter.ownerType]);
 
-  const { initialLoading: loading, reload: load } = useHubListLoader(fetchListData, [projectId], {
+  const { initialLoading: loading, reload: load } = useHubListLoader(fetchListData, [projectId, filter.ownerType], {
     eventName: HUB_RUNS_CHANGED,
   });
 
@@ -138,10 +142,12 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
 
   useEffect(() => {
     const unsubUpdated = onRunUpdated(({ run }) => {
-      if (run.ownerType === 'many') return;
+      const manyOnlyView = filter.ownerType === 'many';
+      if (run.ownerType === 'many' && !manyOnlyView) return;
+      if (run.ownerType !== 'many' && manyOnlyView) return;
       setAllRuns((prev) => {
-        const filteredPrev = prev.filter((entry) => entry.ownerType !== 'many');
-        const existing = filteredPrev.find((entry) => entry.id === run.id);
+        const base = manyOnlyView ? prev : prev.filter((entry) => entry.ownerType !== 'many');
+        const existing = base.find((entry) => entry.id === run.id);
         const merged = existing
           ? {
               ...existing,
@@ -154,8 +160,8 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
             }
           : run;
         const next = existing
-          ? filteredPrev.map((entry) => (entry.id === run.id ? merged : entry))
-          : [merged, ...filteredPrev];
+          ? base.map((entry) => (entry.id === run.id ? merged : entry))
+          : [merged, ...base];
         return next
           .sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0))
           .slice(0, 100);
@@ -196,7 +202,7 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
       unsubUpdated();
       unsubStep();
     };
-  }, []);
+  }, [filter.ownerType]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending detail refresh on unmount only
   useEffect(() => {
@@ -294,14 +300,16 @@ function RunsTab({ onRegisterSilentRefresh }: RunsTabProps) {
 
   const ownerFilters = useMemo(
     () =>
-      (['all', 'agent', 'workflow'] as const).map((key) => ({
+      (['all', 'agent', 'workflow', 'many'] as const).map((key) => ({
         key,
         label:
           key === 'all'
             ? t('runLog.filter_owner_all')
             : key === 'agent'
               ? t('runLog.filter_owner_agent')
-              : t('runLog.filter_owner_workflow'),
+              : key === 'many'
+                ? t('runLog.filter_owner_many')
+                : t('runLog.filter_owner_workflow'),
       })),
     [t],
   );

@@ -67,10 +67,13 @@ import { registerManyMessageSender, type ManySendOptions } from '@/lib/many/many
 import { runPdfRegionStream } from '@/lib/hooks/usePdfRegionStream';
 import UICursorOverlay from './UICursorOverlay';
 import PdfRegionBanner from '@/components/many/PdfRegionBanner';
-import { streamingLabelForToolName } from '@/lib/chat/streamingLabels';
+import { streamingLabelForActiveRun, streamingLabelForToolCall, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { coalesceDuplicateToolCalls, mergeTerminalToolCalls } from '@/lib/chat/coalesceToolCalls';
+import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
+import { manyContextSlotPlacement } from '@/lib/many/contextSlotPlacement';
 import ManyHitlInlineSection from '@/components/many/ManyHitlInlineSection';
+import ManyRunDiagnostics from '@/components/many/ManyRunDiagnostics';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
 import { cn } from '@/lib/utils';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
@@ -85,11 +88,13 @@ interface ManyPanelProps {
   onClose: () => void;
   isVisible: boolean;
   isFullscreen?: boolean;
+  /** Standalone Electron popout at /standalone/many */
+  isPopout?: boolean;
   /** Motor de mensajes sin UI (voz global con panel lateral cerrado / pestaña Chat). */
   mode?: 'full' | 'headless';
 }
 
-export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false, mode = 'full' }: ManyPanelProps) {
+export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false, isPopout = false, mode = 'full' }: ManyPanelProps) {
   const isHeadless = mode === 'headless';
   const { t } = useTranslation();
   const { pathname } = useLocation();
@@ -142,6 +147,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const pendingManyHandoff = useManyStore((s) => s.pendingManyHandoff);
   const setPendingManyHandoff = useManyStore((s) => s.setPendingManyHandoff);
   const setSessionRunState = useManyStore((s) => s.setSessionRunState);
+  const currentSessionRunPhase = useManyStore((s) =>
+    currentSessionId ? s.activeRunBySessionId[currentSessionId] : undefined,
+  );
 
   const [input, setInput] = useState('');
   const [chatAttachments, setChatAttachments] = useState<ChatAttachment[]>([]);
@@ -162,6 +170,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [activeRunSnapshot, setActiveRunSnapshot] = useState<PersistentRun | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
@@ -191,6 +200,34 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     () => sessions.find((session) => session.id === currentSessionId) ?? null,
     [sessions, currentSessionId],
   );
+
+  useEffect(() => {
+    if (activeRunId || isSubmittingRef.current) return;
+
+    if (currentSessionRunPhase) {
+      setIsLoading(true);
+      setStatus('thinking');
+      setStreamingMessage((prev) =>
+        prev ?? {
+          id: `synced-run-${currentSessionId ?? 'unknown'}`,
+          role: 'assistant',
+          content: '',
+          timestamp: Date.now(),
+          isStreaming: true,
+          toolCalls: [],
+          streamingLabel:
+            currentSessionRunPhase === 'streaming'
+              ? t('chat.reconnecting_run')
+              : t('chat.thinking_evaluating_tools'),
+        },
+      );
+      return;
+    }
+
+    setIsLoading(false);
+    setStatus('idle');
+    setStreamingMessage((prev) => (prev?.id.startsWith('synced-run-') ? null : prev));
+  }, [activeRunId, currentSessionId, currentSessionRunPhase, setStatus, t]);
 
   const effectiveResourceId =
     currentResourceId ||
@@ -274,33 +311,63 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   }, [chatProjectId, startNewChat, hydrateFromThreads]);
 
   // Load messages from JSONL when switching chats.
+  //
+  // A non-empty thread that renders empty was a real bug: the JSONL (source of
+  // truth) can lag a tick behind the UI right after a run finishes, or a single
+  // `threads:get-state` call can transiently fail/return empty. The old code did
+  // ONE fetch and silently bailed on empty, leaving a titled session stuck on the
+  // empty state until remount. We now retry a few times with backoff before
+  // accepting "genuinely empty", and only hydrate when we actually got messages.
   useEffect(() => {
     if (!currentSessionId || !window.electron?.threads?.getState) return;
 
+    const sessionId = currentSessionId;
     let cancelled = false;
-    void fetchManyMessagesFromThread(currentSessionId).then((threadMessages) => {
-      if (cancelled || threadMessages.length === 0) return;
+    const RETRY_DELAYS_MS = [0, 250, 600, 1200];
 
-      const localMessages = useManyStore.getState().messages;
-      if (localMessages.length > threadMessages.length) return;
+    const loadWithRetry = async () => {
+      for (const delay of RETRY_DELAYS_MS) {
+        if (delay > 0) await new Promise((r) => setTimeout(r, delay));
+        if (cancelled || currentSessionIdRef.current !== sessionId) return;
 
-      const localSession = useManyStore.getState().sessions.find((s) => s.id === currentSessionId);
-      const firstUser = threadMessages.find((m) => m.role === 'user')?.content ?? '';
-      hydrateSession({
-        id: currentSessionId,
-        title: deriveManySessionTitle({
-          storedTitle: localSession?.title,
+        let threadMessages: Awaited<ReturnType<typeof fetchManyMessagesFromThread>> = [];
+        try {
+          threadMessages = await fetchManyMessagesFromThread(sessionId);
+        } catch (error) {
+          console.warn('[Many] Could not load session from JSONL:', error);
+          continue; // transient failure — retry
+        }
+        if (cancelled || currentSessionIdRef.current !== sessionId) return;
+        if (threadMessages.length === 0) {
+          // Could be a not-yet-flushed thread or a genuinely empty draft. If the
+          // store already holds messages for this session, stop (don't clobber);
+          // otherwise keep retrying until the budget runs out.
+          if (useManyStore.getState().messages.length > 0) return;
+          continue;
+        }
+
+        const localMessages = useManyStore.getState().messages;
+        if (localMessages.length > threadMessages.length) return;
+
+        const localSession = useManyStore.getState().sessions.find((s) => s.id === sessionId);
+        const firstUser = threadMessages.find((m) => m.role === 'user')?.content ?? '';
+        hydrateSession({
+          id: sessionId,
+          title: deriveManySessionTitle({
+            storedTitle: localSession?.title,
+            messages: threadMessages,
+            firstUser,
+          }),
           messages: threadMessages,
-          firstUser,
-        }),
-        messages: threadMessages,
-        createdAt: localSession?.createdAt ?? threadMessages[0]?.timestamp ?? Date.now(),
-        updatedAt: threadMessages[threadMessages.length - 1]?.timestamp ?? localSession?.updatedAt,
-        pinned: localSession?.pinned,
-      } satisfies ManyChatSession);
-    }).catch((error) => {
-      console.warn('[Many] Could not load session from JSONL:', error);
-    });
+          createdAt: localSession?.createdAt ?? threadMessages[0]?.timestamp ?? Date.now(),
+          updatedAt: threadMessages[threadMessages.length - 1]?.timestamp ?? localSession?.updatedAt,
+          pinned: localSession?.pinned,
+        } satisfies ManyChatSession);
+        return;
+      }
+    };
+
+    void loadWithRetry();
 
     return () => {
       cancelled = true;
@@ -329,6 +396,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
     if (!run) {
       setActiveRunId(null);
+      setActiveRunSnapshot(null);
       return;
     }
     setActiveRunId(run.id);
@@ -360,22 +428,28 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       }
       setIsLoading(true);
       setStatus('thinking');
-      setStreamingMessage((prev) => ({
-        id: prev?.id || `run-${run.id}`,
-        role: 'assistant',
-        content: run.outputText || '',
-        timestamp: run.updatedAt || Date.now(),
-        isStreaming: run.status !== 'waiting_approval',
-        toolCalls: prev?.toolCalls || [],
-        streamingLabel:
-          run.status === 'waiting_approval'
-            ? t('chat.waiting_approval')
-            : (prev?.streamingLabel || t('chat.running_background')),
-      }));
+      setActiveRunSnapshot(run);
+      setStreamingMessage((prev) =>
+        mergeRunSnapshotIntoStreamingMessage(prev, {
+          id: prev?.id || `run-${run.id}`,
+          content: run.outputText || '',
+          timestamp: run.updatedAt || Date.now(),
+          isStreaming: run.status !== 'waiting_approval',
+          streamingLabel:
+            run.status === 'waiting_approval'
+              ? t('chat.waiting_approval')
+              : (prev?.streamingLabel ||
+                  streamingLabelFromRunMetadata(t, run.metadata as Record<string, unknown>, {
+                    hasContent: Boolean(run.outputText?.trim()),
+                    reconnecting: true,
+                  })),
+        }),
+      );
       return;
     }
     setIsLoading(false);
     setStatus('idle');
+    setActiveRunSnapshot(null);
     setStreamingMessage(null);
     setPendingApproval(null);
     if (activeRunSessionIdRef.current) {
@@ -444,6 +518,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       }
       const streamSnap = streamingMessageRef.current;
       setActiveRunId(null);
+      setActiveRunSnapshot(null);
       setIsLoading(false);
       setStatus('idle');
       setPendingApproval(null);
@@ -1210,17 +1285,23 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   ]);
 
   const loadingHint = useMemo(() => {
-    if (showHitlInline) return t('many.hitl_waiting');
+    if (showHitlInline || pendingApproval) return t('chat.waiting_approval');
     const calls = coalesceDuplicateToolCalls(streamingMessage?.toolCalls ?? []);
     const running = calls.find((tc) => tc.status === 'running');
     if (running?.name) {
-      return streamingLabelForToolName(running.name, t);
+      return streamingLabelForToolCall(running, t);
     }
-    if (isLoading && toolsEnabled && status === 'thinking') {
-      return t('chat.executing_tools');
+    if (streamingMessage?.content?.trim()) {
+      return t('chat.generating_response');
+    }
+    if (isLoading && streamingMessage?.thinking) {
+      return t('chat.thinking');
+    }
+    if (isLoading) {
+      return t('chat.thinking_evaluating_tools');
     }
     return undefined;
-  }, [showHitlInline, streamingMessage?.toolCalls, isLoading, toolsEnabled, status, t]);
+  }, [showHitlInline, pendingApproval, streamingMessage, isLoading, t]);
 
   const showContextUsage = Boolean(
     displayBudget &&
@@ -1228,7 +1309,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       (messages.length > 0 || isLoading || lastBudgetSessionId === currentSessionId),
   );
 
-  const composerContextUsageSlot = showContextUsage ? (
+  // Indicator lives in the header when docked, in the composer when fullscreen —
+  // never both (was duplicated in sidebar). See contextSlotPlacement.
+  const contextSlot = manyContextSlotPlacement({ isFullscreen, showContextUsage });
+
+  const composerContextUsageSlot = contextSlot.composer ? (
     <ManyChatInput.ContextUsage>
       <ContextUsageIndicator
         key={currentSessionId ?? 'none'}
@@ -1264,6 +1349,68 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     setShowHistory((v) => !v);
   }, []);
 
+  const openChatTab = useTabStore((s) => s.openChatTab);
+
+  const handleToggleFullscreen = useCallback(() => {
+    if (isFullscreen) {
+      const { tabs, activeTabId, closeTab } = useTabStore.getState();
+      const activeTab = tabs.find((tab) => tab.id === activeTabId);
+      if (activeTab?.type === 'chat') {
+        closeTab(activeTab.id);
+      }
+      window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
+      return;
+    }
+    const sid = currentSessionId ?? useManyStore.getState().currentSessionId;
+    if (!sid) {
+      startNewChat();
+    }
+    const sessionId = useManyStore.getState().currentSessionId;
+    if (!sessionId) return;
+    const session = useManyStore.getState().sessions.find((s) => s.id === sessionId);
+    const title = session?.title
+      ? sanitizeManySessionTitle(session.title)
+      : t('shell.new_chat');
+    openChatTab(sessionId, title);
+  }, [isFullscreen, currentSessionId, startNewChat, openChatTab, t]);
+
+  const handlePopout = useCallback(async () => {
+    if (!window.electron?.invoke) return;
+    const sessionId = currentSessionId ?? useManyStore.getState().currentSessionId;
+    const session = sessionId
+      ? useManyStore.getState().sessions.find((s) => s.id === sessionId)
+      : null;
+    const title = session?.title
+      ? sanitizeManySessionTitle(session.title)
+      : t('many.many');
+    let backgroundColor: string | undefined;
+    if (typeof document !== 'undefined') {
+      backgroundColor =
+        getComputedStyle(document.documentElement).getPropertyValue('--dome-bg').trim() || undefined;
+    }
+    const route = sessionId
+      ? `/standalone/many?session=${encodeURIComponent(sessionId)}`
+      : '/standalone/many';
+    try {
+      await window.electron.invoke('window:create', {
+        id: 'many-popout',
+        route,
+        options: {
+          width: 520,
+          height: 780,
+          minWidth: 380,
+          minHeight: 520,
+          title: `${title} — Many`,
+          transparent: false,
+          vibrancy: null,
+          ...(backgroundColor ? { backgroundColor } : {}),
+        },
+      });
+    } catch (err) {
+      console.error('[ManyPanel] Failed to open popout:', err);
+    }
+  }, [currentSessionId, t]);
+
   if (isHeadless) {
     return null;
   }
@@ -1275,6 +1422,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       className={cn(
         'many-density-scope flex flex-col h-full overflow-hidden shrink-0 border-l',
         isFullscreen && 'many-panel-fullscreen',
+        isPopout && 'many-panel--popout',
       )}
       data-density="compact"
       style={
@@ -1284,7 +1432,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               width: '100%',
               minWidth: 0,
               maxWidth: 'none',
-              background: 'var(--bg)',
+              ...(isPopout ? {} : { background: 'var(--bg)' }),
               borderLeftWidth: 0,
               opacity: 1,
               pointerEvents: 'auto',
@@ -1320,10 +1468,16 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         onStartNewChat={() => { startNewChat(); setShowHistory(false); }}
         onToggleHistory={handleToggleHistory}
         onClose={onClose}
-        showClose={!isFullscreen}
+        showClose={!isFullscreen || isPopout}
         showHistoryToggle
+        isPopout={isPopout}
+        showFullscreenToggle={!isPopout}
+        isFullscreenActive={isFullscreen}
+        onToggleFullscreen={handleToggleFullscreen}
+        showPopoutToggle={!isPopout}
+        onPopout={() => void handlePopout()}
       >
-        {!isFullscreen && showContextUsage ? (
+        {contextSlot.header ? (
           <ManyChatHeader.ContextUsage>
             <ContextUsageIndicator
               key={currentSessionId ?? 'none'}
@@ -1355,28 +1509,23 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       !streamingMessage &&
       !pdfRegionStreamingMessage &&
       !pendingPdfRegion ? (
-        <div className="flex flex-col items-center justify-center flex-1 min-h-0 px-6 py-12">
-          <div style={{ marginBottom: 20 }}><ManyAvatar size="lg" state="idle" /></div>
-          <h1
-            style={{
-              fontFamily: "Georgia, 'Times New Roman', serif",
-              fontSize: 'clamp(28px, 4vw, 42px)',
-              fontWeight: 600,
-              color: 'var(--primary-text)',
-              textAlign: 'center',
-              lineHeight: 1.2,
-              marginBottom: 36,
-            }}
-          >
-            {t('chat.welcome_heading')}
-          </h1>
+        <div
+          className={cn(
+            'many-popout-welcome flex flex-1 min-h-0 flex-col items-center justify-center px-6 py-10',
+            isPopout && 'many-popout-welcome--window',
+          )}
+        >
+          <div className="mb-5">
+            <ManyAvatar size="lg" state="idle" />
+          </div>
+          <h1 className="many-welcome-title">{t('chat.welcome_heading')}</h1>
 
-          <p className="mx-auto mb-8 max-w-xl px-4 text-center text-[14px] text-[var(--secondary-text)]">
+          <p className="many-welcome-subtitle mx-auto mb-8 max-w-xl px-4 text-center">
             {t('many.welcome_hints')}
           </p>
 
           {/* Big centered input */}
-          <div className="w-full max-w-2xl mb-6">
+          <div className="many-welcome-composer w-full max-w-2xl mb-6">
             <UnifiedChatInput
               mode="many"
               input={input}
@@ -1444,7 +1593,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         /* ── MESSAGES AREA ── */
         <UnifiedChatMessageArea
           ref={messagesContainerRef}
-          className="many-panel-messages py-6 px-4"
+          className={cn('many-panel-messages py-6 px-4', isPopout && 'many-popout-messages')}
           dataSurface="many"
           dataDensity="compact"
         >
@@ -1557,6 +1706,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       ) : null}
 
       {/* Hide bottom input when welcome screen is showing centered input */}
+      {activeRunSnapshot ? (
+        <ManyRunDiagnostics run={activeRunSnapshot} sessionId={currentSessionId} />
+      ) : null}
       {!(
         isFullscreen &&
         chatMessages.length === 0 &&
@@ -1566,7 +1718,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       ) && (
         isFullscreen ? (
           <div className="many-composer-anchor">
-            <div className="px-4 pb-4">
+            <div className={cn('px-4 pb-4', isPopout && 'many-popout-composer-inner')}>
               <UnifiedChatInput
                 mode="many"
                 input={input}

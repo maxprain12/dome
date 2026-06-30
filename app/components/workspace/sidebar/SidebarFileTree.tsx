@@ -1,10 +1,16 @@
 /** Sidebar file tree: recursive TreeNode + FileTree (03/T02 — extracted from UnifiedSidebar.tsx). */
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Search, Folder, FolderOpen, X, MoreHorizontal, Trash2, Check } from 'lucide-react';
+import { ChevronDown, Search, Folder, FolderOpen, X, MoreHorizontal, Check } from 'lucide-react';
+import { ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';
 import type { Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
+import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
+import SelectionActionBar from '@/components/home/SelectionActionBar';
+import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
+import DomeModal from '@/components/ui/DomeModal';
+import DomeButton from '@/components/ui/DomeButton';
 
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { pickFolderColor, parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
@@ -256,6 +262,15 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [moveProjectIds, setMoveProjectIds] = useState<string[]>([]);
+  const [folderPickOpen, setFolderPickOpen] = useState(false);
+
+  const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
+
+  const folderPickTargets = useMemo(
+    () => resources.filter((r) => r.type === 'folder' && !selectedIds.has(r.id)),
+    [resources, selectedIds],
+  );
 
   const handleToggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -284,6 +299,20 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
       setBulkDeleting(false);
     }
   }, [selectedIds, exitSelectionMode, onRefresh]);
+
+  const handleBulkMoveToFolder = useCallback(
+    async (targetFolderId: string | null) => {
+      const roots = filterMoveProjectRoots(selectedIds, resourcesById);
+      for (const id of roots) {
+        const r = await window.electron?.db?.resources?.moveToFolder(id, targetFolderId);
+        if (!r?.success) break;
+      }
+      exitSelectionMode();
+      setFolderPickOpen(false);
+      onRefresh();
+    },
+    [selectedIds, resourcesById, exitSelectionMode, onRefresh],
+  );
 
   const { openResourceTab, openFolderTab } = useTabStore.getState();
   const folders = resources.filter((r) => r.type === 'folder');
@@ -483,30 +512,25 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
       </div>
 
       {/* Selection action bar */}
-      {selectionMode && (
+      {selectionMode && selectedIds.size > 0 ? (
+        <div className="px-1 pb-1">
+          <SelectionActionBar
+            count={selectedIds.size}
+            onMoveToFolder={() => setFolderPickOpen(true)}
+            onMoveToProject={() =>
+              setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourcesById)])
+            }
+            onDelete={() => setBulkDeleteConfirm(true)}
+            onDeselect={exitSelectionMode}
+          />
+        </div>
+      ) : selectionMode ? (
         <div className="px-3 pb-1.5 flex items-center gap-1.5">
           <span className="flex-1 text-[12px]" style={{ color: 'var(--dome-text-muted)' }}>
-            {selectedIds.size > 0 ? `${selectedIds.size} sel.` : t('common.select')}
+            {t('common.select')}
           </span>
-          {selectedIds.size > 0 && (
-            <button
-              type="button"
-              onClick={() => setBulkDeleteConfirm(true)}
-              disabled={bulkDeleting}
-              className="flex items-center gap-1 rounded px-2 py-0.5 text-[12px] font-medium"
-              style={{
-                background: 'color-mix(in srgb, var(--dome-error) 10%, transparent)',
-                color: 'var(--dome-error)',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <Trash2 className="size-3" />
-              {t('common.delete')}
-            </button>
-          )}
         </div>
-      )}
+      ) : null}
 
       {/* Tree */}
       <div className="flex-1 overflow-y-auto px-2 pb-2">
@@ -547,6 +571,7 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
         onClose={() => setCtxMenu((s) => ({ ...s, visible: false }))}
         onRename={(r) => setRenameId(r.id)}
         onMove={(r) => setMoveResource(r)}
+        onMoveToProject={(r) => setMoveProjectIds([r.id])}
         onColorChange={handleColorChange}
         onDelete={(r) => setDeleteResource(r)}
         onNewFolder={(parentId) => setNewFolderParentId(parentId)}
@@ -567,6 +592,73 @@ export default function FileTree({ resources, onRefresh }: FileTreeProps) {
         <NewFolderModal parentId={newFolderParentId}
           onConfirm={handleNewFolderConfirm} onClose={() => setNewFolderParentId(undefined)} />
       )}
+
+      <DomeModal
+        open={folderPickOpen}
+        onClose={() => setFolderPickOpen(false)}
+        title={t('selection.move_to_folder')}
+        size="sm"
+        footer={
+          <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
+            {t('common.cancel')}
+          </DomeButton>
+        }
+      >
+        <Stack gap="xs">
+          <Text size="xs" c="dimmed">
+            {t('selection.items_selected_other', { count: selectedIds.size })}
+          </Text>
+          <ScrollArea.Autosize mah={280}>
+            <Stack gap={4}>
+              <UnstyledButton
+                type="button"
+                onClick={() => void handleBulkMoveToFolder(null)}
+                p="sm"
+                style={{
+                  borderRadius: 8,
+                  border: '1px solid var(--dome-border)',
+                  textAlign: 'left',
+                  background: 'var(--dome-surface)',
+                }}
+              >
+                <Text size="sm" fw={500}>
+                  {t('selection.move_to_root')}
+                </Text>
+              </UnstyledButton>
+              {folderPickTargets.map((f) => (
+                <UnstyledButton
+                  key={f.id}
+                  type="button"
+                  onClick={() => void handleBulkMoveToFolder(f.id)}
+                  p="sm"
+                  style={{
+                    borderRadius: 8,
+                    border: '1px solid var(--dome-border)',
+                    textAlign: 'left',
+                    background: 'var(--dome-surface)',
+                  }}
+                >
+                  <Text size="sm" fw={500} truncate>
+                    {f.title}
+                  </Text>
+                </UnstyledButton>
+              ))}
+            </Stack>
+          </ScrollArea.Autosize>
+        </Stack>
+      </DomeModal>
+
+      <MoveToProjectModal
+        opened={moveProjectIds.length > 0}
+        onClose={() => setMoveProjectIds([])}
+        resourceIds={moveProjectIds}
+        resourcesById={resourcesById}
+        onCompleted={() => {
+          setMoveProjectIds([]);
+          exitSelectionMode();
+          onRefresh();
+        }}
+      />
 
       {/* Bulk delete confirm modal */}
       {bulkDeleteConfirm && (

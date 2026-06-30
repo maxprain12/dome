@@ -17,6 +17,23 @@ Use a **feeder** when a persisted artifact (Kind B) needs **live or external dat
 7. `feeder_run` — populate the artifact immediately
 8. Optional: create a **schedule automation** with `target_type: "feeder"` for periodic refresh
 
+## Vault layout (on disk)
+
+Each feeder is mirrored beside its artifact HTML:
+
+```
+Mi dashboard.html
+Mi dashboard.dome/
+  feeders/
+    <feederId>/
+      feeder.json
+      script.py|js|sh
+      runtime/default.json
+      runs/latest.json
+```
+
+Secrets (`feeder_secret_request`) are stored encrypted in the OS vault — never written to these files.
+
 ## Output contract
 
 - Default `output_mode: stdout_json` — script must print **valid JSON** to stdout (object or array).

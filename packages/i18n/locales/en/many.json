@@ -8,6 +8,11 @@
   "clear_chat_aria": "Clear chat history",
   "close_chat_aria": "Close chat",
   "toggle_history": "Chat history",
+  "more_actions": "More actions",
+  "fullscreen": "Expand to main area",
+  "exit_fullscreen": "Return to sidebar panel",
+  "open_popout": "Open in separate window",
+  "run_diagnostics_title": "Run diagnostics",
   "history": "Chats",
   "history_today": "TODAY",
   "history_yesterday": "YESTERDAY",
@@ -86,5 +91,6 @@
   "welcome_hints": "Use @ to add resources and / to pick a skill.",
   "composer_keyboard_hint": "Enter to send · Shift+Enter for new line",
   "error_report": "Report",
-  "error_copied": "Error details copied to clipboard"
+  "error_copied": "Error details copied to clipboard",
+  "view_section": "View"
 }

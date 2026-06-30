@@ -1,8 +1,8 @@
+import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronRight,
   Eye,
-  History,
   Info,
   Maximize2,
   MessageSquare,
@@ -10,13 +10,11 @@ import {
   PanelRight,
   BookOpen,
   Share2,
-  Sparkles,
   SplitSquareHorizontal,
 } from 'lucide-react';
 import { Menu } from '@mantine/core';
 import NoteSavePill, { type NoteSavePillState } from '@/components/notes/NoteSavePill';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { HOME_TAB_ID, useTabStore } from '@/lib/store/useTabStore';
 import { showToast } from '@/lib/store/useToastStore';
 
 export type NoteViewMode = 'standard' | 'focused';
@@ -24,8 +22,9 @@ export type NoteViewMode = 'standard' | 'focused';
 export interface ActionBarCrumbSegment {
   icon?: React.ReactNode;
   label: string;
-  /** Ocultar label en muy estrecho; el icono queda como PWA. */
-  iconOnlyBreakpoint?: boolean;
+  onClick?: () => void;
+  /** Segmento actual (nota) — no navegable. */
+  current?: boolean;
 }
 
 interface NoteActionBarProps {
@@ -37,6 +36,8 @@ interface NoteActionBarProps {
   viewMode: NoteViewMode;
   onViewModeChange: (m: NoteViewMode) => void;
   onOpenSplit: () => void;
+  /** Sin projectId no hay recursos que elegir para split. */
+  canOpenSplit?: boolean;
   onOpenPopout: () => void;
   onOpenMetadata: () => void;
   /** enlaces dome://… para pegar/compartir (notas: resource id) */
@@ -48,14 +49,6 @@ interface NoteActionBarProps {
   hideWindowControls?: boolean;
 }
 
-function goHome() {
-  useTabStore.getState().activateTab(HOME_TAB_ID);
-}
-
-function openManySidebar() {
-  window.dispatchEvent(new CustomEvent('dome:many-sidebar-open'));
-}
-
 export default function NoteActionBar({
   crumbs,
   saveState,
@@ -64,6 +57,7 @@ export default function NoteActionBar({
   viewMode,
   onViewModeChange,
   onOpenSplit,
+  canOpenSplit = true,
   onOpenPopout,
   onOpenMetadata,
   domeLinkToCopy,
@@ -105,60 +99,56 @@ export default function NoteActionBar({
         .filter(Boolean)
         .join(' ')}
     >
-      <div className="note-crumbs">
-        <span className="note-crumb-sep note-crumb-sep-lead" aria-hidden>
-          <ChevronRight size={11} strokeWidth={2} />
-        </span>
+      <nav className="note-crumbs no-drag" aria-label={t('folder.breadcrumb', 'Ruta')}>
         {crumbs.map((c, i) => (
-          <span key={`${c.label}-${i}`} className="flex items-center gap-1 min-w-0">
+          <Fragment key={`${c.label}-${i}`}>
             {i > 0 ? (
-              <span className="note-crumb-sep" aria-hidden>
-                <ChevronRight size={11} strokeWidth={2} />
-              </span>
+              <ChevronRight size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
             ) : null}
-            {i === 0 ? (
+            {c.current ? (
+              <span
+                className="note-crumb note-crumb--current"
+                title={c.label}
+                aria-current="page"
+              >
+                {c.icon ? (
+                  <span className="note-crumb-icon" aria-hidden>
+                    {c.icon}
+                  </span>
+                ) : null}
+                <span className="note-crumb-text">{c.label}</span>
+              </span>
+            ) : c.onClick ? (
               <button
                 type="button"
-                className="note-crumb truncate note-crumb--interactive"
+                className="note-crumb note-crumb--interactive"
                 title={c.label}
-                onClick={goHome}
+                onClick={c.onClick}
               >
-                <span className="note-crumb-icon" aria-hidden>
-                  {c.icon}
-                </span>
-                <span className={c.iconOnlyBreakpoint ? 'note-crumb-text sm:inline' : 'note-crumb-text'}>
-                  {c.label}
-                </span>
+                {c.icon ? (
+                  <span className="note-crumb-icon" aria-hidden>
+                    {c.icon}
+                  </span>
+                ) : null}
+                <span className="note-crumb-text">{c.label}</span>
               </button>
             ) : (
-              <span className="note-crumb truncate" title={c.label}>
-                <span className="note-crumb-icon" aria-hidden>
-                  {c.icon}
-                </span>
-                <span className={c.iconOnlyBreakpoint ? 'note-crumb-text sm:inline' : 'note-crumb-text'}>
-                  {c.label}
-                </span>
+              <span className="note-crumb" title={c.label}>
+                {c.icon ? (
+                  <span className="note-crumb-icon" aria-hidden>
+                    {c.icon}
+                  </span>
+                ) : null}
+                <span className="note-crumb-text">{c.label}</span>
               </span>
             )}
-          </span>
+          </Fragment>
         ))}
-
-      </div>
+      </nav>
 
       <NoteSavePill state={saveState} lastSavedAt={lastSavedAt} onClickSave={onSave} />
 
       <span className="note-actionbar-sep" aria-hidden />
-
-      <button
-        type="button"
-        className="note-ai-assist-btn no-drag"
-        title={t('notes.open_many')}
-        aria-label={t('notes.open_many')}
-        onClick={openManySidebar}
-      >
-        <Sparkles size={13} strokeWidth={2} />
-        <span>{t('notes.many')}</span>
-      </button>
 
       <button
         type="button"
@@ -173,11 +163,11 @@ export default function NoteActionBar({
       <button
         type="button"
         className="note-icon-btn note-icon-btn-sm no-drag"
-        title={t('notes.toolbar_timeline')}
-        aria-label={t('notes.toolbar_timeline')}
+        title={t('notes.metadata')}
+        aria-label={t('notes.metadata')}
         onClick={() => onOpenMetadata()}
       >
-        <History size={14} strokeWidth={2} />
+        <Info size={14} strokeWidth={2} />
       </button>
 
       <button
@@ -199,6 +189,7 @@ export default function NoteActionBar({
           className="note-icon-btn note-icon-btn-sm no-drag"
           title={t('focused_editor.open_reference')}
           aria-label={t('focused_editor.open_reference')}
+          disabled={!canOpenSplit}
           onClick={onOpenSplit}
         >
           <SplitSquareHorizontal size={14} strokeWidth={2} />
@@ -218,8 +209,8 @@ export default function NoteActionBar({
       <button
         type="button"
         className="note-icon-btn note-icon-btn-sm no-drag"
-        title={t('focused_editor.toolbar_hint')}
-        aria-label={t('focused_editor.toolbar_hint')}
+        title={sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
+        aria-label={sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
         aria-pressed={sourcesOpen}
         style={
           sourcesOpen ? { color: 'var(--dome-accent)', background: 'var(--dome-accent-bg)' } : undefined

@@ -19,6 +19,7 @@
   "filter_owner_all": "Todos",
   "filter_owner_agent": "Agentes",
   "filter_owner_workflow": "Workflows",
+  "filter_owner_many": "Many (diagnóstico)",
   "filter_group_type": "Tipo",
   "filter_status_all": "Todos",
   "filter_group_status": "Estado",

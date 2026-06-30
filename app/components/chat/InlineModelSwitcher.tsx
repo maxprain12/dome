@@ -43,12 +43,14 @@ function normalizeProvider(p: string): AIProviderType {
 interface InlineModelSwitcherProps {
   /** When false, nothing is rendered. */
   enabled?: boolean;
+  /** Dropdown opens above (composer) or below (header) the trigger. */
+  dropDirection?: 'above' | 'below';
 }
 
 /**
  * Compact model dropdown next to the chat composer. Updates global AI model settings.
  */
-export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps) {
+export function InlineModelSwitcher({ enabled = true, dropDirection = 'above' }: InlineModelSwitcherProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [configProvider, setConfigProvider] = useState<AIProviderType | null>(null);
@@ -254,12 +256,21 @@ export function InlineModelSwitcher({ enabled = true }: InlineModelSwitcherProps
               ref={portalDropdownRef}
               role="listbox"
               className="fixed z-[var(--z-popover)] max-h-56 min-w-[200px] list-none m-0 overflow-y-auto rounded-xl border border-[var(--border)] bg-[var(--bg)] p-0 py-1 shadow-lg"
-              style={{
-                right: window.innerWidth - portalAnchor.right,
-                bottom: window.innerHeight - portalAnchor.top + 8,
-                minWidth: Math.max(200, portalAnchor.width),
-                maxWidth: Math.min(320, window.innerWidth - 16),
-              }}
+              style={
+                dropDirection === 'below'
+                  ? {
+                      left: Math.min(portalAnchor.left, window.innerWidth - 320 - 8),
+                      top: portalAnchor.bottom + 8,
+                      minWidth: Math.max(200, portalAnchor.width),
+                      maxWidth: Math.min(320, window.innerWidth - 16),
+                    }
+                  : {
+                      right: window.innerWidth - portalAnchor.right,
+                      bottom: window.innerHeight - portalAnchor.top + 8,
+                      minWidth: Math.max(200, portalAnchor.width),
+                      maxWidth: Math.min(320, window.innerWidth - 16),
+                    }
+              }
             >
               {options.map((o) => {
                 const sel = o.id === currentModelId;

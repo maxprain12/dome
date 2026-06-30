@@ -57,6 +57,58 @@ const ThreadsNavigateTreePayloadSchema = z.object({
   label: z.string().optional(),
 });
 
+const fsp = require('fs').promises;
+
+/** Flatten pi/agent-core message content (string | text-block array) to text. */
+function extractTitleText(content) {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((b) => (typeof b === 'string' ? b : b && typeof b === 'object' && b.type === 'text' ? b.text : ''))
+      .filter(Boolean)
+      .join(' ');
+  }
+  return '';
+}
+
+/**
+ * Read the first user message from a session JSONL to use as a list title.
+ * Bounded to the first 64 KB so this stays cheap even for large sessions; the
+ * first user turn is always near the top. Returns null on any failure.
+ */
+async function deriveThreadTitleFromFile(filePath) {
+  if (!filePath) return null;
+  let fh = null;
+  try {
+    fh = await fsp.open(filePath, 'r');
+    const buf = Buffer.alloc(65536);
+    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+    const text = buf.toString('utf8', 0, bytesRead);
+    const lines = text.split('\n');
+    // Drop a trailing partial line (the 64 KB cut may land mid-line).
+    if (bytesRead === buf.length) lines.pop();
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let entry;
+      try {
+        entry = JSON.parse(trimmed);
+      } catch {
+        continue;
+      }
+      if (entry?.type === 'message' && entry.message?.role === 'user') {
+        const t = extractTitleText(entry.message.content).replace(/\s+/g, ' ').trim();
+        if (t) return t.slice(0, 120);
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  } finally {
+    if (fh) await fh.close().catch(() => {});
+  }
+}
+
 async function openThreadSession(threadId) {
   const meta = await bridge.findSessionMetadata(threadId);
   if (!meta) return null;
@@ -121,10 +173,17 @@ function register({ ipcMain, windowManager, validateSender }) {
         }
       }
       const limit = Math.min(Number(parsedOpts.data.limit ?? 100), 500);
-      const threads = sessions.slice(0, limit).map((meta) => ({
+      const sliced = sessions.slice(0, limit);
+      // Derive a readable title (first user message) per session so the history
+      // list never shows a wall of "New chat". Cheap bounded read of each JSONL
+      // (first 64 KB — the first user turn is always near the top); failures are
+      // non-fatal (title falls back to null → renderer derives from UI meta).
+      const titles = await Promise.all(sliced.map((meta) => deriveThreadTitleFromFile(meta.path)));
+      const threads = sliced.map((meta, i) => ({
         threadId: meta.id,
         checkpointCount: 0,
         latestCheckpointId: meta.id,
+        title: titles[i] || null,
         metadata: {
           cwd: meta.cwd,
           path: meta.path,

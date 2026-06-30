@@ -39,7 +39,7 @@ import {
   startAgentRun,
   type PersistentRun,
 } from '@/lib/automations/api';
-import { CHAT_THINKING_ROTATION_KEYS } from '@/lib/chat/streamingLabels';
+import { CHAT_THINKING_ROTATION_KEYS, streamingLabelForActiveRun, streamingLabelFromRunMetadata } from '@/lib/chat/streamingLabels';
 import { buildUserRunMessage, type ChatRunMessage } from '@/lib/chat/attachmentTypes';
 import { prepareVideoAttachmentsForRun } from '@/lib/chat/processAttachmentFile';
 import type { ChatAttachment } from '@/lib/chat/attachmentTypes';
@@ -223,7 +223,11 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
         toolCalls: prev?.toolCalls || [],
         streamingLabel: run.status === 'waiting_approval'
           ? t('chat.waiting_approval')
-          : (prev?.streamingLabel || t('chat.running_background')),
+          : (prev?.streamingLabel ||
+              streamingLabelFromRunMetadata(t, run.metadata as Record<string, unknown>, {
+                hasContent: Boolean(run.outputText?.trim()),
+                reconnecting: true,
+              })),
       }));
       return;
     }

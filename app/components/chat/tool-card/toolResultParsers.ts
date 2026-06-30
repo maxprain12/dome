@@ -26,6 +26,33 @@ export function parseDocumentResult(result: unknown): Array<{ content?: string; 
   return valid ? (parsed as Array<{ content?: string; metadata?: Record<string, unknown> }>) : null;
 }
 
+export interface PersistedArtifactToolResult {
+  resourceId: string;
+  title: string;
+  artifactType: string;
+}
+
+/** Parse artifact_create / artifact tool success payloads into a persisted resource card. */
+export function parsePersistedArtifactCreateResult(result: unknown): PersistedArtifactToolResult | null {
+  if (!result) return null;
+  let parsed: unknown = result;
+  if (typeof result === 'string') {
+    try { parsed = JSON.parse(result); } catch { return null; }
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const root = parsed as Record<string, unknown>;
+  const payload =
+    root.data && typeof root.data === 'object' && !Array.isArray(root.data)
+      ? (root.data as Record<string, unknown>)
+      : root;
+  const resourceId = String(payload.resourceId ?? payload.resource_id ?? '').trim();
+  if (!resourceId) return null;
+  const title = String(payload.title ?? 'Untitled Artifact').trim() || 'Untitled Artifact';
+  const artifactType = String(payload.artifactType ?? payload.artifact_type ?? 'custom').trim() || 'custom';
+  if (root.success === false) return null;
+  return { resourceId, title, artifactType };
+}
+
 /** Parse result as artifact */
 export function parseArtifactResult(result: unknown): AnyArtifact | null {
   if (!result) return null;

@@ -4,18 +4,17 @@
  * Loaded by `windowManager.create('note-focus:<id>', ..., '/focus/note/<id>')`
  * from the renderer via `window.electron.invoke('window:create', ...)`.
  *
- * Renders a single note editor with the standard `WorkspaceHeader` (which is
- * already `drag-region` and works as the OS title bar — traffic lights on
- * macOS or `titleBarOverlay` controls on Windows live above it). NO AppShell,
+ * Renders `MarkdownNoteWorkspace` with `NoteActionBar` (`drag-region` as OS
+ * title bar — traffic lights on macOS or `titleBarOverlay` on Windows). NO AppShell,
  * sidebar, tabs or Many panel are mounted here.
  *
- * Cross-window sync is handled inside `NoteWorkspaceClient` via the
+ * Cross-window sync is handled inside `MarkdownNoteWorkspace` via the
  * `resource:updated` broadcast.
  */
 import { useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
-import NoteWorkspaceClient from '@/components/notes/NoteWorkspaceClient';
+import MarkdownNoteWorkspace from '@/components/notes/MarkdownNoteWorkspace';
 
 interface NoteFocusPageProps {
   resourceId: string;
@@ -70,7 +69,7 @@ export default function NoteFocusPage({ resourceId }: NoteFocusPageProps) {
       className="flex h-full min-h-0 w-full flex-col overflow-hidden"
       style={{ background: 'var(--dome-bg)', color: 'var(--dome-text)' }}
     >
-      <NoteWorkspaceClient resourceId={resourceId} />
+      <MarkdownNoteWorkspace resourceId={resourceId} />
     </div>
   );
 }

@@ -190,6 +190,10 @@ CREATE TABLE runs (
 
 El `RunLogView` se actualiza en tiempo real via IPC `runs:updated` y `runs:step`.
 
+### Hub Runs y runs de Many
+
+Los runs con `ownerType: 'many'` **sí se persisten** en `automation_runs` (misma tabla que workflows y agent chat), pero la pestaña **Hub → Runs** los **excluye** a propósito para no mezclar conversaciones casuales de Many con runs operacionales (`RunsWorkspaceView` filtra `ownerType !== 'many'`). Para diagnosticar un run de Many, usar `runs:get` / `runs:list` con `ownerType: 'many'` y `ownerId` = id de sesión, o consultar el JSONL en `{userData}/agent-sessions/` vía `threads:get-state`.
+
 ---
 
 ## Ejemplo: seguir un run en tiempo real

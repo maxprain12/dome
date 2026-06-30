@@ -761,6 +761,17 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     openArtifactTab: (title, artifactJson, projectId) => {
+      let resourceId: string | undefined;
+      try {
+        const parsed = JSON.parse(artifactJson) as { resource_id?: string; resourceId?: string };
+        resourceId = parsed.resourceId || parsed.resource_id;
+      } catch {
+        resourceId = undefined;
+      }
+      if (resourceId) {
+        get().openResourceTab(resourceId, 'artifact', title.trim() || i18n.t('chat.artifact_tab'), projectId);
+        return;
+      }
       get().openTab({
         type: 'artifact',
         title: title.trim() || i18n.t('chat.artifact_tab'),

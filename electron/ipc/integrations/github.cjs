@@ -55,6 +55,53 @@ const PollSchema = z.object({
   expiresIn: z.number().int().positive().max(3600).optional(),
 });
 
+const ProjectIdSchema = z.object({
+  projectId: z.string().min(1).optional(),
+});
+
+const RemoteRepoSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  full_name: z.string().min(1),
+  name: z.string().min(1),
+  owner: z.union([z.string(), z.object({ login: z.string() })]).optional(),
+  private: z.union([z.boolean(), z.number().int()]).optional(),
+  html_url: z.string().nullable().optional(),
+});
+
+function normalizeRemotePayload(remote) {
+  if (!remote) return null;
+  return {
+    id: remote.id,
+    full_name: remote.full_name,
+    name: remote.name,
+    owner: typeof remote.owner === 'string' ? remote.owner : remote.owner?.login || '',
+    private: remote.private === true || remote.private === 1,
+    html_url: remote.html_url ?? null,
+  };
+}
+
+const SetSelectedSchema = z.object({
+  projectId: z.string().min(1),
+  selected: z.boolean(),
+  repoId: z.string().min(1).optional(),
+  remote: RemoteRepoSchema.optional(),
+});
+
+function parseProjectId(payload) {
+  const parsed = ProjectIdSchema.safeParse(payload && typeof payload === 'object' ? payload : {});
+  if (!parsed.success) return 'default';
+  return store.normalizeProjectId(parsed.data.projectId);
+}
+
+function assertRepoInProject(repoId, projectId) {
+  const repo = store.getRepo(repoId);
+  if (!repo) return { ok: false, error: 'Repo not found' };
+  if (projectId && repo.project_id !== store.normalizeProjectId(projectId)) {
+    return { ok: false, error: 'Repo does not belong to this vault' };
+  }
+  return { ok: true, repo };
+}
+
 /**
  * IPC handlers for the GitHub project-sync feature.
  * Auth (device-flow), repo selection, data reads, bidirectional mutations, sync.
@@ -64,9 +111,28 @@ function register({ ipcMain, windowManager }) {
   const ok = (data) => ({ success: true, ...data });
   const fail = (err) => ({ success: false, error: err instanceof Error ? err.message : String(err) });
 
-  // Run a full sync without blocking the renderer reply.
-  const kickSync = () => {
-    void syncService.syncNow().catch((e) => console.error('[github IPC] background sync:', e?.message));
+  // Coalesce mutation-triggered syncs; manual sync uses syncNow() directly.
+  const scheduleSync = (projectId) => {
+    syncService.scheduleSync(projectId);
+  };
+
+  const projectIdForIssue = (issueId) => {
+    const issue = store.getIssue(issueId);
+    if (!issue) return undefined;
+    const repo = store.getRepo(issue.repo_id);
+    return repo?.project_id;
+  };
+
+  const projectIdForMilestone = (milestoneId) => {
+    const milestone = store.getMilestone(milestoneId);
+    if (!milestone) return undefined;
+    const repo = store.getRepo(milestone.repo_id);
+    return repo?.project_id;
+  };
+
+  /** Push local SQLite changes to the renderer immediately (before GitHub sync). */
+  const notifyLocalChange = () => {
+    windowManager.broadcast('github:data:updated', { local: true });
   };
 
   // --- auth ---------------------------------------------------------------
@@ -87,7 +153,7 @@ function register({ ipcMain, windowManager }) {
     if (!parsed.success) return fail('Invalid poll payload');
     try {
       const res = await githubOAuth.pollForAccessToken(parsed.data);
-      if (res.success) kickSync();
+      if (res.success) scheduleSync();
       return res;
     } catch (err) {
       return fail(err);
@@ -115,31 +181,40 @@ function register({ ipcMain, windowManager }) {
   });
 
   // --- repos --------------------------------------------------------------
-  ipcMain.handle('github:repos:list', async (event) => {
+  ipcMain.handle('github:repos:list', async (event, payload) => {
     if (!guard(event)) return fail('Unauthorized');
     try {
-      return ok({ repos: store.listRepos() });
+      const projectId = parseProjectId(payload);
+      return ok({ repos: store.listRepos(projectId) });
     } catch (err) {
       return fail(err);
     }
   });
 
-  ipcMain.handle('github:repos:refresh', async (event) => {
+  ipcMain.handle('github:repos:refresh', async (event, payload) => {
     if (!guard(event)) return fail('Unauthorized');
     try {
-      const repos = await syncService.refreshRepos();
-      return ok({ repos });
+      const projectId = parseProjectId(payload);
+      const result = await syncService.refreshRepos(projectId);
+      return ok(result);
     } catch (err) {
       return fail(err);
     }
   });
 
-  ipcMain.handle('github:repos:setSelected', async (event, repoId, selected) => {
+  ipcMain.handle('github:repos:setSelected', async (event, payload) => {
     if (!guard(event)) return fail('Unauthorized');
-    if (typeof repoId !== 'string') return fail('Invalid repoId');
+    const parsed = SetSelectedSchema.safeParse(payload);
+    if (!parsed.success) {
+      return fail(parsed.error.issues.map((i) => i.message).join('; ') || 'Invalid setSelected payload');
+    }
     try {
-      const repo = syncService.setRepoSelected(repoId, !!selected);
-      if (selected) kickSync();
+      const data = {
+        ...parsed.data,
+        remote: normalizeRemotePayload(parsed.data.remote),
+      };
+      const { repo, syncNeeded } = syncService.setRepoSelected(data);
+      if (syncNeeded) scheduleSync(parsed.data.projectId);
       return ok({ repo });
     } catch (err) {
       return fail(err);
@@ -147,12 +222,15 @@ function register({ ipcMain, windowManager }) {
   });
 
   // --- reads --------------------------------------------------------------
-  ipcMain.handle('github:milestones:list', async (event, repoId) => {
+  ipcMain.handle('github:milestones:list', async (event, repoId, opts) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     const memFail = memoryPressureFail('github:milestones:list');
     if (memFail) return memFail;
     try {
+      const projectId = opts && typeof opts === 'object' ? opts.projectId : null;
+      const check = assertRepoInProject(repoId, projectId);
+      if (!check.ok) return fail(check.error);
       return ok({ milestones: store.listMilestonesSummary(repoId) });
     } catch (err) {
       return fail(err);
@@ -177,6 +255,9 @@ function register({ ipcMain, windowManager }) {
     const memFail = memoryPressureFail('github:issues:list');
     if (memFail) return memFail;
     try {
+      const projectId = opts && typeof opts === 'object' ? opts.projectId : null;
+      const check = assertRepoInProject(repoId, projectId);
+      if (!check.ok) return fail(check.error);
       const cacheKey = `${repoId}:${JSON.stringify(opts ?? {})}`;
       if (_issuesListInflight.has(cacheKey)) {
         return ok(await _issuesListInflight.get(cacheKey));
@@ -211,24 +292,30 @@ function register({ ipcMain, windowManager }) {
     }
   });
 
-  ipcMain.handle('github:branches:list', async (event, repoId) => {
+  ipcMain.handle('github:branches:list', async (event, repoId, opts) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     const memFail = memoryPressureFail('github:branches:list');
     if (memFail) return memFail;
     try {
+      const projectId = opts && typeof opts === 'object' ? opts.projectId : null;
+      const check = assertRepoInProject(repoId, projectId);
+      if (!check.ok) return fail(check.error);
       return ok({ branches: store.listBranches(repoId) });
     } catch (err) {
       return fail(err);
     }
   });
 
-  ipcMain.handle('github:releases:list', async (event, repoId) => {
+  ipcMain.handle('github:releases:list', async (event, repoId, opts) => {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string') return fail('Invalid repoId');
     const memFail = memoryPressureFail('github:releases:list');
     if (memFail) return memFail;
     try {
+      const projectId = opts && typeof opts === 'object' ? opts.projectId : null;
+      const check = assertRepoInProject(repoId, projectId);
+      if (!check.ok) return fail(check.error);
       return ok({ releases: store.listReleases(repoId) });
     } catch (err) {
       return fail(err);
@@ -240,8 +327,11 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
-      const issue = store.updateLocalIssue(id, patch);
-      kickSync();
+      const { issue, changed } = store.updateLocalIssue(id, patch);
+      if (changed) {
+        notifyLocalChange();
+        scheduleSync(projectIdForIssue(id));
+      }
       return ok({ issue });
     } catch (err) {
       return fail(err);
@@ -256,8 +346,11 @@ function register({ ipcMain, windowManager }) {
       const patch = {};
       if (state === 'open' || state === 'closed') patch.state = state;
       if (milestoneNumber !== undefined) patch.milestoneNumber = milestoneNumber;
-      const issue = store.updateLocalIssue(id, patch);
-      kickSync();
+      const { issue, changed } = store.updateLocalIssue(id, patch);
+      if (changed) {
+        notifyLocalChange();
+        scheduleSync(projectIdForIssue(id));
+      }
       return ok({ issue });
     } catch (err) {
       return fail(err);
@@ -268,6 +361,8 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string' || typeof data?.title !== 'string') return fail('Invalid args');
     try {
+      const check = assertRepoInProject(repoId, data?.projectId);
+      if (!check.ok) return fail(check.error);
       const issue = await syncService.createIssue(repoId, data);
       return ok({ issue });
     } catch (err) {
@@ -323,8 +418,11 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof id !== 'string' || typeof patch !== 'object' || !patch) return fail('Invalid args');
     try {
-      const milestone = store.updateLocalMilestone(id, patch);
-      kickSync();
+      const { milestone, changed } = store.updateLocalMilestone(id, patch);
+      if (changed) {
+        notifyLocalChange();
+        scheduleSync(projectIdForMilestone(id));
+      }
       return ok({ milestone });
     } catch (err) {
       return fail(err);
@@ -335,6 +433,8 @@ function register({ ipcMain, windowManager }) {
     if (!guard(event)) return fail('Unauthorized');
     if (typeof repoId !== 'string' || typeof data?.title !== 'string') return fail('Invalid args');
     try {
+      const check = assertRepoInProject(repoId, data?.projectId);
+      if (!check.ok) return fail(check.error);
       const milestone = await syncService.createMilestone(repoId, data);
       return ok({ milestone });
     } catch (err) {
@@ -441,10 +541,14 @@ function register({ ipcMain, windowManager }) {
   });
 
   // --- sync ---------------------------------------------------------------
-  ipcMain.handle('github:sync:now', async (event) => {
+  ipcMain.handle('github:sync:now', async (event, payload) => {
     if (!guard(event)) return fail('Unauthorized');
     try {
-      return await syncService.syncNow();
+      const projectId =
+        payload && typeof payload === 'object' && payload.projectId
+          ? payload.projectId
+          : undefined;
+      return await syncService.syncNow(projectId ? { projectId } : {});
     } catch (err) {
       return fail(err);
     }

@@ -1,8 +1,8 @@
 {
   "open_sidebar": "Abrir barra lateral",
   "close_sidebar": "Cerrar barra lateral",
-  "open_right_panel": "Abrir panel derecho",
-  "close_right_panel": "Cerrar panel derecho",
+  "open_right_panel": "Abrir panel Many",
+  "close_right_panel": "Cerrar panel Many",
   "new_chat": "Nueva conversación",
   "dictation_dock": "Hub de transcripción (voz a texto)",
   "open_transcriptions": "Historial de transcripciones"

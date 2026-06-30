@@ -16,51 +16,105 @@ function slug(s) {
   return crypto.createHash('sha1').update(String(s)).digest('hex').slice(0, 12);
 }
 
-// --- repos -----------------------------------------------------------------
-
-function repoId(remoteId) {
-  return `ghr-${remoteId}`;
+function normalizeProjectId(projectId) {
+  const pid = typeof projectId === 'string' && projectId.trim() ? projectId.trim() : 'default';
+  return pid;
 }
 
-function upsertRepo(remote) {
-  const id = repoId(remote.id);
+// --- repos -----------------------------------------------------------------
+
+function repoId(remoteId, projectId) {
+  return `ghr-${remoteId}-${slug(normalizeProjectId(projectId))}`;
+}
+
+function upsertRepo(remote, projectId, { selected } = {}) {
+  const pid = normalizeProjectId(projectId);
+  const id = repoId(remote.id, pid);
   const ts = now();
+  const existing = db().prepare('SELECT selected FROM github_repos WHERE id = ?').get(id);
+  const selectedVal = selected !== undefined ? (selected ? 1 : 0) : (existing?.selected ?? 0);
   db()
     .prepare(
-      `INSERT INTO github_repos (id, remote_id, owner, name, full_name, private, html_url, selected, created_at, updated_at)
-       VALUES (@id, @remote_id, @owner, @name, @full_name, @private, @html_url,
-         COALESCE((SELECT selected FROM github_repos WHERE id = @id), 0), @ts, @ts)
-       ON CONFLICT(full_name) DO UPDATE SET
+      `INSERT INTO github_repos
+        (id, remote_id, owner, name, full_name, private, html_url, selected, project_id, created_at, updated_at)
+       VALUES (@id, @remote_id, @owner, @name, @full_name, @private, @html_url, @selected, @project_id, @ts, @ts)
+       ON CONFLICT(full_name, project_id) DO UPDATE SET
          owner = excluded.owner, name = excluded.name, private = excluded.private,
-         html_url = excluded.html_url, updated_at = excluded.updated_at`,
+         html_url = excluded.html_url,
+         selected = CASE WHEN @selected_explicit = 1 THEN excluded.selected ELSE github_repos.selected END,
+         updated_at = excluded.updated_at`,
     )
     .run({
       id,
       remote_id: remote.id,
-      owner: remote.owner?.login || '',
+      owner: remote.owner?.login || remote.owner || '',
       name: remote.name,
       full_name: remote.full_name,
       private: remote.private ? 1 : 0,
       html_url: remote.html_url || null,
+      selected: selectedVal,
+      project_id: pid,
+      selected_explicit: selected !== undefined ? 1 : 0,
       ts,
     });
   return id;
 }
 
-function listRepos() {
-  return db().prepare('SELECT * FROM github_repos ORDER BY full_name').all();
+/** Update metadata on every tracked row sharing this full_name (multi-vault). */
+function updateRepoMetadataByFullName(remote) {
+  if (!remote?.full_name) return 0;
+  const ts = now();
+  const res = db()
+    .prepare(
+      `UPDATE github_repos SET owner = @owner, name = @name, private = @private, html_url = @html_url, updated_at = @ts
+       WHERE full_name = @full_name`,
+    )
+    .run({
+      owner: remote.owner?.login || remote.owner || '',
+      name: remote.name,
+      private: remote.private ? 1 : 0,
+      html_url: remote.html_url || null,
+      full_name: remote.full_name,
+      ts,
+    });
+  return res.changes;
+}
+
+function listRepos(projectId) {
+  const pid = normalizeProjectId(projectId);
+  return db().prepare('SELECT * FROM github_repos WHERE project_id = ? ORDER BY full_name').all(pid);
 }
 
 function listSelectedRepos() {
-  return db().prepare('SELECT * FROM github_repos WHERE selected = 1 ORDER BY full_name').all();
+  return db().prepare('SELECT * FROM github_repos WHERE selected = 1 ORDER BY full_name, project_id').all();
 }
 
 function getRepo(id) {
   return db().prepare('SELECT * FROM github_repos WHERE id = ?').get(id);
 }
 
-function setRepoSelected(id, selected) {
-  db().prepare('UPDATE github_repos SET selected = ?, updated_at = ? WHERE id = ?').run(selected ? 1 : 0, now(), id);
+function getRepoByFullNameAndProject(fullName, projectId) {
+  return db()
+    .prepare('SELECT * FROM github_repos WHERE full_name = ? AND project_id = ?')
+    .get(fullName, normalizeProjectId(projectId));
+}
+
+function findAssignmentsByFullName(fullName) {
+  return db()
+    .prepare('SELECT project_id FROM github_repos WHERE full_name = ? AND selected = 1 ORDER BY project_id')
+    .all(fullName)
+    .map((r) => r.project_id);
+}
+
+function setRepoSelected(id, selected, projectId) {
+  const pid = normalizeProjectId(projectId);
+  const repo = getRepo(id);
+  if (!repo || repo.project_id !== pid) {
+    throw new Error('Repo not found in this vault');
+  }
+  db()
+    .prepare('UPDATE github_repos SET selected = ?, updated_at = ? WHERE id = ? AND project_id = ?')
+    .run(selected ? 1 : 0, now(), id, pid);
 }
 
 function touchRepoSync(id) {
@@ -156,7 +210,18 @@ function listDirtyMilestones() {
 /** Apply a local edit (renderer-driven), marking the row dirty for push. */
 function updateLocalMilestone(id, patch) {
   const m = getMilestone(id);
-  if (!m) return null;
+  if (!m) return { milestone: null, changed: false };
+  const nextTitle = patch.title ?? m.title;
+  const nextDescription = patch.description !== undefined ? patch.description : m.description;
+  const nextDueOn = patch.dueOn !== undefined ? patch.dueOn : m.due_on;
+  const nextState = patch.state ?? m.state;
+  const unchanged =
+    nextTitle === m.title &&
+    nextDescription === m.description &&
+    nextDueOn === m.due_on &&
+    nextState === m.state;
+  if (unchanged) return { milestone: m, changed: false };
+
   const ts = now();
   db()
     .prepare(
@@ -165,13 +230,13 @@ function updateLocalMilestone(id, patch) {
     )
     .run({
       id,
-      title: patch.title ?? m.title,
-      description: patch.description ?? m.description,
-      due_on: patch.dueOn !== undefined ? patch.dueOn : m.due_on,
-      state: patch.state ?? m.state,
+      title: nextTitle,
+      description: nextDescription,
+      due_on: nextDueOn,
+      state: nextState,
       ts,
     });
-  return getMilestone(id);
+  return { milestone: getMilestone(id), changed: true };
 }
 
 function markMilestoneClean(id) {
@@ -299,7 +364,25 @@ function listDirtyIssues() {
 
 function updateLocalIssue(id, patch) {
   const issue = getIssue(id);
-  if (!issue) return null;
+  if (!issue) return { issue: null, changed: false };
+  const nextTitle = patch.title ?? issue.title;
+  const nextBody = patch.body ?? issue.body;
+  const nextState = patch.state ?? issue.state;
+  const nextMilestone =
+    patch.milestoneNumber !== undefined ? patch.milestoneNumber : issue.milestone_number;
+  const nextLabels =
+    patch.labels !== undefined ? JSON.stringify(patch.labels) : issue.labels;
+  const nextAssignees =
+    patch.assignees !== undefined ? JSON.stringify(patch.assignees) : issue.assignees;
+  const unchanged =
+    nextTitle === issue.title &&
+    nextBody === issue.body &&
+    nextState === issue.state &&
+    nextMilestone === issue.milestone_number &&
+    nextLabels === issue.labels &&
+    nextAssignees === issue.assignees;
+  if (unchanged) return { issue, changed: false };
+
   const ts = now();
   db()
     .prepare(
@@ -309,15 +392,15 @@ function updateLocalIssue(id, patch) {
     )
     .run({
       id,
-      title: patch.title ?? issue.title,
-      body: patch.body ?? issue.body,
-      state: patch.state ?? issue.state,
-      milestone_number: patch.milestoneNumber !== undefined ? patch.milestoneNumber : issue.milestone_number,
-      labels: patch.labels !== undefined ? JSON.stringify(patch.labels) : issue.labels,
-      assignees: patch.assignees !== undefined ? JSON.stringify(patch.assignees) : issue.assignees,
+      title: nextTitle,
+      body: nextBody,
+      state: nextState,
+      milestone_number: nextMilestone,
+      labels: nextLabels,
+      assignees: nextAssignees,
       ts,
     });
-  return getIssue(id);
+  return { issue: getIssue(id), changed: true };
 }
 
 function markIssueClean(id) {
@@ -400,6 +483,13 @@ function listAllCalendarLinkEventIds() {
   return db().prepare('SELECT event_id FROM github_calendar_links').all().map((r) => r.event_id);
 }
 
+function listGithubCalendarIds() {
+  return db()
+    .prepare("SELECT id FROM calendar_calendars WHERE id = 'github-default' OR id LIKE 'github-%'")
+    .all()
+    .map((r) => r.id);
+}
+
 // --- full purge (on disconnect) -------------------------------------------
 
 /** Wipe all GitHub data. Calendar events are deleted by the caller first. */
@@ -421,11 +511,15 @@ function clearAllData() {
 }
 
 module.exports = {
+  normalizeProjectId,
   repoId,
   upsertRepo,
+  updateRepoMetadataByFullName,
   listRepos,
   listSelectedRepos,
   getRepo,
+  getRepoByFullNameAndProject,
+  findAssignmentsByFullName,
   setRepoSelected,
   touchRepoSync,
   getEtag,
@@ -457,5 +551,6 @@ module.exports = {
   upsertCalendarLink,
   deleteCalendarLink,
   listAllCalendarLinkEventIds,
+  listGithubCalendarIds,
   clearAllData,
 };

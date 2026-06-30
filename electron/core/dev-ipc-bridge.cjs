@@ -19,6 +19,26 @@ let server = null;
 
 const DEFAULT_PORT = Number(process.env.DOME_IPC_BRIDGE_PORT || 8799);
 
+/** Proxy path → real channel (mirrors preload.cjs overrides). */
+const CHANNEL_ALIASES = new Map([
+  ['artifacts:create', 'artifact:create'],
+  ['artifacts:get', 'artifact:get'],
+  ['artifacts:buildDesign', 'artifact:buildDesign'],
+  ['artifacts:update', 'artifact:update'],
+  ['artifacts:delete', 'artifact:delete'],
+  ['artifacts:list', 'artifact:list'],
+  ['artifacts:export', 'artifact:export'],
+  ['artifacts:exportHtml', 'artifact:exportHtml'],
+  ['artifacts:import', 'artifact:import'],
+  ['artifacts:refreshLinked', 'artifact:refresh-linked'],
+  ['artifacts:setLinkedResource', 'artifact:set-linked-resource'],
+  ['ai:listProviderModels', 'ai:provider:listModels'],
+  ['ai:listOpenRouterModels', 'ai:openrouter:listModels'],
+  ['ai:streamAgent', 'ai:agent:stream'],
+  ['ai:abortAgent', 'ai:agent:abort'],
+  ['ai:resumeAgent', 'ai:agent:resume'],
+]);
+
 /**
  * Patch `ipcMain.handle` so every registered handler is also recorded here.
  * MUST run before IPC handlers are registered (i.e. before `registerAll`).
@@ -98,7 +118,8 @@ function startDevIpcBridge({ getSender, port = DEFAULT_PORT } = {}) {
         return;
       }
 
-      const fn = handlers.get(channel);
+      const resolvedChannel = CHANNEL_ALIASES.get(channel) || channel;
+      const fn = handlers.get(resolvedChannel);
       if (typeof fn !== 'function') {
         sendJson(res, 404, { ok: false, error: `No handler for channel: ${channel}` });
         return;

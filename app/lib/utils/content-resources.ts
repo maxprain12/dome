@@ -1,4 +1,8 @@
-import type { JSONContent } from '@tiptap/core';
+type NoteContentNode = {
+  type?: string;
+  attrs?: Record<string, unknown>;
+  content?: NoteContentNode[];
+};
 
 /** Label stored on semantic_relations rows created from inline @ mentions. */
 export const NOTE_MENTION_RELATION_LABEL = 'mention';
@@ -20,8 +24,8 @@ export function extractResourceIdsFromContent(content: string | null | undefined
   return extractResourceIdsFromNoteContent(content);
 }
 
-/** Walk a Tiptap doc and collect linked resource IDs from mention / resourceLink nodes. */
-function walkNoteContentForResourceIds(node: JSONContent, ids: Set<string>): void {
+/** Walk legacy Tiptap JSON and collect linked resource IDs from mention / resourceLink nodes. */
+function walkNoteContentForResourceIds(node: NoteContentNode, ids: Set<string>): void {
   if (!node || typeof node !== 'object') return;
 
   if (node.type === 'mention' && typeof node.attrs?.id === 'string' && node.attrs.id) {
@@ -48,7 +52,7 @@ export function extractResourceIdsFromNoteContent(content: string | null | undef
   while ((m = jsonResourceIdRe.exec(content)) !== null) ids.add(m[1]);
 
   try {
-    const parsed = JSON.parse(content) as JSONContent;
+    const parsed = JSON.parse(content) as NoteContentNode;
     if (parsed?.type === 'doc') walkNoteContentForResourceIds(parsed, ids);
   } catch {
     // legacy plain / markdown content

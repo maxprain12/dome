@@ -15,6 +15,7 @@ import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import { ensureHubEventsBridge } from '@/lib/hub/hubEventsBridge';
 import PptCapturePage from './pages/PptCapturePage';
 import NoteFocusPage from './pages/NoteFocusPage';
+import ManyPopoutPage from './pages/ManyPopoutPage';
 import { lazy, Suspense } from 'react';
 import StandaloneFrame from '@/components/shell/StandaloneFrame';
 
@@ -225,6 +226,13 @@ export default function App() {
     return (
       <ThemeProvider>
         <StandaloneCalendarPopout />
+      </ThemeProvider>
+    );
+  }
+  if (pathname === '/standalone/many' || pathname.startsWith('/standalone/many')) {
+    return (
+      <ThemeProvider>
+        <ManyPopoutPage />
       </ThemeProvider>
     );
   }

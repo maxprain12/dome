@@ -28,6 +28,7 @@ import {
   Check,
 } from 'lucide-react';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import EmailErrorNotice, { type EmailErrorInfo } from '@/components/email/EmailErrorNotice';
 import EmailBody from '@/components/email/EmailBody';
 import HubListState from '@/components/ui/HubListState';
@@ -161,6 +162,7 @@ function folderIcon(name: string) {
 export default function EmailView() {
   const { t } = useTranslation();
   const openSettingsTab = useTabStore((s) => s.openSettingsTab);
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
 
   const [hasAccount, setHasAccount] = useState<boolean | null>(null);
   const [envelopes, setEnvelopes] = useState<Envelope[]>([]);
@@ -180,19 +182,19 @@ export default function EmailView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await window.electron.email.listEnvelopes({ folder: f });
+      const res = await window.electron.email.listEnvelopes({ folder: f, projectId });
       if (res.success) setEnvelopes((res.envelopes as Envelope[]) || []);
       else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
     } finally {
       setLoading(false);
     }
-  }, [folder]);
+  }, [folder, projectId]);
 
   useEffect(() => {
     (async () => {
       try {
         const res = await invokeWithTimeout(
-          () => window.electron.email.listAccounts(),
+          () => window.electron.email.listAccounts({ projectId }),
           30_000,
         );
         const ok = res.success && (res.accounts?.length ?? 0) > 0;
@@ -200,7 +202,7 @@ export default function EmailView() {
         if (!ok) return;
         refresh('INBOX');
         const f = await invokeWithTimeout(
-          () => window.electron.email.listFolders(),
+          () => window.electron.email.listFolders({ projectId }),
           30_000,
         );
         if (f.success) {
@@ -216,7 +218,7 @@ export default function EmailView() {
         });
       }
     })();
-  }, [refresh]);
+  }, [refresh, projectId]);
 
   const folderOptions = useMemo(() => {
     const names = folders.map((f) => f.name);
@@ -241,7 +243,7 @@ export default function EmailView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await window.electron.email.search({ query: query.trim(), folder });
+      const res = await window.electron.email.search({ query: query.trim(), folder, projectId });
       if (res.success) setEnvelopes((res.envelopes as Envelope[]) || []);
       else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
     } finally {
@@ -254,7 +256,7 @@ export default function EmailView() {
     setReadingId(env.id);
     setMessage(null);
     try {
-      const res = await window.electron.email.read({ messageId: env.id, folder });
+      const res = await window.electron.email.read({ messageId: env.id, folder, projectId });
       if (res.success) setMessage(res.message);
       else setError({ error: res.error, errorCode: res.errorCode, helpUrl: res.helpUrl });
     } finally {
@@ -441,6 +443,7 @@ export default function EmailView() {
           mode={composing.mode}
           replyTo={composing.replyTo}
           folder={folder}
+          projectId={projectId}
           onClose={() => setComposing(null)}
           onSent={() => {
             setComposing(null);
@@ -849,12 +852,14 @@ function Composer({
   mode,
   replyTo,
   folder,
+  projectId,
   onClose,
   onSent,
 }: {
   mode: 'new' | 'reply';
   replyTo?: Envelope;
   folder: string;
+  projectId: string;
   onClose: () => void;
   onSent: () => void;
 }) {
@@ -871,8 +876,8 @@ function Composer({
     try {
       const res =
         mode === 'reply' && replyTo
-          ? await window.electron.email.reply({ messageId: replyTo.id, body, folder })
-          : await window.electron.email.send({ to, subject, body });
+          ? await window.electron.email.reply({ messageId: replyTo.id, body, folder, projectId })
+          : await window.electron.email.send({ to, subject, body, projectId });
       if (res.success) onSent();
       else setError({ error: res.error || t('email.compose_failed'), errorCode: res.errorCode, helpUrl: res.helpUrl });
     } finally {

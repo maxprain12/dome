@@ -35,3 +35,43 @@ export function streamingLabelForToolCall(toolCall: StreamingLabelToolCall, t: T
   if (label.endsWith('...') || label.endsWith('…')) return label;
   return `${label}...`;
 }
+
+/** Options for the active-run status row (not cross-session background runs). */
+export interface ActiveRunLabelOptions {
+  /** Run belongs to another chat session (history list / cross-session). */
+  otherSession?: boolean;
+  waitingApproval?: boolean;
+  hasContent?: boolean;
+  /** Reconnecting to an in-flight run after tab/window switch. */
+  reconnecting?: boolean;
+}
+
+/**
+ * Semantic streaming label for the chat surface the user is actively viewing.
+ * Reserve `chat.running_background` only for {@link ActiveRunLabelOptions.otherSession}.
+ */
+export function streamingLabelForActiveRun(t: TFunction, opts: ActiveRunLabelOptions): string {
+  if (opts.otherSession) return t('chat.running_background');
+  if (opts.waitingApproval) return t('chat.waiting_approval');
+  if (opts.hasContent) return t('chat.generating_response');
+  if (opts.reconnecting) return t('chat.reconnecting_run');
+  return t('chat.thinking_evaluating_tools');
+}
+
+/** Resolve a streaming label from run metadata emitted by the main process. */
+export function streamingLabelFromRunMetadata(
+  t: TFunction,
+  metadata: Record<string, unknown> | undefined,
+  fallback?: ActiveRunLabelOptions,
+): string {
+  const labelKey = metadata?.uiLabelKey;
+  if (typeof labelKey === 'string' && labelKey.startsWith('chat.')) {
+    return t(labelKey);
+  }
+  const detail = metadata?.uiPhaseDetail;
+  if (typeof detail === 'string' && detail.trim()) {
+    return streamingLabelForToolName(detail, t);
+  }
+  if (fallback) return streamingLabelForActiveRun(t, fallback);
+  return t('chat.processing');
+}

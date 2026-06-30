@@ -27,6 +27,7 @@ const vaultStore = require('./vault-store.cjs');
 let _watcher = null;
 let _deps = null;
 const _pendingUnlinks = new Map();
+const _pendingDirUnlinks = new Map();
 const UNLINK_DEBOUNCE_MS = 1500;
 
 function toRelPath(rootDir, absPath) {
@@ -49,29 +50,28 @@ function resolvePathContext(absPath, deps) {
   return { projectId: best.projectId, relPath };
 }
 
-/** Find or create the folder chain (under a project) for a list of segments. */
+/** Find or create the folder chain (under a project) for a list of path segments. */
 function ensureFolderChain(projectId, folderSegs, deps) {
   const db = deps.database.getDB();
   const now = Date.now();
   let parentId = null;
+  let currentRel = '';
   for (const seg of folderSegs) {
-    const candidates = db
-      .prepare(
-        parentId
-          ? "SELECT id, title FROM resources WHERE type='folder' AND project_id=? AND folder_id=?"
-          : "SELECT id, title FROM resources WHERE type='folder' AND project_id=? AND folder_id IS NULL",
-      )
-      .all(...(parentId ? [projectId, parentId] : [projectId]));
-    let folder = candidates.find((c) => vaultStore.sanitizeSegment(c.title || '', 'Folder') === seg);
+    currentRel = currentRel ? `${currentRel}/${seg}` : seg;
+    let folder = db
+      .prepare("SELECT id, title, vault_path FROM resources WHERE type='folder' AND project_id=? AND vault_path=?")
+      .get(projectId, currentRel);
     if (!folder) {
       const fid = crypto.randomUUID();
       db.prepare(
-        'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
-      ).run(fid, projectId, 'folder', seg, null, null, parentId, null, now, now);
+        'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+      ).run(fid, projectId, 'folder', seg, null, null, parentId, currentRel, null, now, now);
       deps.windowManager.broadcast('resource:created', {
-        id: fid, type: 'folder', project_id: projectId, folder_id: parentId, title: seg,
+        id: fid, type: 'folder', project_id: projectId, folder_id: parentId, title: seg, vault_path: currentRel,
       });
       folder = { id: fid };
+    } else if (folder.title !== seg) {
+      db.prepare('UPDATE resources SET title = ?, updated_at = ? WHERE id = ?').run(seg, now, folder.id);
     }
     parentId = folder.id;
   }
@@ -155,10 +155,119 @@ function importExternalBinary(absPath, buf, ext, ctx, deps) {
   console.log('[VaultWatcher] imported external file:', ctx.relPath);
 }
 
+/** Import an unknown external Dome artifact HTML as a persisted artifact resource. */
+function importExternalArtifact(raw, ctx, deps) {
+  const { database, semanticIndexScheduler, windowManager } = deps;
+  const parsed = vaultStore.parseArtifactHtmlDocument(raw);
+  if (!parsed) return;
+
+  const db = database.getDB();
+  const queries = database.getQueries();
+  const segments = ctx.relPath.split('/').filter(Boolean);
+  if (segments.length === 0) return;
+  const folderId = ensureFolderChain(ctx.projectId, segments.slice(0, -1), deps);
+  const fileBase = segments[segments.length - 1].replace(/\.html$/i, '');
+
+  let resourceId = parsed.resourceId;
+  if (!resourceId || !/^[\w-]+$/.test(resourceId) || db.prepare('SELECT id FROM resources WHERE id=?').get(resourceId)) {
+    resourceId = crypto.randomUUID();
+  }
+  const title = fileBase || 'Untitled Artifact';
+  const hash = vaultStore.contentHash(raw);
+  const now = Date.now();
+  const state = {
+    html: parsed.html,
+    css: parsed.css,
+    data: parsed.data,
+    ...(parsed.linkedData ? { linkedData: parsed.linkedData } : {}),
+  };
+
+  db.prepare(
+    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(
+    resourceId,
+    ctx.projectId,
+    'artifact',
+    title,
+    null,
+    null,
+    folderId,
+    ctx.relPath,
+    vaultStore.markdownToPlainText(parsed.html),
+    hash,
+    null,
+    now,
+    now,
+  );
+
+  const artifactId = crypto.randomUUID();
+  queries.createArtifact.run(
+    artifactId,
+    resourceId,
+    parsed.artifactType || 'custom',
+    null,
+    JSON.stringify(state),
+    parsed.linkedResourceId,
+    now,
+    now,
+  );
+
+  try { semanticIndexScheduler.scheduleSemanticReindex?.(resourceId); } catch { /* */ }
+  windowManager.broadcast('resource:created', {
+    id: resourceId,
+    type: 'artifact',
+    project_id: ctx.projectId,
+    folder_id: folderId,
+    title,
+    vault_path: ctx.relPath,
+  });
+  console.log('[VaultWatcher] imported external artifact:', ctx.relPath);
+}
+
+function reconcileExternalArtifactEdit(row, raw, ctx, hash, deps) {
+  const { database, semanticIndexScheduler, windowManager } = deps;
+  const parsed = vaultStore.parseArtifactHtmlDocument(raw);
+  if (!parsed) return false;
+
+  const db = database.getDB();
+  const queries = database.getQueries();
+  const now = Date.now();
+  const nextState = {
+    html: parsed.html,
+    css: parsed.css,
+    data: parsed.data,
+    ...(parsed.linkedData ? { linkedData: parsed.linkedData } : {}),
+  };
+  queries.updateArtifactState.run(JSON.stringify(nextState), now, row.id);
+  const artifact = queries.getArtifactByResourceId.get(row.id);
+  if (artifact && parsed.linkedResourceId !== (artifact.linked_resource_id ?? null)) {
+    db.prepare(
+      'UPDATE artifacts SET linked_resource_id = ?, version = version + 1, updated_at = ? WHERE resource_id = ?',
+    ).run(parsed.linkedResourceId, now, row.id);
+  }
+  db.prepare(
+    'UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?',
+  ).run(ctx.relPath, vaultStore.markdownToPlainText(parsed.html), hash, now, row.id);
+  try { semanticIndexScheduler.scheduleSemanticReindex?.(row.id); } catch { /* */ }
+  try {
+    const updated = queries.getArtifactByResourceId.get(row.id);
+    const resource = queries.getResourceById.get(row.id);
+    const { serializeArtifactRecord } = require('../artifacts/artifact-serialize.cjs');
+    const serialized = serializeArtifactRecord(updated, resource, queries);
+    windowManager.broadcast('artifact:updated', serialized);
+    windowManager.broadcast('resource:updated', { id: row.id, updates: { updated_at: now }, fromVault: true });
+  } catch { /* */ }
+  console.log('[VaultWatcher] external artifact edit reconciled:', ctx.relPath);
+  return true;
+}
+
 function handleChange(absPath, deps) {
+  if (/\.dome([/\\]|$)/.test(absPath)) return;
+
   const { database, semanticIndexScheduler, windowManager } = deps;
   const ext = path.extname(absPath).toLowerCase();
   const isMd = ext === '.md';
+  const isHtml = ext === '.html';
   let buf;
   try { buf = fs.readFileSync(absPath); } catch { return; }
   const hash = vaultStore.contentHash(buf);
@@ -167,17 +276,27 @@ function handleChange(absPath, deps) {
   const ctx = resolvePathContext(absPath, deps);
   if (!ctx) return;
   const db = database.getDB();
+  const rawText = buf.toString('utf8');
+  const isArtifactHtml = isHtml && vaultStore.isDomeArtifactHtml(rawText);
 
   let row = db.prepare('SELECT id, type, content_hash, vault_path FROM resources WHERE project_id = ? AND vault_path = ?').get(ctx.projectId, ctx.relPath);
   if (!row && isMd) {
-    const fid = vaultStore.parseFrontmatterId(buf.toString('utf8'));
+    const fid = vaultStore.parseFrontmatterId(rawText);
     if (fid) {
       const byId = db.prepare("SELECT id, type, content_hash, vault_path FROM resources WHERE id = ? AND type = 'note'").get(fid);
       if (byId) row = byId;
     }
   }
+  if (!row && isArtifactHtml) {
+    const parsed = vaultStore.parseArtifactHtmlDocument(rawText);
+    if (parsed?.resourceId) {
+      const byId = db.prepare("SELECT id, type, content_hash, vault_path FROM resources WHERE id = ? AND type = 'artifact'").get(parsed.resourceId);
+      if (byId) row = byId;
+    }
+  }
   if (!row) {
-    if (isMd) importExternalNote(buf.toString('utf8'), ctx, deps);
+    if (isMd) importExternalNote(rawText, ctx, deps);
+    else if (isArtifactHtml) importExternalArtifact(rawText, ctx, deps);
     else importExternalBinary(absPath, buf, ext, ctx, deps);
     return;
   }
@@ -189,9 +308,11 @@ function handleChange(absPath, deps) {
 
   const now = Date.now();
   if (isMd) {
-    const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(buf.toString('utf8')));
+    const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(rawText));
     db.prepare('UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
       .run(ctx.relPath, text, hash, now, row.id);
+  } else if (row.type === 'artifact' || isArtifactHtml) {
+    if (reconcileExternalArtifactEdit(row, rawText, ctx, hash, deps)) return;
   } else {
     db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ?, updated_at = ? WHERE id = ?')
       .run(ctx.relPath, hash, buf.length, now, row.id);
@@ -202,10 +323,78 @@ function handleChange(absPath, deps) {
   console.log('[VaultWatcher] external edit reconciled:', ctx.relPath);
 }
 
+function handleUnlinkDir(absPath, deps) {
+  const { database, windowManager } = deps;
+  if (_pendingDirUnlinks.has(absPath)) clearTimeout(_pendingDirUnlinks.get(absPath));
+  _pendingDirUnlinks.set(absPath, setTimeout(() => {
+    _pendingDirUnlinks.delete(absPath);
+    try {
+      const ctx = resolvePathContext(absPath, deps);
+      if (!ctx || !ctx.relPath) return;
+      if (fs.existsSync(absPath)) return;
+      const db = database.getDB();
+      const row = db
+        .prepare("SELECT id FROM resources WHERE project_id = ? AND vault_path = ? AND type = 'folder'")
+        .get(ctx.projectId, ctx.relPath);
+      if (!row) return;
+      database.getQueries().deleteResource.run(row.id);
+      windowManager.broadcast('resource:deleted', { id: row.id, fromVault: true });
+      console.log('[VaultWatcher] external folder delete reconciled:', ctx.relPath);
+    } catch (err) {
+      console.warn('[VaultWatcher] unlinkDir reconcile failed:', err.message);
+    }
+  }, UNLINK_DEBOUNCE_MS));
+}
+
 function handleAddDir(absPath, deps) {
   try {
     const ctx = resolvePathContext(absPath, deps);
     if (!ctx || !ctx.relPath) return;
+    const db = deps.database.getDB();
+    const existing = db
+      .prepare("SELECT id, vault_path FROM resources WHERE project_id = ? AND vault_path = ? AND type = 'folder'")
+      .get(ctx.projectId, ctx.relPath);
+    if (existing) return;
+    // External rename: folder row still points at old path that no longer exists on disk.
+    const parentRel = ctx.relPath.includes('/') ? ctx.relPath.slice(0, ctx.relPath.lastIndexOf('/')) : '';
+    const parentId = parentRel
+      ? db.prepare("SELECT id FROM resources WHERE project_id = ? AND vault_path = ? AND type = 'folder'").get(ctx.projectId, parentRel)?.id ?? null
+      : null;
+    const stale = db
+      .prepare(
+        parentId
+          ? "SELECT id, vault_path FROM resources WHERE project_id = ? AND type = 'folder' AND folder_id = ? AND vault_path != ?"
+          : "SELECT id, vault_path FROM resources WHERE project_id = ? AND type = 'folder' AND folder_id IS NULL AND vault_path != ?",
+      )
+      .all(...(parentId ? [ctx.projectId, parentId, ctx.relPath] : [ctx.projectId, ctx.relPath]));
+    for (const s of stale) {
+      const oldAbs = path.join(
+        vaultStore.getProjectVaultRoot(ctx.projectId, deps.database.getQueries(), deps.fileStorage),
+        s.vault_path,
+      );
+      if (fs.existsSync(oldAbs)) continue;
+      const title = path.posix.basename(ctx.relPath);
+      const now = Date.now();
+      const oldPrefix = `${s.vault_path}/`;
+      const newPrefix = `${ctx.relPath}/`;
+      db.prepare('UPDATE resources SET title = ?, vault_path = ?, folder_id = ?, updated_at = ? WHERE id = ?')
+        .run(title, ctx.relPath, parentId, now, s.id);
+      const descendants = db
+        .prepare("SELECT id, vault_path FROM resources WHERE project_id = ? AND vault_path LIKE ? ESCAPE '\\'")
+        .all(ctx.projectId, `${s.vault_path}/%`);
+      for (const d of descendants) {
+        if (!d.vault_path.startsWith(oldPrefix)) continue;
+        db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?')
+          .run(newPrefix + d.vault_path.slice(oldPrefix.length), d.id);
+      }
+      deps.windowManager.broadcast('resource:updated', {
+        id: s.id,
+        updates: { title, vault_path: ctx.relPath, folder_id: parentId, updated_at: now },
+        fromVault: true,
+      });
+      console.log('[VaultWatcher] external folder rename reconciled:', s.vault_path, '->', ctx.relPath);
+      return;
+    }
     ensureFolderChain(ctx.projectId, ctx.relPath.split('/').filter(Boolean), deps);
   } catch (err) {
     console.warn('[VaultWatcher] addDir failed:', err.message);
@@ -243,8 +432,10 @@ function scanRoot(rootAbs, deps) {
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
     for (const e of entries) {
       if (e.name.startsWith('.')) continue;
+      if (e.name.endsWith('.dome')) continue;
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) { handleAddDir(abs, deps); stack.push(abs); continue; }
+      if (/\.dome([/\\]|$)/.test(abs)) continue;
       const ctx = resolvePathContext(abs, deps);
       if (!ctx) continue;
       const known = db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?').get(ctx.projectId, ctx.relPath);
@@ -257,6 +448,8 @@ function scanRoot(rootAbs, deps) {
         const fid = vaultStore.parseFrontmatterId(raw);
         if (fid && db.prepare('SELECT id FROM resources WHERE id=?').get(fid)) continue;
         try { importExternalNote(raw, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan note import failed:', err.message); }
+      } else if (ext === '.html' && vaultStore.isDomeArtifactHtml(buf.toString('utf8'))) {
+        try { importExternalArtifact(buf.toString('utf8'), ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan artifact import failed:', err.message); }
       } else {
         try { importExternalBinary(abs, buf, ext, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan file import failed:', err.message); }
       }
@@ -299,6 +492,7 @@ function start(deps) {
     .on('change', (p) => handleChange(p, deps))
     .on('addDir', (p) => handleAddDir(p, deps))
     .on('unlink', (p) => handleUnlink(p, deps))
+    .on('unlinkDir', (p) => handleUnlinkDir(p, deps))
     .on('error', (err) => console.warn('[VaultWatcher] error:', err?.message || err));
 
   console.log('[VaultWatcher] watching', targets.join(', '));
@@ -322,6 +516,8 @@ function stop() {
   if (_watcher) { try { _watcher.close(); } catch { /* */ } _watcher = null; }
   for (const t of _pendingUnlinks.values()) clearTimeout(t);
   _pendingUnlinks.clear();
+  for (const t of _pendingDirUnlinks.values()) clearTimeout(t);
+  _pendingDirUnlinks.clear();
   _deps = null;
 }
 

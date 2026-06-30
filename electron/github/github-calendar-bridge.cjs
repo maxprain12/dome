@@ -9,16 +9,35 @@
  * - Issues      → event on parsed due_date (see github-store.parseIssueDueDate)
  * - Releases    → event on published_at
  *
- * Events live in a dedicated local "GitHub" calendar and are tracked through
- * github_calendar_links so every sync upserts (never duplicates) and removes
- * the event when the date or entity disappears.
+ * Events live in a dedicated local "GitHub" calendar per vault and are tracked
+ * through github_calendar_links so every sync upserts (never duplicates) and
+ * removes the event when the date or entity disappears.
  */
 
+const crypto = require('crypto');
 const database = require('../core/database.cjs');
 const store = require('./github-store.cjs');
 const calendarService = require('../calendar/calendar-service.cjs');
 
-const GITHUB_CALENDAR_ID = 'github-dome';
+const LEGACY_GITHUB_CALENDAR_ID = 'github-dome';
+
+function slug(s) {
+  return crypto.createHash('sha1').update(String(s)).digest('hex').slice(0, 12);
+}
+
+function normalizeProjectId(projectId) {
+  return store.normalizeProjectId(projectId);
+}
+
+function githubCalendarId(projectId) {
+  const pid = normalizeProjectId(projectId);
+  return pid === 'default' ? 'github-default' : `github-${slug(pid)}`;
+}
+
+function localAccountId(projectId) {
+  const pid = normalizeProjectId(projectId);
+  return pid === 'default' ? 'local' : `local-${pid}`;
+}
 
 function getSetting(key, def) {
   try {
@@ -30,22 +49,34 @@ function getSetting(key, def) {
 }
 
 function isEnabled(kind) {
-  // Default-on toggles set from GitHub settings.
   return getSetting(`github_calendar_${kind}`, 'true') === 'true';
 }
 
-/** Ensure the dedicated local "GitHub" calendar exists. */
-function ensureGithubCalendar() {
+/** Ensure the dedicated local "GitHub" calendar exists for a vault. */
+function ensureGithubCalendar(projectId) {
+  const pid = normalizeProjectId(projectId);
+  const calId = githubCalendarId(pid);
   const db = database.getDB();
-  const existing = db.prepare('SELECT id FROM calendar_calendars WHERE id = ?').get(GITHUB_CALENDAR_ID);
-  if (existing) return GITHUB_CALENDAR_ID;
-  const ts = Date.now();
+  const existing = db.prepare('SELECT id FROM calendar_calendars WHERE id = ?').get(calId);
+  if (existing) return calId;
+
+  const q = database.getQueries();
+  const accountId = localAccountId(pid);
+  const now = Date.now();
+
+  if (pid !== 'default') {
+    let acc = q.getCalendarAccountById.get(accountId);
+    if (!acc) {
+      q.createCalendarAccount.run(accountId, 'local', 'local@dome', '{}', 'active', null, null, pid, now, now);
+    }
+  }
+
   db.prepare(
     `INSERT OR IGNORE INTO calendar_calendars
       (id, account_id, remote_id, title, color, is_selected, is_default, created_at, updated_at)
-     VALUES (?, 'local', 'github', 'GitHub', '#6e40c9', 1, 0, ?, ?)`,
-  ).run(GITHUB_CALENDAR_ID, ts, ts);
-  return GITHUB_CALENDAR_ID;
+     VALUES (?, ?, 'github', 'GitHub', '#6e40c9', 1, 0, ?, ?)`,
+  ).run(calId, accountId, now, now);
+  return calId;
 }
 
 function withSourceFooter(description, url) {
@@ -63,15 +94,12 @@ function formatDateEs(ms) {
   }
 }
 
-/** Build a markdown body for release calendar events. Falls back to the URL when
- *  no `body` was stored (older syncs / releases with no notes on GitHub). */
 function buildReleaseDescription(rel) {
   const raw = typeof rel.body === 'string' ? rel.body.trim() : '';
   if (!raw) return rel.html_url || rel.tag_name;
   return raw;
 }
 
-/** Rich markdown body for milestone calendar events. */
 function buildMilestoneDescription(m, repo, { completed = false } = {}) {
   const parts = [];
   parts.push(`**Repositorio:** \`${repo.full_name}\``);
@@ -99,13 +127,9 @@ function completedMilestoneLinkId(milestoneId) {
   return `${milestoneId}:completed`;
 }
 
-async function upsertEvent(entityType, entityId, { title, description, dateMs, url, extraMetadata = {} }) {
+async function upsertEvent(projectId, entityType, entityId, { title, description, dateMs, url, extraMetadata = {} }) {
+  const calId = ensureGithubCalendar(projectId);
   const link = store.getCalendarLink(entityType, entityId);
-  // Snap to the start of the local day so all-day events render in exactly one
-  // cell. GitHub's `published_at` / `due_on` come with arbitrary hours (UTC),
-  // and `endAt = startAt + 24h` would otherwise land mid-day and the renderer
-  // (which only collapses `end == startOfNextDay` back to a single day) would
-  // paint the event across two columns.
   const dayStart = new Date(dateMs);
   dayStart.setHours(0, 0, 0, 0);
   const startAt = dayStart.getTime();
@@ -122,16 +146,18 @@ async function upsertEvent(entityType, entityId, { title, description, dateMs, u
       all_day: 1,
       metadata,
     });
-    // Event was deleted out from under us → recreate.
-    if (!res?.success) return createAndLink(entityType, entityId, { title, description: body, startAt, endAt, metadata });
+    if (!res?.success) {
+      return createAndLink(projectId, calId, entityType, entityId, { title, description: body, startAt, endAt, metadata });
+    }
     return;
   }
-  return createAndLink(entityType, entityId, { title, description: body, startAt, endAt, metadata });
+  return createAndLink(projectId, calId, entityType, entityId, { title, description: body, startAt, endAt, metadata });
 }
 
-async function createAndLink(entityType, entityId, { title, description, startAt, endAt, metadata }) {
+async function createAndLink(projectId, calId, entityType, entityId, { title, description, startAt, endAt, metadata }) {
   const res = await calendarService.createEvent({
-    calendar_id: GITHUB_CALENDAR_ID,
+    calendar_id: calId,
+    projectId: normalizeProjectId(projectId),
     title,
     description: description || null,
     start_at: startAt,
@@ -152,30 +178,27 @@ async function removeEvent(entityType, entityId) {
   store.deleteCalendarLink(entityType, entityId);
 }
 
-/** Reproject all dated entities for the selected repos. Idempotent. */
-async function syncCalendar() {
-  ensureGithubCalendar();
-  const repos = store.listSelectedRepos();
+async function syncCalendar(repos) {
+  const list = Array.isArray(repos) && repos.length > 0 ? repos : store.listSelectedRepos();
   const milestonesOn = isEnabled('milestones');
   const issuesOn = isEnabled('issues');
   const releasesOn = isEnabled('releases');
 
-  // Yield to the event loop every N writes so calendar/listEvents IPC (and the
-  // rest of the app) isn't starved while projecting many events on the main process.
   let ops = 0;
   const breathe = async () => {
     if (++ops % 25 === 0) await new Promise((r) => setImmediate(r));
   };
 
-  for (const repo of repos) {
-    // Milestones — always on due_on (fecha de entrega), open or closed
+  for (const repo of list) {
+    const projectId = repo.project_id || 'default';
+    ensureGithubCalendar(projectId);
+
     for (const m of store.listMilestonesWithDueOn(repo.id)) {
-      // Remove legacy completion-date events from earlier bridge versions
       await removeEvent('milestone', completedMilestoneLinkId(m.id));
 
       const completed = m.state === 'closed';
       if (milestonesOn && m.due_on) {
-        await upsertEvent('milestone', m.id, {
+        await upsertEvent(projectId, 'milestone', m.id, {
           title: `${completed ? '✅' : '🏁'} ${m.title}`,
           description: buildMilestoneDescription(m, repo, { completed }),
           dateMs: m.due_on,
@@ -192,10 +215,10 @@ async function syncCalendar() {
       }
       await breathe();
     }
-    // Issues with a parsed due date
+
     for (const issue of store.listIssuesForCalendar(repo.id)) {
       if (issuesOn) {
-        await upsertEvent('issue', issue.id, {
+        await upsertEvent(projectId, 'issue', issue.id, {
           title: `#${issue.number} ${issue.title}`,
           description: issue.body,
           dateMs: issue.due_date,
@@ -212,11 +235,11 @@ async function syncCalendar() {
       }
       await breathe();
     }
-    // Releases (calendar rejects dates >1y in the past, so skip stale ones)
+
     const oneYearAgo = Date.now() - 350 * 24 * 60 * 60 * 1000;
     for (const rel of store.listReleases(repo.id)) {
       if (releasesOn && rel.published_at && rel.published_at >= oneYearAgo) {
-        await upsertEvent('release', rel.id, {
+        await upsertEvent(projectId, 'release', rel.id, {
           title: `🚀 ${rel.name || rel.tag_name}`,
           description: buildReleaseDescription(rel),
           dateMs: rel.published_at,
@@ -236,7 +259,6 @@ async function syncCalendar() {
   }
 }
 
-/** Delete every GitHub-originated calendar event + the GitHub calendar itself. */
 async function purgeAllEvents() {
   const eventIds = store.listAllCalendarLinkEventIds();
   let i = 0;
@@ -246,12 +268,21 @@ async function purgeAllEvents() {
   }
   try {
     const db = database.getDB();
-    // Remove any stray github events then the calendar row.
-    db.prepare('DELETE FROM calendar_events WHERE calendar_id = ?').run(GITHUB_CALENDAR_ID);
-    db.prepare('DELETE FROM calendar_calendars WHERE id = ?').run(GITHUB_CALENDAR_ID);
+    const calIds = store.listGithubCalendarIds();
+    if (!calIds.includes(LEGACY_GITHUB_CALENDAR_ID)) calIds.push(LEGACY_GITHUB_CALENDAR_ID);
+    for (const calId of calIds) {
+      db.prepare('DELETE FROM calendar_events WHERE calendar_id = ?').run(calId);
+      db.prepare('DELETE FROM calendar_calendars WHERE id = ?').run(calId);
+    }
   } catch {
     /* best-effort */
   }
 }
 
-module.exports = { syncCalendar, ensureGithubCalendar, purgeAllEvents, GITHUB_CALENDAR_ID };
+module.exports = {
+  syncCalendar,
+  ensureGithubCalendar,
+  purgeAllEvents,
+  githubCalendarId,
+  LEGACY_GITHUB_CALENDAR_ID,
+};
