@@ -194,7 +194,13 @@ function patchRun(runId, patch) {
         : (patch.status === 'running' ? now() : current.lastHeartbeatAt),
   };
   updateStoredRun(next);
-  emit(RUN_EVENT_CHANNEL, { run: next });
+  const patchKeys = Object.keys(patch);
+  const heartbeatOnly =
+    patchKeys.length > 0 &&
+    patchKeys.every((key) => key === 'lastHeartbeatAt' || key === 'updatedAt');
+  if (!heartbeatOnly) {
+    emit(RUN_EVENT_CHANNEL, { run: next });
+  }
   if (next.automationId && RUN_TERMINAL_STATUSES.has(next.status)) {
     try {
       _hooks.onTerminalAutomationStatus?.(next.automationId, next.status);

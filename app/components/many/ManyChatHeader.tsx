@@ -77,7 +77,12 @@ const ManyChatHeader = memo(function ManyChatHeader({
     sessionTitle && sessionTitle !== 'New chat'
       ? sanitizeManySessionTitle(sessionTitle)
       : t('many.many');
-  const subtitleText = isThinking || isSpeaking ? null : loadingHint || null;
+  const statusBadgeLabel = isSpeaking
+    ? t('many.speaking')
+    : isThinking
+      ? t('many.thinking')
+      : null;
+  const subtitleText = !isThinking && !isSpeaking ? loadingHint || null : null;
 
   const fullscreenLabel = isFullscreenActive ? t('many.exit_fullscreen') : t('many.fullscreen');
 
@@ -105,11 +110,11 @@ const ManyChatHeader = memo(function ManyChatHeader({
           >
             {titleText}
           </span>
-          {(isThinking || isSpeaking) && (
-            <span className="text-xs text-[var(--accent)] font-medium px-2 py-px rounded-full bg-[var(--accent-bg)] leading-[1.6] shrink-0">
-              {isThinking ? t('many.thinking') : t('many.speaking')}
+          {(isThinking || isSpeaking) && statusBadgeLabel ? (
+            <span className="many-hd-status-badge text-xs text-[var(--accent)] font-medium px-2 py-px rounded-full bg-[var(--accent-bg)] leading-[1.6] shrink min-w-0 max-w-[140px] truncate">
+              {statusBadgeLabel}
             </span>
-          )}
+          ) : null}
         </div>
 
         <div className="flex items-center flex-wrap min-w-0" style={{ gap: 5 }}>

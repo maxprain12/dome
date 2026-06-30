@@ -687,7 +687,7 @@ async function setupHarness(surface, opts) {
 
   const executeToolInMain = (name, args, contextOverride) =>
     dispatcher.executeToolInMain(name, args, {
-      ...(opts.runtimeContext || {}),
+      runtimeContext: opts.runtimeContext ?? null,
       ownerType: opts.ownerType ?? null,
       surface,
       skipHitl: !!opts.skipHitl,

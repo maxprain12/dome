@@ -352,6 +352,8 @@ async function docxCreate(projectId, title, options = {}) {
       if (folder && folder.type === 'folder') {
         try {
           queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
+          const { syncVaultAfterMoveToFolder } = require('../storage/vault-sync.cjs');
+          syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
         } catch (moveErr) {
           console.warn('[DocxTools] moveResourceToFolder failed:', moveErr?.message);
         }

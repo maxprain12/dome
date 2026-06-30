@@ -261,7 +261,7 @@ export function createResourceGetTool(): AnyAgentTool {
     label: 'Get resource',
     name: 'resource_get',
     description:
-      'Retrieve the full content of a resource by ID. Use after search tools return an ID, or when the user asks to read, summarize, or analyze a specific document.',
+      'Retrieve the full content of a resource by ID. For notes, returns GFM markdown in `content` (content_format: markdown). Use resource_get before resource_update to read the full note, edit the markdown, then write the complete document back. Use after search tools return an ID.',
     parameters: ResourceGetSchema,
     execute: async (_toolCallId, args) => {
       try {
@@ -314,6 +314,9 @@ export function createResourceGetTool(): AnyAgentTool {
             response.content_truncated = true;
             response.full_length = resource.full_length;
           }
+        }
+        if ((resource as { content_format?: string }).content_format) {
+          response.content_format = (resource as { content_format?: string }).content_format;
         }
 
         // Add transcription if available (for audio/video)

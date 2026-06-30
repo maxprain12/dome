@@ -21,6 +21,8 @@ import {
 } from '@/components/chat/AIComposer';
 import { useResourceMention } from '@/lib/chat/useResourceMention';
 import { useSlashSkills, type SlashSkillItem } from '@/lib/chat/useSlashSkills';
+import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
 import { ChatSkillChip } from '@/components/chat/ChatSkillChip';
 import { db } from '@/lib/db/client';
@@ -108,6 +110,11 @@ export default memo(function AgentChatInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeTabProjectId = useTabStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.projectId,
+  );
+  const currentProjectId = useAppStore((s) => s.currentProject?.id);
+  const mentionProjectId = activeTabProjectId ?? currentProjectId ?? 'default';
 
   const addPinned = onAddPinnedResource ?? (() => {});
   const mention = useResourceMention({
@@ -117,6 +124,7 @@ export default memo(function AgentChatInput({
     containerRef,
     onPinResource: addPinned,
     enabled: enhanced,
+    projectId: mentionProjectId,
   });
 
   const slash = useSlashSkills({

@@ -4,7 +4,6 @@ import CompactionNotice, { type CompactionNoticeData } from './CompactionNotice'
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { Search, FolderOpen, ClipboardList, Bot, BarChart2, Calendar, Mail, AlertCircle } from 'lucide-react';
-import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import ManyChatHeader from './ManyChatHeader';
 import ManyChatHistoryPanel from './ManyChatHistoryPanel';
@@ -71,9 +70,9 @@ import { streamingLabelForActiveRun, streamingLabelForToolCall, streamingLabelFr
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
 import { coalesceDuplicateToolCalls, mergeTerminalToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
+import { useChatAutoScroll } from '@/lib/chat/useChatAutoScroll';
 import { manyContextSlotPlacement } from '@/lib/many/contextSlotPlacement';
 import ManyHitlInlineSection from '@/components/many/ManyHitlInlineSection';
-import ManyRunDiagnostics from '@/components/many/ManyRunDiagnostics';
 import { useApprovalStore } from '@/lib/store/useApprovalStore';
 import { cn } from '@/lib/utils';
 import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
@@ -142,7 +141,8 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const clearPendingPdfRegion = useManyStore((s) => s.clearPendingPdfRegion);
   const currentFolderId = useAppStore((s) => s.currentFolderId);
   const homeSidebarSection = useAppStore((s) => s.homeSidebarSection);
-  const activeShellTabType = useTabStore((s) => s.tabs.find((t) => t.id === s.activeTabId)?.type);
+  const activeShellTab = useTabStore((s) => s.tabs.find((t) => t.id === s.activeTabId));
+  const activeShellTabType = activeShellTab?.type;
   const chatProjectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const pendingManyHandoff = useManyStore((s) => s.pendingManyHandoff);
   const setPendingManyHandoff = useManyStore((s) => s.setPendingManyHandoff);
@@ -170,13 +170,11 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
-  const [activeRunSnapshot, setActiveRunSnapshot] = useState<PersistentRun | null>(null);
   const [streamingMessage, setStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pdfRegionStreamingMessage, setPdfRegionStreamingMessage] = useState<ChatMessageData | null>(null);
   const [pendingApproval, setPendingApproval] = useState<RunPendingApproval | null>(null);
   const approvalQueueLen = useApprovalStore((s) => s.queue.length);
   const showHitlInline = Boolean(pendingApproval || approvalQueueLen > 0);
-  const prefersReducedMotion = useReducedMotion();
   const [lastBudget, setLastBudget] = useState<BudgetBreakdown | null>(null);
   const [lastBudgetSessionId, setLastBudgetSessionId] = useState<string | null>(null);
   const [liveUsage, setLiveUsage] = useState<LiveTokenUsage | null>(null);
@@ -231,7 +229,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
 
   const effectiveResourceId =
     currentResourceId ||
+    activeShellTab?.resourceId ||
     (pathname?.startsWith('/workspace') ? searchParams.get('id') : null);
+  const effectiveResourceTitle = currentResourceTitle || activeShellTab?.title || null;
 
   useEffect(() => {
     streamingMessageRef.current = streamingMessage;
@@ -396,7 +396,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   const applyRunSnapshot = useCallback((run: PersistentRun | null) => {
     if (!run) {
       setActiveRunId(null);
-      setActiveRunSnapshot(null);
       return;
     }
     setActiveRunId(run.id);
@@ -428,7 +427,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       }
       setIsLoading(true);
       setStatus('thinking');
-      setActiveRunSnapshot(run);
       setStreamingMessage((prev) =>
         mergeRunSnapshotIntoStreamingMessage(prev, {
           id: prev?.id || `run-${run.id}`,
@@ -449,7 +447,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     }
     setIsLoading(false);
     setStatus('idle');
-    setActiveRunSnapshot(null);
     setStreamingMessage(null);
     setPendingApproval(null);
     if (activeRunSessionIdRef.current) {
@@ -518,7 +515,6 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       }
       const streamSnap = streamingMessageRef.current;
       setActiveRunId(null);
-      setActiveRunSnapshot(null);
       setIsLoading(false);
       setStatus('idle');
       setPendingApproval(null);
@@ -707,24 +703,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     return tools;
   }, [toolsEnabled, resourceToolsEnabled, memoryEnabled, pathname]);
 
-  const scrollToBottom = useCallback(
-    (force = false) => {
-      const container = messagesContainerRef.current;
-      if (!container) return;
-      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-      if (force || isNearBottom) {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        });
-      }
-    },
-    [prefersReducedMotion],
+  const { scrollToBottom, resetScrollLock } = useChatAutoScroll(
+    messagesContainerRef,
+    messagesEndRef,
+    [messages, streamingMessage, pdfRegionStreamingMessage],
+    { isStreaming: Boolean(streamingMessage?.isStreaming || isLoading) },
   );
   scrollToBottomRef.current = scrollToBottom;
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingMessage, pdfRegionStreamingMessage, scrollToBottom]);
 
   useEffect(() => {
     if (showHitlInline && pendingApprovalRef.current) {
@@ -877,6 +862,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       setSessionRunState(currentSessionId, 'thinking');
     }
     scrollToBottom(true);
+    resetScrollLock();
 
     const fullResponse = '';
     let chatSuccess = true;
@@ -924,7 +910,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         `- The user is ${uiLoc.description}`,
         `- Date: ${dateStr}`,
         `- Time of day: ${partOfDay}`,
-        currentResourceTitle ? `- Active resource title: "${currentResourceTitle}"` : null,
+        effectiveResourceTitle ? `- Active resource title: "${effectiveResourceTitle}"` : null,
       ]
         .filter(Boolean)
         .join('\n');
@@ -935,8 +921,13 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         shellTabType: activeShellTabType,
         currentFolderId,
         currentResourceId: effectiveResourceId,
-        currentResourceTitle: currentResourceTitle || null,
+        currentResourceTitle: effectiveResourceTitle,
       });
+
+      const activeResourceType =
+        activeShellTab?.type === 'note' || activeShellTab?.type === 'notebook'
+          ? activeShellTab.type
+          : activeShellTab?.splitResource?.resourceType;
 
       const volatileContext = formatVolatileSourceContext({
         dateLine,
@@ -951,8 +942,12 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
               }))
             : undefined,
         activeResource:
-          effectiveResourceId && currentResourceTitle
-            ? { id: effectiveResourceId, title: currentResourceTitle }
+          effectiveResourceId && effectiveResourceTitle
+            ? {
+                id: effectiveResourceId,
+                title: effectiveResourceTitle,
+                ...(activeResourceType ? { type: activeResourceType } : {}),
+              }
             : null,
       });
 
@@ -961,7 +956,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         homeSidebarSection,
         currentFolderId,
         currentResourceId: effectiveResourceId,
-        currentResourceTitle: currentResourceTitle || null,
+        currentResourceTitle: effectiveResourceTitle,
       };
       const toolHint = buildSharedResourceHint(sharedContext);
       const rawToolDefinitions =
@@ -1129,7 +1124,10 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     hasAgentStream,
     activeTools,
     scrollToBottom,
-    currentResourceTitle,
+    resetScrollLock,
+    effectiveResourceTitle,
+    activeShellTab?.resourceId,
+    activeShellTab?.title,
     currentSession,
     currentSessionId,
     applyRunSnapshot,
@@ -1255,7 +1253,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
     }
   }, [clearMessages, t]);
 
-  const contextDescription = currentResourceTitle?.trim() ?? '';
+  const contextDescription = effectiveResourceTitle?.trim() ?? '';
 
   const clientBudgetEstimate = useMemo(() => {
     if (messages.length === 0 && !isLoading) return null;
@@ -1705,10 +1703,18 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
         <CompactionNotice event={compactionNotice} onDismiss={() => setCompactionNotice(null)} />
       ) : null}
 
-      {/* Hide bottom input when welcome screen is showing centered input */}
-      {activeRunSnapshot ? (
-        <ManyRunDiagnostics run={activeRunSnapshot} sessionId={currentSessionId} />
+      {isLoading && loadingHint && !showHitlInline ? (
+        <div
+          className="mx-4 mb-1 flex items-center gap-2 px-2 py-1.5 text-xs rounded-lg border"
+          style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)', background: 'var(--bg-secondary)' }}
+          aria-live="polite"
+        >
+          <span className="size-1.5 shrink-0 rounded-full bg-[var(--accent)] animate-pulse" aria-hidden />
+          <span className="truncate">{loadingHint}</span>
+        </div>
       ) : null}
+
+      {/* Hide bottom input when welcome screen is showing centered input */}
       {!(
         isFullscreen &&
         chatMessages.length === 0 &&

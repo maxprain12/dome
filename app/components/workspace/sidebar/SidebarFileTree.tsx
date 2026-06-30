@@ -242,11 +242,24 @@ function isDescendant(target: TreeNodeData, ancestor: TreeNodeData): boolean {
 export interface FileTreeProps {
   resources: Resource[];
   onRefresh: () => void;
+  /** Folder ids to expand when resources move/create under them (agent runs). */
+  autoExpandFolderIds?: string[];
 }
 
-export default function FileTree({ resources, onRefresh }: FileTreeProps) {
+export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [] }: FileTreeProps) {
   const { t } = useTranslation();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (autoExpandFolderIds.length === 0) return;
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of autoExpandFolderIds) {
+        if (id) next.add(id);
+      }
+      return next;
+    });
+  }, [autoExpandFolderIds]);
   const [searchQuery, setSearchQuery] = useState('');
   const [ctxMenu, setCtxMenu] = useState<CtxState>({ visible: false, x: 0, y: 0, resource: null });
   const [renameId, setRenameId] = useState<string | null>(null);

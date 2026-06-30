@@ -24,6 +24,7 @@ import {
   LAYOUT_RESET_EVENT,
   MANY_PANEL_WIDTH_KEY,
 } from '@/lib/shell/layoutReset';
+import { useSyncManyActiveResourceContext } from '@/lib/many/useSyncManyActiveResourceContext';
 
 const MANY_WIDTH_KEY = MANY_PANEL_WIDTH_KEY;
 const MANY_MIN = 280;
@@ -98,6 +99,8 @@ export default function AppShell() {
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const isChatTab = activeTab?.type === 'chat';
+
+  useSyncManyActiveResourceContext();
 
   const isElectron = typeof window !== 'undefined' && Boolean(window.electron);
   const isMac = isElectron && window.electron!.isMac;

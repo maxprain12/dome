@@ -10,4 +10,4 @@ B) Harness sandbox (`/memories/` only):
 
 Deliverables:
 - HTML mini-apps → artifact_create / artifact_update_state (load artifact_persisted + artifact_design first)
-- Library notes → resource_create type=note
+- Library notes → resource_create type=note with pure GFM Markdown in `content` (no HTML, no editor JSON)

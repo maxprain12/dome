@@ -33,6 +33,7 @@ const { rrfMerge } = require('../storage/hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
 const vaultStore = require('../storage/vault-store.cjs');
+const noteMarkdown = require('../services/note-markdown.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
 const { progress: studioProgress, createRunId } = require('../services/studio-progress.cjs');
 
@@ -368,8 +369,19 @@ async function resourceGet(resourceId, options = {}) {
       result.content_source = 'scraped_content';
     }
 
-    // --- Notes and other types with stored content ---
-    if (includeContent && !result.content && resource.content) {
+    // --- Notes: return GFM markdown (vault mirror or legacy TipTap conversion) ---
+    if (includeContent && resource.type === 'note') {
+      const md = noteMarkdown.readNoteMarkdownForAgent(resource, { database, fileStorage });
+      if (md.length > maxLen) {
+        result.content = md.substring(0, maxLen);
+        result.content_truncated = true;
+        result.full_length = md.length;
+      } else {
+        result.content = md;
+        result.content_truncated = false;
+      }
+      result.content_format = 'markdown';
+    } else if (includeContent && !result.content && resource.content) {
       if (resource.content.length > maxLen) {
         result.content = resource.content.substring(0, maxLen);
         result.content_truncated = true;
@@ -524,7 +536,7 @@ async function resourceList(options = {}) {
     const stmt = db.prepare(sql);
     const results = stmt.all(...params);
 
-    // Parse metadata
+    // Parse metadata (tolerate corrupt JSON — must not break the whole list)
     const processedResults = results.map(r => ({
       id: r.id,
       title: r.title,
@@ -533,7 +545,14 @@ async function resourceList(options = {}) {
       folder_id: r.folder_id,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      metadata: r.metadata ? JSON.parse(r.metadata) : null,
+      metadata: (() => {
+        if (!r.metadata) return null;
+        try {
+          return JSON.parse(r.metadata);
+        } catch {
+          return null;
+        }
+      })(),
     }));
 
     const out = { success: true, count: processedResults.length, resources: processedResults };
@@ -1555,8 +1574,13 @@ async function resourceCreate(data) {
         metadataForCreate = { ...(metadataForCreate || {}), color: autoColor };
       }
     } else if (type === 'note') {
-      const normalized = normalizeAiNoteMarkdown(content, data.title, queries, metadataForCreate || {});
-      content = markdownToTipTapJSON(normalized.markdown);
+      const normalized = noteMarkdown.normalizeAgentNoteInput(content, {
+        title: data.title,
+        isCreate: true,
+        queries,
+        metadata: metadataForCreate || {},
+      });
+      content = normalized.markdown;
       normalizedNoteLinks = normalized.linkedResourceIds;
       if (normalizedNoteLinks.length > 0) {
         metadataForCreate = {
@@ -1640,17 +1664,15 @@ async function resourceCreate(data) {
         console.warn('[AI Tools] createFolderOnDisk failed:', e?.message);
       }
     }
-    if (type === 'note' && content) {
-      try {
-        const { extractPlainTextFromProseMirror, stripTags } = require('../services/resource-text.cjs');
-        const raw = String(content || '');
-        let text = '';
-        if (raw.trim().startsWith('{')) {
-          try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
-        }
-        if (!text) text = stripTags(raw);
-        if (text) database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, id);
-      } catch { /* non-fatal */ }
+    if (type === 'note') {
+      const mirrorMeta = metadataForCreate ? JSON.stringify(metadataForCreate) : null;
+      const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
+        { id, markdown: content || '', title: data.title.trim(), metadata: mirrorMeta },
+        { database, fileStorage, semanticIndexScheduler },
+      );
+      if (!writeResult.success) {
+        console.warn('[AI Tools] writeNoteMarkdownFromAgent failed:', writeResult.error);
+      }
     }
 
     const resource = {
@@ -1699,16 +1721,23 @@ async function resourceUpdate(resourceId, updates) {
     const title = updates.title !== undefined ? updates.title.trim() : existing.title;
     let content = updates.content !== undefined ? updates.content : existing.content;
 
-    // Convert markdown to TipTap JSON for note resources
+    // Normalize agent note input to GFM markdown (vault mirror is written below)
     let normalizedNoteLinks = [];
+    let noteMarkdownBody = null;
     if (existing.type === 'note' && updates.content !== undefined) {
       let existingMetaForNormalize = {};
       try { existingMetaForNormalize = existing.metadata ? JSON.parse(existing.metadata) : {}; } catch { existingMetaForNormalize = {}; }
-      const normalized = normalizeAiNoteMarkdown(content, title, queries, {
-        ...existingMetaForNormalize,
-        ...(updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {}),
+      const normalized = noteMarkdown.normalizeAgentNoteInput(content, {
+        title,
+        isCreate: false,
+        queries,
+        metadata: {
+          ...existingMetaForNormalize,
+          ...(updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {}),
+        },
       });
-      content = markdownToTipTapJSON(normalized.markdown);
+      noteMarkdownBody = normalized.markdown;
+      content = noteMarkdownBody;
       normalizedNoteLinks = normalized.linkedResourceIds;
     }
 
@@ -1782,7 +1811,17 @@ async function resourceUpdate(resourceId, updates) {
       }
     }
 
-    queries.updateResource.run(title, content, metadata, now, resourceId);
+    if (existing.type === 'note' && updates.content !== undefined) {
+      const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
+        { id: resourceId, markdown: noteMarkdownBody ?? '', title, metadata },
+        { database, fileStorage, semanticIndexScheduler },
+      );
+      if (!writeResult.success) {
+        return { success: false, error: writeResult.error || 'Failed to write note markdown' };
+      }
+    } else {
+      queries.updateResource.run(title, content, metadata, now, resourceId);
+    }
 
     if (existing.type === 'note' && normalizedNoteLinks.length > 0) {
       for (const targetId of normalizedNoteLinks) {
@@ -1802,7 +1841,11 @@ async function resourceUpdate(resourceId, updates) {
       const broadcastUpdates = { title, updated_at: now };
       if (updates.content !== undefined) broadcastUpdates.content = content;
       if (metadataObj != null) broadcastUpdates.metadata = metadataObj;
-      windowManagerRef.broadcast('resource:updated', { id: resourceId, updates: broadcastUpdates });
+      windowManagerRef.broadcast('resource:updated', {
+        id: resourceId,
+        fromAgent: true,
+        updates: broadcastUpdates,
+      });
     }
 
     return {
@@ -1953,12 +1996,15 @@ async function resourceDelete(resourceId) {
     // Delete internal file if exists
     if (resource.internal_path) {
       try {
-        const fileStorage = require('../storage/file-storage.cjs');
-        fileStorage.deleteFile(resource.internal_path);
+        const fileStorageMod = require('../storage/file-storage.cjs');
+        fileStorageMod.deleteFile(resource.internal_path);
       } catch (e) {
         console.warn('[AI Tools] Could not delete file:', e.message);
       }
     }
+
+    const { syncVaultBeforeDelete } = require('../storage/vault-sync.cjs');
+    syncVaultBeforeDelete(resourceId, { database, fileStorage });
 
     // Delete from database
     queries.deleteResource.run(resourceId);
@@ -2033,8 +2079,14 @@ async function resourceMoveToFolder(resourceId, folderId) {
       queries.removeResourceFromFolder.run(now, resourceId);
     }
 
+    const { syncVaultAfterMoveToFolder } = require('../storage/vault-sync.cjs');
+    syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
+
     if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('resource:updated', { id: resourceId, folder_id: targetFolderId });
+      windowManagerRef.broadcast('resource:updated', {
+        id: resourceId,
+        updates: { folder_id: targetFolderId, updated_at: now },
+      });
     }
 
     return { success: true, resource_id: resourceId, folder_id: targetFolderId };

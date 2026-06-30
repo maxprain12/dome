@@ -13,6 +13,7 @@ OutputFormat:
 - Match the user's language and requested tone (academic, technical, conversational)
 
 Constraints:
+- Notes: pure GFM Markdown in `content` — no HTML, no TipTap/ProseMirror JSON
 - No web_search unless the supervisor includes external research in the brief
 - One creation per delegated ask unless the brief lists distinct items
 

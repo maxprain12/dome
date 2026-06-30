@@ -190,23 +190,54 @@ export default function MarkdownNoteWorkspace({
 
   useEffect(() => {
     if (!window.electron?.on) return undefined;
+
+    const applyExternalMarkdown = (markdown: string, updatedAt?: number) => {
+      if (isDirty) return;
+      editorRef.current?.setMarkdown(markdown);
+      setWordCount(countWordsFromMarkdown(markdown));
+      setIsDirty(false);
+      if (updatedAt != null) setSavePillSavedAt(updatedAt);
+    };
+
     const unsub = window.electron.on(
       'resource:updated',
-      (payload: { id?: string; updates?: Partial<Resource>; fromVault?: boolean }) => {
+      (payload: {
+        id?: string;
+        updates?: Partial<Resource>;
+        fromVault?: boolean;
+        fromAgent?: boolean;
+      }) => {
         if (payload?.id !== resourceId) return;
-        if (payload.fromVault && !isDirty && window.electron?.notes?.readMirror) {
+
+        const reloadFromMirror = () => {
+          if (isDirty || !window.electron?.notes?.readMirror) return;
           void window.electron.notes.readMirror({ id: resourceId }).then((m) => {
             if (isDirty || !m?.success || typeof m.markdown !== 'string') return;
-            editorRef.current?.setMarkdown(m.markdown);
-            setWordCount(countWordsFromMarkdown(m.markdown));
+            applyExternalMarkdown(m.markdown, payload.updates?.updated_at);
           });
+        };
+
+        if (payload.fromVault) {
+          reloadFromMirror();
           return;
         }
+
         const updates = payload.updates;
         if (!updates) return;
+
         if (typeof updates.title === 'string') {
           setTitle((curr) => (curr === updates.title ? curr : updates.title!));
           setResource((prev) => (prev ? { ...prev, title: updates.title! } : prev));
+        }
+
+        if (updates.content !== undefined) {
+          if (payload.fromAgent || window.electron?.notes) {
+            reloadFromMirror();
+            return;
+          }
+          if (typeof updates.content === 'string' && !isDirty) {
+            applyExternalMarkdown(updates.content, updates.updated_at);
+          }
         }
       },
     );

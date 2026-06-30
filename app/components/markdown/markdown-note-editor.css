@@ -16,6 +16,7 @@
   --crepe-color-on-surface: var(--dome-text);
   --crepe-color-on-surface-variant: var(--dome-text-secondary);
   --crepe-color-outline: var(--dome-border);
+  --crepe-icon-color: var(--dome-text-secondary);
   --crepe-color-primary: var(--dome-accent);
   --crepe-color-secondary: var(--dome-bg-hover);
   --crepe-color-on-secondary: var(--dome-text);
@@ -41,6 +42,59 @@
 
 .markdown-note-editor-host .ProseMirror:focus {
   outline: none;
+}
+
+.markdown-note-editor-host .ProseMirror a {
+  color: var(--dome-accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-note-editor-host .ProseMirror a:hover {
+  color: var(--dome-accent-hover, var(--dome-accent));
+}
+
+.markdown-note-editor-host .ProseMirror .ProseMirror-selectednode a,
+.markdown-note-editor-host .ProseMirror a.ProseMirror-selectednode {
+  background: color-mix(in srgb, var(--dome-accent) 12%, transparent);
+  border-radius: 2px;
+}
+
+/* ── Crepe floating UI — icon contrast (Crepe uses outline for SVG fill) ── */
+.markdown-note-editor-host .milkdown .milkdown-toolbar {
+  border: 1px solid var(--dome-border);
+}
+
+.markdown-note-editor-host .milkdown .milkdown-toolbar .toolbar-item svg,
+.markdown-note-editor-host .milkdown .milkdown-link-preview .button svg,
+.markdown-note-editor-host .milkdown .milkdown-link-preview .link-icon svg,
+.markdown-note-editor-host .milkdown .milkdown-link-edit .button svg,
+.markdown-note-editor-host .milkdown .milkdown-block-handle .operation-item svg {
+  color: var(--crepe-icon-color, var(--crepe-color-on-surface-variant));
+  fill: var(--crepe-icon-color, var(--crepe-color-on-surface-variant));
+}
+
+.markdown-note-editor-host .milkdown .milkdown-toolbar .toolbar-item:hover svg,
+.markdown-note-editor-host .milkdown .milkdown-link-preview .button:hover svg,
+.markdown-note-editor-host .milkdown .milkdown-link-preview .link-icon:hover svg,
+.markdown-note-editor-host .milkdown .milkdown-link-edit .button:hover svg,
+.markdown-note-editor-host .milkdown .milkdown-block-handle .operation-item:hover svg {
+  color: var(--dome-text);
+  fill: var(--dome-text);
+}
+
+.markdown-note-editor-host .milkdown .milkdown-toolbar .toolbar-item.active svg {
+  color: var(--dome-accent);
+  fill: var(--dome-accent);
+}
+
+.markdown-note-editor-host .milkdown .milkdown-link-preview > .link-preview,
+.markdown-note-editor-host .milkdown .milkdown-link-edit > .link-edit {
+  border: 1px solid var(--dome-border);
+}
+
+.markdown-note-editor-host .milkdown .milkdown-link-preview .link-display {
+  color: var(--dome-text);
 }
 
 /* ── Milkdown slash menu (Crepe BlockEdit) ───────────────── */
