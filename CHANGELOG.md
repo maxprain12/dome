@@ -4,6 +4,24 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.8.3](https://github.com/maxprain12/dome/releases/tag/v2.8.3) - 2026-06-30
+
+Parche centrado en Many y en el round-trip markdown del agente con las notas del vault.
+
+### Fixed
+
+- **Many: contexto de la nota abierta.** La pestaña activa del shell se sincroniza con Many; `resource_get_active` recibe el `activeResourceId` correcto (shape de `runtimeContext` en main).
+- **Many: picker `@`.** Usa `db.resources.listLight` / `searchForMention` (mismas APIs que el sidebar); deja de fallar con metadata corrupta en `ai.tools.resourceList`.
+- **Many: header al pensar.** Badge corto sin solaparse con el indicador de contexto (%).
+- **Agente ↔ notas markdown.** Pipeline GFM (`note-markdown.cjs`), sync en vivo del editor cuando el agente edita, guard anti-JSON TipTap y escritura al vault mirror.
+- **MiniMax / Anthropic:** tool_results huérfanos y tool_use con nombre vacío ya no rompen el historial (error 2013).
+- **Preload:** anotaciones TypeScript eliminadas que crasheaban el script sandboxed (#458).
+- **CI/release:** build Windows con `cross-env`; `electron-builder` ya no ignora `--publish never` (#456–#457).
+
+### Changed
+
+- Actualizaciones de dependencias: `electron-updater`, `@napi-rs/canvas`, `sharp`, `drizzle-orm`, `pnpm`.
+
 ## [2.6.0](https://github.com/maxprain12/dome/releases/tag/v2.6.0) - 2026-06-21
 
 Aislamiento total por proyecto (multi-vault) y una tanda de arreglos de UI: previews de contenido en las tarjetas, selector de carpetas en árbol, y correcciones de layout en Correo y Ajustes.
