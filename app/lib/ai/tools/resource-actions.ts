@@ -47,7 +47,10 @@ const ResourceCreateSchema = Type.Object({
   content: Type.Optional(
     Type.String({
       description:
-        'Content: for url = text/HTML. For notebook = JSON string of NotebookContent, or omit and use cells instead.',
+        'For type=note: pure GFM Markdown (plain text with markdown syntax). ' +
+        'Allowed: # headings, **bold**, lists, blockquotes, fenced code, GFM tables, [text](url), @[Title](resource_id). ' +
+        'NEVER pass HTML, TipTap/ProseMirror JSON, or artifact blocks — the system converts internally. ' +
+        'For type=url: optional text/HTML. For type=notebook: JSON string of NotebookContent, or omit and use cells instead.',
     }),
   ),
   cells: Type.Optional(
@@ -92,7 +95,9 @@ const ResourceUpdateSchema = Type.Object({
   ),
   content: Type.Optional(
     Type.String({
-      description: 'New content for the resource (replaces existing content).',
+      description:
+        'For notes: pure GFM Markdown (same rules as resource_create content). ' +
+        'For other types: replaces existing content. NEVER pass TipTap/ProseMirror JSON for notes.',
     }),
   ),
   metadata: Type.Optional(
@@ -282,7 +287,7 @@ export function createResourceUpdateTool(): AnyAgentTool {
   return {
     label: 'Update Resource',
     name: 'resource_update',
-    description: 'Update resource title, content, or metadata. resource_id must be the exact id from a prior get_library_overview or search — never invent IDs. For folders: metadata.color (#hex).',
+    description: 'Update resource title, content, or metadata. resource_id must be the exact id from a prior get_library_overview or search — never invent IDs. For notes: call resource_get first, edit the returned GFM markdown, then pass the full updated markdown in content (replace, not patch). For folders: metadata.color (#hex).',
     parameters: ResourceUpdateSchema,
     execute: async (_toolCallId, args) => {
       try {

@@ -2151,6 +2151,11 @@ a:hover {
   color: var(--accent);
 }
 
+.many-hd-status-badge {
+  display: inline-block;
+  vertical-align: middle;
+}
+
 /* Header icon button */
 .many-icon-btn {
   width: 32px;

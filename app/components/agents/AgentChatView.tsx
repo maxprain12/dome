@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { ProviderModelChip } from '@/components/settings/ai/ProviderBrandIcon';
 import { getManyAgentById } from '@/lib/agents/api';
 import type { ManyAgent } from '@/types';
@@ -50,6 +49,8 @@ import {
 } from '@/lib/personality/contextFiles';
 import { appendRunSkillsToPrompt } from '@/lib/skills/resolve-run-skills';
 import { useAgentRunStream, type RunPendingApproval } from '@/lib/chat/useAgentRunStream';
+import { mergeRunSnapshotIntoStreamingMessage } from '@/lib/chat/runSnapshotMerge';
+import { useChatAutoScroll } from '@/lib/chat/useChatAutoScroll';
 import HITLReviewPanel from '@/components/agents/HITLReviewPanel';
 import ContextUsageIndicator from '@/components/many/ContextUsageIndicator';
 import type { LiveTokenUsage } from '@/lib/chat/contextUsage';
@@ -110,7 +111,6 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSubmittingRef = useRef(false);
-  const prefersReducedMotion = useReducedMotion();
 
   const {
     setAgent: setStoreAgent,
@@ -214,21 +214,22 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     if (['queued', 'running', 'waiting_approval'].includes(run.status)) {
       setIsLoading(true);
       setStatus('thinking');
-      setStreamingMessage((prev) => ({
-        id: prev?.id || `run-${run.id}`,
-        role: 'assistant',
-        content: run.outputText || '',
-        timestamp: run.updatedAt || Date.now(),
-        isStreaming: run.status !== 'waiting_approval',
-        toolCalls: prev?.toolCalls || [],
-        streamingLabel: run.status === 'waiting_approval'
-          ? t('chat.waiting_approval')
-          : (prev?.streamingLabel ||
-              streamingLabelFromRunMetadata(t, run.metadata as Record<string, unknown>, {
-                hasContent: Boolean(run.outputText?.trim()),
-                reconnecting: true,
-              })),
-      }));
+      setStreamingMessage((prev) =>
+        mergeRunSnapshotIntoStreamingMessage(prev, {
+          id: prev?.id || `run-${run.id}`,
+          content: run.outputText || '',
+          timestamp: run.updatedAt || Date.now(),
+          isStreaming: run.status !== 'waiting_approval',
+          streamingLabel:
+            run.status === 'waiting_approval'
+              ? t('chat.waiting_approval')
+              : (prev?.streamingLabel ||
+                  streamingLabelFromRunMetadata(t, run.metadata as Record<string, unknown>, {
+                    hasContent: Boolean(run.outputText?.trim()),
+                    reconnecting: true,
+                  })),
+        }),
+      );
       return;
     }
     setIsLoading(false);
@@ -290,24 +291,12 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     t,
   });
 
-  const scrollToBottom = useCallback(
-    (force = false) => {
-      const container = messagesContainerRef.current;
-      if (!container) return;
-      const isNearBottom =
-        container.scrollHeight - container.scrollTop - container.clientHeight < 100;
-      if (force || isNearBottom) {
-        messagesEndRef.current?.scrollIntoView({
-          behavior: prefersReducedMotion ? 'auto' : 'smooth',
-        });
-      }
-    },
-    [prefersReducedMotion]
+  const { scrollToBottom, resetScrollLock } = useChatAutoScroll(
+    messagesContainerRef,
+    messagesEndRef,
+    [messages, streamingMessage],
+    { isStreaming: Boolean(streamingMessage?.isStreaming || isLoading) },
   );
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingMessage, scrollToBottom]);
 
   const buildSystemPrompt = useCallback(async () => {
     if (!agent) return '';
@@ -381,6 +370,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
 
     addMessage({ role: 'user', content: userMessage, attachments: userRunMessage.attachments });
     scrollToBottom(true);
+    resetScrollLock();
 
     let fullResponse = '';
     let delegatedToRunEngine = false;
@@ -573,6 +563,7 @@ export default function AgentChatView({ agentId, onBack }: AgentChatViewProps) {
     activeToolIds,
     enabledMcpIds,
     scrollToBottom,
+    resetScrollLock,
     currentSessionId,
     chatProjectId,
     applyRunSnapshot,

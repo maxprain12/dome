@@ -24,6 +24,21 @@ import type {
 
 export type AgentEventSink = (event: AgentEvent) => Promise<void> | void;
 
+function isValidToolCallName(name: unknown): name is string {
+	return typeof name === "string" && name.trim().length > 0;
+}
+
+/** Drop toolCall blocks with empty names (MiniMax streams name late; replay breaks). */
+function sanitizeAssistantToolCalls(message: AssistantMessage): AssistantMessage {
+	const content = message.content.filter((block) => {
+		if (block.type !== "toolCall") return true;
+		return isValidToolCallName(block.name);
+	});
+	if (content.length === message.content.length) return message;
+	const stopReason = content.some((block) => block.type === "toolCall") ? message.stopReason : "stop";
+	return { ...message, content, stopReason: stopReason === "toolUse" && !content.some((b) => b.type === "toolCall") ? "stop" : stopReason };
+}
+
 /**
  * Start an agent loop with a new prompt message.
  * The prompt is added to the context and events are emitted for it.
@@ -200,7 +215,9 @@ async function runLoop(
 			}
 
 			// Check for tool calls
-			const toolCalls = message.content.filter((c) => c.type === "toolCall");
+			const toolCalls = message.content.filter(
+				(c): c is AgentToolCall => c.type === "toolCall" && isValidToolCallName(c.name),
+			);
 
 			const toolResults: ToolResultMessage[] = [];
 			hasMoreToolCalls = false;
@@ -341,7 +358,7 @@ async function streamAssistantResponse(
 
 			case "done":
 			case "error": {
-				const finalMessage = await response.result();
+				const finalMessage = sanitizeAssistantToolCalls(await response.result());
 				if (addedPartial) {
 					context.messages[context.messages.length - 1] = finalMessage;
 				} else {
@@ -356,7 +373,7 @@ async function streamAssistantResponse(
 		}
 	}
 
-	const finalMessage = await response.result();
+	const finalMessage = sanitizeAssistantToolCalls(await response.result());
 	if (addedPartial) {
 		context.messages[context.messages.length - 1] = finalMessage;
 	} else {
@@ -377,7 +394,9 @@ async function executeToolCalls(
 	signal: AbortSignal | undefined,
 	emit: AgentEventSink,
 ): Promise<ExecutedToolCallBatch> {
-	const toolCalls = assistantMessage.content.filter((c) => c.type === "toolCall");
+	const toolCalls = assistantMessage.content.filter(
+		(c): c is AgentToolCall => c.type === "toolCall" && isValidToolCallName(c.name),
+	);
 	const hasSequentialToolCall = toolCalls.some(
 		(tc) => currentContext.tools?.find((t) => t.name === tc.name)?.executionMode === "sequential",
 	);

@@ -486,7 +486,7 @@ Implementación del plan de auditoría en el repo `dome`. **No modificar el plan
 | Ítem | Estado | Notas |
 |------|--------|-------|
 | Filtro Many opt-in en Hub Runs | ✅ | `RunsWorkspaceView.tsx`, `runLog.filter_owner_many` (en/es/fr/pt) |
-| Panel diagnóstico correlación IDs | ✅ | `ManyRunDiagnostics.tsx` en `ManyPanel` (runId, sessionId, threadId, uiPhase) |
+| Panel diagnóstico correlación IDs | ⏭️ Retirado | Eliminado del producto; correlación sigue en Hub → Runs |
 
 ### Validación automatizada
 

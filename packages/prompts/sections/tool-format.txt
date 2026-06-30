@@ -8,9 +8,15 @@ Rules:
 - folder_id: `null` for root; string ID for a specific folder
 - resource_id: exact `id` from resource_search / resource_get_library_overview — never guess
 
+Notes (resource_create / resource_update, type=note):
+- `content` MUST be **pure GFM Markdown** — plain text with markdown syntax only
+- Allowed: `#` headings, `**bold**`, lists, blockquotes, fenced code, GFM tables, `[text](url)`, `@[Title](resource_id)` wiki-links
+- NEVER pass HTML tags, TipTap/ProseMirror JSON (`{"type":"doc",...}`), or `artifact:*` blocks in note content
+- The system normalizes and stores internally; you only send readable markdown
+
 Example — create note:
 ```json
-{"title": "My Note", "content": "# Title\n\nParagraph with **bold**.", "type": "note"}
+{"title": "My Note", "content": "# Title\n\nParagraph with **bold** and a [link](https://example.com).\n\n> Blockquote\n\n- Item one", "type": "note"}
 ```
 
 Example — create notebook:

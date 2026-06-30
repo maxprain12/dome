@@ -23,6 +23,8 @@ import { useSlashSkills, type SlashSkillItem } from '@/lib/chat/useSlashSkills';
 import { useHashMcpMention } from '@/lib/chat/useHashMcpMention';
 import { useRotatingComposerPlaceholder } from '@/lib/chat/useRotatingComposerPlaceholder';
 import type { ComposerTokenTooltip } from '@/lib/chat/composerInlineHighlight';
+import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { listSkills, type SkillItem } from '@/lib/skills/client';
 import { loadMcpServersSetting } from '@/lib/mcp/settings';
 import { InlineModelSwitcher } from '@/components/chat/InlineModelSwitcher';
@@ -162,6 +164,11 @@ const ManyChatInput = memo(function ManyChatInput({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{ top: number; left: number; above?: boolean } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const activeTabProjectId = useTabStore(
+    (s) => s.tabs.find((tab) => tab.id === s.activeTabId)?.projectId,
+  );
+  const currentProjectId = useAppStore((s) => s.currentProject?.id);
+  const mentionProjectId = activeTabProjectId ?? currentProjectId ?? 'default';
 
   const mention = useResourceMention({
     input,
@@ -170,6 +177,7 @@ const ManyChatInput = memo(function ManyChatInput({
     containerRef,
     onPinResource: addPinnedResource,
     enabled: true,
+    projectId: mentionProjectId,
   });
 
   const slash = useSlashSkills({

@@ -700,6 +700,17 @@ export const streamAnthropic: StreamFunction<"anthropic-messages", AnthropicOpti
 				throw new Error("An unknown error occurred");
 			}
 
+			// MiniMax can emit tool_use blocks whose name is still empty at block_stop.
+			// Drop them before persistence/replay (convertMessages skips empty names → 2013).
+			output.content = output.content.filter((block) => {
+				if (block.type !== "toolCall") return true;
+				const name = isOAuth ? fromClaudeCodeName(block.name, context.tools) : block.name;
+				return isValidToolCallName(name);
+			});
+			if (output.stopReason === "toolUse" && !output.content.some((block) => block.type === "toolCall")) {
+				output.stopReason = "stop";
+			}
+
 			stream.push({ type: "done", reason: output.stopReason, message: output });
 			stream.end();
 		} catch (error) {
@@ -1025,6 +1036,10 @@ function normalizeToolCallId(id: string): string {
 	return id.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 64);
 }
 
+function isValidToolCallName(name: unknown): name is string {
+	return typeof name === "string" && name.trim().length > 0;
+}
+
 function convertMessages(
 	messages: Message[],
 	model: Model<"anthropic-messages">,
@@ -1036,6 +1051,9 @@ function convertMessages(
 
 	// Transform messages for cross-provider compatibility
 	const transformedMessages = transformMessages(messages, model, normalizeToolCallId);
+	// tool_use ids actually included in the last assistant message (MiniMax 2013 if
+	// tool_result references an id whose tool_use was dropped, e.g. empty name).
+	let lastIncludedToolUseIds = new Set<string>();
 
 	for (let i = 0; i < transformedMessages.length; i++) {
 		const msg = transformedMessages[i];
@@ -1080,6 +1098,7 @@ function convertMessages(
 			}
 		} else if (msg.role === "assistant") {
 			const blocks: ContentBlockParam[] = [];
+			const includedToolUseIds = new Set<string>();
 
 			for (const block of msg.content) {
 				if (block.type === "text") {
@@ -1124,7 +1143,8 @@ function convertMessages(
 				} else if (block.type === "toolCall") {
 					const toolName = isOAuthToken ? toClaudeCodeName(block.name) : block.name;
 					// MiniMax rejects tool_use blocks with an empty name (error 2013).
-					if (!toolName) continue;
+					if (!isValidToolCallName(toolName)) continue;
+					includedToolUseIds.add(block.id);
 					blocks.push({
 						type: "tool_use",
 						id: block.id,
@@ -1133,12 +1153,22 @@ function convertMessages(
 					});
 				}
 			}
-			if (blocks.length === 0) continue;
+			if (blocks.length === 0) {
+				if (msg.content.some((block) => block.type === "toolCall")) {
+					lastIncludedToolUseIds = new Set();
+				}
+				continue;
+			}
+			lastIncludedToolUseIds = includedToolUseIds;
 			params.push({
 				role: "assistant",
 				content: blocks,
 			});
 		} else if (msg.role === "toolResult") {
+			if (!lastIncludedToolUseIds.has(msg.toolCallId)) {
+				// Orphan result (e.g. tool_use dropped above) — skip to avoid MiniMax 2013.
+				continue;
+			}
 			// Collect all consecutive toolResult messages, needed for z.ai Anthropic endpoint
 			const toolResults: ContentBlockParam[] = [];
 
@@ -1154,6 +1184,10 @@ function convertMessages(
 			let j = i + 1;
 			while (j < transformedMessages.length && transformedMessages[j].role === "toolResult") {
 				const nextMsg = transformedMessages[j] as ToolResultMessage; // We know it's a toolResult
+				if (!lastIncludedToolUseIds.has(nextMsg.toolCallId)) {
+					j++;
+					continue;
+				}
 				toolResults.push({
 					type: "tool_result",
 					tool_use_id: nextMsg.toolCallId,
@@ -1165,6 +1199,8 @@ function convertMessages(
 
 			// Skip the messages we've already processed
 			i = j - 1;
+
+			if (toolResults.length === 0) continue;
 
 			// Add a single user message with all tool results
 			params.push({

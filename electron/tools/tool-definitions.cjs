@@ -354,7 +354,7 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_get',
-        description: 'Get full details of a specific resource. For PDFs, returns the Gemma transcript in content when available. Use resource_semantic_search for passage-level search and pdf_render_page to view a page as an image. For notes, returns full content. Cite inline as [N] when using in answers.',
+        description: 'Get full details of a specific resource. For PDFs, returns the Gemma transcript in content when available. For notes, returns GFM markdown in content (content_format: markdown) — never TipTap/ProseMirror JSON. Use resource_semantic_search for passage-level search and pdf_render_page to view a page as an image. Cite inline as [N] when using in answers.',
         parameters: {
           type: 'object',
           properties: {
@@ -1015,7 +1015,7 @@ function getAllToolDefinitions() {
           properties: {
             title: { type: 'string', description: 'Resource title' },
             type: { type: 'string', description: 'note, notebook, document, url, folder' },
-            content: { type: 'string', description: 'Content for notes: use Markdown GFM (headings, bold, italic, lists, code blocks). The system converts it to the editor format automatically. Do NOT pass HTML or JSON.' },
+            content: { type: 'string', description: 'For type=note: pure GFM Markdown (plain text with markdown syntax). Allowed: # headings, **bold**, lists, blockquotes, fenced code, GFM tables, [text](url), @[Title](resource_id). NEVER pass HTML, TipTap/ProseMirror JSON, or artifact blocks — the system converts internally. For notebooks: JSON or use cells param. For url: optional text/HTML.' },
             project_id: { type: 'string', description: 'Project ID' },
             folder_id: { type: 'string', description: 'Parent folder ID' },
             metadata: { type: 'object', description: 'Optional metadata. For folders: { color: "#hex" } — auto-assigned if omitted.' },
@@ -1028,13 +1028,13 @@ function getAllToolDefinitions() {
       type: 'function',
       function: {
         name: 'resource_update',
-        description: 'Update an existing resource. IMPORTANT: resource_id must be the exact id field returned by get_library_overview, resource_search, or resource_semantic_search — never invent or construct IDs. For folders: pass metadata.color as a hex string (e.g. "#7b76d0") to change folder color. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
+        description: 'Update an existing resource. IMPORTANT: resource_id must be the exact id field returned by get_library_overview, resource_search, or resource_semantic_search — never invent or construct IDs. For notes: call resource_get first, edit the returned GFM markdown, then pass the full updated markdown in content (replace, not patch). For folders: pass metadata.color as a hex string (e.g. "#7b76d0") to change folder color. For DOCX documents: use content as HTML or Markdown GFM; it is persisted to the DOCX file.',
         parameters: {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'Exact resource ID from a prior get_library_overview or search result — never invented' },
             title: { type: 'string', description: 'New title' },
-            content: { type: 'string', description: 'New content (for notes/DOCX: HTML or Markdown GFM; DOCX content is written to file)' },
+            content: { type: 'string', description: 'For type=note: pure GFM Markdown (same rules as resource_create content). For DOCX: HTML or Markdown GFM (written to file). NEVER pass TipTap/ProseMirror JSON for notes.' },
             metadata: { type: 'object', description: 'Metadata fields to merge. For folders: { color: "#hex" }. Available colors: #596037 (olive), #7b76d0 (violet), #22c55e (green), #3b82f6 (blue), #ef4444 (red), #f97316 (orange), #ec4899 (pink), #eab308 (yellow), #06b6d4 (cyan), #6b7280 (gray)' },
           },
           required: ['resource_id'],

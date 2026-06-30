@@ -214,6 +214,8 @@ async function pptCreate(projectId, title, spec = {}, options = {}) {
       if (isValidFolder) {
         try {
           queries.moveResourceToFolder.run(options.folder_id, now, resourceId);
+          const { syncVaultAfterMoveToFolder } = require('../storage/vault-sync.cjs');
+          syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
         } catch (moveErr) {
           console.warn('[PptTools] moveResourceToFolder failed (resource created with internal_path):', moveErr?.message);
         }

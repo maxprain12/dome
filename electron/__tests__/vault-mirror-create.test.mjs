@@ -24,6 +24,7 @@ import { DatabaseSync } from 'node:sqlite';
 
 const require = createRequire(import.meta.url);
 const vaultStore = require('../storage/vault-store.cjs');
+const vaultSync = require('../storage/vault-sync.cjs');
 
 let tmpDir;
 let db;
@@ -120,5 +121,59 @@ describe('vault mirror — agent resource_create path', () => {
       note.vault_path.startsWith(`${folder.vault_path}/`),
       `note vault_path (${note.vault_path}) should be nested under folder (${folder.vault_path})`,
     );
+  });
+});
+
+describe('vault sync — agent move/delete path', () => {
+  it('syncVaultAfterMoveToFolder backfills logical folder and relocates note on disk', () => {
+    const now = Date.now();
+    db.prepare(
+      'INSERT INTO resources (id, project_id, type, title, content_text, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)',
+    ).run('note-root', 'proj1', 'note', 'Root Note', 'Root body', null, now, now);
+    db.prepare(
+      'INSERT INTO resources (id, project_id, type, title, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?)',
+    ).run('fold-logical', 'proj1', 'folder', 'Research IA', null, now, now);
+
+    vaultStore.writeNoteMarkdown(
+      { id: 'note-root', markdown: 'Root body' },
+      { database, fileStorage },
+    );
+
+    const moveStmt = db.prepare('UPDATE resources SET folder_id = ?, updated_at = ? WHERE id = ?');
+    moveStmt.run('fold-logical', now + 1, 'note-root');
+
+    vaultSync.syncVaultAfterMoveToFolder('note-root', { database, fileStorage });
+
+    const folder = database.getQueries().getResourceById.get('fold-logical');
+    assert.ok(folder.vault_path, 'logical folder should get vault_path after move sync');
+
+    const note = database.getQueries().getResourceById.get('note-root');
+    assert.ok(note.vault_path.startsWith(`${folder.vault_path}/`), 'note should be nested under folder on disk');
+
+    const root = path.join(tmpDir, 'vault', 'IA Research');
+    const abs = path.join(root, note.vault_path);
+    assert.ok(fs.existsSync(abs), `moved note .md should exist at ${abs}`);
+  });
+
+  it('syncVaultBeforeDelete removes the mirror file from disk', () => {
+    const now = Date.now();
+    db.prepare(
+      'INSERT INTO resources (id, project_id, type, title, created_at, updated_at) VALUES (?,?,?,?,?,?)',
+    ).run('note-del', 'proj1', 'note', 'To Delete', now, now);
+
+    const write = vaultStore.writeNoteMarkdown(
+      { id: 'note-del', markdown: 'Delete me' },
+      { database, fileStorage },
+    );
+    assert.equal(write.success, true);
+
+    const root = path.join(tmpDir, 'vault', 'IA Research');
+    const absBefore = path.join(root, write.vaultPath);
+    assert.ok(fs.existsSync(absBefore));
+
+    vaultSync.syncVaultBeforeDelete('note-del', { database, fileStorage });
+    db.prepare('DELETE FROM resources WHERE id = ?').run('note-del');
+
+    assert.ok(!fs.existsSync(absBefore), 'mirror file should be removed from disk');
   });
 });

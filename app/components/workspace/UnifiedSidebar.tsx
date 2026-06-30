@@ -159,6 +159,25 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   scheduleDebouncedSilentRefetchRef.current = scheduleDebouncedSilentRefetch;
   const setResourcesRef = useRef(setResources);
   setResourcesRef.current = setResources;
+  const resourcesRef = useRef(resources);
+  resourcesRef.current = resources;
+  const [autoExpandFolderIds, setAutoExpandFolderIds] = useState<string[]>([]);
+
+  const requestExpandFolderChain = useCallback((folderId: string | null | undefined) => {
+    if (!folderId) return;
+    const byId = new Map(resourcesRef.current.map((r) => [r.id, r]));
+    const chain: string[] = [];
+    let current: string | null | undefined = folderId;
+    const visited = new Set<string>();
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      chain.push(current);
+      const row = byId.get(current);
+      current = row?.folder_id ?? null;
+    }
+    if (chain.length === 0) return;
+    setAutoExpandFolderIds((prev) => [...new Set([...prev, ...chain])]);
+  }, []);
 
   const scopedResources = resources.filter((resource) => resource.project_id === hubProjectId);
 
@@ -281,13 +300,27 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     const onProjectCreated = () => { void fetchProjectsRef.current(); };
     const u1 = window.electron.on('resource:created', onCreated);
     const onUpdated = (payload: unknown) => {
-      // Immediately apply metadata / title changes so folder colors refresh without waiting for the debounced refetch
-      const p = payload as { id?: string; updates?: Record<string, unknown> };
-      if (p?.id && p?.updates) {
+      const p = payload as {
+        id?: string;
+        folder_id?: string | null;
+        updates?: Record<string, unknown>;
+      };
+      const folderId =
+        p.updates && Object.prototype.hasOwnProperty.call(p.updates, 'folder_id')
+          ? (p.updates.folder_id as string | null)
+          : p.folder_id;
+      if (folderId) {
+        requestExpandFolderChain(folderId);
+      }
+      const updates =
+        p.updates ??
+        (Object.prototype.hasOwnProperty.call(p, 'folder_id')
+          ? { folder_id: p.folder_id, updated_at: Date.now() }
+          : null);
+      if (p?.id && updates) {
         setResourcesRef.current((prev) =>
           prev.map((r) => {
             if (r.id !== p.id) return r;
-            const updates = p.updates!;
             const merged: Resource = { ...r, ...(updates as Partial<Resource>) };
             const rawMeta = updates.metadata;
             if (rawMeta != null) {
@@ -299,7 +332,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               merged.metadata = { ...existingMeta, ...incomingMeta };
             }
             return merged;
-          })
+          }),
         );
       }
       scheduleDebouncedSilentRefetchRef.current();
@@ -323,14 +356,17 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       void fetchResourcesRef.current({ silent: true });
     };
     const u5 = window.electron.on('project:deleted', onProjectDeleted);
+    const onResourcesChanged = () => { void fetchResourcesRef.current({ silent: true }); };
+    window.addEventListener('dome:resources-changed', onResourcesChanged);
     return () => {
       u1?.();
       u2?.();
       u3?.();
       u4?.();
       u5?.();
+      window.removeEventListener('dome:resources-changed', onResourcesChanged);
     };
-  }, []);
+  }, [requestExpandFolderChain]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- clear pending debounced refetch on unmount only
   useEffect(() => {
@@ -586,6 +622,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
                 <FileTree
                   resources={scopedResources}
                   onRefresh={() => { void fetchResources({ silent: true }); }}
+                  autoExpandFolderIds={autoExpandFolderIds}
                 />
               )}
             </div>

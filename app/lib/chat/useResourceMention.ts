@@ -14,10 +14,36 @@ export interface UseResourceMentionOptions {
   onPinResource: (resource: MentionResource) => void;
   /** When false, @ detection is disabled (legacy input). */
   enabled?: boolean;
+  /** Scope list/search to the active project. */
+  projectId?: string | null;
+}
+
+function filterResourcesByQuery(resources: MentionResource[], query: string): MentionResource[] {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return resources;
+  return resources.filter((resource) => {
+    const title = resource.title.toLowerCase();
+    if (title.includes(normalized)) return true;
+    return title.split(/\s+/).some((word) => word.startsWith(normalized));
+  });
+}
+
+function mapDbResources(
+  rows: Array<{ id: string; title: string; type: string }>,
+): MentionResource[] {
+  return rows
+    .filter((row) => row.type !== 'folder')
+    .map((row) => ({
+      id: row.id,
+      title: row.title || 'Untitled',
+      type: row.type,
+    }));
 }
 
 /**
- * @-mention picker for workspace resources (resourceSearch / resourceList via IPC).
+ * @-mention picker for workspace resources.
+ * Uses the same db IPC as the sidebar/editor (`listLight`, `searchForMention`) —
+ * not ai.tools.resourceList, which can fail on corrupt metadata JSON.
  */
 export function useResourceMention({
   input,
@@ -26,6 +52,7 @@ export function useResourceMention({
   containerRef,
   onPinResource,
   enabled = true,
+  projectId = null,
 }: UseResourceMentionOptions) {
   const [mentionActive, setMentionActive] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -34,36 +61,45 @@ export function useResourceMention({
   const [mentionRect, setMentionRect] = useState<{ top: number; left: number } | null>(null);
   const mentionDropdownRef = useRef<HTMLDivElement>(null);
 
-  const loadMentionResources = useCallback(async (query: string) => {
-    const electron = typeof window !== 'undefined' ? window.electron : null;
-    if (!electron?.ai?.tools) return;
-    try {
-      let resources: MentionResource[] = [];
-      if (query.trim() && electron.ai?.tools?.resourceSearch) {
-        const result = await electron.ai.tools.resourceSearch(query, { limit: 15 });
-        if (result?.success && Array.isArray(result?.results)) {
-          resources = result.results.map((r: { id: string; title: string; type: string }) => ({
-            id: r.id,
-            title: r.title,
-            type: r.type,
-          }));
+  const loadMentionResources = useCallback(
+    async (query: string) => {
+      const electron = typeof window !== 'undefined' ? window.electron : null;
+      const dbResources = electron?.db?.resources;
+      if (!dbResources?.listLight || !dbResources?.searchForMention) return;
+
+      const scopedProjectId = projectId || 'default';
+      const trimmed = query.trim();
+
+      try {
+        let resources: MentionResource[] = [];
+
+        if (trimmed.length === 0) {
+          const listResult = await dbResources.listLight(25, scopedProjectId);
+          if (listResult?.success && Array.isArray(listResult.data)) {
+            resources = mapDbResources(listResult.data);
+          }
+        } else {
+          const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
+          if (searchResult?.success && Array.isArray(searchResult.data)) {
+            resources = mapDbResources(searchResult.data);
+          }
+
+          if (resources.length === 0) {
+            const listResult = await dbResources.listLight(50, scopedProjectId);
+            if (listResult?.success && Array.isArray(listResult.data)) {
+              resources = filterResourcesByQuery(mapDbResources(listResult.data), trimmed);
+            }
+          }
         }
-      } else if (electron.ai?.tools?.resourceList) {
-        const result = await electron.ai.tools.resourceList({ limit: 20 });
-        if (result?.success && Array.isArray(result?.resources)) {
-          resources = result.resources.map((r: { id: string; title: string; type: string }) => ({
-            id: r.id,
-            title: r.title,
-            type: r.type,
-          }));
-        }
+
+        setMentionResources(resources);
+        setMentionSelectedIdx(0);
+      } catch {
+        setMentionResources([]);
       }
-      setMentionResources(resources);
-      setMentionSelectedIdx(0);
-    } catch {
-      setMentionResources([]);
-    }
-  }, []);
+    },
+    [projectId],
+  );
 
   const selectMentionResource = useCallback(
     (resource: MentionResource) => {
@@ -176,15 +212,15 @@ export function useResourceMention({
     if (!ta) return;
     const pos = ta.selectionStart ?? input.length;
     const newVal = input.slice(0, pos) + '@' + input.slice(pos);
+    const nextCursor = pos + 1;
     setInput(newVal);
     requestAnimationFrame(() => {
       ta.focus();
-      ta.selectionStart = pos + 1;
-      ta.selectionEnd = pos + 1;
-      const event = new Event('input', { bubbles: true });
-      ta.dispatchEvent(event);
+      ta.selectionStart = nextCursor;
+      ta.selectionEnd = nextCursor;
+      updateFromText(newVal, nextCursor);
     });
-  }, [input, inputRef, setInput]);
+  }, [input, inputRef, setInput, updateFromText]);
 
   return {
     mentionActive,

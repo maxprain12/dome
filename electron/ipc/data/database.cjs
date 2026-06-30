@@ -503,10 +503,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
             vaultStore.relocateFolder(resource.id, { database, fileStorage });
           }
         } else if (current.type === 'note') {
-          // Refresh the plain-text cache from the (possibly AI-updated) Tiptap
-          // JSON so FTS/semantic search stay current. The renderer additionally
-          // writes the .md via notes:writeMirror; AI edits rely on this refresh
-          // and the .md is regenerated on the next editor save.
+        // AI agent writes markdown to vault mirror directly via writeNoteMarkdownFromAgent;
+        // refresh content_text from vault on the next mirror write or editor save.
           if (resource.content !== undefined) {
             try {
               const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
@@ -1859,12 +1857,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         // Delete the internal file
         fileStorage.deleteFile(resource.internal_path);
       }
-      // Remove the Markdown mirror from the vault (no-op for non-notes).
-      try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
-      if (resource?.type === 'folder') {
-        try { vaultStore.removeFolderFromDisk(id, { database, fileStorage }); } catch { /* non-fatal */ }
-      }
-      // Delete from database
+      const { syncVaultBeforeDelete } = require('../../storage/vault-sync.cjs');
+      syncVaultBeforeDelete(id, { database, fileStorage });
       queries.deleteResource.run(id);
 
       // Broadcast evento a todas las ventanas
@@ -2013,12 +2007,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       queries.moveResourceToFolder.run(folderId || null, Date.now(), resourceId);
 
-      // Keep the on-disk vault tree in sync: move the .md (and any descendants).
-      try {
-        const moved = queries.getResourceById.get(resourceId);
-        if (moved?.type === 'folder') vaultStore.relocateFolder(resourceId, { database, fileStorage });
-        else vaultStore.relocateResource(resourceId, { database, fileStorage });
-      } catch (e) { console.warn('[DB] vault relocate (move) failed:', e?.message); }
+      const { syncVaultAfterMoveToFolder } = require('../../storage/vault-sync.cjs');
+      syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
 
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:updated', {
@@ -2041,11 +2031,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const now = Date.now();
       queries.removeResourceFromFolder.run(now, resourceId);
 
-      try {
-        const moved = queries.getResourceById.get(resourceId);
-        if (moved?.type === 'folder') vaultStore.relocateFolder(resourceId, { database, fileStorage });
-        else vaultStore.relocateResource(resourceId, { database, fileStorage });
-      } catch (e) { console.warn('[DB] vault relocate (removeFromFolder) failed:', e?.message); }
+      const { syncVaultAfterMoveToFolder } = require('../../storage/vault-sync.cjs');
+      syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
 
       // Broadcast so Home and other windows update immediately
       windowManager.broadcast('resource:updated', {
