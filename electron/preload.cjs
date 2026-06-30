@@ -1082,14 +1082,9 @@ const electronHandler = {
       disconnect: () => ipcRenderer.invoke('github:auth:disconnect'),
     },
     repos: {
-      list: (payload?: { projectId?: string }) => ipcRenderer.invoke('github:repos:list', payload),
-      refresh: (payload?: { projectId?: string }) => ipcRenderer.invoke('github:repos:refresh', payload),
-      setSelected: (payload: {
-        projectId: string;
-        selected: boolean;
-        repoId?: string;
-        remote?: { id: number; full_name: string; name: string; owner?: string | { login: string }; private?: boolean; html_url?: string | null };
-      }) => ipcRenderer.invoke('github:repos:setSelected', payload),
+      list: (payload) => ipcRenderer.invoke('github:repos:list', payload),
+      refresh: (payload) => ipcRenderer.invoke('github:repos:refresh', payload),
+      setSelected: (payload) => ipcRenderer.invoke('github:repos:setSelected', payload),
     },
     milestones: {
       list: (repoId, opts) => ipcRenderer.invoke('github:milestones:list', repoId, opts),
