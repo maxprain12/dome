@@ -60,6 +60,8 @@ jobs:
       # silently ignored — electron-builder then tried to publish to GitHub and
       # failed on the missing GH_TOKEN (#451 removed it). build:packages /
       # materialize / verify already ran in bootstrap:release-deps + the steps below.
+      # Use `pnpm exec cross-env DEBUG= electron-builder` (NOT a bare `DEBUG= …`
+      # prefix) so it also works in the Windows job's default pwsh shell.
       - name: Build Vite, natives, embed env, pack (macOS)
         run: |
           pnpm run materialize:workspace-deps
@@ -71,10 +73,10 @@ jobs:
           if [ -z "$CSC_LINK" ] || [ "$CSC_LINK" = "" ]; then
             echo "No code signing credentials, building without signing..."
             export CSC_IDENTITY_AUTO_DISCOVERY=false
-            DEBUG= pnpm exec electron-builder --mac --arm64 --x64 --config.mac.identity=null --config.mac.notarize=false --publish never
+            pnpm exec cross-env DEBUG= electron-builder --mac --arm64 --x64 --config.mac.identity=null --config.mac.notarize=false --publish never
           else
             echo "Code signing credentials found, building with signing..."
-            DEBUG= pnpm exec electron-builder --mac --arm64 --x64 --publish never
+            pnpm exec cross-env DEBUG= electron-builder --mac --arm64 --x64 --publish never
           fi
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
@@ -142,7 +144,7 @@ jobs:
           pnpm run verify:natives
           node scripts/embed-env.cjs
           node scripts/verify-sentry-build.cjs
-          DEBUG= pnpm exec electron-builder --win --publish never
+          pnpm exec cross-env DEBUG= electron-builder --win --publish never
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
@@ -238,7 +240,7 @@ jobs:
           pnpm run verify:natives
           node scripts/embed-env.cjs
           node scripts/verify-sentry-build.cjs
-          DEBUG= pnpm exec electron-builder --linux AppImage flatpak --publish never
+          pnpm exec cross-env DEBUG= electron-builder --linux AppImage flatpak --publish never
         env:
           DOME_GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_ID }}
           DOME_GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.DOME_GOOGLE_DRIVE_CLIENT_SECRET }}
