@@ -39,6 +39,15 @@ function copyPackage(realPkgDir, destDir) {
     fail(`dist/ missing in ${realPkgDir} — run pnpm run build:packages first`);
   }
   fs.cpSync(distSrc, path.join(destDir, 'dist'), { recursive: true });
+
+  // @dome/db ships its Drizzle SQL migrations alongside dist/ (resolved at
+  // runtime via getMigrationsFolder() = <package-root>/../drizzle). Without
+  // this, packaged builds silently skip every Drizzle migration — see
+  // electron/core/db/drizzle-bridge.cjs ("Drizzle migrations folder missing").
+  const drizzleSrc = path.join(realPkgDir, 'drizzle');
+  if (fs.existsSync(drizzleSrc)) {
+    fs.cpSync(drizzleSrc, path.join(destDir, 'drizzle'), { recursive: true });
+  }
 }
 
 if (!fs.existsSync(scopeDir)) {
