@@ -107,6 +107,8 @@
   "settings_refresh_list": "Actualiser la liste",
   "settings_search_repo": "Rechercher un dépôt…",
   "settings_refresh_hint": "Cliquez sur « Actualiser la liste » pour charger vos dépôts.",
+  "settings_repo_assigned_here": "Dans ce vault",
+  "settings_repo_in_other_vault": "Aussi dans {{count}} autre(s) vault(s)",
   "private_badge": "privé",
   "sync_repo_aria": "Synchroniser {{repo}}",
   "minimal_select_repo": "Sélectionnez un dépôt pour commencer le suivi.",

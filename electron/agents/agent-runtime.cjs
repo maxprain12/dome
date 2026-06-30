@@ -317,6 +317,17 @@ function mapAgentEventToChunk(event) {
     }
     case 'agent_end':
       return { type: 'done' };
+    case 'turn_start':
+      return { type: 'harness', event: 'turn_start' };
+    case 'turn_end':
+      return { type: 'harness', event: 'turn_end' };
+    case 'tool_execution_update':
+      return {
+        type: 'tool_progress',
+        toolCallId: event.toolCallId,
+        toolName: event.toolName,
+        partialResult: toolResultText(event.partialResult),
+      };
     default:
       return null;
   }
@@ -773,8 +784,15 @@ async function setupHarness(surface, opts) {
       });
       return;
     }
+    if (event.type === 'agent_start') {
+      if (typeof onChunk === 'function') {
+        onChunk({ type: 'harness', event: 'agent_start' });
+      }
+      return;
+    }
     if (event.type === 'agent_end' || event.type === 'message_update' || event.type === 'tool_execution_start' ||
-        event.type === 'tool_execution_end' || event.type === 'message_end') {
+        event.type === 'tool_execution_end' || event.type === 'tool_execution_update' ||
+        event.type === 'turn_start' || event.type === 'turn_end' || event.type === 'message_end') {
       const chunk = mapAgentEventToChunk(event);
       if (chunk && typeof onChunk === 'function') onChunk(chunk);
     }

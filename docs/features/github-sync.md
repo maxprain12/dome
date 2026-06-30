@@ -6,6 +6,13 @@ projected onto the Dome calendar.
 
 Opens as a tab (`TabType 'github'`) from the left sidebar — not a new window.
 
+## Vault scoping
+
+OAuth is global (one GitHub account), but each selected repo is stored in
+`github_repos` with a `project_id` (vault). The same `full_name` can be
+tracked independently in multiple vaults (`UNIQUE(full_name, project_id)`).
+The Seguimiento tab and settings only show repos for the active vault.
+
 ## Auth
 
 Device-code OAuth (no backend / no callback), mirroring
@@ -37,9 +44,10 @@ desktop client, no webhooks.
 
 ## Calendar mapping
 
-A dedicated local calendar (`github-dome`) holds GitHub events. Mapping is
-idempotent through `github_calendar_links` (entity_type + entity_id → event_id),
-mirroring `calendar_event_links`. Toggles (default on):
+Each vault gets a dedicated local GitHub calendar (`github-default` for the
+default vault, `github-{slug}` for others). Mapping is idempotent through
+`github_calendar_links` (entity_type + entity_id → event_id), mirroring
+`calendar_event_links`. Toggles (default on):
 `github_calendar_milestones`, `github_calendar_issues`, `github_calendar_releases`.
 
 - **Milestones** → event on `due_on` (open milestones).

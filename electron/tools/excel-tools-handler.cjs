@@ -201,7 +201,7 @@ async function excelSetCell(resourceId, sheetName, cellRef, value) {
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     artifactLinkSync
-      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: targetName })
+      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: targetName }, fileStorage)
       .catch(() => {});
     return {
       success: true,
@@ -263,7 +263,7 @@ async function excelSetRange(resourceId, sheetName, rangeRef, values) {
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     artifactLinkSync
-      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: targetName })
+      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: targetName }, fileStorage)
       .catch(() => {});
     return {
       success: true,
@@ -319,7 +319,7 @@ async function excelAddRow(resourceId, sheetName, values, afterRow) {
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     artifactLinkSync
-      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: targetName })
+      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: targetName }, fileStorage)
       .catch(() => {});
     return {
       success: true,
@@ -364,7 +364,7 @@ async function excelAddSheet(resourceId, sheetName, data) {
     await wb.xlsx.writeFile(fullPath);
     broadcastResourceUpdated(resourceId);
     artifactLinkSync
-      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: name })
+      .syncLinkedArtifactsForResource(database, windowManagerRef, resourceId, { sheetName: name }, fileStorage)
       .catch(() => {});
     return {
       success: true,

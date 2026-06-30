@@ -318,8 +318,30 @@ export interface RunChunkCompaction {
   automatic: boolean;
 }
 
+export type RunUiPhase =
+  | 'queued'
+  | 'starting'
+  | 'thinking'
+  | 'tool_running'
+  | 'tool_progress'
+  | 'generating'
+  | 'compacting'
+  | 'waiting_approval'
+  | 'completed'
+  | 'failed'
+  | 'cancelled';
+
+export interface RunChunkPhase {
+  runId: string;
+  type: 'phase';
+  phase: RunUiPhase;
+  labelKey?: string;
+  detail?: string;
+}
+
 /** Discriminated union of every `runs:chunk` payload emitted by the run engine. */
 export type RunChunkPayload =
+  | RunChunkPhase
   | { runId: string; type: 'thinking'; text: string }
   | { runId: string; type: 'text'; text: string }
   | {
@@ -361,7 +383,20 @@ export type RunChunkPayload =
       threadId?: string;
     }
   | { runId: string; type: 'error'; error?: string }
-  | { runId: string; type: 'done' };
+  | { runId: string; type: 'done' }
+  | {
+      runId: string;
+      type: 'tool_progress';
+      toolCallId: string;
+      toolName?: string;
+      partialResult?: string;
+    }
+  | {
+      runId: string;
+      type: 'harness';
+      event: string;
+      payload?: Record<string, unknown> | null;
+    };
 
 export function onRunChunk(callback: (payload: RunChunkPayload) => void): () => void {
   const electron = ensureElectron();

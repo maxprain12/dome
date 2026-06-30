@@ -70,7 +70,8 @@ export function createArtifactCreateTool(): AnyAgentTool {
     label: 'Create Artifact',
     name: 'artifact_create',
     description:
-      'Create a persisted interactive artifact (mini-app) stored as a resource in Dome. ' +
+      'Create a persisted interactive artifact (mini-app) stored as a vault HTML file + library resource in Dome. ' +
+      'Every artifact is mirrored to the project vault on disk; do NOT emit inline ```artifact:TYPE``` blocks. ' +
       'Self-contained HTML/CSS/JS in a sandboxed iframe — MUST persist state only via window.DOME_DATA + window.__dome_updateState after each change; NEVER localStorage/sessionStorage. ' +
       'artifact_type options: "task-tracker" (Kanban board), "chart" (data chart), "custom" (any UI). ' +
       'Set state.html to fully self-contained HTML. Set state.data to the initial structured data object. ' +

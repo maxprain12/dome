@@ -1,140 +1,64 @@
-# Artifacts — operational guide (inline + persisted)
+# Artifacts — operational guide (persisted only)
 
-Load this doc (`dome_load_doc({ id: "artifacts" })`) before emitting any `artifact:TYPE` block or choosing Kind A vs Kind B.
+Load this doc (`dome_load_doc({ id: "artifacts" })`) before calling `artifact_create` or related artifact tools.
 
-## Artifacts — TWO kinds (read both before deciding)
+## Persisted artifacts only
 
-**Kind A — Inline chat artifact**: emitted as a fenced block in your reply. Ephemeral — lives only in the conversation message. No persistence.
-**Kind B — Library mini-app (persisted)**: created with `artifact_create` tool. Stored in Dome's library (SQLite). The user can open it from the sidebar any time, add data day by day, and it survives session restarts.
+Dome no longer supports inline `artifact:TYPE` chat blocks. **Every interactive artifact must be created with `artifact_create`** and is stored as:
 
----
+- A library resource (`resources.type = 'artifact'`)
+- A portable HTML file in the project vault (`resources.vault_path`, e.g. `Mi dashboard.html`)
+- SQLite rows (`artifacts`, `artifact_runtime_data`) as index/cache for search, automations, and iframe sync
 
-## DECISION MATRIX (read this FIRST, before any action)
-
-| Signal in the user's request | Kind | What to do |
-|---|---|---|
-| Informe / dosier navegable, varias pestañas, tarjetas con badges (research digest, tarjeta de modelo, benchmarks por solapa…) | **B — Library mini-app** | `dome_load_doc('artifact_design')` + `dome_load_doc('artifact_persisted')` → `artifact_design` (get `html` + `data`) → `artifact_create` with `artifact_type: "custom"` |
-| "día a día", "añadir cada día", "ir agregando", "tracking", "llevar el registro" | **B — Library mini-app** | Call `artifact_create` + also load `dome_load_doc('artifact_persisted')` for the full API |
-| "quiero volver a usar", "que guarde mis datos", "mini-app", "herramienta que persista" | **B — Library mini-app** | Call `artifact_create` + also load `dome_load_doc('artifact_persisted')` |
-| "lista de la compra que actualice", "rastreador", "registro de…", "tracker" | **B — Library mini-app** | Call `artifact_create` + also load `dome_load_doc('artifact_persisted')` |
-| One-time dashboard / KPIs / "panel de…" | A — Inline | `artifact:dashboard` in reply |
-| One-time diagram / flowchart / "diagrama" | A — Inline | `artifact:diagram` in reply |
-| One-time calculator / simulator | A — Inline | `artifact:calculator` in reply |
-| One-time timeline / cronograma | A — Inline | `artifact:timeline` in reply |
-| One-time tabs / comparison | A — Inline | `artifact:tabs` in reply |
-| One-time playground / exercises | A — Inline | `artifact:playground` in reply |
-| One-time interactive UI (no persistence needed) | A — Inline | `artifact:html` in reply |
-| Note, summary, document, "nota", "resumen" | Saved resource | `resource_create` type=note |
-| Presentation / .pptx | Saved resource | `ppt_create` |
-| Flashcards | Studio output | `flashcard_create` |
-| Quiz / exam | Studio output | `generate_quiz` |
-| Mindmap | Studio output | `generate_mindmap` |
-
-**Deciding between A and B — the key question**: "Will the user need to add, edit, or come back to this thing after this conversation?" → YES → Kind B (library mini-app). NO → Kind A (inline).
+After a successful `artifact_create`, the user opens the artifact from the sidebar or the tool-result card in chat.
 
 ---
 
-## Kind B — Library mini-apps (CRITICAL: call dome_load_doc first)
+## Decision matrix
 
-When the user needs a persistent interactive tool:
+| Signal in the user's request | What to do |
+|---|---|
+| Informe / dosier navegable, varias pestañas, tarjetas con badges | `dome_load_doc('artifact_design')` + `dome_load_doc('artifact_persisted')` → `artifact_design` → `artifact_create` (`artifact_type: "custom"`) |
+| "día a día", tracking, registro persistente, mini-app, herramienta que persista | `artifact_create` (+ `artifact_persisted` doc) |
+| One-time dashboard / KPIs without persistence | Still use `artifact_create` — vault HTML is the source of truth |
+| Note, summary, document | `resource_create` type=note |
+| Presentation / .pptx | `ppt_create` |
+| Flashcards | `flashcard_create` |
+| Quiz / exam | `generate_quiz` |
+| Mindmap | `generate_mindmap` |
 
-1. **Load `dome_load_doc('artifact_persisted')`** — full `artifact_create` API, `__dome_updateState`, iframe rules. Do NOT call `artifact_create` without reading it first.
-2. **If the layout is a multi-tab dossier** (sections per tab, header + badges, Dome workspace look): also **`dome_load_doc('artifact_design')`**, then call **`artifact_design`** with a `spec` object; use the returned `html` and `data` as the payload for `artifact_create` (you may merge additional keys into `data` before creating). For simple trackers or fully custom UIs you still write HTML by hand after `artifact_persisted`.
-3. Call `artifact_create` with `{ artifact_type, html, data? }` (`artifact_type` usually `custom` for dossier output from step 2).
-4. After tool returns, emit an `artifact:created_entity` fenced block so the user sees the library card.
-
-**What persisted mini-apps support that inline `artifact:html` does NOT:**
-- Data survives session restarts (SQLite via `__dome_updateState`)
-- User can open it from the library sidebar any time
-- Supports day-by-day data entry (shopping lists, expense trackers, habit logs, etc.)
-- User can share / export the artifact
-- Agent can push bulk JSON into `state.data` without rewriting HTML via `artifact_merge_data` (after `excel_get`, `resource_get`, etc.)
-
-**`artifact:created_entity` (inline card) vs Kind B:** the fenced `artifact:created_entity` is **only** the Hub shortcut card after a successful `artifact_create` — it is not the mini-app itself. The durable UI lives in the library resource; do not treat `created_entity` as a substitute for `artifact_create`.
+**Key question:** "Will the user need to add, edit, or come back to this after the conversation?" → YES → `artifact_create`. Even one-shot panels should be persisted so they live in the vault.
 
 ---
 
-## Kind A — Inline chat artifacts — REQUIRED formatting
+## Workflow
 
-When you produce a structured, interactive result in-message (dashboard, diagram, calculator, timeline, tabs, playground, html, code, list, action_items, created_entity, chart, pdf_summary, calendar_event, flashcard_deck), emit it inside a fenced block whose info string is **exactly** `artifact:TYPE`. NEVER use plain ```json, ```jsonc, ```yaml — those render as raw code.
-
-```artifact:TYPE
-{ ...valid JSON for TYPE... }
-```
-
-**Hard rules (inline artifacts):**
-- Fence opener: three backticks + `artifact:<type>`, no spaces.
-- Body: single valid JSON object with `"type": "<type>"` matching the fence.
-- Close: three backticks on their own line.
-- Do NOT wrap in another fence. No prose or trailing commas inside JSON.
-- **NEVER call `resource_create` to "save" an inline artifact** — the user sees it in the message.
-- **One ask = one creation.** If the user says "genera un dashboard", emit ONE `artifact:dashboard`. No variants, no parallel tools.
-- **After producing the artifact, STOP.** Do not chain further creation tools.
-
-**Inline types:**
-- **calculator** — sliders/numbers: `inputs[]` (id, label, kind, min, max, step, value, unit) and `outputs[]` (id, label, formula using input ids, unit, format).
-- **dashboard** — `kpis[]` (label, value as string, optional unit/sub/subtitle), optional `sections[]` (title, body markdown), optional `items[]` with progress 0–100.
-- **diagram** — `nodes[]` (id, label, optional lane, x, y) and `edges[]` (from, to, optional label); `layout`: horizontal | vertical | free.
-- **tabs** — `tabs[]` of { id, label, optional badge, content } where content is one of: text, code, list, table, placeholder.
-- **playground** — `exercises[]` with prompt, optional hint, solution, tags.
-- **timeline** — `events[]` with at, title, optional body, status.
-- **html** — only if declarative types are insufficient. Payload: `html` string, optional `css`, `js`, `height`. No fetch, no external URLs, no remote assets. Sandboxed (no same-origin). No `window.electron`. No `localStorage` / `sessionStorage`.
-- **calendar_event** — optional rich card after `calendar_create_event` / `calendar_update_event`: title, start_at, end_at, optional event_id, location, all_day.
-- **flashcard_deck** — optional preview after `flashcard_create`: title, optional deck_id, resource_id, card_count, preview (≤8 { question, answer }).
+1. **Load `dome_load_doc('artifact_persisted')`** — iframe contract, `__dome_updateState`, vault mirror rules.
+2. **Multi-tab dossier?** Also load `artifact_design`, call `artifact_design`, pass returned `html` + `data` to `artifact_create`.
+3. **Call `artifact_create`** with `{ artifact_type, html, data?, title?, project_id? }`.
+4. Tell the user the artifact was saved to the vault/library. Do **not** emit ` ```artifact:TYPE ` fences.
 
 ---
 
-## Design contract (MANDATORY — both kinds)
+## Vault on disk
+
+Each artifact is mirrored to `{projectVaultRoot}/{folder}/{Title}.html` with embedded `dome-artifact-state` JSON. Feeders for that artifact live in `{Title}.dome/feeders/<feederId>/` (script + metadata; secrets stay encrypted in the OS vault, never on disk).
+
+External edits to the HTML file are reconciled by the vault watcher back into SQLite.
+
+---
+
+## Design contract (MANDATORY)
 
 Every artifact MUST use Dome's design tokens. Hardcoded colors, gradients, neon palettes, or gothic fonts are rejected.
 
-**Allowed palette** (CSS variables only, never hex/rgb for chrome):
-- Surfaces: `var(--bg)`, `var(--bg-secondary)` (cards), `var(--bg-tertiary)` (elevated/tracks), `var(--bg-hover)`.
-- Text: `var(--primary-text)` (titles), `var(--secondary-text)` (body), `var(--tertiary-text)` (meta/captions).
-- Borders: `var(--border)`, `var(--border-hover)`.
-- Accent: `var(--accent)` (olive green — sparingly). No purples, magentas, cyans, neons.
-- Semantic: `var(--success)` / `var(--success-bg)`, `var(--warning)` / `var(--warning-bg)`, `var(--error)` / `var(--error-bg)`, `var(--info)` / `var(--info-bg)`.
-- Focus ring: `box-shadow: 0 0 0 3px var(--translucent)`.
+**Allowed palette** (CSS variables only):
+- Surfaces: `var(--bg)`, `var(--bg-secondary)`, `var(--bg-tertiary)`, `var(--bg-hover)`
+- Text: `var(--primary-text)`, `var(--secondary-text)`, `var(--tertiary-text)`
+- Borders: `var(--border)`, `var(--border-hover)`
+- Accent: `var(--accent)`
+- Semantic: success/warning/error/info tokens
 
-**Typography:**
-- `var(--font-sans)` (Inter) for UI. `var(--font-mono)` (JetBrains Mono) for code.
-- Sizes: 11, 12, 13, 14 (default), 15, 16 px. Weights: 400 (body), 500 (emphasis), 600 (titles). Never 700+ or italic display.
-- Line-height 1.5 UI, 1.6 long prose.
+**Hard prohibitions:** no gradients, no remote assets, no `localStorage`/`sessionStorage` in persisted iframe HTML, no `@media (prefers-color-scheme)` forks.
 
-**Radii & spacing:**
-- `var(--radius-md)` 6 px inputs/controls, `var(--radius-lg)` 8 px buttons, `var(--radius-xl)` 12 px cards. Pills: `var(--radius-full)`.
-- Spacing: multiples of 4 px (`var(--space-1)` … `var(--space-12)`).
-
-**Elevation:** prefer `1px solid var(--border)` over shadows. If essential: `var(--shadow-sm)` or `var(--shadow-md)` only.
-
-**Hard prohibitions:**
-- No gradients (`linear-gradient`, `radial-gradient`, `conic-gradient`).
-- No decorative emojis or Unicode symbol “icons” in KPIs, button labels, tabs, or inline artifact chrome. **Icons:** use **inline SVG** in the Lucide style (see `dome_load_doc('artifact_design')`); no emoji, no wingdings-style glyphs.
-- **Language:** artifact copy must match the user’s conversation language; do **not** output Chinese/CJK characters unless the user explicitly asked for Chinese.
-- No colors outside the palette (no `#0f0f23`, `#8b5cf6`, `rebeccapurple`, …).
-- No glows, `backdrop-filter`, `filter: blur`, `text-shadow`.
-- No display/gothic/pixel fonts. Stick to `var(--font-sans)` / `var(--font-mono)`.
-- Transitions: 120–220 ms on color, background-color, border-color, transform, opacity only.
-- No remote assets.
-- Inherit theme from tokens; don't override body background or font-family.
-- **Never** fork light/dark with `@media (prefers-color-scheme: …)` or manual “dark mode” classes — Dome injects the active theme; use variables only.
-
-**Per-type visual hints:**
-- `dashboard` — KPI values `var(--primary-text)` 15–16 px / 600, labels `var(--secondary-text)` 12 px. Use `var(--accent)` for the most important KPI; semantic colors for status.
-- `calculator` — Grouped on `var(--bg-tertiary)` cards with 1 px border. Output values 16 px / 600.
-- `diagram` — Nodes: border `var(--accent)`, fill `var(--bg-tertiary)`. Edges: `var(--secondary-text)`. No colored fills.
-- `tabs` — Active pill: `color-mix(in oklab, var(--accent) 14%, transparent)` bg, `var(--accent)` text. Inactive: `var(--secondary-text)` + hover `var(--bg-hover)`.
-- `timeline` — Date `var(--tertiary-text)` 12 px. Title `var(--primary-text)` 14 px / 600.
-- `playground` — Prompt `var(--primary-text)`, hints/solutions collapsed in `var(--bg-tertiary)` cards.
-- `html` (inline) — Inherit from injected `<style id="dome-theme">`. Do NOT set `body { background }` or `font-family`.
-- Library mini-app HTML — same token rules; see `dome_load_doc('artifact_persisted')` for the full iframe contract. For tabbed dossier chrome aligned with Dome shell patterns, prefer `artifact_design` output as the starting `html`/`data`.
-
-**Minimal examples:**
-
-```artifact:calculator
-{ "type": "calculator", "title": "Battery ROI", "inputs": [{"id": "kwh", "label": "Usage (kWh)", "kind": "slider", "min": 0, "max": 200, "step": 1, "value": 40, "unit": "kWh"}], "outputs": [{"id": "save", "label": "Estimated savings", "formula": "kwh*0.12", "unit": "€/mo", "format": "currency"}] }
-```
-
-```artifact:html
-{ "type": "html", "title": "Demo", "html": "<h1>Hello</h1><p>Scoped interactive content.</p>", "height": 200 }
-```
+See `dome_load_doc('artifact_persisted')` for the full iframe + state contract.

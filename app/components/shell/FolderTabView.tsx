@@ -46,6 +46,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const { t } = useTranslation();
 
   const [creatingFolder, setCreatingFolder] = useState(false);
+  const [createFolderParentId, setCreateFolderParentId] = useState<string | null>(null);
   const [moveProjectIds, setMoveProjectIds] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [folderPickOpen, setFolderPickOpen] = useState(false);
@@ -176,13 +177,19 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     }
   }, [selectedIds, refetch, t]);
 
-  const { openResourceTab, navigateFolderTab, updateTab } = useTabStore(
+  const { openResourceTab, openResourceInSplit, navigateFolderTab, updateTab, activeTabId, tabs } = useTabStore(
     useShallow((s) => ({
       openResourceTab: s.openResourceTab,
+      openResourceInSplit: s.openResourceInSplit,
       navigateFolderTab: s.navigateFolderTab,
       updateTab: s.updateTab,
+      activeTabId: s.activeTabId,
+      tabs: s.tabs,
     })),
   );
+
+  const canOpenInSplit = activeTabId !== null && activeTabId !== 'home' &&
+    Boolean(tabs.find((tb) => tb.id === activeTabId)?.resourceId);
 
   const tabId = `${FOLDER_TAB_PREFIX}${folderId}`;
   const navLocation = useMemo(
@@ -299,16 +306,48 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     setColorPickerPos(null);
   };
 
-  const handleCreateFolder = useCallback(async (name: string) => {
+  const handleCreateFolder = useCallback(async (name: string, color: string) => {
     await createResource({
       type: 'folder',
       title: name,
       project_id: effectiveProjectId,
       content: '',
-      folder_id: listFolderId,
+      folder_id: createFolderParentId ?? listFolderId,
+      metadata: { color },
     });
     setCreatingFolder(false);
-  }, [createResource, effectiveProjectId, listFolderId]);
+    setCreateFolderParentId(null);
+  }, [createResource, effectiveProjectId, listFolderId, createFolderParentId]);
+
+  const handleOpenInSplit = useCallback((item: Resource) => {
+    if (!canOpenInSplit) return;
+    openResourceInSplit(item.id, item.type, item.title ?? '');
+  }, [canOpenInSplit, openResourceInSplit]);
+
+  const handleOpenInWindow = useCallback(async (item: Resource) => {
+    if (!window.electron?.invoke || item.type !== 'note') return;
+    try {
+      await window.electron.invoke('window:create', {
+        id: `note-focus:${item.id}`,
+        route: `/focus/note/${encodeURIComponent(item.id)}`,
+        options: {
+          width: 960,
+          height: 760,
+          minWidth: 560,
+          minHeight: 480,
+          title: `${item.title || 'Nota'} — Dome`,
+          transparent: false,
+        },
+      });
+    } catch (err) {
+      console.error('[FolderTabView] Failed to open popout:', err);
+    }
+  }, []);
+
+  const handleNewSubfolder = useCallback((parentId: string) => {
+    setCreateFolderParentId(parentId);
+    setCreatingFolder(true);
+  }, []);
 
   const handleNewNote = useCallback(async () => {
     if (!window.electron?.db?.resources?.create) return;
@@ -776,6 +815,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                   onMoveToProject={() => setMoveProjectIds([item.id])}
                   onMoveToFolder={isFolder ? undefined : () => openFolderPickerFor(item.id)}
+                  onOpenInSplit={!isFolder && canOpenInSplit ? () => handleOpenInSplit(item) : undefined}
+                  onOpenInWindow={!isFolder ? () => void handleOpenInWindow(item) : undefined}
+                  onNewSubfolder={isFolder ? () => handleNewSubfolder(item.id) : undefined}
                   selected={selectedIds.has(item.id)}
                   showSelectionChrome={showSelectionChrome}
                   onToggleSelect={(e) => {
@@ -789,7 +831,11 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
               {creatingFolder ? (
                 <div className="dome-folder-view__inline-create">
-                  <NewFolderInline onConfirm={handleCreateFolder} onCancel={() => setCreatingFolder(false)} />
+                  <NewFolderInline
+                    variant="list"
+                    onConfirm={handleCreateFolder}
+                    onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
+                  />
                 </div>
               ) : null}
             </>
@@ -818,6 +864,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                     onMoveToProject={() => setMoveProjectIds([item.id])}
                     onMoveToFolder={isFolder ? undefined : () => openFolderPickerFor(item.id)}
+                    onOpenInSplit={!isFolder && canOpenInSplit ? () => handleOpenInSplit(item) : undefined}
+                    onOpenInWindow={!isFolder ? () => void handleOpenInWindow(item) : undefined}
+                    onNewSubfolder={isFolder ? () => handleNewSubfolder(item.id) : undefined}
                     selected={selectedIds.has(item.id)}
                     showSelectionChrome={showSelectionChrome}
                     onToggleSelect={(e) => {
@@ -828,18 +877,27 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     searchFocused={isFiltering && idx === searchFocusIndex}
                   />
                 ))}
+                {creatingFolder ? (
+                  <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
+                    <NewFolderInline
+                      variant="grid"
+                      onConfirm={handleCreateFolder}
+                      onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
+                    />
+                  </div>
+                ) : null}
               </div>
-
-              {creatingFolder ? (
-                <div className="dome-folder-view__inline-create">
-                  <NewFolderInline onConfirm={handleCreateFolder} onCancel={() => setCreatingFolder(false)} />
-                </div>
-              ) : null}
             </>
           )
         ) : creatingFolder ? (
-          <div className="px-4 py-3">
-            <NewFolderInline onConfirm={handleCreateFolder} onCancel={() => setCreatingFolder(false)} />
+          <div className="dome-folder-view__grid dome-folder-view__grid--empty-create">
+            <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
+              <NewFolderInline
+                variant="grid"
+                onConfirm={handleCreateFolder}
+                onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
+              />
+            </div>
           </div>
         ) : (
           <p className="dome-folder-view__empty">{t('folder.emptyFolderShort', 'Carpeta vacía')}</p>

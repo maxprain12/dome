@@ -25,6 +25,8 @@ export interface ThreadSessionSummary {
   createdAt: number;
   updatedAt: number;
   messageCount: number;
+  /** First user message (from threads:list), used as a readable list title. */
+  title?: string | null;
 }
 
 /** Nested harness sessions (subagents, team delegates, forks) — not shown in Many sidebar. */
@@ -65,6 +67,7 @@ export async function listManyThreadSummariesResult(
           createdAt,
           updatedAt: meta?.updatedAt ?? createdAt,
           messageCount: thread.checkpointCount ?? 0,
+          title: (thread as { title?: string | null }).title ?? null,
         };
       });
     return { ok: true, summaries };

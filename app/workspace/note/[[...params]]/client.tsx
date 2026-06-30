@@ -1,6 +1,6 @@
 'use client';
 
-import NoteWorkspaceClientComponent from '@/components/notes/NoteWorkspaceClient';
+import MarkdownNoteWorkspace from '@/components/notes/MarkdownNoteWorkspace';
 
 interface Props {
   resourceId: string;
@@ -9,5 +9,5 @@ interface Props {
 }
 
 export default function NoteWorkspaceClient({ resourceId, readOnly = false, compact = false }: Props) {
-  return <NoteWorkspaceClientComponent resourceId={resourceId} readOnly={readOnly} compact={compact} />;
+  return <MarkdownNoteWorkspace resourceId={resourceId} readOnly={readOnly} compact={compact} />;
 }

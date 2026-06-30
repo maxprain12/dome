@@ -493,6 +493,113 @@
   border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 45%, transparent);
 }
 
+.dome-folder-view__inline-create--grid {
+  padding: 0;
+  border-bottom: none;
+  min-width: 0;
+}
+
+.dome-folder-view__grid--empty-create {
+  padding: 20px;
+}
+
+/* ── New folder inline create ── */
+
+.dome-fs-card--creating {
+  cursor: default;
+  border-style: dashed;
+  border-color: var(--dome-border);
+  min-height: 200px;
+}
+
+.dome-fs-card--creating:hover {
+  transform: none;
+  box-shadow: none;
+  border-color: color-mix(in srgb, var(--dome-accent) 35%, var(--dome-border));
+}
+
+.dome-new-folder__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  padding: 10px 12px 8px;
+  min-width: 0;
+}
+
+.dome-new-folder__input {
+  width: 100%;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--dome-text);
+  padding: 0;
+  min-width: 0;
+}
+
+.dome-new-folder__input::placeholder {
+  color: var(--dome-text-muted);
+  font-weight: 400;
+}
+
+.dome-new-folder__swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+}
+
+.dome-new-folder__swatch {
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 22px;
+  border-radius: 5px;
+  border-width: 2px;
+  border-style: solid;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s;
+}
+
+.dome-new-folder__swatch:hover {
+  transform: scale(1.08);
+}
+
+.dome-new-folder__footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: auto;
+}
+
+.dome-new-folder__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.dome-new-folder--list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 16px 4px 12px;
+  min-height: 38px;
+}
+
+.dome-new-folder--list .dome-new-folder__swatches {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.dome-new-folder--list .dome-new-folder__swatch {
+  width: 14px;
+  height: 14px;
+  max-width: none;
+}
+
 .dome-folder-view__empty {
   padding: 32px 16px;
   font-size: 13px;

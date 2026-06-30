@@ -107,6 +107,8 @@
   "settings_refresh_list": "Actualizar lista",
   "settings_search_repo": "Buscar repositorio…",
   "settings_refresh_hint": "Pulsa “Actualizar lista” para cargar tus repositorios.",
+  "settings_repo_assigned_here": "En este vault",
+  "settings_repo_in_other_vault": "También en {{count}} otro(s) vault(s)",
   "private_badge": "privado",
   "sync_repo_aria": "Sincronizar {{repo}}",
   "minimal_select_repo": "Selecciona un repositorio para empezar a hacer seguimiento.",

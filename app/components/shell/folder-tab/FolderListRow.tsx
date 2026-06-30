@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, Folder, FolderInput, FolderOpen, MoreVertical, Palette, Pencil, Trash2, X } from 'lucide-react';
+import { Check, Folder, FolderInput, FolderOpen, FolderPlus, Maximize2, MoreVertical, Palette, PanelRightOpen, Pencil, Trash2, X } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import ColorPickerPopover from './ColorPickerPopover';
 import { getFolderColor, ResourceTypeIcon, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
@@ -39,6 +39,9 @@ export default function FolderListRow({
   onChangeColor,
   onMoveToProject,
   onMoveToFolder,
+  onOpenInSplit,
+  onOpenInWindow,
+  onNewSubfolder,
   selected,
   showSelectionChrome,
   onToggleSelect,
@@ -55,6 +58,9 @@ export default function FolderListRow({
   onChangeColor?: (color: string) => void;
   onMoveToProject: () => void;
   onMoveToFolder?: () => void;
+  onOpenInSplit?: () => void;
+  onOpenInWindow?: () => void;
+  onNewSubfolder?: () => void;
   selected: boolean;
   showSelectionChrome: boolean;
   onToggleSelect: (e: React.MouseEvent) => void;
@@ -244,12 +250,27 @@ export default function FolderListRow({
               onMouseDown={(e) => e.stopPropagation()}
             >
               {menuItem(<Pencil className="size-3" />, t('folder.rename'), startRenaming)}
+              {!isFolder && onOpenInSplit ? menuItem(
+                <PanelRightOpen className="size-3" />,
+                t('focused_editor.open_reference', 'Abrir como referencia'),
+                () => { setMenuOpen(false); onOpenInSplit(); },
+              ) : null}
+              {!isFolder && onOpenInWindow && item.type === 'note' ? menuItem(
+                <Maximize2 className="size-3" />,
+                t('focused_editor.popout', 'Abrir en ventana'),
+                () => { setMenuOpen(false); onOpenInWindow(); },
+              ) : null}
               {isFolder && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
                 setMenuOpen(false);
                 openColorPicker();
               }) : null}
               {onMoveToFolder ? menuItem(<FolderOpen className="size-3" />, t('selection.move_to_folder'), onMoveToFolder) : null}
               {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
+              {isFolder && onNewSubfolder ? menuItem(
+                <FolderPlus className="size-3" />,
+                t('folder.newFolderBtn'),
+                () => { setMenuOpen(false); onNewSubfolder(); },
+              ) : null}
               <div className="dome-folder-view__row-menu-divider" />
               {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
             </div>,

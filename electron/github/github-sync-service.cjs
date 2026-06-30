@@ -21,7 +21,12 @@ const calendarBridge = require('./github-calendar-bridge.cjs');
 const memoryMonitor = require('../core/memory-monitor.cjs');
 
 let _syncing = false;
+let _syncTimer = null;
+let _pendingProjectId = undefined;
 let _windowManager = null;
+
+/** Coalesce rapid mutation-triggered syncs (IPC kickSync) into one run. */
+const SYNC_COALESCE_MS = 800;
 
 function init(windowManager) {
   _windowManager = windowManager;
@@ -29,6 +34,23 @@ function init(windowManager) {
 
 function broadcast(channel, payload) {
   if (_windowManager?.broadcast) _windowManager.broadcast(channel, payload);
+}
+
+function scheduleSync(projectId) {
+  if (projectId !== undefined && projectId !== null) {
+    _pendingProjectId = store.normalizeProjectId(projectId);
+  }
+  if (_syncTimer) return;
+  _syncTimer = setTimeout(() => {
+    _syncTimer = null;
+    const pid = _pendingProjectId;
+    _pendingProjectId = undefined;
+    void syncNowInternal(
+      pid !== undefined ? { projectId: pid, notifyStatus: false } : { notifyStatus: false },
+    ).catch((err) => {
+      console.error('[github-sync] scheduled sync failed:', err?.message || err);
+    });
+  }, SYNC_COALESCE_MS);
 }
 
 function parseJsonArray(s) {
@@ -42,32 +64,42 @@ function parseJsonArray(s) {
 
 // --- repos -----------------------------------------------------------------
 
-async function refreshRepos() {
+function mapRemoteCatalogEntry(remote) {
+  return {
+    id: remote.id,
+    full_name: remote.full_name,
+    name: remote.name,
+    owner: remote.owner?.login || remote.owner || '',
+    private: remote.private ? 1 : 0,
+    html_url: remote.html_url || null,
+  };
+}
+
+async function refreshRepos(projectId) {
+  const pid = store.normalizeProjectId(projectId);
   const seen = new Set();
-  const upsertAll = (items) => {
+  const catalog = [];
+
+  const ingestPage = (items) => {
     if (!Array.isArray(items)) return 0;
     let n = 0;
     for (const r of items) {
       if (seen.has(r.full_name)) continue;
       seen.add(r.full_name);
-      store.upsertRepo(r);
+      store.updateRepoMetadataByFullName(r);
+      catalog.push(mapRemoteCatalogEntry(r));
       n += 1;
     }
     return n;
   };
 
-  // 1. Repos affiliated with the user (owner / collaborator / org member).
-  //    Streamed + persisted per page so a user in many orgs (thousands of
-  //    repos) doesn't accumulate the whole list in main-process heap.
-  await api.listReposStreamed({ onPage: upsertAll });
+  await api.listReposStreamed({ onPage: ingestPage });
 
-  // 2. Explicitly pull each org's repos — /user/repos can omit org repos when
-  //    the org has third-party access restrictions or many repos.
   try {
     const orgs = await api.listOrgs();
     for (const org of orgs.items || []) {
       try {
-        await api.listOrgReposStreamed(org.login, { onPage: upsertAll });
+        await api.listOrgReposStreamed(org.login, { onPage: ingestPage });
       } catch (err) {
         console.warn(`[github-sync] org repos ${org.login} failed:`, err.message);
       }
@@ -76,12 +108,42 @@ async function refreshRepos() {
     console.warn('[github-sync] list orgs failed:', err.message);
   }
 
-  return store.listRepos();
+  catalog.sort((a, b) => a.full_name.localeCompare(b.full_name));
+  const tracked = store.listRepos(pid);
+  const assignments = {};
+  for (const row of store.listSelectedRepos()) {
+    if (!assignments[row.full_name]) assignments[row.full_name] = [];
+    if (!assignments[row.full_name].includes(row.project_id)) {
+      assignments[row.full_name].push(row.project_id);
+    }
+  }
+
+  return { catalog, tracked, assignments };
 }
 
-function setRepoSelected(repoId, selected) {
-  store.setRepoSelected(repoId, selected);
-  return store.getRepo(repoId);
+function setRepoSelected(payload) {
+  const projectId = store.normalizeProjectId(payload?.projectId);
+  const selected = !!payload?.selected;
+
+  if (selected) {
+    const remote = payload?.remote;
+    if (!remote?.id || !remote?.full_name) throw new Error('Remote repo required to select');
+    const existing = store.getRepoByFullNameAndProject(remote.full_name, projectId);
+    const wasSelected = existing?.selected === 1;
+    const id = store.upsertRepo(remote, projectId, { selected: true });
+    return { repo: store.getRepo(id), syncNeeded: !wasSelected };
+  }
+
+  let repoId = payload?.repoId;
+  if (typeof repoId !== 'string' && payload?.remote?.full_name) {
+    const existing = store.getRepoByFullNameAndProject(payload.remote.full_name, projectId);
+    repoId = existing?.id;
+  }
+  if (typeof repoId !== 'string') throw new Error('Invalid repoId');
+  const repo = store.getRepo(repoId);
+  const wasSelected = repo?.selected === 1;
+  store.setRepoSelected(repoId, false, projectId);
+  return { repo: store.getRepo(repoId), syncNeeded: wasSelected };
 }
 
 // --- pull ------------------------------------------------------------------
@@ -313,31 +375,59 @@ async function listMentionableUsers(issueId) {
 
 // --- top-level -------------------------------------------------------------
 
-async function syncNow() {
-  if (_syncing) return { success: false, error: 'Sync already in progress' };
+function filterReposByProject(repos, projectId) {
+  if (projectId === undefined || projectId === null) return repos;
+  const pid = store.normalizeProjectId(projectId);
+  return repos.filter((r) => store.normalizeProjectId(r.project_id) === pid);
+}
+
+async function syncNowInternal(opts = {}) {
+  const notifyStatus = opts.notifyStatus !== false;
+  if (_syncing) {
+    scheduleSync(opts.projectId);
+    return { success: false, error: 'Sync already in progress' };
+  }
   _syncing = true;
-  broadcast('github:sync:status', { status: 'syncing' });
+  if (notifyStatus) broadcast('github:sync:status', { status: 'syncing' });
   try {
     await pushDirty();
-    const repos = store.listSelectedRepos();
+    const repos = filterReposByProject(store.listSelectedRepos(), opts.projectId);
     for (const repo of repos) {
       await pullRepo(repo);
     }
-    if (memoryMonitor.isMemoryPressureHigh()) {
-      console.warn('[github-sync] skipping calendar projection — memory pressure');
-    } else {
-      await calendarBridge.syncCalendar();
+    const lastSync = Date.now();
+    if (notifyStatus) {
+      broadcast('github:sync:status', { status: 'idle', lastSync });
     }
-    broadcast('github:sync:status', { status: 'idle', lastSync: Date.now() });
     broadcast('github:data:updated', {});
+
+    // Calendar projection must not block sync status / UI refresh.
+    if (!memoryMonitor.isMemoryPressureHigh()) {
+      void calendarBridge.syncCalendar(repos).catch((err) => {
+        console.warn('[github-sync] calendar projection failed:', err.message);
+      });
+    } else {
+      console.warn('[github-sync] skipping calendar projection — memory pressure');
+    }
+
     return { success: true, repos: repos.length };
   } catch (err) {
     console.error('[github-sync] syncNow failed:', err.message);
-    broadcast('github:sync:status', { status: 'error', error: err.message });
+    if (notifyStatus) broadcast('github:sync:status', { status: 'error', error: err.message });
     return { success: false, error: err.message };
   } finally {
     _syncing = false;
   }
+}
+
+/** Immediate sync (manual button). Optional projectId scopes to one vault. */
+async function syncNow(opts = {}) {
+  if (_syncTimer) {
+    clearTimeout(_syncTimer);
+    _syncTimer = null;
+    _pendingProjectId = undefined;
+  }
+  return syncNowInternal(opts);
 }
 
 /** Remove all local GitHub data + calendar projection (called on disconnect). */
@@ -355,6 +445,7 @@ module.exports = {
   init,
   refreshRepos,
   setRepoSelected,
+  scheduleSync,
   syncNow,
   pullRepo,
   createIssue,

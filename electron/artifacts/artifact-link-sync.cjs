@@ -59,7 +59,7 @@ function buildExcelGetOpts(queries, linkedResourceId, syncHints) {
  * Snapshot the linked workbook into every artifact pointing at linkedResourceId.
  * @param {{ sheetName?: string } | null | undefined} [syncHints] — e.g. active sheet after excelSetCell so sync matches the edited tab, not always worksheets[0]
  */
-async function syncLinkedArtifactsForResource(database, windowManager, linkedResourceId, syncHints) {
+async function syncLinkedArtifactsForResource(database, windowManager, linkedResourceId, syncHints, fileStorage) {
   if (!database || !linkedResourceId) return;
   const queries = database.getQueries();
 
@@ -110,7 +110,14 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
       if (serialized && windowManager?.broadcast) {
         windowManager.broadcast('artifact:updated', serialized);
       }
-      // linkedData mirror only — buildArtifactIndexPayload uses html+data, not linkedData (resource-text.cjs)
+      if (fileStorage) {
+        try {
+          const vaultStore = require('../storage/vault-store.cjs');
+          vaultStore.writeArtifactHtmlMirror({ id: rid }, { database, fileStorage });
+        } catch (e) {
+          console.warn('[artifact-link-sync] vault mirror failed', e?.message || e);
+        }
+      }
     } catch (e) {
       console.warn('[artifact-link-sync] row failed', e?.message || e);
     }

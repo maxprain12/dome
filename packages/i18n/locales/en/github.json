@@ -107,6 +107,8 @@
   "settings_refresh_list": "Refresh list",
   "settings_search_repo": "Search repository…",
   "settings_refresh_hint": "Click “Refresh list” to load your repositories.",
+  "settings_repo_assigned_here": "In this vault",
+  "settings_repo_in_other_vault": "Also in {{count}} other vault(s)",
   "private_badge": "private",
   "sync_repo_aria": "Sync {{repo}}",
   "minimal_select_repo": "Select a repository to start tracking.",

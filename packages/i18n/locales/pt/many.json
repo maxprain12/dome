@@ -8,6 +8,11 @@
   "clear_chat_aria": "Limpar histórico do chat",
   "close_chat_aria": "Fechar chat",
   "toggle_history": "Histórico de chats",
+  "more_actions": "Mais ações",
+  "fullscreen": "Expandir para a área principal",
+  "exit_fullscreen": "Voltar ao painel lateral",
+  "open_popout": "Abrir em janela separada",
+  "run_diagnostics_title": "Diagnóstico do run",
   "history": "Chats",
   "history_today": "HOJE",
   "history_yesterday": "ONTEM",
@@ -86,5 +91,6 @@
   "welcome_hints": "Use @ para recursos e / para escolher uma skill.",
   "composer_keyboard_hint": "Enter para enviar · Shift+Enter para nova linha",
   "error_report": "Reportar",
-  "error_copied": "Detalhes do erro copiados"
+  "error_copied": "Detalhes do erro copiados",
+  "view_section": "Exibição"
 }

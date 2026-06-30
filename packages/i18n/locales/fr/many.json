@@ -8,6 +8,11 @@
   "clear_chat_aria": "Effacer l'historique du chat",
   "close_chat_aria": "Fermer le chat",
   "toggle_history": "Historique des chats",
+  "more_actions": "Plus d'actions",
+  "fullscreen": "Agrandir dans la zone principale",
+  "exit_fullscreen": "Revenir au panneau latéral",
+  "open_popout": "Ouvrir dans une fenêtre séparée",
+  "run_diagnostics_title": "Diagnostic du run",
   "history": "Chats",
   "history_today": "AUJOURD'HUI",
   "history_yesterday": "HIER",
@@ -86,5 +91,6 @@
   "welcome_hints": "Utilisez @ pour les ressources et / pour choisir une compétence.",
   "composer_keyboard_hint": "Entrée pour envoyer · Maj+Entrée pour une nouvelle ligne",
   "error_report": "Signaler",
-  "error_copied": "Détails de l’erreur copiés"
+  "error_copied": "Détails de l’erreur copiés",
+  "view_section": "Affichage"
 }

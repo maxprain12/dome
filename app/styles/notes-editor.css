@@ -147,25 +147,25 @@
 .note-area .note-crumbs {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12.5px;
-  color: var(--tertiary-text);
-  flex: 1;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--dome-text-muted, var(--tertiary-text));
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
 }
 
 .note-area .note-crumb {
-  padding: 2px 6px;
-  border-radius: var(--radius-sm, 6px);
-  white-space: nowrap;
-  transition: background 140ms cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color 0.12s, background 0.12s;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  max-width: min(280px, 28vw);
+  max-width: 140px;
+  flex-shrink: 1;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .note-crumb-icon {
   display: inline-flex;
@@ -181,26 +181,26 @@ button.note-crumb--interactive {
   appearance: none;
   color: inherit;
 }
-.note-area .note-crumb:hover {
+button.note-crumb--interactive:hover {
   background: var(--dome-bg-hover, var(--bg-hover));
-  color: var(--text);
+  color: var(--dome-text, var(--text));
 }
 
-.note-area .note-crumb.current {
-  color: var(--text);
+.note-area .note-crumb--current {
+  color: var(--dome-text, var(--text));
   font-weight: 500;
 }
 .note-area .note-crumb-sep {
   color: var(--quaternary-text);
   flex-shrink: 0;
+  opacity: 0.5;
 }
 
 .note-crumb-text {
   min-width: 0;
-}
-
-.note-crumb-sep-lead {
-  opacity: 0.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .note-actionbar-title-input {
@@ -286,31 +286,6 @@ button.note-crumb--interactive {
   background: var(--border);
   margin: 0 4px;
   flex-shrink: 0;
-}
-
-.note-ai-assist-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 11px 5px 9px;
-  border-radius: 999px;
-  background: linear-gradient(
-    135deg,
-    var(--accent-soft-bg) 0%,
-    color-mix(in srgb, var(--accent-soft-bg) 90%, white) 100%
-  );
-  border: 1px solid color-mix(in srgb, var(--accent-soft) 40%, var(--border));
-  font-size: 11.5px;
-  color: var(--accent);
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.note-ai-assist-btn:hover {
-  background: var(--accent-soft-bg);
-  transform: translateY(-1px);
-  box-shadow: 0 1px 6px color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 /* ─── Doc scroll ─── */

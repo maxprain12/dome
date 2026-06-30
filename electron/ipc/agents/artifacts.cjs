@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const { serializeArtifactRecord, parseJsonState } = require('../../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../../artifacts/artifact-index-sync.cjs');
 const { syncLinkedArtifactsForResource } = require('../../artifacts/artifact-link-sync.cjs');
+const vaultStore = require('../../storage/vault-store.cjs');
+const { syncArtifactFeedersSidecar } = require('../../artifacts/feeder-vault-sidecar.cjs');
 
 function generateId() {
   return crypto.randomUUID();
@@ -28,7 +30,16 @@ function syncRuntimeDataFromState(queries, artifactRow, stateObj, now) {
   );
 }
 
-function register({ ipcMain, windowManager, database }) {
+function mirrorArtifactToVault(resourceId, deps) {
+  const mirror = vaultStore.writeArtifactHtmlMirror({ id: resourceId }, deps);
+  if (!mirror.success) {
+    console.warn('[Artifact] vault mirror write failed:', mirror.error);
+  }
+  return mirror;
+}
+
+function register({ ipcMain, windowManager, database, fileStorage }) {
+  const vaultDeps = { database, fileStorage };
   const fs = require('fs');
   const { dialog } = require('electron');
 
@@ -74,6 +85,8 @@ function register({ ipcMain, windowManager, database }) {
       });
       tx();
 
+      mirrorArtifactToVault(resourceId, vaultDeps);
+
       const queries2 = database.getQueries();
       const resource = queries2.getResourceById.get(resourceId);
       const artifact = queries2.getArtifactByResourceId.get(resourceId);
@@ -96,6 +109,7 @@ function register({ ipcMain, windowManager, database }) {
       return { success: false, error: 'Unauthorized' };
     }
     try {
+      vaultStore.readArtifactHtmlMirror({ id: resourceId, reconcile: true }, vaultDeps);
       const queries = database.getQueries();
       const artifact = queries.getArtifactByResourceId.get(resourceId);
       if (!artifact) return { success: false, error: 'Artifact not found' };
@@ -167,6 +181,9 @@ function register({ ipcMain, windowManager, database }) {
         }
       });
       tx();
+
+      mirrorArtifactToVault(resourceId, vaultDeps);
+      void syncArtifactFeedersSidecar(database, fileStorage, resourceId);
 
       const updated = queries.getArtifactByResourceId.get(resourceId);
       const resource = queries.getResourceById.get(resourceId);
@@ -339,6 +356,8 @@ function register({ ipcMain, windowManager, database }) {
       });
       tx();
 
+      mirrorArtifactToVault(resourceId, vaultDeps);
+
       const queries2 = database.getQueries();
       const resource = queries2.getResourceById.get(resourceId);
       const artifact = queries2.getArtifactByResourceId.get(resourceId);
@@ -381,8 +400,10 @@ function register({ ipcMain, windowManager, database }) {
 
       // Immediately sync Excel data into the artifact if a resource is being linked
       if (linkedResourceId) {
-        await syncLinkedArtifactsForResource(database, windowManager, linkedResourceId);
+        await syncLinkedArtifactsForResource(database, windowManager, linkedResourceId, undefined, fileStorage);
       }
+
+      mirrorArtifactToVault(resourceId, vaultDeps);
 
       return { success: true, data: serialized };
     } catch (error) {
@@ -404,7 +425,8 @@ function register({ ipcMain, windowManager, database }) {
       if (!artifact) return { success: false, error: 'Artifact not found' };
       if (!artifact.linked_resource_id) return { success: false, error: 'No linked resource' };
 
-      await syncLinkedArtifactsForResource(database, windowManager, artifact.linked_resource_id);
+      await syncLinkedArtifactsForResource(database, windowManager, artifact.linked_resource_id, undefined, fileStorage);
+      mirrorArtifactToVault(resourceId, vaultDeps);
       return { success: true };
     } catch (error) {
       console.error('[Artifact] Error refreshing linked data:', error);

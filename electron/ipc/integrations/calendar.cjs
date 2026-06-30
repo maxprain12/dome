@@ -8,10 +8,11 @@ const googleCalendarService = require('../../calendar/google-calendar-service.cj
 const calendarImportService = require('../../calendar/calendar-import-service.cjs');
 
 function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
-  ipcMain.handle('calendar:connectGoogle', async (event) => {
+  ipcMain.handle('calendar:connectGoogle', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      const result = await googleCalendarService.startOAuthFlow();
+      const projectId = params && typeof params === 'object' && params.projectId ? params.projectId : 'default';
+      const result = await googleCalendarService.startOAuthFlow(projectId);
       return { success: true, accountId: result.accountId };
     } catch (err) {
       console.error('[Calendar IPC] connectGoogle error:', err);
@@ -19,20 +20,23 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
     }
   });
 
-  ipcMain.handle('calendar:getGoogleAccounts', async (event) => {
+  ipcMain.handle('calendar:getGoogleAccounts', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      return calendarService.getGoogleAccounts();
+      const projectId = params && typeof params === 'object' ? params.projectId : null;
+      return calendarService.getGoogleAccounts(projectId);
     } catch (err) {
       console.error('[Calendar IPC] getGoogleAccounts error:', err);
       return { success: false, error: err.message, accounts: [] };
     }
   });
 
-  ipcMain.handle('calendar:listCalendars', async (event, accountId) => {
+  ipcMain.handle('calendar:listCalendars', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      return calendarService.listCalendars(accountId ?? null);
+      const accountId = params && typeof params === 'object' ? params.accountId ?? null : params ?? null;
+      const projectId = params && typeof params === 'object' ? params.projectId : null;
+      return calendarService.listCalendars(accountId, projectId);
     } catch (err) {
       console.error('[Calendar IPC] listCalendars error:', err);
       return { success: false, error: err.message, calendars: [] };
@@ -45,11 +49,11 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
       if (!params || typeof params !== 'object') {
         return { success: false, error: 'Invalid params', events: [] };
       }
-      const { startMs, endMs, calendarIds } = params;
+      const { startMs, endMs, calendarIds, projectId } = params;
       if (typeof startMs !== 'number' || typeof endMs !== 'number') {
         return { success: false, error: 'startMs and endMs must be numbers', events: [] };
       }
-      const result = await calendarService.listEvents(startMs, endMs, { calendarIds });
+      const result = await calendarService.listEvents(startMs, endMs, { calendarIds, projectId });
       return result;
     } catch (err) {
       console.error('[Calendar IPC] listEvents error:', err);
@@ -99,10 +103,11 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
     }
   });
 
-  ipcMain.handle('calendar:syncNow', async (event) => {
+  ipcMain.handle('calendar:syncNow', async (event, params) => {
     try {
       validateSender(event, windowManager);
-      const result = await calendarService.syncNow();
+      const projectId = params && typeof params === 'object' ? params.projectId : null;
+      const result = await calendarService.syncNow(projectId);
       if (result.success) {
         windowManager.broadcast('calendar:syncStatus', {
           status: 'idle',
@@ -208,7 +213,8 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
       const windowMinutes =
         typeof params?.windowMinutes === 'number' && params.windowMinutes > 0 ? params.windowMinutes : 10080;
       const limit = typeof params?.limit === 'number' && params.limit > 0 ? params.limit : 20;
-      return await calendarService.getUpcomingEvents(windowMinutes, limit);
+      const projectId = params?.projectId;
+      return await calendarService.getUpcomingEvents(windowMinutes, limit, projectId);
     } catch (err) {
       console.error('[Calendar IPC] getUpcoming error:', err);
       return { success: false, error: err.message, events: [] };

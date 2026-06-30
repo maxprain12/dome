@@ -26,6 +26,7 @@ const {
   getToolStepPatch,
 } = require('./run-helpers.cjs');
 const { capResultText } = require('../tools/tool-result-cap.cjs');
+const runUiPhase = require('./run-ui-phase.cjs');
 const runStore = require('./run-store.cjs');
 const { topologicalLevels, mergePayloads, getInputPayloads } = require('./workflow-dag.cjs');
 const {
@@ -261,17 +262,48 @@ function tryPersistRunAssistantMessage(sessionId, persistOpts, context) {
   }
 }
 
+function emitRunUiPhase(runId, context, phase, detail) {
+  if (!runUiPhase.isUiPhase(phase)) return;
+  const detailKey = typeof detail === 'string' ? detail : null;
+  if (context.uiPhase === phase && context.uiPhaseDetail === detailKey) return;
+  context.uiPhase = phase;
+  context.uiPhaseDetail = detailKey;
+  const labelKey = runUiPhase.labelKeyForPhase(phase, detailKey ?? undefined);
+  patchRun(runId, {
+    metadata: {
+      uiPhase: phase,
+      uiLabelKey: labelKey,
+      uiPhaseDetail: detailKey,
+    },
+  });
+  emit(RUN_CHUNK_CHANNEL, {
+    runId,
+    type: 'phase',
+    phase,
+    ...(labelKey ? { labelKey } : {}),
+    ...(detailKey ? { detail: detailKey } : {}),
+  });
+}
+
+function transitionUiPhaseFromChunk(runId, context, chunkType, detail) {
+  const phase = runUiPhase.phaseFromChunkType(chunkType);
+  if (!phase) return;
+  emitRunUiPhase(runId, context, phase, detail);
+}
+
 function createRunChunkEmitter(runId, context) {
   return (data) => {
     const heartbeat = now();
     context.lastHeartbeatAt = heartbeat;
     if (data.type === 'thinking' && data.text) {
+      transitionUiPhaseFromChunk(runId, context, 'thinking');
       context.fullThinking += data.text;
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'thinking', text: data.text });
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
     if (data.type === 'text' && data.text) {
+      transitionUiPhaseFromChunk(runId, context, 'text');
       context.fullResponse += data.text;
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'text', text: data.text });
       // Feed chunk to streaming TTS if this run requested autoSpeak
@@ -286,6 +318,7 @@ function createRunChunkEmitter(runId, context) {
       return;
     }
     if (data.type === 'tool_call' && data.toolCall) {
+      transitionUiPhaseFromChunk(runId, context, 'tool_call', data.toolCall.name);
       let args = {};
       try {
         args = typeof data.toolCall.arguments === 'string'
@@ -355,11 +388,38 @@ function createRunChunkEmitter(runId, context) {
       patchRun(runId, { lastHeartbeatAt: heartbeat });
       return;
     }
+    if (data.type === 'tool_progress' && data.toolCallId != null) {
+      transitionUiPhaseFromChunk(runId, context, 'tool_progress', data.toolName);
+      emit(RUN_CHUNK_CHANNEL, {
+        runId,
+        type: 'tool_progress',
+        toolCallId: data.toolCallId,
+        toolName: data.toolName,
+        partialResult: data.partialResult,
+      });
+      patchRun(runId, { lastHeartbeatAt: heartbeat });
+      return;
+    }
+    if (data.type === 'harness' && data.event) {
+      if (data.event === 'turn_start') {
+        emitRunUiPhase(runId, context, 'thinking');
+      }
+      emit(RUN_CHUNK_CHANNEL, {
+        runId,
+        type: 'harness',
+        event: data.event,
+        payload: data.payload ?? null,
+      });
+      patchRun(runId, { lastHeartbeatAt: heartbeat });
+      return;
+    }
     if (data.type === 'budget' && data.breakdown) {
+      transitionUiPhaseFromChunk(runId, context, 'budget');
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'budget', breakdown: data.breakdown });
       return;
     }
     if (data.type === 'compaction') {
+      transitionUiPhaseFromChunk(runId, context, 'compaction');
       emit(RUN_CHUNK_CHANNEL, {
         runId,
         type: 'compaction',
@@ -371,6 +431,7 @@ function createRunChunkEmitter(runId, context) {
       return;
     }
     if (data.type === 'error' && data.error) {
+      transitionUiPhaseFromChunk(runId, context, 'error');
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'error', error: data.error });
       patchRun(runId, {
         status: 'failed',
@@ -380,6 +441,7 @@ function createRunChunkEmitter(runId, context) {
       return;
     }
     if (data.type === 'done') {
+      transitionUiPhaseFromChunk(runId, context, 'done');
       emit(RUN_CHUNK_CHANNEL, { runId, type: 'done' });
       return;
     }
@@ -406,6 +468,7 @@ function createRunChunkEmitter(runId, context) {
       Array.isArray(data.actionRequests) &&
       data.actionRequests.length > 0
     ) {
+      transitionUiPhaseFromChunk(runId, context, 'interrupt');
       context.threadId = data.threadId || context.threadId;
       const reviewConfigs = Array.isArray(data.reviewConfigs) ? data.reviewConfigs : [];
       patchRun(runId, {
@@ -441,6 +504,8 @@ async function executeAgentRun(runId, params) {
     threadId: context.threadId,
     metadata: {
       kind: 'harness',
+      uiPhase: 'starting',
+      uiLabelKey: runUiPhase.labelKeyForPhase('starting'),
       provider: context.provider,
       model: context.model,
       mcpServerIds: params.mcpServerIds ?? [],
@@ -451,6 +516,7 @@ async function executeAgentRun(runId, params) {
       toolIds: params.toolIds ?? [],
     },
   });
+  emitRunUiPhase(runId, context, 'starting');
   appendRunStep({
     runId,
     stepType: 'info',
@@ -650,6 +716,8 @@ async function startAgentRun(params) {
     threadId,
     metadata: {
       kind: 'harness',
+      uiPhase: 'queued',
+      uiLabelKey: runUiPhase.labelKeyForPhase('queued'),
       provider: providerConfig.provider,
       model: providerConfig.model,
       contextId: params.contextId ?? null,
@@ -675,6 +743,8 @@ async function startAgentRun(params) {
     autoSpeak,
     voiceLanguage,
     projectId: params.projectId ?? 'default',
+    uiPhase: 'queued',
+    uiPhaseDetail: null,
   });
   if (autoSpeak) {
     streamingTts.start(run.id, { language: voiceLanguage });
@@ -1125,6 +1195,24 @@ function recoverStuckRuns() {
     const queuedStaleCutoff = ts - RUN_QUEUED_ORPHAN_MS;
     const approvalStaleCutoff = ts - RUN_WAITING_APPROVAL_STALE_MS;
 
+    const runningIds = db.prepare(`
+      SELECT id FROM automation_runs
+      WHERE status = 'running'
+        AND COALESCE(last_heartbeat_at, updated_at, started_at) < ?
+    `).all(runningStaleCutoff).map((row) => row.id);
+
+    const queuedIds = db.prepare(`
+      SELECT id FROM automation_runs
+      WHERE status = 'queued'
+        AND COALESCE(started_at, updated_at) < ?
+    `).all(queuedStaleCutoff).map((row) => row.id);
+
+    const approvalIds = db.prepare(`
+      SELECT id FROM automation_runs
+      WHERE status = 'waiting_approval'
+        AND COALESCE(updated_at, started_at) < ?
+    `).all(approvalStaleCutoff).map((row) => row.id);
+
     // Fail runs that were actively executing (running) and missed heartbeat.
     const runningResult = db.prepare(`
       UPDATE automation_runs
@@ -1163,6 +1251,11 @@ function recoverStuckRuns() {
       + (approvalResult?.changes ?? 0);
     if (recovered > 0) {
       console.log(`[RunEngine] recoverStuckRuns: cleared ${recovered} stale run(s)`);
+      const recoveredIds = [...new Set([...runningIds, ...queuedIds, ...approvalIds])];
+      for (const runId of recoveredIds) {
+        const run = getRun(runId);
+        if (run) emit(RUN_EVENT_CHANNEL, { run });
+      }
     }
   } catch (e) {
     console.warn('[RunEngine] recoverStuckRuns failed:', e?.message);

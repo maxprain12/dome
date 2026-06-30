@@ -247,6 +247,16 @@ function register({ ipcMain, windowManager, database, validateSender }) {
         decision ?? null,
         now
       );
+      touchChatSessionUpdatedAt(queries, sessionId);
+      broadcastChatSessionUpdated(windowManager, sessionId);
+      if (windowManager?.broadcast) {
+        windowManager.broadcast('chat:trace-appended', {
+          sessionId,
+          traceId: id,
+          messageId: messageId ?? null,
+          at: now,
+        });
+      }
       return { success: true, data: { id } };
     } catch (error) {
       console.error('[DB] Error appending chat trace:', error);

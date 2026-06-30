@@ -20,6 +20,14 @@ const {
 } = require('./artifact-data-merge.cjs');
 const { serializeFeederRow } = require('./feeder-serialize.cjs');
 const { checkPython } = require('../documents/notebook-python.cjs');
+const vaultStore = require('../storage/vault-store.cjs');
+const fileStorage = require('../storage/file-storage.cjs');
+const {
+  writeFeederSidecar,
+  writeFeederRuntimeSidecar,
+  writeFeederRunSidecar,
+  readFeederScript,
+} = require('../artifacts/feeder-vault-sidecar.cjs');
 
 const MAX_BUFFER = 10 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -277,6 +285,12 @@ function applyDataToArtifact(database, windowManager, opts) {
   if (serialized && windowManager?.broadcast) {
     windowManager.broadcast('artifact:updated', serialized);
   }
+  try {
+    const fileStorage = require('../storage/file-storage.cjs');
+    vaultStore.writeArtifactHtmlMirror({ id: opts.artifactResourceId }, { database, fileStorage });
+  } catch (e) {
+    console.warn('[Feeders] artifact vault mirror failed:', e?.message || e);
+  }
   afterArtifactMutation(database, opts.artifactResourceId);
 
   return { data: nextData, serialized };
@@ -361,6 +375,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
     secretValues = resolvedSecrets;
 
     let scriptPath = null;
+    const scriptSource = readFeederScript(database, fileStorage, feederId) || String(feeder.script || '');
     if (feeder.interpreter !== 'curl') {
       const ext =
         feeder.interpreter === 'python3'
@@ -369,7 +384,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
             ? '.js'
             : '.sh';
       scriptPath = path.join(workspace, `feeder${ext}`);
-      await fsp.writeFile(scriptPath, String(feeder.script || ''), 'utf8');
+      await fsp.writeFile(scriptPath, scriptSource, 'utf8');
       if (feeder.interpreter !== 'node') {
         await fsp.chmod(scriptPath, 0o700);
       }
@@ -468,6 +483,10 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
       windowManager.broadcast('feeder:run-completed', { feederId, run: runRecord });
     }
 
+    await writeFeederRuntimeSidecar(database, fileStorage, feederId, parsed, feeder.slot);
+    await writeFeederRunSidecar(database, fileStorage, feederId, runRecord);
+    await writeFeederSidecar(database, fileStorage, feederId);
+
     return { success: true, run: runRecord, feeder };
   } catch (err) {
     const finishedAt = Date.now();
@@ -505,6 +524,7 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
     if (windowManager?.broadcast) {
       windowManager.broadcast('feeder:run-completed', { feederId, run: runRecord, error: message });
     }
+    await writeFeederRunSidecar(database, fileStorage, feederId, runRecord);
     throw err;
   }
 }
@@ -561,6 +581,7 @@ function createFeederRecord(database, input) {
     now,
     now,
   );
+  void writeFeederSidecar(database, fileStorage, id);
   return serializeFeederRow(queries.getFeederById.get(id));
 }
 
@@ -576,6 +597,7 @@ function updateFeederScript(database, feederId, script) {
   const scriptHash = hashScript(script);
   const now = Date.now();
   queries.updateFeederScript.run(String(script), scriptHash, 0, null, now, feederId);
+  void writeFeederSidecar(database, fileStorage, feederId);
   return serializeFeederRow(queries.getFeederById.get(feederId));
 }
 
@@ -589,6 +611,7 @@ function approveFeeder(database, feederId) {
   if (!existing) throw new Error('Feeder not found');
   const now = Date.now();
   queries.approveFeeder.run(1, existing.script_hash, now, feederId);
+  void writeFeederSidecar(database, fileStorage, feederId);
   return serializeFeederRow(queries.getFeederById.get(feederId));
 }
 

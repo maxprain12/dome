@@ -32,6 +32,7 @@ const path = require('path');
 const { rrfMerge } = require('../storage/hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
+const vaultStore = require('../storage/vault-store.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
 const { progress: studioProgress, createRunId } = require('../services/studio-progress.cjs');
 
@@ -1628,6 +1629,30 @@ async function resourceCreate(data) {
       }
     }
 
+    // Mirror to the physical vault so agent-created items exist on disk. The vault
+    // is the source of truth and the workspace reflects on-disk state; without this
+    // the agent's folders/notes lived only in SQLite (vault_path NULL) and the
+    // physical file never appeared. Mirrors electron/ipc/data/database.cjs createResource.
+    if (type === 'folder') {
+      try {
+        vaultStore.createFolderOnDisk(id, { database, fileStorage });
+      } catch (e) {
+        console.warn('[AI Tools] createFolderOnDisk failed:', e?.message);
+      }
+    }
+    if (type === 'note' && content) {
+      try {
+        const { extractPlainTextFromProseMirror, stripTags } = require('../services/resource-text.cjs');
+        const raw = String(content || '');
+        let text = '';
+        if (raw.trim().startsWith('{')) {
+          try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
+        }
+        if (!text) text = stripTags(raw);
+        if (text) database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, id);
+      } catch { /* non-fatal */ }
+    }
+
     const resource = {
       id,
       title: data.title.trim(),
@@ -3061,10 +3086,11 @@ async function githubUpdateIssue({ issue_id, title, body, state, milestone_numbe
     if (body != null) patch.body = body;
     if (state === 'open' || state === 'closed') patch.state = state;
     if (milestone_number !== undefined) patch.milestoneNumber = milestone_number;
-    const issue = githubStore().updateLocalIssue(issue_id, patch);
+    const { issue, changed } = githubStore().updateLocalIssue(issue_id, patch);
     if (!issue) return { success: false, error: 'Issue not found' };
-    // Push to GitHub + refresh.
-    void githubSyncService().syncNow().catch(() => {});
+    if (changed) {
+      void githubSyncService().scheduleSync(githubStore().getRepo(issue.repo_id)?.project_id);
+    }
     return { success: true, source: 'github', issue };
   } catch (err) {
     return { success: false, error: err.message };
@@ -4084,6 +4110,7 @@ async function artifactGet(args) {
   try {
     const resourceId = args?.resource_id ?? args?.resourceId;
     if (!resourceId) return { success: false, error: 'resource_id is required' };
+    vaultStore.readArtifactHtmlMirror({ id: resourceId, reconcile: true }, { database, fileStorage });
     const queries = database.getQueries();
     const artifact = queries.getArtifactByResourceId.get(resourceId);
     if (!artifact) return { success: false, error: 'Artifact not found' };
@@ -4141,6 +4168,8 @@ async function artifactCreate(args) {
     });
     tx();
 
+    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
+
     const resource = queries.getResourceById.get(resourceId);
     const artifact = queries.getArtifactByResourceId.get(resourceId);
     const serialized = serializeArtifactRecord(artifact, resource, queries);
@@ -4193,6 +4222,8 @@ async function artifactUpdateState(args) {
       }
     });
     tx();
+
+    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
 
     const updated = queries.getArtifactByResourceId.get(resourceId);
     const resource = queries.getResourceById.get(resourceId);
@@ -4249,6 +4280,8 @@ async function artifactMergeData(args) {
     });
     tx();
 
+    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
+
     const updated = queries.getArtifactByResourceId.get(resourceId);
     const resource = queries.getResourceById.get(resourceId);
     const serialized = serializeArtifactRecord(updated, resource, queries);
@@ -4285,6 +4318,8 @@ async function artifactDelete(args) {
         console.warn('[AI Tools] artifactDelete file cleanup:', e.message);
       }
     }
+
+    vaultStore.removeMirrorForResource(resourceId, { database, fileStorage });
 
     queries.deleteResource.run(resourceId);
 
@@ -4338,8 +4373,11 @@ async function artifactLinkResource(args) {
         windowManagerRef,
         linkedResourceId,
         sheetName ? { sheetName: String(sheetName) } : undefined,
+        fileStorage,
       );
     }
+
+    vaultStore.writeArtifactHtmlMirror({ id: resourceId }, { database, fileStorage });
 
     return {
       success: true,

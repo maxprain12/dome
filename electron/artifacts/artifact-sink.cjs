@@ -68,6 +68,13 @@ function applyArtifactSinksForCompletedRun(database, windowManager, opts) {
     if (serialized && windowManager?.broadcast) {
       windowManager.broadcast('artifact:updated', serialized);
     }
+    try {
+      const fileStorage = require('../storage/file-storage.cjs');
+      const vaultStore = require('../storage/vault-store.cjs');
+      vaultStore.writeArtifactHtmlMirror({ id: artifactResourceId }, { database, fileStorage });
+    } catch (e) {
+      console.warn('[artifact-sink] vault mirror failed', e?.message || e);
+    }
     afterArtifactMutation(database, artifactResourceId);
   }
 }

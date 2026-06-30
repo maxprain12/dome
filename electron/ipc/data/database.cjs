@@ -7,6 +7,14 @@ const lancedbSemantic = require('../../services/lancedb-semantic.cjs');
 const autoMetadata = require('../../ai/auto-metadata.cjs');
 const { isSecretSettingKey, readSettingSecret, writeSettingSecret, maskSettingForRenderer, isMaskedSecret } = require('../../core/settings-secrets.cjs');
 
+/** Accept `{ resourceId, … }` (preload) or positional args (dev browser IPC shim). */
+function pickPairPayload(arg1, arg2, keyA, keyB) {
+  if (arg1 && typeof arg1 === 'object' && !Array.isArray(arg1)) {
+    return { [keyA]: arg1[keyA], [keyB]: arg1[keyB] };
+  }
+  return { [keyA]: arg1, [keyB]: arg2 };
+}
+
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   semanticIndexScheduler.init(database);
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
@@ -312,6 +320,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         resource.updated_at
       );
 
+      if (resource.type === 'folder') {
+        try {
+          vaultStore.createFolderOnDisk(resource.id, { database, fileStorage });
+        } catch (e) {
+          console.warn('[DB] createFolderOnDisk failed:', e?.message);
+        }
+      }
+
       // Seed the plain-text cache for notes created with content (e.g. by an
       // AI tool) so FTS/preview/semantic search show readable text immediately.
       // The .md mirror is written on first open/edit.
@@ -480,8 +496,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // sync with this DB write (covers AI/tool edits as well as renderer saves).
       try {
         if (current.type === 'folder') {
-          if (resource.title !== undefined && resource.title !== current.title) {
-            vaultStore.relocateDescendants(resource.id, { database, fileStorage });
+          if (
+            (resource.title !== undefined && resource.title !== current.title)
+            || (resource.folder_id !== undefined && resource.folder_id !== current.folder_id)
+          ) {
+            vaultStore.relocateFolder(resource.id, { database, fileStorage });
           }
         } else if (current.type === 'note') {
           // Refresh the plain-text cache from the (possibly AI-updated) Tiptap
@@ -1842,6 +1861,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       }
       // Remove the Markdown mirror from the vault (no-op for non-notes).
       try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
+      if (resource?.type === 'folder') {
+        try { vaultStore.removeFolderFromDisk(id, { database, fileStorage }); } catch { /* non-fatal */ }
+      }
       // Delete from database
       queries.deleteResource.run(id);
 
@@ -1901,7 +1923,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   }
 
   // Move resource (and folder subtree) to another project root (clears folder_id on root only)
-  ipcMain.handle('db:resources:moveToProject', (event, { resourceId, projectId: targetProjectId }) => {
+  ipcMain.handle('db:resources:moveToProject', (event, arg1, arg2) => {
+    const { resourceId, projectId: targetProjectId } = pickPairPayload(arg1, arg2, 'resourceId', 'projectId');
     try {
       validateSender(event, windowManager);
       if (!resourceId || !targetProjectId) {
@@ -1938,6 +1961,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       });
       tx();
 
+      // Mirror on disk: move files/folders from source project vault to target vault.
+      try {
+        const sourceProjectId = resource.project_id;
+        vaultStore.relocateSubtreeToProject(resourceId, sourceProjectId, { database, fileStorage });
+      } catch (e) {
+        console.warn('[DB] vault relocate (moveToProject) failed:', e?.message);
+      }
+
       for (const id of subtreeIds) {
         const prev = snapshot.get(id);
         const newFolderId = id === resourceId ? null : prev?.folder_id ?? null;
@@ -1959,7 +1990,8 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   // Move resource to a folder
-  ipcMain.handle('db:resources:moveToFolder', (event, { resourceId, folderId }) => {
+  ipcMain.handle('db:resources:moveToFolder', (event, arg1, arg2) => {
+    const { resourceId, folderId } = pickPairPayload(arg1, arg2, 'resourceId', 'folderId');
     try {
       validateSender(event, windowManager);
       const queries = database.getQueries();
@@ -1984,7 +2016,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Keep the on-disk vault tree in sync: move the .md (and any descendants).
       try {
         const moved = queries.getResourceById.get(resourceId);
-        if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
+        if (moved?.type === 'folder') vaultStore.relocateFolder(resourceId, { database, fileStorage });
         else vaultStore.relocateResource(resourceId, { database, fileStorage });
       } catch (e) { console.warn('[DB] vault relocate (move) failed:', e?.message); }
 
@@ -2011,7 +2043,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
 
       try {
         const moved = queries.getResourceById.get(resourceId);
-        if (moved?.type === 'folder') vaultStore.relocateDescendants(resourceId, { database, fileStorage });
+        if (moved?.type === 'folder') vaultStore.relocateFolder(resourceId, { database, fileStorage });
         else vaultStore.relocateResource(resourceId, { database, fileStorage });
       } catch (e) { console.warn('[DB] vault relocate (removeFromFolder) failed:', e?.message); }
 
@@ -2067,6 +2099,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           }
         }
         try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
+        if (resource?.type === 'folder') {
+          try { vaultStore.removeFolderFromDisk(id, { database, fileStorage }); } catch { /* non-fatal */ }
+        }
         queries.deleteResource.run(id);
         windowManager.broadcast('resource:deleted', { id });
       }

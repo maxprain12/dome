@@ -76,7 +76,7 @@ function generatePKCE() {
  * Start Google Calendar OAuth flow
  * Opens browser, returns Promise that resolves when callback is received
  */
-function startOAuthFlow() {
+function startOAuthFlow(projectId = 'default') {
   return new Promise((resolve, reject) => {
     const clientId = getClientId();
     if (!clientId) {
@@ -84,8 +84,9 @@ function startOAuthFlow() {
       return;
     }
 
+    const pid = typeof projectId === 'string' && projectId.trim() ? projectId.trim() : 'default';
     const { codeVerifier, codeChallenge } = generatePKCE();
-    const state = Buffer.from(JSON.stringify({ ts: Date.now(), nonce: crypto.randomBytes(16).toString('hex') })).toString('base64url');
+    const state = Buffer.from(JSON.stringify({ ts: Date.now(), nonce: crypto.randomBytes(16).toString('hex'), projectId: pid })).toString('base64url');
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -168,9 +169,15 @@ async function handleOAuthCallback(url) {
       expires_at: expires_in ? Date.now() + expires_in * 1000 : null,
     });
 
+    let oauthProjectId = 'default';
+    try {
+      const statePayload = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
+      if (statePayload?.projectId) oauthProjectId = String(statePayload.projectId);
+    } catch { /* keep default */ }
+
     const q = database.getQueries();
     const now = Date.now();
-    q.createCalendarAccount.run(accountId, 'google', 'pending@google.com', credentials, 'active', null, null, now, now);
+    q.createCalendarAccount.run(accountId, 'google', 'pending@google.com', credentials, 'active', null, null, oauthProjectId, now, now);
 
     _pendingOAuth.resolve({ accountId, accessToken: access_token });
     _pendingOAuth = null;
@@ -376,9 +383,12 @@ async function deleteGoogleEvent(accountId, calendarId, googleEventId) {
 /**
  * Sync all Google accounts: pull events, merge into local DB
  */
-async function syncAll() {
+async function syncAll(projectId = null) {
   const q = database.getQueries();
-  const accounts = q.getCalendarAccountsByProvider.all('google');
+  const pid = projectId && String(projectId).trim() ? String(projectId).trim() : null;
+  const accounts = pid && q.getCalendarAccountsByProviderAndProject
+    ? q.getCalendarAccountsByProviderAndProject.all('google', pid)
+    : q.getCalendarAccountsByProvider.all('google');
   if (accounts.length === 0) {
     return { success: true, synced: false, message: 'No Google accounts connected' };
   }

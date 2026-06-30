@@ -3583,6 +3583,292 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  if (version < 55) {
+    console.log('[DB] Running migration 55 - folder vault_path backfill (vault = source of truth)');
+    try {
+      const userData = app ? app.getPath('userData') : null;
+      if (userData) {
+        const vs = require('../../storage/vault-store.cjs');
+        const folders = db
+          .prepare("SELECT id, project_id, folder_id, title FROM resources WHERE type = 'folder' AND (vault_path IS NULL OR trim(vault_path) = '') ORDER BY created_at ASC")
+          .all();
+        const fsMod = require('fs');
+        const pathMod = require('path');
+        const defaultVault = pathMod.join(userData, 'dome-files', 'vault');
+        const projRoot = (projectId) => {
+          const p = db.prepare('SELECT name, vault_root FROM projects WHERE id = ?').get(projectId);
+          const custom = p && typeof p.vault_root === 'string' ? p.vault_root.trim() : '';
+          if (custom) return custom;
+          return pathMod.join(defaultVault, vs.sanitizeSegment((p && p.name) || 'Library', 'Library'));
+        };
+        const folderDirFromTitles = (folderId) => {
+          const segs = [];
+          const seen = new Set();
+          let fid = folderId;
+          while (fid && !seen.has(fid)) {
+            seen.add(fid);
+            const f = db.prepare('SELECT title, folder_id, type FROM resources WHERE id = ?').get(fid);
+            if (!f || f.type !== 'folder') break;
+            segs.unshift(vs.sanitizeSegment(f.title, 'Folder'));
+            fid = f.folder_id || null;
+          }
+          return segs.join('/');
+        };
+        const setVaultPath = db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?');
+        let updated = 0;
+        for (const f of folders) {
+          try {
+            const dir = folderDirFromTitles(f.folder_id);
+            const seg = vs.sanitizeSegment(f.title, 'Folder');
+            let rel = dir ? `${dir}/${seg}` : seg;
+            const owner = db.prepare("SELECT id FROM resources WHERE project_id = ? AND vault_path = ? AND type = 'folder' AND id != ?").get(f.project_id, rel, f.id);
+            if (owner) {
+              const shortId = String(f.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(-6) || 'dup';
+              rel = dir ? `${dir}/${seg} (${shortId})` : `${seg} (${shortId})`;
+            }
+            const abs = pathMod.join(projRoot(f.project_id), rel);
+            if (!fsMod.existsSync(abs)) fsMod.mkdirSync(abs, { recursive: true });
+            setVaultPath.run(rel, f.id);
+            updated += 1;
+          } catch (e) {
+            console.warn('[DB] Migration 55 folder backfill skip:', f.id, e.message);
+          }
+        }
+        console.log(`[DB] Migration 55 backfilled ${updated} folder vault_path(s)`);
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '55', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '55', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 55 complete - folder vault_path backfill');
+    } catch (error) {
+      console.error('[DB] Migration 55 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 56) {
+    console.log('[DB] Running migration 56 - scope calendar/email accounts to vault (project_id)');
+    try {
+      const calCols = new Set(db.prepare('PRAGMA table_info(calendar_accounts)').all().map((c) => c.name));
+      if (!calCols.has('project_id')) {
+        db.exec("ALTER TABLE calendar_accounts ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default'");
+        db.exec('CREATE INDEX IF NOT EXISTS idx_calendar_accounts_project ON calendar_accounts(project_id)');
+      }
+      const emailCols = new Set(db.prepare('PRAGMA table_info(email_accounts)').all().map((c) => c.name));
+      if (!emailCols.has('project_id')) {
+        db.exec("ALTER TABLE email_accounts ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default'");
+        db.exec('CREATE INDEX IF NOT EXISTS idx_email_accounts_project ON email_accounts(project_id)');
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '56', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '56', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 56 complete - calendar/email project_id columns');
+    } catch (error) {
+      console.error('[DB] Migration 56 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 57) {
+    console.log('[DB] Running migration 57 - scope GitHub repos to vault (project_id)');
+    try {
+      const ghRepoCols = new Set(db.prepare('PRAGMA table_info(github_repos)').all().map((c) => c.name));
+      if (!ghRepoCols.has('project_id')) {
+        db.exec("ALTER TABLE github_repos ADD COLUMN project_id TEXT NOT NULL DEFAULT 'default'");
+      }
+
+      const projectSlug = (projectId) =>
+        crypto.createHash('sha1').update(String(projectId)).digest('hex').slice(0, 12);
+      const newRepoId = (remoteId, projectId) => `ghr-${remoteId}-${projectSlug(projectId)}`;
+      const linkId = (entityType, entityId) =>
+        `ghcl-${entityType}-${crypto.createHash('sha1').update(String(entityId)).digest('hex').slice(0, 12)}`;
+
+      const rewireGithubRepoIds = () => {
+        const repos = db.prepare('SELECT * FROM github_repos').all();
+        if (repos.length === 0) return;
+
+        const needsRewire = repos.some((repo) => {
+          const projectId = repo.project_id || 'default';
+          return repo.id !== newRepoId(repo.remote_id, projectId);
+        });
+        if (!needsRewire) {
+          console.log('[DB] Migration 57 - GitHub repo ids already vault-scoped, skipping rewire');
+          return;
+        }
+
+        // PRAGMA foreign_keys must run outside a transaction (no-op inside tx).
+        db.pragma('foreign_keys = OFF');
+        try {
+          for (const repo of repos) {
+            const projectId = repo.project_id || 'default';
+            const newId = newRepoId(repo.remote_id, projectId);
+            if (repo.id === newId) continue;
+            const oldId = repo.id;
+
+            // Parent id first; child rows still reference oldId until updated below.
+            db.prepare('UPDATE github_repos SET id = ? WHERE id = ?').run(newId, oldId);
+
+            for (const m of db.prepare('SELECT id, number FROM github_milestones WHERE repo_id = ?').all(oldId)) {
+              const newMid = `ghm-${newId}-${m.number}`;
+              const oldCompleted = `${m.id}:completed`;
+              const newCompleted = `${newMid}:completed`;
+              for (const [oldEid, newEid] of [
+                [m.id, newMid],
+                [oldCompleted, newCompleted],
+              ]) {
+                const link = db
+                  .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
+                  .get('milestone', oldEid);
+                if (link) {
+                  db.prepare(
+                    'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
+                  ).run(linkId('milestone', newEid), newEid, 'milestone', oldEid);
+                }
+              }
+              db.prepare('UPDATE github_milestones SET id = ?, repo_id = ? WHERE id = ?').run(newMid, newId, m.id);
+            }
+
+            for (const issue of db.prepare('SELECT id, number FROM github_issues WHERE repo_id = ?').all(oldId)) {
+              const newIid = `ghi-${newId}-${issue.number}`;
+              const link = db
+                .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
+                .get('issue', issue.id);
+              if (link) {
+                db.prepare(
+                  'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
+                ).run(linkId('issue', newIid), newIid, 'issue', issue.id);
+              }
+              db.prepare('UPDATE github_issues SET id = ?, repo_id = ? WHERE id = ?').run(newIid, newId, issue.id);
+            }
+
+            for (const branch of db.prepare('SELECT id, name FROM github_branches WHERE repo_id = ?').all(oldId)) {
+              const newBid = `ghb-${newId}-${projectSlug(branch.name)}`;
+              db.prepare('UPDATE github_branches SET id = ?, repo_id = ? WHERE id = ?').run(newBid, newId, branch.id);
+            }
+
+            for (const rel of db.prepare('SELECT id, remote_id FROM github_releases WHERE repo_id = ?').all(oldId)) {
+              const newRid = `ghrel-${newId}-${rel.remote_id}`;
+              const link = db
+                .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
+                .get('release', rel.id);
+              if (link) {
+                db.prepare(
+                  'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
+                ).run(linkId('release', newRid), newRid, 'release', rel.id);
+              }
+              db.prepare('UPDATE github_releases SET id = ?, repo_id = ? WHERE id = ?').run(newRid, newId, rel.id);
+            }
+
+            for (const st of db.prepare('SELECT id, resource FROM github_sync_state WHERE repo_id = ?').all(oldId)) {
+              const newSid = `ghs-${newId}-${st.resource}`;
+              db.prepare('UPDATE github_sync_state SET id = ?, repo_id = ? WHERE id = ?').run(newSid, newId, st.id);
+            }
+          }
+        } finally {
+          db.pragma('foreign_keys = ON');
+        }
+      };
+
+      rewireGithubRepoIds();
+
+      // Rebuild github_repos so UNIQUE(full_name, project_id) replaces UNIQUE(full_name).
+      const repoSchema =
+        db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'github_repos'").get()?.sql || '';
+      const hasCompositeUnique = repoSchema.includes('UNIQUE(full_name, project_id)');
+      if (!hasCompositeUnique) {
+        db.pragma('foreign_keys = OFF');
+        try {
+          db.exec(`
+            CREATE TABLE github_repos_v57 (
+              id TEXT PRIMARY KEY,
+              remote_id INTEGER NOT NULL,
+              owner TEXT NOT NULL,
+              name TEXT NOT NULL,
+              full_name TEXT NOT NULL,
+              private INTEGER DEFAULT 0,
+              html_url TEXT,
+              selected INTEGER DEFAULT 0,
+              last_sync_at INTEGER,
+              project_id TEXT NOT NULL DEFAULT 'default',
+              created_at INTEGER NOT NULL,
+              updated_at INTEGER NOT NULL,
+              UNIQUE(full_name, project_id)
+            )
+          `);
+          db.exec(`
+            INSERT INTO github_repos_v57
+              (id, remote_id, owner, name, full_name, private, html_url, selected, last_sync_at, project_id, created_at, updated_at)
+            SELECT id, remote_id, owner, name, full_name, private, html_url, selected, last_sync_at, project_id, created_at, updated_at
+            FROM github_repos
+          `);
+          db.exec('DROP TABLE github_repos');
+          db.exec('ALTER TABLE github_repos_v57 RENAME TO github_repos');
+        } finally {
+          db.pragma('foreign_keys = ON');
+        }
+      }
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_repos_selected ON github_repos(selected)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_repos_project ON github_repos(project_id)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_github_repos_project_selected ON github_repos(project_id, selected)');
+
+      // Legacy global GitHub calendar → default vault calendar.
+      const legacyCal = db.prepare('SELECT id FROM calendar_calendars WHERE id = ?').get('github-dome');
+      if (legacyCal) {
+        db.pragma('foreign_keys = OFF');
+        try {
+          const targetExists = db.prepare("SELECT id FROM calendar_calendars WHERE id = 'github-default'").get();
+          if (targetExists) {
+            db.prepare("UPDATE calendar_events SET calendar_id = 'github-default' WHERE calendar_id = 'github-dome'").run();
+            db.prepare('DELETE FROM calendar_calendars WHERE id = ?').run('github-dome');
+          } else {
+            // github-dome already uses (account_id='local', remote_id='github') — rename, don't INSERT duplicate.
+            db.prepare("UPDATE calendar_calendars SET id = 'github-default' WHERE id = 'github-dome'").run();
+            db.prepare("UPDATE calendar_events SET calendar_id = 'github-default' WHERE calendar_id = 'github-dome'").run();
+          }
+        } finally {
+          db.pragma('foreign_keys = ON');
+        }
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '57', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '57', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 57 complete - GitHub repos project_id + multi-vault ids');
+    } catch (error) {
+      console.error('[DB] Migration 57 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 58) {
+    console.log('[DB] Running migration 58 - artifact vault HTML mirror backfill');
+    try {
+      const userData = app ? app.getPath('userData') : null;
+      if (userData) {
+        const fileStorage = require('../../storage/file-storage.cjs');
+        const databaseMod = require('../../core/database.cjs');
+        const vs = require('../../storage/vault-store.cjs');
+        const updated = vs.backfillArtifactVaultMirrors({ database: databaseMod, fileStorage });
+        console.log(`[DB] Migration 58 backfilled ${updated} artifact vault mirror(s)`);
+      }
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '58', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '58', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 58 complete - artifact vault mirror backfill');
+    } catch (error) {
+      console.error('[DB] Migration 58 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

@@ -25,6 +25,7 @@ export interface GitHubIssuesListOptions {
   state?: 'open' | 'closed';
   limit?: number;
   offset?: number;
+  projectId?: string;
 }
 
 export interface GitHubIssuesListResult {
@@ -37,6 +38,21 @@ export interface GitHubIssuesListResult {
   error?: string;
 }
 
+export interface GitHubSetSelectedPayload {
+  projectId: string;
+  selected: boolean;
+  repoId?: string;
+  remote?: GitHubCatalogRepoRow;
+}
+
+export interface GitHubRefreshResult {
+  success: boolean;
+  catalog?: GitHubCatalogRepoRow[];
+  tracked?: GitHubRepoRow[];
+  assignments?: Record<string, string[]>;
+  error?: string;
+}
+
 export const githubClient = {
   auth: {
     start: () => gh().auth.start(),
@@ -45,21 +61,21 @@ export const githubClient = {
     disconnect: () => gh().auth.disconnect(),
   },
   repos: {
-    list: () => gh().repos.list(),
-    refresh: () => gh().repos.refresh(),
-    setSelected: (repoId: string, selected: boolean) => gh().repos.setSelected(repoId, selected),
+    list: (projectId?: string) => gh().repos.list(projectId ? { projectId } : undefined),
+    refresh: (projectId?: string) => gh().repos.refresh(projectId ? { projectId } : undefined) as Promise<GitHubRefreshResult>,
+    setSelected: (payload: GitHubSetSelectedPayload) => gh().repos.setSelected(payload),
   },
   milestones: {
-    list: (repoId: string) => gh().milestones.list(repoId),
+    list: (repoId: string, projectId?: string) => gh().milestones.list(repoId, projectId ? { projectId } : undefined),
     get: (id: string) => gh().milestones.get(id),
-    create: (repoId: string, data: { title: string; description?: string; dueOn?: number | null; state?: string }) =>
+    create: (repoId: string, data: { title: string; description?: string; dueOn?: number | null; state?: string; projectId?: string }) =>
       gh().milestones.create(repoId, data),
     update: (id: string, patch: Record<string, unknown>) => gh().milestones.update(id, patch),
   },
   issues: {
     list: (repoId: string, opts?: GitHubIssuesListOptions) => gh().issues.list(repoId, opts) as Promise<GitHubIssuesListResult>,
     get: (id: string) => gh().issues.get(id),
-    create: (repoId: string, data: { title: string; body?: string; milestoneNumber?: number; labels?: string[]; assignees?: string[] }) =>
+    create: (repoId: string, data: { title: string; body?: string; milestoneNumber?: number; labels?: string[]; assignees?: string[]; projectId?: string }) =>
       gh().issues.create(repoId, data),
     update: (id: string, patch: Record<string, unknown>) => gh().issues.update(id, patch),
     move: (id: string, target: { state?: 'open' | 'closed'; milestoneNumber?: number | null }) => gh().issues.move(id, target),
@@ -68,12 +84,13 @@ export const githubClient = {
     listTimeline: (issueId: string) => gh().issues.listTimeline(issueId),
     listMentionables: (issueId: string) => gh().issues.listMentionables(issueId),
   },
-  branches: { list: (repoId: string) => gh().branches.list(repoId) },
-  releases: { list: (repoId: string) => gh().releases.list(repoId) },
+  branches: { list: (repoId: string, projectId?: string) => gh().branches.list(repoId, projectId ? { projectId } : undefined) },
+  releases: { list: (repoId: string, projectId?: string) => gh().releases.list(repoId, projectId ? { projectId } : undefined) },
   resolveImage: (url: string) => gh().resolveImage(url),
-  syncNow: () => gh().syncNow(),
+  syncNow: (projectId?: string) =>
+    gh().syncNow(projectId ? { projectId } : undefined),
   onSyncStatus: (cb: (d: { status: string; lastSync?: number; error?: string }) => void) => gh().onSyncStatus(cb),
-  onDataUpdated: (cb: (d: Record<string, unknown>) => void) => gh().onDataUpdated(cb),
+  onDataUpdated: (cb: (d: { local?: boolean }) => void) => gh().onDataUpdated(cb),
 };
 
 /**

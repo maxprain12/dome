@@ -21,11 +21,39 @@ function generateEventId() {
 }
 
 /**
- * Get default calendar ID (local or first selected)
+ * Get default calendar ID (local or first selected) scoped to a vault/project.
  */
-function getDefaultCalendarId() {
+function normalizeProjectId(projectId) {
+  const pid = typeof projectId === 'string' && projectId.trim() ? projectId.trim() : 'default';
+  return pid;
+}
+
+/** Ensure a local calendar account exists for the given project (non-default projects). */
+function ensureProjectLocalCalendar(projectId) {
+  const pid = normalizeProjectId(projectId);
+  if (pid === 'default') return 'local-default';
   const q = database.getQueries();
-  const row = q.getDefaultCalendar.get();
+  const accountId = `local-${pid}`;
+  const calId = `local-default-${pid}`;
+  const now = Date.now();
+  let acc = q.getCalendarAccountById.get(accountId);
+  if (!acc) {
+    q.createCalendarAccount.run(accountId, 'local', 'local@dome', '{}', 'active', null, null, pid, now, now);
+  }
+  let cal = q.getCalendarCalendarById.get(calId);
+  if (!cal) {
+    q.createCalendarCalendar.run(calId, accountId, 'local', 'Local', '#6366f1', 1, 1, now, now);
+  }
+  return calId;
+}
+
+function getDefaultCalendarId(projectId = 'default') {
+  const pid = normalizeProjectId(projectId);
+  const q = database.getQueries();
+  if (pid !== 'default') {
+    return ensureProjectLocalCalendar(pid);
+  }
+  const row = q.getDefaultCalendarForProject?.get?.(pid) || q.getDefaultCalendar.get();
   if (row) return row.id;
   return 'local-default';
 }
@@ -209,10 +237,14 @@ async function createEvent(data) {
     }
 
     const q = database.getQueries();
-    const calendarId = data.calendar_id || getDefaultCalendarId();
+    const calendarId = data.calendar_id || getDefaultCalendarId(data.projectId);
     const cal = q.getCalendarCalendarById.get(calendarId);
     if (!cal) {
       return { success: false, error: 'Calendar not found' };
+    }
+    const acc = q.getCalendarAccountById.get(cal.account_id);
+    if (data.projectId && acc && acc.project_id && acc.project_id !== normalizeProjectId(data.projectId)) {
+      return { success: false, error: 'Calendar does not belong to this vault' };
     }
 
     const eventId = data.idempotency_key
@@ -351,6 +383,7 @@ async function listEvents(startMs, endMs, options = {}) {
   try {
     const q = database.getQueries();
     const db = database.getDB();
+    const projectId = options.projectId ? normalizeProjectId(options.projectId) : null;
     const calendarIds = Array.isArray(options.calendarIds)
       ? options.calendarIds.filter((id) => typeof id === 'string' && id.length > 0)
       : [];
@@ -358,16 +391,23 @@ async function listEvents(startMs, endMs, options = {}) {
     let rows;
     if (calendarIds.length > 0) {
       const placeholders = calendarIds.map(() => '?').join(',');
+      const projectClause = projectId
+        ? ' AND EXISTS (SELECT 1 FROM calendar_accounts a WHERE a.id = c.account_id AND a.project_id = ?)'
+        : '';
       const stmt = db.prepare(`
         SELECT e.*, c.title as calendar_title, c.color as calendar_color
         FROM calendar_events e
         JOIN calendar_calendars c ON e.calendar_id = c.id
         WHERE c.is_selected = 1 AND e.status != 'cancelled'
           AND e.start_at < ? AND e.end_at > ?
-          AND e.calendar_id IN (${placeholders})
+          AND e.calendar_id IN (${placeholders})${projectClause}
         ORDER BY e.start_at ASC
       `);
-      rows = stmt.all(endMs, startMs, ...calendarIds);
+      rows = projectId
+        ? stmt.all(endMs, startMs, ...calendarIds, projectId)
+        : stmt.all(endMs, startMs, ...calendarIds);
+    } else if (projectId && q.getCalendarEventsByRangeForProject) {
+      rows = q.getCalendarEventsByRangeForProject.all(projectId, endMs, startMs);
     } else {
       rows = q.getCalendarEventsByRange.all(endMs, startMs);
     }
@@ -382,12 +422,15 @@ async function listEvents(startMs, endMs, options = {}) {
 /**
  * Get upcoming events within a time window
  */
-async function getUpcomingEvents(windowMinutes = 10080, limit = 20) {
+async function getUpcomingEvents(windowMinutes = 10080, limit = 20, projectId = null) {
   try {
     const now = Date.now();
     const endMs = now + windowMinutes * 60 * 1000;
     const q = database.getQueries();
-    const rows = q.getUpcomingCalendarEvents.all(now, endMs, Math.min(limit, 50));
+    const pid = projectId ? normalizeProjectId(projectId) : null;
+    const rows = pid && q.getUpcomingCalendarEventsForProject
+      ? q.getUpcomingCalendarEventsForProject.all(pid, now, endMs, Math.min(limit, 50))
+      : q.getUpcomingCalendarEvents.all(now, endMs, Math.min(limit, 50));
     const events = rows.map(rowToEventSummary);
     return { success: true, events };
   } catch (err) {
@@ -477,10 +520,13 @@ async function getEventById(eventId) {
   }
 }
 
-function getGoogleAccounts() {
+function getGoogleAccounts(projectId = null) {
   try {
     const q = database.getQueries();
-    const rows = q.getCalendarAccountsByProvider?.all?.('google') ?? [];
+    const pid = projectId ? normalizeProjectId(projectId) : null;
+    const rows = pid && q.getCalendarAccountsByProviderAndProject
+      ? q.getCalendarAccountsByProviderAndProject.all('google', pid)
+      : q.getCalendarAccountsByProvider?.all?.('google') ?? [];
     return {
       success: true,
       accounts: rows.map((r) => ({
@@ -496,12 +542,21 @@ function getGoogleAccounts() {
   }
 }
 
-function listCalendars(accountId = null) {
+function listCalendars(accountId = null, projectId = null) {
   try {
     const q = database.getQueries();
     let rows;
     if (accountId) {
       rows = q.getCalendarCalendarsByAccount.all(accountId);
+      if (projectId) {
+        const pid = normalizeProjectId(projectId);
+        rows = rows.filter((r) => {
+          const acc = q.getCalendarAccountById.get(r.account_id);
+          return acc && acc.project_id === pid;
+        });
+      }
+    } else if (projectId && q.getSelectedCalendarCalendarsForProject) {
+      rows = q.getSelectedCalendarCalendarsForProject.all(normalizeProjectId(projectId));
     } else {
       rows = q.getSelectedCalendarCalendars.all();
     }
@@ -599,11 +654,11 @@ function disconnectGoogleAccount(accountId) {
   }
 }
 
-async function syncNow() {
+async function syncNow(projectId = null) {
   try {
     const googleService = require('./google-calendar-service.cjs');
     if (googleService && typeof googleService.syncAll === 'function') {
-      return await googleService.syncAll();
+      return await googleService.syncAll(projectId);
     }
     return { success: true, synced: false, message: 'No external calendars connected' };
   } catch (err) {

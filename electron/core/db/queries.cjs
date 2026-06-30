@@ -887,11 +887,14 @@ function buildQueries(db) {
 
     // Calendar - Accounts
     createCalendarAccount: db.prepare(`
-      INSERT INTO calendar_accounts (id, provider, account_email, credentials, status, last_sync_at, sync_token, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO calendar_accounts (id, provider, account_email, credentials, status, last_sync_at, sync_token, project_id, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getCalendarAccountById: db.prepare('SELECT * FROM calendar_accounts WHERE id = ?'),
     getCalendarAccountsByProvider: db.prepare('SELECT * FROM calendar_accounts WHERE provider = ? ORDER BY created_at DESC'),
+    getCalendarAccountsByProviderAndProject: db.prepare(
+      'SELECT * FROM calendar_accounts WHERE provider = ? AND project_id = ? ORDER BY created_at DESC',
+    ),
     getAllCalendarAccounts: db.prepare('SELECT * FROM calendar_accounts ORDER BY created_at DESC'),
     updateCalendarAccount: db.prepare(`
       UPDATE calendar_accounts SET account_email = ?, credentials = ?, status = ?, last_sync_at = ?, sync_token = ?, updated_at = ?
@@ -907,7 +910,19 @@ function buildQueries(db) {
     getCalendarCalendarById: db.prepare('SELECT * FROM calendar_calendars WHERE id = ?'),
     getCalendarCalendarsByAccount: db.prepare('SELECT * FROM calendar_calendars WHERE account_id = ? ORDER BY is_default DESC, title ASC'),
     getSelectedCalendarCalendars: db.prepare('SELECT * FROM calendar_calendars WHERE is_selected = 1 ORDER BY is_default DESC'),
+    getSelectedCalendarCalendarsForProject: db.prepare(`
+      SELECT c.* FROM calendar_calendars c
+      JOIN calendar_accounts a ON c.account_id = a.id
+      WHERE a.project_id = ? AND c.is_selected = 1
+      ORDER BY c.is_default DESC
+    `),
     getDefaultCalendar: db.prepare('SELECT * FROM calendar_calendars WHERE is_default = 1 LIMIT 1'),
+    getDefaultCalendarForProject: db.prepare(`
+      SELECT c.* FROM calendar_calendars c
+      JOIN calendar_accounts a ON c.account_id = a.id
+      WHERE a.project_id = ? AND c.is_default = 1
+      LIMIT 1
+    `),
     updateCalendarCalendar: db.prepare(`
       UPDATE calendar_calendars SET title = ?, color = ?, is_selected = ?, is_default = ?, updated_at = ?
       WHERE id = ?
@@ -928,11 +943,30 @@ function buildQueries(db) {
         AND e.start_at < ? AND e.end_at > ?
       ORDER BY e.start_at ASC
     `),
+    getCalendarEventsByRangeForProject: db.prepare(`
+      SELECT e.*, c.title as calendar_title, c.color as calendar_color
+      FROM calendar_events e
+      JOIN calendar_calendars c ON e.calendar_id = c.id
+      JOIN calendar_accounts a ON c.account_id = a.id
+      WHERE a.project_id = ? AND c.is_selected = 1 AND e.status != 'cancelled'
+        AND e.start_at < ? AND e.end_at > ?
+      ORDER BY e.start_at ASC
+    `),
     getUpcomingCalendarEvents: db.prepare(`
       SELECT e.*, c.title as calendar_title, c.color as calendar_color
       FROM calendar_events e
       JOIN calendar_calendars c ON e.calendar_id = c.id
       WHERE c.is_selected = 1 AND e.status != 'cancelled'
+        AND e.start_at >= ? AND e.start_at <= ?
+      ORDER BY e.start_at ASC
+      LIMIT ?
+    `),
+    getUpcomingCalendarEventsForProject: db.prepare(`
+      SELECT e.*, c.title as calendar_title, c.color as calendar_color
+      FROM calendar_events e
+      JOIN calendar_calendars c ON e.calendar_id = c.id
+      JOIN calendar_accounts a ON c.account_id = a.id
+      WHERE a.project_id = ? AND c.is_selected = 1 AND e.status != 'cancelled'
         AND e.start_at >= ? AND e.start_at <= ?
       ORDER BY e.start_at ASC
       LIMIT ?

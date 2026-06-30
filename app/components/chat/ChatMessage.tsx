@@ -6,7 +6,6 @@ import ChatToolCard, { ChatToolCardGroup, SubagentToolSection, type ToolCallData
 import ReadingIndicator from './ReadingIndicator';
 import MarkdownRenderer from './MarkdownRenderer';
 import SourceReference from './SourceReference';
-import ArtifactCard, { type AnyArtifact, type ArtifactType } from './ArtifactCard';
 import AgentRunTimeline from './AgentRunTimeline';
 import ManyMinimalStatusRow from '@/components/many/ManyMinimalStatusRow';
 import { cn } from '@/lib/utils';
@@ -16,10 +15,9 @@ import { buildPdfRegionHandoff } from '@/lib/pdf/pdf-region-handoff';
 import { useManyStore } from '@/lib/store/useManyStore';
 import { showToast } from '@/lib/store/useToastStore';
 import type { PdfRegionMeta } from '@/lib/store/useManyStore';
-import { parseArtifactBlocks, stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
+import { stripArtifactBlocks } from '@/lib/chat/artifactSchemas';
 import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 import { parseUserMessageVisualSegments } from '@/lib/chat/userMessageVisual';
-import { calendarArtifactFromToolCalls } from '@/lib/chat/calendarToolArtifact';
 import { coalesceDuplicateToolCalls } from '@/lib/chat/coalesceToolCalls';
 import { buildToolDisplayBlocks, type ToolDisplayBlock } from '@/lib/chat/groupToolCalls';
 import type { PersistentRunStep } from '@/lib/automations/api';
@@ -214,47 +212,10 @@ export default function ChatMessage({
     return refs;
   }, [message.content, message.citationMap]);
 
-  const contentSegments = useMemo(() => {
-    const counts = new Map<string, number>();
-    const nextKey = (payload: string) => {
-      const h = stableStringHash(payload);
-      const ord = (counts.get(h) ?? 0) + 1;
-      counts.set(h, ord);
-      return `${message.id}:cs:${h}:${ord}`;
-    };
-
-    if (!message.content) return [{ type: 'text' as const, content: '', reactKey: nextKey('empty') }];
-
-    const parsed = parseArtifactBlocks(message.content, { allowStreaming: !!message.isStreaming });
-    return parsed.map((seg) => {
-      if (seg.kind === 'text') {
-        return {
-          type: 'text' as const,
-          content: seg.content,
-          reactKey: nextKey(`text:${seg.content}`),
-        };
-      }
-      if (seg.kind === 'artifact') {
-        return {
-          type: 'artifact' as const,
-          artifact: { ...seg.value, type: seg.artifactType as ArtifactType } as AnyArtifact,
-          reactKey: nextKey(`artifact:${seg.artifactType}:${JSON.stringify(seg.value)}`),
-        };
-      }
-      if (seg.kind === 'invalid') {
-        return {
-          type: 'text' as const,
-          content: `\`\`\`json\n${seg.raw}\n\`\`\`\n*${t('chat.artifact_invalid')}*`,
-          reactKey: nextKey(`invalid:${seg.raw}`),
-        };
-      }
-      return {
-        type: 'text' as const,
-        content: `*${t('chat.artifact_streaming', { type: seg.artifactType, defaultValue: `Generando artefacto (${seg.artifactType})…` })}*`,
-        reactKey: nextKey(`stream:${seg.artifactType}`),
-      };
-    });
-  }, [message.content, message.isStreaming, message.id, t]);
+  const assistantMarkdown = useMemo(() => {
+    if (!message.content || isUser) return '';
+    return stripArtifactBlocks(message.content);
+  }, [message.content, isUser]);
 
   const displayToolCalls = useMemo(
     () => coalesceDuplicateToolCalls(message.toolCalls ?? []),
@@ -265,13 +226,6 @@ export default function ChatMessage({
     () => buildToolDisplayBlocks(displayToolCalls, t),
     [displayToolCalls, t],
   );
-
-  const derivedCalendarArtifact = useMemo((): AnyArtifact | null => {
-    if (!isAssistant || !displayToolCalls.length) return null;
-    const c = message.content || '';
-    if (c.includes('artifact:calendar_event')) return null;
-    return calendarArtifactFromToolCalls(displayToolCalls);
-  }, [isAssistant, displayToolCalls, message.content]);
 
   return (
     <div className={`ai-message-item group relative ${className}`}>
@@ -313,12 +267,6 @@ export default function ChatMessage({
                 surfaceVariant={surfaceVariant}
               />
             ))}
-          </div>
-        ) : null}
-
-        {derivedCalendarArtifact ? (
-          <div className="w-full min-w-0 max-w-full my-2">
-            <ArtifactCard artifact={derivedCalendarArtifact} />
           </div>
         ) : null}
 
@@ -416,24 +364,13 @@ export default function ChatMessage({
                       )}
                     </div>
                   ) : !isUser ? (
-                    <>
-                      {contentSegments.map((seg) =>
-                        seg.type === 'text' ? (
-                          seg.content ? (
-                            <MarkdownRenderer
-                              key={seg.reactKey}
-                              content={seg.content}
-                              citationMap={message.citationMap}
-                              onClickCitation={onClickCitation || handleOpenCitation}
-                            />
-                          ) : null
-                        ) : (
-                          <div key={seg.reactKey} className="my-3">
-                            <ArtifactCard artifact={seg.artifact} />
-                          </div>
-                        ),
-                      )}
-                    </>
+                    assistantMarkdown ? (
+                      <MarkdownRenderer
+                        content={assistantMarkdown}
+                        citationMap={message.citationMap}
+                        onClickCitation={onClickCitation || handleOpenCitation}
+                      />
+                    ) : null
                   ) : (
                     <span className="whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere' }}>
                       {message.content ? stripArtifactBlocks(message.content) : ''}

@@ -107,6 +107,8 @@
   "settings_refresh_list": "Atualizar lista",
   "settings_search_repo": "Pesquisar repositório…",
   "settings_refresh_hint": "Clique em “Atualizar lista” para carregar os seus repositórios.",
+  "settings_repo_assigned_here": "Neste vault",
+  "settings_repo_in_other_vault": "Também em {{count}} outro(s) vault(s)",
   "private_badge": "privado",
   "sync_repo_aria": "Sincronizar {{repo}}",
   "minimal_select_repo": "Selecione um repositório para começar o acompanhamento.",

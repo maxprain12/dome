@@ -8,10 +8,10 @@ import { useGitHubStore } from '@/lib/store/useGitHubStore';
  * Device-flow connect screen. Shows the user code, opens GitHub, then polls
  * until authorized (the main process opens the verification URL automatically).
  */
-export default function GitHubConnect() {
+export default function GitHubConnect({ projectId }: { projectId: string }) {
   const { t } = useTranslation();
   const refreshStatus = useGitHubStore((s) => s.refreshStatus);
-  const refreshRepos = useGitHubStore((s) => s.refreshRepos);
+  const refreshCatalog = useGitHubStore((s) => s.refreshCatalog);
   const [userCode, setUserCode] = useState<string | null>(null);
   const [verificationUri, setVerificationUri] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,7 +37,7 @@ export default function GitHubConnect() {
       });
       if (poll.success) {
         await refreshStatus();
-        await refreshRepos();
+        await refreshCatalog(projectId);
       } else {
         setError(poll.error || t('github.error_auth_incomplete'));
       }

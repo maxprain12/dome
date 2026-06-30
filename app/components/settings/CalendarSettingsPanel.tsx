@@ -11,9 +11,11 @@ import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
 import DomeIconBox from '@/components/ui/DomeIconBox';
 import DomeListState from '@/components/ui/DomeListState';
 import SettingsPanel from '@/components/settings/SettingsPanel';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 export default function CalendarSettingsPanel() {
   const { t } = useTranslation();
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [syncAuto, setSyncAuto] = useState(true);
@@ -29,7 +31,10 @@ export default function CalendarSettingsPanel() {
       return;
     }
     try {
-      const [st, acc] = await Promise.all([cal.getSettings(), cal.getGoogleAccounts?.() ?? Promise.resolve({ success: true, accounts: [] })]);
+      const [st, acc] = await Promise.all([
+        cal.getSettings(),
+        cal.getGoogleAccounts?.({ projectId }) ?? Promise.resolve({ success: true, accounts: [] }),
+      ]);
       if (st.success && st.settings) {
         setSyncAuto(st.settings.sync_auto_enabled !== false);
         setSyncInterval(st.settings.sync_interval_minutes ?? 30);
@@ -42,7 +47,7 @@ export default function CalendarSettingsPanel() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [projectId]);
 
   useEffect(() => {
     void load();
@@ -73,7 +78,7 @@ export default function CalendarSettingsPanel() {
 
   const connectGoogle = async () => {
     try {
-      const r = await window.electron?.calendar?.connectGoogle?.();
+      const r = await window.electron?.calendar?.connectGoogle?.({ projectId });
       if (r?.success) {
         showToast('success', t('settings.calendar.connected'));
         void load();

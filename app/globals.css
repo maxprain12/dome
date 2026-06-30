@@ -49,8 +49,9 @@
   }
 
   .ai-composer-frame {
-    background: var(--bg-secondary);
-    border-radius: 20px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--bg-secondary) 96%, white), var(--bg-secondary));
+    border-radius: 22px;
   }
 
   .ai-composer-frame-dragging {
@@ -58,7 +59,7 @@
   }
 
   .ai-composer-frame-welcome {
-    border-radius: 24px;
+    border-radius: 26px;
   }
 
   .ai-context-chip {
@@ -1178,12 +1179,12 @@ a:hover {
 .many-msgs-inner {
   display: flex;
   flex-direction: column;
-  gap: var(--many-msg-gap, 14px);
+  gap: calc(var(--many-msg-gap, 14px) + 2px);
   width: 100%;
-  max-width: 760px;
+  max-width: 720px;
   margin-left: auto;
   margin-right: auto;
-  padding-bottom: 100px;
+  padding-bottom: 96px;
   box-sizing: border-box;
 }
 
@@ -1194,17 +1195,23 @@ a:hover {
 
 .many-panel-messages[data-surface='many'] .many-bubble-clean--user {
   box-sizing: border-box;
-  background: var(--accent-bg);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-bg) 94%, white), var(--accent-bg));
   color: var(--primary-text);
-  border-radius: 18px 18px 4px 18px;
-  padding: 10px var(--many-bubble-px, 12px);
-  border: none !important;
+  border-radius: 20px 20px 6px 20px;
+  padding: 10px calc(var(--many-bubble-px, 12px) + 1px);
+  border: 1px solid color-mix(in srgb, var(--accent) 10%, transparent) !important;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--accent) 7%, transparent);
 }
 
 .many-panel-messages[data-surface='many'] .many-bubble-clean--assistant {
   background: transparent;
   padding: 0;
   border: none !important;
+}
+
+.many-panel-messages[data-surface='many'] .many-message-group {
+  scroll-margin: 24px;
 }
 
 .many-panel-fullscreen .many-composer-anchor {
@@ -1446,7 +1453,7 @@ a:hover {
 }
 
 .many-composer-tools {
-  padding: 2px 12px 10px;
+  padding: 3px 12px 11px;
   min-width: 0;
 }
 
@@ -1475,19 +1482,19 @@ a:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-md, 8px);
-  border: 1px solid transparent;
-  background: var(--bg-secondary);
+  width: 30px;
+  height: 30px;
+  border-radius: 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
   color: var(--tertiary-text);
   flex-shrink: 0;
   transition: background var(--transition-fast, 120ms ease), color var(--transition-fast, 120ms ease), border-color var(--transition-fast, 120ms ease);
 }
 
 .many-composer-icon-btn:hover {
-  background: var(--bg-hover);
-  color: var(--secondary-text);
+  background: color-mix(in srgb, var(--bg-hover) 88%, var(--bg));
+  color: var(--primary-text);
 }
 
 .many-composer-icon-btn--active {
@@ -1530,15 +1537,17 @@ a:hover {
 
 .many-model-pill button {
   max-width: min(160px, 100%);
-  padding: 5px 8px 5px 10px;
+  padding: 5px 9px 5px 10px;
   font-size: 11.5px;
   border-color: var(--border-soft);
+  background: color-mix(in srgb, var(--bg) 64%, transparent);
 }
 
 .many-composer-send {
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   flex-shrink: 0;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .many-composer-send:disabled {
@@ -1547,7 +1556,7 @@ a:hover {
 }
 
 .many-composer-tools--compact {
-  padding: 2px 8px 8px;
+  padding: 3px 9px 9px;
 }
 
 .many-composer-tools--compact .many-model-pill button {
@@ -2068,16 +2077,68 @@ a:hover {
 }
 
 /* Header chips */
+.many-chat-header {
+  container-type: inline-size;
+  container-name: many-chat-header;
+  min-height: 54px;
+  padding: 9px 14px;
+  border-color: color-mix(in srgb, var(--border) 72%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 96%, white), color-mix(in srgb, var(--bg) 92%, transparent));
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
+  box-shadow: 0 1px 0 color-mix(in srgb, white 36%, transparent) inset;
+  z-index: 5;
+}
+
+.many-chat-header--docked {
+  position: relative;
+}
+
+.many-chat-header[data-status='thinking'] {
+  background:
+    radial-gradient(circle at 34px 50%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 28px),
+    linear-gradient(180deg, color-mix(in srgb, var(--bg) 97%, white), color-mix(in srgb, var(--bg) 92%, transparent));
+}
+
+.many-hd-avatar--compact {
+  display: none;
+}
+
+.many-hd-actions--compact {
+  display: none;
+}
+
+.many-hd-model--compact {
+  display: none;
+}
+
+.many-hd-title {
+  max-width: min(260px, 48cqw);
+  letter-spacing: -0.01em;
+}
+
+.many-hd-subtitle {
+  font-size: 12px;
+  color: var(--tertiary-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(200px, 40cqw);
+}
+
 .many-hd-chip {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 1px 7px;
+  min-height: 21px;
+  padding: 2px 8px;
   border-radius: 999px;
-  background: var(--bg-tertiary);
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  background: color-mix(in srgb, var(--bg-secondary) 82%, transparent);
   color: var(--secondary-text);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 560;
   white-space: nowrap;
   max-width: 180px;
   overflow: hidden;
@@ -2085,28 +2146,196 @@ a:hover {
 }
 
 .many-hd-chip--accent {
-  background: var(--accent-bg);
+  border-color: color-mix(in srgb, var(--accent) 16%, transparent);
+  background: color-mix(in srgb, var(--accent-bg) 84%, transparent);
   color: var(--accent);
 }
 
 /* Header icon button */
 .many-icon-btn {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: none;
-  background: transparent;
-  border-radius: 8px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--bg-secondary) 32%, transparent);
+  border-radius: 11px;
   color: var(--tertiary-text);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
   flex-shrink: 0;
 }
 .many-icon-btn:hover {
   background: var(--bg-hover);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
   color: var(--primary-text);
+  transform: translateY(-1px);
+}
+
+@container many-chat-header (max-width: 440px) {
+  .many-hd-actions--wide {
+    display: none;
+  }
+
+  .many-hd-actions--compact {
+    display: flex;
+  }
+
+  .many-hd-model--wide {
+    display: none;
+  }
+
+  .many-hd-model--compact {
+    display: inline-flex;
+    min-width: 0;
+  }
+
+  .many-hd-meta--extra {
+    display: none;
+  }
+
+  .many-hd-title {
+    max-width: min(140px, 38cqw);
+  }
+}
+
+@container many-chat-header (max-width: 360px) {
+  .many-hd-avatar--wide {
+    display: none;
+  }
+
+  .many-hd-avatar--compact {
+    display: flex;
+  }
+
+  .many-hd-title {
+    max-width: min(96px, 34cqw);
+  }
+}
+
+/* ── Many fullscreen welcome (tab + popout) ── */
+.many-welcome-title {
+  font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 600;
+  color: var(--primary-text);
+  text-align: center;
+  line-height: 1.2;
+  margin: 0 0 28px;
+  letter-spacing: -0.02em;
+}
+
+.many-welcome-subtitle {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--secondary-text);
+}
+
+/* ── Many standalone popout window ── */
+.many-popout-root {
+  background: var(--dome-bg);
+  color: var(--dome-text);
+}
+
+.many-panel--popout {
+  border-left: none !important;
+  background:
+    radial-gradient(
+      ellipse 130% 70% at 50% -18%,
+      color-mix(in srgb, var(--dome-accent) 10%, transparent) 0%,
+      transparent 58%
+    ),
+    var(--dome-bg);
+}
+
+.many-panel--popout .many-chat-header--popout {
+  min-height: 54px;
+  padding: calc(9px + var(--safe-area-inset-top, 0px)) 16px 9px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--dome-surface) 84%, var(--dome-bg)), color-mix(in srgb, var(--dome-surface) 68%, var(--dome-bg)));
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 82%, transparent);
+}
+
+.many-panel--popout .many-chat-header--popout.nav-mac {
+  padding-left: 92px !important;
+}
+
+.many-panel--popout .many-chat-header--popout.win-titlebar-padding {
+  padding-right: 140px !important;
+}
+
+.many-panel--popout .many-hd-chip {
+  background: color-mix(in srgb, var(--dome-surface) 88%, var(--dome-bg));
+  color: var(--dome-text-secondary);
+}
+
+.many-panel--popout .many-hd-chip--accent {
+  background: color-mix(in srgb, var(--dome-accent) 14%, var(--dome-bg));
+  color: var(--dome-accent);
+}
+
+.many-panel--popout .many-icon-btn {
+  color: var(--dome-text-muted);
+}
+
+.many-panel--popout .many-icon-btn:hover {
+  background: var(--dome-bg-hover);
+  color: var(--dome-text);
+}
+
+.many-panel--popout .many-popout-welcome--window {
+  padding-top: 8px;
+  padding-bottom: 28px;
+}
+
+.many-panel--popout .many-welcome-title {
+  color: var(--dome-text);
+  margin-bottom: 24px;
+}
+
+.many-panel--popout .many-welcome-subtitle {
+  color: var(--dome-text-secondary);
+}
+
+.many-panel--popout .many-welcome-composer {
+  padding: 0 4px;
+}
+
+.many-panel--popout .many-welcome-pill {
+  background: color-mix(in srgb, var(--dome-surface) 72%, transparent);
+  border-color: color-mix(in srgb, var(--dome-border) 75%, transparent);
+  color: var(--dome-text-secondary);
+}
+
+.many-panel--popout .many-welcome-pill:hover {
+  background: color-mix(in srgb, var(--dome-accent) 12%, var(--dome-bg));
+  border-color: color-mix(in srgb, var(--dome-accent) 28%, transparent);
+  color: var(--dome-accent);
+}
+
+.many-panel--popout .many-panel-messages {
+  background: transparent;
+}
+
+.many-panel--popout .many-popout-messages {
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+.many-panel--popout .many-composer-anchor {
+  border-top: 1px solid color-mix(in srgb, var(--dome-border) 72%, transparent);
+  background: linear-gradient(
+    to top,
+    var(--dome-bg) 78%,
+    color-mix(in srgb, var(--dome-bg) 42%, transparent)
+  );
+  padding-bottom: max(4px, env(safe-area-inset-bottom, 0px));
+}
+
+.many-panel--popout .many-popout-composer-inner {
+  padding-left: 20px;
+  padding-right: 20px;
 }
 
 .dome-ui-cursor-overlay {

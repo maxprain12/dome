@@ -18,7 +18,7 @@ import {
   isNestedManyThreadId,
   listManyThreadSummariesResult,
 } from '@/lib/chat/manyThreadBridge';
-import { useAppStore } from '@/lib/store/useAppStore';
+import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 
 export type ManyStatus = 'idle' | 'thinking' | 'speaking' | 'listening';
 
@@ -43,8 +43,6 @@ export interface PdfRegionMeta {
   resourceTitle: string;
   question: string;
 }
-
-import type { StructuredMessageAttachments } from '@/lib/chat/attachmentTypes';
 
 export interface ManyMessage {
   id: string;
@@ -109,6 +107,134 @@ function ensureInitialSession(
 const hydratedState = ensureInitialSession(initialState);
 
 export type SessionRunPhase = 'thinking' | 'streaming';
+
+const MANY_SYNC_CHANNEL = 'dome:many-session-sync';
+const MANY_SYNC_STORAGE_KEY = 'dome:many-session-sync:event';
+const MANY_SYNC_SOURCE_ID = createSessionId();
+
+type ManySyncReason =
+  | 'messages'
+  | 'clear'
+  | 'new-chat'
+  | 'delete'
+  | 'hydrate'
+  | 'title'
+  | 'pin'
+  | 'run-state';
+
+type ManySyncPayload = {
+  sourceId: string;
+  reason: ManySyncReason;
+  currentSessionId: string | null;
+  sessions: ManyChatSession[];
+  messages: ManyMessage[];
+  activeRunBySessionId: Record<string, SessionRunPhase | undefined>;
+  deletedSessionId?: string;
+  timestamp: number;
+};
+
+let manySyncChannel: BroadcastChannel | null | undefined;
+
+function getManySyncChannel(): BroadcastChannel | null {
+  if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null;
+  if (manySyncChannel === undefined) {
+    manySyncChannel = new BroadcastChannel(MANY_SYNC_CHANNEL);
+  }
+  return manySyncChannel;
+}
+
+function publishManySync(
+  getState: () => ManyState,
+  reason: ManySyncReason,
+  extra: Pick<ManySyncPayload, 'deletedSessionId'> = {},
+): void {
+  if (typeof window === 'undefined') return;
+  const state = getState();
+  const payload: ManySyncPayload = {
+    sourceId: MANY_SYNC_SOURCE_ID,
+    reason,
+    currentSessionId: state.currentSessionId,
+    sessions: state.sessions,
+    messages: state.messages,
+    activeRunBySessionId: state.activeRunBySessionId,
+    timestamp: Date.now(),
+    ...extra,
+  };
+
+  getManySyncChannel()?.postMessage(payload);
+
+  try {
+    window.localStorage.setItem(MANY_SYNC_STORAGE_KEY, JSON.stringify(payload));
+    window.localStorage.removeItem(MANY_SYNC_STORAGE_KEY);
+  } catch {
+    // BroadcastChannel is the primary path; storage is only a compatibility fallback.
+  }
+}
+
+function isManySyncPayload(value: unknown): value is ManySyncPayload {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Partial<ManySyncPayload>;
+  return (
+    typeof candidate.sourceId === 'string' &&
+    candidate.sourceId !== MANY_SYNC_SOURCE_ID &&
+    Array.isArray(candidate.sessions) &&
+    Array.isArray(candidate.messages)
+  );
+}
+
+function applyIncomingManySync(payload: unknown): void {
+  if (!isManySyncPayload(payload)) return;
+  const state = useManyStore.getState();
+  const nextSessions = trimSessions(filterOutDeletedSessions(payload.sessions), state.currentSessionId);
+  let nextCurrentSessionId = state.currentSessionId;
+  let nextMessages = state.messages;
+
+  if (payload.deletedSessionId && state.currentSessionId === payload.deletedSessionId) {
+    const fallback = payload.currentSessionId
+      ? nextSessions.find((session) => session.id === payload.currentSessionId)
+      : nextSessions[0];
+    nextCurrentSessionId = fallback?.id ?? createSessionId();
+    nextMessages = fallback?.messages ?? [];
+    setPersistedCurrentManySessionId(nextCurrentSessionId);
+  } else if (state.currentSessionId) {
+    const syncedCurrent = nextSessions.find((session) => session.id === state.currentSessionId);
+    if (syncedCurrent) {
+      nextMessages = [...syncedCurrent.messages];
+    } else if (state.currentSessionId === payload.currentSessionId) {
+      nextMessages = [...payload.messages];
+    }
+  } else if (payload.currentSessionId) {
+    const incomingCurrent = nextSessions.find((session) => session.id === payload.currentSessionId);
+    nextCurrentSessionId = payload.currentSessionId;
+    nextMessages = incomingCurrent?.messages ?? [...payload.messages];
+    setPersistedCurrentManySessionId(payload.currentSessionId);
+  }
+
+  useManyStore.setState({
+    sessions: nextSessions,
+    currentSessionId: nextCurrentSessionId,
+    messages: nextMessages,
+    activeRunBySessionId: {
+      ...state.activeRunBySessionId,
+      ...payload.activeRunBySessionId,
+    },
+  });
+}
+
+function installManySyncBridge(): void {
+  if (typeof window === 'undefined') return;
+  getManySyncChannel()?.addEventListener('message', (event: MessageEvent<unknown>) => {
+    applyIncomingManySync(event.data);
+  });
+  window.addEventListener('storage', (event) => {
+    if (event.key !== MANY_SYNC_STORAGE_KEY || !event.newValue) return;
+    try {
+      applyIncomingManySync(JSON.parse(event.newValue));
+    } catch {
+      // Ignore malformed sync payloads from older builds or devtools edits.
+    }
+  });
+}
 
 interface ManyState {
   isOpen: boolean;
@@ -279,6 +405,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     if (!isOpen && message.role === 'assistant') {
       set((state) => ({ unreadCount: state.unreadCount + 1 }));
     }
+    publishManySync(get, 'messages');
   },
 
   clearMessages: () => {
@@ -292,6 +419,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
         nextSessions[idx] = updated;
         persistManySessions(nextSessions);
         set({ messages: [], sessions: nextSessions });
+        publishManySync(get, 'clear');
         const sid = currentSessionId;
         void db.clearManyChatSession(sid).catch((err) => {
           console.warn('[ManyStore] clearManyChatSession failed:', err);
@@ -312,6 +440,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
       currentSessionId: newId,
       messages: [],
     });
+    publishManySync(get, 'new-chat');
   },
 
   switchSession: (id) => {
@@ -359,6 +488,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
         Object.entries(get().activeRunBySessionId).filter(([sid]) => sid !== id),
       ),
     });
+    publishManySync(get, 'delete', { deletedSessionId: id });
     if (db.isAvailable()) {
       const result = await db.deleteManyChatSession(id);
       if (!result.success) {
@@ -374,26 +504,14 @@ export const useManyStore = create<ManyState>((set, get) => ({
     const localById = new Map(localSessions.map((s) => [s.id, s]));
     const byId = new Map<string, ManyChatSession>();
 
-    // Hard-scope history to the active project: each persisted Many thread has a
-    // chat_sessions row (id === threadId) carrying its project_id, so keep only
-    // summaries whose id belongs to the active project. Threads with no DB row
-    // (pure local drafts) are re-added from localSessions below.
-    let allowedThreadIds: Set<string> | null = null;
-    try {
-      const activeProjectId = useAppStore.getState().currentProject?.id ?? 'default';
-      const res = await db.getChatSessionsGlobal({ projectId: activeProjectId, limit: 5000 });
-      if (res.success && Array.isArray(res.data)) {
-        allowedThreadIds = new Set(
-          (res.data as Array<{ id: string }>).map((s) => s.id),
-        );
-      }
-    } catch (err) {
-      console.warn('[ManyStore] Could not scope history by project:', err);
-    }
-
-    const scopedSummaries = allowedThreadIds
-      ? summaries.filter((s) => allowedThreadIds!.has(s.id))
-      : summaries;
+    // Many is a GLOBAL personal assistant: its chat history must be visible
+    // regardless of which project is active. Previously history was hard-scoped to
+    // the active project's `chat_sessions` rows, which made every conversation
+    // created under another project silently vanish from the list (the JSONL files
+    // still existed on disk) — users perceived this as lost history. We now list
+    // all Many threads; per-project filtering, if ever wanted, belongs in an
+    // explicit UI filter, not a silent exclusion.
+    const scopedSummaries = summaries;
 
     for (const summary of scopedSummaries) {
       const local = localById.get(summary.id);
@@ -403,6 +521,10 @@ export const useManyStore = create<ManyState>((set, get) => ({
         title: deriveManySessionTitle({
           storedTitle: meta?.title ?? local?.title,
           messages: local?.messages,
+          // First user message from threads:list — used when the session has no
+          // UI-meta title and isn't hydrated yet, so the list shows a real title
+          // instead of a wall of "New chat".
+          firstUser: summary.title ?? undefined,
         }),
         messages: local?.messages ?? [],
         createdAt: meta?.createdAt ?? local?.createdAt ?? summary.createdAt,
@@ -435,6 +557,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
       pruneManySessionUiMeta(nextSessions.map((s) => s.id));
     }
     set({ sessions: nextSessions });
+    publishManySync(get, 'hydrate');
   },
 
   updateSessionTitle: (id, title) => {
@@ -445,6 +568,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
       nextSessions[idx] = { ...nextSessions[idx], title, updatedAt: Date.now() };
       persistManySessions(nextSessions);
       set({ sessions: nextSessions });
+      publishManySync(get, 'title');
     }
   },
 
@@ -457,6 +581,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     nextSessions[idx] = { ...cur, pinned: !cur.pinned, updatedAt: Date.now() };
     persistManySessions(nextSessions);
     set({ sessions: nextSessions });
+    publishManySync(get, 'pin');
   },
 
   hydrateSession: (session) => {
@@ -508,6 +633,7 @@ export const useManyStore = create<ManyState>((set, get) => ({
     } catch (e) {
       console.warn('[ManyStore] Could not persist session UI meta:', e);
     }
+    publishManySync(get, 'hydrate');
   },
 
   setCurrentInput: (input) => set({ currentInput: input }),
@@ -580,5 +706,8 @@ export const useManyStore = create<ManyState>((set, get) => ({
       }
       return { activeRunBySessionId: next };
     });
+    publishManySync(get, 'run-state');
   },
 }));
+
+installManySyncBridge();

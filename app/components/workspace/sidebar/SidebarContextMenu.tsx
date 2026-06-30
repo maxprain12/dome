@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Edit3, Trash2, FolderInput, FolderPlus, Check, PanelRightOpen, Maximize2 } from 'lucide-react';
+import { ChevronDown, Edit3, Trash2, FolderInput, FolderPlus, FolderOpen, Check, PanelRightOpen, Maximize2 } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import { FOLDER_COLOR_OPTIONS } from '@/lib/ui/palettes';
 import { parseMeta, type CtxState } from './sidebarHelpers';
@@ -13,6 +13,7 @@ export interface ContextMenuProps {
   onClose: () => void;
   onRename: (r: Resource) => void;
   onMove: (r: Resource) => void;
+  onMoveToProject: (r: Resource) => void;
   onColorChange: (r: Resource, color: string) => void;
   onDelete: (r: Resource) => void;
   onNewFolder: (parentId: string | null) => void;
@@ -30,6 +31,7 @@ export default function ContextMenu({
   onClose,
   onRename,
   onMove,
+  onMoveToProject,
   onColorChange,
   onDelete,
   onNewFolder,
@@ -117,14 +119,17 @@ export default function ContextMenu({
         )}
 
         {/* Rename */}
-        <CtxItem icon={<Edit3 className="size-3.5" />} label="Renombrar" onClick={() => { onRename(r); onClose(); }} />
+        <CtxItem icon={<Edit3 className="size-3.5" />} label={t('folder.rename')} onClick={() => { onRename(r); onClose(); }} />
 
-        {/* Move */}
-        <CtxItem icon={<FolderInput className="size-3.5" />} label="Mover a carpeta" onClick={() => { onMove(r); onClose(); }} />
+        {/* Move within project */}
+        <CtxItem icon={<FolderOpen className="size-3.5" />} label={t('selection.move_to_folder')} onClick={() => { onMove(r); onClose(); }} />
+
+        {/* Move to another project */}
+        <CtxItem icon={<FolderInput className="size-3.5" />} label={t('selection.move_to_project')} onClick={() => { onMoveToProject(r); onClose(); }} />
 
         {/* New subfolder — folders only */}
         {isFolder && (
-          <CtxItem icon={<FolderPlus className="size-3.5" />} label="Nueva subcarpeta" onClick={() => { onNewFolder(r.id); onClose(); }} />
+          <CtxItem icon={<FolderPlus className="size-3.5" />} label={t('folder.newFolderBtn')} onClick={() => { onNewFolder(r.id); onClose(); }} />
         )}
 
         {/* Color picker — folders only */}
@@ -211,7 +216,7 @@ export default function ContextMenu({
         {/* Delete */}
         <CtxItem
           icon={<Trash2 className="size-3.5" />}
-          label="Eliminar"
+          label={t('folder.delete')}
           onClick={() => { onDelete(r); onClose(); }}
           danger
         />

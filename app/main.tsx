@@ -7,7 +7,6 @@ import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
 import './styles/_variables.scss';
 import './styles/_keyframe-animations.scss';
-import './styles/_tiptap-dome-bridge.scss';
 import App from './App';
 import { installBrowserIpcShim } from './lib/dev/browserIpcShim';
 import './globals.css';

@@ -38,8 +38,9 @@ const {
   approveFeeder,
 } = require('../../services/feeder-runner.cjs');
 const { serializeFeederRow, serializeFeederRunRow } = require('../../services/feeder-serialize.cjs');
+const { removeFeederSidecar } = require('../../artifacts/feeder-vault-sidecar.cjs');
 
-function register({ ipcMain, windowManager, database }) {
+function register({ ipcMain, windowManager, database, fileStorage }) {
   const vault = createFeederVault(database);
 
   ipcMain.handle('feeders:create', (event, input) => {
@@ -156,6 +157,7 @@ function register({ ipcMain, windowManager, database }) {
     }
     try {
       database.getQueries().deleteFeeder.run(parsed.data);
+      await removeFeederSidecar(database, fileStorage, parsed.data);
       const workspaceRoot = path.join(app.getPath('userData'), 'feeders', parsed.data);
       await fs.promises.rm(workspaceRoot, { recursive: true, force: true }).catch(() => {});
       if (windowManager.broadcast) {

@@ -174,8 +174,8 @@ function registerAll(deps) {
   skillsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender, app });
   shellHandlers.register({ ipcMain: secureIpcMain, windowManager, sanitizePath });
   domeMcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
-  artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
-  feedersHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  feedersHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   cloudSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   threadsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });

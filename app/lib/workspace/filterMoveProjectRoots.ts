@@ -4,7 +4,10 @@ import type { Resource } from '@/lib/hooks/useResources';
 export function filterMoveProjectRoots(selectedIds: Set<string>, byId: Map<string, Resource>): string[] {
   const roots: string[] = [];
   for (const id of selectedIds) {
-    if (!byId.has(id)) continue;
+    if (!byId.has(id)) {
+      roots.push(id);
+      continue;
+    }
     let cur: Resource | undefined = byId.get(id);
     let nestedInSelection = false;
     let guard = 0;

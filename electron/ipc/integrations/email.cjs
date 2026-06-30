@@ -21,6 +21,8 @@ const AddAccountSchema = z.object({
   username: z.string().optional(),
   password: z.string().optional(),
   is_default: z.boolean().optional(),
+  projectId: z.string().min(1).optional(),
+  project_id: z.string().min(1).optional(),
   user_actions: z
     .object({
       list: z.boolean().optional(),
@@ -65,6 +67,7 @@ const UpdatePermissionsSchema = z.object({
 
 const ListEnvelopesSchema = z.object({
   accountId: OptionalAccountIdSchema,
+  projectId: z.string().min(1).optional(),
   folder: z.string().optional(),
   page: z.number().int().positive().optional(),
   pageSize: z.number().int().positive().max(200).optional(),
@@ -73,11 +76,13 @@ const ListEnvelopesSchema = z.object({
 const ReadMessageSchema = z.object({
   accountId: OptionalAccountIdSchema,
   messageId: z.string().min(1),
+  projectId: z.string().min(1).optional(),
   folder: z.string().optional(),
 });
 
 const SearchSchema = z.object({
   accountId: OptionalAccountIdSchema,
+  projectId: z.string().min(1).optional(),
   query: z.string().optional(),
   folder: z.string().optional(),
   pageSize: z.number().int().positive().max(200).optional(),
@@ -85,6 +90,7 @@ const SearchSchema = z.object({
 
 const SendSchema = z.object({
   accountId: OptionalAccountIdSchema,
+  projectId: z.string().min(1).optional(),
   to: z.string().min(1),
   cc: z.string().optional(),
   bcc: z.string().optional(),
@@ -94,6 +100,7 @@ const SendSchema = z.object({
 
 const ReplySchema = z.object({
   accountId: OptionalAccountIdSchema,
+  projectId: z.string().min(1).optional(),
   messageId: z.string().min(1),
   body: z.string().optional(),
   folder: z.string().optional(),
@@ -110,10 +117,11 @@ function fail(err, extra = {}) {
 function register({ ipcMain, windowManager, validateSender }) {
   const guard = (event) => validateSender(event, windowManager);
 
-  ipcMain.handle('email:listAccounts', async (event) => {
+  ipcMain.handle('email:listAccounts', async (event, params) => {
     try {
       guard(event);
-      return emailService.listAccounts();
+      const projectId = params && typeof params === 'object' && params.projectId ? params.projectId : null;
+      return emailService.listAccounts(projectId);
     } catch (err) {
       console.error('[Email IPC] listAccounts error:', err);
       return fail(err, { accounts: [] });
@@ -169,12 +177,14 @@ function register({ ipcMain, windowManager, validateSender }) {
     }
   });
 
-  ipcMain.handle('email:listFolders', async (event, accountId) => {
+  ipcMain.handle('email:listFolders', async (event, params) => {
     try {
       guard(event);
+      const accountId = params && typeof params === 'object' ? params.accountId ?? null : params ?? null;
+      const projectId = params && typeof params === 'object' ? params.projectId ?? null : null;
       const parsed = OptionalAccountIdSchema.safeParse(accountId ?? null);
       if (!parsed.success) return { success: false, error: 'Invalid accountId' };
-      return await emailService.listFolders(parsed.data ?? null);
+      return await emailService.listFolders(parsed.data ?? null, projectId);
     } catch (err) {
       console.error('[Email IPC] listFolders error:', err);
       return fail(err, { folders: [] });
@@ -186,8 +196,8 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = ListEnvelopesSchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params', envelopes: [] };
-      const { accountId, folder, page, pageSize } = parsed.data;
-      return await emailService.listEnvelopes(accountId ?? null, { folder, page, pageSize });
+      const { accountId, folder, page, pageSize, projectId } = parsed.data;
+      return await emailService.listEnvelopes(accountId ?? null, { folder, page, pageSize, projectId });
     } catch (err) {
       console.error('[Email IPC] listEnvelopes error:', err);
       return fail(err, { envelopes: [] });
@@ -199,8 +209,8 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = ReadMessageSchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params' };
-      const { accountId, messageId, folder } = parsed.data;
-      return await emailService.readMessage(accountId ?? null, messageId, { folder });
+      const { accountId, messageId, folder, projectId } = parsed.data;
+      return await emailService.readMessage(accountId ?? null, messageId, { folder, projectId });
     } catch (err) {
       console.error('[Email IPC] read error:', err);
       return fail(err);
@@ -212,8 +222,8 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = SearchSchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params', envelopes: [] };
-      const { accountId, query, folder, pageSize } = parsed.data;
-      return await emailService.searchEnvelopes(accountId ?? null, query || '', { folder, pageSize });
+      const { accountId, query, folder, pageSize, projectId } = parsed.data;
+      return await emailService.searchEnvelopes(accountId ?? null, query || '', { folder, pageSize, projectId });
     } catch (err) {
       console.error('[Email IPC] search error:', err);
       return fail(err, { envelopes: [] });
@@ -225,8 +235,8 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = SendSchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params' };
-      const { accountId, to, cc, bcc, subject, body } = parsed.data;
-      return await emailService.sendMessage(accountId ?? null, { to, cc, bcc, subject, body });
+      const { accountId, to, cc, bcc, subject, body, projectId } = parsed.data;
+      return await emailService.sendMessage(accountId ?? null, { to, cc, bcc, subject, body, projectId });
     } catch (err) {
       console.error('[Email IPC] send error:', err);
       return fail(err);
@@ -238,8 +248,8 @@ function register({ ipcMain, windowManager, validateSender }) {
       guard(event);
       const parsed = ReplySchema.safeParse(params ?? {});
       if (!parsed.success) return { success: false, error: 'Invalid params' };
-      const { accountId, messageId, body, folder } = parsed.data;
-      return await emailService.replyMessage(accountId ?? null, messageId, { body, folder });
+      const { accountId, messageId, body, folder, projectId } = parsed.data;
+      return await emailService.replyMessage(accountId ?? null, messageId, { body, folder, projectId });
     } catch (err) {
       console.error('[Email IPC] reply error:', err);
       return fail(err);

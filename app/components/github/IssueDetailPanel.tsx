@@ -144,7 +144,6 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
   const { t } = useTranslation();
   const issues = useGitHubStore((s) => s.issues);
   const milestones = useGitHubStore((s) => s.milestones);
-  const syncNow = useGitHubStore((s) => s.syncNow);
   const initial = issues.find((i) => i.id === issueId);
 
   const [editing, setEditing] = useState(false);
@@ -316,14 +315,12 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
       milestoneNumber,
       assignees,
     });
-    await syncNow();
     setSaving(false);
     setEditing(false);
   };
 
   const toggleState = async () => {
     await githubClient.issues.move(issueId, { state: initial.state === 'open' ? 'closed' : 'open' });
-    void syncNow();
   };
 
   const postComment = async () => {

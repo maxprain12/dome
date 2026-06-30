@@ -46,7 +46,6 @@ export default function MilestoneDetailModal({
   const { t } = useTranslation();
   const allIssues = useGitHubStore((s) => s.issues);
   const summary = useGitHubStore((s) => s.milestones.find((m) => m.id === milestoneId));
-  const syncNow = useGitHubStore((s) => s.syncNow);
 
   const [full, setFull] = useState<MilestoneFull | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,7 +117,6 @@ export default function MilestoneDetailModal({
       if (!res.success) throw new Error(res.error ?? t('github.milestone_detail_save_error'));
       setEditing(false);
       await loadFull();
-      void syncNow();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -134,7 +132,6 @@ export default function MilestoneDetailModal({
       const res = await githubClient.milestones.update(milestone.id, { state });
       if (!res.success) throw new Error(res.error ?? t('github.milestone_detail_save_error'));
       await loadFull();
-      void syncNow();
       if (state === 'closed') onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -147,7 +144,6 @@ export default function MilestoneDetailModal({
     await githubClient.issues.move(issue.id, {
       state: issue.state === 'open' ? 'closed' : 'open',
     });
-    void syncNow();
   };
 
   const headerActions = milestone?.html_url ? (

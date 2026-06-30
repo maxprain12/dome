@@ -358,7 +358,7 @@ export default function MinimalTracker({
   const allIssues = useGitHubStore((s) => s.issues);
   const selectedRepoId = useGitHubStore((s) => s.selectedRepoId);
   const loadRepoData = useGitHubStore((s) => s.loadRepoData);
-  const syncNow = useGitHubStore((s) => s.syncNow);
+  const patchLocalIssue = useGitHubStore((s) => s.patchLocalIssue);
 
   const q = query.trim().toLowerCase();
   const milestoneSort = useGitHubSortStore((s) => s.milestones);
@@ -420,8 +420,8 @@ export default function MinimalTracker({
   }, [milestones, issues, q, milestoneSort]);
 
   const toggle = async (issue: GitHubIssueRow) => {
-    await githubClient.issues.move(issue.id, { state: issue.state === 'open' ? 'closed' : 'open' });
-    void syncNow();
+    const res = await githubClient.issues.move(issue.id, { state: issue.state === 'open' ? 'closed' : 'open' });
+    if (res.success && res.issue) patchLocalIssue(res.issue);
   };
 
   if (!selectedRepoId) {
