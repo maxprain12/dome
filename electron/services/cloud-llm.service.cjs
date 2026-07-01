@@ -96,7 +96,13 @@ function resolveConfig(getQueries) {
 function isCloudLlmAvailable(getQueries) {
   try {
     const cfg = resolveConfig(getQueries);
-    if (cfg.provider === 'ollama') return true;
+    if (cfg.provider === 'ollama') {
+      const { ollamaRequiresApiKey } = require('../ai/provider-auth.cjs');
+      if (ollamaRequiresApiKey(cfg.ollamaBase)) {
+        return Boolean(cfg.apiKey && String(cfg.apiKey).trim());
+      }
+      return true;
+    }
     if (cfg.provider === 'dome') {
       const row = getQueries().getDomeProviderSessionWithRefresh?.get?.();
       return Boolean(row?.access_token);
@@ -118,9 +124,16 @@ async function resolveLlmAuth(cfg) {
     if (!token) throw new Error('GitHub Copilot no conectado. Ve a Ajustes > IA.');
     return { apiKey: token, baseUrl };
   }
+  if (cfg.provider === 'ollama') {
+    const { resolveOllamaApiKey } = require('../ai/provider-auth.cjs');
+    return {
+      apiKey: resolveOllamaApiKey(cfg.ollamaBase, cfg.apiKey),
+      baseUrl: cfg.ollamaBase,
+    };
+  }
   return {
     apiKey: cfg.apiKey,
-    baseUrl: cfg.provider === 'ollama' ? cfg.ollamaBase : cfg.openaiBase,
+    baseUrl: cfg.openaiBase,
   };
 }
 

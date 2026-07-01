@@ -5,6 +5,10 @@ const { DEFAULT_BASE_URLS, DEFAULT_MODELS } = require('./model-factory.cjs');
 const { MINIMAX_ANTHROPIC_BASE_URL } = require('./minimax-config.cjs');
 const { readSettingSecret } = require('../core/settings-secrets.cjs');
 const { readProviderApiKey, readProviderBaseUrl } = require('./provider-keys.cjs');
+const {
+  assertOllamaAuthReady,
+  resolveOllamaApiKey,
+} = require('./provider-auth.cjs');
 
 const OPENROUTER_DEFAULT = 'https://openrouter.ai/api/v1';
 
@@ -63,7 +67,16 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
   assertChatProvider(provider);
 
   if (!providerArg || providerArg === settings.provider) {
-    if (!settings.apiKey && provider !== 'ollama') {
+    if (provider === 'ollama') {
+      assertOllamaAuthReady(settings.baseUrl, settings.apiKey);
+      return {
+        provider: settings.provider,
+        apiKey: resolveOllamaApiKey(settings.baseUrl, settings.apiKey),
+        baseUrl: settings.baseUrl,
+        model,
+      };
+    }
+    if (!settings.apiKey) {
       throw new Error(`API key not configured for ${provider}`);
     }
     return {
@@ -77,10 +90,13 @@ async function resolveProviderConfig(database, providerArg, modelArg) {
   const queries = database.getQueries();
 
   if (provider === 'ollama') {
+    const baseUrl = queries.getSetting.get('ollama_base_url')?.value || DEFAULT_BASE_URLS.ollama;
+    const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || undefined;
+    assertOllamaAuthReady(baseUrl, ollamaApiKey);
     return {
       provider,
-      apiKey: readSettingSecret(queries, 'ollama_api_key') || undefined,
-      baseUrl: queries.getSetting.get('ollama_base_url')?.value || DEFAULT_BASE_URLS.ollama,
+      apiKey: resolveOllamaApiKey(baseUrl, ollamaApiKey),
+      baseUrl,
       model: model || queries.getSetting.get('ollama_model')?.value || DEFAULT_MODELS.ollama,
     };
   }

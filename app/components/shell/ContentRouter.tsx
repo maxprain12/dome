@@ -4,6 +4,7 @@ import { useShallow } from 'zustand/react/shallow';
 import HubListState from '@/components/ui/HubListState';
 import DomeButton from '@/components/ui/DomeButton';
 import { useTabStore, HOME_TAB_ID, type DomeTab } from '@/lib/store/useTabStore';
+import { useAppStore } from '@/lib/store/useAppStore';
 import { useManyStore } from '@/lib/store/useManyStore';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import WorkspaceSplitView from '@/components/workspace/WorkspaceSplitView';
@@ -25,7 +26,6 @@ const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
 const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
 const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
-const TagsPage = lazy(() => import('@/components/home/TagBrowser'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
 const PipelinesBoard = lazy(() => import('@/components/pipelines/PipelinesBoard'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
@@ -33,6 +33,13 @@ const TranscriptionsListPage = lazy(() => import('@/components/transcription/Tra
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
 const SemanticGraphView = lazy(() => import('@/components/semantic-graph/SemanticGraphView'));
 const ArtifactWorkspaceClient = lazy(() => import('@/components/artifacts/ArtifactWorkspaceClient'));
+
+function LegacyTagsWorkspace() {
+  const project = useAppStore((s) => s.currentProject);
+  const id = project?.id ?? 'default';
+  const title = project?.name ?? 'Library';
+  return <FolderTabView folderId={id} folderTitle={title} />;
+}
 
 function Loading() {
   const { t } = useTranslation();
@@ -326,8 +333,8 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
       return (
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
-            <div className="flex flex-col h-full overflow-auto" style={{ background: 'var(--dome-bg)' }}>
-              <TagsPage />
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <LegacyTagsWorkspace />
             </div>
           </Suspense>
         </ErrorBoundary>

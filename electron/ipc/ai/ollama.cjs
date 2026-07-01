@@ -38,6 +38,7 @@ function register({ ipcMain, windowManager, database, ollamaService, getOllamaMa
 
     try {
       const baseUrlResult = database.getQueries().getSetting.get('ollama_base_url');
+      const baseUrl = baseUrlResult?.value || ollamaService.DEFAULT_BASE_URL;
       const apiKey = readSettingSecret(database.getQueries(), 'ollama_api_key') || '';
       const models = await ollamaService.listModels(baseUrl, apiKey);
       return { success: true, models };

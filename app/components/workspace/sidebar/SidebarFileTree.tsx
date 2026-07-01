@@ -3,19 +3,18 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, Search, Folder, FolderOpen, X, MoreHorizontal, Check } from 'lucide-react';
-import { ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';
 import type { Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
 import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
+import MoveFolderModal from '@/components/workspace/MoveFolderModal';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+import { useAppStore } from '@/lib/store/useAppStore';
 
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { pickFolderColor, parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
 import ContextMenu from './SidebarContextMenu';
-import { MoveFolderModal, DeleteConfirmModal, NewFolderModal } from './SidebarModals';
+import { DeleteConfirmModal, NewFolderModal } from './SidebarModals';
 
 export interface TreeNodeProps {
   node: TreeNodeData;
@@ -248,6 +247,7 @@ export interface FileTreeProps {
 
 export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [] }: FileTreeProps) {
   const { t } = useTranslation();
+  const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -280,9 +280,9 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
 
   const resourcesById = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
 
-  const folderPickTargets = useMemo(
-    () => resources.filter((r) => r.type === 'folder' && !selectedIds.has(r.id)),
-    [resources, selectedIds],
+  const folderPickRoots = useMemo(
+    () => filterMoveProjectRoots(selectedIds, resourcesById),
+    [selectedIds, resourcesById],
   );
 
   const handleToggleSelect = useCallback((id: string) => {
@@ -593,10 +593,18 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         canOpenInSplit={canOpenInSplit}
       />
 
-      {moveResource && (
-        <MoveFolderModal resource={moveResource} allFolders={folders}
-          onConfirm={handleMoveConfirm} onClose={() => setMoveResource(null)} />
-      )}
+      {moveResource ? (
+        <MoveFolderModal
+          open
+          onClose={() => setMoveResource(null)}
+          resourceIds={[moveResource.id]}
+          resourceTitle={moveResource.title}
+          allFolders={folders}
+          projectId={projectId}
+          currentFolderId={moveResource.folder_id}
+          onConfirm={handleMoveConfirm}
+        />
+      ) : null}
       {deleteResource && (
         <DeleteConfirmModal resource={deleteResource}
           onConfirm={handleDeleteConfirm} onClose={() => setDeleteResource(null)} />
@@ -606,60 +614,14 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
           onConfirm={handleNewFolderConfirm} onClose={() => setNewFolderParentId(undefined)} />
       )}
 
-      <DomeModal
+      <MoveFolderModal
         open={folderPickOpen}
         onClose={() => setFolderPickOpen(false)}
-        title={t('selection.move_to_folder')}
-        size="sm"
-        footer={
-          <DomeButton variant="secondary" onClick={() => setFolderPickOpen(false)}>
-            {t('common.cancel')}
-          </DomeButton>
-        }
-      >
-        <Stack gap="xs">
-          <Text size="xs" c="dimmed">
-            {t('selection.items_selected_other', { count: selectedIds.size })}
-          </Text>
-          <ScrollArea.Autosize mah={280}>
-            <Stack gap={4}>
-              <UnstyledButton
-                type="button"
-                onClick={() => void handleBulkMoveToFolder(null)}
-                p="sm"
-                style={{
-                  borderRadius: 8,
-                  border: '1px solid var(--dome-border)',
-                  textAlign: 'left',
-                  background: 'var(--dome-surface)',
-                }}
-              >
-                <Text size="sm" fw={500}>
-                  {t('selection.move_to_root')}
-                </Text>
-              </UnstyledButton>
-              {folderPickTargets.map((f) => (
-                <UnstyledButton
-                  key={f.id}
-                  type="button"
-                  onClick={() => void handleBulkMoveToFolder(f.id)}
-                  p="sm"
-                  style={{
-                    borderRadius: 8,
-                    border: '1px solid var(--dome-border)',
-                    textAlign: 'left',
-                    background: 'var(--dome-surface)',
-                  }}
-                >
-                  <Text size="sm" fw={500} truncate>
-                    {f.title}
-                  </Text>
-                </UnstyledButton>
-              ))}
-            </Stack>
-          </ScrollArea.Autosize>
-        </Stack>
-      </DomeModal>
+        resourceIds={folderPickRoots}
+        allFolders={folders}
+        projectId={projectId}
+        onConfirm={handleBulkMoveToFolder}
+      />
 
       <MoveToProjectModal
         opened={moveProjectIds.length > 0}

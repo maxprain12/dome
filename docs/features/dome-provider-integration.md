@@ -15,6 +15,8 @@ El **Dome Provider** es un backend web opcional que añade a Dome Desktop:
 
 La integración es **completamente opcional**. Dome funciona perfectamente sin Provider usando OpenAI, Anthropic, Google u Ollama directamente.
 
+**Autenticación por proveedor** (API keys vs OAuth): [ai-provider-auth.md](./ai-provider-auth.md).
+
 ---
 
 ## Flujo de conexión (OAuth PKCE)

@@ -39,6 +39,7 @@ pnpm run check:ipc-inventory # tras añadir canales IPC
 | Feature | Archivo | Contenido |
 | ------- | ------- | ---------- |
 | **AI / Chat (Martin/Many)** | [ai-chat.md](features/ai-chat.md) | Cliente, streaming, Many, Agent Teams, IPC `ai:*` |
+| **AI provider auth** | [ai-provider-auth.md](features/ai-provider-auth.md) | API keys, OAuth, Ollama local/cloud — reglas por proveedor |
 | **Agent runtime** | [agent-runtime.md](architecture/agent-runtime.md) | Harness `@dome/agent-core`, JSONL, threads IPC |
 | **Recursos** | [resources.md](features/resources.md) | Resource/Project, DB client, almacenamiento |
 | **Editor** | [editor.md](features/editor.md) | Tiptap, bloques, slash commands |

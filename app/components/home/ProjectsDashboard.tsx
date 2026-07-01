@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Plus } from 'lucide-react';
+import { FolderOpen, Plus, X } from 'lucide-react';
 import { db, type Project, type Resource } from '@/lib/db/client';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTranslation } from 'react-i18next';
 import { HomeSectionHeader } from '@/components/home/dashboard/editorial/HomeSectionHeader';
 import { ProjectsHero } from '@/components/home/projects/ProjectsHero';
 import { ProjectCard } from '@/components/home/projects/ProjectCard';
+import DomeButton from '@/components/ui/DomeButton';
 
 type DashboardStats = {
   resourceCount: number;
@@ -250,6 +251,13 @@ export default function ProjectsDashboard({
   // ── Create ─────────────────────────────────────────────────────────────────
   const domeProject = useMemo(() => projects.find((p) => p.id === 'default') ?? null, [projects]);
 
+  const resetCreateForm = useCallback(() => {
+    setShowCreateForm(false);
+    setNewProjectName('');
+    setNewProjectDescription('');
+    setNewProjectVaultRoot('');
+  }, []);
+
   const handleCreateProject = useCallback(async () => {
     const name = newProjectName.trim();
     if (!name) return;
@@ -371,77 +379,100 @@ export default function ProjectsDashboard({
             </section>
 
             {showCreateForm ? (
-              <div className="h-card p-projects-create">
-                <h3 className="h-card-title">{t('projects.new_project')}</h3>
-                <p className="p-projects-create-desc">{t('projects.new_project_desc')}</p>
-                <input
-                  value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
-                  placeholder={t('projects.project_name')}
-                  aria-label={t('projects.project_name')}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
-                  }}
-                  className="p-projects-field"
-                />
-                <textarea
-                  value={newProjectDescription}
-                  onChange={(e) => setNewProjectDescription(e.target.value)}
-                  placeholder={t('projects.brief_description')}
-                  aria-label={t('projects.brief_description')}
-                  rows={2}
-                  className="p-projects-field p-projects-field-area"
-                  style={{ marginTop: 10 }}
-                />
-                <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <button
+              <div className="h-card p-projects-create" role="region" aria-labelledby="p-projects-create-title">
+                <div className="p-projects-create-hd">
+                  <h3 id="p-projects-create-title" className="h-card-title">
+                    {t('projects.new_project')}
+                  </h3>
+                  <DomeButton
                     type="button"
-                    className="h-pill-btn"
-                    onClick={async () => {
-                      const dir = await window.electron?.selectFolder?.();
-                      if (dir) setNewProjectVaultRoot(dir);
-                    }}
+                    variant="ghost"
+                    size="xs"
+                    iconOnly
+                    className="p-projects-create-close"
+                    onClick={resetCreateForm}
+                    aria-label={t('common.close')}
                   >
-                    {t('projects.choose_vault_folder', 'Vault folder…')}
-                  </button>
-                  <span
-                    style={{ fontSize: 12, color: 'var(--tertiary-text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    title={newProjectVaultRoot || undefined}
-                  >
-                    {newProjectVaultRoot || t('projects.vault_default_hint', 'Default (inside Dome)')}
-                  </span>
-                  {newProjectVaultRoot ? (
-                    <button
-                      type="button"
-                      className="h-pill-btn"
-                      onClick={() => setNewProjectVaultRoot('')}
-                      title={t('common.clear', 'Clear')}
-                    >
-                      ×
-                    </button>
-                  ) : null}
+                    <X size={14} strokeWidth={2} aria-hidden />
+                  </DomeButton>
                 </div>
-                <div className="p-projects-create-actions">
-                  <button
-                    type="button"
-                    className="h-pill-btn"
-                    onClick={() => {
-                      setShowCreateForm(false);
-                      setNewProjectName('');
-                      setNewProjectDescription('');
-                    }}
-                  >
-                    {t('common.cancel')}
-                  </button>
-                  <button
-                    type="button"
-                    className="h-pill-btn primary"
-                    onClick={() => void handleCreateProject()}
-                    disabled={creating || !newProjectName.trim()}
-                  >
-                    <Plus size={13} strokeWidth={2} aria-hidden />
-                    {creating ? t('projects.creating') : t('projects.create_project')}
-                  </button>
+                <p className="p-projects-create-desc">{t('projects.new_project_desc')}</p>
+
+                <div className="p-projects-create-form">
+                  <label className="p-projects-create-field">
+                    <span className="p-projects-create-label">{t('projects.project_name')}</span>
+                    <input
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      placeholder={t('projects.project_name_placeholder')}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
+                        if (e.key === 'Escape') resetCreateForm();
+                      }}
+                      className="p-projects-field"
+                    />
+                  </label>
+
+                  <label className="p-projects-create-field">
+                    <span className="p-projects-create-label">{t('projects.brief_description')}</span>
+                    <textarea
+                      value={newProjectDescription}
+                      onChange={(e) => setNewProjectDescription(e.target.value)}
+                      placeholder={t('projects.brief_description_placeholder')}
+                      rows={2}
+                      className="p-projects-field p-projects-field-area"
+                    />
+                  </label>
+
+                  <div className="p-projects-vault">
+                    <span className="p-projects-create-label">{t('projects.vault_folder_label')}</span>
+                    <div className="p-projects-vault-row">
+                      <FolderOpen size={13} strokeWidth={1.75} className="p-projects-vault-icon" aria-hidden />
+                      <span className="p-projects-vault-value" title={newProjectVaultRoot || undefined}>
+                        {newProjectVaultRoot || t('projects.vault_default_hint')}
+                      </span>
+                      <DomeButton
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={async () => {
+                          const dir = await window.electron?.selectFolder?.();
+                          if (dir) setNewProjectVaultRoot(dir);
+                        }}
+                      >
+                        {newProjectVaultRoot
+                          ? t('projects.vault_change_folder')
+                          : t('projects.choose_vault_folder')}
+                      </DomeButton>
+                      {newProjectVaultRoot ? (
+                        <DomeButton
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => setNewProjectVaultRoot('')}
+                        >
+                          {t('projects.vault_use_default')}
+                        </DomeButton>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="p-projects-create-actions">
+                    <DomeButton type="button" variant="ghost" size="xs" onClick={resetCreateForm}>
+                      {t('common.cancel')}
+                    </DomeButton>
+                    <DomeButton
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => void handleCreateProject()}
+                      disabled={creating || !newProjectName.trim()}
+                      loading={creating}
+                      leftIcon={creating ? undefined : <Plus size={12} strokeWidth={2} aria-hidden />}
+                    >
+                      {creating ? t('projects.creating') : t('projects.create_project')}
+                    </DomeButton>
+                  </div>
                 </div>
               </div>
             ) : null}

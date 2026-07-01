@@ -4,13 +4,14 @@ import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, FileText, Folder, FolderInput, FolderOpen, FolderPlus, Maximize2, MoreVertical, Palette, PanelRightOpen, Pencil, Trash2, X } from 'lucide-react';
+import { Check, FileText, Folder, MoreVertical, X } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
 import { getFolderColor, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ColorPickerPopover from './ColorPickerPopover';
+import ResourceContextMenuItems from './ResourceContextMenuItems';
 
 const SNIPPET_MAX = 180;
 
@@ -267,16 +268,6 @@ function FolderCardImpl({
     setColorPickerPos({ top, left });
   };
 
-  const menuItem = (icon: React.ReactNode, label: string, action: () => void, danger = false) => (
-    <button
-      type="button"
-      onClick={(e) => { e.stopPropagation(); setMenuOpen(false); action(); }}
-      className={`dome-folder-view__row-menu-item${danger ? ' dome-folder-view__row-menu-item--danger' : ''}`}
-    >
-      {icon} {label}
-    </button>
-  );
-
   const cardClass = [
     'dome-fs-card',
     searchFocused ? 'dome-fs-card--focused' : '',
@@ -303,7 +294,7 @@ function FolderCardImpl({
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
       <div
         ref={previewRef as unknown as React.Ref<HTMLDivElement>}
-        className="dome-fs-card__cover cursor-pointer"
+        className={`dome-fs-card__cover cursor-pointer${artifactTemplate ? ' dome-fs-card__cover--artifact' : ''}`}
         onClick={handleCardActivate}
         style={isFolderCard
           ? { background: `color-mix(in srgb, ${typeColor} 12%, var(--dome-surface))` }
@@ -375,46 +366,39 @@ function FolderCardImpl({
       </div>
 
       {renaming ? (
-        <div className="dome-fs-card__body cursor-pointer select-none">
-          <div className="dome-fs-card__title-row">
-            <div className="dome-fs-card__rename">
-              <input
-                ref={renameRef}
-                type="text"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename();
-                  if (e.key === 'Escape') setRenaming(false);
-                }}
-                onClick={(e) => e.stopPropagation()}
-                aria-label={t('ui.rename', 'Rename')}
-                className="dome-fs-tree-row__rename-input"
-              />
-              <button type="button" onClick={(e) => { e.stopPropagation(); commitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
-                <Check className="size-3.5" />
-              </button>
-              <button type="button" onClick={(e) => { e.stopPropagation(); setRenaming(false); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
-                <X className="size-3.5" />
-              </button>
-            </div>
+        <div className="dome-fs-card__body">
+          <div className="dome-fs-card__rename">
+            <input
+              ref={renameRef}
+              type="text"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') setRenaming(false);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              aria-label={t('ui.rename', 'Rename')}
+              className="dome-fs-tree-row__rename-input"
+            />
+            <button type="button" onClick={(e) => { e.stopPropagation(); commitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
+              <Check className="size-3.5" />
+            </button>
+            <button type="button" onClick={(e) => { e.stopPropagation(); setRenaming(false); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
+              <X className="size-3.5" />
+            </button>
           </div>
         </div>
       ) : (
         <button
           type="button"
-          className="dome-fs-card__body cursor-pointer select-none w-full text-left border-0 bg-transparent p-0 font-inherit"
+          className="dome-fs-card__body"
           onClick={handleCardActivate}
           aria-label={displayTitle}
         >
-          <div className="dome-fs-card__title-row">
-            <>
-              <h3 className="dome-fs-card__title" title={displayTitle}>
-                {searchQuery ? highlightSnippet(displayTitle, searchQuery) : displayTitle}
-              </h3>
-              <span className="dome-folder-view__type-badge" title={typeLabel}>{typeLabel}</span>
-            </>
-          </div>
+          <h3 className="dome-fs-card__title" title={displayTitle}>
+            {searchQuery ? highlightSnippet(displayTitle, searchQuery) : displayTitle}
+          </h3>
 
           {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
             <p className="dome-fs-card__snippet">
@@ -423,6 +407,7 @@ function FolderCardImpl({
           ) : null}
 
           <div className="dome-fs-card__meta">
+            <span className="dome-fs-card__type-badge" title={typeLabel}>{typeLabel}</span>
             <span className="dome-fs-card__modified">{timeAgo}</span>
           </div>
         </button>
@@ -441,30 +426,24 @@ function FolderCardImpl({
               style={{ top: menuPos.top, right: menuPos.right }}
               onMouseDown={(e) => e.stopPropagation()}
             >
-              {menuItem(<Pencil className="size-3" />, t('folder.rename'), startRenaming)}
-              {!isFolderCard && onOpenInSplit ? menuItem(
-                <PanelRightOpen className="size-3" />,
-                t('focused_editor.open_reference', 'Abrir como referencia'),
-                () => { setMenuOpen(false); onOpenInSplit(); },
-              ) : null}
-              {!isFolderCard && onOpenInWindow && item.type === 'note' ? menuItem(
-                <Maximize2 className="size-3" />,
-                t('focused_editor.popout', 'Abrir en ventana'),
-                () => { setMenuOpen(false); onOpenInWindow(); },
-              ) : null}
-              {isFolderCard && onChangeColor ? menuItem(<Palette className="size-3" />, t('folder.changeColor', 'Cambiar color'), () => {
-                setMenuOpen(false);
-                openColorPicker();
-              }) : null}
-              {onMoveToFolder ? menuItem(<FolderOpen className="size-3" />, t('selection.move_to_folder'), onMoveToFolder) : null}
-              {menuItem(<FolderInput className="size-3" />, t('selection.move_to_project'), onMoveToProject)}
-              {isFolderCard && onNewSubfolder ? menuItem(
-                <FolderPlus className="size-3" />,
-                t('folder.newFolderBtn'),
-                () => { setMenuOpen(false); onNewSubfolder(); },
-              ) : null}
-              <div className="dome-folder-view__row-menu-divider" />
-              {menuItem(<Trash2 className="size-3" />, t('folder.delete'), onDelete, true)}
+              <ResourceContextMenuItems
+                options={{
+                  isFolder: isFolderCard,
+                  isNote: item.type === 'note',
+                  canOpenInSplit: Boolean(onOpenInSplit),
+                }}
+                actions={{
+                  onRename: startRenaming,
+                  onOpenInSplit,
+                  onOpenInWindow,
+                  onChangeColor: isFolderCard && onChangeColor ? openColorPicker : undefined,
+                  onMoveToFolder,
+                  onMoveToProject,
+                  onNewSubfolder: isFolderCard ? onNewSubfolder : undefined,
+                  onDelete,
+                }}
+                onDismiss={() => setMenuOpen(false)}
+              />
             </div>,
             document.body,
           )

@@ -65,3 +65,9 @@ export type { NativeWebSupport, WebClientToolName } from './native-web-tools.js'
 export { legacyMessagesToContext, mapThinkingLevel } from './legacy-bridge.js';
 export { resolveDomeModel, domeUsageToLegacy, legacyUsageToDome, extractTextFromAssistantMessage } from './dome-bridge.js';
 export type { ResolveDomeModelOptions, DomeLegacyProvider } from './dome-bridge.js';
+export {
+  resolveOllamaMode,
+  ollamaRequiresApiKey,
+  OLLAMA_LOCAL_PLACEHOLDER_KEY,
+} from './ollama-mode.js';
+export type { OllamaMode } from './ollama-mode.js';

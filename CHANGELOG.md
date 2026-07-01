@@ -4,6 +4,23 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.8.4](https://github.com/maxprain12/dome/releases/tag/v2.8.4) - 2026-07-01
+
+Mejoras de workspace (mover carpetas, menús contextuales unificados), auth de proveedores IA (Ollama local vs cloud) y pulido del dashboard de proyectos.
+
+### Added
+
+- **Mover carpeta.** Modal `MoveFolderModal` con selector jerárquico; acción disponible desde sidebar y vista de carpeta.
+- **Menú contextual de recursos compartido.** `ResourceContextMenuItems` reutilizado en tarjetas, filas y sidebar.
+- **Auth de proveedores IA.** Módulo `provider-auth` (main + renderer) y modo Ollama local/cloud en `@dome/ai`; documentación en `docs/features/ai-provider-auth.md`.
+
+### Changed
+
+- **Sidebar y context menus.** Refactor de `SidebarContextMenu` / `SidebarModals`; eliminado CSS dedicado.
+- **Dashboard de proyectos.** Formulario de creación con labels, cancelar/cerrar y selector de vault mejorado.
+- **Vista de carpeta.** Layout y acciones de tarjeta/fila alineadas con el menú contextual unificado.
+- **Home.** Eliminada sección TagBrowser del hub (navegación y command palette).
+
 ## [2.8.3](https://github.com/maxprain12/dome/releases/tag/v2.8.3) - 2026-06-30
 
 Parche centrado en Many y en el round-trip markdown del agente con las notas del vault.

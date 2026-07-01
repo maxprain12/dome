@@ -9,7 +9,6 @@ import {
   Activity,
   Layers,
   BookOpen,
-  Tag,
   Store,
   Mail,
   ListTodo,
@@ -33,7 +32,6 @@ interface BuildNavOptions {
   openAutomationsTab: () => void;
   openRunsTab: () => void;
   openLearnTab: () => void;
-  openTagsTab: () => void;
   openMarketplaceTab: () => void;
   openSettingsTab: () => void;
 }
@@ -63,7 +61,6 @@ export function buildNavigationDestinations(opts: BuildNavOptions): PaletteRow[]
     { key: 'automations', row: wrap('automations', opts.t('automationHub.tab_automations'), <Zap className={iconClass} strokeWidth={sw} />, opts.openAutomationsTab) },
     { key: 'runs', row: wrap('runs', opts.t('automationHub.tab_runs'), <Activity className={iconClass} strokeWidth={sw} />, opts.openRunsTab) },
     { key: 'learn', row: wrap('learn', opts.t('workspace.learn'), <BookOpen className={iconClass} strokeWidth={sw} />, opts.openLearnTab) },
-    { key: 'tags', row: wrap('tags', opts.t('workspace.tags'), <Tag className={iconClass} strokeWidth={sw} />, opts.openTagsTab) },
     { key: 'marketplace', row: wrap('marketplace', opts.t('workspace.marketplace'), <Store className={iconClass} strokeWidth={sw} />, opts.openMarketplaceTab) },
     { key: 'settings', row: wrap('settings', opts.t('settings.title'), <Settings className={iconClass} strokeWidth={sw} />, opts.openSettingsTab) },
   ];

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Home, Tag, Settings, HelpCircle, WalletCards, Sparkles, Calendar, Store, Zap } from 'lucide-react';
+import { Home, Settings, HelpCircle, WalletCards, Sparkles, Calendar, Store, Zap } from 'lucide-react';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { getAgentTeams } from '@/lib/agent-team/api';
@@ -12,7 +12,7 @@ import AgentOnboarding from '@/components/agents/AgentOnboarding';
 import ManyIcon from '@/components/many/ManyIcon';
 import { startDomeTour } from '@/lib/tour/domeTour';
 
-type SidebarSection = 'library' | 'flashcards' | 'chat' | 'recent' | 'tags' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | 'automations-hub';
+type SidebarSection = 'library' | 'flashcards' | 'chat' | 'recent' | 'studio' | 'agents' | 'marketplace' | 'agent-teams' | 'automations-hub';
 
 type NavAction = 'navigate' | 'section';
 
@@ -84,7 +84,6 @@ export default function HomeSidebar({ flashcardDueCount: _flashcardDueCount }: H
     { id: 'calendar', label: t('nav.calendar'), icon: <Calendar className="size-5" strokeWidth={1.5} />, action: 'navigate', path: '/calendar' },
     { id: 'studio', label: t('nav.studio'), icon: <Sparkles className="size-5" strokeWidth={1.5} />, action: 'section', section: 'studio' },
     { id: 'flashcards', label: t('nav.flashcards'), icon: <WalletCards className="size-5" strokeWidth={1.5} />, action: 'section', section: 'flashcards' },
-    { id: 'tags', label: t('nav.tags'), icon: <Tag className="size-5" strokeWidth={1.5} />, action: 'section', section: 'tags' },
     {
       id: 'automations-hub',
       label: t('nav.agents_flows'),

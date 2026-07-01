@@ -2,6 +2,8 @@
 
 Documentation for Dome's AI chat: unified client, streaming, tools, and UI.
 
+**Provider authentication rules**: see [ai-provider-auth.md](./ai-provider-auth.md) (API keys, OAuth, Ollama local/cloud).
+
 **Main chat interface**: `ManyPanel` (formerly `MartinFloatingButton`). Lives in `app/components/many/`.
 **Many Agents**: Custom specialized agents with instructions, tools, MCP, sessions. `app/components/agents/`, `app/lib/agents/`.
 **Agent Teams** (v2.0.8): Multi-agent supervisor + specialized sub-agents. `electron/ipc/agent-team.cjs`. See [agent-teams.md](./agent-teams.md).
