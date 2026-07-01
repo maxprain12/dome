@@ -405,7 +405,6 @@ export default function ProjectsDashboard({
                       value={newProjectName}
                       onChange={(e) => setNewProjectName(e.target.value)}
                       placeholder={t('projects.project_name_placeholder')}
-                      autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) void handleCreateProject();
                         if (e.key === 'Escape') resetCreateForm();

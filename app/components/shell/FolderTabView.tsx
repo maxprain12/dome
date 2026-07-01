@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
 import { Menu } from '@mantine/core';
 import {
-  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Folder, Tag,
+  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Tag,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
