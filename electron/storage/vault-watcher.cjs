@@ -155,6 +155,56 @@ function importExternalBinary(absPath, buf, ext, ctx, deps) {
   console.log('[VaultWatcher] imported external file:', ctx.relPath);
 }
 
+/** Import an unknown external `.url` (InternetShortcut) file as a url resource. */
+function importExternalUrlFile(raw, ctx, deps) {
+  const { database, windowManager } = deps;
+  const url = vaultStore.parseUrlFile(raw);
+  if (!url) return false;
+  const db = database.getDB();
+  const segments = ctx.relPath.split('/').filter(Boolean);
+  if (segments.length === 0) return false;
+  const folderId = ensureFolderChain(ctx.projectId, segments.slice(0, -1), deps);
+  const title = segments[segments.length - 1].replace(/\.url$/i, '') || url;
+  const now = Date.now();
+  const id = crypto.randomUUID();
+  db.prepare(
+    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_text, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(id, ctx.projectId, 'url', title, url, null, folderId, ctx.relPath, url, vaultStore.contentHash(raw), null, now, now);
+  windowManager.broadcast('resource:created', {
+    id, type: 'url', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
+  });
+  console.log('[VaultWatcher] imported external url:', ctx.relPath);
+  return true;
+}
+
+/** Import an unknown external `.dnb` (Dome notebook JSON) file as a notebook. */
+function importExternalNotebook(raw, ctx, deps) {
+  const { database, windowManager } = deps;
+  let cells;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.cells)) return false;
+    cells = parsed;
+  } catch {
+    return false;
+  }
+  const db = database.getDB();
+  const segments = ctx.relPath.split('/').filter(Boolean);
+  if (segments.length === 0) return false;
+  const folderId = ensureFolderChain(ctx.projectId, segments.slice(0, -1), deps);
+  const title = segments[segments.length - 1].replace(/\.dnb$/i, '') || 'Untitled Notebook';
+  const now = Date.now();
+  const id = crypto.randomUUID();
+  db.prepare(
+    'INSERT INTO resources (id, project_id, type, title, content, file_path, folder_id, vault_path, content_hash, metadata, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+  ).run(id, ctx.projectId, 'notebook', title, JSON.stringify(cells), null, folderId, ctx.relPath, vaultStore.contentHash(raw), null, now, now);
+  windowManager.broadcast('resource:created', {
+    id, type: 'notebook', project_id: ctx.projectId, folder_id: folderId, title, vault_path: ctx.relPath,
+  });
+  console.log('[VaultWatcher] imported external notebook:', ctx.relPath);
+  return true;
+}
+
 /** Import an unknown external Dome artifact HTML as a persisted artifact resource. */
 function importExternalArtifact(raw, ctx, deps) {
   const { database, semanticIndexScheduler, windowManager } = deps;
@@ -297,6 +347,8 @@ function handleChange(absPath, deps) {
   if (!row) {
     if (isMd) importExternalNote(rawText, ctx, deps);
     else if (isArtifactHtml) importExternalArtifact(rawText, ctx, deps);
+    else if (ext === '.url' && importExternalUrlFile(rawText, ctx, deps)) return;
+    else if (ext === '.dnb' && importExternalNotebook(rawText, ctx, deps)) return;
     else importExternalBinary(absPath, buf, ext, ctx, deps);
     return;
   }
@@ -311,6 +363,17 @@ function handleChange(absPath, deps) {
     const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(rawText));
     db.prepare('UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
       .run(ctx.relPath, text, hash, now, row.id);
+  } else if (row.type === 'url' && ext === '.url') {
+    const url = vaultStore.parseUrlFile(rawText);
+    if (!url) return;
+    db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
+      .run(ctx.relPath, url, url, hash, now, row.id);
+  } else if (row.type === 'notebook' && ext === '.dnb') {
+    let parsed;
+    try { parsed = JSON.parse(rawText); } catch { return; }
+    if (!parsed || !Array.isArray(parsed.cells)) return;
+    db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_hash = ?, updated_at = ? WHERE id = ?')
+      .run(ctx.relPath, JSON.stringify(parsed), hash, now, row.id);
   } else if (row.type === 'artifact' || isArtifactHtml) {
     if (reconcileExternalArtifactEdit(row, rawText, ctx, hash, deps)) return;
   } else {
@@ -325,6 +388,9 @@ function handleChange(absPath, deps) {
 
 function handleUnlinkDir(absPath, deps) {
   const { database, windowManager } = deps;
+  // Directory removals performed by Dome itself (folder delete, empty-dir
+  // pruning) are marked as self-writes — never reconcile those as external.
+  if (vaultStore.isSelfWrite(absPath, null)) return;
   if (_pendingDirUnlinks.has(absPath)) clearTimeout(_pendingDirUnlinks.get(absPath));
   _pendingDirUnlinks.set(absPath, setTimeout(() => {
     _pendingDirUnlinks.delete(absPath);
@@ -403,6 +469,8 @@ function handleAddDir(absPath, deps) {
 
 function handleUnlink(absPath, deps) {
   const { database, windowManager } = deps;
+  // File removals performed by Dome itself are marked as self-writes.
+  if (vaultStore.isSelfWrite(absPath, null)) return;
   if (_pendingUnlinks.has(absPath)) clearTimeout(_pendingUnlinks.get(absPath));
   _pendingUnlinks.set(absPath, setTimeout(() => {
     _pendingUnlinks.delete(absPath);
@@ -450,6 +518,14 @@ function scanRoot(rootAbs, deps) {
         try { importExternalNote(raw, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan note import failed:', err.message); }
       } else if (ext === '.html' && vaultStore.isDomeArtifactHtml(buf.toString('utf8'))) {
         try { importExternalArtifact(buf.toString('utf8'), ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan artifact import failed:', err.message); }
+      } else if (ext === '.url') {
+        try {
+          if (!importExternalUrlFile(buf.toString('utf8'), ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
+        } catch (err) { console.warn('[VaultWatcher] scan url import failed:', err.message); }
+      } else if (ext === '.dnb') {
+        try {
+          if (!importExternalNotebook(buf.toString('utf8'), ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
+        } catch (err) { console.warn('[VaultWatcher] scan notebook import failed:', err.message); }
       } else {
         try { importExternalBinary(abs, buf, ext, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan file import failed:', err.message); }
       }

@@ -1156,8 +1156,11 @@ app
     semanticIndexScheduler.init(database);
     semanticIndexScheduler.startAutoIndexing();
 
-    // Watch the Markdown vault for external edits (Obsidian/Finder/etc.).
+    // Watch the vault for external edits (Obsidian/Finder/etc.). Before the
+    // watcher starts, the doctor makes DB↔disk consistent (orphaned refs,
+    // missing mirrors, ghost paths) so the workspace tree equals the filesystem.
     try {
+      require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
       const vaultWatcher = require('./storage/vault-watcher.cjs');
       vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
     } catch (err) {

@@ -40,5 +40,13 @@
   "tagFilter": "Filtrer par tag",
   "tagFilterAll": "Tous les tags",
   "tagFilterActive": "{{name}} · {{count}}",
-  "tagFilterEmpty": "Aucune ressource avec ce tag"
+  "tagFilterEmpty": "Aucune ressource avec ce tag",
+  "reveal_in_finder": "Afficher dans le Finder",
+  "reveal_in_explorer": "Afficher dans l'Explorateur",
+  "open_with_system": "Ouvrir avec l'app système",
+  "copy_path": "Copier le chemin",
+  "path_copied": "Chemin copié",
+  "duplicate": "Dupliquer",
+  "copy_suffix": "copie",
+  "no_file_on_disk": "Cet élément n'a pas encore de fichier sur le disque"
 }

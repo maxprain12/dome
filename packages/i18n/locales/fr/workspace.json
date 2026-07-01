@@ -130,5 +130,7 @@
   "save": "Enregistrer",
   "saving": "Enregistrement…",
   "saved": "Enregistré",
-  "save_now": "Enregistrer maintenant (⌘S)"
+  "save_now": "Enregistrer maintenant (⌘S)",
+  "open_vault_folder": "Ouvrir le dossier du workspace",
+  "search_workspace": "Rechercher dans le workspace"
 }

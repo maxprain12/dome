@@ -241,6 +241,7 @@ export default function FolderListRow({
               onMouseDown={(e) => e.stopPropagation()}
             >
               <ResourceContextMenuItems
+                resource={item}
                 options={{
                   isFolder,
                   isNote: item.type === 'note',

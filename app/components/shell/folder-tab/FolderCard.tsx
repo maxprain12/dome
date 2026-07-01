@@ -427,6 +427,7 @@ function FolderCardImpl({
               onMouseDown={(e) => e.stopPropagation()}
             >
               <ResourceContextMenuItems
+                resource={item}
                 options={{
                   isFolder: isFolderCard,
                   isNote: item.type === 'note',

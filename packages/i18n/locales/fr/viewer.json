@@ -75,5 +75,6 @@
   "pdf_region_handoff_context_intro": "Contexte d’une zone du PDF (réponse de votre IA, ci-dessous). Peaufinez ou continuez avec l’assistant.",
   "pdf_region_handoff_answer_note": "votre IA configurée",
   "pdf_region_handoff_follow_up": "Aide-moi à approfondir, à comparer avec le document ou à corriger ce qui semble incorrect.",
-  "close_modal": "Fermer la fenêtre"
+  "close_modal": "Fermer la fenêtre",
+  "annotation": "annotation"
 }

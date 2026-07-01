@@ -130,5 +130,7 @@
   "save": "Save",
   "saving": "Saving…",
   "saved": "Saved",
-  "save_now": "Save now (⌘S)"
+  "save_now": "Save now (⌘S)",
+  "open_vault_folder": "Open workspace folder",
+  "search_workspace": "Search in workspace"
 }

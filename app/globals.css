@@ -4983,6 +4983,45 @@ a:hover {
   }
 }
 
+/* Compact (icon-only) variant — narrow containers like the workspace sidebar */
+.selection-action-bar--compact {
+  gap: 6px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-md);
+  min-width: 0;
+}
+
+.selection-action-bar--compact .selection-action-bar-count {
+  font-size: 11px;
+  flex-shrink: 0;
+  min-width: 16px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--dome-text);
+}
+
+.selection-action-bar--compact .selection-action-bar-actions {
+  gap: 4px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.selection-action-bar--compact .selection-action-btn {
+  padding: 0;
+  width: 26px;
+  min-width: 26px;
+  min-height: 26px;
+  height: 26px;
+  justify-content: center;
+  gap: 0;
+}
+
 .toast-container {
   position: fixed;
   top: 56px;
