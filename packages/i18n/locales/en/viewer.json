@@ -75,5 +75,6 @@
   "pdf_region_handoff_context_intro": "Context from a PDF region answered with your configured AI (below). Refine or continue with the assistant.",
   "pdf_region_handoff_answer_note": "your configured AI",
   "pdf_region_handoff_follow_up": "Help me go deeper, contrast this with the document, or correct anything that seems off.",
-  "close_modal": "Close modal"
+  "close_modal": "Close modal",
+  "annotation": "annotation"
 }

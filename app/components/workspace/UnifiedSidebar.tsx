@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -600,6 +600,19 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
             >
               <FolderPlus className="size-3.5" strokeWidth={2} />
+            </button>
+
+            {/* Open workspace folder in Finder/Explorer */}
+            <button
+              type="button"
+              title={t('workspace.open_vault_folder')}
+              onClick={() => { void window.electron?.resource?.openVaultRoot(hubProjectId); }}
+              className="flex items-center justify-center rounded transition-colors shrink-0"
+              style={{ width: 22, height: 22, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)'; }}
+            >
+              <FolderSymlink className="size-3.5" strokeWidth={2} />
             </button>
           </div>
           {workspaceOpen && (

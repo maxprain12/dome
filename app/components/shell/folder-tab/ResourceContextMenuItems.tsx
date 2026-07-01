@@ -7,10 +7,16 @@ import {
   FolderInput,
   FolderPlus,
   FolderOpen,
+  FolderSymlink,
+  ExternalLink,
+  ClipboardCopy,
+  CopyPlus,
   PanelRightOpen,
   Maximize2,
   Palette,
 } from 'lucide-react';
+import type { Resource } from '@/lib/hooks/useResources';
+import { showToast } from '@/lib/store/useToastStore';
 
 export type ResourceContextMenuActions = {
   onRename: () => void;
@@ -33,12 +39,29 @@ type ResourceContextMenuItemsProps = {
   options: ResourceContextMenuOptions;
   actions: ResourceContextMenuActions;
   onDismiss: () => void;
+  /**
+   * When provided, filesystem actions are rendered (reveal in Finder, open
+   * with the system app, copy path, duplicate) — the workspace mirrors the
+   * real filesystem, so these behave like their Finder counterparts.
+   */
+  resource?: Resource;
 };
+
+const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform);
+
+async function resolveResourcePath(resourceId: string): Promise<string | null> {
+  try {
+    const res = await window.electron?.resource?.getFilePath(resourceId);
+    if (res?.success && typeof res.data === 'string') return res.data;
+  } catch { /* fall through */ }
+  return null;
+}
 
 export default function ResourceContextMenuItems({
   options,
   actions,
   onDismiss,
+  resource,
 }: ResourceContextMenuItemsProps) {
   const { t } = useTranslation();
   const { isFolder, isNote, canOpenInSplit } = options;
@@ -56,6 +79,55 @@ export default function ResourceContextMenuItems({
       {icon} {label}
     </button>
   );
+
+  const revealLabel = IS_MAC ? t('folder.reveal_in_finder') : t('folder.reveal_in_explorer');
+
+  const handleReveal = async () => {
+    if (!resource) return;
+    const abs = await resolveResourcePath(resource.id);
+    if (!abs) {
+      showToast('warning', t('folder.no_file_on_disk'));
+      return;
+    }
+    // Folders open directly; files are highlighted inside their folder.
+    if (isFolder) await window.electron?.openPath?.(abs);
+    else await window.electron?.showItemInFolder?.(abs);
+  };
+
+  const handleOpenWithSystem = async () => {
+    if (!resource) return;
+    const abs = await resolveResourcePath(resource.id);
+    if (!abs) {
+      showToast('warning', t('folder.no_file_on_disk'));
+      return;
+    }
+    await window.electron?.openPath?.(abs);
+  };
+
+  const handleCopyPath = async () => {
+    if (!resource) return;
+    const abs = await resolveResourcePath(resource.id);
+    if (!abs) {
+      showToast('warning', t('folder.no_file_on_disk'));
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(abs);
+      showToast('success', t('folder.path_copied'));
+    } catch {
+      showToast('error', t('common.unknown_error', 'Error'));
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (!resource) return;
+    const res = await window.electron?.resource?.duplicate(resource.id, {
+      suffix: t('folder.copy_suffix'),
+    });
+    if (!res?.success) {
+      showToast('error', res?.error || t('common.unknown_error', 'Error'));
+    }
+  };
 
   return (
     <>
@@ -92,6 +164,21 @@ export default function ResourceContextMenuItems({
       {isFolder && actions.onNewSubfolder
         ? menuItem(<FolderPlus className="size-3" />, t('folder.newFolderBtn'), actions.onNewSubfolder)
         : null}
+      {resource ? (
+        <>
+          <div className="dome-folder-view__row-menu-divider" />
+          {menuItem(<FolderSymlink className="size-3" />, revealLabel, () => void handleReveal())}
+          {!isFolder
+            ? menuItem(
+                <ExternalLink className="size-3" />,
+                t('folder.open_with_system'),
+                () => void handleOpenWithSystem(),
+              )
+            : null}
+          {menuItem(<ClipboardCopy className="size-3" />, t('folder.copy_path'), () => void handleCopyPath())}
+          {menuItem(<CopyPlus className="size-3" />, t('folder.duplicate'), () => void handleDuplicate())}
+        </>
+      ) : null}
       <div className="dome-folder-view__row-menu-divider" />
       {menuItem(<Trash2 className="size-3" />, t('folder.delete'), actions.onDelete, true)}
     </>

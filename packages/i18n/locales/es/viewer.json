@@ -75,5 +75,6 @@
   "pdf_region_handoff_context_intro": "Contexto de una región del PDF respondida con tu IA configurada (abajo). Refina o continúa con el asistente.",
   "pdf_region_handoff_answer_note": "tu IA configurada",
   "pdf_region_handoff_follow_up": "Ayúdame a profundizar, contrastar con el documento o corregir lo que no encaje.",
-  "close_modal": "Cerrar modal"
+  "close_modal": "Cerrar modal",
+  "annotation": "anotación"
 }

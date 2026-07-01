@@ -1674,6 +1674,14 @@ async function resourceCreate(data) {
         console.warn('[AI Tools] writeNoteMarkdownFromAgent failed:', writeResult.error);
       }
     }
+    if (type === 'url' || type === 'notebook') {
+      try {
+        const { ensureResourceMirror } = require('../storage/vault-sync.cjs');
+        ensureResourceMirror(id, { database, fileStorage });
+      } catch (e) {
+        console.warn('[AI Tools] ensureResourceMirror failed:', e?.message);
+      }
+    }
 
     const resource = {
       id,
@@ -1827,6 +1835,29 @@ async function resourceUpdate(resourceId, updates) {
       for (const targetId of normalizedNoteLinks) {
         createManualResourceRelation(queries, resourceId, targetId, 'source_note');
       }
+    }
+
+    // Keep the vault mirror in sync with agent edits (workspace == filesystem):
+    // renames move the file on disk; url/notebook content rewrites the mirror.
+    try {
+      const titleChanged = updates.title !== undefined && title !== existing.title;
+      if (existing.type === 'url' || existing.type === 'notebook') {
+        if (titleChanged || updates.content !== undefined) {
+          const write = existing.type === 'url' ? vaultStore.writeUrlMirror : vaultStore.writeNotebookMirror;
+          write({ id: resourceId }, { database, fileStorage });
+        }
+      } else if (existing.type === 'note') {
+        // Content writes already relocate via writeNoteMarkdownFromAgent.
+        if (titleChanged && updates.content === undefined) {
+          vaultStore.relocateResource(resourceId, { database, fileStorage });
+        }
+      } else if (existing.type === 'artifact') {
+        if (titleChanged) vaultStore.relocateResource(resourceId, { database, fileStorage });
+      } else if (existing.vault_path && titleChanged) {
+        vaultStore.renameResourceFileToTitle(resourceId, { database, fileStorage });
+      }
+    } catch (e) {
+      console.warn('[AI Tools] vault reconcile (update) failed:', e?.message);
     }
 
     let metadataObj = null;
@@ -1993,25 +2024,13 @@ async function resourceDelete(resourceId) {
       return { success: false, error: `Resource not found: "${resourceId}". Use the exact id from get_library_overview or a search result — never invent IDs.` };
     }
 
-    // Delete internal file if exists
-    if (resource.internal_path) {
-      try {
-        const fileStorageMod = require('../storage/file-storage.cjs');
-        fileStorageMod.deleteFile(resource.internal_path);
-      } catch (e) {
-        console.warn('[AI Tools] Could not delete file:', e.message);
-      }
-    }
-
-    const { syncVaultBeforeDelete } = require('../storage/vault-sync.cjs');
-    syncVaultBeforeDelete(resourceId, { database, fileStorage });
-
-    // Delete from database
-    queries.deleteResource.run(resourceId);
-
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('resource:deleted', { id: resourceId });
-    }
+    // Unified cascade pipeline: expands folder subtrees, removes internal
+    // files + vault mirrors/directories, deletes rows and broadcasts per id.
+    const { deleteResourcesCascade } = require('../storage/resource-delete.cjs');
+    const windowManager = windowManagerRef && typeof windowManagerRef.broadcast === 'function'
+      ? windowManagerRef
+      : { broadcast() {} };
+    deleteResourcesCascade([resourceId], { database, fileStorage, windowManager });
 
     return {
       success: true,

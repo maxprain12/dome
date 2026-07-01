@@ -102,6 +102,7 @@ export default function ContextMenu({
           onMouseDown={(e) => e.stopPropagation()}
         >
           <ResourceContextMenuItems
+            resource={r}
             options={{
               isFolder,
               isNote: r.type === 'note',

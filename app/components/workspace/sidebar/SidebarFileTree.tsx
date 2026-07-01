@@ -14,7 +14,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { pickFolderColor, parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
 import ContextMenu from './SidebarContextMenu';
-import { DeleteConfirmModal, NewFolderModal } from './SidebarModals';
+import { BulkDeleteConfirmModal, DeleteConfirmModal, NewFolderModal } from './SidebarModals';
 
 export interface TreeNodeProps {
   node: TreeNodeData;
@@ -268,6 +268,8 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
   const [newFolderParentId, setNewFolderParentId] = useState<string | null | undefined>(undefined);
   const dragNodeRef = useRef<TreeNodeData | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  // Drop on the tree background = move to the workspace root (folder_id null).
+  const [rootDragOver, setRootDragOver] = useState(false);
   const dragEnterCountRef = useRef<Record<string, number>>({});
 
   // ── Multi-selection ────────────────────────────────────────────────────────
@@ -303,9 +305,8 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
     if (selectedIds.size === 0) return;
     setBulkDeleting(true);
     try {
-      for (const id of selectedIds) {
-        await window.electron?.resource?.delete(id);
-      }
+      // Single cascade call: folder subtrees are expanded in the main process.
+      await window.electron?.db?.resources?.bulkDelete([...selectedIds]);
       exitSelectionMode();
       onRefresh();
     } finally {
@@ -470,7 +471,33 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
   const handleDragEnd = useCallback(() => {
     dragNodeRef.current = null;
     setDragOverId(null);
+    setRootDragOver(false);
   }, []);
+
+  const handleRootDragOver = useCallback((e: React.DragEvent) => {
+    if (e.defaultPrevented) {
+      // A folder row already claimed this drag.
+      setRootDragOver(false);
+      return;
+    }
+    const dragNode = dragNodeRef.current;
+    if (!dragNode?.resource?.folder_id) return; // nothing dragged, or already at root
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setRootDragOver(true);
+  }, []);
+
+  const handleRootDrop = useCallback(async (e: React.DragEvent) => {
+    setRootDragOver(false);
+    if (e.defaultPrevented) return; // handled by a folder row
+    const dragNode = dragNodeRef.current;
+    dragNodeRef.current = null;
+    setDragOverId(null);
+    if (!dragNode?.resource?.folder_id) return;
+    e.preventDefault();
+    await window.electron?.db?.resources?.moveToFolder(dragNode.id, null);
+    onRefresh();
+  }, [onRefresh]);
 
   const tree = buildTree(resources);
   const q = searchQuery.trim().toLowerCase();
@@ -495,8 +522,8 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
           <Search className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t('workspace.search_resources')}
-            aria-label={t('workspace.search_resources')}
+            placeholder={t('workspace.search_workspace')}
+            aria-label={t('workspace.search_workspace')}
             className="flex-1 bg-transparent outline-none border-none"
             style={{ fontSize: 12, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
           />
@@ -524,10 +551,11 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         )}
       </div>
 
-      {/* Selection action bar */}
+      {/* Selection action bar (compact: icon-only, fits the 260px sidebar) */}
       {selectionMode && selectedIds.size > 0 ? (
-        <div className="px-1 pb-1">
+        <div className="px-2 pb-1">
           <SelectionActionBar
+            compact
             count={selectedIds.size}
             onMoveToFolder={() => setFolderPickOpen(true)}
             onMoveToProject={() =>
@@ -546,7 +574,16 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
       ) : null}
 
       {/* Tree */}
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
+      <div
+        className="flex-1 overflow-y-auto px-2 pb-2 rounded"
+        onDragOver={handleRootDragOver}
+        onDragLeave={() => setRootDragOver(false)}
+        onDrop={(e) => void handleRootDrop(e)}
+        style={{
+          outline: rootDragOver ? '1.5px dashed var(--dome-accent)' : 'none',
+          outlineOffset: -2,
+        }}
+      >
         {filteredTree.length === 0 ? (
           <p className="text-center py-4" style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
             {t('ui.no_results')}
@@ -637,31 +674,12 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
 
       {/* Bulk delete confirm modal */}
       {bulkDeleteConfirm && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.45)' }}>
-          <div className="rounded-xl shadow-xl border p-4 flex flex-col gap-3" style={{ width: 270, background: 'var(--dome-surface)', borderColor: 'var(--dome-border)' }}>
-            <p className="font-medium text-sm" style={{ color: 'var(--dome-text)' }}>
-              {t('ui.delete_confirm', { type: 'items' })}
-            </p>
-            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-              {selectedIds.size} {t('common.select')}
-            </p>
-            <div className="flex items-center justify-end gap-2">
-              <button type="button" onClick={() => setBulkDeleteConfirm(false)}
-                className="px-3 py-1.5 rounded-md text-xs"
-                style={{ background: 'var(--dome-bg-hover)', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)' }}>
-                {t('ui.cancel')}
-              </button>
-              <button
-                type="button"
-                disabled={bulkDeleting}
-                onClick={() => void handleBulkDelete()}
-                className="px-3 py-1.5 rounded-md text-xs font-medium"
-                style={{ background: 'var(--dome-error)', border: 'none', cursor: 'pointer', color: 'var(--base-text)', opacity: bulkDeleting ? 0.6 : 1 }}>
-                {bulkDeleting ? '...' : t('ui.delete')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <BulkDeleteConfirmModal
+          count={selectedIds.size}
+          busy={bulkDeleting}
+          onConfirm={() => void handleBulkDelete()}
+          onClose={() => setBulkDeleteConfirm(false)}
+        />
       )}
     </div>
   );

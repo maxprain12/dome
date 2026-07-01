@@ -9,6 +9,8 @@ interface SelectionActionBarProps {
   onMoveToProject?: () => void;
   onDelete: () => void;
   onDeselect: () => void;
+  /** Icon-only single-row variant for narrow containers (sidebar tree). */
+  compact?: boolean;
 }
 
 export default function SelectionActionBar({
@@ -17,54 +19,46 @@ export default function SelectionActionBar({
   onMoveToProject,
   onDelete,
   onDeselect,
+  compact = false,
 }: SelectionActionBarProps) {
   const { t } = useTranslation();
   if (count === 0) return null;
 
+  const countLabel = t(
+    count === 1 ? 'selection.items_selected_one' : 'selection.items_selected_other',
+    { count },
+  );
+
+  const actionBtn = (
+    icon: React.ReactNode,
+    label: string,
+    onClick: () => void,
+    danger = false,
+  ) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`selection-action-btn${danger ? ' selection-action-btn-danger' : ''}`}
+      aria-label={label}
+      title={compact ? label : undefined}
+    >
+      {icon}
+      {!compact && <span>{label}</span>}
+    </button>
+  );
+
   return (
-    <div className="selection-action-bar">
-      <span className="selection-action-bar-count">
-        {t(count === 1 ? 'selection.items_selected_one' : 'selection.items_selected_other', { count })}
+    <div className={`selection-action-bar${compact ? ' selection-action-bar--compact' : ''}`}>
+      <span className="selection-action-bar-count" title={compact ? countLabel : undefined}>
+        {compact ? count : countLabel}
       </span>
       <div className="selection-action-bar-actions">
-        <button
-          type="button"
-          onClick={onMoveToFolder}
-          className="selection-action-btn"
-          aria-label={t('selection.move_to_folder')}
-        >
-          <FolderOpen size={16} />
-          <span>{t('selection.move_to_folder')}</span>
-        </button>
-        {onMoveToProject ? (
-          <button
-            type="button"
-            onClick={onMoveToProject}
-            className="selection-action-btn"
-            aria-label={t('selection.move_to_project')}
-          >
-            <FolderInput size={16} />
-            <span>{t('selection.move_to_project')}</span>
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={onDelete}
-          className="selection-action-btn selection-action-btn-danger"
-          aria-label={t('selection.delete')}
-        >
-          <Trash2 size={16} />
-          <span>{t('selection.delete')}</span>
-        </button>
-        <button
-          type="button"
-          onClick={onDeselect}
-          className="selection-action-btn"
-          aria-label={t('selection.deselect')}
-        >
-          <X size={16} />
-          <span>{t('selection.deselect')}</span>
-        </button>
+        {actionBtn(<FolderOpen size={compact ? 14 : 16} />, t('selection.move_to_folder'), onMoveToFolder)}
+        {onMoveToProject
+          ? actionBtn(<FolderInput size={compact ? 14 : 16} />, t('selection.move_to_project'), onMoveToProject)
+          : null}
+        {actionBtn(<Trash2 size={compact ? 14 : 16} />, t('selection.delete'), onDelete, true)}
+        {actionBtn(<X size={compact ? 14 : 16} />, t('selection.deselect'), onDeselect)}
       </div>
     </div>
   );

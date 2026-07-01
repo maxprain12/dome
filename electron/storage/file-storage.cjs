@@ -282,6 +282,8 @@ function exportFile(internalPath, destinationPath) {
  */
 function classifyFileType(ext, providedType) {
   const e = (ext || '').toLowerCase().replace(/^\.?/, '.');
+  if (e === '.url') return 'url';
+  if (e === '.dnb') return 'notebook';
   if (['.xlsx', '.xls', '.csv'].includes(e)) return 'excel';
   if (['.pptx', '.ppt'].includes(e)) return 'ppt';
   if (['.docx', '.doc'].includes(e)) return 'document';

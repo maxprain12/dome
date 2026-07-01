@@ -1,7 +1,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
 import { Menu } from '@mantine/core';
 import {
-  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Tag,
+  ChevronRight, ChevronLeft, Upload, FolderPlus, FolderSymlink, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Tag,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -12,6 +12,11 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { lazyRef } from '@/lib/utils/lazyRef';
 import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
 import MoveFolderModal from '@/components/workspace/MoveFolderModal';
+import {
+  BulkDeleteConfirmModal,
+  DeleteConfirmModal,
+  UrlInputModal,
+} from '@/components/workspace/sidebar/SidebarModals';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import '@/styles/folder-view.css';
@@ -61,6 +66,12 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const [folderMoveIds, setFolderMoveIds] = useState<string[] | null>(null);
   const [viewMode, setViewMode] = useState<FolderViewMode>(() => readFolderViewMode());
   const showSelectionChrome = selectedIds.size > 0;
+
+  // Dome-UI dialogs (never native confirm/prompt).
+  const [deleteTarget, setDeleteTarget] = useState<Resource | null>(null);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [urlModalOpen, setUrlModalOpen] = useState(false);
 
   const setFolderViewMode = useCallback((next: FolderViewMode) => {
     setViewMode(next);
@@ -177,14 +188,19 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   }, []);
 
   const handleBulkDelete = useCallback(async () => {
-    const n = selectedIds.size;
-    if (!window.confirm(t('selection.bulk_delete_confirm', { count: n }))) return;
-    const res = await window.electron?.db?.resources?.bulkDelete([...selectedIds]);
-    if (res?.success) {
-      setSelectedIds(new Set());
-      await refetch();
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    try {
+      const res = await window.electron?.db?.resources?.bulkDelete([...selectedIds]);
+      if (res?.success) {
+        setSelectedIds(new Set());
+        await refetch();
+      }
+    } finally {
+      setBulkDeleting(false);
+      setBulkDeleteOpen(false);
     }
-  }, [selectedIds, refetch, t]);
+  }, [selectedIds, refetch]);
 
   const { openResourceTab, openResourceInSplit, navigateFolderTab, updateTab, activeTabId, tabs } = useTabStore(
     useShallow((s) => ({
@@ -373,8 +389,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     await refetch();
   }, [effectiveProjectId, listFolderId, refetch]);
 
-  const handleAddUrl = useCallback(() => {
-    const url = prompt(t('command.please_enter_url', 'Introduce una URL'));
+  const handleAddUrl = useCallback((url: string) => {
     if (url && window.electron?.db?.resources?.create) {
       const now = Date.now();
       void window.electron.db.resources.create({
@@ -388,12 +403,32 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         updated_at: now,
       });
     }
-  }, [effectiveProjectId, listFolderId, t]);
+  }, [effectiveProjectId, listFolderId]);
 
-  const handleDeleteFile = useCallback(async (id: string) => {
-    if (!window.confirm(t('folder.confirmDelete'))) return;
-    await deleteResource(id);
-  }, [deleteResource, t]);
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!deleteTarget) return;
+    await deleteResource(deleteTarget.id);
+    setDeleteTarget(null);
+  }, [deleteTarget, deleteResource]);
+
+  const revealLabel =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/i.test(navigator.platform)
+      ? t('folder.reveal_in_finder')
+      : t('folder.reveal_in_explorer');
+
+  // Open the current folder (or the project vault root) in Finder/Explorer.
+  const handleRevealCurrentFolder = useCallback(async () => {
+    if (viewCtx.isProjectRoot || !currentFolder) {
+      await window.electron?.resource?.openVaultRoot(effectiveProjectId);
+      return;
+    }
+    const res = await window.electron?.resource?.getFilePath(currentFolder.id);
+    if (res?.success && typeof res.data === 'string') {
+      await window.electron?.openPath?.(res.data);
+    } else {
+      await window.electron?.resource?.openVaultRoot(effectiveProjectId);
+    }
+  }, [viewCtx.isProjectRoot, currentFolder, effectiveProjectId]);
 
   const handleRenameFile = useCallback(async (id: string, newTitle: string) => {
     await updateResource(id, { title: newTitle });
@@ -404,10 +439,6 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     updateTab(`folder:${id}`, { title: newTitle });
   }, [updateResource, updateTab]);
 
-  const handleSubfolderDelete = useCallback(async (id: string) => {
-    if (!window.confirm(t('folder.confirmDeleteFolder', '¿Eliminar esta carpeta y todo su contenido?'))) return;
-    await deleteResource(id);
-  }, [deleteResource, t]);
 
   const handleSubfolderColor = useCallback(async (id: string, color: string, folder: Resource) => {
     const currentMeta = (folder.metadata as Record<string, unknown>) ?? {};
@@ -728,38 +759,44 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
             </button>
           )}
 
-          {!viewCtx.isProjectRoot && currentFolder ? (
-            <Menu
-              withinPortal
-              position="bottom-end"
-              offset={4}
-              shadow="md"
-              classNames={{
-                dropdown: 'dome-folder-view__menu-dropdown',
-                item: 'dome-folder-view__menu-item',
-              }}
-            >
-              <Menu.Target>
-                <button
-                  ref={folderMenuBtnRef}
-                  type="button"
-                  className="dome-folder-view__icon-btn"
-                  aria-label={t('folder.folderMenu', 'Opciones de carpeta')}
-                  title={t('folder.folderMenu', 'Opciones de carpeta')}
-                >
-                  <MoreHorizontal className="size-3.5" />
-                </button>
-              </Menu.Target>
-              <Menu.Dropdown>
+          <Menu
+            withinPortal
+            position="bottom-end"
+            offset={4}
+            shadow="md"
+            classNames={{
+              dropdown: 'dome-folder-view__menu-dropdown',
+              item: 'dome-folder-view__menu-item',
+            }}
+          >
+            <Menu.Target>
+              <button
+                ref={folderMenuBtnRef}
+                type="button"
+                className="dome-folder-view__icon-btn"
+                aria-label={t('folder.folderMenu', 'Opciones de carpeta')}
+                title={t('folder.folderMenu', 'Opciones de carpeta')}
+              >
+                <MoreHorizontal className="size-3.5" />
+              </button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              {!viewCtx.isProjectRoot && currentFolder ? (
                 <Menu.Item
                   leftSection={<Palette className="size-3.5" style={{ color: folderColor }} />}
                   onClick={openFolderColorPicker}
                 >
                   {t('folder.changeColor', 'Cambiar color')}
                 </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
-          ) : null}
+              ) : null}
+              <Menu.Item
+                leftSection={<FolderSymlink className="size-3.5" />}
+                onClick={() => void handleRevealCurrentFolder()}
+              >
+                {revealLabel}
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
 
           <Menu
             withinPortal
@@ -791,7 +828,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               <Menu.Item leftSection={<Upload className="size-3.5" />} onClick={handleUpload}>
                 {t('toolbar.import', 'Importar')}
               </Menu.Item>
-              <Menu.Item leftSection={<Link2 className="size-3.5" />} onClick={handleAddUrl}>
+              <Menu.Item leftSection={<Link2 className="size-3.5" />} onClick={() => setUrlModalOpen(true)}>
                 {t('toolbar.link', 'URL')}
               </Menu.Item>
             </Menu.Dropdown>
@@ -805,7 +842,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         onMoveToProject={() =>
           setMoveProjectIds([...filterMoveProjectRoots(selectedIds, resourceMapForSelection)])
         }
-        onDelete={() => void handleBulkDelete()}
+        onDelete={() => setBulkDeleteOpen(true)}
         onDeselect={() => setSelectedIds(new Set())}
       />
 
@@ -854,7 +891,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
                     else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'), effectiveProjectId);
                   }}
-                  onDelete={() => void (isFolder ? handleSubfolderDelete(item.id) : handleDeleteFile(item.id))}
+                  onDelete={() => setDeleteTarget(item)}
                   onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
                   onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                   onMoveToProject={() => setMoveProjectIds([item.id])}
@@ -903,7 +940,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                       if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
                       else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'), effectiveProjectId);
                     }}
-                    onDelete={() => void (isFolder ? handleSubfolderDelete(item.id) : handleDeleteFile(item.id))}
+                    onDelete={() => setDeleteTarget(item)}
                     onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
                     onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                     onMoveToProject={() => setMoveProjectIds([item.id])}
@@ -965,6 +1002,30 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         resourcesById={resourceMapForSelection}
         onCompleted={() => void refetch()}
       />
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          resource={deleteTarget}
+          onConfirm={() => void handleDeleteConfirm()}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
+
+      {bulkDeleteOpen && (
+        <BulkDeleteConfirmModal
+          count={selectedIds.size}
+          busy={bulkDeleting}
+          onConfirm={() => void handleBulkDelete()}
+          onClose={() => setBulkDeleteOpen(false)}
+        />
+      )}
+
+      {urlModalOpen && (
+        <UrlInputModal
+          onConfirm={handleAddUrl}
+          onClose={() => setUrlModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -287,9 +287,11 @@ const ALLOWED_CHANNELS = {
     'resource:saveDocxFromHtml',
     'resource:export',
     'resource:delete',
+    'resource:duplicate',
     'resource:regenerateThumbnail',
     'resource:setThumbnail',
     'resource:scheduleIndex',
+    'vault:openRoot',
     // File operations
     'file:generateHash',
     'file:readFile',
@@ -1464,6 +1466,14 @@ const electronHandler = {
     // Delete resource and its internal file
     delete: (resourceId) =>
       ipcRenderer.invoke('resource:delete', resourceId),
+
+    // Duplicate resource (folders recurse; vault mirror copied too)
+    duplicate: (resourceId, options) =>
+      ipcRenderer.invoke('resource:duplicate', resourceId, options),
+
+    // Open the project's vault root in Finder/Explorer
+    openVaultRoot: (projectId) =>
+      ipcRenderer.invoke('vault:openRoot', projectId),
 
     // Regenerate thumbnail for a resource
     regenerateThumbnail: (resourceId) =>

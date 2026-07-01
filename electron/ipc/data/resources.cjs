@@ -670,7 +670,48 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
   });
 
   /**
-   * Delete resource and its internal file
+   * Duplicate a resource (Finder-style). Folders duplicate recursively; the
+   * on-disk vault mirror is copied along with the SQLite rows.
+   */
+  ipcMain.handle('resource:duplicate', (event, resourceId, options) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const { duplicateResourceTree } = require('../../storage/resource-duplicate.cjs');
+      const suffix = typeof options?.suffix === 'string' && options.suffix.trim()
+        ? options.suffix.trim().slice(0, 24)
+        : 'copy';
+      return duplicateResourceTree(resourceId, { database, fileStorage, windowManager }, { suffix });
+    } catch (error) {
+      console.error('[Resource] Error duplicating resource:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Open a project's vault root in the OS file manager (Finder/Explorer).
+   */
+  ipcMain.handle('vault:openRoot', async (event, projectId) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    try {
+      const { shell } = require('electron');
+      const queries = database.getQueries();
+      const root = vaultStore.getProjectVaultRoot(projectId || 'default', queries, fileStorage);
+      if (!fs.existsSync(root)) fs.mkdirSync(root, { recursive: true });
+      await shell.openPath(root);
+      return { success: true, data: root };
+    } catch (error) {
+      console.error('[Resource] Error opening vault root:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  /**
+   * Delete resource (cascading folder subtrees) and its files — unified
+   * pipeline in electron/storage/resource-delete.cjs.
    */
   ipcMain.handle('resource:delete', (event, resourceId) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -685,26 +726,8 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         return { success: false, error: 'Resource not found' };
       }
 
-      // Delete internal file if exists
-      if (resource.internal_path) {
-        fileStorage.deleteFile(resource.internal_path);
-      }
-
-      // Remove the vault mirror BEFORE dropping the DB row. Without this the
-      // file lingers in the vault and the VaultWatcher re-imports it as a new
-      // resource — so deletes from the sidebar / folder manager "came back".
-      // Must run before deleteResource (it reads vault_path via the row).
-      try {
-        vaultStore.removeMirrorForResource(resourceId, { database, fileStorage });
-      } catch (e) {
-        console.warn('[Resource] removeMirrorForResource failed (non-fatal):', e?.message);
-      }
-
-      // Delete from database
-      queries.deleteResource.run(resourceId);
-
-      // Broadcast so Home and other windows update immediately
-      windowManager.broadcast('resource:deleted', { id: resourceId });
+      const { deleteResourcesCascade } = require('../../storage/resource-delete.cjs');
+      deleteResourcesCascade([resourceId], { database, fileStorage, windowManager });
 
       return { success: true };
     } catch (error) {

@@ -344,6 +344,17 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         } catch { /* non-fatal */ }
       }
 
+      // Mirror to disk right away — the workspace tree must equal the
+      // filesystem, so notes/urls/notebooks get their file at creation.
+      if (['note', 'url', 'notebook'].includes(resource.type)) {
+        try {
+          const { ensureResourceMirror } = require('../../storage/vault-sync.cjs');
+          ensureResourceMirror(resource.id, { database, fileStorage });
+        } catch (e) {
+          console.warn('[DB] ensureResourceMirror (create) failed:', e?.message);
+        }
+      }
+
       // Broadcast evento a todas las ventanas
       windowManager.broadcast('resource:created', resource);
 
@@ -519,6 +530,31 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
           }
           if (resource.title !== undefined && resource.title !== current.title) {
             vaultStore.relocateResource(resource.id, { database, fileStorage });
+          }
+        } else if (current.type === 'url') {
+          // Rewrites the .url file at the title-derived path (rename + content).
+          if (
+            (resource.title !== undefined && resource.title !== current.title)
+            || (resource.content !== undefined && resource.content !== current.content)
+          ) {
+            vaultStore.writeUrlMirror({ id: resource.id }, { database, fileStorage });
+          }
+        } else if (current.type === 'notebook') {
+          if (
+            (resource.title !== undefined && resource.title !== current.title)
+            || (resource.content !== undefined && resource.content !== current.content)
+          ) {
+            vaultStore.writeNotebookMirror({ id: resource.id }, { database, fileStorage });
+          }
+        } else if (current.type === 'artifact') {
+          // Title-derived path; relocateResource also moves the .dome sidecar.
+          if (resource.title !== undefined && resource.title !== current.title) {
+            vaultStore.relocateResource(resource.id, { database, fileStorage });
+          }
+        } else if (current.vault_path) {
+          // Binary file types: renaming in Dome renames the file on disk too.
+          if (resource.title !== undefined && resource.title !== current.title) {
+            vaultStore.renameResourceFileToTitle(resource.id, { database, fileStorage });
           }
         }
       } catch (e) { console.warn('[DB] vault reconcile (update) failed:', e?.message); }
@@ -1846,24 +1882,12 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  // Delete resource
+  // Delete resource (cascades folder subtrees — unified pipeline)
   ipcMain.handle('db:resources:delete', async (event, id) => {
     try {
       validateSender(event, windowManager);
-      const queries = database.getQueries();
-      // Get resource to find internal_path
-      const resource = queries.getResourceById.get(id);
-      if (resource && resource.internal_path) {
-        // Delete the internal file
-        fileStorage.deleteFile(resource.internal_path);
-      }
-      const { syncVaultBeforeDelete } = require('../../storage/vault-sync.cjs');
-      syncVaultBeforeDelete(id, { database, fileStorage });
-      queries.deleteResource.run(id);
-
-      // Broadcast evento a todas las ventanas
-      windowManager.broadcast('resource:deleted', { id });
-
+      const { deleteResourcesCascade } = require('../../storage/resource-delete.cjs');
+      deleteResourcesCascade([id], { database, fileStorage, windowManager });
       return { success: true };
     } catch (error) {
       console.error('[DB] Error deleting resource:', error);
@@ -1902,19 +1926,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
   });
 
   /** Collect resource id and all descendants (folder tree) for move/delete operations */
-  function collectResourceSubtreeIds(queries, rootId) {
-    const ids = [];
-    const queue = [rootId];
-    while (queue.length) {
-      const id = queue.shift();
-      ids.push(id);
-      const children = queries.getResourcesByFolder.all(id);
-      for (const child of children) {
-        queue.push(child.id);
-      }
-    }
-    return ids;
-  }
+  const { collectSubtreeIds: collectResourceSubtreeIds } = require('../../storage/resource-delete.cjs');
 
   // Move resource (and folder subtree) to another project root (clears folder_id on root only)
   ipcMain.handle('db:resources:moveToProject', (event, arg1, arg2) => {
@@ -2047,53 +2059,16 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   });
 
-  /** Bulk delete: expands folder subtrees, deletes deepest nodes first */
+  /** Bulk delete: expands folder subtrees, deletes deepest nodes first (unified pipeline) */
   ipcMain.handle('db:resources:bulkDelete', async (event, resourceIds) => {
     try {
       validateSender(event, windowManager);
       if (!Array.isArray(resourceIds) || resourceIds.length === 0) {
         return { success: false, error: 'resourceIds array required' };
       }
-      const queries = database.getQueries();
-      const deleteSet = new Set();
-      for (const rid of resourceIds) {
-        if (typeof rid !== 'string' || !rid) continue;
-        for (const id of collectResourceSubtreeIds(queries, rid)) {
-          deleteSet.add(id);
-        }
-      }
-      const memo = new Map();
-      function depthInDeleteSet(id) {
-        if (memo.has(id)) return memo.get(id);
-        const row = queries.getResourceById.get(id);
-        if (!row?.folder_id || !deleteSet.has(row.folder_id)) {
-          memo.set(id, 0);
-          return 0;
-        }
-        const v = depthInDeleteSet(row.folder_id) + 1;
-        memo.set(id, v);
-        return v;
-      }
-      const ordered = [...deleteSet].sort((a, b) => depthInDeleteSet(b) - depthInDeleteSet(a));
-
-      for (const id of ordered) {
-        const resource = queries.getResourceById.get(id);
-        if (resource?.internal_path) {
-          try {
-            fileStorage.deleteFile(resource.internal_path);
-          } catch (e) {
-            console.warn('[DB] bulkDelete file:', e?.message);
-          }
-        }
-        try { vaultStore.removeMirrorForResource(id, { database, fileStorage }); } catch { /* non-fatal */ }
-        if (resource?.type === 'folder') {
-          try { vaultStore.removeFolderFromDisk(id, { database, fileStorage }); } catch { /* non-fatal */ }
-        }
-        queries.deleteResource.run(id);
-        windowManager.broadcast('resource:deleted', { id });
-      }
-
-      return { success: true, data: { deletedIds: ordered } };
+      const { deleteResourcesCascade } = require('../../storage/resource-delete.cjs');
+      const { deletedIds } = deleteResourcesCascade(resourceIds, { database, fileStorage, windowManager });
+      return { success: true, data: { deletedIds } };
     } catch (error) {
       console.error('[DB] Error bulk deleting resources:', error);
       return { success: false, error: error.message };

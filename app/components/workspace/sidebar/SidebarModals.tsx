@@ -53,6 +53,52 @@ export function DeleteConfirmModal({ resource, onConfirm, onClose }: {
   );
 }
 
+export function BulkDeleteConfirmModal({ count, busy = false, onConfirm, onClose }: {
+  count: number;
+  busy?: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <DomeModal
+      open
+      onClose={onClose}
+      title={t('selection.bulk_delete_confirm', { count })}
+      subtitle={t('ui.delete_content_warning')}
+      size="sm"
+      headerIcon={
+        <span
+          className="flex size-9 shrink-0 items-center justify-center rounded-full"
+          style={{ background: 'color-mix(in srgb, var(--dome-error) 12%, transparent)' }}
+        >
+          <AlertTriangle className="size-4" style={{ color: 'var(--dome-error)' }} />
+        </span>
+      }
+      footer={
+        <>
+          <DomeButton variant="secondary" onClick={onClose} disabled={busy}>
+            {t('ui.cancel')}
+          </DomeButton>
+          <DomeButton
+            variant="primary"
+            onClick={onConfirm}
+            disabled={busy}
+            style={{ background: 'var(--dome-error)' }}
+          >
+            {busy ? '…' : t('ui.delete')}
+          </DomeButton>
+        </>
+      }
+    >
+      <p className="m-0 text-sm text-[var(--secondary-text)]">
+        {t('selection.items_selected', { count })}
+      </p>
+    </DomeModal>
+  );
+}
+
 export function NewFolderModal({ parentId, onConfirm, onClose }: {
   parentId: string | null;
   onConfirm: (name: string, parentId: string | null) => void;

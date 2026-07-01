@@ -33,6 +33,8 @@ const { getResolvedStateForArtifactRow } = require('../artifacts/artifact-serial
 const VAULT_DIR = 'vault';
 const MD_EXT = '.md';
 const ARTIFACT_EXT = '.html';
+const URL_EXT = '.url';
+const NOTEBOOK_EXT = '.dnb';
 
 /** Characters illegal on Windows/macOS filesystems, plus control chars. */
 // eslint-disable-next-line no-control-regex
@@ -204,7 +206,7 @@ function relocateFolder(folderId, { database, fileStorage }) {
       markSelfWrite(oldAbs, null);
       markSelfWrite(newAbs, null);
       fs.renameSync(oldAbs, newAbs);
-      pruneEmptyDirs(path.dirname(oldAbs), root);
+      pruneEmptyDirs(path.dirname(oldAbs), root, { database, fileStorage });
     } else if (!fs.existsSync(newAbs)) {
       fs.mkdirSync(newAbs, { recursive: true });
       markSelfWrite(newAbs, null);
@@ -246,9 +248,39 @@ function removeFolderFromDisk(folderId, { database, fileStorage }) {
     const abs = path.join(root, folder.vault_path);
     markSelfWrite(abs, null);
     if (fs.existsSync(abs)) fs.rmSync(abs, { recursive: true, force: true });
-    pruneEmptyDirs(path.dirname(abs), root);
+    pruneEmptyDirs(path.dirname(abs), root, { database, fileStorage });
   } catch (err) {
     console.warn('[VaultStore] removeFolderFromDisk failed:', err.message);
+  }
+}
+
+/**
+ * Repair rows whose folder_id points at a missing (or non-folder) parent —
+ * damage left behind by non-cascading deletes. Orphans are re-rooted so they
+ * show up again in the workspace tree instead of silently disappearing.
+ * @returns number of repaired rows
+ */
+function repairFolderIntegrity({ database }) {
+  try {
+    const db = database.getDB();
+    const orphans = db
+      .prepare(
+        `SELECT r.id FROM resources r
+         WHERE r.folder_id IS NOT NULL
+           AND NOT EXISTS (
+             SELECT 1 FROM resources p WHERE p.id = r.folder_id AND p.type = 'folder'
+           )`,
+      )
+      .all();
+    if (orphans.length === 0) return 0;
+    const now = Date.now();
+    const fix = db.prepare('UPDATE resources SET folder_id = NULL, updated_at = ? WHERE id = ?');
+    for (const row of orphans) fix.run(now, row.id);
+    console.log(`[VaultStore] repaired ${orphans.length} orphaned folder reference(s)`);
+    return orphans.length;
+  } catch (err) {
+    console.warn('[VaultStore] repairFolderIntegrity failed:', err.message);
+    return 0;
   }
 }
 
@@ -288,6 +320,10 @@ function buildRelPath(resource, queries, filename) {
     file = `${sanitizeSegment(resource.title, 'Untitled')}${MD_EXT}`;
   } else if (resource.type === 'artifact') {
     file = `${sanitizeSegment(resource.title, 'Untitled Artifact')}${ARTIFACT_EXT}`;
+  } else if (resource.type === 'url') {
+    file = `${sanitizeSegment(resource.title, 'Link')}${URL_EXT}`;
+  } else if (resource.type === 'notebook') {
+    file = `${sanitizeSegment(resource.title, 'Untitled Notebook')}${NOTEBOOK_EXT}`;
   } else {
     const fromExisting = resource.vault_path ? path.posix.basename(resource.vault_path) : null;
     file = sanitizeFilename(filename || fromExisting || resource.original_filename || sanitizeSegment(resource.title, 'file'), 'file');
@@ -429,25 +465,56 @@ function parseFrontmatterTitle(raw) {
   return line ? line[1].trim() : null;
 }
 
-/** Prune empty ancestor directories from startDir up to (not incl.) rootDir. */
-function pruneEmptyDirs(startDir, rootDir) {
+/**
+ * True if `absDir` (inside `rootDir`) is the on-disk directory of a live
+ * `type='folder'` resource. Pruning such a directory would make the watcher
+ * treat it as an external delete and drop the folder row from SQLite — that is
+ * exactly the "deleting the last document also deletes its folder" bug.
+ */
+function isLiveFolderDir(absDir, rootDir, deps) {
+  try {
+    const db = deps.database.getDB();
+    const queries = deps.database.getQueries();
+    const rel = path.relative(rootDir, absDir).split(path.sep).join('/');
+    if (!rel || rel.startsWith('..')) return false;
+    const rows = db
+      .prepare("SELECT project_id FROM resources WHERE type = 'folder' AND vault_path = ?")
+      .all(rel);
+    for (const row of rows) {
+      const root = getProjectVaultRoot(row.project_id, queries, deps.fileStorage);
+      if (path.resolve(root) === path.resolve(rootDir)) return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Prune empty ancestor directories from startDir up to (not incl.) rootDir.
+ * With `deps` ({ database, fileStorage }) it stops at directories that belong
+ * to a live folder resource, so user-created empty folders survive on disk.
+ */
+function pruneEmptyDirs(startDir, rootDir, deps = null) {
   let dir = startDir;
   while (dir && dir.startsWith(rootDir) && dir !== rootDir) {
     try {
-      if (fs.readdirSync(dir).length === 0) fs.rmdirSync(dir);
-      else break;
+      if (fs.readdirSync(dir).length !== 0) break;
+      if (deps && isLiveFolderDir(dir, rootDir, deps)) break;
+      markSelfWrite(dir, null);
+      fs.rmdirSync(dir);
     } catch { break; }
     dir = path.dirname(dir);
   }
 }
 
 /** Remove a mirror file (best-effort) and prune now-empty dirs up to rootDir. */
-function removeMirrorAbs(absPath, rootDir) {
+function removeMirrorAbs(absPath, rootDir, deps = null) {
   if (!absPath) return;
   try {
     markSelfWrite(absPath, null);
     if (fs.existsSync(absPath)) fs.unlinkSync(absPath);
-    pruneEmptyDirs(path.dirname(absPath), rootDir);
+    pruneEmptyDirs(path.dirname(absPath), rootDir, deps);
   } catch (err) {
     console.warn('[VaultStore] removeMirrorAbs failed:', err.message);
   }
@@ -472,7 +539,9 @@ function writeNoteMarkdown({ id, markdown }, { database, fileStorage }) {
     const contents = `${buildFrontmatter(resource)}${body}\n`;
     atomicWrite(path.join(root, relPath), contents);
 
-    if (prevRel && prevRel !== relPath) removeMirrorAbs(path.join(root, prevRel), root);
+    if (prevRel && prevRel !== relPath) {
+      removeMirrorAbs(path.join(root, prevRel), root, { database, fileStorage });
+    }
 
     const text = markdownToPlainText(body);
     const hash = contentHash(contents);
@@ -500,6 +569,159 @@ function readNoteMarkdown({ id }, { database, fileStorage }) {
   } catch (err) {
     console.error('[VaultStore] readNoteMarkdown failed:', err);
     return { success: false, error: err.message };
+  }
+}
+
+// ── URL / notebook mirrors ───────────────────────────────────────────────────
+
+/** Serialize a url resource as a standard InternetShortcut `.url` file. */
+function buildUrlFileContents(url) {
+  return `[InternetShortcut]\r\nURL=${String(url || '').trim()}\r\n`;
+}
+
+/** Extract the URL from an InternetShortcut `.url` file (or null). */
+function parseUrlFile(raw) {
+  const m = String(raw || '').match(/^\s*URL\s*=\s*(\S+)\s*$/mi);
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * Mirror a url resource to `<title>.url` in its folder. Like notes, the file
+ * moves when the title or folder changes (prev mirror is removed).
+ */
+function writeUrlMirror({ id }, { database, fileStorage }) {
+  try {
+    const db = database.getDB();
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(id);
+    if (!resource) return { success: false, error: 'Resource not found' };
+    if (resource.type !== 'url') return { success: false, error: 'Not a url resource' };
+
+    const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+    const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+    const prevRel = resource.vault_path || null;
+
+    const contents = buildUrlFileContents(resource.content || '');
+    atomicWrite(path.join(root, relPath), contents);
+    if (prevRel && prevRel !== relPath) {
+      removeMirrorAbs(path.join(root, prevRel), root, { database, fileStorage });
+    }
+
+    const hash = contentHash(contents);
+    db.prepare('UPDATE resources SET vault_path = ?, content_hash = ? WHERE id = ?').run(relPath, hash, id);
+    return { success: true, vaultPath: relPath, contentHash: hash };
+  } catch (err) {
+    console.error('[VaultStore] writeUrlMirror failed:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Mirror a notebook resource to `<title>.dnb` (Dome notebook JSON: `{cells:[…]}`).
+ */
+function writeNotebookMirror({ id }, { database, fileStorage }) {
+  try {
+    const db = database.getDB();
+    const queries = database.getQueries();
+    const resource = queries.getResourceById.get(id);
+    if (!resource) return { success: false, error: 'Resource not found' };
+    if (resource.type !== 'notebook') return { success: false, error: 'Not a notebook' };
+
+    const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+    const relPath = ensureUniqueRelPath(buildRelPath(resource, queries, null), resource, db);
+    const prevRel = resource.vault_path || null;
+
+    let contents = String(resource.content || '').trim();
+    if (!contents) contents = JSON.stringify({ cells: [] });
+    // Pretty-print so the file is readable/diffable outside Dome.
+    try { contents = JSON.stringify(JSON.parse(contents), null, 2); } catch { /* keep raw */ }
+    contents += '\n';
+    atomicWrite(path.join(root, relPath), contents);
+    if (prevRel && prevRel !== relPath) {
+      removeMirrorAbs(path.join(root, prevRel), root, { database, fileStorage });
+    }
+
+    const hash = contentHash(contents);
+    db.prepare('UPDATE resources SET vault_path = ?, content_hash = ? WHERE id = ?').run(relPath, hash, id);
+    return { success: true, vaultPath: relPath, contentHash: hash };
+  } catch (err) {
+    console.error('[VaultStore] writeNotebookMirror failed:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Rename a binary (file-backed, non title-derived) resource's on-disk file to
+ * match its current title, preserving the original extension. No-op when the
+ * title already matches the basename.
+ */
+function renameResourceFileToTitle(id, { database, fileStorage }) {
+  const db = database.getDB();
+  const queries = database.getQueries();
+  const resource = queries.getResourceById.get(id);
+  if (!resource || !resource.vault_path) return { moved: false, vaultPath: resource?.vault_path || null };
+  if (['note', 'artifact', 'url', 'notebook', 'folder'].includes(resource.type)) {
+    return relocateResource(id, { database, fileStorage });
+  }
+
+  const ext = path.posix.extname(resource.vault_path);
+  const title = String(resource.title || '').trim() || 'file';
+  const filename = title.toLowerCase().endsWith(ext.toLowerCase()) && ext
+    ? sanitizeFilename(title, 'file')
+    : `${sanitizeSegment(title, 'file')}${ext}`;
+
+  const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
+  const prevRel = resource.vault_path;
+  const desiredRel = ensureUniqueRelPath(buildRelPath(resource, queries, filename), resource, db);
+  if (prevRel === desiredRel) return { moved: false, vaultPath: prevRel };
+
+  try {
+    db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?').run(desiredRel, id);
+    const oldAbs = path.join(root, prevRel);
+    const newAbs = path.join(root, desiredRel);
+    if (fs.existsSync(oldAbs)) {
+      const dir = path.dirname(newAbs);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      markSelfWrite(oldAbs, null);
+      markSelfWrite(newAbs, null);
+      fs.renameSync(oldAbs, newAbs);
+      pruneEmptyDirs(path.dirname(oldAbs), root, { database, fileStorage });
+    }
+    return { moved: true, vaultPath: desiredRel };
+  } catch (err) {
+    console.warn('[VaultStore] renameResourceFileToTitle failed:', err.message);
+    return { moved: false, vaultPath: prevRel };
+  }
+}
+
+/**
+ * Minimal Tiptap/ProseMirror JSON → Markdown for main-process backfills.
+ * Mirrors the renderer fallback in app/lib/notes/loadNoteMarkdown.ts so a
+ * backfilled mirror is never worse than what the editor would derive itself.
+ */
+function tiptapJsonToMarkdownBasic(content) {
+  try {
+    const parsed = JSON.parse(String(content || ''));
+    if (!parsed || parsed.type !== 'doc' || !Array.isArray(parsed.content)) return null;
+    const walk = (node) => {
+      if (node.type === 'text' && typeof node.text === 'string') return node.text;
+      const children = Array.isArray(node.content) ? node.content : [];
+      const inner = children.map(walk).join('');
+      if (node.type === 'heading' && node.attrs?.level) {
+        return `${'#'.repeat(Number(node.attrs.level) || 1)} ${inner}`;
+      }
+      if (node.type === 'paragraph') return inner;
+      if (node.type === 'hardBreak') return '\n';
+      return inner;
+    };
+    const lines = [];
+    for (const block of parsed.content) {
+      const line = walk(block);
+      if (line.trim()) lines.push(line);
+    }
+    return lines.join('\n\n');
+  } catch {
+    return null;
   }
 }
 
@@ -532,8 +754,8 @@ function writeArtifactHtmlMirror({ id }, { database, fileStorage }) {
     atomicWrite(path.join(root, relPath), contents);
 
     if (prevRel && prevRel !== relPath) {
-      removeMirrorAbs(path.join(root, prevRel), root);
-      removeArtifactSidecarAbs(path.join(root, artifactSidecarRelPath(prevRel)), root);
+      removeMirrorAbs(path.join(root, prevRel), root, { database, fileStorage });
+      removeArtifactSidecarAbs(path.join(root, artifactSidecarRelPath(prevRel)), root, { database, fileStorage });
     }
 
     const text = markdownToPlainText(String(mergedState.html || ''));
@@ -617,12 +839,12 @@ function readArtifactHtmlMirror({ id, reconcile = false }, { database, fileStora
 }
 
 /** Remove the `.dome` sidecar directory for an artifact (feeders, runtime snapshots). */
-function removeArtifactSidecarAbs(absSidecar, rootDir) {
+function removeArtifactSidecarAbs(absSidecar, rootDir, deps = null) {
   if (!absSidecar) return;
   try {
     markSelfWrite(absSidecar, null);
     if (fs.existsSync(absSidecar)) fs.rmSync(absSidecar, { recursive: true, force: true });
-    pruneEmptyDirs(path.dirname(absSidecar), rootDir);
+    pruneEmptyDirs(path.dirname(absSidecar), rootDir, deps);
   } catch (err) {
     console.warn('[VaultStore] removeArtifactSidecarAbs failed:', err.message);
   }
@@ -673,7 +895,20 @@ function relocateResource(id, { database, fileStorage }) {
         markSelfWrite(oldAbs, null);
         try { markSelfWrite(newAbs, contentHash(fs.readFileSync(oldAbs, 'utf8'))); } catch { /* */ }
         fs.renameSync(oldAbs, newAbs);
-        pruneEmptyDirs(path.dirname(oldAbs), root);
+        pruneEmptyDirs(path.dirname(oldAbs), root, { database, fileStorage });
+      }
+      // Keep the artifact `.dome` sidecar (feeder snapshots) next to its mirror.
+      if (resource.type === 'artifact') {
+        const oldSidecar = path.join(root, artifactSidecarRelPath(prevRel));
+        const newSidecar = path.join(root, artifactSidecarRelPath(desiredRel));
+        if (fs.existsSync(oldSidecar) && oldSidecar !== newSidecar) {
+          const sidecarParent = path.dirname(newSidecar);
+          if (!fs.existsSync(sidecarParent)) fs.mkdirSync(sidecarParent, { recursive: true });
+          markSelfWrite(oldSidecar, null);
+          markSelfWrite(newSidecar, null);
+          fs.renameSync(oldSidecar, newSidecar);
+          pruneEmptyDirs(path.dirname(oldSidecar), root, { database, fileStorage });
+        }
       }
     }
     return { moved: true, vaultPath: desiredRel };
@@ -726,7 +961,7 @@ function relocateFolderCrossProject(folder, oldVaultRoot, newVaultRoot, { databa
       markSelfWrite(oldAbs, null);
       markSelfWrite(newAbs, null);
       fs.renameSync(oldAbs, newAbs);
-      pruneEmptyDirs(path.dirname(oldAbs), oldVaultRoot);
+      pruneEmptyDirs(path.dirname(oldAbs), oldVaultRoot, { database, fileStorage });
     } else if (!fs.existsSync(newAbs)) {
       fs.mkdirSync(newAbs, { recursive: true });
       markSelfWrite(newAbs, null);
@@ -801,7 +1036,7 @@ function relocateResourceCrossProject(resource, oldVaultRoot, newVaultRoot, { da
         markSelfWrite(newAbs, null);
       }
       fs.renameSync(oldAbs, newAbs);
-      pruneEmptyDirs(path.dirname(oldAbs), oldVaultRoot);
+      pruneEmptyDirs(path.dirname(oldAbs), oldVaultRoot, { database, fileStorage });
 
       if (resource.type === 'artifact') {
         const oldSidecar = path.join(oldVaultRoot, artifactSidecarRelPath(prevRel));
@@ -812,7 +1047,7 @@ function relocateResourceCrossProject(resource, oldVaultRoot, newVaultRoot, { da
           markSelfWrite(oldSidecar, null);
           markSelfWrite(newSidecar, null);
           fs.renameSync(oldSidecar, newSidecar);
-          pruneEmptyDirs(path.dirname(oldSidecar), oldVaultRoot);
+          pruneEmptyDirs(path.dirname(oldSidecar), oldVaultRoot, { database, fileStorage });
         }
       }
     } else if (resource.type === 'artifact') {
@@ -858,9 +1093,9 @@ function removeMirrorForResource(id, { database, fileStorage }) {
     const resource = queries.getResourceById.get(id);
     if (resource?.vault_path) {
       const root = getProjectVaultRoot(resource.project_id, queries, fileStorage);
-      removeMirrorAbs(path.join(root, resource.vault_path), root);
+      removeMirrorAbs(path.join(root, resource.vault_path), root, { database, fileStorage });
       if (resource.type === 'artifact') {
-        removeArtifactSidecarAbs(path.join(root, artifactSidecarRelPath(resource.vault_path)), root);
+        removeArtifactSidecarAbs(path.join(root, artifactSidecarRelPath(resource.vault_path)), root, { database, fileStorage });
       }
     }
   } catch (err) {
@@ -927,7 +1162,7 @@ function setProjectVaultRoot(projectId, newRoot, { database, fileStorage }) {
           const contents = fs.readFileSync(oldAbs, 'utf8');
           markSelfWrite(newAbs, contentHash(contents));
           fs.writeFileSync(newAbs, contents, 'utf8');
-          removeMirrorAbs(oldAbs, oldRoot);
+          removeMirrorAbs(oldAbs, oldRoot, { database, fileStorage });
           if (n.type === 'artifact') {
             const oldSidecar = path.join(oldRoot, artifactSidecarRelPath(n.vault_path));
             const newSidecar = path.join(resolvedNew, artifactSidecarRelPath(n.vault_path));
@@ -969,10 +1204,17 @@ module.exports = {
   relocateFolder,
   removeFolderFromDisk,
   backfillFolderVaultPaths,
+  repairFolderIntegrity,
   buildRelPath,
   resolveRelPath,
   writeNoteMarkdown,
   readNoteMarkdown,
+  writeUrlMirror,
+  writeNotebookMirror,
+  parseUrlFile,
+  buildUrlFileContents,
+  renameResourceFileToTitle,
+  tiptapJsonToMarkdownBasic,
   writeArtifactHtmlMirror,
   readArtifactHtmlMirror,
   backfillArtifactVaultMirrors,

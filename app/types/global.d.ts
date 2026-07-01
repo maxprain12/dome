@@ -1026,6 +1026,11 @@ declare global {
           destinationPath: string
         ) => Promise<DBResponse<string>>;
         delete: (resourceId: string) => Promise<DBResponse<void>>;
+        duplicate: (
+          resourceId: string,
+          options?: { suffix?: string }
+        ) => Promise<{ success: boolean; id?: string; error?: string }>;
+        openVaultRoot: (projectId: string) => Promise<DBResponse<string>>;
         regenerateThumbnail: (resourceId: string) => Promise<DBResponse<string>>;
         setThumbnail: (resourceId: string, thumbnailDataUrl: string) => Promise<DBResponse<void>>;
         scheduleIndex: (resourceId: string) => Promise<{ success: boolean; error?: string }>;

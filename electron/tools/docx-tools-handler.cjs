@@ -42,12 +42,6 @@ function broadcastResourceUpdated(resourceId, updates) {
   }
 }
 
-function broadcastResourceDeleted(resourceId) {
-  if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-    windowManagerRef.broadcast('resource:deleted', { id: resourceId });
-  }
-}
-
 function isDocxResource(resource) {
   if (!resource) return false;
   const mime = (resource.file_mime_type || '').toLowerCase();
@@ -465,16 +459,13 @@ async function docxDelete(resourceId, options = {}) {
       return { success: false, error: 'Resource is not a Word .docx document' };
     }
 
-    if (resource.internal_path) {
-      try {
-        fileStorage.deleteFile(resource.internal_path);
-      } catch (e) {
-        console.warn('[DocxTools] file delete:', e?.message);
-      }
-    }
-
-    queries.deleteResource.run(resourceId);
-    broadcastResourceDeleted(resourceId);
+    // Unified cascade pipeline (also removes the vault mirror so the
+    // VaultWatcher doesn't re-import the deleted document).
+    const { deleteResourcesCascade } = require('../storage/resource-delete.cjs');
+    const windowManager = windowManagerRef && typeof windowManagerRef.broadcast === 'function'
+      ? windowManagerRef
+      : { broadcast() {} };
+    deleteResourcesCascade([resourceId], { database, fileStorage, windowManager });
 
     return {
       success: true,

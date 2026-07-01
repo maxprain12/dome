@@ -130,5 +130,7 @@
   "save": "Guardar",
   "saving": "Guardando…",
   "saved": "Guardado",
-  "save_now": "Guardar ahora (⌘S)"
+  "save_now": "Guardar ahora (⌘S)",
+  "open_vault_folder": "Abrir carpeta del workspace",
+  "search_workspace": "Buscar en el workspace"
 }

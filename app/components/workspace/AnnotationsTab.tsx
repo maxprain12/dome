@@ -1,8 +1,10 @@
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Trash2, Loader2, MessageSquare, FileText, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useInteractions, type ParsedInteraction } from '@/lib/hooks/useInteractions';
 import { formatRelativeDate } from '@/lib/utils';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 interface AnnotationsTabProps {
   resourceId: string;
@@ -34,6 +36,7 @@ function getAnnotationSelectedText(annotation: ParsedInteraction) {
 }
 
 export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
+  const { t } = useTranslation();
   const {
     annotations,
     isLoading,
@@ -41,14 +44,16 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
     deleteInteraction,
   } = useInteractions(resourceId);
 
-  const handleDelete = useCallback(
-    async (id: string) => {
-      if (confirm('Are you sure you want to delete this annotation?')) {
-        await deleteInteraction(id);
-      }
-    },
-    [deleteInteraction]
-  );
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
+  const handleDelete = useCallback((id: string) => {
+    setPendingDeleteId(id);
+  }, []);
+
+  const confirmDelete = useCallback(async () => {
+    if (pendingDeleteId) await deleteInteraction(pendingDeleteId);
+    setPendingDeleteId(null);
+  }, [pendingDeleteId, deleteInteraction]);
 
   if (isLoading) {
     return (
@@ -168,6 +173,16 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
           ))
         )}
       </div>
+
+      <ConfirmDialog
+        isOpen={pendingDeleteId !== null}
+        title={t('ui.delete_confirm', { type: t('viewer.annotation', 'annotation') })}
+        message={t('ui.delete_warning')}
+        variant="danger"
+        confirmLabel={t('ui.delete')}
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }
