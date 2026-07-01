@@ -15,7 +15,10 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "test": "echo \"@dome/ai: no tests yet\" && exit 0"
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",

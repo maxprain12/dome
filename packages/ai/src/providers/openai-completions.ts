@@ -39,6 +39,21 @@ import { buildCopilotDynamicHeaders, hasCopilotVisionInput } from "./github-copi
 import { clampOpenAIPromptCacheKey } from "./openai-prompt-cache.js";
 import { buildBaseOptions } from "./simple-options.js";
 import { transformMessages } from "./transform-messages.js";
+import { ollamaRequiresApiKey, OLLAMA_LOCAL_PLACEHOLDER_KEY } from "../ollama-mode.js";
+
+function resolveOpenAICompletionsApiKey(
+	model: Model<"openai-completions">,
+	apiKey?: string,
+): string {
+	if (apiKey) return apiKey;
+	if (model.provider === "ollama") {
+		if (ollamaRequiresApiKey(model.baseUrl)) {
+			throw new Error("Ollama cloud requires an API key");
+		}
+		return OLLAMA_LOCAL_PLACEHOLDER_KEY;
+	}
+	throw new Error(`No API key for provider: ${model.provider}`);
+}
 
 /**
  * Check if conversation messages contain tool calls or tool results.
@@ -136,10 +151,7 @@ export const streamOpenAICompletions: StreamFunction<"openai-completions", OpenA
 		};
 
 		try {
-			const apiKey = options?.apiKey;
-			if (!apiKey) {
-				throw new Error(`No API key for provider: ${model.provider}`);
-			}
+			const apiKey = resolveOpenAICompletionsApiKey(model, options?.apiKey);
 			const compat = getCompat(model);
 			const cacheRetention = resolveCacheRetention(options?.cacheRetention);
 			const cacheSessionId = cacheRetention === "none" ? undefined : options?.sessionId;
@@ -431,10 +443,7 @@ export const streamSimpleOpenAICompletions: StreamFunction<"openai-completions",
 	context: Context,
 	options?: SimpleStreamOptions,
 ): AssistantMessageEventStream => {
-	const apiKey = options?.apiKey;
-	if (!apiKey) {
-		throw new Error(`No API key for provider: ${model.provider}`);
-	}
+	const apiKey = resolveOpenAICompletionsApiKey(model, options?.apiKey);
 
 	const base = buildBaseOptions(model, options, apiKey);
 	const clampedReasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;

@@ -22,6 +22,7 @@ import { installDomeUiActionBridge } from '@/lib/shell/domeUiActionBridge';
 import {
   LAYOUT_DEFAULTS,
   LAYOUT_RESET_EVENT,
+  MANY_PANEL_OPEN_KEY,
   MANY_PANEL_WIDTH_KEY,
 } from '@/lib/shell/layoutReset';
 import { useSyncManyActiveResourceContext } from '@/lib/many/useSyncManyActiveResourceContext';
@@ -30,6 +31,21 @@ const MANY_WIDTH_KEY = MANY_PANEL_WIDTH_KEY;
 const MANY_MIN = 280;
 const MANY_MAX = 600;
 const MANY_DEFAULT = LAYOUT_DEFAULTS.manyPanelWidth;
+
+function readManyPanelOpen(fallback = true): boolean {
+  try {
+    const raw = localStorage.getItem(MANY_PANEL_OPEN_KEY);
+    if (raw === '0') return false;
+    if (raw === '1') return true;
+  } catch { /* ignore */ }
+  return fallback;
+}
+
+function persistManyPanelOpen(open: boolean): void {
+  try {
+    localStorage.setItem(MANY_PANEL_OPEN_KEY, open ? '1' : '0');
+  } catch { /* ignore */ }
+}
 
 function readInt(key: string, fallback: number, min: number, max: number): number {
   try {
@@ -83,7 +99,7 @@ function ManyPanelWithSuspense(props: ManyPanelWithSuspenseProps) {
 export default function AppShell() {
   const { t } = useTranslation();
   const [manyWidth, setManyWidth] = useState<number>(MANY_DEFAULT);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(() => readManyPanelOpen());
   /** Muestra Many en la columna derecha aunque la pestaña activa sea Chat (p. ej. HITL). */
   const [manyRightOverride, setManyRightOverride] = useState(false);
 
@@ -116,6 +132,8 @@ export default function AppShell() {
   useEffect(() => {
     const onLayoutReset = () => {
       setManyWidth(MANY_DEFAULT);
+      setRightSidebarOpen(true);
+      persistManyPanelOpen(true);
       useResizeStore.setState({
         leftSidebarWidth: LAYOUT_DEFAULTS.leftSidebarWidth,
         rightSidebarWidth: LAYOUT_DEFAULTS.rightSidebarWidth,
@@ -153,14 +171,21 @@ export default function AppShell() {
   }, []);
 
   const handleToggleRightSidebar = useCallback(() => {
-    setRightSidebarOpen(prev => !prev);
+    setRightSidebarOpen((prev) => {
+      const next = !prev;
+      persistManyPanelOpen(next);
+      return next;
+    });
   }, []);
 
   const handleNewChat = useCallback(() => {
     useManyStore.getState().startNewChat();
     const sessionId = useManyStore.getState().currentSessionId;
     if (sessionId) openChatTab(sessionId, t('shell.new_chat'));
-    if (!rightSidebarOpen) setRightSidebarOpen(true);
+    if (!rightSidebarOpen) {
+      setRightSidebarOpen(true);
+      persistManyPanelOpen(true);
+    }
   }, [openChatTab, rightSidebarOpen, t]);
 
   useEffect(() => {
@@ -195,14 +220,12 @@ export default function AppShell() {
     useTabStore.getState().closeForeignProjectTabs(currentProjectId);
   }, [currentProjectId]);
 
-  // Auto-open the right Many panel when leaving chat; chat fullscreen keeps historial inside Many.
+  // Clear HITL/chat override when leaving chat; panel visibility follows user toggle only.
   const [prevActiveTabId, setPrevActiveTabId] = useState(activeTabId ?? null);
   if ((activeTabId ?? null) !== prevActiveTabId) {
     setPrevActiveTabId(activeTabId ?? null);
-    if (isChatTab) {
-      setRightSidebarOpen(false);
-    } else if (!rightSidebarOpen) {
-      setRightSidebarOpen(true);
+    if (!isChatTab) {
+      setManyRightOverride(false);
     }
   }
 
@@ -213,6 +236,7 @@ export default function AppShell() {
       if (tab?.type === 'chat') return;
       setManyRightOverride(true);
       setRightSidebarOpen(true);
+      persistManyPanelOpen(true);
     };
     const onClr = () => setManyRightOverride(false);
     window.addEventListener('dome:many-requires-panel', onReq);
@@ -232,6 +256,7 @@ export default function AppShell() {
         setManyRightOverride(true);
       }
       setRightSidebarOpen(true);
+      persistManyPanelOpen(true);
     };
     window.addEventListener('dome:many-sidebar-open', onOpenManySidebar);
     return () => window.removeEventListener('dome:many-sidebar-open', onOpenManySidebar);

@@ -19,6 +19,7 @@ import type {
 } from './types';
 import { toOpenAIToolDefinitions, type AnyAgentTool } from './tools';
 import { chunk as llmChunk } from 'llm-chunk';
+import { isOllamaCloudMissingApiKey } from './providerAuth';
 
 // =============================================================================
 // Configuration Types
@@ -35,6 +36,7 @@ export interface AIConfig {
   ollamaBaseURL?: string;
   ollamaModel?: string;
   ollamaEmbeddingModel?: string;
+  ollamaApiKey?: string;
 }
 
 /** User-added model ids per provider (Settings key `ai_custom_models`). */
@@ -99,6 +101,7 @@ export async function getAIConfig(): Promise<AIConfig | null> {
     const legacyBaseURLResult = baseURLResult.data ? { data: null } : await db.getSetting('ai_base_url');
     const ollamaBaseURLResult = await db.getSetting('ollama_base_url');
     const ollamaModelResult = await db.getSetting('ollama_model');
+    const ollamaApiKeyResult = await db.getSetting('ollama_api_key');
     const ollamaEmbeddingModelResult = await db.getSetting('ollama_embedding_model');
 
     if (!providerResult.data) return null;
@@ -111,6 +114,7 @@ export async function getAIConfig(): Promise<AIConfig | null> {
       baseURL: baseURLResult.data || legacyBaseURLResult.data || undefined,
       ollamaBaseURL: ollamaBaseURLResult.data || undefined,
       ollamaModel: ollamaModelResult.data || undefined,
+      ollamaApiKey: ollamaApiKeyResult.data || undefined,
       ollamaEmbeddingModel: ollamaEmbeddingModelResult.data || undefined,
     };
   } catch (error) {
@@ -208,6 +212,10 @@ export async function checkChatProviderReady(config: AIConfig): Promise<ChatProv
   }
 
   if (API_KEY_CHAT_PROVIDERS.includes(provider as AIProviderType) && !config.apiKey) {
+    return { ready: false, messageKey: 'chat.no_api_key' };
+  }
+
+  if (provider === 'ollama' && isOllamaCloudMissingApiKey(config.ollamaBaseURL, config.ollamaApiKey)) {
     return { ready: false, messageKey: 'chat.no_api_key' };
   }
 

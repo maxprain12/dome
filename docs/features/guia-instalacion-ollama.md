@@ -95,6 +95,8 @@ mxbai-embed-large:latest  def456...       670 MB
 
 ## 4. Configurar Dome para usar Ollama
 
+> **Modo local (recomendado):** con Base URL `http://localhost:11434` **no necesitas API key**. Dome detecta el modo automáticamente. Para Ollama Cloud (`https://api.ollama.com`) la API key es obligatoria. Ver [ai-provider-auth.md](./ai-provider-auth.md#ollama-local-vs-cloud).
+
 1. Abre **Dome**
 2. Ve a **Settings** (icono engranaje) → **AI**
 3. En **Provider**, selecciona **Ollama**

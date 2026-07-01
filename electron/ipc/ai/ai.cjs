@@ -11,6 +11,7 @@ const { fetchOpenRouterModels } = require('../../ai/openrouter-models.cjs');
 const { fetchProviderModels } = require('../../ai/provider-models.cjs');
 const { assertChatProvider, resolveProviderConfig } = require('../../ai/resolve-provider-config.cjs');
 const { readSettingSecret, resolveSettingSecretForApi } = require('../../core/settings-secrets.cjs');
+const { assertOllamaAuthReady, ollamaRequiresApiKey } = require('../../ai/provider-auth.cjs');
 
 /** Abort controllers by streamId for ai:agent:stream (enables renderer to stop stream) */
 const agentAbortControllers = new Map();
@@ -443,10 +444,19 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
         try {
           const baseUrlResult = queries.getSetting.get('ollama_base_url');
           const baseUrl = baseUrlResult?.value || 'http://localhost:11434';
+          const ollamaApiKey = readSettingSecret(queries, 'ollama_api_key') || '';
+          assertOllamaAuthReady(baseUrl, ollamaApiKey);
           const urlObj = new URL(`${baseUrl}/api/tags`);
           const transport = urlObj.protocol === 'https:' ? require('https') : require('http');
+          const requestOptions = {
+            timeout: 5000,
+            rejectUnauthorized: false,
+            ...(ollamaRequiresApiKey(baseUrl) && ollamaApiKey
+              ? { headers: { Authorization: `Bearer ${ollamaApiKey}` } }
+              : {}),
+          };
           const available = await new Promise((resolve) => {
-            const req = transport.get(urlObj.href, { timeout: 5000, rejectUnauthorized: false }, (res) => {
+            const req = transport.get(urlObj.href, requestOptions, (res) => {
               resolve(res.statusCode === 200);
             });
             req.on('error', () => resolve(false));
@@ -455,9 +465,13 @@ function register({ ipcMain, windowManager, database, ollamaService }) {
           if (available) {
             const modelResult = queries.getSetting.get('ollama_model');
             return { success: true, provider: 'ollama', model: modelResult?.value || 'default' };
-          } else {
-            return { success: false, error: 'Ollama is not running. Start Ollama first.' };
           }
+          return {
+            success: false,
+            error: ollamaRequiresApiKey(baseUrl)
+              ? 'Could not connect to Ollama cloud. Check Base URL and API key.'
+              : 'Ollama is not running. Start Ollama first.',
+          };
         } catch (err) {
           return { success: false, error: `Ollama error: ${err.message}` };
         }

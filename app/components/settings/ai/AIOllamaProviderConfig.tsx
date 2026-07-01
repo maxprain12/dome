@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, Eye, EyeOff, Loader2, RefreshCw, XCircle } from 'lucide-react';
 import { saveAIConfig } from '@/lib/settings';
+import { resolveOllamaMode } from '@/lib/ai/providerAuth';
 import ModelSelector from '../ModelSelector';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeCallout from '@/components/ui/DomeCallout';
@@ -82,6 +83,9 @@ export default function AIOllamaProviderConfig({
     void loadOllamaModels();
   }, [checkOllamaConnection, loadOllamaModels]);
 
+  const ollamaMode = resolveOllamaMode(ollamaBaseURL);
+  const apiKeyIsRequired = ollamaMode === 'cloud';
+
   const content = (
     <>
       <div
@@ -132,18 +136,37 @@ export default function AIOllamaProviderConfig({
       ) : null}
 
       <div>
-        <DomeInput
-          id="ai-ollama-url"
-          label={t('settings.ai.base_url')}
-          type="url"
-          value={ollamaBaseURL}
-          onChange={(e) => onOllamaBaseURLChange(e.target.value)}
-          placeholder="http://localhost:11434"
-        />
+        <div className="flex items-center justify-between mb-1.5">
+          <DomeInput
+            id="ai-ollama-url"
+            label={t('settings.ai.base_url')}
+            type="url"
+            value={ollamaBaseURL}
+            onChange={(e) => onOllamaBaseURLChange(e.target.value)}
+            placeholder="http://localhost:11434"
+            className="flex-1"
+          />
+          <span
+            className="ml-3 mt-5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            style={{
+              backgroundColor: apiKeyIsRequired ? 'var(--dome-bg-hover)' : 'color-mix(in srgb, var(--dome-accent) 12%, transparent)',
+              color: apiKeyIsRequired ? 'var(--dome-text-muted)' : 'var(--dome-accent)',
+              border: `1px solid ${apiKeyIsRequired ? 'var(--dome-border)' : 'color-mix(in srgb, var(--dome-accent) 30%, transparent)'}`,
+            }}
+          >
+            {apiKeyIsRequired ? t('settings.ai.ollama_mode_cloud') : t('settings.ai.ollama_mode_local')}
+          </span>
+        </div>
         {showApiKeyField ? (
           <p className="text-[11px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('settings.ai.ollama_cloud_hint')}{' '}
-            <code className="font-mono">https://api.ollama.com</code>
+            {apiKeyIsRequired ? (
+              <>
+                {t('settings.ai.ollama_cloud_hint')}{' '}
+                <code className="font-mono">https://api.ollama.com</code>
+              </>
+            ) : (
+              t('settings.ai.ollama_local_hint')
+            )}
           </p>
         ) : null}
       </div>
@@ -151,7 +174,10 @@ export default function AIOllamaProviderConfig({
       {showApiKeyField && onOllamaApiKeyChange ? (
         <div>
           <label htmlFor="ai-ollama-api-key" className="block text-xs font-semibold uppercase tracking-wide mb-1.5 text-[var(--dome-text-muted)]">
-            API Key <span className="normal-case font-normal opacity-60">({t('settings.ai.api_key_optional_label')})</span>
+            API Key{' '}
+            <span className="normal-case font-normal opacity-60">
+              ({apiKeyIsRequired ? t('settings.ai.api_key_required_label') : t('settings.ai.api_key_optional_label')})
+            </span>
           </label>
           <div className="relative w-full">
             <DomeInput

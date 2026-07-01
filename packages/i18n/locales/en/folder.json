@@ -35,5 +35,10 @@
   "rowActions": "Actions",
   "viewMode": "View mode",
   "gridView": "Grid view",
-  "listView": "List view"
+  "listView": "List view",
+  "moveFolderTitle": "Move \"{{title}}\"",
+  "tagFilter": "Filter by tag",
+  "tagFilterAll": "All tags",
+  "tagFilterActive": "{{name}} · {{count}}",
+  "tagFilterEmpty": "No resources with this tag"
 }

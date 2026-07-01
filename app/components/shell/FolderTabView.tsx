@@ -1,9 +1,7 @@
 import { useMemo, useCallback, useState, useRef, useEffect, Fragment } from 'react';
-import { Menu, ScrollArea, Stack, UnstyledButton, Text } from '@mantine/core';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+import { Menu } from '@mantine/core';
 import {
-  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Folder,
+  ChevronRight, ChevronLeft, Upload, FolderPlus, Link2, FileText, Search, X, Plus, MoreHorizontal, Palette, LayoutGrid, List, Folder, Tag,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
@@ -13,6 +11,7 @@ import { useFolderNavigationHistory } from '@/lib/hooks/useFolderNavigationHisto
 import { useAppStore } from '@/lib/store/useAppStore';
 import { lazyRef } from '@/lib/utils/lazyRef';
 import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
+import MoveFolderModal from '@/components/workspace/MoveFolderModal';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import SelectionActionBar from '@/components/home/SelectionActionBar';
 import '@/styles/folder-view.css';
@@ -26,6 +25,13 @@ import NewFolderInline from './folder-tab/NewFolderInline';
 type FolderViewMode = 'grid' | 'list';
 const FOLDER_VIEW_MODE_KEY = 'dome:folder-view-mode';
 const FOLDER_VIEW_MODE_DEFAULT: FolderViewMode = 'grid';
+
+type ProjectTag = {
+  id: string;
+  name: string;
+  color?: string | null;
+  resource_count: number;
+};
 
 function readFolderViewMode(): FolderViewMode {
   if (typeof window === 'undefined') return FOLDER_VIEW_MODE_DEFAULT;
@@ -67,6 +73,9 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocusIndex, setSearchFocusIndex] = useState(0);
+  const [tagFilterId, setTagFilterId] = useState<string | null>(null);
+  const [projectTags, setProjectTags] = useState<ProjectTag[]>([]);
+  const [taggedResourceIds, setTaggedResourceIds] = useState<Set<string>>(() => new Set());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const rowRefs = useRef<Map<string, HTMLDivElement> | null>(null);
   const rowRefMap = lazyRef(rowRefs, () => new Map());
@@ -240,47 +249,27 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
 
   useEffect(() => () => { setCurrentFolderId(null); }, [setCurrentFolderId]);
 
-  // Folders available as move targets, flattened into a depth-indented tree so
-  // the picker mirrors the real folder hierarchy instead of a flat list.
-  const moveFolderRows = useMemo(() => {
-    const moving = new Set(folderMoveIds ?? [...selectedIds]);
-    const projectFolders = allFolders.filter((f) => f.project_id === effectiveProjectId);
-    const byId = new Map(projectFolders.map((f) => [f.id, f] as const));
+  useEffect(() => {
+    let cancelled = false;
+    void window.electron?.db?.tags?.getAll(effectiveProjectId).then((res) => {
+      if (cancelled || !res?.success) return;
+      setProjectTags((res.data as ProjectTag[] | undefined) ?? []);
+    });
+    return () => { cancelled = true; };
+  }, [effectiveProjectId]);
 
-    // Exclude the folders being moved and their descendants (a folder can't move
-    // into its own subtree) plus the current folder (the items already live here).
-    const excluded = new Set<string>();
-    const markSubtree = (id: string) => {
-      if (excluded.has(id)) return;
-      excluded.add(id);
-      for (const f of projectFolders) if (f.folder_id === id) markSubtree(f.id);
-    };
-    for (const id of moving) markSubtree(id);
-    if (folderId) excluded.add(folderId);
-
-    const childrenOf = new Map<string | null, typeof projectFolders>();
-    for (const f of projectFolders) {
-      if (excluded.has(f.id)) continue;
-      const parentId =
-        f.folder_id && byId.has(f.folder_id) && !excluded.has(f.folder_id) ? f.folder_id : null;
-      const arr = childrenOf.get(parentId) ?? [];
-      arr.push(f);
-      childrenOf.set(parentId, arr);
+  useEffect(() => {
+    if (!tagFilterId) {
+      setTaggedResourceIds(new Set());
+      return;
     }
-    for (const arr of childrenOf.values()) {
-      arr.sort((a, b) => (a.title ?? '').localeCompare(b.title ?? ''));
-    }
-
-    const rows: Array<{ folder: (typeof projectFolders)[number]; depth: number }> = [];
-    const walk = (parentId: string | null, depth: number) => {
-      for (const f of childrenOf.get(parentId) ?? []) {
-        rows.push({ folder: f, depth });
-        walk(f.id, depth + 1);
-      }
-    };
-    walk(null, 0);
-    return rows;
-  }, [allFolders, effectiveProjectId, folderId, folderMoveIds, selectedIds]);
+    let cancelled = false;
+    void window.electron?.db?.tags?.getResources(tagFilterId, effectiveProjectId).then((res) => {
+      if (cancelled || !res?.success) return;
+      setTaggedResourceIds(new Set((res.data ?? []).map((r) => r.id)));
+    });
+    return () => { cancelled = true; };
+  }, [tagFilterId, effectiveProjectId]);
 
   const breadcrumb = useMemo(
     () => (viewCtx.isProjectRoot ? [] : getBreadcrumbPath(folderId).filter((f) => f.id !== folderId)),
@@ -427,13 +416,22 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   }, [updateResource, updateTab]);
 
   const listItems = useMemo(() => {
+    if (tagFilterId) {
+      return allResources
+        .filter(
+          (r) => r.project_id === effectiveProjectId && taggedResourceIds.has(r.id) && r.type !== 'folder',
+        )
+        .map((item) => ({ item, isFolder: false as const }));
+    }
     const folders = subfolders.map((f) => ({ item: f, isFolder: true as const }));
     const docs = files.map((f) => ({ item: f, isFolder: false as const }));
     return [...folders, ...docs];
-  }, [subfolders, files]);
+  }, [tagFilterId, allResources, effectiveProjectId, taggedResourceIds, subfolders, files]);
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
   const isFiltering = normalizedSearchQuery.length > 0;
+  const isTagFiltering = tagFilterId !== null;
+  const activeTag = projectTags.find((tag) => tag.id === tagFilterId);
 
   const filteredListItems = useMemo(() => {
     if (!isFiltering) return listItems;
@@ -465,6 +463,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
   if (folderId !== prevFolderIdRef.current) {
     prevFolderIdRef.current = folderId;
     closeSearch();
+    setTagFilterId(null);
   }
 
   useEffect(() => {
@@ -541,15 +540,17 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     );
   }
 
-  const itemCount = subfolders.length + files.length;
-  const visibleCount = isFiltering ? filteredListItems.length : itemCount;
-  const isEmpty = itemCount === 0 && !creatingFolder;
-  const showNoResults = isFiltering && filteredListItems.length === 0;
-  const rowsToRender = isFiltering ? filteredListItems : listItems;
+  const itemCount = tagFilterId ? listItems.length : subfolders.length + files.length;
+  const visibleCount = isFiltering || isTagFiltering ? filteredListItems.length : itemCount;
+  const isEmpty = !isTagFiltering && itemCount === 0 && !creatingFolder;
+  const showNoResults = (isFiltering || isTagFiltering) && filteredListItems.length === 0;
+  const rowsToRender = isFiltering || isTagFiltering ? filteredListItems : listItems;
 
-  const statusLabel = isFiltering
-    ? t('folder.searchResultCount', { count: visibleCount, total: itemCount })
-    : t('folder.itemCount', { count: itemCount });
+  const statusLabel = isTagFiltering && activeTag
+    ? t('folder.tagFilterActive', { name: activeTag.name, count: visibleCount, defaultValue: '{{name}} · {{count}}' })
+    : isFiltering
+      ? t('folder.searchResultCount', { count: visibleCount, total: itemCount })
+      : t('folder.itemCount', { count: itemCount });
 
   return (
     <div className="dome-folder-view">
@@ -642,6 +643,47 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               <List className="size-3.5" />
             </button>
           </fieldset>
+
+          <Menu
+            withinPortal
+            position="bottom-end"
+            offset={4}
+            shadow="md"
+            classNames={{
+              dropdown: 'dome-folder-view__menu-dropdown',
+              item: 'dome-folder-view__menu-item',
+            }}
+          >
+            <Menu.Target>
+              <button
+                type="button"
+                className={`dome-folder-view__icon-btn${isTagFiltering ? ' dome-folder-view__icon-btn--active' : ''}`}
+                aria-label={t('folder.tagFilter', 'Filtrar por tag')}
+                title={activeTag ? activeTag.name : t('folder.tagFilter', 'Filtrar por tag')}
+              >
+                <Tag className="size-3.5" />
+              </button>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item onClick={() => setTagFilterId(null)}>
+                {t('folder.tagFilterAll', 'Todos los tags')}
+              </Menu.Item>
+              {projectTags.length === 0 ? (
+                <Menu.Item disabled>{t('tags.no_tags', 'Sin tags')}</Menu.Item>
+              ) : (
+                projectTags.map((tag) => (
+                  <Menu.Item
+                    key={tag.id}
+                    onClick={() => setTagFilterId(tag.id)}
+                    style={tagFilterId === tag.id ? { fontWeight: 600 } : undefined}
+                  >
+                    {tag.name}
+                    <span style={{ marginLeft: 8, opacity: 0.6 }}>{tag.resource_count}</span>
+                  </Menu.Item>
+                ))
+              )}
+            </Menu.Dropdown>
+          </Menu>
 
           {searchOpen ? (
             <div className="dome-folder-view__search">
@@ -782,9 +824,11 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
       >
         {showNoResults ? (
           <p className="dome-folder-view__empty dome-folder-view__empty--search">
-            {t('folder.searchNoResults', { query: searchQuery.trim() })}
+            {isTagFiltering
+              ? t('folder.tagFilterEmpty', 'Ningún recurso con este tag')
+              : t('folder.searchNoResults', { query: searchQuery.trim() })}
           </p>
-        ) : !isEmpty ? (
+        ) : !isEmpty || isTagFiltering ? (
           viewMode === 'list' ? (
             <>
               <div className="dome-folder-view__list-header">
@@ -814,7 +858,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                   onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
                   onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                   onMoveToProject={() => setMoveProjectIds([item.id])}
-                  onMoveToFolder={isFolder ? undefined : () => openFolderPickerFor(item.id)}
+                  onMoveToFolder={() => openFolderPickerFor(item.id)}
                   onOpenInSplit={!isFolder && canOpenInSplit ? () => handleOpenInSplit(item) : undefined}
                   onOpenInWindow={!isFolder ? () => void handleOpenInWindow(item) : undefined}
                   onNewSubfolder={isFolder ? () => handleNewSubfolder(item.id) : undefined}
@@ -863,7 +907,7 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
                     onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
                     onMoveToProject={() => setMoveProjectIds([item.id])}
-                    onMoveToFolder={isFolder ? undefined : () => openFolderPickerFor(item.id)}
+                    onMoveToFolder={() => openFolderPickerFor(item.id)}
                     onOpenInSplit={!isFolder && canOpenInSplit ? () => handleOpenInSplit(item) : undefined}
                     onOpenInWindow={!isFolder ? () => void handleOpenInWindow(item) : undefined}
                     onNewSubfolder={isFolder ? () => handleNewSubfolder(item.id) : undefined}
@@ -904,84 +948,15 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
         )}
       </div>
 
-      <DomeModal
+      <MoveFolderModal
         open={folderPickOpen}
         onClose={() => { setFolderPickOpen(false); setFolderMoveIds(null); }}
-        title={t('selection.move_to_folder')}
-        size="sm"
-        footer={
-          <DomeButton variant="secondary" onClick={() => { setFolderPickOpen(false); setFolderMoveIds(null); }}>
-            {t('common.cancel')}
-          </DomeButton>
-        }
-      >
-        <Stack gap="xs">
-          <Text size="xs" c="dimmed">
-            {t('selection.items_selected_other', { count: folderMoveIds?.length ?? selectedIds.size })}
-          </Text>
-          <ScrollArea.Autosize mah={280}>
-            <Stack gap={4}>
-              <UnstyledButton
-                type="button"
-                onClick={() => void handleBulkMoveToFolder(null)}
-                p="sm"
-                style={{
-                  borderRadius: 8,
-                  border: '1px solid var(--dome-border)',
-                  textAlign: 'left',
-                  background: 'var(--dome-surface)',
-                }}
-              >
-                <Text size="sm" fw={500}>
-                  {t('selection.move_to_root')}
-                </Text>
-              </UnstyledButton>
-              {moveFolderRows.map(({ folder: f, depth }) => (
-                <UnstyledButton
-                  key={f.id}
-                  type="button"
-                  onClick={() => void handleBulkMoveToFolder(f.id)}
-                  p="sm"
-                  style={{
-                    borderRadius: 8,
-                    border: '1px solid var(--dome-border)',
-                    textAlign: 'left',
-                    background: 'var(--dome-surface)',
-                  }}
-                >
-                  {/* Indent via marginLeft on the content (Mantine `p` would
-                      otherwise override an inline paddingLeft). */}
-                  <span
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      minWidth: 0,
-                      marginLeft: depth * 20,
-                    }}
-                  >
-                    {depth > 0 ? (
-                      <ChevronRight
-                        className="size-3 shrink-0"
-                        style={{ color: 'var(--dome-text-muted)', opacity: 0.6 }}
-                        aria-hidden
-                      />
-                    ) : null}
-                    <Folder
-                      className="size-4 shrink-0"
-                      style={{ color: getFolderColor(f) ?? 'var(--dome-accent)' }}
-                      strokeWidth={1.75}
-                    />
-                    <Text size="sm" fw={500} truncate>
-                      {f.title}
-                    </Text>
-                  </span>
-                </UnstyledButton>
-              ))}
-            </Stack>
-          </ScrollArea.Autosize>
-        </Stack>
-      </DomeModal>
+        resourceIds={folderMoveIds ?? filterMoveProjectRoots(selectedIds, resourceMapForSelection)}
+        allFolders={allFolders}
+        projectId={effectiveProjectId}
+        currentFolderId={listFolderId}
+        onConfirm={handleBulkMoveToFolder}
+      />
 
       <MoveToProjectModal
         opened={moveProjectIds.length > 0}

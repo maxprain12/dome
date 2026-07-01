@@ -1,5 +1,6 @@
 /** Shared layout localStorage keys and defaults for shell reset. */
 export const MANY_PANEL_WIDTH_KEY = 'dome:many-panel-width-v1';
+export const MANY_PANEL_OPEN_KEY = 'dome:many-panel-open-v1';
 export const RESIZE_STORE_KEY = 'dome-resize-store';
 
 export const LAYOUT_DEFAULTS = {
@@ -15,6 +16,7 @@ export const LAYOUT_RESET_EVENT = 'dome:layout-reset';
 export function resetLayoutPreferences(): void {
   try {
     localStorage.removeItem(MANY_PANEL_WIDTH_KEY);
+    localStorage.removeItem(MANY_PANEL_OPEN_KEY);
     localStorage.removeItem(RESIZE_STORE_KEY);
   } catch {
     /* private browsing / quota */

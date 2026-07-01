@@ -35,5 +35,10 @@
   "rowActions": "Acciones",
   "viewMode": "Modo de vista",
   "gridView": "Vista de cuadrícula",
-  "listView": "Vista de lista"
+  "listView": "Vista de lista",
+  "moveFolderTitle": "Mover \"{{title}}\"",
+  "tagFilter": "Filtrar por tag",
+  "tagFilterAll": "Todos los tags",
+  "tagFilterActive": "{{name}} · {{count}}",
+  "tagFilterEmpty": "Ningún recurso con este tag"
 }

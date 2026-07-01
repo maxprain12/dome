@@ -678,10 +678,10 @@
 
 .dome-folder-view__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
-  padding: 20px;
-  align-items: stretch;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+  padding: 16px 20px 20px;
+  align-items: start;
 }
 
 .dome-fs-card {
@@ -689,11 +689,12 @@
   display: flex;
   flex-direction: column;
   background: var(--dome-surface);
-  border: 1px solid color-mix(in srgb, var(--dome-border) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dome-border) 80%, transparent);
   border-radius: 12px;
   overflow: hidden;
-  min-height: 200px;
+  min-height: 0;
   cursor: pointer;
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--dome-text) 6%, transparent);
   transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
   container-type: inline-size;
   container-name: fs-card;
@@ -717,7 +718,8 @@
 
 .dome-fs-card__cover {
   position: relative;
-  height: 110px;
+  flex-shrink: 0;
+  height: 120px;
   background-color: var(--dome-bg-secondary);
   background-size: cover;
   background-position: center;
@@ -726,13 +728,14 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 55%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--dome-border) 50%, transparent);
 }
 
 .dome-fs-card__cover-icon {
-  width: 44px;
-  height: 44px;
-  opacity: 0.85;
+  width: 40px;
+  height: 40px;
+  opacity: 0.9;
+  fill: color-mix(in srgb, currentColor 18%, transparent);
 }
 
 .dome-fs-card__cover-fallback {
@@ -757,6 +760,18 @@
   transform-origin: top left;
   pointer-events: none;
   background: var(--dome-surface);
+}
+
+.dome-fs-card__cover--artifact::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    transparent 55%,
+    color-mix(in srgb, var(--dome-surface) 88%, transparent)
+  );
 }
 
 /* Text excerpt shown as the cover preview for content-bearing resources
@@ -828,10 +843,17 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 10px 12px 12px;
+  padding: 12px 14px 14px;
   flex: 1;
-  min-height: 0;
+  min-width: 0;
   outline: none;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  width: 100%;
 }
 
 .dome-fs-card__body:focus-visible {
@@ -840,19 +862,11 @@
   border-radius: 0 0 11px 11px;
 }
 
-.dome-fs-card__title-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
-}
-
 .dome-fs-card__title {
-  flex: 1;
   min-width: 0;
   font-size: 13px;
   font-weight: 600;
-  line-height: 1.3;
+  line-height: 1.35;
   color: var(--dome-text);
   margin: 0;
   display: -webkit-box;
@@ -863,34 +877,48 @@
 }
 
 .dome-fs-card__snippet {
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 11px;
+  line-height: 1.4;
   color: var(--dome-text-muted);
   margin: 0;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   word-break: break-word;
-  flex: 1;
-  min-height: 0;
 }
 
 .dome-fs-card__meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: auto;
-  padding-top: 4px;
-  font-size: 10.5px;
+  gap: 8px;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.dome-fs-card__type-badge {
+  flex-shrink: 0;
+  max-width: 46%;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 2px 7px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--dome-text-muted) 10%, var(--dome-bg-secondary));
   color: var(--dome-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dome-fs-card__modified {
+  flex-shrink: 0;
+  font-size: 10px;
+  color: var(--dome-text-muted);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .dome-fs-card__rename {

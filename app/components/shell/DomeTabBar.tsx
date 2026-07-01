@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -59,6 +60,7 @@ import {
   RUNS_TAB_ID,
   PROJECTS_TAB_ID,
   TRANSCRIPTIONS_TAB_ID,
+  isTabStripVisible,
 } from '@/lib/store/useTabStore';
 import { getDomeTabDisplayTitle } from '@/lib/dome-tab-title';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
@@ -255,6 +257,8 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     })),
   );
 
+  const stripTabs = useMemo(() => tabs.filter(isTabStripVisible), [tabs]);
+
   const stripRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   useHorizontalScroll(scrollRef);
@@ -285,7 +289,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
       // compact mode is applied and would feed back into a size oscillation.
       const stripW = strip?.clientWidth ?? scrollClient;
       const compactThreshold =
-        COMPACT_STRIP_WIDTH + Math.max(0, tabs.length - 3) * COMPACT_WIDTH_PER_TAB;
+        COMPACT_STRIP_WIDTH + Math.max(0, stripTabs.length - 3) * COMPACT_WIDTH_PER_TAB;
       setNeedsCompactLayout((prev) =>
         prev ? stripW < compactThreshold + COMPACT_HYSTERESIS : stripW < compactThreshold,
       );
@@ -314,22 +318,22 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
       ro.disconnect();
       el.removeEventListener('scroll', measure);
     };
-  }, [tabs, activeTabId]);
+  }, [stripTabs.length, activeTabId]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey;
       if (!mod) return;
 
-      // Ctrl/Cmd+Tab — cycle through tabs
-      if (e.key === 'Tab' && tabs.length >= 2) {
+      // Ctrl/Cmd+Tab — cycle through strip tabs (sidebar nav tabs are hidden)
+      if (e.key === 'Tab' && stripTabs.length >= 2) {
         e.preventDefault();
-        const idx = tabs.findIndex((tab) => tab.id === activeTabId);
-        if (idx < 0) return;
+        let idx = stripTabs.findIndex((tab) => tab.id === activeTabId);
+        if (idx < 0) idx = 0;
         const nextIdx = e.shiftKey
-          ? (idx - 1 + tabs.length) % tabs.length
-          : (idx + 1) % tabs.length;
-        activateTab(tabs[nextIdx].id);
+          ? (idx - 1 + stripTabs.length) % stripTabs.length
+          : (idx + 1) % stripTabs.length;
+        activateTab(stripTabs[nextIdx].id);
         return;
       }
 
@@ -346,7 +350,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
       // Ctrl/Cmd+1..9 — jump to tab N (9 = last tab, like browsers)
       if (!e.shiftKey && !e.altKey && e.key >= '1' && e.key <= '9') {
         const n = Number(e.key);
-        const target = n === 9 ? tabs[tabs.length - 1] : tabs[n - 1];
+        const target = n === 9 ? stripTabs[stripTabs.length - 1] : stripTabs[n - 1];
         if (target) {
           e.preventDefault();
           activateTab(target.id);
@@ -355,7 +359,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tabs, activeTabId, activateTab, closeTab]);
+  }, [tabs, stripTabs, activeTabId, activateTab, closeTab]);
 
   /* WAI-ARIA tabs: arrow keys move focus between tabs (roving tabindex) */
   const onTablistKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -483,7 +487,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
                 style={{ top: overflowAnchor.top, left: overflowAnchor.left }}
               >
                 <div className="dome-tab-overflow-list">
-                  {tabs.map((tab) => (
+                  {stripTabs.map((tab) => (
                     <button
                       key={tab.id}
                       type="button"
@@ -543,7 +547,7 @@ export default function DomeTabBar({ onNewChat }: DomeTabBarProps) {
             data-fade-left={scrollFade.left ? 'true' : 'false'}
             data-fade-right={scrollFade.right ? 'true' : 'false'}
           >
-            {tabs.map((tab) => (
+            {stripTabs.map((tab) => (
               <TabItem
                 key={tab.id}
                 tab={tab}

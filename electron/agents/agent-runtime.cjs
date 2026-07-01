@@ -648,7 +648,7 @@ async function setupHarness(surface, opts) {
   const {
     provider,
     model,
-    apiKey,
+    apiKey: rawApiKey,
     baseUrl,
     messages,
     onChunk,
@@ -657,6 +657,10 @@ async function setupHarness(surface, opts) {
     threadId: rawThreadId,
     sessionId,
   } = opts;
+
+  const { resolveOllamaApiKey } = require('../ai/provider-auth.cjs');
+  const apiKey =
+    provider === 'ollama' ? resolveOllamaApiKey(baseUrl, rawApiKey) : rawApiKey;
 
   const effectiveThreadId =
     rawThreadId || (sessionId ? `session_${sessionId}` : undefined);
@@ -674,7 +678,8 @@ async function setupHarness(surface, opts) {
   const normalizedNonSystem = normalizeMessagesForProvider(nonSystem, { provider, modelId: model });
 
   let resolvedModel = ai.resolveDomeModel({ provider, model, baseUrl });
-  if (baseUrl && resolvedModel && resolvedModel.baseUrl !== baseUrl) {
+  // resolveDomeModel normalizes Ollama to …/v1 — do not overwrite with the raw setting URL.
+  if (baseUrl && resolvedModel && resolvedModel.baseUrl !== baseUrl && provider !== 'ollama') {
     resolvedModel = { ...resolvedModel, baseUrl };
   }
   const contextMessages = ai.legacyMessagesToContext(baseSystemPrompt, normalizedNonSystem).messages;

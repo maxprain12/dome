@@ -57,47 +57,120 @@
 }
 
 .p-projects-create {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
+}
+
+.p-projects-create-hd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
 .p-projects-create .h-card-title {
-  margin-bottom: 12px;
+  margin: 0;
 }
 
 .p-projects-create-desc {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--home-ink-3);
-  margin: -6px 0 14px;
+  margin: 0 0 14px;
   line-height: 1.45;
+}
+
+.p-projects-create-close {
+  flex-shrink: 0;
+  color: var(--home-ink-3);
+}
+
+.p-projects-create-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.p-projects-create-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.p-projects-create-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--home-ink-3);
 }
 
 .p-projects-field {
   width: 100%;
-  border-radius: 10px;
+  border-radius: 8px;
   border: 1px solid var(--home-edge);
   background: var(--home-bg);
   color: var(--home-ink);
-  padding: 10px 12px;
-  font-size: 14px;
+  padding: 7px 10px;
+  font-size: 13px;
   outline: none;
   transition: border-color 160ms, box-shadow 160ms;
 }
 
+.p-projects-field::placeholder {
+  color: var(--home-ink-4);
+}
+
 .p-projects-field:focus {
-  border-color: color-mix(in srgb, var(--home-accent) 45%, var(--home-edge));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--home-accent) 40%, var(--home-edge));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--home-accent) 10%, transparent);
 }
 
 .p-projects-field-area {
   resize: vertical;
-  min-height: 72px;
+  min-height: 56px;
+  line-height: 1.4;
+}
+
+.p-projects-vault {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+
+.p-projects-vault-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.p-projects-vault-icon {
+  flex-shrink: 0;
+  color: var(--home-ink-3);
+  opacity: 0.7;
+}
+
+.p-projects-vault-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--home-ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .p-projects-create-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 12px;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+  margin-top: 2px;
 }
 
 .p-projects-grid {

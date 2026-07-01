@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Tag, Store, RefreshCw, FolderPlus, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -64,7 +64,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openEmailTab,
     openProjectsTab,
     openLearnTab,
-    openTagsTab,
     openPipelinesTab,
     openMarketplaceTab,
     openFolderTab,
@@ -78,7 +77,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openEmailTab: s.openEmailTab,
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
-      openTagsTab: s.openTagsTab,
       openPipelinesTab: s.openPipelinesTab,
       openMarketplaceTab: s.openMarketplaceTab,
       openFolderTab: s.openFolderTab,
@@ -463,14 +461,6 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         onOpen: openLearnTab,
       },
       {
-        key: 'tags',
-        kind: 'tab',
-        tabType: 'tags',
-        label: t('workspace.tags'),
-        icon: <Tag className="size-4 shrink-0" strokeWidth={sw} />,
-        onOpen: openTagsTab,
-      },
-      {
         key: 'marketplace',
         kind: 'tab',
         tabType: 'marketplace',
@@ -479,7 +469,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         onOpen: openMarketplaceTab,
       },
     ];
-  }, [t, openLearnTab, openTagsTab, openMarketplaceTab]);
+  }, [t, openLearnTab, openMarketplaceTab]);
 
   const visiblePrimaryUnifiedNavItems = useMemo(() => {
     const visible: UnifiedNavItem[] = [];

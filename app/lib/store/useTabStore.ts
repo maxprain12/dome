@@ -104,6 +104,34 @@ export function isProjectScopedTab(tab: DomeTab): boolean {
   return tab.projectId != null && PROJECT_SCOPED_TAB_TYPES.has(tab.type);
 }
 
+/**
+ * Hub / sidebar navigation tabs — live in the tab store for routing but are
+ * not shown in DomeTabBar (UnifiedSidebar owns that navigation).
+ */
+export const SIDEBAR_NAV_TAB_TYPES: ReadonlySet<TabType> = new Set<TabType>([
+  'home',
+  'projects',
+  'calendar',
+  'github',
+  'email',
+  'pipelines',
+  'learn',
+  'marketplace',
+  'tags',
+  'settings',
+  'studio',
+  'flashcards',
+  'agents',
+  'workflows',
+  'automations',
+  'runs',
+  'transcriptions',
+]);
+
+export function isTabStripVisible(tab: Pick<DomeTab, 'type'>): boolean {
+  return !SIDEBAR_NAV_TAB_TYPES.has(tab.type);
+}
+
 export const HOME_TAB_ID = 'home';
 export const PROJECTS_TAB_ID = 'projects';
 export const SETTINGS_TAB_ID = 'settings';
@@ -640,7 +668,10 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
 
     openTagsTab: () => {
-      get().openTab({ id: TAGS_TAB_ID, type: 'tags', title: 'Tags', pinned: false });
+      const { currentProject } = useAppStore.getState();
+      const id = currentProject?.id ?? 'default';
+      const title = currentProject?.name ?? 'Dome';
+      get().openFolderTab(id, title, undefined, id);
     },
 
     openMarketplaceTab: () => {

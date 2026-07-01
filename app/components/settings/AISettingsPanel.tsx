@@ -21,6 +21,7 @@ import { useProviderModels } from '@/lib/ai/useProviderModels';
 import { accentMix } from '@/lib/ui/accent';
 import AIProviderSelection from './ai/AIProviderSelection';
 import { isCloudAIProvider } from '@/lib/ai/isCloudAIProvider';
+import { isOllamaCloudMissingApiKey } from '@/lib/ai/providerAuth';
 import ProviderModelsConfigModal from './ai/ProviderModelsConfigModal';
 import AICloudProviderConfig from './ai/AICloudProviderConfig';
 import AIOllamaProviderConfig from './ai/AIOllamaProviderConfig';
@@ -280,6 +281,10 @@ export default function AISettingsPanel() {
   };
 
   const handleSave = async () => {
+    if (provider === 'ollama' && isOllamaCloudMissingApiKey(ollamaBaseURL, ollamaApiKey)) {
+      setTestResult({ success: false, message: t('settings.ai.ollama_cloud_api_key_required') });
+      return;
+    }
     const config: Partial<AISettings> = {
       provider,
     };
