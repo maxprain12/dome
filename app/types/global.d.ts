@@ -1322,6 +1322,8 @@ declare global {
           };
           toolCallId?: string;
           result?: string;
+          /** True when the tool threw (@dome/agent-core `isError`). */
+          isError?: boolean;
           actionRequests?: Array<{ name: string; args: Record<string, unknown>; description?: string }>;
           reviewConfigs?: Array<{ actionName: string; allowedDecisions: string[] }>;
           // Agent Team fields

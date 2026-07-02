@@ -107,20 +107,25 @@ function mapTeamChunk(chunk, send) {
       return;
     case 'tool_call': {
       if (!chunk.toolCall) return;
-      let args = chunk.toolCall.arguments;
-      if (typeof args === 'string') {
-        try { args = JSON.parse(args); } catch { args = {}; }
-      }
+      // The renderer (AgentTeamChat) reads `data.toolCall.{id,name,arguments}`.
       send({
         type: 'tool_call',
-        toolName: chunk.toolCall.name,
-        args,
+        toolCall: {
+          id: chunk.toolCall.id,
+          name: chunk.toolCall.name,
+          arguments: chunk.toolCall.arguments,
+        },
         ...(chunk.agentName ? { agentName: chunk.agentName } : {}),
       });
       return;
     }
     case 'tool_result':
-      send({ type: 'tool_result', toolCallId: chunk.toolCallId, result: chunk.result });
+      send({
+        type: 'tool_result',
+        toolCallId: chunk.toolCallId,
+        result: chunk.result,
+        ...(chunk.isError ? { isError: true } : {}),
+      });
       return;
     case 'usage':
       if (chunk.usage) send({ type: 'usage', usage: chunk.usage, partial: !!chunk.partial });

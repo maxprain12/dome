@@ -415,7 +415,7 @@ async function executeWorkflowRun(runId, params, workflow) {
                     const existingStep = nodeCtx.toolSteps.get(chunk.toolCallId) ?? null;
                     const nextStep = updateRunStep(
                       stepId,
-                      getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }),
+                      getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }, { isError: chunk.isError === true }),
                       existingStep,
                     );
                     if (nextStep) nodeCtx.toolSteps.set(chunk.toolCallId, nextStep);

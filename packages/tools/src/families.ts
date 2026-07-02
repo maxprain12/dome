@@ -2,7 +2,7 @@
  * @dome/tools — tool → family taxonomy.
  *
  * The authoritative list of tool names is
- * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` (103 tools, kept in
+ * `electron/tool-dispatcher.cjs#getAllToolDefinitions()` (123 tools, kept in
  * sync with `ai-tools-handler.cjs#TOOL_HANDLER_MAP` by
  * `scripts/verify-tool-coverage.mjs`). This map groups them by responsibility
  * so each family can be migrated into its own module incrementally
@@ -35,9 +35,10 @@ export type ToolFamily =
   | 'shell'
   | 'studio'
   | 'ui'
+  | 'pipelines'
   | 'misc';
 
-/** Tool name → family. Source: getAllToolDefinitions() (103 tools). */
+/** Tool name → family. Source: getAllToolDefinitions() (123 tools). */
 export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   // web
   web_search: 'web', web_fetch: 'web', deep_research: 'web',
@@ -110,6 +111,9 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   // ui automation
   ui_point_to: 'ui', ui_click: 'ui', ui_type: 'ui', ui_scroll: 'ui', ui_navigate: 'ui',
   ui_get_elements: 'ui', ui_hide_cursor: 'ui',
+  // pipelines (kanban)
+  pipeline_list: 'pipelines', pipeline_get: 'pipelines', pipeline_create_card: 'pipelines',
+  pipeline_move_card: 'pipelines', pipeline_run_card: 'pipelines', pipeline_add_stage: 'pipelines',
 };
 
 /** Total number of tools tracked here. Asserted in tests against the catalog. */

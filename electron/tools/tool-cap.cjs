@@ -73,41 +73,10 @@ function capLangChainTools(tools, opts = {}) {
   return capped;
 }
 
-/**
- * Strip model leaks of tool-selector JSON blobs from streamed assistant text.
- * @param {string} text
- * @returns {string}
- */
-function sanitizeLeakedToolManifestText(text) {
-  if (typeof text !== 'string' || !text.includes('"tools"')) return text;
-  const cleaned = text.replace(/\{\s*"tools"\s*:\s*\[[^\]]*\]\s*\}/g, '');
-  return cleaned.trim();
-}
-
-/**
- * Recover first `{"tools":[...]}` object when the model duplicated JSON blobs in one string.
- * @param {string} text
- * @returns {{ tools: string[] } | null}
- */
-function parseFirstToolSelectorJson(text) {
-  if (typeof text !== 'string' || !text.includes('"tools"')) return null;
-  const match = text.match(/\{\s*"tools"\s*:\s*\[[^\]]*\]\s*\}/);
-  if (!match) return null;
-  try {
-    const parsed = JSON.parse(match[0]);
-    if (parsed && Array.isArray(parsed.tools)) return parsed;
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 module.exports = {
   OPENAI_COMPAT_MAX_TOOLS,
   TOOL_CAP_PRIORITY,
   providerNeedsOpenAiToolCap,
   capLangChainTools,
-  sanitizeLeakedToolManifestText,
-  parseFirstToolSelectorJson,
   langChainToolName,
 };

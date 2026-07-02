@@ -358,7 +358,7 @@ function createRunChunkEmitter(runId, context) {
       return;
     }
     if (data.type === 'tool_result' && data.toolCallId != null) {
-      const stepPatch = getToolStepPatch(data.toolCallId, data.result);
+      const stepPatch = getToolStepPatch(data.toolCallId, data.result, {}, { isError: data.isError === true });
       const entry = context.toolCalls.find((item) => item.id === data.toolCallId);
       if (entry) {
         entry.status = stepPatch.status === 'failed' ? 'error' : 'success';
@@ -383,6 +383,7 @@ function createRunChunkEmitter(runId, context) {
         type: 'tool_result',
         toolCallId: data.toolCallId,
         result: data.result,
+        ...(data.isError ? { isError: true } : {}),
         ...(data.agentName ? { agentName: data.agentName } : {}),
       });
       patchRun(runId, { lastHeartbeatAt: heartbeat });

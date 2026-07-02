@@ -356,6 +356,8 @@ export type RunChunkPayload =
       type: 'tool_result';
       toolCallId: string;
       result?: string;
+      /** True when the tool threw (@dome/agent-core `isError`). */
+      isError?: boolean;
       /** Subagent that produced this tool_result (deepagents `task`). */
       agentName?: string;
     }

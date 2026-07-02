@@ -75,6 +75,7 @@ function extractUnknownToolMentions(text, knownTools) {
 /** Backtick tokens that are not tools. */
 const SKIP_BACKTICK = new Set([
   'artifact_type',
+  'artifact_runtime_data', // SQLite table, not a tool
   'artifact_persisted',
   'artifact_design',
   'entity_rules',

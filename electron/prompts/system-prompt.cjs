@@ -28,7 +28,6 @@ function getCoreSectionsForAssembler() {
     toolFormat: s.toolFormat,
     toolCatalog: s.toolCatalog,
     filesystemRules: s.filesystemRules,
-    asyncSubagents: s.asyncSubagents,
     outputFormat: s.outputFormat,
     referenceStub: s.referenceStub,
   };

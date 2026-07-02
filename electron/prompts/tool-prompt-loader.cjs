@@ -39,7 +39,6 @@ const CORE_SECTION_FILES = {
   toolFormat: 'tool-format.txt',
   toolCatalog: 'tool-catalog.txt',
   filesystemRules: 'filesystem-rules.txt',
-  asyncSubagents: 'async-subagents.txt',
   outputFormat: 'output-format.txt',
   referenceStub: 'reference-stub.txt',
   entityRules: 'entity-rules.txt',

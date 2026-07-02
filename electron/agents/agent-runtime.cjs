@@ -303,6 +303,7 @@ function mapAgentEventToChunk(event) {
         type: 'tool_result',
         toolCallId: event.toolCallId,
         result: toolResultText(event.result),
+        isError: event.isError === true,
       };
     case 'message_end': {
       const msg = event.message;
@@ -743,8 +744,12 @@ async function setupHarness(surface, opts) {
   }
 
   const nativeWeb = ai.resolveNativeWebActivation(resolvedModel, tools);
-  const activeTools =
+  let activeTools =
     nativeWeb.search || nativeWeb.fetch ? ai.filterClientWebTools(tools, nativeWeb) : tools;
+  // OpenAI-compatible APIs hard-cap `tools[]` at 128; over the limit the whole
+  // request is rejected. Dome tools + subagents + MCP servers can exceed it.
+  const { capLangChainTools } = require('../tools/tool-cap.cjs');
+  activeTools = capLangChainTools(activeTools, { provider, model });
 
   const resources = await bridge.loadSkillsResources();
   const env = new NodeExecutionEnv({ cwd: process.cwd() });
@@ -951,6 +956,7 @@ async function resumeDomeAgent(surface, opts) {
         type: 'tool_result',
         toolCallId,
         result: resultText,
+        isError,
       });
     }
 

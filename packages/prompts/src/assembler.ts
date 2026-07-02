@@ -33,7 +33,6 @@ const CORE_SECTION_KEYS_LIST: (keyof CorePromptSections)[] = [
   'toolFormat',
   'toolCatalog',
   'filesystemRules',
-  'asyncSubagents',
   'outputFormat',
   'referenceStub',
 ];

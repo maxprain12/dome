@@ -12,6 +12,8 @@ import { showToast } from '@/lib/store/useToastStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { db } from '@/lib/db/client';
 import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
+import { UnifiedChatMessageArea } from '@/components/chat/UnifiedChatMessages';
+import { UnifiedChatEmptyState } from '@/components/chat/UnifiedChatEmptyState';
 import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
@@ -215,7 +217,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             currentAgentLabelRef.current = 'Síntesis';
           }
         }
-        if (data.type === 'tool_call' && data.toolCall && dbSessionIdRef.current) {
+        if (data.type === 'tool_call' && data.toolCall) {
           const args = (() => {
             try {
               return typeof data.toolCall?.arguments === 'string'
@@ -251,11 +253,13 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
             streamingLabel: data.agentName ? `${data.agentName} ejecutando tools...` : 'Ejecutando tools...',
           }));
         }
-        if (data.type === 'tool_result' && dbSessionIdRef.current) {
+        if (data.type === 'tool_result') {
           if (data.toolCallId) {
             streamingToolCalls = streamingToolCalls.map((toolCall) =>
               toolCall.id === data.toolCallId
-                ? { ...toolCall, status: 'success', result: data.result ?? '' }
+                ? data.isError
+                  ? { ...toolCall, status: 'error', result: data.result ?? '', error: data.result ?? '' }
+                  : { ...toolCall, status: 'success', result: data.result ?? '' }
                 : toolCall
             );
           }
@@ -508,31 +512,23 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       ) : null}
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-5 flex flex-col gap-5">
+      <UnifiedChatMessageArea className="p-5 flex flex-col gap-5">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-            <div
-              className="size-14 rounded-2xl overflow-hidden"
-              style={{ background: 'var(--dome-accent-bg)' }}
-            >
+          <UnifiedChatEmptyState
+            avatar={
               <img
                 src={`/agents/sprite_${team.iconIndex}.png`}
                 alt=""
                 className="size-full object-contain"
               />
-            </div>
-            <div>
-              <h2 className="text-base font-semibold" style={{ color: 'var(--dome-text)' }}>
-                {team.name}
-              </h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {team.description || 'Equipo de agentes especializados'}
-              </p>
-              <p className="text-xs mt-2" style={{ color: 'var(--dome-text-muted)' }}>
-                {memberAgents.length} agentes listos para colaborar
-              </p>
-            </div>
-          </div>
+            }
+            title={team.name}
+            description={team.description || 'Equipo de agentes especializados'}
+          >
+            <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+              {memberAgents.length} agentes listos para colaborar
+            </p>
+          </UnifiedChatEmptyState>
         ) : (
           messageGroups.map((group) => (
             <ChatMessageGroup
@@ -580,7 +576,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
           </div>
         )}
         <div ref={messagesEndRef} />
-      </div>
+      </UnifiedChatMessageArea>
 
       {/* Input */}
       <div

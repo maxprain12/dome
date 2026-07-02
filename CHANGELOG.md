@@ -4,6 +4,18 @@ All notable changes to Dome are documented in this file.
 
 ## [Unreleased]
 
+## [2.8.5](https://github.com/maxprain12/dome/releases/tag/v2.8.5) - 2026-07-02
+
+Simplificación de la superficie de tools del agente, errores de tool visibles en la UI y cap automático para APIs OpenAI-compat.
+
+### Changed
+
+- **Tool surface.** Eliminado `tool-selector.cjs` y la sección `async-subagents`; el runtime enlaza el catálogo completo por superficie y aplica `capLangChainTools` cuando el proveedor supera el límite de 128 tools.
+- **Errores de tool.** Los fallos de ejecución propagan `isError` hasta la UI (Many, Agent Team, automations) con tarjetas en estado `error`.
+- **Prompts.** `PROMPT_VERSION` → `minimax-v3`; guía de `task` y tool-surface actualizada.
+- **Agent Team chat.** Empty state y área de mensajes unificados con `UnifiedChatEmptyState` / `UnifiedChatMessageArea`.
+- **Many.** Keys estables en grupos de mensajes (`stableMessageGroupKey`).
+
 ## [2.8.4](https://github.com/maxprain12/dome/releases/tag/v2.8.4) - 2026-07-01
 
 Mejoras de workspace (mover carpetas, menús contextuales unificados), auth de proveedores IA (Ollama local vs cloud) y pulido del dashboard de proyectos.

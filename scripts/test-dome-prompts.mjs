@@ -25,7 +25,6 @@ const CORE_SECTIONS = {
   toolFormat: '## Format\nReturn JSON tool calls.',
   toolCatalog: '## Catalog\n- resource_get\n- web_fetch',
   filesystemRules: '## FS\nWrite only under the workspace.',
-  asyncSubagents: '## Subagents\nDelegate long tasks.',
   outputFormat: '## Output\nUse markdown headers.',
   referenceStub: '## Reference\nCall dome_load_doc for details.',
 };
