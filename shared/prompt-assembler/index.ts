@@ -1,5 +1,5 @@
 /** Bump when prompt structure or core section semantics change (bench A/B). */
-export const PROMPT_VERSION = 'minimax-v2';
+export const PROMPT_VERSION = 'minimax-v3';
 
 export const DOME_LOAD_DOC_IDS = [
   'entity_rules',
@@ -44,7 +44,6 @@ export type CorePromptSections = {
   toolFormat?: string;
   toolCatalog?: string;
   filesystemRules?: string;
-  asyncSubagents?: string;
   outputFormat?: string;
   referenceStub?: string;
 };
@@ -95,7 +94,6 @@ const CORE_SECTION_KEYS_LIST: (keyof CorePromptSections)[] = [
   'toolFormat',
   'toolCatalog',
   'filesystemRules',
-  'asyncSubagents',
   'outputFormat',
   'referenceStub',
 ];

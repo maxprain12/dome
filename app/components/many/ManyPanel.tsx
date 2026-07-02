@@ -48,6 +48,7 @@ import ManyAvatar from './ManyAvatar';
 import ManyMinimalStatusRow from './ManyMinimalStatusRow';
 import ChatMessageGroup from '@/components/chat/ChatMessageGroup';
 import { groupMessagesByRole } from '@/lib/chat/groupMessagesByRole';
+import { stableMessageGroupKey } from '@/lib/chat/stableMessageGroupKey';
 import type { ChatMessageData } from '@/components/chat/ChatMessage';
 import type { ToolCallData } from '@/components/chat/ChatToolCard';
 import { buildCitationMap } from '@/lib/utils/citations';
@@ -1637,7 +1638,7 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
                     : 'idle';
                 return (
                   <ChatMessageGroup
-                    key={`group-${index}-${group[0]?.id || index}`}
+                    key={stableMessageGroupKey(group)}
                     className="many-message-group"
                     surfaceVariant="many"
                     messages={group}

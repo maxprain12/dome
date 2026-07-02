@@ -63,9 +63,9 @@ Anti-patterns:
 
 ToolUse (runtime surface):
 
-- The runtime binds ~12 tools per model call, chosen from your message. Other tools exist: call `get_tool_definition`, then invoke on a later step in the same turn.
-- NEVER write raw middleware JSON like `{"tools":["artifact_list",...]}` in replies to the user.
-- **`task` delegation**: always pass `description` and `subagent_type` (`research` | `library` | `writer` | `data` | `general-purpose`).
+- The runtime binds the Dome tool catalog for your surface (plus MCP and subagent tools); providers with tool limits may trim a few. If a tool is not bound, call `get_tool_definition` with its exact name, then invoke it on a later step in the same turn.
+- NEVER write raw tool-list JSON like `{"tools":["artifact_list",...]}` in replies to the user.
+- **`task` delegation**: always pass `subagent_type` (`research` | `library` | `writer` | `data`) and `prompt` (clear instructions for the subagent and what it should return).
 - **Artifacts**: before artifact_create / artifact_update_state, call dome_load_doc for artifact_persisted and artifact_design. Pass `resource_id` from artifact_create when updating state.
 - **Unfamiliar tool**: get_tool_definition with the exact name, then call with valid parameters.
 
@@ -183,15 +183,3 @@ B) Harness sandbox (`/memories/` only):
 Deliverables:
 - HTML mini-apps → artifact_create / artifact_update_state (load artifact_persisted + artifact_design first)
 - Library notes → resource_create type=note with pure GFM Markdown in `content` (no HTML, no editor JSON)
-
----
-
-ToolUse (async subagents):
-
-When start_async_subagent_task, check_async_subagent_task, update_async_subagent_task, cancel_async_subagent_task, list_async_subagent_tasks are available:
-
-- Use start_async_subagent_task for long or parallel work where the user should keep chatting. Returns task_id (UUID) immediately.
-- After start, reply with the full task_id and continue — do NOT poll check_async_subagent_task in a busy loop in the same turn.
-- Call check_async_subagent_task with the exact UUID when the user asks or in a later turn. Earlier mentions may be stale.
-- update_async_subagent_task adds instructions to a running task. cancel_async_subagent_task stops it. list_async_subagent_tasks recovers IDs after summarization.
-- For quick one-shot delegation needing an answer before replying, use synchronous task/call_*_agent instead.

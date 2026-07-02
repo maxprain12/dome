@@ -136,16 +136,18 @@ export function createToolFromDefinition(def: ToolDefinition, ops: ToolOps): Age
     label: labelForTool(name),
     parameters: Type.Unsafe(parameters),
     async execute(_toolCallId, params): Promise<AgentToolResult> {
+      let raw: unknown;
       try {
-        const raw = await ops.executeToolInMain(name, params);
-        return { content: [{ type: 'text', text: stringifyToolOutput(raw) }], details: boundToolDetails(raw) };
+        raw = await ops.executeToolInMain(name, params);
       } catch (err) {
+        // AgentTool contract: throw on failure. The loop converts the throw into
+        // an `isError` tool result — the model still sees the message text, and
+        // the flag survives into the session JSONL and UI tool cards.
+        if ((err as { isAgentInterrupt?: boolean })?.isAgentInterrupt === true) throw err;
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: 'text', text: `Tool "${name}" failed: ${message}` }],
-          details: { error: message },
-        };
+        throw new Error(`Tool "${name}" failed: ${message}`);
       }
+      return { content: [{ type: 'text', text: stringifyToolOutput(raw) }], details: boundToolDetails(raw) };
     },
   };
 }

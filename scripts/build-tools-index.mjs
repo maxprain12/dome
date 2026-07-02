@@ -14,7 +14,6 @@ const order = [
   'tool-format.txt',
   'tool-catalog.txt',
   'filesystem-rules.txt',
-  'async-subagents.txt',
 ];
 
 const parts = order.map((f) => fs.readFileSync(path.join(coreDir, f), 'utf8').trim());

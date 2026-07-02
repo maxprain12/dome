@@ -61,7 +61,7 @@ function serializeToolResult(result) {
   }
 }
 
-function getToolStepPatch(toolCallId, result, extraMetadata = {}) {
+function getToolStepPatch(toolCallId, result, extraMetadata = {}, opts = {}) {
   const serializedResult = serializeToolResult(result);
   let parsedResult = result;
   if (typeof serializedResult === 'string') {
@@ -72,11 +72,15 @@ function getToolStepPatch(toolCallId, result, extraMetadata = {}) {
     }
   }
 
+  // `opts.isError` is the loop-level flag (@dome/agent-core sets it when the
+  // tool threw); the JSON sniff below covers legacy handlers that encode
+  // `{ status: 'error' }` in a successful result instead of throwing.
   const isErrorResult =
-    parsedResult &&
-    typeof parsedResult === 'object' &&
-    !Array.isArray(parsedResult) &&
-    parsedResult.status === 'error';
+    opts.isError === true ||
+    (parsedResult &&
+      typeof parsedResult === 'object' &&
+      !Array.isArray(parsedResult) &&
+      parsedResult.status === 'error');
 
   const errorMessage = isErrorResult
     ? (typeof parsedResult.error === 'string' ? parsedResult.error : serializedResult)

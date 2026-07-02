@@ -49,15 +49,17 @@ test('createToolRegistry: wraps defs and bridges execute to ops', async () => {
   );
   assert.equal(tools.length, 2);
   assert.equal(tools[0].name, 'search');
-  assert.equal(tools[0].schema.function.name, 'search');
+  assert.equal(tools[0].parameters.type, 'object');
+  assert.equal(typeof tools[0].label, 'string');
   assert.equal(tools[1].name, 'flat');
-  const res = await tools[0].execute({ q: 'cats' }, {});
+  const res = await tools[0].execute('call-1', { q: 'cats' });
   assert.deepEqual(calls[0], { name: 'search', args: { q: 'cats' } });
-  assert.match(res.text, /echoed/);
+  assert.equal(res.content[0].type, 'text');
+  assert.match(res.content[0].text, /echoed/);
   assert.deepEqual(res.details, { ok: true, echoed: { q: 'cats' } });
 });
 
-test('createToolRegistry: string results pass through; errors become error results', async () => {
+test('createToolRegistry: string results pass through; failures throw (AgentTool contract)', async () => {
   const tools = createToolRegistry(
     [{ name: 'str', parameters: {} }, { name: 'boom', parameters: {} }],
     {
@@ -67,8 +69,16 @@ test('createToolRegistry: string results pass through; errors become error resul
       },
     },
   );
-  assert.equal((await tools[0].execute({}, {})).text, 'plain string');
-  assert.match((await tools[1].execute({}, {})).error, /dispatcher down/);
+  assert.equal((await tools[0].execute('call-1', {})).content[0].text, 'plain string');
+  await assert.rejects(tools[1].execute('call-2', {}), /Tool "boom" failed: dispatcher down/);
+});
+
+test('createToolRegistry: interrupt-style errors propagate untouched', async () => {
+  const interrupt = Object.assign(new Error('HITL interrupt'), { isAgentInterrupt: true });
+  const tools = createToolRegistry([{ name: 'gated', parameters: {} }], {
+    executeToolInMain: async () => { throw interrupt; },
+  });
+  await assert.rejects(tools[0].execute('call-1', {}), (err) => err === interrupt);
 });
 
 test('createToolRegistry: drops defs without a name; handles empty/undefined', () => {
@@ -128,6 +138,6 @@ test('resourceToolDefinitions plug into the registry', async () => {
   });
   const search = tools.find((t) => t.name === 'resource_search');
   assert.ok(search);
-  const res = await search.execute({ query: 'cats' }, {});
-  assert.match(res.text, /resource_search/);
+  const res = await search.execute('call-1', { query: 'cats' });
+  assert.match(res.content[0].text, /resource_search/);
 });

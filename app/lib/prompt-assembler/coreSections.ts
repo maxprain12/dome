@@ -9,7 +9,6 @@ import toolSurface from '../../../packages/prompts/sections/tool-surface.txt?raw
 import toolFormat from '../../../packages/prompts/sections/tool-format.txt?raw';
 import toolCatalog from '../../../packages/prompts/sections/tool-catalog.txt?raw';
 import filesystemRules from '../../../packages/prompts/sections/filesystem-rules.txt?raw';
-import asyncSubagents from '../../../packages/prompts/sections/async-subagents.txt?raw';
 import outputFormat from '../../../packages/prompts/sections/output-format.txt?raw';
 import referenceStub from '../../../packages/prompts/sections/reference-stub.txt?raw';
 import entityRules from '../../../packages/prompts/sections/entity-rules.txt?raw';
@@ -30,7 +29,6 @@ export const corePromptSections: CorePromptSections & {
   toolFormat,
   toolCatalog,
   filesystemRules,
-  asyncSubagents,
   outputFormat,
   referenceStub,
   entityRules,

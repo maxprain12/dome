@@ -294,7 +294,12 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
           if (!prev?.toolCalls) return prev;
           return {
             ...prev,
-            toolCalls: applyToolResultChunk(prev.toolCalls, String(payload.toolCallId), payload.result),
+            toolCalls: applyToolResultChunk(
+              prev.toolCalls,
+              String(payload.toolCallId),
+              payload.result,
+              payload.isError === true,
+            ),
           };
         });
         return;

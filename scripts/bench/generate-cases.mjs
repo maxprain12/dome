@@ -401,14 +401,6 @@ const SUPERVISOR_CASES = [
     fixtures: ['bench-xlsx-1'],
     skip_hitl: false,
   },
-  {
-    id: 'async.start',
-    category: 'subagent',
-    tool: 'start_async_subagent_task',
-    mode: 'supervisor',
-    prompt: 'Inicia tarea async de investigación sobre fusión nuclear y devuelve task_id.',
-    expected_tools: ['start_async_subagent_task'],
-  },
 ];
 
 /** Prompts that ask for explanation only — structural check must not require tool invocation. */

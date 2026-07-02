@@ -90,20 +90,31 @@ export function mergeTerminalToolCalls(
 /**
  * Merge a streamed tool_result into the live toolCalls list (exact id match, single
  * orphan runner, or several duplicate running rows with the same tool+args).
+ * `isError` marks the row as failed (tool threw) instead of succeeded.
  */
 export function applyToolResultChunk(
   calls: ToolCallData[],
   toolCallId: string,
   result: unknown,
+  isError = false,
 ): ToolCallData[] {
   if (!calls.length) return calls;
   const tid = String(toolCallId);
   const safeResult = truncateToolResultForRenderer(result);
+  const settle = (call: ToolCallData): ToolCallData =>
+    isError
+      ? {
+          ...call,
+          status: 'error' as const,
+          result: safeResult,
+          error: typeof safeResult === 'string' ? safeResult : undefined,
+        }
+      : { ...call, status: 'success' as const, result: safeResult };
   let matched = false;
   const mapped = calls.map((call) => {
     if (call.id === tid) {
       matched = true;
-      return { ...call, status: 'success' as const, result: safeResult };
+      return settle(call);
     }
     return call;
   });
@@ -115,7 +126,7 @@ export function applyToolResultChunk(
   if (pendingIdx.length === 1) {
     const i = pendingIdx[0]!;
     const next = mapped.slice();
-    next[i] = { ...next[i]!, id: tid, status: 'success' as const, result: safeResult };
+    next[i] = { ...settle(next[i]!), id: tid };
     return coalesceDuplicateToolCalls(next);
   }
   if (pendingIdx.length >= 2) {
@@ -124,7 +135,7 @@ export function applyToolResultChunk(
     if (allSame) {
       const next = mapped.slice();
       pendingIdx.forEach((i, j) => {
-        next[i] = { ...next[i]!, id: j === 0 ? tid : `${tid}_${j}`, status: 'success' as const, result: safeResult };
+        next[i] = { ...settle(next[i]!), id: j === 0 ? tid : `${tid}_${j}` };
       });
       return coalesceDuplicateToolCalls(next);
     }
