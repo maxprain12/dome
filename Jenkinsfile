@@ -27,8 +27,8 @@ pipeline {
               *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
             esac
             mkdir -p "$NODE_HOME"
-            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz" \
-              | tar -xJ --strip-components=1 -C "$NODE_HOME"
+            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.gz" \
+              | tar -xzf - --strip-components=1 -C "$NODE_HOME"
           fi
           node --version
           npm --version
