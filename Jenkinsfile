@@ -61,7 +61,7 @@ pipeline {
     stage('SonarQube analysis') {
       steps {
         withSonarQubeEnv('SonarQube') {
-          sh 'pnpm dlx @sonar/scan'
+          sh 'pnpm --package=@sonar/scan dlx sonar-scanner'
         }
       }
     }
