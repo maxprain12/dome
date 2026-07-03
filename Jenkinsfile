@@ -3,6 +3,9 @@ pipeline {
 
   environment {
     PNPM_VERSION = '11.8.0'
+    NODE_VERSION = '24.13.0'
+    NODE_HOME = "${WORKSPACE}/.jenkins-node"
+    PATH = "${WORKSPACE}/.jenkins-node/bin:${env.PATH}"
   }
 
   stages {
@@ -15,9 +18,21 @@ pipeline {
     stage('Setup') {
       steps {
         sh '''
-          corepack enable
-          corepack prepare pnpm@${PNPM_VERSION} --activate
+          set -eux
+          if ! command -v node >/dev/null 2>&1 || ! node --version | grep -q '^v24'; then
+            ARCH="$(uname -m)"
+            case "$ARCH" in
+              x86_64) NODE_ARCH=linux-x64 ;;
+              aarch64|arm64) NODE_ARCH=linux-arm64 ;;
+              *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+            esac
+            mkdir -p "$NODE_HOME"
+            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.xz" \
+              | tar -xJ --strip-components=1 -C "$NODE_HOME"
+          fi
           node --version
+          npm --version
+          npm install -g "pnpm@${PNPM_VERSION}"
           pnpm --version
         '''
       }
