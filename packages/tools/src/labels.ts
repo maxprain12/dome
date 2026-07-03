@@ -23,6 +23,12 @@ export const TOOL_LABELS: Readonly<Record<string, string>> = {
   dome_load_doc: 'Load Doc',
   get_tool_definition: 'Get Tool Definition',
   skill_read: 'Read Skill',
+  // Social hub
+  social_accounts_list: 'Social Accounts',
+  social_post_draft: 'Social Draft',
+  social_post_publish: 'Social Publish',
+  social_posts_list: 'Social Posts',
+  social_metrics_summary: 'Social Analytics',
   // Artifacts
   artifact_create: 'Artifact Create',
   artifact_design: 'Artifact Design',

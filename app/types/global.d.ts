@@ -2298,6 +2298,8 @@ declare global {
         update: (opts: {
           resourceId: string;
           state?: Record<string, unknown>;
+          /** Data-only save: merged into current state.data server-side (never clobbers html/css). */
+          data?: unknown;
           artifactType?: 'task-tracker' | 'chart' | 'custom';
           linkedResourceId?: string | null;
         }) => Promise<{ success: boolean; data?: ArtifactRecord; error?: string }>;

@@ -10,6 +10,8 @@ import { isElectronAI } from '@/lib/utils/formatting';
 
 const DOME_DESIGN_SYSTEM = `
 Dome persisted-artifact contract (MUST follow for artifact_create / artifact_update_state / artifact_merge_data):
+- html is a BODY FRAGMENT: start with <style>/<div>, NEVER <!DOCTYPE>/<html>/<head>/<body>/<meta>/<title> wrappers — Dome wraps the fragment in its own document (full documents get auto-stripped, losing structure).
+- Render the UI FROM window.DOME_DATA (data-driven), so artifact_merge_data patches and linked-Excel refreshes update the artifact without rewriting html.
 - Iframe is sandboxed: NO localStorage, sessionStorage, IndexedDB, or cookies for app state — they fail or are wrong. MUST NOT reference them in generated JS.
 - All durable editable state belongs in SQLite via state.data → window.DOME_DATA. Initialize from DOME_DATA merged with in-code defaults (never leave mutable arrays/objects undefined before user actions).
 - After EVERY mutation that must survive restart, call window.__dome_updateState(fullNextDataObject) with the SAME shape as DOME_DATA.
@@ -83,7 +85,8 @@ export function createArtifactCreateTool(): AnyAgentTool {
         { description: 'Semantic type of the artifact.' },
       ),
       html: Type.String({
-        description: 'Self-contained HTML/CSS/JS for the artifact UI. Must follow the Dome Design System above.',
+        description:
+          'BODY FRAGMENT only (no <!DOCTYPE>/<html>/<head>/<body> wrappers). Self-contained inline CSS+JS that renders from window.DOME_DATA and calls __dome_updateState on every mutation. Must follow the Dome Design System above.',
       }),
       data: Type.Optional(
         Type.Object(
@@ -179,12 +182,12 @@ export function createArtifactMergeDataTool(): AnyAgentTool {
           ? (existingState.data as Record<string, unknown>)
           : {};
       const patch = dataPatchRaw as Record<string, unknown>;
-      const newState = {
-        ...existingState,
+      // Data-only update: main process merges into current state, so concurrent
+      // html/css edits are never clobbered by this patch.
+      const result = await window.electron.invoke('artifact:update', {
+        resourceId,
         data: { ...prevData, ...patch },
-      };
-
-      const result = await window.electron.invoke('artifact:update', { resourceId, state: newState });
+      });
       return jsonResult(result);
     },
   };
@@ -227,11 +230,9 @@ export function createArtifactUpdateStateTool(): AnyAgentTool {
       if (!current.success || !current.data) {
         return jsonResult({ success: false, error: 'Artifact not found' });
       }
-      const existingState = (current.data.state ?? {}) as Record<string, unknown>;
-      const newState: Record<string, unknown> = { ...existingState };
-      if (params.html !== undefined) newState.html = params.html as string;
+      let nextData: unknown;
       if (params.data !== undefined) {
-        let nextData: unknown = params.data;
+        nextData = params.data;
         if (typeof nextData === 'string') {
           try {
             nextData = JSON.parse(nextData);
@@ -239,8 +240,17 @@ export function createArtifactUpdateStateTool(): AnyAgentTool {
             return jsonResult({ success: false, error: 'data must be valid JSON' });
           }
         }
-        newState.data = nextData;
       }
+
+      if (params.html === undefined) {
+        // Data-only: let the main process merge (avoids clobbering html/css).
+        const result = await window.electron.invoke('artifact:update', { resourceId, data: nextData });
+        return jsonResult(result);
+      }
+
+      const existingState = (current.data.state ?? {}) as Record<string, unknown>;
+      const newState: Record<string, unknown> = { ...existingState, html: params.html as string };
+      if (params.data !== undefined) newState.data = nextData;
 
       const result = await window.electron.invoke('artifact:update', { resourceId, state: newState });
       return jsonResult(result);

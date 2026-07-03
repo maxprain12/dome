@@ -1,0 +1,259 @@
+{
+  "tab_title": "Social",
+  "settings": {
+    "title": "Social networks",
+    "description": "Connect LinkedIn, Instagram and X to manage your content from Dome. Create a developer app on each platform and paste its credentials here — nothing is read from environment variables.",
+    "no_encryption": "OS keychain encryption is unavailable — secrets will be stored obfuscated, not encrypted.",
+    "oauth_port": "OAuth callback port",
+    "oauth_port_hint": "Local port used to receive the OAuth redirect (http://localhost:PORT/callback/...). Change it only if the port is taken.",
+    "open_dev_portal": "Open developer portal",
+    "client_id": "Client ID",
+    "client_id_placeholder": "App client id",
+    "client_secret": "Client secret",
+    "client_secret_placeholder": "App client secret",
+    "secret_saved": "•••••• (saved)",
+    "redirect_uri": "Redirect URI to register",
+    "copy": "Copy",
+    "save": "Save credentials",
+    "saved": "Saved",
+    "connecting": "Waiting for browser…",
+    "connect_oauth": "Connect account",
+    "connect_token": "Use access token",
+    "connect": "Connect",
+    "token_placeholder": "Paste an access token generated in the developer portal",
+    "disconnect": "Disconnect account",
+    "status_error": "Connection error",
+    "status_expired": "Token expired — reconnect",
+    "hint_linkedin": "LinkedIn: enable the products \"Sign In with LinkedIn using OpenID Connect\" and \"Share on LinkedIn\" in your app. Register the redirect URI above. Tokens last ~60 days.",
+    "hint_instagram": "Instagram: requires a Business/Creator account and a Meta app with the Instagram product. Easiest path: generate an access token in the Meta dashboard (API setup with Instagram login) and paste it here. Publishing needs public https media URLs.",
+    "hint_x": "X: create a project + app with OAuth 2.0 ('Native App' works without secret thanks to PKCE), enable Read and write, and register the redirect URI above. Note: since Feb 2026 new developers pay per use (~$0.015/post)."
+  },
+  "hub": {
+    "title": "Social",
+    "section_dashboard": "Dashboard",
+    "section_posts": "Posts",
+    "section_analytics": "Analytics",
+    "refresh_metrics": "Refresh metrics",
+    "new_post": "New post",
+    "not_connected": "{{provider}} not connected",
+    "manage_accounts": "Manage accounts",
+    "kpi_published": "Published (30d)",
+    "kpi_scheduled": "Scheduled",
+    "kpi_drafts": "Drafts",
+    "kpi_impressions": "Impressions",
+    "kpi_likes": "Likes",
+    "kpi_comments": "Comments",
+    "upcoming": "Scheduled queue",
+    "upcoming_empty": "Nothing scheduled yet. Draft a post and pick a date — Dome publishes it automatically.",
+    "top_posts": "Top posts (30d)",
+    "top_posts_empty": "No metrics yet. Publish posts and refresh metrics to see what performs best.",
+    "posts_empty": "No posts here yet. Create your first one — you can also ask Many to draft content for you.",
+    "filter_all": "All",
+    "filter_draft": "Drafts",
+    "filter_scheduled": "Scheduled",
+    "filter_published": "Published",
+    "filter_failed": "Failed",
+    "status_draft": "Draft",
+    "status_scheduled": "Scheduled",
+    "status_publishing": "Publishing…",
+    "status_published": "Published",
+    "status_failed": "Failed",
+    "no_text": "(no text)",
+    "open_post": "Open on the network",
+    "publish_now": "Publish now",
+    "edit": "Edit",
+    "delete": "Delete",
+    "recent_performance": "Recent posts performance",
+    "analytics_empty": "No published posts with metrics yet.",
+    "col_post": "Post",
+    "col_shares": "Shares"
+  },
+  "composer": {
+    "title": "New post",
+    "edit_title": "Edit post",
+    "body_placeholder": "What do you want to share?",
+    "link_placeholder": "Link URL (optional)",
+    "media_placeholder": "Public https image/video URL (required for Instagram)",
+    "add_media": "Add media",
+    "topics_placeholder": "Topics (comma separated)",
+    "campaign_placeholder": "Campaign (optional)",
+    "schedule_label": "Schedule (leave empty to save as draft)",
+    "cancel": "Cancel",
+    "save_draft": "Save draft",
+    "save_scheduled": "Schedule",
+    "no_account": "{{provider}} has no connected account",
+    "error_no_provider": "Select at least one network.",
+    "error_empty": "Write some text or add media.",
+    "error_instagram_media": "Instagram requires at least one public media URL.",
+    "error_too_long": "Text exceeds the {{limit}} character limit of the selected network."
+  },
+  "wizard": {
+    "title": "Set up {{provider}}",
+    "button": "Guided setup for {{provider}}",
+    "cta": "Set up {{provider}} step by step",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Done",
+    "close": "Close",
+    "connected": "Connected as {{account}}",
+    "open_create": "Open app creation",
+    "open_dashboard": "Open the dashboard",
+    "step_requirements": "Requirements",
+    "step_create_app": "Create app",
+    "step_configure": "Portal setup",
+    "step_credentials": "Credentials",
+    "step_connect": "Connect",
+    "linkedin": {
+      "intro": "Publish on your LinkedIn profile with your own developer app. About 5 minutes, all free.",
+      "requirements": {
+        "title": "Before you start",
+        "body": "You only need:",
+        "bullets": [
+          "A LinkedIn account",
+          "Access to LinkedIn Developers (same login, free)",
+          "A LinkedIn company page to attach the app to — you can create a basic one in a minute if you have none"
+        ]
+      },
+      "create_app": {
+        "title": "Create the app",
+        "body": "Open the creation form with the button below and fill in:",
+        "bullets": [
+          "App name: anything, e.g. 'Dome'",
+          "LinkedIn Page: pick your page (a link on the form lets you create one)",
+          "App logo: any image",
+          "Accept the terms and press 'Create app'"
+        ]
+      },
+      "configure": {
+        "title": "Enable products and register the redirect",
+        "body": "Inside your app in the developer portal:",
+        "bullets": [
+          "'Products' tab → request 'Sign In with LinkedIn using OpenID Connect' AND 'Share on LinkedIn' — both approve instantly",
+          "'Auth' tab → 'OAuth 2.0 settings' → 'Authorized redirect URLs' → add the URI below exactly as shown"
+        ],
+        "notes": [
+          "LinkedIn accepts http://localhost redirect URLs, so this desktop flow needs no https."
+        ]
+      },
+      "credentials": {
+        "title": "Copy Client ID and Secret",
+        "body": "In the 'Auth' tab copy the Client ID and the Primary Client Secret, paste them here and press Save.",
+        "bullets": [],
+        "notes": [
+          "The secret is stored encrypted with your OS keychain."
+        ]
+      },
+      "connect": {
+        "title": "Connect your account",
+        "body": "Press connect: your browser opens LinkedIn's consent screen. Accept and come back to Dome — the connection completes automatically.",
+        "bullets": [],
+        "notes": [
+          "Personal tokens last ~60 days and can't auto-renew on the standard tier — when it expires, just reconnect here.",
+          "Personal-profile analytics are limited to likes and comments."
+        ]
+      }
+    },
+    "instagram": {
+      "intro": "Needs a professional Instagram account and a Meta app. The dashboard token generator is the recommended path — no redirects involved.",
+      "requirements": {
+        "title": "Before you start",
+        "body": "You need:",
+        "bullets": [
+          "Instagram Business or Creator account — switch in the Instagram app: Settings → Account type",
+          "A Meta developer account at developers.facebook.com (free, verified Facebook account)"
+        ]
+      },
+      "create_app": {
+        "title": "Create the Meta app",
+        "body": "Open the creation wizard with the button below:",
+        "bullets": [
+          "Use case: 'Other'",
+          "App type: 'Business'",
+          "Finish the wizard to reach the app dashboard"
+        ]
+      },
+      "configure": {
+        "title": "Add the Instagram product and link your account",
+        "body": "In the app dashboard:",
+        "bullets": [
+          "'Add product' → set up 'Instagram'",
+          "Open 'API setup with Instagram business login'",
+          "Under 'Generate access tokens' add your professional Instagram account and log in with it"
+        ],
+        "notes": [
+          "The redirect URI below is only needed for the optional OAuth path ('Business login settings' → 'OAuth redirect URIs'). Meta may require https there — if it rejects localhost, simply use the token path in the next step."
+        ]
+      },
+      "credentials": {
+        "title": "Choose your path: token (recommended) or OAuth",
+        "body": "Two ways — pick one:",
+        "bullets": [
+          "A — recommended: in 'Generate access tokens' press 'Generate token' next to your account and copy it. You can skip the fields below and paste it in the Connect step.",
+          "B — OAuth: copy the 'Instagram app ID' and 'Instagram app secret' shown in 'API setup…', paste them here and save."
+        ],
+        "notes": []
+      },
+      "connect": {
+        "title": "Connect your account",
+        "body": "Paste the generated token below and press Connect — or use the OAuth button if you configured redirect + credentials.",
+        "bullets": [],
+        "notes": [
+          "Instagram cannot publish text-only posts: each post needs at least one image/video hosted on a PUBLIC https URL.",
+          "Tokens are long-lived (~60 days); Dome auto-refreshes them while in use."
+        ]
+      }
+    },
+    "x": {
+      "intro": "OAuth 2.0 with PKCE on the X API v2. Heads-up: X moved new developers to pay-per-use pricing.",
+      "requirements": {
+        "title": "Before you start",
+        "body": "You need:",
+        "bullets": [
+          "An X account",
+          "A developer account at developer.x.com"
+        ],
+        "notes": [
+          "Since February 2026 X has no free tier for NEW developers: posting is pay-per-use (~$0.015 per post; posts containing links cost more). Older accounts may keep their previous tier."
+        ]
+      },
+      "create_app": {
+        "title": "Create project + app",
+        "body": "In the developer portal:",
+        "bullets": [
+          "First time: the onboarding wizard creates your Project + App automatically",
+          "Otherwise: 'Projects & Apps' in the sidebar → create a Project and an App inside it"
+        ]
+      },
+      "configure": {
+        "title": "User authentication settings",
+        "body": "In your app's settings:",
+        "bullets": [
+          "'User authentication settings' → 'Set up'",
+          "App permissions: 'Read and write'",
+          "Type of App: 'Native App' (public client — PKCE, no secret needed)",
+          "Callback URI / Redirect URL: add the URI below exactly",
+          "Website URL: any page of yours"
+        ],
+        "notes": [
+          "X accepts http://localhost callback URIs (the official xurl CLI uses one). Register it exactly as shown."
+        ]
+      },
+      "credentials": {
+        "title": "Copy the Client ID",
+        "body": "After saving the auth settings the portal shows your OAuth 2.0 Client ID (also under 'Keys and tokens'). Paste it here and save.",
+        "bullets": [],
+        "notes": [
+          "Client Secret is only needed if you chose a confidential 'Web App' client instead of Native App."
+        ]
+      },
+      "connect": {
+        "title": "Connect your account",
+        "body": "Press connect and authorize in the browser. Dome keeps the session alive with the refresh token.",
+        "bullets": [],
+        "notes": [
+          "Reading tweet metrics is billed separately by X — Dome tolerates metric failures without breaking."
+        ]
+      }
+    }
+  }
+}

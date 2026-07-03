@@ -1,0 +1,39 @@
+# Social hub tools (LinkedIn / Instagram / X)
+
+Dome manages the user's social media from the Social tab: drafts, a scheduled
+queue (auto-published by the built-in scheduler), published history and
+per-post metrics.
+
+## Workflow
+
+1. `social_accounts_list` — check which networks are connected before drafting.
+2. `social_post_draft` — create content. Default to a DRAFT (no `scheduled_at`)
+   so the user reviews it in the Social tab. Only pass `scheduled_at` when the
+   user gave an explicit date/time.
+3. `social_post_publish` — publishes to the REAL account immediately.
+   Never call it unless the user explicitly asked to publish now.
+4. `social_posts_list` / `social_metrics_summary` — read the queue and the
+   analytics to answer questions and ground recommendations.
+
+## Per-network rules
+
+- **X**: max 280 chars. `link_url` is appended to the text. Text-only is fine.
+- **LinkedIn**: max 3000 chars. `link_url` becomes an article share card.
+  Personal-profile metrics are limited to likes/comments.
+- **Instagram**: REQUIRES `media` with at least one PUBLIC https image/video
+  URL (Instagram downloads it — local file paths do not work). `body` is the
+  caption. Text-only posts are impossible on Instagram.
+
+## Cross-posting
+
+When the user wants the same content on several networks, create one post per
+network with `social_post_draft`, ADAPTING the copy to each platform (length,
+tone, hashtags) instead of copying it verbatim. Reuse the same `campaign` and
+`topics` values so analytics can compare them.
+
+## Recommendations & campaign analysis
+
+Use `social_metrics_summary` (optionally `refresh: true`) before making claims
+about performance. Look at `topPosts`, per-provider totals and the `topics` /
+`campaign` fields of recent posts to identify what resonates; propose concrete
+next topics and posting times based on that data, not on generic advice.

@@ -1267,6 +1267,87 @@ function buildQueries(db) {
     listPipelineItemEvents: db.prepare(`
       SELECT * FROM pipeline_item_events WHERE item_id = ? ORDER BY created_at ASC
     `),
+
+    // Social hub (migration 59) — accounts, posts, metrics
+    createSocialAccount: db.prepare(`
+      INSERT INTO social_accounts (
+        id, provider, display_name, handle, external_id, credentials, scopes,
+        status, last_error, connected_at, last_sync_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getSocialAccountById: db.prepare('SELECT * FROM social_accounts WHERE id = ?'),
+    listSocialAccounts: db.prepare('SELECT * FROM social_accounts ORDER BY created_at ASC'),
+    listSocialAccountsByProvider: db.prepare(`
+      SELECT * FROM social_accounts WHERE provider = ? ORDER BY created_at ASC
+    `),
+    updateSocialAccountProfile: db.prepare(`
+      UPDATE social_accounts SET display_name = ?, handle = ?, external_id = ?, updated_at = ? WHERE id = ?
+    `),
+    updateSocialAccountCredentials: db.prepare(`
+      UPDATE social_accounts SET credentials = ?, scopes = ?, status = ?, last_error = ?, updated_at = ? WHERE id = ?
+    `),
+    updateSocialAccountStatus: db.prepare(`
+      UPDATE social_accounts SET status = ?, last_error = ?, updated_at = ? WHERE id = ?
+    `),
+    touchSocialAccountSync: db.prepare(`
+      UPDATE social_accounts SET last_sync_at = ?, updated_at = ? WHERE id = ?
+    `),
+    deleteSocialAccount: db.prepare('DELETE FROM social_accounts WHERE id = ?'),
+
+    createSocialPost: db.prepare(`
+      INSERT INTO social_posts (
+        id, account_id, provider, status, body, media, link_url, topics, campaign,
+        scheduled_at, published_at, external_post_id, external_url, error,
+        created_by, group_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getSocialPostById: db.prepare('SELECT * FROM social_posts WHERE id = ?'),
+    updateSocialPostContent: db.prepare(`
+      UPDATE social_posts
+      SET account_id = ?, body = ?, media = ?, link_url = ?, topics = ?, campaign = ?,
+          scheduled_at = ?, status = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    updateSocialPostPublishResult: db.prepare(`
+      UPDATE social_posts
+      SET status = ?, published_at = ?, external_post_id = ?, external_url = ?, error = ?, updated_at = ?
+      WHERE id = ?
+    `),
+    listSocialPosts: db.prepare(`
+      SELECT * FROM social_posts ORDER BY COALESCE(scheduled_at, published_at, created_at) DESC LIMIT ?
+    `),
+    listSocialPostsByStatus: db.prepare(`
+      SELECT * FROM social_posts WHERE status = ? ORDER BY COALESCE(scheduled_at, published_at, created_at) DESC LIMIT ?
+    `),
+    listSocialPostsByGroup: db.prepare('SELECT * FROM social_posts WHERE group_id = ? ORDER BY created_at ASC'),
+    listDueSocialPosts: db.prepare(`
+      SELECT * FROM social_posts WHERE status = 'scheduled' AND scheduled_at IS NOT NULL AND scheduled_at <= ?
+      ORDER BY scheduled_at ASC
+    `),
+    listRecentPublishedSocialPosts: db.prepare(`
+      SELECT * FROM social_posts WHERE status = 'published' AND published_at >= ?
+      ORDER BY published_at DESC LIMIT ?
+    `),
+    deleteSocialPost: db.prepare('DELETE FROM social_posts WHERE id = ?'),
+    countSocialPostsByStatus: db.prepare('SELECT status, COUNT(*) AS c FROM social_posts GROUP BY status'),
+
+    insertSocialMetric: db.prepare(`
+      INSERT INTO social_metrics (
+        id, post_id, captured_at, impressions, likes, comments, shares, saves, clicks, followers, raw
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    getLatestSocialMetricForPost: db.prepare(`
+      SELECT * FROM social_metrics WHERE post_id = ? ORDER BY captured_at DESC LIMIT 1
+    `),
+    listSocialMetricsForPost: db.prepare(`
+      SELECT * FROM social_metrics WHERE post_id = ? ORDER BY captured_at ASC
+    `),
+    listLatestSocialMetrics: db.prepare(`
+      SELECT m.* FROM social_metrics m
+      JOIN (
+        SELECT post_id, MAX(captured_at) AS max_at FROM social_metrics GROUP BY post_id
+      ) latest ON latest.post_id = m.post_id AND latest.max_at = m.captured_at
+    `),
   };
 }
 

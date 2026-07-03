@@ -26,6 +26,7 @@ export const TOGGLEABLE_FEATURES: FeatureDef[] = [
   { key: 'projects', labelKey: 'features.items.projects.label', descKey: 'features.items.projects.desc', group: 'workspace' },
   { key: 'calendar', labelKey: 'features.items.calendar.label', descKey: 'features.items.calendar.desc', group: 'workspace' },
   { key: 'email', labelKey: 'features.items.email.label', descKey: 'features.items.email.desc', group: 'workspace' },
+  { key: 'social', labelKey: 'features.items.social.label', descKey: 'features.items.social.desc', group: 'workspace' },
   { key: 'tags', labelKey: 'features.items.tags.label', descKey: 'features.items.tags.desc', group: 'workspace' },
   { key: 'github', labelKey: 'features.items.github.label', descKey: 'features.items.github.desc', group: 'automation' },
   { key: 'pipelines', labelKey: 'features.items.pipelines.label', descKey: 'features.items.pipelines.desc', group: 'automation' },

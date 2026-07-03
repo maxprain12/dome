@@ -5,6 +5,8 @@ const { afterArtifactMutation } = require('../../artifacts/artifact-index-sync.c
 const { syncLinkedArtifactsForResource } = require('../../artifacts/artifact-link-sync.cjs');
 const vaultStore = require('../../storage/vault-store.cjs');
 const { syncArtifactFeedersSidecar } = require('../../artifacts/feeder-vault-sidecar.cjs');
+const { normalizeArtifactHtml, normalizeArtifactState } = require('../../artifacts/artifact-html-normalize.cjs');
+const frameRegistry = require('../../artifacts/artifact-frame-registry.cjs');
 
 function generateId() {
   return crypto.randomUUID();
@@ -53,7 +55,10 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const now = Date.now();
       const resourceId = generateId();
       const artifactId = generateId();
-      const stateStr = JSON.stringify(state ?? {});
+      // Full-document HTML nests invalid markup inside the frame wrapper — store body fragments only.
+      const stateStr = JSON.stringify(normalizeArtifactState(state ?? {}));
+      const normalizedTemplate =
+        typeof template === 'string' ? normalizeArtifactHtml(template).body : (template ?? null);
 
       const tx = db.transaction(() => {
         queries.createResource.run(
@@ -72,7 +77,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
           artifactId,
           resourceId,
           artifactType || 'custom',
-          template ?? null,
+          normalizedTemplate,
           stateStr,
           linkedResourceId ?? null,
           now,
@@ -151,7 +156,7 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     }
   });
 
-  ipcMain.handle('artifact:update', (event, { resourceId, state, artifactType, linkedResourceId }) => {
+  ipcMain.handle('artifact:update', (event, { resourceId, state, data, artifactType, linkedResourceId }) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
@@ -162,22 +167,34 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const existing = queries.getArtifactByResourceId.get(resourceId);
       if (!existing) return { success: false, error: 'Artifact not found' };
 
+      const stateTouched = state !== undefined || data !== undefined;
       const tx = db.transaction(() => {
+        // Re-read inside the transaction: a `data`-only save must merge into
+        // the *current* state (html/css may have changed since the renderer
+        // loaded its copy), never overwrite it with a stale snapshot.
+        const current = queries.getArtifactByResourceId.get(resourceId) || existing;
+        let nextStateStr = current.state;
+        if (state !== undefined) {
+          nextStateStr = JSON.stringify(normalizeArtifactState(state));
+        } else if (data !== undefined) {
+          const cur = parseJsonState(current.state);
+          nextStateStr = JSON.stringify({ ...(isPlainObject(cur) ? cur : {}), data });
+        }
         if (artifactType !== undefined || linkedResourceId !== undefined) {
           queries.updateArtifact.run(
-            artifactType ?? existing.artifact_type,
-            existing.template,
-            state !== undefined ? JSON.stringify(state) : existing.state,
-            linkedResourceId !== undefined ? (linkedResourceId ?? null) : (existing.linked_resource_id ?? null),
+            artifactType ?? current.artifact_type,
+            current.template,
+            nextStateStr,
+            linkedResourceId !== undefined ? (linkedResourceId ?? null) : (current.linked_resource_id ?? null),
             now,
             resourceId,
           );
-        } else if (state !== undefined) {
-          queries.updateArtifactState.run(JSON.stringify(state), now, resourceId);
+        } else if (stateTouched) {
+          queries.updateArtifactState.run(nextStateStr, now, resourceId);
         }
         const updated = queries.getArtifactByResourceId.get(resourceId);
-        if (updated && state !== undefined) {
-          syncRuntimeDataFromState(queries, updated, parseJsonState(JSON.stringify(state)), now);
+        if (updated && stateTouched) {
+          syncRuntimeDataFromState(queries, updated, parseJsonState(nextStateStr), now);
         }
       });
       tx();
@@ -325,6 +342,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       const now = Date.now();
       const resourceId = generateId();
       const artifactId = generateId();
+      const importedStateStr = JSON.stringify(normalizeArtifactState(state ?? {}));
+      const importedTemplate =
+        typeof template === 'string' ? normalizeArtifactHtml(template).body : (template ?? null);
 
       const tx = db.transaction(() => {
         queries.createResource.run(
@@ -343,15 +363,15 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
           artifactId,
           resourceId,
           artifact_type,
-          template ?? null,
-          JSON.stringify(state ?? {}),
+          importedTemplate,
+          importedStateStr,
           null,
           now,
           now,
         );
         const art = queries.getArtifactByResourceId.get(resourceId);
         if (art) {
-          syncRuntimeDataFromState(queries, art, parseJsonState(JSON.stringify(state ?? {})), now);
+          syncRuntimeDataFromState(queries, art, parseJsonState(importedStateStr), now);
         }
       });
       tx();
@@ -410,6 +430,34 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
       console.error('[Artifact] Error setting linked resource:', error);
       return { success: false, error: error.message };
     }
+  });
+
+  // Sandboxed artifact frames (issue #465): the renderer registers the frame
+  // document here and points the iframe at app://artifact/<token>, which is
+  // served with its own CSP (srcdoc would inherit the strict renderer CSP and
+  // block every inline script in packaged builds).
+  ipcMain.handle('artifact:frame:register', (event, { html } = {}) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    if (typeof html !== 'string' || !html.trim()) {
+      return { success: false, error: 'html required' };
+    }
+    if (html.length > 8 * 1024 * 1024) {
+      return { success: false, error: 'Frame html too large (8MB max)' };
+    }
+    try {
+      return { success: true, data: frameRegistry.registerFrameHtml(html) };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('artifact:frame:release', (event, token) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    return { success: true, data: { released: frameRegistry.releaseFrame(token) } };
   });
 
   ipcMain.handle('artifact:refresh-linked', async (event, resourceId) => {

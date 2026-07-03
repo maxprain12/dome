@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-02T06:42:38.966Z
+> Última generación: 2026-07-03T19:40:34.351Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -72,17 +72,19 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ai:tools:screenUnderstand` | `electron/ipc/ai/ai-tools.cjs:777` |
 | `ai:webSearch` | `electron/ipc/ai/ai.cjs:602` |
 | `approval:respond` | `electron/ipc/agents/approval.cjs:43` |
-| `artifact:buildDesign` | `electron/ipc/agents/artifacts.cjs:124` |
-| `artifact:create` | `electron/ipc/agents/artifacts.cjs:46` |
-| `artifact:delete` | `electron/ipc/agents/artifacts.cjs:202` |
-| `artifact:export` | `electron/ipc/agents/artifacts.cjs:235` |
-| `artifact:exportHtml` | `electron/ipc/agents/artifacts.cjs:272` |
-| `artifact:get` | `electron/ipc/agents/artifacts.cjs:107` |
-| `artifact:import` | `electron/ipc/agents/artifacts.cjs:304` |
-| `artifact:list` | `electron/ipc/agents/artifacts.cjs:217` |
-| `artifact:refresh-linked` | `electron/ipc/agents/artifacts.cjs:415` |
-| `artifact:set-linked-resource` | `electron/ipc/agents/artifacts.cjs:378` |
-| `artifact:update` | `electron/ipc/agents/artifacts.cjs:154` |
+| `artifact:buildDesign` | `electron/ipc/agents/artifacts.cjs:129` |
+| `artifact:create` | `electron/ipc/agents/artifacts.cjs:48` |
+| `artifact:delete` | `electron/ipc/agents/artifacts.cjs:219` |
+| `artifact:export` | `electron/ipc/agents/artifacts.cjs:252` |
+| `artifact:exportHtml` | `electron/ipc/agents/artifacts.cjs:289` |
+| `artifact:frame:register` | `electron/ipc/agents/artifacts.cjs:439` |
+| `artifact:frame:release` | `electron/ipc/agents/artifacts.cjs:456` |
+| `artifact:get` | `electron/ipc/agents/artifacts.cjs:112` |
+| `artifact:import` | `electron/ipc/agents/artifacts.cjs:321` |
+| `artifact:list` | `electron/ipc/agents/artifacts.cjs:234` |
+| `artifact:refresh-linked` | `electron/ipc/agents/artifacts.cjs:463` |
+| `artifact:set-linked-resource` | `electron/ipc/agents/artifacts.cjs:398` |
+| `artifact:update` | `electron/ipc/agents/artifacts.cjs:159` |
 | `audio:generate-podcast` | `electron/ipc/media/audio.cjs:86` |
 | `audio:generate-speech` | `electron/ipc/media/audio.cjs:31` |
 | `audio:get-status` | `electron/ipc/media/audio.cjs:120` |
@@ -281,20 +283,20 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `embeddings:getStatus` | `electron/ipc/ai/embeddings.cjs:38` |
 | `embeddings:listModels` | `electron/ipc/ai/embeddings.cjs:107` |
 | `embeddings:test` | `electron/ipc/ai/embeddings.cjs:70` |
-| `feeder-secrets:delete` | `electron/ipc/integrations/feeders.cjs:242` |
-| `feeder-secrets:list` | `electron/ipc/integrations/feeders.cjs:208` |
-| `feeder-secrets:set` | `electron/ipc/integrations/feeders.cjs:222` |
-| `feeder-secrets:vault-status` | `electron/ipc/integrations/feeders.cjs:261` |
-| `feeders:approve` | `electron/ipc/integrations/feeders.cjs:131` |
-| `feeders:create` | `electron/ipc/integrations/feeders.cjs:46` |
-| `feeders:delete` | `electron/ipc/integrations/feeders.cjs:150` |
-| `feeders:get` | `electron/ipc/integrations/feeders.cjs:66` |
-| `feeders:history` | `electron/ipc/integrations/feeders.cjs:191` |
-| `feeders:list` | `electron/ipc/integrations/feeders.cjs:83` |
-| `feeders:listAll` | `electron/ipc/integrations/feeders.cjs:99` |
-| `feeders:request-secret` | `electron/ipc/integrations/feeders.cjs:268` |
-| `feeders:run` | `electron/ipc/integrations/feeders.cjs:172` |
-| `feeders:update-script` | `electron/ipc/integrations/feeders.cjs:111` |
+| `feeder-secrets:delete` | `electron/ipc/integrations/feeders.cjs:246` |
+| `feeder-secrets:list` | `electron/ipc/integrations/feeders.cjs:212` |
+| `feeder-secrets:set` | `electron/ipc/integrations/feeders.cjs:226` |
+| `feeder-secrets:vault-status` | `electron/ipc/integrations/feeders.cjs:265` |
+| `feeders:approve` | `electron/ipc/integrations/feeders.cjs:132` |
+| `feeders:create` | `electron/ipc/integrations/feeders.cjs:47` |
+| `feeders:delete` | `electron/ipc/integrations/feeders.cjs:151` |
+| `feeders:get` | `electron/ipc/integrations/feeders.cjs:67` |
+| `feeders:history` | `electron/ipc/integrations/feeders.cjs:195` |
+| `feeders:list` | `electron/ipc/integrations/feeders.cjs:84` |
+| `feeders:listAll` | `electron/ipc/integrations/feeders.cjs:100` |
+| `feeders:request-secret` | `electron/ipc/integrations/feeders.cjs:272` |
+| `feeders:run` | `electron/ipc/integrations/feeders.cjs:176` |
+| `feeders:update-script` | `electron/ipc/integrations/feeders.cjs:112` |
 | `file:cleanTemp` | `electron/ipc/data/files.cjs:311` |
 | `file:copyFile` | `electron/ipc/data/files.cjs:189` |
 | `file:deleteFile` | `electron/ipc/data/files.cjs:108` |

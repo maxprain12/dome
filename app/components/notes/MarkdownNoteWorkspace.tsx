@@ -87,6 +87,7 @@ export default function MarkdownNoteWorkspace({
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savePillSavedAt, setSavePillSavedAt] = useState<number | null>(null);
+  const [autosaveTick, setAutosaveTick] = useState(0);
   const [editorReady, setEditorReady] = useState(false);
   const [wordCount, setWordCount] = useState(0);
 
@@ -119,6 +120,20 @@ export default function MarkdownNoteWorkspace({
 
   const editorRef = useRef<MarkdownNoteEditorHandle | null>(null);
   const mirroredOnceRef = useRef(false);
+  // Monotonic counter of editor changes: lets persistNote detect keystrokes
+  // that arrived while a save was in flight (must stay dirty afterwards).
+  const changeSeqRef = useRef(0);
+  const wordCountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDirtyRef = useRef(false);
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+  useEffect(
+    () => () => {
+      if (wordCountTimerRef.current) clearTimeout(wordCountTimerRef.current);
+    },
+    [],
+  );
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
   const studioPanelOpen = useAppStore((s) => s.studioPanelOpen);
@@ -192,7 +207,7 @@ export default function MarkdownNoteWorkspace({
     if (!window.electron?.on) return undefined;
 
     const applyExternalMarkdown = (markdown: string, updatedAt?: number) => {
-      if (isDirty) return;
+      if (isDirtyRef.current) return;
       editorRef.current?.setMarkdown(markdown);
       setWordCount(countWordsFromMarkdown(markdown));
       setIsDirty(false);
@@ -210,9 +225,9 @@ export default function MarkdownNoteWorkspace({
         if (payload?.id !== resourceId) return;
 
         const reloadFromMirror = () => {
-          if (isDirty || !window.electron?.notes?.readMirror) return;
+          if (isDirtyRef.current || !window.electron?.notes?.readMirror) return;
           void window.electron.notes.readMirror({ id: resourceId }).then((m) => {
-            if (isDirty || !m?.success || typeof m.markdown !== 'string') return;
+            if (isDirtyRef.current || !m?.success || typeof m.markdown !== 'string') return;
             applyExternalMarkdown(m.markdown, payload.updates?.updated_at);
           });
         };
@@ -235,17 +250,18 @@ export default function MarkdownNoteWorkspace({
             reloadFromMirror();
             return;
           }
-          if (typeof updates.content === 'string' && !isDirty) {
+          if (typeof updates.content === 'string' && !isDirtyRef.current) {
             applyExternalMarkdown(updates.content, updates.updated_at);
           }
         }
       },
     );
     return () => unsub?.();
-  }, [resourceId, isDirty]);
+  }, [resourceId]);
 
   const persistNote = useCallback(async () => {
     if (readOnly || !resource || !editorRef.current) return;
+    const seqAtSave = changeSeqRef.current;
     const markdown = editorRef.current.getMarkdown();
     setIsSaving(true);
     setSaveError(null);
@@ -259,7 +275,13 @@ export default function MarkdownNoteWorkspace({
         title,
         updated_at: now,
       });
-      setIsDirty(false);
+      // Keystrokes may have landed while awaiting the writes above; only
+      // clear the dirty flag if nothing changed since we serialized.
+      if (changeSeqRef.current === seqAtSave) {
+        setIsDirty(false);
+      } else {
+        setAutosaveTick((n) => n + 1);
+      }
       setSavePillSavedAt(now);
       setWordCount(countWordsFromMarkdown(markdown));
       setResource((prev) => (prev ? { ...prev, title, updated_at: now } : prev));
@@ -287,7 +309,7 @@ export default function MarkdownNoteWorkspace({
     if (!isDirty) return;
     const timer = setTimeout(() => void persistNote(), 1500);
     return () => clearTimeout(timer);
-  }, [isDirty, persistNote]);
+  }, [isDirty, persistNote, autosaveTick]);
 
   const handleTitleBlur = useCallback(async () => {
     if (readOnly || !resource || !window.electron?.db?.resources) return;
@@ -311,10 +333,17 @@ export default function MarkdownNoteWorkspace({
 
   const handleEditorChange = useCallback(() => {
     if (readOnly) return;
+    changeSeqRef.current += 1;
     setIsDirty(true);
-    if (editorRef.current) {
-      setWordCount(countWordsFromMarkdown(editorRef.current.getMarkdown()));
-    }
+    // getMarkdown() serializes the whole doc — debounce so large notes don't
+    // pay a full serialization on every keystroke.
+    if (wordCountTimerRef.current) clearTimeout(wordCountTimerRef.current);
+    wordCountTimerRef.current = setTimeout(() => {
+      wordCountTimerRef.current = null;
+      if (editorRef.current) {
+        setWordCount(countWordsFromMarkdown(editorRef.current.getMarkdown()));
+      }
+    }, 350);
   }, [readOnly]);
 
   const handleEditorReady = useCallback(() => {

@@ -16,6 +16,7 @@ import LanguageSettings from '@/components/settings/LanguageSettings';
 import KbLlmSettingsPanel from '@/components/settings/KbLlmSettingsPanel';
 import CalendarSettingsPanel from '@/components/settings/CalendarSettingsPanel';
 import EmailSettings from '@/components/settings/EmailSettings';
+import SocialSettings from '@/components/settings/SocialSettings';
 import DomeMcpServerSettings from '@/components/settings/DomeMcpServerSettings';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -38,6 +39,7 @@ const VALID_SECTIONS = [
   'kb_llm',
   'calendar',
   'email',
+  'social',
 ] as const;
 
 function normalizeSection(section: string | null): SettingsSection {
@@ -117,6 +119,8 @@ export default function SettingsPage() {
         return <CalendarSettingsPanel />;
       case 'email':
         return <EmailSettings />;
+      case 'social':
+        return <SocialSettings />;
       default:
         return <GeneralSettings />;
     }

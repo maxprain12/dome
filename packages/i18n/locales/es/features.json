@@ -45,6 +45,10 @@
     "pipelines": {
       "label": "Pipelines",
       "desc": "Tableros Kanban donde los agentes ejecutan tu trabajo por fases."
+    },
+    "social": {
+      "label": "Redes sociales",
+      "desc": "Gestiona contenido de LinkedIn, Instagram y X."
     }
   }
 }

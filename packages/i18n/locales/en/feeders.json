@@ -26,5 +26,7 @@
   "run_ok": "Feeder completed — artifact data updated",
   "run_error": "Feeder run failed",
   "history": "History",
-  "delete_ok": "Feeder deleted"
+  "delete_ok": "Feeder deleted",
+  "delete_confirm_title": "Delete feeder",
+  "delete_confirm_message": "Delete feeder \"{{name}}\"? Its script, run history and workspace will be removed."
 }

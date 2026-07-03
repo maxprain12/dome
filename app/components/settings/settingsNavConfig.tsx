@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import {
   User, Palette, Brain, Settings as SettingsIcon,
   Puzzle, Plug2, Wand2, Database, Cloud, CloudCog,
-  Globe, BookMarked, Calendar, Server, Mail, LayoutGrid,
+  Globe, BookMarked, Calendar, Server, Mail, LayoutGrid, Share2,
 } from 'lucide-react';
 
 export type SettingsSection =
@@ -22,7 +22,8 @@ export type SettingsSection =
   | 'language'
   | 'kb_llm'
   | 'calendar'
-  | 'email';
+  | 'email'
+  | 'social';
 
 export interface NavItem {
   id: SettingsSection;
@@ -64,6 +65,7 @@ export const NAV_GROUPS: NavGroup[] = [
       [
         { id: 'calendar', icon: <Calendar className={NAV_ICON_CLASS} /> },
         { id: 'email', icon: <Mail className={NAV_ICON_CLASS} /> },
+        { id: 'social', icon: <Share2 className={NAV_ICON_CLASS} /> },
       ],
       [
         { id: 'mcp', icon: <Plug2 className={NAV_ICON_CLASS} /> },

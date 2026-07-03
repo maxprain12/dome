@@ -1,113 +1,103 @@
-### Persisted library mini-apps (`artifact_create`, `artifact_update_state`, …)
+# Persisted artifacts — full state & persistence contract
 
-Use this companion to `artifacts.txt` whenever you mutate **Kind B — library** artifacts stored in Dome’s SQLite catalog.
-
----
-
-## Lifecycle
-
-> **Title is auto-derived** — `title` is OPTIONAL in `artifact_create`. If omitted, Dome falls back to: HTML `<title>` tag → `artifact_type` → `'Untitled Artifact'`. Pass it explicitly only when you want a specific display name.
-
-1. **Design** — Before `artifact_create`, call `dome_load_doc('artifact_design')` unless the user asked for a **mini/simple** artifact (one section, no tabs) and context is already sufficient. For mini artifacts: skip `artifact_design` tool; pass compact `html` + seed `data` from conversation or `file_read` results into `artifact_create`. Always call `dome_load_doc('artifact_persisted')` once if not loaded this session.
-
-   For full dashboards, call `dome_load_doc('artifact_design')` and choose one of the two design paths:
-
-   | Artifact kind | Design path |
-   |---|---|
-   | **Structured / read-heavy** (reports, KPI summaries, research digests, timelines, model cards, multi-section references) | Call `artifact_design` **tool** with a `spec` → get Dome-themed HTML + seed `data` → pass both into `artifact_create`. |
-   | **Interactive / stateful** (tables with filters, Kanban boards, forms, charts, dashboards with user edits) | Load the design doc for CSS variable tokens + SVG icon rules, then write **custom HTML** that reads `window.DOME_DATA` and calls `__dome_updateState` → pass into `artifact_create`. |
-
-   In both cases: use **only** injected CSS variables (`--bg`, `--accent`, `--primary-text`, `--border`, etc.), inline SVG icons (Lucide style, no emoji/pictographs), and no remote assets / `localStorage`.
-2. **Create** via `artifact_create` with flat tool params: `{ title?, artifact_type, html, data?, project_id? }`. Required: `artifact_type` + `html`. `title` is optional (auto-derived). Link Excel **after** create with `artifact_link_resource` — not as a field on `artifact_create`.
-3. **Read** via `artifact_get` / list via Many’s hub or `artifact_list`.
-4. **Mutate** — inside the iframe call `__dome_updateState` for user-driven edits; from the agent use `artifact_merge_data` (shallow patch to `state.data` only), `artifact_update_state` (replace/merge `html` and/or `data`), or bind Excel with `artifact_link_resource` for read-only grids in `linkedData`.
-5. **External / live data** — when the iframe cannot reach local APIs (Redfish, LAN services, shell): load `dome_load_doc('feeders')`, create an approved **feeder** script (`feeder_create` → user approves → `feeder_run`). Schedule with `target_type: "feeder"` automations for periodic refresh. **Never** ask the user to paste JSON manually.
+Companion to the `artifacts` doc. Load before `artifact_create` / `artifact_update_state` / `artifact_merge_data` / `artifact_delete`.
 
 ---
 
-## `state.data` vs datos “hardcodeados” en el HTML
+## State model
 
-| Situación | Usar |
-| --- | --- |
-| El usuario editará filas, notas o toggles entre sesiones | `state.data` + JS que lee `DOME_DATA` y llama `__dome_updateState` |
-| Volcar muchas filas desde Excel/PDF/agente después de crear el artefacto | `artifact_merge_data` o `artifact_update_state(state.data)`; **no** pegar mega-tablas como strings estáticos en el HTML |
-| Texto/UI que nunca cambia (título estático de sección, leyenda fija) | Hardcoded en el HTML está bien |
-| Datos siempre frescos desde un Excel vinculado | `artifact_link_resource` y render desde `linkedData` (solo lectura desde el modelo) |
-
-**Ejemplos:** lista de compras con checkboxes → `data.items[]`. KPI estático “Resumen mensual” como label → HTML. Importar 200 filas de `excel_get` → `artifact_merge_data({ rows: [...] })`. Tablero que solo muestra la hoja vinculada → `linkedData`, sin duplicar en `data` salvo overrides del usuario.
-
-**Pattern: Excel → artifact (preferred)**
-1. `excel_get(resource_id)` for each relevant sheet to understand schema + extract KPIs.
-2. `artifact_create({ artifact_type: 'custom', html: <compact HTML that reads window.DOME_DATA.rows>, data: { rows: [...firstSheet.slice(0,50)] } })` — HTML renders rows dynamically from `DOME_DATA`; do NOT inline thousands of rows as static strings.
-3. `artifact_link_resource({ artifact_resource_id, linked_resource_id })` — Dome populates `state.linkedData` on every open so Excel edits propagate automatically.
-4. For user-driven filters/notes: persist via `__dome_updateState({ ...window.DOME_DATA, filter: 'foo' })` inside the iframe.
-**NEVER** paste megatable strings into the HTML — bloats the template, slows re-renders, and exhausts model output budgets.
-
----
-
-## Tema visual
-
-Igual que en `artifacts.txt`: **no** defines modo claro/oscuro ni uses `prefers-color-scheme`. Colores de cromado solo con variables inyectadas (`--bg`, `--primary-text`, `--accent`, …).
-
----
-
-## Payload shape (`state`)
-
-`state` is JSON stored in SQLite. Typical persisted HTML mini-apps embed:
+Each artifact stores one JSON `state` in SQLite (mirrored to a vault `.html` file):
 
 ```json
 {
-  "html": "<section>…minimal markup…</section>",
-  "data": {},
+  "html": "<style>…</style><div id=\"app\">…</div><script>…</script>",
+  "css": "optional extra stylesheet",
+  "data": { "everything the user can change lives here" },
   "linkedData": null
 }
 ```
 
-- **`html`** — body markup; keep inputs with `data-dome-key`, `name`, or `id` fields so Dome can mirror values ↔ `window.DOME_DATA`.
-- **`data`** — mirrored into `window.DOME_DATA` for editable fields (`input`, `textarea`, `select`). Updated values flow back via `__dome_updateState(next)`.
-- **`linkedData`** — optional snapshot injected by Dome when the artifact is linked to an Excel via `artifact_link_resource`. Read-only for the model; display only.
+- **`html`** — BODY FRAGMENT only (no doctype/html/head/body wrappers — they get stripped). This is the UI + logic. It must RENDER FROM DATA: read `window.DOME_DATA` on load and draw the UI from it.
+- **`data`** — the single source of truth for mutable content. Injected as `window.DOME_DATA` before your scripts run.
+- **`linkedData`** — read-only snapshot Dome injects when a spreadsheet is linked via `artifact_link_resource`. Render it; never write to it.
+
+## The golden pattern: data-driven rendering
+
+```
+<style>/* tokens only */</style>
+<div id="app"></div>
+<script>
+  var state = window.DOME_DATA || {};
+  state.items = Array.isArray(state.items) ? state.items : [];
+
+  function save() { window.__dome_updateState(state); }
+  function render() { /* rebuild #app from state — including the empty state */ }
+
+  // every mutation: update state → save() → render()
+  render();
+</script>
+```
+
+Why: Dome re-injects `data` on every open, pushes external updates (agent patches, Excel refresh) via `window.dome_onDataRefresh(next)` if you define it, and the toolbar Save button calls your optional `window.__dome_collectState()`. If your HTML hardcodes rows instead of rendering from data, all of that silently breaks.
+
+**Persistence rules**
+
+- Call `__dome_updateState(state)` after EVERY meaningful mutation (add row, toggle, reorder, text blur). It writes to SQLite immediately.
+- Never rely on `localStorage`/`sessionStorage` — a shim keeps legacy code from crashing but nothing written there survives.
+- Inputs you want auto-mirrored get `data-dome-key="fieldName"` (or `id`/`name`); Dome copies their values in/out of `DOME_DATA` automatically. For anything richer (arrays, objects) manage the state object yourself.
 
 ---
 
-## Iframe contract (MANDATORY)
+## Lifecycle & tools
 
-Dome injects before your script bundle:
+| Tool | Use it to |
+|---|---|
+| `artifact_design` | Generate a Dome-themed tabbed dossier (`html` + seed `data`) for read-heavy layouts. Not persistence — pass the result into `artifact_create`. Load `dome_load_doc('artifact_design')` first. |
+| `artifact_create` | Create: `{ artifact_type: 'task-tracker'\|'chart'\|'custom', html, data?, title?, project_id? }`. `title` optional (falls back to the fragment's first heading / type). |
+| `artifact_get` | Read current `state` + metadata before editing an existing artifact. ALWAYS get before update. |
+| `artifact_merge_data` | Shallow-merge keys into `state.data` WITHOUT touching html: `{ resource_id, data_patch }`. The default choice for pushing rows/KPIs after `excel_get`, `resource_get`, web research. |
+| `artifact_update_state` | Replace `html` and/or `data`: `{ resource_id, html?, data? }`. Only for redesigns or full data resets — for incremental data prefer `artifact_merge_data`. |
+| `artifact_list` | Enumerate artifacts in the project (ids, titles, types). |
+| `artifact_delete` | Remove the artifact resource (asks nothing — confirm with the user first). |
+| `artifact_link_resource` | Bind a spreadsheet: `{ artifact_resource_id, linked_resource_id }` (null unlinks). Dome then refreshes `linkedData` on every open/edit and shows a Refresh button. |
 
-- `window.DOME_DATA` — initial field bag (merge of `state.data` + `state.linkedData` exposure in workspace UI).
-- `window.__dome_updateState(nextDataObject)` — call after every meaningful mutation; persists to SQLite immediately.
-- `window.__dome_collectState()` — optional hook for explicit saves (toolbar “Save”).
-
-**Rules**
-
-- No `window.electron`, `fetch`, remote assets, or `localStorage` fallback required — Dome injects an in-memory storage shim.
-- Always call `__dome_updateState` after programmatic DOM edits that should survive restarts.
-- Keep bundle self-contained; inline JS only.
-
----
-
-## Tool reference
-
-| Tool | When |
-| --- | --- |
-| `artifact_design` | Generate Dome-styled tabbed dossier **HTML** + seed **`data`** (not persisted). Pass returned `html` + `data` into `artifact_create`. Load `dome_load_doc('artifact_design')` before first use. |
-| `artifact_create` | User needs a durable mini-app (trackers, forms, dashboards that persist). |
-| `artifact_get` | Need current `state` / metadata. |
-| `artifact_merge_data` | Shallow patch to `state.data`: `{ resource_id, data_patch }` (p. ej. tras `excel_get`) sin re-enviar HTML. |
-| `artifact_update_state` | `{ resource_id, html?, data? }` — cambia UI y/o datos cuando rediseñas o reemplazas el objeto completo. |
-| `artifact_delete` | Remove resource + artifact row. |
-| `artifact_link_resource` | Bind Excel: `{ artifact_resource_id, linked_resource_id }` (null to unlink) for `linkedData` refresh. |
-
-After `artifact_create`, emit the `artifact:created_entity` fenced card described in `entity_rules` so the Hub UI can render shortcuts.
+**Concurrency rule:** data-only changes go through `artifact_merge_data` (or `artifact_update_state` with only `data`) — these merge server-side into the CURRENT state, so a user editing the artifact at the same time never loses html/css.
 
 ---
 
-## Linked Excel resources
+## Data placement: `state.data` vs hardcoded HTML
 
-When an Excel is linked (`artifact_link_resource`), Dome may populate `state.linkedData` with `{ sheet_names, sheet_name, data }` grids. Your HTML should read-only render `linkedData` and persist user tweaks through `state.data`.
+| Situation | Where it goes |
+|---|---|
+| User will add/edit/toggle between sessions | `state.data`, rendered by your JS |
+| Bulk rows from Excel/PDF/research after creation | `artifact_merge_data` patch — NEVER paste megatables as static HTML strings |
+| Fixed labels, section titles, legends | Hardcoded in the html fragment is fine |
+| Always-fresh spreadsheet grid | `artifact_link_resource` → render `linkedData` read-only; user overrides go in `data` |
+
+**Excel → dashboard (canonical flow)**
+1. `excel_get(resource_id)` per sheet → understand schema, compute KPIs.
+2. `artifact_create` with html that renders `window.DOME_DATA.rows` + `data: { rows: firstRows }` (≤50 seed rows).
+3. `artifact_link_resource({ artifact_resource_id, linked_resource_id })` → live grid via `linkedData`.
+4. User filters/notes persist via `__dome_updateState` inside the iframe.
+
+Soft limit: keep `html` under ~200 KB. If you are tempted to inline data to get past that, the data belongs in `state.data`.
 
 ---
 
-## Safety
+## External / live data (LAN, APIs, shell)
 
-- Respect token palette + typography rules from `artifacts.txt`.
-- Never echo raw JSON to the user; summarize actions in natural language alongside internal tool calls.
+The iframe cannot reach local services. When the artifact needs periodic external data: `dome_load_doc('feeders')` → `feeder_create` (user approves the script) → `feeder_run`, and schedule refreshes with a feeder automation. Never ask the user to paste JSON by hand.
+
+---
+
+## Quality checklist (run mentally before `artifact_create`)
+
+1. Fragment only — no doctype/html/head/body wrappers.
+2. Renders entirely from `window.DOME_DATA`; seed `data` provided; empty state designed.
+3. Every mutation calls `__dome_updateState`; no browser-storage persistence.
+4. Tokens only (`--bg`, `--accent`, `--primary-text`, semantic vars); no gradients; no emoji icons — inline Lucide-style SVG.
+5. Self-contained vanilla JS; any CDN use degrades gracefully offline.
+6. Usable at 800px width; interactive targets ≥32px; visible focus states.
+7. UI copy in the user's conversation language.
+
+After a successful `artifact_create`, emit the `artifact:created_entity` fenced card per `entity_rules` and summarize in natural language — never dump raw JSON at the user.

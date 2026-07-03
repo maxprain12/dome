@@ -32,6 +32,7 @@ const path = require('path');
 const { rrfMerge } = require('../storage/hybrid-rrf.cjs');
 const { serializeArtifactRecord, parseJsonState } = require('../artifacts/artifact-serialize.cjs');
 const { afterArtifactMutation } = require('../artifacts/artifact-index-sync.cjs');
+const { normalizeArtifactState, normalizeArtifactHtml } = require('../artifacts/artifact-html-normalize.cjs');
 const vaultStore = require('../storage/vault-store.cjs');
 const noteMarkdown = require('../services/note-markdown.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
@@ -3025,6 +3026,114 @@ async function pipelineAddStage({ pipeline_id, title, execution_policy, assigned
 }
 
 // =============================================================================
+// Social hub (LinkedIn / Instagram / X) — every result is tagged source: 'social'
+// =============================================================================
+
+function socialService() {
+  const windowManager = require('../core/window-manager.cjs');
+  return require('../social/social-service.cjs').getSocialService(database, windowManager);
+}
+
+async function socialAccountsList() {
+  try {
+    const accounts = socialService().store.listAccounts();
+    return {
+      success: true,
+      source: 'social',
+      accounts: accounts.map((a) => ({
+        id: a.id, provider: a.provider, displayName: a.displayName,
+        handle: a.handle, status: a.status,
+      })),
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialPostDraft({ provider, body, media, link_url, topics, campaign, scheduled_at } = {}) {
+  try {
+    if (!provider || !['linkedin', 'instagram', 'x'].includes(provider)) {
+      return { success: false, error: 'provider must be linkedin, instagram or x' };
+    }
+    const text = String(body || '');
+    const limits = { linkedin: 3000, instagram: 2200, x: 280 };
+    if (text.length > limits[provider]) {
+      return { success: false, error: `Body too long for ${provider}: ${text.length}/${limits[provider]} chars` };
+    }
+    const mediaArr = Array.isArray(media)
+      ? media.filter((m) => m && typeof m.url === 'string' && /^https?:\/\//.test(m.url))
+      : [];
+    if (provider === 'instagram' && mediaArr.length === 0) {
+      return { success: false, error: 'Instagram posts require at least one media item with a public https URL' };
+    }
+    let scheduledAt = null;
+    if (scheduled_at) {
+      scheduledAt = new Date(scheduled_at).getTime();
+      if (!Number.isFinite(scheduledAt)) return { success: false, error: `Invalid scheduled_at: ${scheduled_at}` };
+      if (scheduledAt < Date.now() - 60 * 1000) return { success: false, error: 'scheduled_at is in the past' };
+    }
+    const service = socialService();
+    const account = service.store.listAccounts(provider).find((a) => a.status === 'active') || null;
+    const post = service.store.createPost({
+      provider,
+      accountId: account?.id ?? null,
+      body: text,
+      media: mediaArr,
+      linkUrl: typeof link_url === 'string' && link_url ? link_url : null,
+      topics: Array.isArray(topics) ? topics.map(String).slice(0, 20) : [],
+      campaign: typeof campaign === 'string' && campaign ? campaign : null,
+      scheduledAt,
+      createdBy: 'many',
+    });
+    return {
+      success: true,
+      source: 'social',
+      post,
+      note: scheduledAt
+        ? 'Post scheduled — the Social scheduler will publish it automatically.'
+        : 'Draft saved. The user can review it in the Social tab, or call social_post_publish to publish now.',
+      warning: account ? undefined : `No connected ${provider} account yet — connect one in Settings → Social before publishing.`,
+    };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialPostPublish({ post_id } = {}) {
+  try {
+    if (!post_id) return { success: false, error: 'post_id is required' };
+    const post = await socialService().publishPost(String(post_id));
+    return { success: true, source: 'social', post };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialPostsList({ status, limit } = {}) {
+  try {
+    const service = socialService();
+    const posts = service.store.listPosts({ status: status || null, limit: Math.min(Number(limit) || 50, 200) });
+    const withMetrics = posts.map((p) => ({
+      ...p,
+      metrics: p.status === 'published' ? service.store.getLatestMetric(p.id) : null,
+    }));
+    return { success: true, source: 'social', posts: withMetrics };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+async function socialMetricsSummary({ refresh = false } = {}) {
+  try {
+    const service = socialService();
+    if (refresh) await service.refreshAllMetrics();
+    return { success: true, source: 'social', summary: service.getSummary() };
+  } catch (err) {
+    return { success: false, error: err.message };
+  }
+}
+
+// =============================================================================
 // GitHub project sync (Seguimiento) — every result is tagged source: 'github'
 // =============================================================================
 
@@ -4226,7 +4335,9 @@ async function artifactCreate(args) {
     const now = Date.now();
     const resourceId = cryptoMod.randomUUID();
     const artifactId = cryptoMod.randomUUID();
-    const state = { html, data };
+    // Full-document HTML nests invalid markup inside the frame wrapper (issue #465) —
+    // normalize to a body fragment and hoist <head> styles into state.css.
+    const state = normalizeArtifactState({ html, data });
     const stateStr = JSON.stringify(state);
 
     const tx = db.transaction(() => {
@@ -4280,7 +4391,14 @@ async function artifactUpdateState(args) {
 
     const prevState = parseJsonState(existing.state);
     const mergedState = { ...prevState };
-    if (args.html !== undefined) mergedState.html = args.html;
+    if (args.html !== undefined) {
+      const norm = normalizeArtifactHtml(String(args.html));
+      mergedState.html = norm.body;
+      if (norm.changed && norm.css) {
+        const prevCss = typeof mergedState.css === 'string' ? mergedState.css : '';
+        mergedState.css = prevCss ? `${prevCss}\n\n${norm.css}` : norm.css;
+      }
+    }
     if (nextData !== undefined) mergedState.data = nextData;
 
     const now = Date.now();
@@ -4753,6 +4871,11 @@ module.exports = {
   githubUpdateIssue,
   githubCreateMilestone,
   githubSync,
+  socialAccountsList,
+  socialPostDraft,
+  socialPostPublish,
+  socialPostsList,
+  socialMetricsSummary,
 
   // Entity creation
   agentCreate,

@@ -7,6 +7,7 @@ import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import type { ArtifactRecord } from '@/types';
 import { useDomeThemeSnapshot, buildDomeThemeStyleContent } from '@/lib/chat/useDomeThemeSnapshot';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
+import { normalizeArtifactBodyHtml, useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import {
   buildArtifactNavigateBootScript,
   handleArtifactNavigateMessage,
@@ -200,29 +201,48 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [workspaceTab, setWorkspaceTab] = useState<'dashboard' | 'feeders'>('dashboard');
 
+  const stateRec =
+    artifact?.state && typeof artifact.state === 'object'
+      ? (artifact.state as Record<string, unknown>)
+      : {};
+  // Fallback chain (issue #465): state.html → record.template → placeholder.
+  const rawHtml =
+    typeof stateRec.html === 'string' && stateRec.html.trim()
+      ? stateRec.html
+      : typeof artifact?.template === 'string' && artifact.template.trim()
+        ? artifact.template
+        : '';
+  // Legacy artifacts may hold a full document — extract body + hoist head styles.
+  const normalized = normalizeArtifactBodyHtml(rawHtml);
+  const stHtml = normalized.body;
+  const stCss = [typeof stateRec.css === 'string' ? stateRec.css : '', normalized.css]
+    .filter(Boolean)
+    .join('\n\n');
+  const hasArtifact = artifact !== null;
+
+  // Theme at first build only: later theme changes are pushed via postMessage
+  // (`dome:theme:update`), so they must NOT rebuild the srcdoc / reload the iframe.
+  const initialThemeCssRef = useRef<string | null>(null);
+  if (initialThemeCssRef.current === null) {
+    initialThemeCssRef.current = buildDomeThemeStyleContent(themeSnapshot.vars);
+  }
+
+  // Rebuild the iframe only when the artifact's HTML/CSS actually change.
+  // Data-only saves (`dome:state:update`) and external data refreshes flow via
+  // postMessage; rebuilding here would reload the iframe and drop focus/scroll.
   const iframeSrcdoc = useMemo(() => {
-    if (!artifact) return '';
-    const art = artifact;
-    const st =
-      art.state && typeof art.state === 'object'
-        ? (art.state as { html?: string; data?: unknown; css?: string })
-        : {};
+    if (!hasArtifact) return '';
     const bodyHtml =
-      typeof st.html === 'string' && st.html.trim().length > 0
-        ? st.html
+      stHtml.trim().length > 0
+        ? stHtml
         : '<p style="color:var(--secondary-text);padding:1rem">Empty artifact — ask Many to generate content.</p>';
-    const artifactCss = typeof st.css === 'string' ? st.css : '';
-    const themeCss = buildDomeThemeStyleContent(themeSnapshot.vars);
-    // Merge state.data (user-mutable) with state.linkedData (Excel sync) into DOME_DATA.
-    const stRec = st as Record<string, unknown>;
-    const domePayload: Record<string, unknown> = {
-      ...(stRec.data && typeof stRec.data === 'object' && !Array.isArray(stRec.data)
-        ? (stRec.data as Record<string, unknown>)
-        : {}),
-      ...(stRec.linkedData !== undefined ? { linkedData: stRec.linkedData } : {}),
-    };
-    return buildSrcdocFromParts(bodyHtml, domePayload, themeCss, artifactCss);
-  }, [artifact, themeSnapshot.vars]);
+    const domePayload = mergedDomeDataPayload(artifactRef.current);
+    return buildSrcdocFromParts(bodyHtml, domePayload, initialThemeCssRef.current ?? '', stCss);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- data reads artifactRef on purpose
+  }, [hasArtifact, resourceId, stHtml, stCss]);
+
+  // Served frame URL with its own CSP (falls back to srcdoc outside Electron).
+  const frameSource = useArtifactFrameSrc(iframeSrcdoc || null);
 
   const prevResourceIdRef = useRef(resourceId);
   if (resourceId !== prevResourceIdRef.current) {
@@ -330,10 +350,10 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
         } else {
           lastLocalDomePushRef.current = null;
         }
-        const currentState = (art.state ?? {}) as Record<string, unknown>;
-        const updatedState = { ...currentState, data: newData };
         try {
-          const result = await window.electron.artifacts.update({ resourceId, state: updatedState });
+          // Data-only update: the main process merges into the current state,
+          // so a concurrent html/css edit (e.g. from Many) is never clobbered.
+          const result = await window.electron.artifacts.update({ resourceId, data: newData });
           if (result.success && result.data) {
             setArtifact(result.data);
           } else {
@@ -358,12 +378,26 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   }, [themeSnapshot.themeKey, themeSnapshot.vars]);
 
   const handleExport = useCallback(async () => {
-    await window.electron.artifacts.export(resourceId);
-  }, [resourceId]);
+    try {
+      const result = await window.electron.artifacts.export(resourceId);
+      if (result && result.success === false && result.error) {
+        notifications.show({ message: result.error, color: 'red' });
+      }
+    } catch {
+      notifications.show({ message: t('common.error'), color: 'red' });
+    }
+  }, [resourceId, t]);
 
   const handleExportHtml = useCallback(async () => {
-    await window.electron.artifacts.exportHtml(resourceId);
-  }, [resourceId]);
+    try {
+      const result = await window.electron.artifacts.exportHtml(resourceId);
+      if (result && result.success === false && result.error) {
+        notifications.show({ message: result.error, color: 'red' });
+      }
+    } catch {
+      notifications.show({ message: t('common.error'), color: 'red' });
+    }
+  }, [resourceId, t]);
 
   const handleSaveState = useCallback(() => {
     const w = iframeRef.current?.contentWindow;
@@ -395,9 +429,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
             return;
           }
           const payload = event.data.payload;
-          const currentState = (art.state ?? {}) as Record<string, unknown>;
-          const updatedState = { ...currentState, data: payload };
-          const result = await window.electron.artifacts.update({ resourceId, state: updatedState });
+          const result = await window.electron.artifacts.update({ resourceId, data: payload });
           if (result.success && result.data) {
             setArtifact(result.data);
             notifications.show({ message: t('artifacts.save_state_ok'), color: 'green' });
@@ -565,7 +597,9 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
         <iframe
           ref={iframeRef}
           key={resourceId}
-          srcDoc={iframeSrcdoc}
+          {...(frameSource.src
+            ? { src: frameSource.src }
+            : { srcDoc: frameSource.fallbackSrcdoc ?? undefined })}
           sandbox="allow-scripts allow-forms allow-modals"
           style={{
             width: '100%',

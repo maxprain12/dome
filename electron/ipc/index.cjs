@@ -53,6 +53,7 @@ const shellHandlers = require('./core/shell.cjs');
 const domeMcpHandlers = require('./integrations/dome-mcp.cjs');
 const artifactsHandlers = require('./agents/artifacts.cjs');
 const feedersHandlers = require('./integrations/feeders.cjs');
+const socialHandlers = require('./integrations/social.cjs');
 const approvalHandlers = require('./agents/approval.cjs');
 const cloudSyncHandlers = require('./sync/cloud-sync.cjs');
 const threadsHandlers = require('./agents/threads.cjs');
@@ -176,6 +177,7 @@ function registerAll(deps) {
   domeMcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   feedersHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   cloudSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   threadsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });

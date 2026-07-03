@@ -667,6 +667,25 @@ app
     protocol.handle('app', (request) => {
       // Parse the URL and get the pathname
       const url = new URL(request.url);
+
+      // app://artifact/<token> — sandboxed artifact frame documents (issue #465).
+      // Served from an in-memory registry with a dedicated CSP so inline
+      // scripts run inside the sandboxed iframe without touching the strict
+      // renderer CSP (srcdoc would inherit it and block them in prod).
+      if (url.hostname === 'artifact') {
+        const token = url.pathname.replace(/^\//, '');
+        const html = require('./artifacts/artifact-frame-registry.cjs').getFrameHtml(token);
+        if (html === null) return new Response('Not Found', { status: 404 });
+        return new Response(html, {
+          status: 200,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Content-Security-Policy': require('./core/csp.cjs').ARTIFACT_FRAME_CSP,
+            'Cache-Control': 'no-store',
+          },
+        });
+      }
+
       let filePath = url.pathname;
 
       // Remove leading slash and decode URI components

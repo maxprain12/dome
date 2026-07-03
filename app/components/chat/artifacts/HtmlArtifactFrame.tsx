@@ -7,6 +7,7 @@ import { useTabStore } from '@/lib/store/useTabStore';
 import { buildDomeThemeStyleContent, useDomeThemeSnapshot } from '@/lib/chat/useDomeThemeSnapshot';
 import i18n from '@/lib/i18n';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
+import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import {
   buildArtifactNavigateBootScript,
   DOME_ARTIFACT_MSG,
@@ -17,11 +18,17 @@ import './html-artifact-frame.css';
 
 const DOME_ARTIFACT = DOME_ARTIFACT_MSG;
 const DOME_THEME = 'dome:theme';
+// Keep aligned with ARTIFACT_FRAME_CSP (electron/core/csp.cjs). This meta only
+// matters on the srcdoc fallback path (non-Electron); when the frame is served
+// from app://artifact/<token> the response header carries the same policy.
 const DOME_CSP = [
   "default-src 'none'",
-  "style-src 'unsafe-inline'",
-  "script-src 'unsafe-inline'",
-  "img-src data: blob:",
+  "style-src 'unsafe-inline' https:",
+  "script-src 'unsafe-inline' 'unsafe-eval' https:",
+  'img-src data: blob: https:',
+  'font-src data: https:',
+  'connect-src data: blob: https:',
+  'media-src data: blob: https:',
   "base-uri 'none'",
   "form-action 'none'",
   "object-src 'none'",
@@ -165,6 +172,10 @@ export default function HtmlArtifactFrame({
     iframeReadyRef.current = false;
   }
 
+  // Served frame URL with its own CSP (falls back to srcdoc outside Electron) —
+  // srcdoc would inherit the strict renderer CSP and block inline scripts in prod.
+  const frameSource = useArtifactFrameSrc(srcdoc);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -228,7 +239,9 @@ export default function HtmlArtifactFrame({
           borderRadius: 'var(--radius-md)',
           background: 'var(--bg)',
         }}
-        srcDoc={srcdoc}
+        {...(frameSource.src
+          ? { src: frameSource.src }
+          : { srcDoc: frameSource.fallbackSrcdoc ?? undefined })}
       />
     </div>
   );

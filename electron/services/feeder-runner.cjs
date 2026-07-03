@@ -39,6 +39,14 @@ const ALLOWED_OUTPUT_MODES = new Set(['stdout_json', 'output_file']);
 /** @type {{ path: string; runArgs: string[] }|null} */
 let cachedPython = null;
 
+/**
+ * Feeders currently executing. Two concurrent runs of the same feeder would
+ * share (and wipe) the same workspace dir, corrupting each other's script and
+ * output files — so overlapping runs are rejected up front.
+ * @type {Set<string>}
+ */
+const runningFeederIds = new Set();
+
 async function resolvePythonBin() {
   if (cachedPython) return cachedPython;
   const info = await checkPython();
@@ -323,6 +331,26 @@ async function runFeeder(database, windowManager, feederId, opts = {}) {
   const queries = database.getQueries();
   const row = queries.getFeederById.get(feederId);
   const feeder = assertFeederApproved(row);
+  if (runningFeederIds.has(feederId)) {
+    throw new Error(`Feeder "${feeder.name}" is already running`);
+  }
+  runningFeederIds.add(feederId);
+  try {
+    return await runFeederLocked(database, windowManager, feederId, feeder, opts);
+  } finally {
+    runningFeederIds.delete(feederId);
+  }
+}
+
+/**
+ * @param {import('../core/database.cjs')} database
+ * @param {{ broadcast?: Function }} windowManager
+ * @param {string} feederId
+ * @param {ReturnType<typeof serializeFeederRow>} feeder
+ * @param {{ triggeredBy?: 'agent'|'user'|'automation', automationId?: string|null }} opts
+ */
+async function runFeederLocked(database, windowManager, feederId, feeder, opts) {
+  const queries = database.getQueries();
   const vault = createFeederVault(database);
   if (!vault.isAvailable() && parseEnvSecretRefs(feeder.envSecretRefs).length > 0) {
     throw new Error('Feeder secrets vault unavailable; cannot resolve required secrets.');
@@ -615,8 +643,13 @@ function approveFeeder(database, feederId) {
   return serializeFeederRow(queries.getFeederById.get(feederId));
 }
 
+function isFeederRunning(feederId) {
+  return runningFeederIds.has(feederId);
+}
+
 module.exports = {
   runFeeder,
+  isFeederRunning,
   createFeederRecord,
   updateFeederScript,
   approveFeeder,

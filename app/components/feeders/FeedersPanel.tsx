@@ -23,6 +23,7 @@ import {
 } from '@/lib/feeders/api';
 import FeederApprovalModal from './FeederApprovalModal';
 import SecretsManager from './SecretsManager';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeBadge from '@/components/ui/DomeBadge';
 import DomeCard from '@/components/ui/DomeCard';
@@ -68,6 +69,7 @@ export default function FeedersPanel({ artifactResourceId }: Props) {
   const [history, setHistory] = useState<FeederRunRecord[]>([]);
   const [secretsOpen, setSecretsOpen] = useState(false);
   const [pendingSecretName, setPendingSecretName] = useState<string | undefined>();
+  const [deleteTarget, setDeleteTarget] = useState<FeederRecord | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -118,6 +120,11 @@ export default function FeedersPanel({ artifactResourceId }: Props) {
       } else {
         notifications.show({ message: res.error ?? t('feeders.run_error'), color: 'red' });
       }
+    } catch (err) {
+      notifications.show({
+        message: err instanceof Error ? err.message : t('feeders.run_error'),
+        color: 'red',
+      });
     } finally {
       setRunningId(null);
     }
@@ -141,14 +148,25 @@ export default function FeedersPanel({ artifactResourceId }: Props) {
   };
 
   const handleDelete = async (feederId: string) => {
-    const res = await deleteFeeder(feederId);
-    if (res.success) {
-      notifications.show({ message: t('feeders.delete_ok'), color: 'green' });
-      if (historyFeederId === feederId) {
-        setHistoryFeederId(null);
-        setHistory([]);
+    try {
+      const res = await deleteFeeder(feederId);
+      if (res.success) {
+        notifications.show({ message: t('feeders.delete_ok'), color: 'green' });
+        if (historyFeederId === feederId) {
+          setHistoryFeederId(null);
+          setHistory([]);
+        }
+        await reload();
+      } else {
+        notifications.show({ message: res.error ?? t('common.error'), color: 'red' });
       }
-      await reload();
+    } catch (err) {
+      notifications.show({
+        message: err instanceof Error ? err.message : t('common.error'),
+        color: 'red',
+      });
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -159,8 +177,16 @@ export default function FeedersPanel({ artifactResourceId }: Props) {
       return;
     }
     setHistoryFeederId(feederId);
-    const res = await getFeederHistory(feederId, 10);
-    if (res.success && res.data) setHistory(res.data);
+    try {
+      const res = await getFeederHistory(feederId, 10);
+      if (res.success && res.data) {
+        setHistory(res.data);
+      } else {
+        setHistory([]);
+      }
+    } catch {
+      setHistory([]);
+    }
   };
 
   return (
@@ -320,7 +346,7 @@ export default function FeedersPanel({ artifactResourceId }: Props) {
                     variant="ghost"
                     size="xs"
                     leftIcon={<Trash2 className="size-3" />}
-                    onClick={() => void handleDelete(feeder.id)}
+                    onClick={() => setDeleteTarget(feeder)}
                     className="text-[var(--secondary-text)] hover:text-[var(--error)] ml-auto"
                   >
                     {t('common.delete')}
@@ -352,6 +378,18 @@ export default function FeedersPanel({ artifactResourceId }: Props) {
           setPendingSecretName(undefined);
         }}
         initialName={pendingSecretName}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        title={t('feeders.delete_confirm_title')}
+        message={t('feeders.delete_confirm_message', { name: deleteTarget?.name ?? '' })}
+        confirmLabel={t('common.delete')}
+        variant="danger"
+        onConfirm={() => {
+          if (deleteTarget) void handleDelete(deleteTarget.id);
+        }}
+        onCancel={() => setDeleteTarget(null)}
       />
     </div>
   );
