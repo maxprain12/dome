@@ -81,6 +81,68 @@ function sanitizeHeaders(h) {
   return Object.keys(out).length > 0 ? out : undefined;
 }
 
+function pickDiscoveryFields(s) {
+  return {
+    lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
+    lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
+  };
+}
+
+function pickToolList(s) {
+  return Array.isArray(s.tools)
+    ? s.tools.map((tool) => normalizeToolEntry(tool)).filter(Boolean)
+    : undefined;
+}
+
+function pickEnabledToolIds(s) {
+  return Array.isArray(s.enabledToolIds)
+    ? s.enabledToolIds
+      .map((toolId) => (typeof toolId === 'string' ? normalizeToolId(toolId) : ''))
+      .filter(Boolean)
+    : undefined;
+}
+
+function pickEnv(s) {
+  return s.env && typeof s.env === 'object' && !Array.isArray(s.env) ? s.env : undefined;
+}
+
+function buildSseEntry(n, s, headers, tools, enabledToolIds) {
+  return {
+    name: n,
+    type: 'sse',
+    url: s.url,
+    headers,
+    tools,
+    enabledToolIds,
+    ...pickDiscoveryFields(s),
+  };
+}
+
+function buildHttpEntry(n, s, headers, tools, enabledToolIds) {
+  return {
+    name: n,
+    type: 'http',
+    url: s.url,
+    headers,
+    tools,
+    enabledToolIds,
+    ...pickDiscoveryFields(s),
+  };
+}
+
+function buildStdioEntry(n, s, env, tools, enabledToolIds) {
+  return {
+    name: n,
+    type: 'stdio',
+    command: s.command,
+    args: sanitizeArgs(s.args),
+    env,
+    tools,
+    enabledToolIds,
+    ...pickDiscoveryFields(s),
+  };
+}
+
 /**
  * Normalize a single server entry to our format.
  * @param {string} name - Server name (key)
@@ -92,56 +154,18 @@ function normalizeServerEntry(name, s) {
   const n = String(name || '').trim();
   if (!n) return null;
   if (s.enabled === false) return null;
-  const env = s.env && typeof s.env === 'object' && !Array.isArray(s.env)
-    ? s.env
-    : undefined;
+  const env = pickEnv(s);
   const headers = sanitizeHeaders(s.headers);
-  const tools = Array.isArray(s.tools)
-    ? s.tools
-        .map((tool) => normalizeToolEntry(tool))
-        .filter(Boolean)
-    : undefined;
-  const enabledToolIds = Array.isArray(s.enabledToolIds)
-    ? s.enabledToolIds
-        .map((toolId) => (typeof toolId === 'string' ? normalizeToolId(toolId) : ''))
-        .filter(Boolean)
-    : undefined;
+  const tools = pickToolList(s);
+  const enabledToolIds = pickEnabledToolIds(s);
   if ((s.type === 'sse' || s.transport === 'sse') && typeof s.url === 'string') {
-    return {
-      name: n,
-      type: 'sse',
-      url: s.url,
-      headers,
-      tools,
-      enabledToolIds,
-      lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
-      lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
-    };
+    return buildSseEntry(n, s, headers, tools, enabledToolIds);
   }
   if ((s.type === 'http' || s.url) && typeof s.url === 'string') {
-    return {
-      name: n,
-      type: 'http',
-      url: s.url,
-      headers,
-      tools,
-      enabledToolIds,
-      lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
-      lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
-    };
+    return buildHttpEntry(n, s, headers, tools, enabledToolIds);
   }
   if ((s.type === 'stdio' || s.command) && typeof s.command === 'string') {
-    return {
-      name: n,
-      type: 'stdio',
-      command: s.command,
-      args: sanitizeArgs(s.args),
-      env,
-      tools,
-      enabledToolIds,
-      lastDiscoveryAt: typeof s.lastDiscoveryAt === 'number' ? s.lastDiscoveryAt : undefined,
-      lastDiscoveryError: typeof s.lastDiscoveryError === 'string' ? s.lastDiscoveryError : null,
-    };
+    return buildStdioEntry(n, s, env, tools, enabledToolIds);
   }
   return null;
 }

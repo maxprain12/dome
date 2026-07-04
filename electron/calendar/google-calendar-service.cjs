@@ -380,15 +380,114 @@ async function deleteGoogleEvent(accountId, calendarId, googleEventId) {
   });
 }
 
+function getGoogleAccounts(q, projectId) {
+  const pid = projectId && String(projectId).trim() ? String(projectId).trim() : null;
+  if (pid && q.getCalendarAccountsByProviderAndProject) {
+    return q.getCalendarAccountsByProviderAndProject.all('google', pid);
+  }
+  return q.getCalendarAccountsByProvider.all('google');
+}
+
+function parseGoogleEventTime(point, fallbackIsoSuffix) {
+  if (point?.dateTime) return new Date(point.dateTime).getTime();
+  return new Date(point?.date + fallbackIsoSuffix).getTime();
+}
+
+function eventRemindersJson(ge) {
+  return JSON.stringify(ge.reminders?.overrides || [{ minutes: 15 }]);
+}
+
+function ensureLocalCalendar(q, acc, gc, now) {
+  let localCal = q.getCalendarCalendarsByAccount.all(acc.id).find((c) => c.remote_id === gc.id);
+  if (localCal) return localCal;
+  const calId = `cal-${acc.id}-${gc.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  q.createCalendarCalendar.run(calId, acc.id, gc.id, gc.summary, gc.backgroundColor, 1, gc.primary ? 1 : 0, now, now);
+  return q.getCalendarCalendarById.get(calId);
+}
+
+function upsertGoogleEvent(q, ge, localCal, now) {
+  const startAt = parseGoogleEventTime(ge.start, 'T00:00:00Z');
+  const endAt = parseGoogleEventTime(ge.end, 'T23:59:59Z');
+  const summary = ge.summary || 'Untitled';
+  const reminders = eventRemindersJson(ge);
+  const link = q.getCalendarEventLinkByRemote.get('google', ge.id);
+  if (link) {
+    q.updateCalendarEvent.run(
+      summary,
+      ge.description || null,
+      ge.location || null,
+      startAt,
+      endAt,
+      ge.start?.timeZone || null,
+      ge.start?.date ? 1 : 0,
+      'confirmed',
+      reminders,
+      null,
+      'google',
+      Date.now(),
+      link.event_id
+    );
+    return;
+  }
+  const eventId = `evt-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
+  q.createCalendarEvent.run(
+    eventId,
+    localCal.id,
+    summary,
+    ge.description || null,
+    ge.location || null,
+    startAt,
+    endAt,
+    ge.start?.timeZone || null,
+    ge.start?.date ? 1 : 0,
+    'confirmed',
+    reminders,
+    null,
+    'google',
+    now,
+    now
+  );
+  q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, localCal.id, now, now);
+}
+
+function syncCalendarEvents(q, acc, gc, localCal, oneMonthAgo, threeMonthsAhead, now) {
+  const { items } = await listGoogleEvents(acc.id, gc.id, oneMonthAgo, threeMonthsAhead);
+  for (const ge of items) {
+    if (ge.status === 'cancelled') {
+      const link = q.getCalendarEventLinkByRemote.get('google', ge.id);
+      if (link) q.deleteCalendarEvent.run(link.event_id);
+      continue;
+    }
+    upsertGoogleEvent(q, ge, localCal, now);
+  }
+  q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'active', now, acc.sync_token, now, acc.id);
+}
+
+async function syncAccount(q, acc, oneMonthAgo, threeMonthsAhead, now) {
+  const email = acc.account_email === 'pending@google.com'
+    ? await fetchUserEmail(acc.id)
+    : acc.account_email;
+  if (acc.account_email === 'pending@google.com') {
+    q.updateCalendarAccount.run(email, acc.credentials, 'active', acc.last_sync_at, acc.sync_token, now, acc.id);
+  }
+
+  const googleCals = await listGoogleCalendars(acc.id);
+  for (const gc of googleCals) {
+    const localCal = ensureLocalCalendar(q, acc, gc, now);
+    await syncCalendarEvents(q, acc, gc, localCal, oneMonthAgo, threeMonthsAhead, now);
+  }
+}
+
+function markAccountError(q, acc, now) {
+  q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'error', acc.last_sync_at, acc.sync_token, now, acc.id);
+}
+
 /**
  * Sync all Google accounts: pull events, merge into local DB
  */
 async function syncAll(projectId = null) {
   const q = database.getQueries();
-  const pid = projectId && String(projectId).trim() ? String(projectId).trim() : null;
-  const accounts = pid && q.getCalendarAccountsByProviderAndProject
-    ? q.getCalendarAccountsByProviderAndProject.all('google', pid)
-    : q.getCalendarAccountsByProvider.all('google');
+  const accounts = getGoogleAccounts(q, projectId);
   if (accounts.length === 0) {
     return { success: true, synced: false, message: 'No Google accounts connected' };
   }
@@ -399,83 +498,10 @@ async function syncAll(projectId = null) {
 
   for (const acc of accounts) {
     try {
-      const email = acc.account_email === 'pending@google.com'
-        ? await fetchUserEmail(acc.id)
-        : acc.account_email;
-      if (acc.account_email === 'pending@google.com') {
-        q.updateCalendarAccount.run(email, acc.credentials, 'active', acc.last_sync_at, acc.sync_token, now, acc.id);
-      }
-
-      const googleCals = await listGoogleCalendars(acc.id);
-      for (const gc of googleCals) {
-        let localCal = q.getCalendarCalendarsByAccount.all(acc.id).find((c) => c.remote_id === gc.id);
-        if (!localCal) {
-          const calId = `cal-${acc.id}-${gc.id.replace(/[^a-zA-Z0-9]/g, '_')}`;
-          q.createCalendarCalendar.run(calId, acc.id, gc.id, gc.summary, gc.backgroundColor, 1, gc.primary ? 1 : 0, now, now);
-          localCal = q.getCalendarCalendarById.get(calId);
-        }
-
-        const { items } = await listGoogleEvents(acc.id, gc.id, oneMonthAgo, threeMonthsAhead);
-
-        for (const ge of items) {
-          if (ge.status === 'cancelled') {
-            const link = q.getCalendarEventLinkByRemote.get('google', ge.id);
-            if (link) q.deleteCalendarEvent.run(link.event_id);
-            continue;
-          }
-
-          const startAt = ge.start?.dateTime
-            ? new Date(ge.start.dateTime).getTime()
-            : new Date(ge.start?.date + 'T00:00:00Z').getTime();
-          const endAt = ge.end?.dateTime
-            ? new Date(ge.end.dateTime).getTime()
-            : new Date(ge.end?.date + 'T23:59:59Z').getTime();
-
-          const link = q.getCalendarEventLinkByRemote.get('google', ge.id);
-          if (link) {
-            q.updateCalendarEvent.run(
-              ge.summary || 'Untitled',
-              ge.description || null,
-              ge.location || null,
-              startAt,
-              endAt,
-              ge.start?.timeZone || null,
-              ge.start?.date ? 1 : 0,
-              'confirmed',
-              JSON.stringify(ge.reminders?.overrides || [{ minutes: 15 }]),
-              null,
-              'google',
-              Date.now(),
-              link.event_id
-            );
-          } else {
-            const eventId = `evt-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
-            q.createCalendarEvent.run(
-              eventId,
-              localCal.id,
-              ge.summary || 'Untitled',
-              ge.description || null,
-              ge.location || null,
-              startAt,
-              endAt,
-              ge.start?.timeZone || null,
-              ge.start?.date ? 1 : 0,
-              'confirmed',
-              JSON.stringify(ge.reminders?.overrides || [{ minutes: 15 }]),
-              null,
-              'google',
-              now,
-              now
-            );
-            q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, gc.id, now, now);
-          }
-        }
-
-        q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'active', now, acc.sync_token, now, acc.id);
-      }
+      await syncAccount(q, acc, oneMonthAgo, threeMonthsAhead, now);
     } catch (err) {
       console.error('[GoogleCalendar] Sync error for account', acc.id, err);
-      q.updateCalendarAccount.run(acc.account_email, acc.credentials, 'error', acc.last_sync_at, acc.sync_token, now, acc.id);
+      markAccountError(q, acc, now);
     }
   }
 
