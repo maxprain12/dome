@@ -81,14 +81,7 @@ function eventRowToGooglePayload(row) {
   };
 }
 
-/**
- * Rebuild calendar_notifications rows for an event from reminders JSON + start_at.
- */
-function rebuildNotificationsForEvent(eventId, startAt, remindersJson) {
-  const q = database.getQueries();
-  if (q.deleteCalendarNotificationsForEvent) {
-    q.deleteCalendarNotificationsForEvent.run(eventId);
-  }
+function parseReminders(remindersJson) {
   let reminders = [{ minutes: DEFAULT_REMINDER_MINUTES }];
   try {
     if (remindersJson) {
@@ -98,17 +91,33 @@ function rebuildNotificationsForEvent(eventId, startAt, remindersJson) {
   } catch {
     /* keep default */
   }
+  return reminders;
+}
+
+function insertNotificationForReminder(eventId, reminder, startAt, now) {
+  const minutes = typeof reminder.minutes === 'number' ? reminder.minutes : DEFAULT_REMINDER_MINUTES;
+  const notifyAt = startAt - minutes * 60 * 1000;
+  if (notifyAt <= now) return;
+  const nid = `caln-${eventId}-${notifyAt}`;
+  try {
+    database.getQueries().createCalendarNotification.run(nid, eventId, notifyAt, null, now);
+  } catch (e) {
+    if (!String(e.message || '').includes('UNIQUE')) console.warn('[Calendar] notification insert:', e.message);
+  }
+}
+
+/**
+ * Rebuild calendar_notifications rows for an event from reminders JSON + start_at.
+ */
+function rebuildNotificationsForEvent(eventId, startAt, remindersJson) {
+  const q = database.getQueries();
+  if (q.deleteCalendarNotificationsForEvent) {
+    q.deleteCalendarNotificationsForEvent.run(eventId);
+  }
+  const reminders = parseReminders(remindersJson);
   const now = Date.now();
   for (const r of reminders) {
-    const minutes = typeof r.minutes === 'number' ? r.minutes : DEFAULT_REMINDER_MINUTES;
-    const notifyAt = startAt - minutes * 60 * 1000;
-    if (notifyAt <= now) continue;
-    const nid = `caln-${eventId}-${notifyAt}`;
-    try {
-      q.createCalendarNotification.run(nid, eventId, notifyAt, null, now);
-    } catch (e) {
-      if (!String(e.message || '').includes('UNIQUE')) console.warn('[Calendar] notification insert:', e.message);
-    }
+    insertNotificationForReminder(eventId, r, startAt, now);
   }
 }
 

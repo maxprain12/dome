@@ -82,6 +82,30 @@ function loadBundledAgentsFull() {
   return out;
 }
 
+function mergeWorkflowEntryWithManifest(entry, id, full) {
+  if (full && typeof full === 'object') {
+    return {
+      ...entry,
+      ...full,
+      id: full.id || id,
+      nodes: Array.isArray(full.nodes) ? full.nodes : [],
+      edges: Array.isArray(full.edges) ? full.edges : [],
+      source: full.source || 'official',
+    };
+  }
+  return {
+    ...entry,
+    nodes: [],
+    edges: [],
+    author: entry.author || 'Unknown',
+    version: entry.version || '1.0.0',
+    tags: Array.isArray(entry.tags) ? entry.tags : [],
+    featured: entry.featured !== false,
+    downloads: typeof entry.downloads === 'number' ? entry.downloads : 0,
+    createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
+  };
+}
+
 /**
  * @returns {Array<Record<string, unknown>>}
  */
@@ -92,36 +116,13 @@ function loadBundledWorkflowsFull() {
   if (!Array.isArray(index)) return [];
 
   const baseDir = path.dirname(indexPath);
-  const out = [];
-  for (const entry of index) {
-    const id = entry && typeof entry.id === 'string' ? entry.id : '';
-    if (!id) continue;
-    const manifestPath = path.join(baseDir, 'workflows', id, 'manifest.json');
-    const full = tryReadJson(manifestPath);
-    if (full && typeof full === 'object') {
-      out.push({
-        ...entry,
-        ...full,
-        id: full.id || id,
-        nodes: Array.isArray(full.nodes) ? full.nodes : [],
-        edges: Array.isArray(full.edges) ? full.edges : [],
-        source: full.source || 'official',
-      });
-    } else {
-      out.push({
-        ...entry,
-        nodes: [],
-        edges: [],
-        author: entry.author || 'Unknown',
-        version: entry.version || '1.0.0',
-        tags: Array.isArray(entry.tags) ? entry.tags : [],
-        featured: entry.featured !== false,
-        downloads: typeof entry.downloads === 'number' ? entry.downloads : 0,
-        createdAt: typeof entry.createdAt === 'number' ? entry.createdAt : Date.now(),
-      });
-    }
-  }
-  return out;
+  return index
+    .filter((entry) => entry && typeof entry.id === 'string' && entry.id)
+    .map((entry) => {
+      const manifestPath = path.join(baseDir, 'workflows', entry.id, 'manifest.json');
+      const full = tryReadJson(manifestPath);
+      return mergeWorkflowEntryWithManifest(entry, entry.id, full);
+    });
 }
 
 module.exports = {
