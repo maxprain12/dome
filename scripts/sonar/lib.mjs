@@ -27,16 +27,37 @@ export function requireEnv(name) {
   return value;
 }
 
+/** User token from env or Jenkins SonarQube plugin (`SONAR_AUTH_TOKEN`). */
+export function sonarToken() {
+  const token = process.env.SONAR_TOKEN || process.env.SONAR_AUTH_TOKEN;
+  if (!token) {
+    throw new Error(
+      'Missing Sonar token: set SONAR_TOKEN or use Jenkins withSonarQubeEnv (SONAR_AUTH_TOKEN)',
+    );
+  }
+  return token;
+}
+
+/** Sonar Web API: token as login, empty password (Basic). Bearer only on SonarQube 10.6+. */
+export function sonarAuthHeader(token) {
+  const scheme = (process.env.SONAR_AUTH_SCHEME || 'basic').toLowerCase();
+  if (scheme === 'bearer') {
+    return { Authorization: `Bearer ${token}` };
+  }
+  const encoded = Buffer.from(`${token}:`, 'utf8').toString('base64');
+  return { Authorization: `Basic ${encoded}` };
+}
+
 /**
  * @param {Record<string, string | number | boolean | undefined>} params
  */
 export async function sonarFetch(path, params = {}, method = 'GET') {
-  const token = requireEnv('SONAR_TOKEN');
+  const token = sonarToken();
   const url = new URL(`${sonarHost()}${path}`);
   /** @type {RequestInit} */
   const init = {
     method,
-    headers: { Authorization: `Bearer ${token}` },
+    headers: sonarAuthHeader(token),
   };
 
   if (method === 'GET') {

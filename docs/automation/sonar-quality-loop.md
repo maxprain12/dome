@@ -22,9 +22,13 @@ Automated correction loop: SonarQube → GitHub Issues → Dome agent (MiniMax) 
 
 | ID Jenkins | Tipo | Uso |
 |------------|------|-----|
-| **`sonar`** | Secret text | Token SonarQube (`SONAR_TOKEN`) |
+| **SonarQube server `SonarQube`** | Plugin (Manage Jenkins → SonarQube) | Token para Web API (`SONAR_AUTH_TOKEN`) — **mismo que job `dome-sonar`** |
 | **`github-quality-loop`** | GitHub PAT | `repo` + issues/PRs (`GITHUB_TOKEN`) |
 | **`minimax-api-key`** | Secret text | API MiniMax (`MINIMAX_API_KEY`) |
+
+Los stages Sonar usan `withSonarQubeEnv('SonarQube')`, no la credential suelta `sonar`.
+
+**Local / fallback:** exporta `SONAR_TOKEN` (user token de SonarQube → My Account → Security). La Web API usa **Basic auth** (`token:` como login). Solo SonarQube ≥ 10.6 acepta `Bearer`; opcional `SONAR_AUTH_SCHEME=bearer`.
 
 El pipeline mapea `minimax-api-key` → env `MINIMAX_API_KEY`.
 
