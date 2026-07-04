@@ -73,7 +73,7 @@ function WorkflowLibraryFolderRow({
     e.preventDefault();
     const id = e.dataTransfer.getData(DND_WORKFLOW_MIME);
     props.onSetDragOver(null);
-    if (id) void props.onMoveWorkflow(id, folder.id);
+    if (id) props.onMoveWorkflow(id, folder.id);
   };
 
   return (

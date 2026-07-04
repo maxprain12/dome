@@ -92,9 +92,9 @@ function replaceUnpairedSurrogates(content: string): string {
 					continue;
 				}
 			}
-			output += "�";
+			output += "\uFFFD";
 		} else if (code >= 0xdc00 && code <= 0xdfff) {
-			output += "�";
+			output += "\uFFFD";
 		} else {
 			output += content[i];
 		}

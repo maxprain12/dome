@@ -74,6 +74,9 @@ jobs:
       - name: Many thread bridge (tool results + coalescing)
         run: pnpm run test:many-thread-bridge
 
+      - name: Execution log display helpers
+        run: pnpm run test:execution-log-display
+
       - name: No legacy prompts/martin
         run: pnpm run check:prompts-martin
 

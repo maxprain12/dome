@@ -8,6 +8,13 @@ import type { ExecutionLogEntry } from '@/lib/agent-canvas/executor';
 import type { CanvasExecutionStatus } from '@/lib/store/useCanvasStore';
 import type { WorkflowExecution } from '@/types/canvas';
 import { getDateTimeLocaleTag } from '@/lib/i18n';
+import {
+  buildHistorySelectOptions,
+  countAgentProgress,
+  getExecutionStatusPresentation,
+  hasExecutionLogContent,
+  resolveExecutionDisplay,
+} from '@/lib/agent-canvas/executionLogDisplay';
 
 interface ExecutionLogProps {
   entries: ExecutionLogEntry[];
@@ -35,9 +42,37 @@ const EMPTY_HISTORY: WorkflowExecution[] = [];
 
 function formatElapsedFromRange(start: number, end?: number): string {
   const ms = (end ?? Date.now()) - start;
-  if (ms < 1000) return `${ms}ms`;
-  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-  return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
+  return formatElapsed(ms);
+}
+
+function ExecutionLogEntryRow({
+  entry,
+  timeLocale,
+}: {
+  entry: ExecutionLogEntry;
+  timeLocale: string;
+}) {
+  const meta = TYPE_STYLES[entry.type];
+  const EntryIcon = meta.icon;
+  const time = new Date(entry.timestamp).toLocaleTimeString(timeLocale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  return (
+    <div className="flex items-start gap-2 text-xs leading-relaxed">
+      <span className="shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)', fontSize: 12 }}>
+        {time}
+      </span>
+      <EntryIcon className="size-3 shrink-0 mt-0.5" style={{ color: meta.color }} />
+      <span className="font-semibold shrink-0" style={{ color: meta.color }}>
+        [{entry.nodeLabel}]
+      </span>
+      <span style={{ color: 'var(--dome-text-secondary)', wordBreak: 'break-all' }}>
+        {entry.message}
+      </span>
+    </div>
+  );
 }
 
 export default function ExecutionLog({
@@ -53,23 +88,15 @@ export default function ExecutionLog({
   const [elapsed, setElapsed] = useState(0);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  const selectedExecution = selectedExecutionId
-    ? history.find((e) => e.id === selectedExecutionId)
-    : null;
-  const displayEntries = status === 'running'
-    ? entries
-    : selectedExecution?.entries ?? entries;
-  const displayStartTime = selectedExecution?.startedAt ?? startTime;
-  const displayStatus = selectedExecution?.status ?? status;
+  const { selectedExecution, displayEntries, displayStartTime, displayStatus } =
+    resolveExecutionDisplay(entries, status, startTime, history, selectedExecutionId);
 
-  // Auto-scroll to bottom when new entries arrive (only when live)
   useLayoutEffect(() => {
     if (!collapsed && status === 'running') {
       logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [entries.length, collapsed, status]);
 
-  // Live timer while running
   useEffect(() => {
     if (status !== 'running' || !startTime) {
       return;
@@ -86,27 +113,23 @@ export default function ExecutionLog({
     if (status === 'running') setElapsed(0);
   }
 
-  const hasContent = status === 'running' || entries.length > 0 || history.length > 0;
-  if (!hasContent) return null;
+  if (!hasExecutionLogContent(status, entries, history)) return null;
 
   const isLiveRunning = status === 'running';
-  const isRunning = displayStatus === 'running';
-  const isDone = displayStatus === 'done';
-  const isError = displayStatus === 'error';
-
-  const completedAgents = displayEntries.filter((e) => e.type === 'done').length;
-  const totalAgents = new Set(displayEntries.map((e) => e.nodeId)).size;
-
-  const statusColor = isRunning ? 'var(--dome-accent)' : isDone ? 'var(--success)' : isError ? 'var(--error)' : 'var(--dome-text-muted)';
-  const statusLabel = isRunning
-    ? t('canvas.exec_status_running')
-    : isDone
-      ? t('canvas.exec_status_done')
-      : isError
-        ? t('canvas.exec_status_error')
-        : t('canvas.exec_status_idle');
-
+  const { isRunning, isDone, statusColor, statusLabelKey } =
+    getExecutionStatusPresentation(displayStatus);
+  const { completedAgents, totalAgents } = countAgentProgress(displayEntries);
+  const statusLabel = t(statusLabelKey);
   const timeLocale = getDateTimeLocaleTag();
+  const historyOptions =
+    history.length > 0 && onSelectExecution
+      ? buildHistorySelectOptions(
+          history,
+          timeLocale,
+          formatElapsedFromRange,
+          t('canvas.exec_current_run'),
+        )
+      : null;
 
   return (
     <div
@@ -116,7 +139,6 @@ export default function ExecutionLog({
         borderColor: 'var(--dome-border)',
       }}
     >
-      {/* Header bar */}
       <button
         type="button"
         onClick={() => setCollapsed((v) => !v)}
@@ -147,21 +169,15 @@ export default function ExecutionLog({
           </span>
         )}
         <div className="flex-1" />
-        {history.length > 0 && onSelectExecution && (
+        {historyOptions && (
           // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- propagation guard only; the inner DomeSelectMenu owns all interaction.
           <div style={{ maxWidth: 180 }} onClick={(e) => e.stopPropagation()}>
             <DomeSelectMenu
               value={selectedExecutionId ?? ''}
-              onChange={(v) => onSelectExecution(v || null)}
+              onChange={(v) => onSelectExecution?.(v || null)}
               fullWidth={false}
               aria-label={t('canvas.exec_current_run')}
-              options={[
-                { value: '', label: t('canvas.exec_current_run') },
-                ...history.map((ex) => ({
-                  value: ex.id,
-                  label: `${new Date(ex.startedAt).toLocaleTimeString(timeLocale, { hour: '2-digit', minute: '2-digit', second: '2-digit' })} (${ex.status}) ${ex.finishedAt ? formatElapsedFromRange(ex.startedAt, ex.finishedAt) : ''}`,
-                })),
-              ]}
+              options={historyOptions}
             />
           </div>
         )}
@@ -172,7 +188,6 @@ export default function ExecutionLog({
         )}
       </button>
 
-      {/* Log entries */}
       {!collapsed && (
         <div
           className="overflow-y-auto px-4 py-2 space-y-1 font-mono"
@@ -183,29 +198,9 @@ export default function ExecutionLog({
               {status === 'running' ? t('canvas.exec_starting') : t('canvas.exec_no_entries')}
             </p>
           )}
-          {displayEntries.map((entry) => {
-            const meta = TYPE_STYLES[entry.type];
-            const EntryIcon = meta.icon;
-            const time = new Date(entry.timestamp).toLocaleTimeString(timeLocale, {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-            });
-            return (
-              <div key={entry.id} className="flex items-start gap-2 text-xs leading-relaxed">
-                <span className="shrink-0 tabular-nums" style={{ color: 'var(--dome-text-muted)', fontSize: 12 }}>
-                  {time}
-                </span>
-                <EntryIcon className="size-3 shrink-0 mt-0.5" style={{ color: meta.color }} />
-                <span className="font-semibold shrink-0" style={{ color: meta.color }}>
-                  [{entry.nodeLabel}]
-                </span>
-                <span style={{ color: 'var(--dome-text-secondary)', wordBreak: 'break-all' }}>
-                  {entry.message}
-                </span>
-              </div>
-            );
-          })}
+          {displayEntries.map((entry) => (
+            <ExecutionLogEntryRow key={entry.id} entry={entry} timeLocale={timeLocale} />
+          ))}
           <div ref={logEndRef} />
         </div>
       )}
