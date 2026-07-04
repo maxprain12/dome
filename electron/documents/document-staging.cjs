@@ -57,7 +57,7 @@ function stageBuffer(buffer, filename) {
  * Validate a staged file without touching the canonical store.
  * @param {string} stagingId
  * @param {'excel'|'document'|'ppt'} type
- * @returns {{ ok: boolean, error?: string }}
+ * @returns {Promise<{ ok: boolean, error?: string }>}
  */
 async function validateStaging(stagingId, type) {
   const stagingPath = findStagingPath(stagingId);
