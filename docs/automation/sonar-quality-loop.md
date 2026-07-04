@@ -94,7 +94,7 @@ pnpm run sonar:run-agent -- --dry-run
 2. Pick batch → `.quality-loop/batch.json`
 3. Fix mecánico (`void` operator) si aplica
 4. **Agent fix (OpenCode)** — `pnpm run sonar:run-agent` (MiniMax M3 vía OpenCode CLI)
-5. `verify-loop-diff.sh` → typecheck, lint, coverage → branch + PR (**auto-merge squash** cuando pase CI)
+5. `verify-batch-pr.sh` + `verify-loop-diff.sh` → branch + PR (**auto-merge squash** cuando pase CI)
 6. Close resolved en Sonar
 
 ### Auto-merge de PRs

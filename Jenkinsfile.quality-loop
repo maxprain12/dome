@@ -163,10 +163,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            pnpm run typecheck
-            pnpm run lint
-            pnpm run build:packages
-            pnpm run test:coverage
+            bash scripts/jenkins/verify-batch-pr.sh "$PWD"
 
             BRANCH="fix/sonar-batch-$(date +%Y%m%d-%H%M)"
             git config user.email "jenkins@dowi.es"
