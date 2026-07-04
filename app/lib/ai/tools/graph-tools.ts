@@ -268,6 +268,109 @@ function createResourceLinkTool(): AnyAgentTool {
   };
 }
 
+type GraphNode = { id: string; label: string; resourceType?: string };
+type GraphEdge = { source: string; target: string };
+
+function computeDegree(nodes: GraphNode[], edges: GraphEdge[]): Map<string, number> {
+  const degree = new Map<string, number>();
+  for (const node of nodes) degree.set(node.id, 0);
+  for (const edge of edges) {
+    degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
+    degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
+  }
+  return degree;
+}
+
+function computeStats(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+  degree: Map<string, number>,
+): GraphAnalysisBaseResult['stats'] {
+  const nodeCount = nodes.length;
+  const edgeCount = edges.length;
+  return {
+    node_count: nodeCount,
+    edge_count: edgeCount,
+    avg_degree:
+      nodeCount > 0
+        ? Array.from(degree.values()).reduce((a, b) => a + b, 0) / nodeCount
+        : 0,
+    density:
+      nodeCount > 1 ? (2 * edgeCount) / (nodeCount * (nodeCount - 1)) : 0,
+  };
+}
+
+function findHubs(
+  nodes: GraphNode[],
+  degree: Map<string, number>,
+  minHubDegree: number,
+): Array<{ id: string; label: string; type: string; degree: number }> {
+  return nodes
+    .filter((n) => (degree.get(n.id) || 0) >= minHubDegree)
+    .map((n) => ({
+      id: n.id,
+      label: n.label,
+      type: n.resourceType ?? 'note',
+      degree: degree.get(n.id) || 0,
+    }))
+    .sort((a, b) => b.degree - a.degree);
+}
+
+function findIsolated(
+  nodes: GraphNode[],
+  degree: Map<string, number>,
+): Array<{ id: string; label: string; type: string }> {
+  return nodes
+    .filter((n) => (degree.get(n.id) || 0) === 0)
+    .map((n) => ({
+      id: n.id,
+      label: n.label,
+      type: n.resourceType ?? 'note',
+    }));
+}
+
+function bfsCluster(
+  startId: string,
+  edges: GraphEdge[],
+  visited: Set<string>,
+): string[] {
+  const cluster: string[] = [];
+  const queue = [startId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    cluster.push(current);
+    for (const edge of edges) {
+      if (edge.source === current && !visited.has(edge.target)) {
+        queue.push(edge.target);
+      } else if (edge.target === current && !visited.has(edge.source)) {
+        queue.push(edge.source);
+      }
+    }
+  }
+  return cluster;
+}
+
+function findClusters(
+  nodes: GraphNode[],
+  edges: GraphEdge[],
+): Array<{ id: number; size: number; nodes: string[]; total_nodes: number }> {
+  const visited = new Set<string>();
+  const clusters: string[][] = [];
+  for (const node of nodes) {
+    if (visited.has(node.id)) continue;
+    const cluster = bfsCluster(node.id, edges, visited);
+    if (cluster.length > 1) clusters.push(cluster);
+  }
+  return clusters.map((cluster, i) => ({
+    id: i + 1,
+    size: cluster.length,
+    nodes: cluster.slice(0, 5),
+    total_nodes: cluster.length,
+  }));
+}
+
 function createAnalyzeGraphStructureTool(): AnyAgentTool {
   const parameters = Type.Object({
     focus_resource_id: Type.String({
@@ -311,94 +414,23 @@ function createAnalyzeGraphStructureTool(): AnyAgentTool {
           return errorResult(res.error || 'getGraph failed');
         }
 
-        const graphState = {
-          nodes: res.data.nodes as Array<{ id: string; label: string; resourceType?: string }>,
-          edges: res.data.edges as Array<{ source: string; target: string }>,
-        };
-
-        const degree = new Map<string, number>();
-        for (const node of graphState.nodes) {
-          degree.set(node.id, 0);
-        }
-        for (const edge of graphState.edges) {
-          degree.set(edge.source, (degree.get(edge.source) || 0) + 1);
-          degree.set(edge.target, (degree.get(edge.target) || 0) + 1);
-        }
+        const nodes = res.data.nodes as GraphNode[];
+        const edges = res.data.edges as GraphEdge[];
+        const degree = computeDegree(nodes, edges);
 
         const result: GraphAnalysisResult = {
           status: 'success',
-          stats: {
-            node_count: graphState.nodes.length,
-            edge_count: graphState.edges.length,
-            avg_degree:
-              graphState.nodes.length > 0
-                ? Array.from(degree.values()).reduce((a, b) => a + b, 0) / graphState.nodes.length
-                : 0,
-            density:
-              graphState.nodes.length > 1
-                ? (2 * graphState.edges.length) / (graphState.nodes.length * (graphState.nodes.length - 1))
-                : 0,
-          },
+          stats: computeStats(nodes, edges, degree),
         };
 
         if (analysisType === 'hubs' || analysisType === 'all') {
-          result.hubs = graphState.nodes
-            .filter((n) => (degree.get(n.id) || 0) >= minHubDegree)
-            .map((n) => ({
-              id: n.id,
-              label: n.label,
-              type: n.resourceType ?? 'note',
-              degree: degree.get(n.id) || 0,
-            }))
-            .sort((a, b) => b.degree - a.degree);
+          result.hubs = findHubs(nodes, degree, minHubDegree);
         }
-
         if (analysisType === 'isolated' || analysisType === 'all') {
-          result.isolated = graphState.nodes
-            .filter((n) => (degree.get(n.id) || 0) === 0)
-            .map((n) => ({
-              id: n.id,
-              label: n.label,
-              type: n.resourceType ?? 'note',
-            }));
+          result.isolated = findIsolated(nodes, degree);
         }
-
         if (analysisType === 'clusters' || analysisType === 'all') {
-          const visited = new Set<string>();
-          const clusters: string[][] = [];
-
-          for (const node of graphState.nodes) {
-            if (visited.has(node.id)) continue;
-            const cluster: string[] = [];
-            const queue = [node.id];
-
-            while (queue.length > 0) {
-              const current = queue.shift()!;
-              if (visited.has(current)) continue;
-              visited.add(current);
-              cluster.push(current);
-
-              for (const edge of graphState.edges) {
-                if (edge.source === current && !visited.has(edge.target)) {
-                  queue.push(edge.target);
-                }
-                if (edge.target === current && !visited.has(edge.source)) {
-                  queue.push(edge.source);
-                }
-              }
-            }
-
-            if (cluster.length > 1) {
-              clusters.push(cluster);
-            }
-          }
-
-          result.clusters = clusters.map((cluster, i) => ({
-            id: i + 1,
-            size: cluster.length,
-            nodes: cluster.slice(0, 5),
-            total_nodes: cluster.length,
-          }));
+          result.clusters = findClusters(nodes, edges);
         }
 
         return jsonResult(result);

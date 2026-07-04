@@ -93,59 +93,94 @@ function validateDifficulty(value: string | undefined): 'easy' | 'medium' | 'har
   return 'medium';
 }
 
+async function fetchResourceSnippet(
+  sourceId: string,
+  maxContentLength: number,
+): Promise<{ id: string; title: string; content: string } | null> {
+  try {
+    const result = await window.electron.ai.tools.resourceGet(sourceId, {
+      includeContent: true,
+      maxContentLength,
+    });
+    if (!result.success || !result.resource) return null;
+    return {
+      id: result.resource.id,
+      title: result.resource.title,
+      content:
+        result.resource.content || result.resource.transcription || result.resource.summary || '',
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function listProjectResourceSnippets(
+  projectId: string,
+  maxContentLength: number,
+): Promise<Array<{ id: string; title: string; content: string }>> {
+  const listResult = await window.electron.ai.tools.resourceList({
+    project_id: projectId,
+    limit: 5,
+    sort: 'updated_at',
+  });
+  if (!listResult.success || !listResult.resources) return [];
+
+  const snippets = await Promise.all(
+    listResult.resources.map((r) =>
+      fetchResourceSnippet(r.id, Math.min(maxContentLength, 5000)),
+    ),
+  );
+  return snippets.filter((s): s is NonNullable<typeof s> => s !== null);
+}
+
 async function gatherSourcesForStudio(
   projectId: string | undefined,
   sourceIds: string[] | undefined,
   maxContentLength = 8000,
 ): Promise<Array<{ id: string; title: string; content: string }>> {
-  const sourceContent: Array<{ id: string; title: string; content: string }> = [];
-
   if (sourceIds && sourceIds.length > 0) {
-    for (const sourceId of sourceIds) {
-      try {
-        const result = await window.electron.ai.tools.resourceGet(sourceId, {
-          includeContent: true,
-          maxContentLength,
-        });
-        if (result.success && result.resource) {
-          sourceContent.push({
-            id: result.resource.id,
-            title: result.resource.title,
-            content: result.resource.content || result.resource.transcription || result.resource.summary || '',
-          });
-        }
-      } catch {
-        // skip
-      }
-    }
-  } else if (projectId) {
-    const listResult = await window.electron.ai.tools.resourceList({
-      project_id: projectId,
-      limit: 5,
-      sort: 'updated_at',
-    });
-    if (listResult.success && listResult.resources) {
-      for (const r of listResult.resources) {
-        try {
-          const result = await window.electron.ai.tools.resourceGet(r.id, {
-            includeContent: true,
-            maxContentLength: Math.min(maxContentLength, 5000),
-          });
-          if (result.success && result.resource) {
-            sourceContent.push({
-              id: result.resource.id,
-              title: result.resource.title,
-              content: result.resource.content || result.resource.transcription || result.resource.summary || '',
-            });
-          }
-        } catch {
-          // skip
-        }
-      }
-    }
+    const snippets = await Promise.all(
+      sourceIds.map((id) => fetchResourceSnippet(id, maxContentLength)),
+    );
+    return snippets.filter((s): s is NonNullable<typeof s> => s !== null);
   }
+  if (projectId) {
+    return listProjectResourceSnippets(projectId, maxContentLength);
+  }
+  return [];
+}
 
-  return sourceContent;
+async function gatherMindmapSources(
+  projectId: string | undefined,
+  sourceIds: string[] | undefined,
+): Promise<Array<{ id: string; title: string; snippet: string }>> {
+  if (sourceIds && sourceIds.length > 0) {
+    const snippets: Array<{ id: string; title: string; snippet: string }> = [];
+    for (const sourceId of sourceIds) {
+      const fetched = await fetchResourceSnippet(sourceId, 5000);
+      if (fetched) {
+        snippets.push({
+          id: fetched.id,
+          title: fetched.title,
+          snippet: (fetched.content || '').slice(0, 500),
+        });
+      }
+    }
+    return snippets;
+  }
+  if (!projectId) return [];
+
+  const result = await window.electron.ai.tools.resourceList({
+    project_id: projectId,
+    limit: 10,
+    sort: 'updated_at',
+  });
+  if (!result.success || !result.resources) return [];
+  return result.resources.map((r) => ({
+    id: r.id,
+    title: r.title,
+    snippet: '',
+  }));
 }
 
 // =============================================================================
@@ -166,58 +201,20 @@ export function createGenerateMindmapTool(): AnyAgentTool {
       'You should create meaningful nodes representing key concepts and connect them with labeled edges showing relationships.',
     parameters: GenerateMindmapSchema,
     execute: async (_toolCallId, args) => {
-      try {
-        if (!isElectronAI()) {
-          return jsonResult({
-            status: 'error',
-            error: 'Mind map generation requires Electron environment.',
-          });
-        }
+      if (!isElectronAI()) {
+        return jsonResult({
+          status: 'error',
+          error: 'Mind map generation requires Electron environment.',
+        });
+      }
 
+      try {
         const params = args as Record<string, unknown>;
         const projectId = readStringParam(params, 'project_id');
         const sourceIds = readStringArrayParam(params, 'source_ids');
         const topic = readStringParam(params, 'topic');
 
-        // Gather source content from resources if source_ids provided
-        let sourceContent: Array<{ id: string; title: string; snippet: string }> = [];
-
-        if (sourceIds && sourceIds.length > 0) {
-          // Fetch content for each source
-          for (const sourceId of sourceIds) {
-            try {
-              const result = await window.electron.ai.tools.resourceGet(sourceId, {
-                includeContent: true,
-                maxContentLength: 5000,
-              });
-
-              if (result.success && result.resource) {
-                sourceContent.push({
-                  id: result.resource.id,
-                  title: result.resource.title,
-                  snippet: (result.resource.content || result.resource.summary || '').slice(0, 500),
-                });
-              }
-            } catch {
-              // Skip resources that fail to load
-            }
-          }
-        } else if (projectId) {
-          // If no specific sources, list resources from project
-          const result = await window.electron.ai.tools.resourceList({
-            project_id: projectId,
-            limit: 10,
-            sort: 'updated_at',
-          });
-
-          if (result.success && result.resources) {
-            sourceContent = result.resources.map(r => ({
-              id: r.id,
-              title: r.title,
-              snippet: '',
-            }));
-          }
-        }
+        const sourceContent = await gatherMindmapSources(projectId, sourceIds);
 
         // Return the source content info so the AI model can generate the actual mind map structure
         // The AI should respond with the nodes/edges in a follow-up
