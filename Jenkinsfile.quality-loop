@@ -169,6 +169,7 @@ pipeline {
             git config user.name "Jenkins Quality Loop"
             git checkout -b "$BRANCH"
             bash scripts/jenkins/stage-loop-changes.sh "$PWD"
+            bash scripts/jenkins/verify-loop-diff.sh "$PWD"
             git commit -m "fix(sonar): quality loop batch $(date -Iseconds)"
 
             JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh

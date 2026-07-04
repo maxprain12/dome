@@ -36,7 +36,7 @@ const {
 
 let _database = null;
 /** @type {(projectId?: string) => any[]} */
-let _loadManyAgents = () => [];
+let _loadManyAgents = (_projectId) => [];
 
 /** Wired by run-engine.init(). */
 function init({ database, loadManyAgents }) {
