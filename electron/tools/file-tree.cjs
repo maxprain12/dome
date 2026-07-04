@@ -50,7 +50,7 @@ function makeTreeNode(name, fullPath, isDirectory) {
  * Bounded BFS directory tree (safe alternative to MCP directory_tree).
  * @param {string} rootPath
  * @param {{ maxDepth?: number; maxEntries?: number; exclude?: string[] }} [opts]
- * @returns {{ status: 'success' | 'error'; error?: string; path?: string; max_depth?: number; max_entries?: number; shown?: number; truncated?: boolean; tree?: object }}
+ * @returns {Promise<{ status: 'success' | 'error'; error?: string; path?: string; max_depth?: number; max_entries?: number; shown?: number; truncated?: boolean; tree?: object }>}
  */
 async function buildFileTree(rootPath, opts = {}) {
   const maxDepth = Math.min(Math.max(Number(opts.maxDepth) || DEFAULT_TREE_MAX_DEPTH, 1), 10);
