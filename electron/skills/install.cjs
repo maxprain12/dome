@@ -16,6 +16,50 @@ const OPTIONAL_SCAN_DIRS = new Set(['skills/.curated', 'skills/.experimental', '
 const MARKETPLACE_MANIFEST = '.claude-plugin/marketplace.json';
 
 /**
+ * Parse the body of a YAML double-quoted scalar, honouring backslash escapes.
+ * @param {string} trimmed - the raw value with surrounding quotes already verified
+ * @returns {string}
+ */
+function parseDoubleQuotedScalar(trimmed) {
+  let i = 1;
+  let out = '';
+  while (i < trimmed.length) {
+    const ch = trimmed[i];
+    if (ch === '\\' && i + 1 < trimmed.length) {
+      out += trimmed[i + 1];
+      i += 2;
+      continue;
+    }
+    if (ch === '"') break;
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * Parse the body of a YAML single-quoted scalar (no escapes; '' → ').
+ * @param {string} trimmed - the raw value with surrounding quotes already verified
+ * @returns {string}
+ */
+function parseSingleQuotedScalar(trimmed) {
+  let i = 1;
+  let out = '';
+  while (i < trimmed.length) {
+    const ch = trimmed[i];
+    if (ch === "'" && trimmed[i + 1] === "'") {
+      out += "'";
+      i += 2;
+      continue;
+    }
+    if (ch === "'") break;
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+/**
  * Parse a YAML scalar value (unquoted, double-quoted with escapes, single-quoted).
  * @param {string} raw
  * @returns {string}
@@ -23,40 +67,8 @@ const MARKETPLACE_MANIFEST = '.claude-plugin/marketplace.json';
 function parseYamlScalarValue(raw) {
   const trimmed = raw.trim();
   if (!trimmed) return '';
-
-  if (trimmed.startsWith('"')) {
-    let i = 1;
-    let out = '';
-    while (i < trimmed.length) {
-      const ch = trimmed[i];
-      if (ch === '\\' && i + 1 < trimmed.length) {
-        out += trimmed[i + 1];
-        i += 2;
-        continue;
-      }
-      if (ch === '"') break;
-      out += ch;
-      i += 1;
-    }
-    return out;
-  }
-
-  if (trimmed.startsWith("'")) {
-    let i = 1;
-    let out = '';
-    while (i < trimmed.length) {
-      if (trimmed[i] === "'" && trimmed[i + 1] === "'") {
-        out += "'";
-        i += 2;
-        continue;
-      }
-      if (trimmed[i] === "'") break;
-      out += trimmed[i];
-      i += 1;
-    }
-    return out;
-  }
-
+  if (trimmed.startsWith('"')) return parseDoubleQuotedScalar(trimmed);
+  if (trimmed.startsWith("'")) return parseSingleQuotedScalar(trimmed);
   return trimmed;
 }
 

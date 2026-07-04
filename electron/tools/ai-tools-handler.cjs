@@ -2590,6 +2590,65 @@ function deepResearch(args) {
 // =============================================================================
 
 /**
+ * Normalize a tool name the same way the registries do, so we can compare it
+ * against a user-provided normalized name.
+ */
+function normalizeToolKey(raw) {
+  return String(raw || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_');
+}
+
+function findDomeToolDefinition(norm, getAllToolDefinitions) {
+  const all = getAllToolDefinitions();
+  return all.find((d) => normalizeToolKey(d?.function?.name) === norm);
+}
+
+/**
+ * Resolve an MCP tool's schema to a JSON-serialisable object suitable for the
+ * LLM `function` definition. Falls back to a permissive empty object.
+ */
+function resolveMcpParameters(schema) {
+  if (!schema) return { type: 'object', properties: {} };
+  try {
+    if (typeof schema.toJSON === 'function') return schema.toJSON();
+    if (schema._def) {
+      const zodToJson = require('zod-to-json-schema');
+      const fn = zodToJson.zodToJsonSchema || zodToJson.default || zodToJson;
+      if (typeof fn === 'function') return fn(schema);
+    }
+  } catch (_) {
+    /* keep default */
+  }
+  return { type: 'object', properties: schema.properties || {} };
+}
+
+function buildMcpFunctionDefinition(mcp) {
+  const parameters = resolveMcpParameters(mcp.schema);
+  const params = parameters?.properties
+    ? parameters
+    : { type: 'object', properties: parameters?.properties || {} };
+  return {
+    type: 'function',
+    function: {
+      name: mcp.name,
+      description: mcp.description || '',
+      parameters: params,
+    },
+  };
+}
+
+async function findMcpToolDefinition(norm, database) {
+  const { getMCPTools } = require('../mcp/mcp-client.cjs');
+  const mcpTools = await getMCPTools(database);
+  const mcp = mcpTools.find((t) => normalizeToolKey(t?.name) === norm);
+  if (!mcp) return null;
+  return buildMcpFunctionDefinition(mcp);
+}
+
+/**
  * Get the full schema/definition of any tool (Dome or MCP).
  * Used for dynamic context discovery: agent receives tool names and can load
  * full definitions on demand to reduce token usage.
@@ -2605,15 +2664,7 @@ async function getToolDefinition(toolName) {
 
   // Dome tools (lazy require to avoid circular dependency)
   try {
-    const all = getAllToolDefinitions();
-    const dome = all.find((d) => {
-      const n = String(d?.function?.name || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_]/g, '_')
-        .replace(/_+/g, '_');
-      return n === norm;
-    });
+    const dome = findDomeToolDefinition(norm, getAllToolDefinitions);
     if (dome) {
       return { success: true, definition: dome, source: 'dome' };
     }
@@ -2623,42 +2674,8 @@ async function getToolDefinition(toolName) {
 
   // MCP tools
   try {
-    const { getMCPTools } = require('../mcp/mcp-client.cjs');
-    const mcpTools = await getMCPTools(database);
-    const mcp = mcpTools.find((t) => {
-      const n = String(t?.name || '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9_]/g, '_')
-        .replace(/_+/g, '_');
-      return n === norm;
-    });
-    if (mcp) {
-      let parameters = { type: 'object', properties: {} };
-      if (mcp.schema) {
-        try {
-          if (typeof mcp.schema.toJSON === 'function') {
-            parameters = mcp.schema.toJSON();
-          } else if (mcp.schema._def) {
-            const zodToJson = require('zod-to-json-schema');
-            const fn = zodToJson.zodToJsonSchema || zodToJson.default || zodToJson;
-            parameters = typeof fn === 'function' ? fn(mcp.schema) : parameters;
-          }
-        } catch (_) {
-          /* keep default */
-        }
-      }
-      const params = parameters?.properties
-        ? parameters
-        : { type: 'object', properties: parameters?.properties || {} };
-      const def = {
-        type: 'function',
-        function: {
-          name: mcp.name,
-          description: mcp.description || '',
-          parameters: params,
-        },
-      };
+    const def = await findMcpToolDefinition(norm, database);
+    if (def) {
       return { success: true, definition: def, source: 'mcp' };
     }
   } catch (e) {

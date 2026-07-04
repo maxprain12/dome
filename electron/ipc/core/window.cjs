@@ -54,6 +54,72 @@ async function openFolderForFolder(folderId, { database, windowManager, nativeTh
   };
 }
 
+function isPdfOrDocType(canonicalType) {
+  return canonicalType === 'pdf' || canonicalType === 'document';
+}
+
+function navigateExistingWindowToPage(existingWindow, page) {
+  try {
+    const currentUrl = existingWindow.webContents.getURL();
+    const url = new URL(currentUrl);
+    url.searchParams.set('page', String(page));
+    existingWindow.webContents.loadURL(url.toString());
+  } catch (err) {
+    console.warn('[Workspace] Failed to navigate to page:', err);
+  }
+}
+
+function focusExistingWorkspace(existingWindow, { canonicalType, page }) {
+  existingWindow.focus();
+  // If we have a page param for PDF/document, reload the window with the new URL so it navigates to that page
+  if (page != null && isPdfOrDocType(canonicalType)) {
+    navigateExistingWindowToPage(existingWindow, page);
+  }
+}
+
+function buildUrlRoute(resource, resourceId) {
+  let metadata = {};
+  try {
+    metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
+  } catch (e) {
+    /* ignore */
+  }
+  const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
+  return isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
+}
+
+function buildDocumentRoute(resource, resourceId, page) {
+  const filename = (resource.original_filename || resource.title || '').toLowerCase();
+  const mime = resource.file_mime_type || '';
+  const isPptx =
+    filename.endsWith('.pptx') ||
+    filename.endsWith('.ppt') ||
+    mime.includes('presentationml') ||
+    mime.includes('ms-powerpoint');
+  const isDocx =
+    filename.endsWith('.docx') ||
+    filename.endsWith('.doc') ||
+    mime.includes('wordprocessingml') ||
+    mime.includes('msword') ||
+    !resource.internal_path;
+  const base = isPptx
+    ? `/workspace/ppt?id=${resourceId}`
+    : isDocx
+      ? `/workspace/docx?id=${resourceId}`
+      : `/workspace?id=${resourceId}`;
+  return page && !isPptx && !isDocx ? `${base}&page=${page}` : base;
+}
+
+function buildResourceRoute(resource, resourceId, canonicalType, page) {
+  if (canonicalType === 'url') return buildUrlRoute(resource, resourceId);
+  if (canonicalType === 'notebook') return `/workspace/notebook?id=${resourceId}`;
+  if (canonicalType === 'ppt') return `/workspace/ppt?id=${resourceId}`;
+  if (canonicalType === 'document') return buildDocumentRoute(resource, resourceId, page);
+  return canonicalType === 'pdf' && page
+    ? `/workspace?id=${resourceId}&page=${page}`
+    : `/workspace?id=${resourceId}`;
+}
+
 async function openWorkspaceForResource(resourceId, resourceType, options = {}, { database, windowManager, nativeTheme }) {
   const { page } = options;
   const queries = database.getQueries();
@@ -73,47 +139,14 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
   const windowId = `workspace-${resourceId}`;
   const existingWindow = windowManager.get(windowId);
   if (existingWindow && !existingWindow.isDestroyed()) {
-    existingWindow.focus();
-    // If we have a page param for PDF/document, reload the window with the new URL so it navigates to that page
-    const isPdfOrDoc = canonicalType === 'pdf' || canonicalType === 'document';
-    if (page != null && isPdfOrDoc) {
-      try {
-        const currentUrl = existingWindow.webContents.getURL();
-        const url = new URL(currentUrl);
-        url.searchParams.set('page', String(page));
-        existingWindow.webContents.loadURL(url.toString());
-      } catch (err) {
-        console.warn('[Workspace] Failed to navigate to page:', err);
-      }
-    }
+    focusExistingWorkspace(existingWindow, { canonicalType, page });
     return {
       success: true,
-      data: { windowId, resourceId, title: resource.title }
+      data: { windowId, resourceId, title: resource.title },
     };
   }
 
-  let route;
-  if (canonicalType === 'url') {
-    let metadata = {};
-    try {
-      metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
-    } catch (e) { /* ignore */ }
-    const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
-    route = isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
-  } else if (canonicalType === 'notebook') {
-    route = `/workspace/notebook?id=${resourceId}`;
-  } else if (canonicalType === 'ppt') {
-    route = `/workspace/ppt?id=${resourceId}`;
-  } else if (canonicalType === 'document') {
-    const filename = (resource.original_filename || resource.title || '').toLowerCase();
-    const mime = resource.file_mime_type || '';
-    const isPptx = filename.endsWith('.pptx') || filename.endsWith('.ppt') || mime.includes('presentationml') || mime.includes('ms-powerpoint');
-    const isDocx = filename.endsWith('.docx') || filename.endsWith('.doc') || mime.includes('wordprocessingml') || mime.includes('msword') || !resource.internal_path;
-    const base = isPptx ? `/workspace/ppt?id=${resourceId}` : (isDocx ? `/workspace/docx?id=${resourceId}` : `/workspace?id=${resourceId}`);
-    route = page && !isPptx && !isDocx ? `${base}&page=${page}` : base;
-  } else {
-    route = (canonicalType === 'pdf' && page) ? `/workspace?id=${resourceId}&page=${page}` : `/workspace?id=${resourceId}`;
-  }
+  const route = buildResourceRoute(resource, resourceId, canonicalType, page);
 
   windowManager.create(
     windowId,
@@ -132,7 +165,7 @@ async function openWorkspaceForResource(resourceId, resourceType, options = {}, 
 
   return {
     success: true,
-    data: { windowId, resourceId, title: resource.title }
+    data: { windowId, resourceId, title: resource.title },
   };
 }
 

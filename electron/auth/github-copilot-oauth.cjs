@@ -94,6 +94,39 @@ async function startDeviceFlow() {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+function buildDeviceTokenRequest(deviceCode) {
+  return fetchJson(ACCESS_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'User-Agent': COPILOT_HEADERS['User-Agent'],
+    },
+    body: new URLSearchParams({
+      client_id: CLIENT_ID,
+      device_code: deviceCode,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+    }),
+  });
+}
+
+/**
+ * Translate a device-flow error code into the next polling step.
+ * @returns {'continue' | 'slow_down' | 'throw' | 'authorize'}
+ */
+function classifyDeviceFlowError(raw) {
+  const err = raw?.error;
+  if (err === 'authorization_pending') return 'continue';
+  if (err === 'slow_down') return 'slow_down';
+  if (typeof err === 'string') return 'throw';
+  return 'continue';
+}
+
+function deviceFlowErrorToException(raw) {
+  const detail = raw?.error_description ? `: ${raw.error_description}` : '';
+  return new Error(`Device flow failed: ${raw.error}${detail}`);
+}
+
 /**
  * Poll GitHub until the user authorizes the device. On success the long-lived
  * OAuth token is stored in settings and { success: true } is returned.
@@ -109,19 +142,7 @@ async function pollForAccessToken(database, { deviceCode, interval = 5, expiresI
     await sleep(intervalMs);
     let raw;
     try {
-      raw = await fetchJson(ACCESS_TOKEN_URL, {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': COPILOT_HEADERS['User-Agent'],
-        },
-        body: new URLSearchParams({
-          client_id: CLIENT_ID,
-          device_code: deviceCode,
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
-      });
+      raw = await buildDeviceTokenRequest(deviceCode);
     } catch (err) {
       // Transient network error: keep polling until the deadline.
       console.warn('[copilot-oauth] poll error:', err?.message || err);
@@ -133,13 +154,14 @@ async function pollForAccessToken(database, { deviceCode, interval = 5, expiresI
       cachedCopilotToken = null;
       return { success: true };
     }
-    if (raw && typeof raw.error === 'string') {
-      if (raw.error === 'authorization_pending') continue;
-      if (raw.error === 'slow_down') {
-        intervalMs += 5000;
-        continue;
-      }
-      throw new Error(`Device flow failed: ${raw.error}${raw.error_description ? `: ${raw.error_description}` : ''}`);
+
+    const verdict = classifyDeviceFlowError(raw);
+    if (verdict === 'slow_down') {
+      intervalMs += 5000;
+      continue;
+    }
+    if (verdict === 'throw') {
+      throw deviceFlowErrorToException(raw);
     }
   }
   throw new Error('Device flow timed out');

@@ -15,6 +15,52 @@ function pickPairPayload(arg1, arg2, keyA, keyB) {
   return { [keyA]: arg1, [keyB]: arg2 };
 }
 
+function createFolderMirror(resource, { database, fileStorage }) {
+  try {
+    vaultStore.createFolderOnDisk(resource.id, { database, fileStorage });
+  } catch (e) {
+    console.warn('[DB] createFolderOnDisk failed:', e?.message);
+  }
+}
+
+function seedNotePlainText(resource, database) {
+  // Seed the plain-text cache for notes created with content (e.g. by an
+  // AI tool) so FTS/preview/semantic search show readable text immediately.
+  // The .md mirror is written on first open/edit.
+  try {
+    const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
+    const raw = String(resource.content || '');
+    let text = '';
+    if (raw.trim().startsWith('{')) {
+      try {
+        text = extractPlainTextFromProseMirror(JSON.parse(raw));
+      } catch {
+        /* fall through */
+      }
+    }
+    if (!text) text = stripTags(raw);
+    if (text) {
+      database
+        .getDB()
+        .prepare('UPDATE resources SET content_text = ? WHERE id = ?')
+        .run(text, resource.id);
+    }
+  } catch {
+    /* non-fatal */
+  }
+}
+
+function mirrorResourceToDisk(resource, { database, fileStorage }) {
+  // Mirror to disk right away — the workspace tree must equal the
+  // filesystem, so notes/urls/notebooks get their file at creation.
+  try {
+    const { ensureResourceMirror } = require('../../storage/vault-sync.cjs');
+    ensureResourceMirror(resource.id, { database, fileStorage });
+  } catch (e) {
+    console.warn('[DB] ensureResourceMirror (create) failed:', e?.message);
+  }
+}
+
 function register({ ipcMain, windowManager, database, fileStorage, validateSender, initModule, ollamaService }) {
   semanticIndexScheduler.init(database);
   const indexerDeps = { database, fileStorage, windowManager, initModule, ollamaService };
@@ -321,38 +367,20 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       );
 
       if (resource.type === 'folder') {
-        try {
-          vaultStore.createFolderOnDisk(resource.id, { database, fileStorage });
-        } catch (e) {
-          console.warn('[DB] createFolderOnDisk failed:', e?.message);
-        }
+        createFolderMirror(resource, { database, fileStorage });
       }
 
       // Seed the plain-text cache for notes created with content (e.g. by an
       // AI tool) so FTS/preview/semantic search show readable text immediately.
       // The .md mirror is written on first open/edit.
       if (resource.type === 'note' && resource.content) {
-        try {
-          const { extractPlainTextFromProseMirror, stripTags } = require('../../services/resource-text.cjs');
-          const raw = String(resource.content || '');
-          let text = '';
-          if (raw.trim().startsWith('{')) {
-            try { text = extractPlainTextFromProseMirror(JSON.parse(raw)); } catch { /* fall through */ }
-          }
-          if (!text) text = stripTags(raw);
-          if (text) database.getDB().prepare('UPDATE resources SET content_text = ? WHERE id = ?').run(text, resource.id);
-        } catch { /* non-fatal */ }
+        seedNotePlainText(resource, database);
       }
 
       // Mirror to disk right away — the workspace tree must equal the
       // filesystem, so notes/urls/notebooks get their file at creation.
       if (['note', 'url', 'notebook'].includes(resource.type)) {
-        try {
-          const { ensureResourceMirror } = require('../../storage/vault-sync.cjs');
-          ensureResourceMirror(resource.id, { database, fileStorage });
-        } catch (e) {
-          console.warn('[DB] ensureResourceMirror (create) failed:', e?.message);
-        }
+        mirrorResourceToDisk(resource, { database, fileStorage });
       }
 
       // Broadcast evento a todas las ventanas

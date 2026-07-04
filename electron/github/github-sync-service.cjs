@@ -148,28 +148,37 @@ function setRepoSelected(payload) {
 
 // --- pull ------------------------------------------------------------------
 
-async function pullRepo(repo) {
-  const [owner, name] = [repo.owner, repo.name];
+async function pullMilestones(repo, owner, name) {
+  const etag = store.getEtag(repo.id, 'milestones');
+  const res = await api.listMilestones(owner, name, { etag });
+  if (!res.items) return;
+  for (const m of res.items) store.upsertMilestoneFromRemote(repo.id, m);
+  store.setEtag(repo.id, 'milestones', res.etag);
+}
 
-  // Milestones — small endpoint, capped getAllPages is fine.
-  const msEtag = store.getEtag(repo.id, 'milestones');
-  const ms = await api.listMilestones(owner, name, { etag: msEtag });
-  if (ms.items) {
-    for (const m of ms.items) store.upsertMilestoneFromRemote(repo.id, m);
-    store.setEtag(repo.id, 'milestones', ms.etag);
-  }
+async function pullBranches(repo, owner, name) {
+  const etag = store.getEtag(repo.id, 'branches');
+  const res = await api.listBranches(owner, name, { etag });
+  if (!res.items) return;
+  store.replaceBranches(repo.id, res.items);
+  store.setEtag(repo.id, 'branches', res.etag);
+}
 
+async function pullReleases(repo, owner, name) {
+  const etag = store.getEtag(repo.id, 'releases');
+  const res = await api.listReleases(owner, name, { etag });
+  if (!res.items) return;
+  for (const r of res.items) store.upsertRelease(repo.id, r);
+  store.setEtag(repo.id, 'releases', res.etag);
+}
+
+async function pullIssues(repo, owner, name, sinceIso) {
   // Issues (includes PRs; the store flags is_pull_request).
   // STREAMED: a busy repo can return 10k+ issues with state=all; persisting
   // per page keeps main-process heap flat instead of accumulating the whole
   // array (root cause of the GitHub-pull OOM).
   // When last_sync_at exists, use GitHub ?since= for incremental updates.
   const issEtag = store.getEtag(repo.id, 'issues');
-  const lastSyncAt = repo.last_sync_at;
-  const sinceIso =
-    typeof lastSyncAt === 'number' && lastSyncAt > 0
-      ? new Date(lastSyncAt - 60_000).toISOString()
-      : null;
   let issueCount = 0;
   const iss = await api.listIssuesStreamed(owner, name, {
     etag: sinceIso ? undefined : issEtag,
@@ -180,33 +189,34 @@ async function pullRepo(repo) {
       return items.length;
     },
   });
-  if (!iss.notModified) {
-    if (!sinceIso) {
-      store.setEtag(repo.id, 'issues', iss.etag);
-    }
-    if (iss.pages > 0) {
-      const mode = sinceIso ? 'incremental' : 'full';
-      console.log(
-        `[github-sync] pulled ${issueCount} issues (${mode}) from ${repo.full_name} (${iss.pages} page(s))`,
-      );
-    }
+  if (iss.notModified) return;
+  if (!sinceIso) {
+    store.setEtag(repo.id, 'issues', iss.etag);
   }
+  if (iss.pages > 0) {
+    const mode = sinceIso ? 'incremental' : 'full';
+    console.log(
+      `[github-sync] pulled ${issueCount} issues (${mode}) from ${repo.full_name} (${iss.pages} page(s))`,
+    );
+  }
+}
 
-  // Branches
-  const brEtag = store.getEtag(repo.id, 'branches');
-  const br = await api.listBranches(owner, name, { etag: brEtag });
-  if (br.items) {
-    store.replaceBranches(repo.id, br.items);
-    store.setEtag(repo.id, 'branches', br.etag);
-  }
+function computeSinceIso(repo) {
+  // When last_sync_at exists, use GitHub ?since= for incremental updates.
+  const lastSyncAt = repo.last_sync_at;
+  return typeof lastSyncAt === 'number' && lastSyncAt > 0
+    ? new Date(lastSyncAt - 60_000).toISOString()
+    : null;
+}
 
-  // Releases
-  const relEtag = store.getEtag(repo.id, 'releases');
-  const rel = await api.listReleases(owner, name, { etag: relEtag });
-  if (rel.items) {
-    for (const r of rel.items) store.upsertRelease(repo.id, r);
-    store.setEtag(repo.id, 'releases', rel.etag);
-  }
+async function pullRepo(repo) {
+  const [owner, name] = [repo.owner, repo.name];
+  const sinceIso = computeSinceIso(repo);
+
+  await pullMilestones(repo, owner, name);
+  await pullIssues(repo, owner, name, sinceIso);
+  await pullBranches(repo, owner, name);
+  await pullReleases(repo, owner, name);
 
   store.touchRepoSync(repo.id);
 }
