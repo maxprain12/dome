@@ -50,6 +50,8 @@ const prUrl = execFileSync(
     'create',
     '--repo',
     repo,
+    '--base',
+    process.env.SONAR_LOOP_BASE_BRANCH || 'main',
     '--title',
     'fix(sonar): quality loop batch',
     '--body-file',
