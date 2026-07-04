@@ -29,7 +29,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            chmod +x scripts/jenkins/bootstrap-agent-tools.sh scripts/jenkins/agent-preflight.sh scripts/jenkins/gh-auth-env.sh scripts/jenkins/run-with-display.sh
+            bash scripts/jenkins/bootstrap-agent-tools.sh scripts/jenkins/agent-preflight.sh scripts/jenkins/gh-auth-env.sh scripts/jenkins/run-with-display.sh scripts/jenkins/stage-loop-changes.sh scripts/jenkins/source-tree-clean.sh
             bash scripts/jenkins/agent-preflight.sh "$PWD"
             cat .jenkins-display.env || true
           '''
@@ -125,7 +125,7 @@ pipeline {
     stage('Agent fix (Dome harness)') {
       when {
         expression {
-          return sh(script: 'git diff --quiet', returnStatus: true) == 0
+          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) == 0
         }
       }
       steps {
@@ -146,7 +146,7 @@ pipeline {
     stage('Verify & PR') {
       when {
         expression {
-          return sh(script: 'git diff --quiet', returnStatus: true) != 0
+          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) != 0
         }
       }
       steps {
@@ -164,7 +164,7 @@ pipeline {
             git config user.email "jenkins@dowi.es"
             git config user.name "Jenkins Quality Loop"
             git checkout -b "$BRANCH"
-            git add -A
+            bash scripts/jenkins/stage-loop-changes.sh "$PWD"
             git commit -m "fix(sonar): quality loop batch $(date -Iseconds)"
 
             JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh

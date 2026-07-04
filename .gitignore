@@ -16,6 +16,8 @@ coverage
 .quality-loop/
 .jenkins-display.env
 .jenkins-tools/
+.jenkins-tools.env
+.jenkins-node/
 *.lcov
 
 # logs
