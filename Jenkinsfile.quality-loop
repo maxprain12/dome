@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   triggers {
-    cron('H */6 * * *')
+    cron('H * * * *')
   }
 
   environment {
