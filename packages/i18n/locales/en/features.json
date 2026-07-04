@@ -45,6 +45,10 @@
     "pipelines": {
       "label": "Pipelines",
       "desc": "Kanban boards where agents run your work in stages."
+    },
+    "social": {
+      "label": "Social media",
+      "desc": "Manage LinkedIn, Instagram and X content."
     }
   }
 }

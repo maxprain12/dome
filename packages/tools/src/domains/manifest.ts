@@ -18,6 +18,7 @@ export const DOME_LOAD_DOC_IDS = [
   'excel_artifact_tool',
   'email_tool',
   'github_tool',
+  'social_tool',
 ] as const;
 
 export type DomeLoadDocId = (typeof DOME_LOAD_DOC_IDS)[number];
@@ -37,7 +38,8 @@ export const DOME_LOAD_DOC_DESCRIPTION =
   'excel_notebook_tool (before Excel→notebook pandas flow), ' +
   'excel_artifact_tool (before Excel→artifact dashboard), ' +
   'email_tool (before email_list/email_search/email_send/email_reply), ' +
-  'github_tool (before github_create_issue/github_create_milestone/github_update_issue).';
+  'github_tool (before github_create_issue/github_create_milestone/github_update_issue), ' +
+  'social_tool (before social_post_draft/social_post_publish).';
 
 /** docId → relative path under domains/ or sections/ (runtime loader resolves). */
 export const DOME_LOAD_DOC_PATHS: Record<DomeLoadDocId, string> = {
@@ -55,4 +57,5 @@ export const DOME_LOAD_DOC_PATHS: Record<DomeLoadDocId, string> = {
   excel_artifact_tool: 'office/prompt-excel-artifact.txt',
   email_tool: 'email/prompt.txt',
   github_tool: 'github/prompt.txt',
+  social_tool: 'social/prompt.txt',
 };

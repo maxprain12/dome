@@ -1,64 +1,76 @@
-# Artifacts — operational guide (persisted only)
+# Artifacts — operational guide
 
-Load this doc (`dome_load_doc({ id: "artifacts" })`) before calling `artifact_create` or related artifact tools.
+Load this doc (`dome_load_doc({ id: "artifacts" })`) before creating or editing any artifact.
 
-## Persisted artifacts only
-
-Dome no longer supports inline `artifact:TYPE` chat blocks. **Every interactive artifact must be created with `artifact_create`** and is stored as:
-
-- A library resource (`resources.type = 'artifact'`)
-- A portable HTML file in the project vault (`resources.vault_path`, e.g. `Mi dashboard.html`)
-- SQLite rows (`artifacts`, `artifact_runtime_data`) as index/cache for search, automations, and iframe sync
-
-After a successful `artifact_create`, the user opens the artifact from the sidebar or the tool-result card in chat.
+Artifacts are **persisted interactive mini-apps** rendered in a sandboxed iframe: dashboards, trackers, forms, boards, visual reports. Every artifact is created with `artifact_create` and stored as a library resource + a portable HTML file in the project vault. Dome no longer supports inline ```artifact:TYPE chat blocks — never emit them.
 
 ---
 
-## Decision matrix
+## When to build an artifact (decision matrix)
 
-| Signal in the user's request | What to do |
+| The user asks for… | Do this |
 |---|---|
-| Informe / dosier navegable, varias pestañas, tarjetas con badges | `dome_load_doc('artifact_design')` + `dome_load_doc('artifact_persisted')` → `artifact_design` → `artifact_create` (`artifact_type: "custom"`) |
-| "día a día", tracking, registro persistente, mini-app, herramienta que persista | `artifact_create` (+ `artifact_persisted` doc) |
-| One-time dashboard / KPIs without persistence | Still use `artifact_create` — vault HTML is the source of truth |
-| Note, summary, document | `resource_create` type=note |
-| Presentation / .pptx | `ppt_create` |
-| Flashcards | `flashcard_create` |
-| Quiz / exam | `generate_quiz` |
-| Mindmap | `generate_mindmap` |
+| Multi-section report, dossier, research digest, model card | `dome_load_doc('artifact_design')` → `artifact_design` tool → `artifact_create` |
+| Tracker, form, board, mini-app the user will edit over time | `artifact_create` with custom HTML (load `artifact_persisted` doc first) |
+| One-time dashboard / KPI panel | Still `artifact_create` — the vault HTML is the durable source of truth |
+| Dashboard fed by an Excel | `artifact_create` + link the sheet afterwards (see `artifact_persisted` doc) |
+| Plain note, summary, document | `resource_create` type=note — NOT an artifact |
+| Presentation (.pptx) | `ppt_create` |
+| Flashcards / quiz / mindmap | `flashcard_create` / `generate_quiz` / `generate_mindmap` |
 
-**Key question:** "Will the user need to add, edit, or come back to this after the conversation?" → YES → `artifact_create`. Even one-shot panels should be persisted so they live in the vault.
-
----
-
-## Workflow
-
-1. **Load `dome_load_doc('artifact_persisted')`** — iframe contract, `__dome_updateState`, vault mirror rules.
-2. **Multi-tab dossier?** Also load `artifact_design`, call `artifact_design`, pass returned `html` + `data` to `artifact_create`.
-3. **Call `artifact_create`** with `{ artifact_type, html, data?, title?, project_id? }`.
-4. Tell the user the artifact was saved to the vault/library. Do **not** emit ` ```artifact:TYPE ` fences.
+**Key question:** "Is this an interactive surface (buttons, inputs, tabs, live data)?" → artifact. "Is it prose to read?" → note.
 
 ---
 
-## Vault on disk
+## THE #1 RULE — `html` is a BODY FRAGMENT
 
-Each artifact is mirrored to `{projectVaultRoot}/{folder}/{Title}.html` with embedded `dome-artifact-state` JSON. Feeders for that artifact live in `{Title}.dome/feeders/<feederId>/` (script + metadata; secrets stay encrypted in the OS vault, never on disk).
+Dome wraps your `html` in its own document that injects the theme, `window.DOME_DATA` and the persistence bridge. Therefore:
 
-External edits to the HTML file are reconciled by the vault watcher back into SQLite.
+- **NEVER** include `<!DOCTYPE>`, `<html>`, `<head>`, `<body>`, `<meta>` or `<title>` wrappers. Start directly with your top-level `<section>`/`<div>`.
+- Put CSS in a `<style>` tag at the top of the fragment.
+- Put JS in `<script>` tags inside the fragment, AFTER the markup it references.
+- Full documents are auto-normalized (body extracted, head styles hoisted), but relying on that loses structure — emit fragments.
+
+**Wrong:** `<!DOCTYPE html><html><head><style>…</style></head><body><div id="app">…</div></body></html>`
+**Right:** `<style>…</style><div id="app">…</div><script>…</script>`
+
+---
+
+## Sandbox reality check
+
+Your code runs in a sandboxed iframe with an opaque origin. What you have:
+
+- `window.DOME_DATA` — your persisted data, injected before your scripts run.
+- `window.__dome_updateState(next)` — persists data to SQLite. The ONLY way to save.
+- Inline `<script>`/`<style>` — always work (the frame ships its own CSP).
+- Vanilla DOM APIs, SVG, `<canvas>`, CSS animations.
+
+What you do NOT have:
+
+- `localStorage`/`sessionStorage`/IndexedDB for real persistence (an in-memory shim prevents crashes, but data written there DIES on close — use `__dome_updateState`).
+- `window.electron`, IPC, Node, or access to Dome's UI.
+- Local file access. Network `fetch()` only reaches https origins — and the app is often offline, so **prefer fully self-contained vanilla JS**. An https CDN `<script>` (Chart.js etc.) is allowed only if the feature is impossible without it AND the artifact still shows meaningful content when the CDN fails (guard with `typeof Chart !== 'undefined'`).
 
 ---
 
 ## Design contract (MANDATORY)
 
-Every artifact MUST use Dome's design tokens. Hardcoded colors, gradients, neon palettes, or gothic fonts are rejected.
+Style ONLY with the injected CSS variables — hardcoded colors are rejected:
 
-**Allowed palette** (CSS variables only):
 - Surfaces: `var(--bg)`, `var(--bg-secondary)`, `var(--bg-tertiary)`, `var(--bg-hover)`
 - Text: `var(--primary-text)`, `var(--secondary-text)`, `var(--tertiary-text)`
-- Borders: `var(--border)`, `var(--border-hover)`
-- Accent: `var(--accent)`
-- Semantic: success/warning/error/info tokens
+- Borders/accent: `var(--border)`, `var(--border-hover)`, `var(--accent)`
+- Semantic: `var(--success)`, `var(--warning)`, `var(--error)`, `var(--info)` (+ `-bg` variants)
+- Radii/spacing/fonts: `var(--radius-sm|md|lg|xl)`, `var(--space-1..12)`, `var(--font-sans)`, `var(--font-mono)`
 
-**Hard prohibitions:** no gradients, no remote assets, no `localStorage`/`sessionStorage` in persisted iframe HTML, no `@media (prefers-color-scheme)` forks.
+Rules: no gradients, no `prefers-color-scheme` forks (the theme arrives through the variables and live-updates), no emoji as icons — inline SVG in Lucide style only (`viewBox="0 0 24 24"`, `stroke="currentColor"`, `fill="none"`). Layout must be usable at 800px width. Every list/table needs a designed empty state ("No entries yet — add the first one"), never a blank area.
 
-See `dome_load_doc('artifact_persisted')` for the full iframe + state contract.
+---
+
+## Workflow summary
+
+1. `dome_load_doc('artifact_persisted')` — full state/persistence contract (once per session).
+2. Structured read-heavy layout? Also `dome_load_doc('artifact_design')` → `artifact_design` tool.
+3. `artifact_create` with `{ artifact_type, html, data?, title? }` — data-driven HTML that renders from `window.DOME_DATA`.
+4. Later data pushes: `artifact_merge_data`. UI redesigns: `artifact_update_state`.
+5. Tell the user it is saved in their library; emit the `artifact:created_entity` card per `entity_rules`.

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown, Share2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -62,6 +62,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openCalendarTab,
     openGitHubTab,
     openEmailTab,
+    openSocialTab,
     openProjectsTab,
     openLearnTab,
     openPipelinesTab,
@@ -75,6 +76,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openCalendarTab: s.openCalendarTab,
       openGitHubTab: s.openGitHubTab,
       openEmailTab: s.openEmailTab,
+      openSocialTab: s.openSocialTab,
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
       openPipelinesTab: s.openPipelinesTab,
@@ -431,6 +433,14 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         onOpen: openEmailTab,
       },
       {
+        key: 'social',
+        kind: 'tab',
+        tabType: 'social',
+        label: t('social.tab_title'),
+        icon: <Share2 className="size-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openSocialTab,
+      },
+      {
         key: 'pipelines',
         kind: 'tab',
         tabType: 'pipelines',
@@ -444,6 +454,7 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openCalendarTab,
     openGitHubTab,
     openEmailTab,
+    openSocialTab,
     openProjectsTab,
     openPipelinesTab,
   ]);

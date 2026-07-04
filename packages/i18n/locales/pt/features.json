@@ -45,6 +45,10 @@
     "pipelines": {
       "label": "Pipelines",
       "desc": "Quadros Kanban onde os agentes executam seu trabalho em fases."
+    },
+    "social": {
+      "label": "Redes sociais",
+      "desc": "Gira conteúdo do LinkedIn, Instagram e X."
     }
   }
 }

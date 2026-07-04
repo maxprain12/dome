@@ -143,6 +143,10 @@ const SKIP_BACKTICK = new Set([
   'max_content_length',
   'sheet_name',
   'data_dome_key',
+  'scheduled_at',
+  'link_url',
+  'post_id',
+  'badge_tone',
 ]);
 
 /** @param {Record<string, string>} families */
@@ -261,6 +265,11 @@ function buildDocSpecs(families) {
       docId: 'github_tool',
       relPath: 'packages/tools/src/domains/github/prompt.txt',
       requiredTools: toolsInFamily(families, 'github'),
+    },
+    {
+      docId: 'social_tool',
+      relPath: 'packages/tools/src/domains/social/prompt.txt',
+      requiredTools: toolsInFamily(families, 'social'),
     },
   ];
   return specs;

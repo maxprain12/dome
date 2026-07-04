@@ -3876,6 +3876,85 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  if (version < 59) {
+    console.log('[DB] Running migration 59 - social hub (accounts, posts, metrics)');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS social_accounts (
+          id TEXT PRIMARY KEY,
+          provider TEXT NOT NULL CHECK(provider IN ('linkedin', 'instagram', 'x')),
+          display_name TEXT,
+          handle TEXT,
+          external_id TEXT,
+          credentials BLOB,
+          scopes TEXT,
+          status TEXT NOT NULL DEFAULT 'active' CHECK(status IN ('active', 'error', 'expired')),
+          last_error TEXT,
+          connected_at INTEGER,
+          last_sync_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_accounts_provider ON social_accounts(provider)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS social_posts (
+          id TEXT PRIMARY KEY,
+          account_id TEXT,
+          provider TEXT NOT NULL CHECK(provider IN ('linkedin', 'instagram', 'x')),
+          status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft', 'scheduled', 'publishing', 'published', 'failed')),
+          body TEXT NOT NULL DEFAULT '',
+          media TEXT NOT NULL DEFAULT '[]',
+          link_url TEXT,
+          topics TEXT NOT NULL DEFAULT '[]',
+          campaign TEXT,
+          scheduled_at INTEGER,
+          published_at INTEGER,
+          external_post_id TEXT,
+          external_url TEXT,
+          error TEXT,
+          created_by TEXT NOT NULL DEFAULT 'user',
+          group_id TEXT,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          FOREIGN KEY (account_id) REFERENCES social_accounts(id) ON DELETE SET NULL
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_posts_status ON social_posts(status, scheduled_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_posts_provider ON social_posts(provider, published_at)');
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_posts_group ON social_posts(group_id)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS social_metrics (
+          id TEXT PRIMARY KEY,
+          post_id TEXT NOT NULL,
+          captured_at INTEGER NOT NULL,
+          impressions INTEGER,
+          likes INTEGER,
+          comments INTEGER,
+          shares INTEGER,
+          saves INTEGER,
+          clicks INTEGER,
+          followers INTEGER,
+          raw TEXT,
+          FOREIGN KEY (post_id) REFERENCES social_posts(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_metrics_post ON social_metrics(post_id, captured_at)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '59', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '59', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 59 complete - social hub tables');
+    } catch (error) {
+      console.error('[DB] Migration 59 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

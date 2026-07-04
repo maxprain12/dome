@@ -1,0 +1,54 @@
+# Social hub tools (LinkedIn / Instagram / X)
+
+Dome manages the user's social media from the Social tab: drafts, a scheduled
+queue (auto-published by the built-in scheduler), published history and
+per-post metrics.
+
+## Workflow
+
+1. `social_accounts_list` — check which networks are connected before drafting.
+2. `social_post_draft` — create content. Default to a DRAFT (no `scheduled_at`)
+   so the user reviews it in the Social tab. Only pass `scheduled_at` when the
+   user gave an explicit date/time.
+3. `social_post_publish` — publishes to the REAL account immediately.
+   Never call it unless the user explicitly asked to publish now.
+4. `social_posts_list` / `social_metrics_summary` — read the queue and the
+   analytics to answer questions and ground recommendations.
+
+## Per-network rules
+
+- **X**: max 280 chars. `link_url` is appended to the text. Text-only is fine.
+  Media: up to 4 images OR 1 video, uploaded natively from vault resources
+  (`resource_id`) or local paths — external URLs are NOT accepted as media.
+- **LinkedIn**: max 3000 chars. `link_url` becomes an article share card.
+  Media: up to 9 images uploaded natively (`resource_id`/`path`); no video yet;
+  external URLs are NOT accepted as media. Personal-profile metrics are
+  limited to likes/comments.
+- **Instagram**: `body` is the caption; text-only posts are impossible.
+  EVERY media item needs a PUBLIC https `url` — the Instagram-Login API has
+  no binary upload at all (it downloads media from the URL). `resource_id`
+  and `path` do NOT work for Instagram; suggest a public URL instead.
+
+## Media items
+
+Each `media` entry uses exactly one source:
+1. `resource_id` — an image/video resource from the user's Dome library
+   (find it with resource_search / resource_list). LinkedIn & X only.
+2. `path` — an absolute local file path the user gave you. LinkedIn & X only.
+3. `url` — public https URL. The ONLY option Instagram accepts; not accepted
+   as post media by LinkedIn/X (they need real files).
+Formats: jpg/png/gif/webp images, mp4/mov video.
+
+## Cross-posting
+
+When the user wants the same content on several networks, create one post per
+network with `social_post_draft`, ADAPTING the copy to each platform (length,
+tone, hashtags) instead of copying it verbatim. Reuse the same `campaign` and
+`topics` values so analytics can compare them.
+
+## Recommendations & campaign analysis
+
+Use `social_metrics_summary` (optionally `refresh: true`) before making claims
+about performance. Look at `topPosts`, per-provider totals and the `topics` /
+`campaign` fields of recent posts to identify what resonates; propose concrete
+next topics and posting times based on that data, not on generic advice.

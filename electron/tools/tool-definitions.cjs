@@ -10,7 +10,7 @@ function getDomeToolsPkg() {
 
 function getPackageFamilyDefinitions() {
   const pkg = getDomeToolsPkg();
-  return [...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions()];
+  return [...pkg.emailToolDefinitions(), ...pkg.githubToolDefinitions(), ...pkg.socialToolDefinitions()];
 }
 
 function getPackageFamilyToolNames() {
@@ -113,6 +113,13 @@ const TOOL_HANDLER_MAP = {
   github_update_issue: 'githubUpdateIssue',
   github_create_milestone: 'githubCreateMilestone',
   github_sync: 'githubSync',
+
+  // Social hub (LinkedIn / Instagram / X)
+  social_accounts_list: 'socialAccountsList',
+  social_post_draft: 'socialPostDraft',
+  social_post_publish: 'socialPostPublish',
+  social_posts_list: 'socialPostsList',
+  social_metrics_summary: 'socialMetricsSummary',
 
   // Entity creation
   agent_create: 'agentCreate',
@@ -777,6 +784,65 @@ function getAllToolDefinitions() {
         },
       },
     },
+    // Social hub — inline copies for static coverage; runtime uses @dome/tools socialToolDefinitions()
+    {
+      type: 'function',
+      function: {
+        name: 'social_accounts_list',
+        description: 'List connected social accounts (LinkedIn / Instagram / X) with handle and status. Source: Social hub.',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_post_draft',
+        description: 'Create a social post (draft or scheduled) for LinkedIn, Instagram or X. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            provider: { type: 'string', enum: ['linkedin', 'instagram', 'x'] },
+            body: { type: 'string' },
+            media: { type: 'array', items: { type: 'object', properties: { type: { type: 'string' }, url: { type: 'string' }, path: { type: 'string' }, resource_id: { type: 'string' } } } },
+            link_url: { type: 'string' },
+            topics: { type: 'array', items: { type: 'string' } },
+            campaign: { type: 'string' },
+            scheduled_at: { type: 'string' },
+          },
+          required: ['provider', 'body'],
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_post_publish',
+        description: 'Publish an existing social post to its network right now (irreversible). Source: Social hub.',
+        parameters: { type: 'object', properties: { post_id: { type: 'string' } }, required: ['post_id'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_posts_list',
+        description: 'List social posts (drafts, scheduled queue, published) with metrics. Source: Social hub.',
+        parameters: {
+          type: 'object',
+          properties: {
+            status: { type: 'string', enum: ['draft', 'scheduled', 'publishing', 'published', 'failed'] },
+            limit: { type: 'number' },
+          },
+        },
+      },
+    },
+    {
+      type: 'function',
+      function: {
+        name: 'social_metrics_summary',
+        description: 'Social analytics summary: totals, per-network breakdown and top posts. Source: Social hub.',
+        parameters: { type: 'object', properties: { refresh: { type: 'boolean' } } },
+      },
+    },
     {
       type: 'function',
       function: {
@@ -1073,20 +1139,25 @@ function getAllToolDefinitions() {
       function: {
         name: 'artifact_create',
         description:
-          'Create a persisted interactive artifact (mini-app) as a resource. Sandboxed iframe — MUST use window.DOME_DATA + window.__dome_updateState after each user change for SQLite persistence; NEVER localStorage/sessionStorage/IndexedDB for app data. ' +
-          'Types: task-tracker, chart, custom. Set html (fragment) and optional data (initial DOME_DATA). ' +
-          'CSS variables --bg, --accent, etc. are injected.',
+          'Create a persisted interactive artifact (mini-app) saved to the library + vault. Load dome_load_doc(artifacts) before first use. ' +
+          'The html runs in a sandboxed iframe where Dome injects window.DOME_DATA (your data) and window.__dome_updateState(next) (the ONLY way to persist — never localStorage/sessionStorage/IndexedDB). ' +
+          'Render the UI FROM DOME_DATA so later data patches (artifact_merge_data, linked Excel) update it without rewriting html. ' +
+          'Style only with injected CSS variables (--bg, --bg-secondary, --primary-text, --accent, --border, semantic tokens).',
         parameters: {
           type: 'object',
           properties: {
-            title: { type: 'string', description: 'Display title. Optional — if omitted, derived from HTML <title> tag, then artifact_type, then "Untitled Artifact".' },
+            title: { type: 'string', description: 'Display title. Optional — derived from the html when omitted.' },
             artifact_type: {
               type: 'string',
               enum: ['task-tracker', 'chart', 'custom'],
-              description: 'Semantic type',
+              description: 'Semantic type (custom for anything else)',
             },
-            html: { type: 'string', description: 'Self-contained HTML/CSS/JS' },
-            data: { type: 'object', description: 'Initial structured data for DOME_DATA' },
+            html: {
+              type: 'string',
+              description:
+                'BODY FRAGMENT only — start with <style>/<div>, NEVER <!DOCTYPE>/<html>/<head>/<body> wrappers (Dome wraps it). Self-contained inline CSS+JS; JS reads window.DOME_DATA and calls __dome_updateState after every mutation.',
+            },
+            data: { type: 'object', description: 'Initial DOME_DATA — put ALL user-mutable content here, not hardcoded in html' },
             project_id: { type: 'string', description: 'Project ID (default: current)' },
           },
           required: ['artifact_type', 'html'],
@@ -1110,7 +1181,8 @@ function getAllToolDefinitions() {
       function: {
         name: 'artifact_merge_data',
         description:
-          'Shallow-merge keys into persisted artifact state.data without resending HTML. Use after excel_get / resource_get to push rows, counters, or blobs. Top-level keys replace or add; nested subtrees replace by key. Prefer over pasting huge datasets into HTML.',
+          'PREFERRED way to push data into an existing artifact: shallow-merges keys into state.data without touching html (merge happens server-side against the CURRENT state, so concurrent user edits are never lost). ' +
+          'Use after excel_get / resource_get / web research to feed rows, KPIs or counters. Top-level keys replace or add; nested subtrees replace whole by key. Never paste large datasets into html instead.',
         parameters: {
           type: 'object',
           properties: {
@@ -1126,14 +1198,18 @@ function getAllToolDefinitions() {
       function: {
         name: 'artifact_update_state',
         description:
-          'Update an artifact: pass html and/or data (merged with existing). In-iframe JS must sync with __dome_updateState; do not use browser storage for durable state. Omit fields you do not change.',
+          'Redesign an artifact: replace html and/or reset data wholesale. Call artifact_get first to know the current state. ' +
+          'For incremental data changes use artifact_merge_data instead — replacing data here overwrites user edits. Omit fields you do not change.',
         parameters: {
           type: 'object',
           properties: {
             resource_id: { type: 'string', description: 'Artifact resource ID' },
-            html: { type: 'string', description: 'New self-contained HTML if replacing UI' },
+            html: {
+              type: 'string',
+              description: 'New UI as a BODY FRAGMENT (no <!DOCTYPE>/<html>/<head>/<body>); must still render from window.DOME_DATA and call __dome_updateState on mutations',
+            },
             data: {
-              description: 'New structured data merged into state (object or JSON string)',
+              description: 'Full replacement for state.data (object or JSON string). Omit to keep current data.',
             },
           },
           required: ['resource_id'],

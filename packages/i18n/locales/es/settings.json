@@ -17,7 +17,8 @@
     "kb_llm": "Base de conocimiento",
     "calendar": "Calendario",
     "email": "Correo",
-    "dome_mcp": "Dome como MCP"
+    "dome_mcp": "Dome como MCP",
+    "social": "Social"
   },
   "groups": {
     "preferences": "Preferencias",

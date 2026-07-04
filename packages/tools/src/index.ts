@@ -99,5 +99,8 @@ export type { EmailToolName } from './families/email.js';
 export { GITHUB_TOOL_NAMES, githubToolDefinitions } from './families/github.js';
 export type { GithubToolName } from './families/github.js';
 
+export { SOCIAL_TOOL_NAMES, socialToolDefinitions } from './families/social.js';
+export type { SocialToolName } from './families/social.js';
+
 export { DOME_LOAD_DOC_DESCRIPTION, DOME_LOAD_DOC_IDS } from './domains/manifest.js';
 export type { DomeLoadDocId } from './domains/manifest.js';

@@ -9,6 +9,7 @@ import type { Resource } from '@/lib/hooks/useResources';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
+import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import { getFolderColor, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
 import ColorPickerPopover from './ColorPickerPopover';
 import ResourceContextMenuItems from './ResourceContextMenuItems';
@@ -35,13 +36,18 @@ function buildArtifactThumbSrcDoc(template: string, data: Record<string, unknown
 /** Non-interactive, scaled-down live render of a persisted artifact. */
 function ArtifactThumb({ template, data }: { template: string; data: Record<string, unknown> | null }) {
   const srcDoc = useMemo(() => buildArtifactThumbSrcDoc(template, data), [template, data]);
+  // Served frame URL: srcdoc would inherit the strict renderer CSP and block
+  // the preview's inline scripts in packaged builds (issue 465).
+  const frameSource = useArtifactFrameSrc(srcDoc);
   return (
     <iframe
       title="artifact-preview"
       className="dome-fs-card__artifact-thumb"
       sandbox="allow-scripts"
       scrolling="no"
-      srcDoc={srcDoc}
+      {...(frameSource.src
+        ? { src: frameSource.src }
+        : { srcDoc: frameSource.fallbackSrcdoc ?? undefined })}
       tabIndex={-1}
       aria-hidden
     />

@@ -21,6 +21,7 @@ const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
 const CalendarPage = lazy(() => import('@/pages/CalendarPage'));
 const GitHubView = lazy(() => import('@/components/github/GitHubView'));
 const EmailView = lazy(() => import('@/components/email/EmailView'));
+const SocialHubView = lazy(() => import('@/components/social/SocialHubView'));
 import { loadManyPanelModule, type ManyPanelComponent } from '@/components/many/manyPanelModule';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const ProjectsPage = lazy(() => import('@/pages/ProjectsPage'));
@@ -284,6 +285,17 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
           <SuspenseWithTimeout>
             <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <EmailView />
+            </div>
+          </SuspenseWithTimeout>
+        </ErrorBoundary>
+      );
+
+    case 'social':
+      return (
+        <ErrorBoundary>
+          <SuspenseWithTimeout>
+            <div className="flex flex-col h-full overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <SocialHubView />
             </div>
           </SuspenseWithTimeout>
         </ErrorBoundary>

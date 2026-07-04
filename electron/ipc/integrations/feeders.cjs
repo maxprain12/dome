@@ -33,6 +33,7 @@ const FeederRequestSecretSchema = z.object({
 const { createFeederVault } = require('../../services/feeder-vault.cjs');
 const {
   runFeeder,
+  isFeederRunning,
   createFeederRecord,
   updateFeederScript,
   approveFeeder,
@@ -154,6 +155,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     const parsed = FeederIdSchema.safeParse(feederId);
     if (!parsed.success) {
       return { success: false, error: 'Invalid feederId' };
+    }
+    if (isFeederRunning(parsed.data)) {
+      return { success: false, error: 'Feeder is currently running; wait for it to finish before deleting.' };
     }
     try {
       database.getQueries().deleteFeeder.run(parsed.data);

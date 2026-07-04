@@ -26,5 +26,7 @@
   "run_ok": "Feeder concluído — dados do artefacto atualizados",
   "run_error": "Falha na execução do feeder",
   "history": "Histórico",
-  "delete_ok": "Feeder eliminado"
+  "delete_ok": "Feeder eliminado",
+  "delete_confirm_title": "Eliminar feeder",
+  "delete_confirm_message": "Eliminar o feeder \"{{name}}\"? O script, o histórico de execuções e o workspace serão removidos."
 }

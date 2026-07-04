@@ -20,6 +20,7 @@ export type ToolFamily =
   | 'calendar'
   | 'email'
   | 'github'
+  | 'social'
   | 'artifacts'
   | 'feeders'
   | 'flashcards'
@@ -67,6 +68,10 @@ export const TOOL_FAMILIES: Readonly<Record<string, ToolFamily>> = {
   github_list_milestones: 'github', github_list_issues: 'github',
   github_create_issue: 'github', github_update_issue: 'github',
   github_create_milestone: 'github', github_sync: 'github',
+  // social (LinkedIn / Instagram / X)
+  social_accounts_list: 'social', social_post_draft: 'social',
+  social_post_publish: 'social', social_posts_list: 'social',
+  social_metrics_summary: 'social',
   // artifacts
   artifact_create: 'artifacts', artifact_get: 'artifacts', artifact_merge_data: 'artifacts',
   artifact_update_state: 'artifacts', artifact_list: 'artifacts', artifact_delete: 'artifacts',

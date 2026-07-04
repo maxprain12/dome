@@ -28,6 +28,7 @@ const DOC_MANIFEST = {
   excel_artifact_tool: { kind: 'domain', file: 'office/prompt-excel-artifact.txt' },
   email_tool: { kind: 'domain', file: 'email/prompt.txt' },
   github_tool: { kind: 'domain', file: 'github/prompt.txt' },
+  social_tool: { kind: 'domain', file: 'social/prompt.txt' },
 };
 
 const CORE_SECTION_FILES = {

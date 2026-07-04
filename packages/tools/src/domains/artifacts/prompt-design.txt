@@ -1,59 +1,45 @@
-## Artifact design — tabbed dossier layout (`artifact_design` tool)
+# Artifact design — tabbed dossier generator (`artifact_design` tool)
 
-Use this when the user wants a **persisted library artifact** (Kind B) that looks like Dome’s workspace: centered header, subtitle, **navigable tabs**, and **card sections** with kicker labels, optional **badges**, and structured body blocks.
+Use for **read-heavy structured artifacts**: multi-section reports, research digests, model cards, benchmarks, timelines. The tool turns a JSON `spec` into Dome-themed HTML (header, subtitle, navigable tabs, card sections with kickers/badges) plus seed `data` — you then persist it with `artifact_create`.
 
-### When to use
+For **interactive/stateful** artifacts (editable tables, boards, forms) skip this tool and hand-write data-driven HTML per the `artifact_persisted` doc.
 
-- Multi-section reports, research digests, model cards, benchmarks, timelines split by tab.
-- Any mini-app that should **not** break Dome visual rules (tokens only, no ad-hoc hex, no gradients).
+## Flow
 
-### Flow
+1. `dome_load_doc('artifact_design')` once per session (this doc).
+2. Call `artifact_design` with one argument: `spec` (schema below).
+3. Optionally post-process the returned HTML (e.g. prepend inline SVG icons to tab labels).
+4. `artifact_create` with `artifact_type: "custom"`, `html: <returned html>`, `data: <returned data>` (merge extra keys into `data` first if you need them).
+5. Emit `artifact:created_entity` per `entity_rules`.
 
-1. Call `dome_load_doc('artifact_design')` once per session before the first `artifact_design` if you have not loaded this doc.
-2. Call `artifact_design` with a single argument `spec` (JSON object) matching the schema below.
-3. On success, call `artifact_create` with `artifact_type: "custom"`, `html: <returned html>`, `data: <returned data>` (merge extra keys into `data` if needed before create).
-4. Emit `artifact:created_entity` per `entity_rules`.
+The tool does NOT persist anything — it only builds `html` + `data` seeds (`activeTab`, `layoutKind`). Tab selection persists at runtime via `__dome_updateState`.
 
-Do **not** treat the tool as persistence: it only returns HTML + `state.data` seeds (`activeTab`, `layoutKind`).
+## `spec` schema
 
-### Icons (mandatory)
+- **title** (string, required) — main heading, plain text.
+- **subtitle** (string, optional) — line under the title.
+- **active_tab** (string, optional) — initial tab id (defaults to first).
+- **tabs** (array, required) — `{ "id": "slug", "label": "Plain text" }`. Ids: letters/digits/`_`/`-` only, stable (`overview`, `benchmarks`…). Labels: NO emoji.
+- **panels** (object, required) — one key per tab id → `{ "sections": [ … ] }`.
 
-- **Do not** use Unicode emoji, pictographs, or symbolic characters as icons (not in tabs, not in headings, not in KPI rows, not in buttons).
-- **Do not** rely on OS fonts for icons. **Use inline SVG only** (no external URLs), in the **Lucide** style: `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, `stroke-linecap="round"`, `stroke-linejoin="round"`, size typically 16–20px, `aria-hidden="true"` on decorative icons.
-- After `artifact_design` returns, you may prepend small SVG icons next to tab labels in the **HTML string** (edit the returned HTML before `artifact_create`) — keep `tabs[].labels` in `spec` **plain text** without emoji so the tool output stays clean.
-
-### Language (mandatory)
-
-- Write all user-visible strings in the **same language as the user’s conversation** (e.g. Spanish if the user writes in Spanish).
-- **Do not** include Chinese characters (Han script) or mixed CJK text **unless** the user explicitly asked for Chinese. Use the user’s language for terms like “rejection sampling” / “reward” instead of copying non-requested CJK from sources.
-
-### `spec` schema (JSON)
-
-- **title** (string, required): Main heading (plain text).
-- **subtitle** (string, optional): Line below title.
-- **active_tab** (string, optional): Initial tab id; must match a tab `id`. Defaults to first tab.
-- **tabs** (array, required): Each item `{ "id": "slug", "label": "..." }`. Labels must be **plain text only** (no emoji). Use stable ids: `overview`, `benchmarks`, etc. Only letters, digits, `_`, `-` in `id`.
-- **panels** (object, required): Keys must be exactly the tab ids. Each value: `{ "sections": [ … ] }`.
-
-**Section object:**
-
-- **kicker** (optional): Small caps row label (e.g. `INNOVACIONES CLAVE`).
-- **badge** (optional): Short pill label (e.g. `NOVEL`, `MÉTODO`).
-- **badge_tone** (optional): `neutral` | `info` | `success` | `warning` | `error`. Maps to Dome semantic tokens.
-- **blocks** (array): Ordered content blocks:
+**Section:** `{ kicker?, badge?, badge_tone?, blocks }`
+- `kicker` — small-caps row label (e.g. `KEY FINDINGS`).
+- `badge` — short pill (e.g. `NOVEL`); `badge_tone`: `neutral|info|success|warning|error`.
+- `blocks` — ordered content:
   - `{ "type": "paragraph", "text": "…" }`
-  - `{ "type": "numbered", "number": 1, "title": "…", "body": "…", "bullets": ["…"] }` — `bullets` optional.
+  - `{ "type": "numbered", "number": 1, "title": "…", "body": "…", "bullets": ["…"]? }`
   - `{ "type": "bullets", "items": ["…"] }`
-  - `{ "type": "code", "text": "…" }` — monospace, uses `var(--font-mono)`.
+  - `{ "type": "code", "text": "…" }` (monospace, `var(--font-mono)`)
 
-Keep copy concise: excessively large specs are clipped server-side.
+Keep copy concise — oversized specs are clipped server-side. Split long content across tabs instead of one giant panel.
 
-### Layout rules (mandatory)
+## Hard rules
 
-- The generator only emits **CSS variables** already injected in the iframe (`--bg`, `--bg-secondary`, `--primary-text`, `--accent`, `--border`, semantic tokens, `--radius-*`, `--space-*`, `--font-sans`, `--font-mono`).
-- No `localStorage` / `sessionStorage` / `fetch` / remote assets. Tab selection persists via `window.__dome_updateState` + `activeTab` in `DOME_DATA`.
-- No gradients, no `prefers-color-scheme` forks.
+- **Icons:** never emoji/pictographs/OS-font glyphs. Inline SVG only, Lucide style: `viewBox="0 0 24 24"`, `fill="none"`, `stroke="currentColor"`, `stroke-width="2"`, round caps/joins, 16–20px, `aria-hidden="true"` when decorative.
+- **Language:** all user-visible strings in the user's conversation language. No CJK unless explicitly requested.
+- **Styling:** the generator emits only injected CSS variables (`--bg`, `--bg-secondary`, `--primary-text`, `--accent`, `--border`, semantic tokens, `--radius-*`, `--space-*`, `--font-sans`, `--font-mono`). Keep any HTML you add on the same tokens — no hex, no gradients, no `prefers-color-scheme`.
+- **Runtime:** no `localStorage`/`sessionStorage`/remote assets; persistence goes through `__dome_updateState` (see `artifact_persisted`).
 
-### Custom behavior after create
+## Extending after the scaffold
 
-If you need inputs, edits, or automations: extend **`data`** and **HTML** after this scaffold, but keep styling on tokens and always call `__dome_updateState` after mutations (see `artifact_persisted`).
+Need inputs, filters, or automations on top of the dossier? Extend the returned `data` and HTML before `artifact_create` — keep the body-fragment rule, render additions from `window.DOME_DATA`, and call `__dome_updateState` after every mutation.

@@ -18,6 +18,7 @@ export type TabType =
   | 'calendar'
   | 'github'
   | 'email'
+  | 'social'
   | 'studio'
   | 'flashcards'
   | 'tags'
@@ -114,6 +115,7 @@ export const SIDEBAR_NAV_TAB_TYPES: ReadonlySet<TabType> = new Set<TabType>([
   'calendar',
   'github',
   'email',
+  'social',
   'pipelines',
   'learn',
   'marketplace',
@@ -138,6 +140,7 @@ export const SETTINGS_TAB_ID = 'settings';
 export const CALENDAR_TAB_ID = 'calendar';
 export const GITHUB_TAB_ID = 'github';
 export const EMAIL_TAB_ID = 'email';
+export const SOCIAL_TAB_ID = 'social';
 export const CHAT_TAB_PREFIX = 'chat:';
 export const STUDIO_TAB_ID = 'studio';
 export const FLASHCARDS_TAB_ID = 'flashcards';
@@ -248,6 +251,7 @@ interface TabStore {
   openCalendarTab: () => void;
   openGitHubTab: () => void;
   openEmailTab: () => void;
+  openSocialTab: () => void;
   openChatTab: (sessionId: string, title: string) => void;
   openStudioTab: () => void;
   openFlashcardsTab: () => void;
@@ -295,6 +299,7 @@ export const useTabStore = create<TabStore>((set, get) => {
         'calendar',
         'github',
         'email',
+        'social',
         'studio',
         'flashcards',
         'tags',
@@ -649,6 +654,9 @@ export const useTabStore = create<TabStore>((set, get) => {
     },
     openEmailTab: () => {
       get().openTab({ id: EMAIL_TAB_ID, type: 'email', title: i18n.t('email.tab_title'), pinned: false });
+    },
+    openSocialTab: () => {
+      get().openTab({ id: SOCIAL_TAB_ID, type: 'social', title: i18n.t('social.tab_title'), pinned: false });
     },
 
     openChatTab: (sessionId: string, title: string) => {

@@ -1,0 +1,287 @@
+{
+  "tab_title": "Social",
+  "settings": {
+    "title": "Redes sociales",
+    "description": "Conecta LinkedIn, Instagram y X para gestionar tu contenido desde Dome. Crea una app de desarrollador en cada plataforma y pega aquí sus credenciales — no se lee nada de variables de entorno.",
+    "no_encryption": "El cifrado del llavero del sistema no está disponible — los secretos se guardarán ofuscados, no cifrados.",
+    "oauth_port": "Puerto del callback OAuth",
+    "oauth_port_hint": "Puerto local para recibir la redirección OAuth (http://localhost:PUERTO/callback/...). Cámbialo solo si el puerto está ocupado.",
+    "open_dev_portal": "Abrir portal de desarrolladores",
+    "client_id": "Client ID",
+    "client_id_placeholder": "Client id de la app",
+    "client_secret": "Client secret",
+    "client_secret_placeholder": "Client secret de la app",
+    "secret_saved": "•••••• (guardado)",
+    "redirect_uri": "Redirect URI a registrar",
+    "copy": "Copiar",
+    "save": "Guardar credenciales",
+    "saved": "Guardado",
+    "connecting": "Esperando al navegador…",
+    "connect_oauth": "Conectar cuenta",
+    "connect_token": "Usar access token",
+    "connect": "Conectar",
+    "token_placeholder": "Pega un access token generado en el portal de desarrolladores",
+    "disconnect": "Desconectar cuenta",
+    "status_error": "Error de conexión",
+    "status_expired": "Token caducado — reconecta",
+    "hint_linkedin": "LinkedIn: activa los productos \"Sign In with LinkedIn using OpenID Connect\" y \"Share on LinkedIn\" en tu app. Registra la redirect URI de arriba. Los tokens duran ~60 días.",
+    "hint_instagram": "Instagram: requiere cuenta Business/Creator y una app de Meta con el producto Instagram. Lo más fácil: genera un access token en el panel de Meta (API setup with Instagram login) y pégalo aquí. Publicar exige URLs https públicas para las imágenes.",
+    "hint_x": "X: crea proyecto + app con OAuth 2.0 (tipo 'Native App' funciona sin secret gracias a PKCE), habilita Read and write y registra la redirect URI de arriba. Ojo: desde feb 2026 los nuevos developers pagan por uso (~$0.015/post)."
+  },
+  "hub": {
+    "title": "Social",
+    "section_dashboard": "Panel",
+    "section_posts": "Publicaciones",
+    "section_analytics": "Analíticas",
+    "refresh_metrics": "Actualizar métricas",
+    "new_post": "Nueva publicación",
+    "not_connected": "{{provider}} sin conectar",
+    "manage_accounts": "Gestionar cuentas",
+    "kpi_published": "Publicados (30d)",
+    "kpi_scheduled": "Programados",
+    "kpi_drafts": "Borradores",
+    "kpi_impressions": "Impresiones",
+    "kpi_likes": "Me gusta",
+    "kpi_comments": "Comentarios",
+    "upcoming": "Cola programada",
+    "upcoming_empty": "No hay nada programado. Crea una publicación y elige fecha — Dome la publica automáticamente.",
+    "top_posts": "Mejores publicaciones (30d)",
+    "top_posts_empty": "Aún no hay métricas. Publica contenido y actualiza métricas para ver qué funciona mejor.",
+    "posts_empty": "Aún no hay publicaciones. Crea la primera — también puedes pedirle a Many que redacte contenido por ti.",
+    "filter_all": "Todas",
+    "filter_draft": "Borradores",
+    "filter_scheduled": "Programadas",
+    "filter_published": "Publicadas",
+    "filter_failed": "Fallidas",
+    "status_draft": "Borrador",
+    "status_scheduled": "Programada",
+    "status_publishing": "Publicando…",
+    "status_published": "Publicada",
+    "status_failed": "Fallida",
+    "no_text": "(sin texto)",
+    "open_post": "Abrir en la red",
+    "publish_now": "Publicar ahora",
+    "edit": "Editar",
+    "delete": "Eliminar",
+    "recent_performance": "Rendimiento de publicaciones recientes",
+    "analytics_empty": "Aún no hay publicaciones con métricas.",
+    "col_post": "Publicación",
+    "col_shares": "Compartidos"
+  },
+  "composer": {
+    "title": "Nueva publicación",
+    "edit_title": "Editar publicación",
+    "body_placeholder": "¿Qué quieres compartir?",
+    "link_placeholder": "URL del enlace (opcional)",
+    "media_placeholder": "URL https pública de imagen/vídeo (lo único que acepta Instagram)",
+    "add_media": "Añadir media",
+    "topics_placeholder": "Temas (separados por comas)",
+    "campaign_placeholder": "Campaña (opcional)",
+    "schedule_label": "Programar (déjalo vacío para guardar como borrador)",
+    "cancel": "Cancelar",
+    "save_draft": "Guardar borrador",
+    "save_scheduled": "Programar",
+    "no_account": "{{provider}} no tiene cuenta conectada",
+    "error_no_provider": "Selecciona al menos una red.",
+    "error_empty": "Escribe algo de texto o añade media.",
+    "error_instagram_media": "Instagram necesita al menos un media por URL https pública (foto o vídeo).",
+    "error_too_long": "El texto supera el límite de {{limit}} caracteres de la red seleccionada.",
+    "media_from_computer": "Desde tu equipo",
+    "media_from_library": "Desde la biblioteca",
+    "media_from_url": "URL pública",
+    "library_empty": "Aún no hay imágenes ni vídeos en este proyecto.",
+    "media_source_library": "Biblioteca",
+    "media_source_local": "Local",
+    "warning_instagram_local_image": "Instagram no puede recibir archivos locales (su API solo descarga desde URLs públicas). Añade una URL pública para la variante de Instagram — los archivos locales sí funcionan en LinkedIn y X."
+  },
+  "wizard": {
+    "title": "Configurar {{provider}}",
+    "button": "Configuración guiada de {{provider}}",
+    "cta": "Configurar {{provider}} paso a paso",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "finish": "Hecho",
+    "close": "Cerrar",
+    "connected": "Conectado como {{account}}",
+    "open_create": "Abrir creación de app",
+    "open_dashboard": "Abrir el panel",
+    "step_requirements": "Requisitos",
+    "step_create_app": "Crear app",
+    "step_configure": "Portal",
+    "step_credentials": "Credenciales",
+    "step_connect": "Conectar",
+    "linkedin": {
+      "intro": "Publica en tu perfil de LinkedIn con tu propia app de developer. Unos 5 minutos, todo gratis.",
+      "requirements": {
+        "title": "Antes de empezar",
+        "body": "Solo necesitas:",
+        "bullets": [
+          "Una cuenta de LinkedIn",
+          "Acceso a LinkedIn Developers (mismo login, gratis)",
+          "Una página de empresa de LinkedIn para asociar la app — puedes crear una básica en un minuto si no tienes"
+        ]
+      },
+      "create_app": {
+        "title": "Crea la app",
+        "body": "Abre el formulario de creación con el botón de abajo y rellena:",
+        "bullets": [
+          "Nombre de la app: cualquiera, p. ej. 'Dome'",
+          "LinkedIn Page: elige tu página (el propio formulario te deja crear una)",
+          "Logo: cualquier imagen",
+          "Acepta los términos y pulsa 'Create app'"
+        ]
+      },
+      "configure": {
+        "title": "Activa los productos y registra el redirect",
+        "body": "Dentro de tu app en el portal:",
+        "bullets": [
+          "Pestaña 'Products' → solicita 'Sign In with LinkedIn using OpenID Connect' Y 'Share on LinkedIn' — ambos se aprueban al instante",
+          "Pestaña 'Auth' → 'OAuth 2.0 settings' → 'Authorized redirect URLs' → añade la URI de abajo tal cual"
+        ],
+        "notes": [
+          "LinkedIn acepta redirects http://localhost, así que este flujo de escritorio no necesita https."
+        ]
+      },
+      "credentials": {
+        "title": "Copia Client ID y Secret",
+        "body": "En la pestaña 'Auth' copia el Client ID y el Primary Client Secret, pégalos aquí y pulsa Guardar.",
+        "bullets": [],
+        "notes": [
+          "El secret se guarda cifrado con el llavero del sistema."
+        ]
+      },
+      "connect": {
+        "title": "Conecta tu cuenta",
+        "body": "Pulsa conectar: el navegador abre la pantalla de consentimiento de LinkedIn. Acepta y vuelve a Dome — la conexión se completa sola.",
+        "bullets": [],
+        "notes": [
+          "Los tokens personales duran ~60 días y no se renuevan solos en el tier estándar — cuando caduque, reconecta aquí.",
+          "Las analíticas de perfil personal se limitan a likes y comentarios."
+        ]
+      }
+    },
+    "instagram": {
+      "intro": "Necesita cuenta profesional de Instagram y una app de Meta. El generador de tokens del panel es el camino recomendado — sin redirects.",
+      "requirements": {
+        "title": "Antes de empezar",
+        "body": "Necesitas:",
+        "bullets": [
+          "Cuenta de Instagram Business o Creator — cámbiala en la app de Instagram: Configuración → Tipo de cuenta",
+          "Cuenta de developer de Meta en developers.facebook.com (gratis, con cuenta de Facebook verificada)"
+        ]
+      },
+      "create_app": {
+        "title": "Crea la app de Meta",
+        "body": "Abre el asistente de creación con el botón de abajo:",
+        "bullets": [
+          "Caso de uso: 'Otro'",
+          "Tipo de app: 'Negocio'",
+          "Termina el asistente para llegar al panel de la app"
+        ]
+      },
+      "configure": {
+        "title": "Añade el producto Instagram y vincula tu cuenta",
+        "body": "En el panel de la app:",
+        "bullets": [
+          "'Agregar producto' → configura 'Instagram'",
+          "Abre 'Configuración de la API con inicio de sesión para empresas de Instagram'",
+          "En 'Generar tokens de acceso' añade tu cuenta profesional de Instagram e inicia sesión con ella"
+        ],
+        "notes": [
+          "La redirect URI de abajo solo hace falta para el camino OAuth opcional ('Business login settings' → 'OAuth redirect URIs'). Meta puede exigir https ahí — si rechaza localhost, usa el camino del token en el siguiente paso."
+        ]
+      },
+      "credentials": {
+        "title": "Elige camino: token (recomendado) u OAuth",
+        "body": "Dos formas — elige una:",
+        "bullets": [
+          "A — recomendado: en 'Generar tokens de acceso' pulsa 'Generar token' junto a tu cuenta y cópialo. Puedes saltarte los campos de abajo y pegarlo en el paso Conectar.",
+          "B — OAuth: copia el 'ID de la app de Instagram' y el 'secreto de la app' que aparecen en 'Configuración de la API…', pégalos aquí y guarda."
+        ],
+        "notes": []
+      },
+      "connect": {
+        "title": "Conecta tu cuenta",
+        "body": "Pega abajo el token generado y pulsa Conectar — o usa el botón OAuth si configuraste redirect + credenciales.",
+        "bullets": [],
+        "notes": [
+          "Instagram no permite publicaciones solo de texto: cada post necesita al menos una imagen/vídeo alojado en una URL https PÚBLICA.",
+          "Los tokens son de larga duración (~60 días); Dome los renueva automáticamente mientras se usan."
+        ]
+      }
+    },
+    "x": {
+      "intro": "OAuth 2.0 con PKCE sobre la API v2 de X. Ojo: X pasó a los nuevos developers a precio por uso.",
+      "requirements": {
+        "title": "Antes de empezar",
+        "body": "Necesitas:",
+        "bullets": [
+          "Una cuenta de X",
+          "Cuenta de developer en developer.x.com"
+        ],
+        "notes": [
+          "Desde febrero de 2026 X no tiene tier gratuito para developers NUEVOS: publicar es pago por uso (~$0.015 por post; los posts con enlaces cuestan más). Las cuentas antiguas pueden conservar su tier anterior."
+        ]
+      },
+      "create_app": {
+        "title": "Crea proyecto + app",
+        "body": "En el portal de developers:",
+        "bullets": [
+          "Primera vez: el asistente de onboarding crea tu Project + App automáticamente",
+          "Si no: 'Projects & Apps' en la barra lateral → crea un Project y una App dentro"
+        ]
+      },
+      "configure": {
+        "title": "User authentication settings",
+        "body": "En los ajustes de tu app:",
+        "bullets": [
+          "'User authentication settings' → 'Set up'",
+          "App permissions: 'Read and write'",
+          "Type of App: 'Native App' (cliente público — PKCE, sin secret)",
+          "Callback URI / Redirect URL: añade la URI de abajo tal cual",
+          "Website URL: cualquier página tuya"
+        ],
+        "notes": [
+          "X acepta callbacks http://localhost (la CLI oficial xurl usa uno). Regístrala exactamente como se muestra."
+        ]
+      },
+      "credentials": {
+        "title": "Copia el Client ID",
+        "body": "Al guardar los ajustes de auth el portal muestra tu OAuth 2.0 Client ID (también en 'Keys and tokens'). Pégalo aquí y guarda.",
+        "bullets": [],
+        "notes": [
+          "El Client Secret solo hace falta si elegiste cliente confidencial 'Web App' en vez de Native App."
+        ]
+      },
+      "connect": {
+        "title": "Conecta tu cuenta",
+        "body": "Pulsa conectar y autoriza en el navegador. Dome mantiene la sesión viva con el refresh token.",
+        "bullets": [],
+        "notes": [
+          "Leer métricas de tweets lo factura X aparte — Dome tolera los fallos de métricas sin romperse."
+        ]
+      }
+    }
+  },
+  "preview": {
+    "title": "Vista previa",
+    "your_account": "Tu cuenta",
+    "caption_placeholder": "Tu caption aparecerá aquí…",
+    "text_placeholder": "Tu texto aparecerá aquí…",
+    "now": "Ahora",
+    "like": "Recomendar",
+    "comment": "Comentar",
+    "repost": "Compartir",
+    "send": "Enviar",
+    "format_post": "Post",
+    "format_image": "Imagen",
+    "format_carousel": "Carrusel",
+    "format_article": "Artículo",
+    "format_reel": "Reel",
+    "format_video": "Vídeo",
+    "hint_reel_needs_video": "Un Reel necesita un vídeo — añade uno (URL pública para Instagram).",
+    "hint_article_needs_link": "La tarjeta de artículo aparece al añadir una URL de enlace.",
+    "hint_carousel_needs_images": "Añade al menos 2 imágenes para montar un carrusel.",
+    "hint_needs_media": "Añade media para completar este formato."
+  }
+}

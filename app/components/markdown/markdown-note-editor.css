@@ -212,8 +212,10 @@
   margin: 4px 10px;
 }
 
-/* Evita recorte cuando el menú flota cerca del borde superior del scroll */
-.note-area:has(.milkdown-slash-menu[data-show='true']),
-.note-area .note-scroll:has(.milkdown-slash-menu[data-show='true']) {
-  overflow: visible;
-}
+/*
+ * NO cambiar overflow del contenedor de scroll cuando el menú está abierto:
+ * poner `overflow: visible` en .note-scroll destruye el scroll container y
+ * resetea scrollTop a 0 (salto al inicio del documento en notas largas).
+ * El menú se posiciona con floating-ui (flip + offset) dentro del contenido,
+ * así que scrollea con el texto y se voltea solo cerca de los bordes.
+ */
