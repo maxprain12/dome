@@ -4,6 +4,7 @@
  *
  * Usage:
  *   SONAR_TOKEN=... GITHUB_TOKEN=... node scripts/sonar/sync-github-issues.mjs [--severity=HIGH,MAJOR] [--max=50]
+ *   --max=N  Max open GitHub issues with sonarKey (default 50). Creates only until backlog < N.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -23,7 +24,8 @@ import {
 
 const args = parseArgs(process.argv.slice(2));
 const severityFilter = args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH';
-const maxCreate = Number(args.max || 50);
+/** @type {number} Max open tracked issues before we stop creating new ones */
+const maxOpen = Number(args.max || 50);
 const dryRun = args['dry-run'] === 'true';
 
 /** @type {Set<string>} */
@@ -99,13 +101,23 @@ async function createGithubIssue(issue) {
 }
 
 await loadExistingGithubIssues();
-console.log(`Found ${existingKeys.size} existing open GitHub issues with sonarKey`);
+const openTracked = existingKeys.size;
+const createBudget = Math.max(0, maxOpen - openTracked);
+
+console.log(
+  `Found ${openTracked} existing open GitHub issues with sonarKey (cap ${maxOpen}, create budget ${createBudget})`,
+);
+
+if (createBudget === 0) {
+  console.log('Open backlog at cap — skipping create until issues are closed/merged');
+  process.exit(0);
+}
 
 /** @type {Array<Record<string, unknown>>} */
 const candidates = [];
 let page = 1;
 
-while (candidates.length < maxCreate) {
+while (candidates.length < createBudget) {
   const data = await sonarFetch(
     '/api/issues/search',
     withIssueSeverityFilter(
@@ -127,7 +139,7 @@ while (candidates.length < maxCreate) {
   for (const issue of issues) {
     if (existingKeys.has(issue.key)) continue;
     candidates.push(issue);
-    if (candidates.length >= maxCreate) break;
+    if (candidates.length >= createBudget) break;
   }
 
   if (issues.length < 100) break;

@@ -77,7 +77,7 @@ pnpm run sonar:run-agent -- --dry-run
 
 ## Flujo del pipeline
 
-1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`)
+1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`) — mantiene **máx. 50 issues abiertas** con `sonarKey`; no crea más hasta que se cierren
 2. Pick batch → `.quality-loop/batch.json`
 3. Fix mecánico (`void` operator) si aplica
 4. **Agent fix** — `pnpm run sonar:run-agent` (MiniMax via Dome harness)
