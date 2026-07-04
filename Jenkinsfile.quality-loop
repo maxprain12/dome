@@ -29,7 +29,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            chmod +x scripts/jenkins/bootstrap-agent-tools.sh scripts/jenkins/agent-preflight.sh scripts/jenkins/run-with-display.sh
+            chmod +x scripts/jenkins/bootstrap-agent-tools.sh scripts/jenkins/agent-preflight.sh scripts/jenkins/gh-auth-env.sh scripts/jenkins/run-with-display.sh
             bash scripts/jenkins/agent-preflight.sh "$PWD"
             cat .jenkins-display.env || true
           '''
@@ -78,7 +78,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            echo "$GITHUB_TOKEN" | gh auth login --with-token
+            bash scripts/jenkins/gh-auth-env.sh
             pnpm run sonar:sync-github -- --severity=BLOCKER,CRITICAL,MAJOR,HIGH --max=50
           '''
         }
@@ -160,8 +160,7 @@ pipeline {
             git add -A
             git commit -m "fix(sonar): quality loop batch $(date -Iseconds)"
 
-            echo "$GITHUB_TOKEN" | gh auth login --with-token
-            gh auth setup-git
+            JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh
             git push -u origin "$BRANCH"
 
             node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json

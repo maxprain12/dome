@@ -38,11 +38,7 @@ for tool in git curl gh; do
 done
 
 if [ -n "${GITHUB_TOKEN:-}" ]; then
-  if ! echo "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1; then
-    echo "WARN: gh auth login failed (check github-quality-loop credential)"
-  else
-    gh auth status -h github.com || true
-  fi
+  bash scripts/jenkins/gh-auth-env.sh
 fi
 
 XVFB_DISPLAY="${XVFB_DISPLAY:-:99}"
