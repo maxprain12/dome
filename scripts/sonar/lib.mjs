@@ -38,6 +38,11 @@ export function sonarToken() {
   return token;
 }
 
+/** Token for issue transitions (do_transition). Prefer dedicated admin user token. */
+export function sonarIssueAdminToken() {
+  return process.env.SONAR_ISSUE_ADMIN_TOKEN || sonarToken();
+}
+
 /** Sonar Web API: token as login, empty password (Basic). Bearer only on SonarQube 10.6+. */
 export function sonarAuthHeader(token) {
   const scheme = (process.env.SONAR_AUTH_SCHEME || 'basic').toLowerCase();
@@ -50,9 +55,11 @@ export function sonarAuthHeader(token) {
 
 /**
  * @param {Record<string, string | number | boolean | undefined>} params
+ * @param {string} [method]
+ * @param {string} [tokenOverride]
  */
-export async function sonarFetch(path, params = {}, method = 'GET') {
-  const token = sonarToken();
+export async function sonarFetch(path, params = {}, method = 'GET', tokenOverride) {
+  const token = tokenOverride || sonarToken();
   const url = new URL(`${sonarHost()}${path}`);
   /** @type {RequestInit} */
   const init = {

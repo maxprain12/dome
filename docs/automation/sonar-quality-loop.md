@@ -25,8 +25,15 @@ Automated correction loop: SonarQube → GitHub Issues → Dome agent (MiniMax) 
 | **SonarQube server `SonarQube`** | Plugin (Manage Jenkins → SonarQube) | Token para Web API (`SONAR_AUTH_TOKEN`) — **mismo que job `dome-sonar`** |
 | **`github-quality-loop`** | GitHub PAT | `repo` + issues/PRs (`GITHUB_TOKEN`) |
 | **`minimax-api-key`** | Secret text | API MiniMax (`MINIMAX_API_KEY`) |
+| **`sonar-issue-admin`** *(opcional, local)* | User token Sonar (`squ_…`) exportado como `SONAR_ISSUE_ADMIN_TOKEN` | Solo stage *Close resolved* si el token del server no tiene **Administer Issues** |
 
 Los stages Sonar usan `withSonarQubeEnv('SonarQube')`, no la credential suelta `sonar`.
+
+**Stage *Close resolved*:** `POST /api/issues/do_transition` exige permiso **Administer Issues** en el proyecto. Un *Global Analysis Token* (`sqa_…`) devuelve `403 Insufficient privileges`. Opciones:
+
+1. En SonarQube → proyecto → **Permissions** → conceder **Administer Issues** al usuario del token Jenkins.
+2. Exportar `SONAR_ISSUE_ADMIN_TOKEN` con un **User Token** (`squ_…`) de un bot con ese permiso (p. ej. en el shell del stage Jenkins).
+3. Omitir el stage: `SONAR_CLOSE_RESOLVED=0` (las issues se cierran solas en el próximo análisis `dome-sonar` tras merge).
 
 **Local / fallback:** exporta `SONAR_TOKEN` (user token de SonarQube → My Account → Security). La Web API usa **Basic auth** (`token:` como login). Solo SonarQube ≥ 10.6 acepta `Bearer`; opcional `SONAR_AUTH_SCHEME=bearer`.
 
