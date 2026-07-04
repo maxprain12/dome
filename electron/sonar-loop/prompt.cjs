@@ -3,12 +3,47 @@ const path = require('path');
 
 const SONAR_TOOL_IDS = ['file_read', 'file_write', 'shell_exec'];
 
+/** Lean CI prompt — avoids PR/branch steps Jenkins handles separately. */
+const CI_PROMPT = `# Sonar quality loop (Jenkins CI)
+
+Fix the Sonar issues listed below with **minimal, targeted diffs**. Jenkins will commit, verify again, and open the PR — you only edit source files.
+
+## Workflow (strict)
+1. For each issue: \`file_read\` the reported file — prefer reading only ±40 lines around the reported line when the file is large.
+2. Apply the **smallest** change that satisfies the Sonar rule and message.
+3. Do **not** refactor, rename, or touch unrelated code.
+4. Do **not** create branches, commits, PRs, or run \`git\` except verify commands below.
+5. After all issues: run verify **once** (not per file):
+   \`pnpm run typecheck && pnpm run lint && pnpm run build:packages && pnpm run test:coverage\`
+
+## Tool discipline
+- Allowed: \`file_read\`, \`file_write\`, \`shell_exec\` (pnpm/npm only for verify).
+- Do not list or explore the whole tree — go straight to reported paths.
+- Do not load large generated/vendor files.
+- skipHitl: automated CI — never ask for approval.
+
+## Priority
+SECURITY → RELIABILITY → maintainability (void operator, complexity).
+
+## Finish
+Reply with: files changed | Sonar keys addressed | verify pass/fail.`;
+
 function getSonarLoopToolDefinitions() {
   const { getToolDefinitionsByIds } = require('../tools/tool-dispatcher.cjs');
   return getToolDefinitionsByIds(SONAR_TOOL_IDS);
 }
 
+function isCiHarness() {
+  return (
+    process.env.SONAR_LOOP_NODE === '1' ||
+    process.env.SONAR_LOOP_NODE === 'true' ||
+    Boolean(process.env.JENKINS_URL)
+  );
+}
+
 function loadPromptTemplate(repoRoot) {
+  if (isCiHarness()) return CI_PROMPT;
+
   const promptPath = path.join(repoRoot, '.cursor/prompts/sonar-fix-batch.md');
   if (fs.existsSync(promptPath)) {
     return fs.readFileSync(promptPath, 'utf8');
@@ -25,12 +60,13 @@ function formatIssue(issue) {
   const component = String(issue.component || '');
   const file = component.includes(':') ? component.split(':').slice(1).join(':') : component;
   const line = issue.line ? `:${issue.line}` : '';
+  const impact = issue.impacts?.[0]?.softwareQuality || '';
   return [
-    `- **Sonar key**: ${issue.key || issue.sonarKey || 'unknown'}`,
-    `  **Rule**: ${issue.rule || 'unknown'}`,
-    `  **File**: ${file}${line}`,
-    `  **Message**: ${issue.message || issue.title || ''}`,
-    issue.githubNumber ? `  **GitHub issue**: #${issue.githubNumber}` : null,
+    `### ${issue.key || issue.sonarKey || 'unknown'}`,
+    `- Rule: \`${issue.rule || 'unknown'}\`${impact ? ` (${impact})` : ''}`,
+    `- File: \`${file}${line}\``,
+    `- Message: ${issue.message || issue.title || ''}`,
+    issue.githubNumber ? `- GitHub: #${issue.githubNumber}` : null,
   ]
     .filter(Boolean)
     .join('\n');
@@ -42,26 +78,18 @@ function buildSonarLoopMessages(batchPayload, repoRoot) {
   const issueBlock =
     issues.length > 0
       ? issues.map(formatIssue).join('\n\n')
-      : '_No issues in batch — pick batch failed or batch is empty._';
+      : '_No issues in batch._';
 
+  const repoAbs = path.resolve(repoRoot);
   const system = `${template}
 
-## Runtime constraints
-- Repository root (absolute): ${path.resolve(repoRoot)}
-- Only modify files under this root.
-- Allowed tools: file_read, file_write, shell_exec (pnpm/npm/git commands for verify only).
-- skipHitl: automated CI — do not ask for approval.
-- When done, reply with a short summary: files changed, Sonar keys addressed, tests run.`;
+## Runtime
+- Repo root: \`${repoAbs}\`
+- Modify files only under this root.`;
 
-  const user = `Process this Sonar batch (max ${issues.length} issues):
+  const user = `Fix these ${issues.length} Sonar issue(s):
 
-${issueBlock}
-
-Steps:
-1. Read each reported file at the indicated line.
-2. Apply the smallest fix per Sonar rule.
-3. Run: pnpm run typecheck && pnpm run lint && pnpm run build:packages && pnpm run test:coverage
-4. Summarize what you changed.`;
+${issueBlock}`;
 
   return [
     { role: 'system', content: system },
@@ -73,4 +101,5 @@ module.exports = {
   SONAR_TOOL_IDS,
   getSonarLoopToolDefinitions,
   buildSonarLoopMessages,
+  CI_PROMPT,
 };

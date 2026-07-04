@@ -33,7 +33,7 @@ jobs:
       - name: Run Dome Sonar harness
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-          SONAR_LOOP_MODEL: MiniMax-M2.7-highspeed
+          SONAR_LOOP_MODEL: MiniMax-M3
         run: |
           pnpm run sonar:run-agent -- --batch=${{ inputs.batch_path }}
 

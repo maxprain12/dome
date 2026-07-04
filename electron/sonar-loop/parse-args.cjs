@@ -5,7 +5,7 @@
 function parseSonarLoopArgs(argv = []) {
   const args = {
     provider: process.env.SONAR_LOOP_PROVIDER || 'minimax',
-    model: process.env.SONAR_LOOP_MODEL || 'MiniMax-M2.7-highspeed',
+    model: process.env.SONAR_LOOP_MODEL || 'MiniMax-M3',
     batch: '.quality-loop/batch.json',
     repoRoot: process.cwd(),
     timeoutMs: Number(process.env.SONAR_LOOP_TIMEOUT_MS) || 900_000,
