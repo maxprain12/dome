@@ -4,8 +4,8 @@
  * Prefers same rule + same directory; prioritizes SECURITY/RELIABILITY.
  *
  * Usage:
- *   GITHUB_TOKEN=... node scripts/sonar/pick-batch.mjs [--size=5] [--out=.quality-loop/batch.json]
- *   node scripts/sonar/pick-batch.mjs --from=issues.json --size=5
+ *   GITHUB_TOKEN=... node scripts/sonar/pick-batch.mjs [--size=10] [--out=.quality-loop/batch.json]
+ *   node scripts/sonar/pick-batch.mjs --from=issues.json --size=10
  */
 
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ import {
 } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
-const batchSize = Number(args.size || 5);
+const batchSize = Number(args.size || process.env.SONAR_BATCH_SIZE || 10);
 const outPath = path.resolve(args.out || '.quality-loop/batch.json');
 
 /** @param {string} component */
