@@ -329,27 +329,9 @@ function handleChange(absPath, deps) {
   const rawText = buf.toString('utf8');
   const isArtifactHtml = isHtml && vaultStore.isDomeArtifactHtml(rawText);
 
-  let row = db.prepare('SELECT id, type, content_hash, vault_path FROM resources WHERE project_id = ? AND vault_path = ?').get(ctx.projectId, ctx.relPath);
-  if (!row && isMd) {
-    const fid = vaultStore.parseFrontmatterId(rawText);
-    if (fid) {
-      const byId = db.prepare("SELECT id, type, content_hash, vault_path FROM resources WHERE id = ? AND type = 'note'").get(fid);
-      if (byId) row = byId;
-    }
-  }
-  if (!row && isArtifactHtml) {
-    const parsed = vaultStore.parseArtifactHtmlDocument(rawText);
-    if (parsed?.resourceId) {
-      const byId = db.prepare("SELECT id, type, content_hash, vault_path FROM resources WHERE id = ? AND type = 'artifact'").get(parsed.resourceId);
-      if (byId) row = byId;
-    }
-  }
+  const row = findExistingResourceRow(db, ctx, isMd, isArtifactHtml, rawText);
   if (!row) {
-    if (isMd) importExternalNote(rawText, ctx, deps);
-    else if (isArtifactHtml) importExternalArtifact(rawText, ctx, deps);
-    else if (ext === '.url' && importExternalUrlFile(rawText, ctx, deps)) return;
-    else if (ext === '.dnb' && importExternalNotebook(rawText, ctx, deps)) return;
-    else importExternalBinary(absPath, buf, ext, ctx, deps);
+    importByExtension(absPath, buf, ext, isMd, isArtifactHtml, rawText, ctx, deps);
     return;
   }
 
@@ -359,31 +341,82 @@ function handleChange(absPath, deps) {
   }
 
   const now = Date.now();
-  if (isMd) {
-    const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(rawText));
-    db.prepare('UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
-      .run(ctx.relPath, text, hash, now, row.id);
-  } else if (row.type === 'url' && ext === '.url') {
-    const url = vaultStore.parseUrlFile(rawText);
-    if (!url) return;
-    db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
-      .run(ctx.relPath, url, url, hash, now, row.id);
-  } else if (row.type === 'notebook' && ext === '.dnb') {
-    let parsed;
-    try { parsed = JSON.parse(rawText); } catch { return; }
-    if (!parsed || !Array.isArray(parsed.cells)) return;
-    db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_hash = ?, updated_at = ? WHERE id = ?')
-      .run(ctx.relPath, JSON.stringify(parsed), hash, now, row.id);
-  } else if (row.type === 'artifact' || isArtifactHtml) {
-    if (reconcileExternalArtifactEdit(row, rawText, ctx, hash, deps)) return;
-  } else {
-    db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ?, updated_at = ? WHERE id = ?')
-      .run(ctx.relPath, hash, buf.length, now, row.id);
-    void enrichImportedFile(row.id, absPath, row.type, deps.fileStorage.getMimeType(ext), deps);
-  }
+  if (!applyResourceUpdate(row, absPath, buf, ext, isMd, isArtifactHtml, rawText, ctx, hash, deps, now)) return;
   try { semanticIndexScheduler.scheduleSemanticReindex?.(row.id); } catch { /* */ }
   try { windowManager.broadcast('resource:updated', { id: row.id, updates: { updated_at: now }, fromVault: true }); } catch { /* */ }
   console.log('[VaultWatcher] external edit reconciled:', ctx.relPath);
+}
+
+/** Resolve an existing row via vault_path first, then frontmatter id / artifact resourceId. */
+function findExistingResourceRow(db, ctx, isMd, isArtifactHtml, rawText) {
+  let row = db
+    .prepare('SELECT id, type, content_hash, vault_path FROM resources WHERE project_id = ? AND vault_path = ?')
+    .get(ctx.projectId, ctx.relPath);
+  if (!row && isMd) {
+    const fid = vaultStore.parseFrontmatterId(rawText);
+    if (fid) {
+      row = db.prepare("SELECT id, type, content_hash, vault_path FROM resources WHERE id = ? AND type = 'note'").get(fid);
+    }
+  }
+  if (!row && isArtifactHtml) {
+    const parsed = vaultStore.parseArtifactHtmlDocument(rawText);
+    if (parsed?.resourceId) {
+      row = db.prepare("SELECT id, type, content_hash, vault_path FROM resources WHERE id = ? AND type = 'artifact'").get(parsed.resourceId);
+    }
+  }
+  return row;
+}
+
+/** Dispatch a freshly-discovered file to its typed importer. */
+function importByExtension(absPath, buf, ext, isMd, isArtifactHtml, rawText, ctx, deps) {
+  if (isMd) { importExternalNote(rawText, ctx, deps); return; }
+  if (isArtifactHtml) { importExternalArtifact(rawText, ctx, deps); return; }
+  if (ext === '.url' && importExternalUrlFile(rawText, ctx, deps)) return;
+  if (ext === '.dnb' && importExternalNotebook(rawText, ctx, deps)) return;
+  importExternalBinary(absPath, buf, ext, ctx, deps);
+}
+
+/** Apply an external edit to the row that already exists. Returns false when no broadcast should happen. */
+function applyResourceUpdate(row, absPath, buf, ext, isMd, isArtifactHtml, rawText, ctx, hash, deps, now) {
+  const db = deps.database.getDB();
+  if (isMd) {
+    applyNoteUpdate(db, row, ctx, rawText, hash, now);
+    return true;
+  }
+  if (row.type === 'url' && ext === '.url') return applyUrlUpdate(db, row, ctx, rawText, hash, now);
+  if (row.type === 'notebook' && ext === '.dnb') return applyNotebookUpdate(db, row, ctx, rawText, hash, now);
+  if (row.type === 'artifact' || isArtifactHtml) return !reconcileExternalArtifactEdit(row, rawText, ctx, hash, deps);
+  applyBinaryUpdate(db, row, ctx, absPath, buf, ext, hash, deps, now);
+  return true;
+}
+
+function applyNoteUpdate(db, row, ctx, rawText, hash, now) {
+  const text = vaultStore.markdownToPlainText(vaultStore.stripFrontmatter(rawText));
+  db.prepare('UPDATE resources SET vault_path = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
+    .run(ctx.relPath, text, hash, now, row.id);
+}
+
+function applyUrlUpdate(db, row, ctx, rawText, hash, now) {
+  const url = vaultStore.parseUrlFile(rawText);
+  if (!url) return false;
+  db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_text = ?, content_hash = ?, updated_at = ? WHERE id = ?')
+    .run(ctx.relPath, url, url, hash, now, row.id);
+  return true;
+}
+
+function applyNotebookUpdate(db, row, ctx, rawText, hash, now) {
+  let parsed;
+  try { parsed = JSON.parse(rawText); } catch { return false; }
+  if (!parsed || !Array.isArray(parsed.cells)) return false;
+  db.prepare('UPDATE resources SET vault_path = ?, content = ?, content_hash = ?, updated_at = ? WHERE id = ?')
+    .run(ctx.relPath, JSON.stringify(parsed), hash, now, row.id);
+  return true;
+}
+
+function applyBinaryUpdate(db, row, ctx, absPath, buf, ext, hash, deps, now) {
+  db.prepare('UPDATE resources SET vault_path = ?, content_hash = ?, file_size = ?, updated_at = ? WHERE id = ?')
+    .run(ctx.relPath, hash, buf.length, now, row.id);
+  void enrichImportedFile(row.id, absPath, row.type, deps.fileStorage.getMimeType(ext), deps);
 }
 
 function handleUnlinkDir(absPath, deps) {
@@ -492,45 +525,65 @@ function handleUnlink(absPath, deps) {
 
 /** Walk a directory tree and import any file/folder not already known. */
 function scanRoot(rootAbs, deps) {
-  const db = deps.database.getDB();
   const stack = [rootAbs];
   while (stack.length) {
     const dir = stack.pop();
-    let entries = [];
-    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    const entries = readDirEntriesSafe(dir);
+    if (!entries) continue;
     for (const e of entries) {
-      if (e.name.startsWith('.')) continue;
-      if (e.name.endsWith('.dome')) continue;
+      if (e.name.startsWith('.') || e.name.endsWith('.dome')) continue;
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) { handleAddDir(abs, deps); stack.push(abs); continue; }
-      if (/\.dome([/\\]|$)/.test(abs)) continue;
-      const ctx = resolvePathContext(abs, deps);
-      if (!ctx) continue;
-      const known = db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?').get(ctx.projectId, ctx.relPath);
-      if (known) continue;
-      const ext = path.extname(abs).toLowerCase();
-      let buf;
-      try { buf = fs.readFileSync(abs); } catch { continue; }
-      if (ext === '.md') {
-        const raw = buf.toString('utf8');
-        const fid = vaultStore.parseFrontmatterId(raw);
-        if (fid && db.prepare('SELECT id FROM resources WHERE id=?').get(fid)) continue;
-        try { importExternalNote(raw, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan note import failed:', err.message); }
-      } else if (ext === '.html' && vaultStore.isDomeArtifactHtml(buf.toString('utf8'))) {
-        try { importExternalArtifact(buf.toString('utf8'), ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan artifact import failed:', err.message); }
-      } else if (ext === '.url') {
-        try {
-          if (!importExternalUrlFile(buf.toString('utf8'), ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
-        } catch (err) { console.warn('[VaultWatcher] scan url import failed:', err.message); }
-      } else if (ext === '.dnb') {
-        try {
-          if (!importExternalNotebook(buf.toString('utf8'), ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
-        } catch (err) { console.warn('[VaultWatcher] scan notebook import failed:', err.message); }
-      } else {
-        try { importExternalBinary(abs, buf, ext, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan file import failed:', err.message); }
-      }
+      scanImportUnknownFile(abs, deps);
     }
   }
+}
+
+function readDirEntriesSafe(dir) {
+  try { return fs.readdirSync(dir, { withFileTypes: true }); } catch { return null; }
+}
+
+/** Resolve, lookup and dispatch a single file during the initial scanRoot walk. */
+function scanImportUnknownFile(abs, deps) {
+  if (/\.dome([/\\]|$)/.test(abs)) return;
+  const ctx = resolvePathContext(abs, deps);
+  if (!ctx) return;
+  const db = deps.database.getDB();
+  const known = db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?').get(ctx.projectId, ctx.relPath);
+  if (known) return;
+  let buf;
+  try { buf = fs.readFileSync(abs); } catch { return; }
+  const ext = path.extname(abs).toLowerCase();
+  dispatchScanImport(abs, buf, ext, ctx, deps);
+}
+
+function dispatchScanImport(abs, buf, ext, ctx, deps) {
+  if (ext === '.md') {
+    const raw = buf.toString('utf8');
+    const fid = vaultStore.parseFrontmatterId(raw);
+    if (fid && deps.database.getDB().prepare('SELECT id FROM resources WHERE id=?').get(fid)) return;
+    try { importExternalNote(raw, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan note import failed:', err.message); }
+    return;
+  }
+  if (ext === '.html' && vaultStore.isDomeArtifactHtml(buf.toString('utf8'))) {
+    try { importExternalArtifact(buf.toString('utf8'), ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan artifact import failed:', err.message); }
+    return;
+  }
+  if (ext === '.url') {
+    const raw = buf.toString('utf8');
+    try {
+      if (!importExternalUrlFile(raw, ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
+    } catch (err) { console.warn('[VaultWatcher] scan url import failed:', err.message); }
+    return;
+  }
+  if (ext === '.dnb') {
+    const raw = buf.toString('utf8');
+    try {
+      if (!importExternalNotebook(raw, ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
+    } catch (err) { console.warn('[VaultWatcher] scan notebook import failed:', err.message); }
+    return;
+  }
+  try { importExternalBinary(abs, buf, ext, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan file import failed:', err.message); }
 }
 
 function watchTargets(deps) {

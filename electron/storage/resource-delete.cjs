@@ -39,12 +39,7 @@ function collectSubtreeIds(queries, rootId) {
  */
 function deleteResourcesCascade(resourceIds, { database, fileStorage, windowManager }) {
   const queries = database.getQueries();
-
-  const deleteSet = new Set();
-  for (const rid of resourceIds) {
-    if (typeof rid !== 'string' || !rid) continue;
-    for (const id of collectSubtreeIds(queries, rid)) deleteSet.add(id);
-  }
+  const deleteSet = buildDeleteSet(resourceIds, queries);
 
   // Children before parents so folder directories empty out naturally.
   const memo = new Map();
@@ -65,42 +60,60 @@ function deleteResourcesCascade(resourceIds, { database, fileStorage, windowMana
   for (const id of ordered) {
     const resource = queries.getResourceById.get(id);
     if (!resource) continue;
-
-    if (resource.internal_path) {
-      try {
-        fileStorage.deleteFile(resource.internal_path);
-      } catch (e) {
-        console.warn('[ResourceDelete] internal file:', e?.message);
-      }
-    }
-
-    // Remove the vault mirror BEFORE dropping the DB row. Without this the
-    // file lingers in the vault and the VaultWatcher re-imports it as a new
-    // resource. Must run before deleteResource (it reads vault_path via the row).
-    if (resource.type === 'folder') {
-      try {
-        vaultStore.removeFolderFromDisk(id, { database, fileStorage });
-      } catch (e) {
-        console.warn('[ResourceDelete] removeFolderFromDisk:', e?.message);
-      }
-    } else {
-      try {
-        vaultStore.removeMirrorForResource(id, { database, fileStorage });
-      } catch (e) {
-        console.warn('[ResourceDelete] removeMirrorForResource:', e?.message);
-      }
-    }
-
-    queries.deleteResource.run(id);
+    purgeResourceAssets(resource, { database, fileStorage, windowManager });
     deletedIds.push(id);
-    try {
-      windowManager.broadcast('resource:deleted', { id });
-    } catch {
-      /* window gone — non-fatal */
-    }
   }
 
   return { success: true, deletedIds };
+}
+
+function buildDeleteSet(resourceIds, queries) {
+  const deleteSet = new Set();
+  for (const rid of resourceIds) {
+    if (typeof rid !== 'string' || !rid) continue;
+    for (const id of collectSubtreeIds(queries, rid)) deleteSet.add(id);
+  }
+  return deleteSet;
+}
+
+/** Drop the legacy internal file, the vault mirror, the SQLite row, and broadcast. */
+function purgeResourceAssets(resource, { database, fileStorage, windowManager }) {
+  deleteInternalFile(resource, fileStorage);
+  // Remove the vault mirror BEFORE dropping the DB row. Without this the
+  // file lingers in the vault and the VaultWatcher re-imports it as a new
+  // resource. Must run before deleteResource (it reads vault_path via the row).
+  deleteVaultMirror(resource, { database, fileStorage });
+  database.getQueries().deleteResource.run(resource.id);
+  broadcastResourceDeleted(resource.id, windowManager);
+}
+
+function deleteInternalFile(resource, fileStorage) {
+  if (!resource.internal_path) return;
+  try {
+    fileStorage.deleteFile(resource.internal_path);
+  } catch (e) {
+    console.warn('[ResourceDelete] internal file:', e?.message);
+  }
+}
+
+function deleteVaultMirror(resource, { database, fileStorage }) {
+  try {
+    if (resource.type === 'folder') {
+      vaultStore.removeFolderFromDisk(resource.id, { database, fileStorage });
+    } else {
+      vaultStore.removeMirrorForResource(resource.id, { database, fileStorage });
+    }
+  } catch (e) {
+    console.warn('[ResourceDelete] mirror:', e?.message);
+  }
+}
+
+function broadcastResourceDeleted(id, windowManager) {
+  try {
+    windowManager.broadcast('resource:deleted', { id });
+  } catch {
+    /* window gone — non-fatal */
+  }
 }
 
 module.exports = { collectSubtreeIds, deleteResourcesCascade };
