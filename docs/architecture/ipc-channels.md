@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-04T14:33:34.100Z
+> Última generación: 2026-07-04T16:31:59.672Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -312,7 +312,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `file:writeFile` | `electron/ipc/data/files.cjs:89` |
 | `get-app-version` | `electron/ipc/core/system.cjs:27` |
 | `get-home-path` | `electron/ipc/core/system.cjs:17` |
-| `get-theme` | `electron/ipc/core/system.cjs:184` |
+| `get-theme` | `electron/ipc/core/system.cjs:185` |
 | `get-user-data-path` | `electron/ipc/core/system.cjs:7` |
 | `github:auth:disconnect` | `electron/ipc/integrations/github.cjs:172` |
 | `github:auth:poll` | `electron/ipc/integrations/github.cjs:150` |
@@ -397,7 +397,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `ollama:manager:status` | `electron/ipc/ai/ollama.cjs:228` |
 | `ollama:manager:stop` | `electron/ipc/ai/ollama.cjs:210` |
 | `ollama:manager:versions` | `electron/ipc/ai/ollama.cjs:269` |
-| `open-external-url` | `electron/ipc/core/system.cjs:172` |
+| `open-external-url` | `electron/ipc/core/system.cjs:173` |
 | `open-path` | `electron/ipc/core/system.cjs:147` |
 | `pdf:render-page` | `electron/ipc/media/pdf-render.cjs:15` |
 | `personality:add-memory` | `electron/ipc/integrations/personality.cjs:57` |
@@ -477,7 +477,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `select-files` | `electron/ipc/core/system.cjs:71` |
 | `select-folder` | `electron/ipc/core/system.cjs:90` |
 | `sentry:set-consent` | `electron/ipc/core/system.cjs:39` |
-| `set-theme` | `electron/ipc/core/system.cjs:196` |
+| `set-theme` | `electron/ipc/core/system.cjs:197` |
 | `shell:exec` | `electron/ipc/core/shell.cjs:43` |
 | `shell:file:search` | `electron/ipc/core/shell.cjs:96` |
 | `show-item-in-folder` | `electron/ipc/core/system.cjs:159` |
@@ -515,11 +515,11 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `studio:cancel` | `electron/ipc/learn/studio.cjs:213` |
 | `sync:export` | `electron/ipc/sync/sync.cjs:18` |
 | `sync:import` | `electron/ipc/sync/sync.cjs:85` |
-| `system:get-app-locale` | `electron/ipc/core/system.cjs:238` |
-| `system:get-login-item` | `electron/ipc/core/system.cjs:216` |
-| `system:memoryInfo` | `electron/ipc/core/system.cjs:263` |
-| `system:quit` | `electron/ipc/core/system.cjs:249` |
-| `system:set-login-item` | `electron/ipc/core/system.cjs:227` |
+| `system:get-app-locale` | `electron/ipc/core/system.cjs:239` |
+| `system:get-login-item` | `electron/ipc/core/system.cjs:217` |
+| `system:memoryInfo` | `electron/ipc/core/system.cjs:264` |
+| `system:quit` | `electron/ipc/core/system.cjs:250` |
+| `system:set-login-item` | `electron/ipc/core/system.cjs:228` |
 | `threads:compact` | `electron/ipc/agents/threads.cjs:317` |
 | `threads:delete` | `electron/ipc/agents/threads.cjs:264` |
 | `threads:get-history` | `electron/ipc/agents/threads.cjs:236` |

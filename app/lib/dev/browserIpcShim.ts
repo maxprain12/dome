@@ -27,6 +27,9 @@ function resolveBridgeUrl(): string {
   }
 }
 
+const noopUnsubscribe = () => {};
+const noopSubscriber = () => noopUnsubscribe;
+
 export function installBrowserIpcShim(): void {
   if (typeof window === 'undefined') return;
   // Real Electron preload present → nothing to do.
@@ -125,9 +128,9 @@ export function installBrowserIpcShim(): void {
         if (prop === 'then') return undefined; // never look like a thenable
         if (path.length === 0) {
           if (prop === 'invoke') return (channel: string, ...args: unknown[]) => invoke(channel, ...args);
-          if (prop === 'on' || prop === 'once') return () => () => {};
-          if (prop === 'off' || prop === 'removeListener' || prop === 'removeAllListeners') return () => {};
-          if (prop === 'send' || prop === 'sendSync') return () => {};
+          if (prop === 'on' || prop === 'once') return noopSubscriber;
+          if (prop === 'off' || prop === 'removeListener' || prop === 'removeAllListeners') return noopUnsubscribe;
+          if (prop === 'send' || prop === 'sendSync') return noopUnsubscribe;
         }
         return makeProxy([...path, prop]);
       },

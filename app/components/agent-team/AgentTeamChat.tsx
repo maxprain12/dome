@@ -33,6 +33,8 @@ interface AgentTeamChatProps {
   teamId: string;
 }
 
+const notNull = <T,>(value: T | null): value is T => value !== null;
+
 export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
@@ -75,7 +77,7 @@ export default function AgentTeamChat({ teamId }: AgentTeamChatProps) {
       setTeam(t);
       if (t) {
         Promise.all(t.memberAgentIds.map(getManyAgentById)).then((agents) =>
-          setMemberAgents(agents.filter((a): a is ManyAgent => a !== null))
+          setMemberAgents(agents.filter(notNull))
         );
       }
     });

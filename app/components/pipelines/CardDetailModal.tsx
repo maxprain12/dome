@@ -279,10 +279,11 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   };
 
   const removeTodo = (fieldId: string, todoId: string) => {
+    const isNotTargetTodo = (td: TodoItem) => td.id !== todoId;
     setFields((prev) =>
       prev.map((f) =>
         f.id === fieldId
-          ? { ...f, todos: (f.todos ?? []).filter((td) => td.id !== todoId) }
+          ? { ...f, todos: (f.todos ?? []).filter(isNotTargetTodo) }
           : f,
       ),
     );
