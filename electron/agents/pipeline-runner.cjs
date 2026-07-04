@@ -250,8 +250,7 @@ function onRunTerminal(run) {
           const destCount = q.listItemsByStage.all(next.id).length;
           q.updatePipelineItemStageAndPosition.run(next.id, destCount, now, item.id);
           if (_logEvent) _logEvent(item.id, 'auto_advanced', { actor: 'system', summary: 'Auto-advanced to: ' + (next.title || '') });
-          if (next.execution_policy === 'auto_agent') {
-            void triggerStageRun(item.id).catch((e) => {
+          if (next.execution_policy === 'auto_agent') { triggerStageRun(item.id).catch((e) => {
               console.warn('[PipelineRunner] auto-run after advance failed:', e?.message);
             });
           }
