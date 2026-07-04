@@ -495,7 +495,7 @@ export default function MarketplaceView() {
     const source = filterType === 'all' ? allItems : allItems.filter((i) => i.type === filterType);
     const cats = new Set<string>();
     source.forEach((i) => i.tags.forEach((tag) => cats.add(tag)));
-    return Array.from(cats).sort();
+    return Array.from(cats).sort((a, b) => a.localeCompare(b));
   }, [allItems, filterType]);
 
   const totalByType = useMemo(() => {

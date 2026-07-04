@@ -129,17 +129,8 @@ function piMessageToHistoryEntry(msg) {
   return { content: '' };
 }
 
-/** Build the renderer budget breakdown from session + tools + system prompt. */
-async function buildBudgetBreakdown(setup, opts = {}) {
-  const { measurePromptDetailed } = require('../prompts/prompt-budget.cjs');
-  const { session, core, baseSystemPrompt, tools, resources, mcpToolNames, subagentToolNames } = setup;
-  const skillsBlock = core.formatSkillsForSystemPrompt(resources?.skills ?? []);
-  const rulesBlock = typeof opts.userMemory === 'string' ? opts.userMemory : '';
-  let baseSystem = baseSystemPrompt || '';
-  if (rulesBlock && baseSystem.includes(rulesBlock)) {
-    baseSystem = baseSystem.replace(rulesBlock, '').trim();
-  }
-
+/** Partition tools into dome / mcp / subagent buckets. */
+function partitionTools(tools, subagentToolNames, mcpToolNames) {
   const subSet = new Set(subagentToolNames || ['task', 'delegate_to_agent']);
   const mcpSet = new Set(mcpToolNames || []);
   const domeTools = [];
@@ -150,17 +141,25 @@ async function buildBudgetBreakdown(setup, opts = {}) {
     else if (mcpSet.has(t.name)) mcpTools.push(t);
     else domeTools.push(t);
   }
+  return { domeTools, mcpTools, subagentTools };
+}
 
-  const sessionCtx = await session.buildContext();
-  const history = (sessionCtx.messages || [])
-    .filter((m) => m && m.role !== 'system')
-    .map(piMessageToHistoryEntry);
+/** Project a tool definition to the minimal shape the budget needs. */
+function toBudgetToolSummary(t) {
+  return {
+    name: t.name,
+    description: t.description,
+    parameters: t.parameters,
+  };
+}
 
+/** Sum the characters covered by prior compactions in the session branch and history. */
+async function computeSummarizedChars(session, history) {
   let summarizedChars = 0;
   try {
     const branch = await session.getBranch();
     for (const entry of branch) {
-      if (entry && entry.type === 'compaction' && typeof entry.summary === 'string') {
+      if (entry?.type === 'compaction' && typeof entry.summary === 'string') {
         summarizedChars += entry.summary.length;
       }
     }
@@ -173,26 +172,42 @@ async function buildBudgetBreakdown(setup, opts = {}) {
       summarizedChars += text.length;
     }
   }
+  return summarizedChars;
+}
+
+/** Strip the userMemory rules block from the base system prompt to avoid double-counting. */
+function stripRulesBlock(baseSystemPrompt, rulesBlock) {
+  let baseSystem = baseSystemPrompt || '';
+  if (rulesBlock && baseSystem.includes(rulesBlock)) {
+    baseSystem = baseSystem.replace(rulesBlock, '').trim();
+  }
+  return baseSystem;
+}
+
+/** Build the renderer budget breakdown from session + tools + system prompt. */
+async function buildBudgetBreakdown(setup, opts = {}) {
+  const { measurePromptDetailed } = require('../prompts/prompt-budget.cjs');
+  const { session, core, baseSystemPrompt, tools, resources, mcpToolNames, subagentToolNames } = setup;
+  const skillsBlock = core.formatSkillsForSystemPrompt(resources?.skills ?? []);
+  const rulesBlock = typeof opts.userMemory === 'string' ? opts.userMemory : '';
+  const baseSystem = stripRulesBlock(baseSystemPrompt, rulesBlock);
+
+  const { domeTools, mcpTools, subagentTools } = partitionTools(tools, subagentToolNames, mcpToolNames);
+
+  const sessionCtx = await session.buildContext();
+  const history = (sessionCtx.messages || [])
+    .filter((m) => m && m.role !== 'system')
+    .map(piMessageToHistoryEntry);
+
+  const summarizedChars = await computeSummarizedChars(session, history);
 
   const breakdown = measurePromptDetailed({
     baseSystem,
     skillsBlock,
     rulesBlock,
-    domeTools: domeTools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-    })),
-    mcpTools: mcpTools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-    })),
-    subagentTools: subagentTools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      parameters: t.parameters,
-    })),
+    domeTools: domeTools.map(toBudgetToolSummary),
+    mcpTools: mcpTools.map(toBudgetToolSummary),
+    subagentTools: subagentTools.map(toBudgetToolSummary),
     history,
     summarizedChars,
   });
@@ -422,79 +437,119 @@ function buildBeforeToolCall(opts, caps) {
     const name = ctx?.toolCall?.name;
     if (!name) return undefined;
 
+    const messages = ctx.context?.messages;
+
     // Global budget: total tool calls per run, regardless of tool.
-    const totalPrior = countAllPriorToolCalls(ctx.context?.messages);
-    const globalLimit = globalToolCallLimit();
-    if (totalPrior > globalLimit) {
-      return {
-        block: true,
-        reason:
-          `Error: this run reached the global tool-call limit (${globalLimit}). ` +
-          'Summarize the work done so far and finish without further tool calls.',
-      };
-    }
+    const globalBlock = checkGlobalToolCallLimit(messages);
+    if (globalBlock) return globalBlock;
 
     // Caps: block when the cap has already been reached in history.
     // Tools without an explicit cap fall back to DEFAULT_PER_TOOL_CAP.
     const runLimit = typeof limits[name] === 'number' ? limits[name] : DEFAULT_PER_TOOL_CAP;
-    if (typeof runLimit === 'number' && runLimit > 0) {
-      const prior = countPriorToolCalls(ctx.context?.messages, name);
-      if (prior > runLimit) {
-        return {
-          block: true,
-          reason:
-            `Error: tool "${name}" reached its run limit (${runLimit} invocations). ` +
-            'The agent will continue without executing this call.',
-        };
-      }
-    }
+    const toolBlock = checkPerToolCap(messages, name, runLimit);
+    if (toolBlock) return toolBlock;
 
     // Mutation threshold: heavy mutators get a few free calls, then need approval.
-    const mutationThreshold = MUTATION_HITL_THRESHOLDS[name];
-    let thresholdApproval = false;
-    if (typeof mutationThreshold === 'number' && !needsApproval(name)) {
-      const prior = countPriorToolCalls(ctx.context?.messages, name);
-      if (prior >= mutationThreshold) {
-        if (hitlInterrupt || typeof requestApproval === 'function') {
-          thresholdApproval = true;
-        } else {
-          // Unattended surface with no approval channel: deny instead of hanging.
-          return {
-            block: true,
-            reason:
-              `Error: tool "${name}" exceeded its unattended mutation threshold ` +
-              `(${mutationThreshold} calls per run). Remaining calls require user approval.`,
-          };
-        }
-      }
-    }
+    const threshold = checkMutationThreshold({
+      messages,
+      name,
+      threshold: MUTATION_HITL_THRESHOLDS[name],
+      needsApproval: needsApproval(name),
+      hitlInterrupt,
+      requestApproval,
+    });
+    if (threshold.block) return { block: true, reason: threshold.reason };
 
     // HITL approval.
-    if (needsApproval(name) || thresholdApproval) {
-      if (hitlInterrupt) {
-        let args = ctx.toolCall?.arguments;
-        if (typeof args === 'string') {
-          try { args = JSON.parse(args); } catch { args = {}; }
-        }
-        throw new HitlInterruptError(
-          {
-            id: ctx.toolCall?.id,
-            name,
-            arguments: args || {},
-          },
-          [{ actionName: name, allowedDecisions: ['approve', 'reject'] }],
-        );
-      }
-      if (typeof requestApproval === 'function') {
-        const approved = await requestApproval(ctx.toolCall);
-        if (!approved) {
-          return { block: true, reason: 'Tool call declined by the user.' };
-        }
-      }
-    }
-
-    return undefined;
+    return await runHitlApproval(ctx.toolCall, {
+      name,
+      needsApproval: needsApproval(name),
+      thresholdApproval: threshold.thresholdApproval,
+      hitlInterrupt,
+      requestApproval,
+    });
   };
+}
+
+/**
+ * Block when the global tool-call budget for the run has been exceeded.
+ */
+function checkGlobalToolCallLimit(messages) {
+  const totalPrior = countAllPriorToolCalls(messages);
+  const limit = globalToolCallLimit();
+  if (totalPrior <= limit) return null;
+  return {
+    block: true,
+    reason:
+      `Error: this run reached the global tool-call limit (${limit}). ` +
+      'Summarize the work done so far and finish without further tool calls.',
+  };
+}
+
+/**
+ * Block when this tool has already been invoked more than `runLimit` times.
+ * Tools without an explicit cap fall back to DEFAULT_PER_TOOL_CAP.
+ */
+function checkPerToolCap(messages, name, runLimit) {
+  if (typeof runLimit !== 'number' || runLimit <= 0) return null;
+  const prior = countPriorToolCalls(messages, name);
+  if (prior <= runLimit) return null;
+  return {
+    block: true,
+    reason:
+      `Error: tool "${name}" reached its run limit (${runLimit} invocations). ` +
+      'The agent will continue without executing this call.',
+  };
+}
+
+/**
+ * Decide whether the mutation threshold for `name` has been exceeded.
+ * Returns one of:
+ *   { block: true, reason }            — deny outright (unattended surface)
+ *   { block: false, thresholdApproval: true } — require HITL approval
+ *   { block: false, thresholdApproval: false } — no threshold gate
+ */
+function checkMutationThreshold({ messages, name, threshold, needsApproval, hitlInterrupt, requestApproval }) {
+  if (typeof threshold !== 'number') return { block: false, thresholdApproval: false };
+  if (needsApproval) return { block: false, thresholdApproval: false };
+  const prior = countPriorToolCalls(messages, name);
+  if (prior < threshold) return { block: false, thresholdApproval: false };
+  if (hitlInterrupt || typeof requestApproval === 'function') {
+    return { block: false, thresholdApproval: true };
+  }
+  // Unattended surface with no approval channel: deny instead of hanging.
+  return {
+    block: true,
+    reason:
+      `Error: tool "${name}" exceeded its unattended mutation threshold ` +
+      `(${threshold} calls per run). Remaining calls require user approval.`,
+  };
+}
+
+/**
+ * Run the HITL approval gate: interrupt when configured, async when a
+ * requestApproval callback is provided, otherwise no-op.
+ */
+async function runHitlApproval(toolCall, { name, needsApproval, thresholdApproval, hitlInterrupt, requestApproval }) {
+  if (!needsApproval && !thresholdApproval) return undefined;
+
+  if (hitlInterrupt) {
+    let args = toolCall?.arguments;
+    if (typeof args === 'string') {
+      try { args = JSON.parse(args); } catch { args = {}; }
+    }
+    throw new HitlInterruptError(
+      { id: toolCall?.id, name, arguments: args || {} },
+      [{ actionName: name, allowedDecisions: ['approve', 'reject'] }],
+    );
+  }
+
+  if (typeof requestApproval === 'function') {
+    const approved = await requestApproval(toolCall);
+    if (!approved) return { block: true, reason: 'Tool call declined by the user.' };
+  }
+
+  return undefined;
 }
 
 /**
@@ -846,31 +901,143 @@ async function setupHarness(surface, opts) {
 }
 
 /**
+ * Resolve the pending tool call: prefer an explicit override, otherwise
+ * synthesize one from the first actionRequest of the pending approval.
+ */
+function resolvePendingToolCall(opts) {
+  if (opts.pendingToolCall) return opts.pendingToolCall;
+  const first = (opts.pendingApproval?.actionRequests || [])[0];
+  if (!first) return null;
+  return {
+    id: `hitl_${Date.now()}`,
+    name: first.name,
+    arguments: first.args || {},
+  };
+}
+
+/**
+ * Pick the effective arguments for a tool call: an edited action's args win,
+ * otherwise the original tool args are used.
+ */
+function resolveEffectiveArgs(decision, toolArgs) {
+  if (decision?.type === 'edit' && decision.editedAction) {
+    return decision.editedAction.args;
+  }
+  return toolArgs;
+}
+
+/**
+ * Execute the approved (or edited) tool call, returning its result text and
+ * any error flag. For a rejected decision, the rejection message is returned.
+ */
+async function runResumeToolCall({ approved, decision, toolName, effectiveArgs, executeToolInMain }) {
+  if (!approved) {
+    return {
+      resultText: decision?.message || 'Tool call declined by the user.',
+      isError: true,
+    };
+  }
+  try {
+    // The user already approved this exact call via the HITL card — tool
+    // handlers with their own approval dialog (e.g. shell_exec) must not ask again.
+    const raw = await executeToolInMain(toolName, effectiveArgs, { hitlApproved: true });
+    return {
+      resultText: typeof raw === 'string' ? raw : JSON.stringify(raw ?? ''),
+      isError: false,
+    };
+  } catch (err) {
+    return {
+      resultText: err instanceof Error ? err.message : String(err),
+      isError: true,
+    };
+  }
+}
+
+/**
+ * Append the assistant tool-call message to the session.
+ */
+async function appendResumeToolCallMessage({ session, resolvedModel, toolCallId, toolName, effectiveArgs }) {
+  await session.appendMessage({
+    role: 'assistant',
+    content: [{
+      type: 'toolCall',
+      id: toolCallId,
+      name: toolName,
+      arguments: effectiveArgs,
+    }],
+    api: resolvedModel.api,
+    provider: resolvedModel.provider,
+    model: resolvedModel.id,
+    usage: {
+      input: 0,
+      output: 0,
+      cacheRead: 0,
+      cacheWrite: 0,
+      totalTokens: 0,
+      cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+    },
+    stopReason: 'toolUse',
+    timestamp: Date.now(),
+  });
+}
+
+/**
+ * Append the tool-result message to the session and stream it to the caller.
+ */
+async function finalizeResumeToolResult({ session, onChunk, toolCallId, toolName, resultText, isError }) {
+  await session.appendMessage({
+    role: 'toolResult',
+    toolCallId,
+    toolName,
+    content: [{ type: 'text', text: resultText }],
+    isError,
+    timestamp: Date.now(),
+  });
+  if (typeof onChunk === 'function') {
+    onChunk({ type: 'tool_result', toolCallId, result: resultText, isError });
+  }
+}
+
+/**
+ * Continue the agent turn, surfacing any error via the chunk stream. Returns
+ * the assistant's final text payload.
+ */
+async function continueResumeTurn({ harness, onChunk }) {
+  const assistant = await harness.continueTurn();
+  const finalText = assistantText(assistant);
+  if (assistant?.stopReason === 'error') {
+    const errText = finalText || assistant.errorMessage || 'Agent error';
+    if (typeof onChunk === 'function') onChunk({ type: 'error', error: errText });
+    throw new Error(errText);
+  }
+  if (typeof onChunk === 'function') onChunk({ type: 'done' });
+  return finalText;
+}
+
+/**
+ * Forward a HITL interrupt to the chunk stream and return the payload.
+ */
+function forwardResumeInterrupt(err, setup, onChunk) {
+  const payload = buildInterruptPayload(err.toolCall, err.reviewConfigs, setup.threadId);
+  if (typeof onChunk === 'function') {
+    onChunk({
+      type: 'interrupt',
+      actionRequests: payload.actionRequests,
+      reviewConfigs: payload.reviewConfigs,
+      threadId: payload.threadId,
+      pendingToolCall: payload.pendingToolCall,
+    });
+  }
+  return payload;
+}
+
+/**
  * Resume a HITL-interrupted run: apply user decisions, append tool results, continue loop.
  */
 async function resumeDomeAgent(surface, opts) {
-  const {
-    threadId,
-    decisions,
-    pendingApproval,
-    onChunk,
-    provider,
-    model,
-    apiKey,
-    baseUrl,
-    messages,
-    signal,
-  } = opts;
+  const { threadId, decisions, onChunk, provider, model, apiKey, baseUrl, messages } = opts;
 
-  const actionRequests = pendingApproval?.actionRequests || [];
-  const pendingToolCall = opts.pendingToolCall || (actionRequests[0]
-    ? {
-        id: `hitl_${Date.now()}`,
-        name: actionRequests[0].name,
-        arguments: actionRequests[0].args || {},
-      }
-    : null);
-
+  const pendingToolCall = resolvePendingToolCall(opts);
   if (!pendingToolCall?.name) {
     throw new Error('No pending tool call to resume');
   }
@@ -894,94 +1061,18 @@ async function resumeDomeAgent(surface, opts) {
 
   const decision = Array.isArray(decisions) ? decisions[0] : null;
   const approved = decision?.type === 'approve' || decision?.type === 'edit';
+  const effectiveArgs = resolveEffectiveArgs(decision, toolArgs);
 
   try {
-    await session.appendMessage({
-      role: 'assistant',
-      content: [{
-        type: 'toolCall',
-        id: toolCallId,
-        name: toolName,
-        arguments: decision?.type === 'edit' && decision.editedAction
-          ? decision.editedAction.args
-          : toolArgs,
-      }],
-      api: resolvedModel.api,
-      provider: resolvedModel.provider,
-      model: resolvedModel.id,
-      usage: {
-        input: 0,
-        output: 0,
-        cacheRead: 0,
-        cacheWrite: 0,
-        totalTokens: 0,
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-      },
-      stopReason: 'toolUse',
-      timestamp: Date.now(),
+    await appendResumeToolCallMessage({ session, resolvedModel, toolCallId, toolName, effectiveArgs });
+    const { resultText, isError } = await runResumeToolCall({
+      approved, decision, toolName, effectiveArgs, executeToolInMain,
     });
-
-    const effectiveArgs = decision?.type === 'edit' && decision.editedAction
-      ? decision.editedAction.args
-      : toolArgs;
-
-    let resultText;
-    let isError = false;
-    if (approved) {
-      try {
-        // The user already approved this exact call via the HITL card — tool
-        // handlers with their own approval dialog (e.g. shell_exec) must not ask again.
-        const raw = await executeToolInMain(toolName, effectiveArgs, { hitlApproved: true });
-        resultText = typeof raw === 'string' ? raw : JSON.stringify(raw ?? '');
-      } catch (err) {
-        isError = true;
-        resultText = err instanceof Error ? err.message : String(err);
-      }
-    } else {
-      isError = true;
-      resultText = decision?.message || 'Tool call declined by the user.';
-    }
-
-    await session.appendMessage({
-      role: 'toolResult',
-      toolCallId,
-      toolName,
-      content: [{ type: 'text', text: resultText }],
-      isError,
-      timestamp: Date.now(),
-    });
-
-    if (typeof onChunk === 'function') {
-      onChunk({
-        type: 'tool_result',
-        toolCallId,
-        result: resultText,
-        isError,
-      });
-    }
-
-    const assistant = await harness.continueTurn();
-    const finalText = assistantText(assistant);
-    if (assistant?.stopReason === 'error') {
-      const errText = finalText || assistant.errorMessage || 'Agent error';
-      if (typeof onChunk === 'function') onChunk({ type: 'error', error: errText });
-      throw new Error(errText);
-    }
-    if (typeof onChunk === 'function') onChunk({ type: 'done' });
-    return finalText;
+    await finalizeResumeToolResult({ session, onChunk, toolCallId, toolName, resultText, isError });
+    return await continueResumeTurn({ harness, onChunk });
   } catch (err) {
     if (err instanceof HitlInterruptError) {
-      const payload = buildInterruptPayload(err.toolCall, err.reviewConfigs, setup.threadId);
-      if (typeof onChunk === 'function') {
-        onChunk({
-          type: 'interrupt',
-          actionRequests: payload.actionRequests,
-          reviewConfigs: payload.reviewConfigs,
-          threadId: payload.threadId,
-          pendingToolCall: payload.pendingToolCall,
-        });
-      }
-      return payload;
+      return forwardResumeInterrupt(err, setup, onChunk);
     }
     console.error('[AgentRuntime] resume failed:', err?.message || err);
     if (typeof onChunk === 'function' && err?.message) {

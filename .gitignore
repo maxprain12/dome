@@ -11,6 +11,13 @@ dist
 
 # code coverage
 coverage
+
+# Sonar quality loop runtime artifacts (Jenkins / local harness)
+.quality-loop/
+.jenkins-display.env
+.jenkins-tools/
+.jenkins-tools.env
+.jenkins-node/
 *.lcov
 
 # logs

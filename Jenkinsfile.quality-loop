@@ -1,0 +1,203 @@
+pipeline {
+  agent any
+
+  triggers {
+    cron('H * * * *')
+  }
+
+  environment {
+    PNPM_VERSION = '11.8.0'
+    NODE_VERSION = '24.13.0'
+    NODE_HOME = "${WORKSPACE}/.jenkins-node"
+    PATH = "${WORKSPACE}/.jenkins-tools/bin:${WORKSPACE}/.jenkins-node/bin:${env.PATH}"
+    SONAR_HOST_URL = 'https://sonar.dowi.es'
+    GITHUB_REPOSITORY = 'maxprain12/dome'
+    XVFB_DISPLAY = ':99'
+    SONAR_BATCH_SIZE = '10'
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Agent preflight') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+        ]) {
+          sh '''
+            set -eux
+            bash scripts/jenkins/bootstrap-agent-tools.sh "$PWD"
+            bash scripts/jenkins/agent-preflight.sh "$PWD"
+            cat .jenkins-display.env || true
+          '''
+        }
+      }
+    }
+
+    stage('Setup') {
+      steps {
+        sh '''
+          set -eux
+          if ! command -v node >/dev/null 2>&1 || ! node --version | grep -q '^v24'; then
+            ARCH="$(uname -m)"
+            case "$ARCH" in
+              x86_64) NODE_ARCH=linux-x64 ;;
+              aarch64|arm64) NODE_ARCH=linux-arm64 ;;
+              *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
+            esac
+            mkdir -p "$NODE_HOME"
+            curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${NODE_ARCH}.tar.gz" \
+              | tar -xzf - --strip-components=1 -C "$NODE_HOME"
+          fi
+          node --version
+          npm install -g "pnpm@${PNPM_VERSION}"
+          pnpm --version
+          bash scripts/jenkins/bootstrap-opencode.sh "$PWD"
+        '''
+      }
+    }
+
+    stage('Install') {
+      steps {
+        sh '''
+          set -eux
+          pnpm install --frozen-lockfile --ignore-scripts
+          pnpm run build:packages
+          npm rebuild better-sqlite3
+          node -e "require('better-sqlite3')"
+          echo "OK: better-sqlite3 for electron tests"
+        '''
+      }
+    }
+
+    stage('Sync Sonar → GitHub') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          withCredentials([
+            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+          ]) {
+            sh '''
+              set -eux
+              bash scripts/jenkins/gh-auth-env.sh
+              node --input-type=module -e "
+                import { sonarFetch } from './scripts/sonar/lib.mjs';
+                const u = await sonarFetch('/api/authentication/validate');
+                console.log('OK: Sonar auth →', u.login || 'valid');
+              "
+              pnpm run sonar:close-github-duplicates
+              pnpm run sonar:sync-github -- --severity=BLOCKER,CRITICAL,MAJOR,HIGH --max=50
+            '''
+          }
+        }
+      }
+    }
+
+    stage('Pick batch') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          withCredentials([
+            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+          ]) {
+            sh '''
+              set -eux
+              mkdir -p .quality-loop
+              pnpm run sonar:pick-batch -- --size=${SONAR_BATCH_SIZE} --out=.quality-loop/batch.json
+            '''
+          }
+        }
+        archiveArtifacts artifacts: '.quality-loop/batch.json', allowEmptyArchive: true
+      }
+    }
+
+    stage('Mechanical fix') {
+      steps {
+        script {
+          def batchText = fileExists('.quality-loop/batch.json') ? readFile('.quality-loop/batch.json') : '{}'
+          def isVoidRule = batchText.contains('void') || batchText.contains('S7735') || batchText.contains('no-void')
+          if (isVoidRule) {
+            sh 'node scripts/sonar/fix-void-operator.mjs --batch=.quality-loop/batch.json || true'
+          } else {
+            echo 'No mechanical fix for this batch — OpenCode agent will run next'
+          }
+        }
+      }
+    }
+
+    stage('Agent fix (OpenCode)') {
+      when {
+        expression {
+          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) == 0
+        }
+      }
+      steps {
+        withCredentials([
+          string(credentialsId: 'minimax-api-key', variable: 'MINIMAX_API_KEY'),
+        ]) {
+          sh '''
+            set -eux
+            export OPENCODE_CONFIG="$PWD/scripts/sonar/opencode.ci.json"
+            export OPENCODE_DISABLE_AUTOUPDATE=1
+            export SONAR_LOOP_MODEL="${SONAR_LOOP_MODEL:-MiniMax-M3}"
+            command -v opencode
+            opencode --version
+            pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json
+          '''
+        }
+        archiveArtifacts artifacts: '.quality-loop/agent-run.json', allowEmptyArchive: true
+      }
+    }
+
+    stage('Verify & PR') {
+      when {
+        expression {
+          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) != 0
+        }
+      }
+      steps {
+        withCredentials([
+          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+        ]) {
+          sh '''
+            set -eux
+            bash scripts/jenkins/verify-batch-pr.sh "$PWD"
+
+            BRANCH="fix/sonar-batch-$(date +%Y%m%d-%H%M)"
+            git config user.email "jenkins@dowi.es"
+            git config user.name "Jenkins Quality Loop"
+            git checkout -b "$BRANCH"
+            bash scripts/jenkins/stage-loop-changes.sh "$PWD"
+            bash scripts/jenkins/verify-loop-diff.sh "$PWD"
+            git commit -m "fix(sonar): quality loop batch $(date -Iseconds)"
+
+            JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh
+            git push -u origin "$BRANCH"
+
+            node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json --branch="$BRANCH"
+          '''
+        }
+      }
+    }
+
+    stage('Close resolved in Sonar') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          withCredentials([
+            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+          ]) {
+            sh 'pnpm run sonar:close-resolved -- --since-days=14 || true'
+          }
+        }
+      }
+    }
+  }
+
+  post {
+    always {
+      cleanWs()
+    }
+  }
+}

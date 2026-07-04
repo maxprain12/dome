@@ -134,26 +134,33 @@ function downloadFile(url, destPath) {
   const https = require('https');
   const http = require('http');
   return new Promise((resolve, reject) => {
-    function fetch(u) {
-      const lib = u.startsWith('https') ? https : http;
-      lib.get(u, (res) => {
-        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
-          fetch(res.headers.location);
-          return;
-        }
-        if (res.statusCode !== 200) {
-          reject(new Error(`HTTP ${res.statusCode} while downloading ${u}`));
-          return;
-        }
-        const file = fs.createWriteStream(destPath);
-        res.pipe(file);
-        file.on('finish', () => file.close(() => resolve()));
-        file.on('error', (e) => { fs.unlink(destPath, () => {}); reject(e); });
-        res.on('error', reject);
-      }).on('error', reject);
-    }
-    fetch(url);
+    const lib = url.startsWith('https') ? https : http;
+    lib.get(url, (res) => handleDownloadResponse(res, url, destPath, resolve, reject))
+      .on('error', reject);
   });
+}
+
+function handleDownloadResponse(res, url, destPath, resolve, reject) {
+  if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+    downloadFile(res.headers.location, destPath).then(resolve, reject);
+    return;
+  }
+  if (res.statusCode !== 200) {
+    reject(new Error(`HTTP ${res.statusCode} while downloading ${url}`));
+    return;
+  }
+  pipeResponseToFile(res, destPath, resolve, reject);
+}
+
+function pipeResponseToFile(res, destPath, resolve, reject) {
+  const file = fs.createWriteStream(destPath);
+  file.on('finish', () => file.close(() => resolve()));
+  file.on('error', (e) => {
+    fs.unlink(destPath, () => {});
+    reject(e);
+  });
+  res.on('error', reject);
+  res.pipe(file);
 }
 
 /**

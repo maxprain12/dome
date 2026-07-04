@@ -22,9 +22,10 @@
 const transcriptionService = require('../../transcription/transcription-service.cjs');
 const { readSettingSecret, writeSettingSecret, isSecretSettingKey, maskSettingForRenderer } = require('../../core/settings-secrets.cjs');
 const transcriptionSession = require('../../transcription/transcription-session.cjs');
+const { secureTimestampId } = require('../../core/secure-id.cjs');
 
 function generateResourceId() {
-  return `res_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  return secureTimestampId('res');
 }
 
 function parseMetadata(raw) {

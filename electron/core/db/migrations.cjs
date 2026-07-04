@@ -3688,6 +3688,75 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       const linkId = (entityType, entityId) =>
         `ghcl-${entityType}-${crypto.createHash('sha1').update(String(entityId)).digest('hex').slice(0, 12)}`;
 
+      const rewireCalendarLink = (entityType, oldEid, newEid) => {
+        const link = db
+          .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
+          .get(entityType, oldEid);
+        if (!link) return;
+        db.prepare(
+          'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
+        ).run(linkId(entityType, newEid), newEid, entityType, oldEid);
+      };
+
+      const rewireMilestones = (oldId, newId) => {
+        const rows = db.prepare('SELECT id, number FROM github_milestones WHERE repo_id = ?').all(oldId);
+        for (const m of rows) {
+          const newMid = `ghm-${newId}-${m.number}`;
+          rewireCalendarLink('milestone', m.id, newMid);
+          rewireCalendarLink('milestone', `${m.id}:completed`, `${newMid}:completed`);
+          db.prepare('UPDATE github_milestones SET id = ?, repo_id = ? WHERE id = ?').run(newMid, newId, m.id);
+        }
+      };
+
+      const rewireIssues = (oldId, newId) => {
+        const rows = db.prepare('SELECT id, number FROM github_issues WHERE repo_id = ?').all(oldId);
+        for (const issue of rows) {
+          const newIid = `ghi-${newId}-${issue.number}`;
+          rewireCalendarLink('issue', issue.id, newIid);
+          db.prepare('UPDATE github_issues SET id = ?, repo_id = ? WHERE id = ?').run(newIid, newId, issue.id);
+        }
+      };
+
+      const rewireBranches = (oldId, newId) => {
+        const rows = db.prepare('SELECT id, name FROM github_branches WHERE repo_id = ?').all(oldId);
+        for (const branch of rows) {
+          const newBid = `ghb-${newId}-${projectSlug(branch.name)}`;
+          db.prepare('UPDATE github_branches SET id = ?, repo_id = ? WHERE id = ?').run(newBid, newId, branch.id);
+        }
+      };
+
+      const rewireReleases = (oldId, newId) => {
+        const rows = db.prepare('SELECT id, remote_id FROM github_releases WHERE repo_id = ?').all(oldId);
+        for (const rel of rows) {
+          const newRid = `ghrel-${newId}-${rel.remote_id}`;
+          rewireCalendarLink('release', rel.id, newRid);
+          db.prepare('UPDATE github_releases SET id = ?, repo_id = ? WHERE id = ?').run(newRid, newId, rel.id);
+        }
+      };
+
+      const rewireSyncState = (oldId, newId) => {
+        const rows = db.prepare('SELECT id, resource FROM github_sync_state WHERE repo_id = ?').all(oldId);
+        for (const st of rows) {
+          const newSid = `ghs-${newId}-${st.resource}`;
+          db.prepare('UPDATE github_sync_state SET id = ?, repo_id = ? WHERE id = ?').run(newSid, newId, st.id);
+        }
+      };
+
+      const rewireRepo = (repo) => {
+        const projectId = repo.project_id || 'default';
+        const newId = newRepoId(repo.remote_id, projectId);
+        if (repo.id === newId) return;
+        const oldId = repo.id;
+
+        // Parent id first; child rows still reference oldId until updated below.
+        db.prepare('UPDATE github_repos SET id = ? WHERE id = ?').run(newId, oldId);
+        rewireMilestones(oldId, newId);
+        rewireIssues(oldId, newId);
+        rewireBranches(oldId, newId);
+        rewireReleases(oldId, newId);
+        rewireSyncState(oldId, newId);
+      };
+
       const rewireGithubRepoIds = () => {
         const repos = db.prepare('SELECT * FROM github_repos').all();
         if (repos.length === 0) return;
@@ -3705,69 +3774,7 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
         db.pragma('foreign_keys = OFF');
         try {
           for (const repo of repos) {
-            const projectId = repo.project_id || 'default';
-            const newId = newRepoId(repo.remote_id, projectId);
-            if (repo.id === newId) continue;
-            const oldId = repo.id;
-
-            // Parent id first; child rows still reference oldId until updated below.
-            db.prepare('UPDATE github_repos SET id = ? WHERE id = ?').run(newId, oldId);
-
-            for (const m of db.prepare('SELECT id, number FROM github_milestones WHERE repo_id = ?').all(oldId)) {
-              const newMid = `ghm-${newId}-${m.number}`;
-              const oldCompleted = `${m.id}:completed`;
-              const newCompleted = `${newMid}:completed`;
-              for (const [oldEid, newEid] of [
-                [m.id, newMid],
-                [oldCompleted, newCompleted],
-              ]) {
-                const link = db
-                  .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
-                  .get('milestone', oldEid);
-                if (link) {
-                  db.prepare(
-                    'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
-                  ).run(linkId('milestone', newEid), newEid, 'milestone', oldEid);
-                }
-              }
-              db.prepare('UPDATE github_milestones SET id = ?, repo_id = ? WHERE id = ?').run(newMid, newId, m.id);
-            }
-
-            for (const issue of db.prepare('SELECT id, number FROM github_issues WHERE repo_id = ?').all(oldId)) {
-              const newIid = `ghi-${newId}-${issue.number}`;
-              const link = db
-                .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
-                .get('issue', issue.id);
-              if (link) {
-                db.prepare(
-                  'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
-                ).run(linkId('issue', newIid), newIid, 'issue', issue.id);
-              }
-              db.prepare('UPDATE github_issues SET id = ?, repo_id = ? WHERE id = ?').run(newIid, newId, issue.id);
-            }
-
-            for (const branch of db.prepare('SELECT id, name FROM github_branches WHERE repo_id = ?').all(oldId)) {
-              const newBid = `ghb-${newId}-${projectSlug(branch.name)}`;
-              db.prepare('UPDATE github_branches SET id = ?, repo_id = ? WHERE id = ?').run(newBid, newId, branch.id);
-            }
-
-            for (const rel of db.prepare('SELECT id, remote_id FROM github_releases WHERE repo_id = ?').all(oldId)) {
-              const newRid = `ghrel-${newId}-${rel.remote_id}`;
-              const link = db
-                .prepare('SELECT 1 FROM github_calendar_links WHERE entity_type = ? AND entity_id = ?')
-                .get('release', rel.id);
-              if (link) {
-                db.prepare(
-                  'UPDATE github_calendar_links SET id = ?, entity_id = ? WHERE entity_type = ? AND entity_id = ?',
-                ).run(linkId('release', newRid), newRid, 'release', rel.id);
-              }
-              db.prepare('UPDATE github_releases SET id = ?, repo_id = ? WHERE id = ?').run(newRid, newId, rel.id);
-            }
-
-            for (const st of db.prepare('SELECT id, resource FROM github_sync_state WHERE repo_id = ?').all(oldId)) {
-              const newSid = `ghs-${newId}-${st.resource}`;
-              db.prepare('UPDATE github_sync_state SET id = ?, repo_id = ? WHERE id = ?').run(newSid, newId, st.id);
-            }
+            rewireRepo(repo);
           }
         } finally {
           db.pragma('foreign_keys = ON');

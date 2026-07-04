@@ -37,6 +37,7 @@ const vaultStore = require('../storage/vault-store.cjs');
 const noteMarkdown = require('../services/note-markdown.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
 const { progress: studioProgress, createRunId } = require('../services/studio-progress.cjs');
+const { secureTimestampId } = require('../core/secure-id.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -50,7 +51,7 @@ function setWindowManager(wm) {
 }
 
 function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return secureTimestampId();
 }
 
 /**
@@ -3289,8 +3290,7 @@ async function githubUpdateIssue({ issue_id, title, body, state, milestone_numbe
     if (milestone_number !== undefined) patch.milestoneNumber = milestone_number;
     const { issue, changed } = githubStore().updateLocalIssue(issue_id, patch);
     if (!issue) return { success: false, error: 'Issue not found' };
-    if (changed) {
-      void githubSyncService().scheduleSync(githubStore().getRepo(issue.repo_id)?.project_id);
+    if (changed) { githubSyncService().scheduleSync(githubStore().getRepo(issue.repo_id)?.project_id);
     }
     return { success: true, source: 'github', issue };
   } catch (err) {
@@ -3665,28 +3665,60 @@ async function importFileToLibrary(args = {}) {
   }
 }
 
+function pickString(value, fallback = '') {
+  return typeof value === 'string' ? value : fallback;
+}
+
+function pickFirstString(...values) {
+  for (const v of values) {
+    if (typeof v === 'string') return v;
+  }
+  return '';
+}
+
+function pickFirstArray(...values) {
+  for (const v of values) {
+    if (Array.isArray(v)) return v;
+  }
+  return [];
+}
+
+function pickProjectId(args) {
+  const camel = typeof args.projectId === 'string' ? args.projectId.trim() : '';
+  if (camel) return camel;
+  const snake = typeof args.project_id === 'string' ? args.project_id.trim() : '';
+  return snake || 'default';
+}
+
+function pickIconIndex(value) {
+  if (typeof value === 'number' && value >= 1 && value <= 18) {
+    return Math.round(value);
+  }
+  return Math.floor(Math.random() * 18) + 1;
+}
+
+function buildAgentConfigPayload(agent, toolIds, systemInstructions) {
+  return {
+    tools: toolIds.length > 0 ? toolIds.join(', ') : 'none',
+    instructions: systemInstructions
+      ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '')
+      : '—',
+  };
+}
+
 async function agentCreate(args = {}) {
   try {
-    const name = typeof args.name === 'string' ? args.name.trim() : '';
+    const name = pickString(args.name).trim();
     if (!name) return { status: 'error', error: 'name is required' };
 
     const queries = database.getQueries();
     const now = Date.now();
-    const description = typeof args.description === 'string' ? args.description : '';
-    const systemInstructions = typeof (args.systemInstructions ?? args.system_instructions) === 'string'
-      ? (args.systemInstructions ?? args.system_instructions)
-      : '';
-    const toolIds = Array.isArray(args.toolIds ?? args.tool_ids) ? (args.toolIds ?? args.tool_ids) : [];
-    const iconIndex = typeof args.iconIndex === 'number' && args.iconIndex >= 1 && args.iconIndex <= 18
-      ? Math.round(args.iconIndex)
-      : Math.floor(Math.random() * 18) + 1;
+    const description = pickString(args.description);
+    const systemInstructions = pickFirstString(args.systemInstructions, args.system_instructions);
+    const toolIds = pickFirstArray(args.toolIds, args.tool_ids);
+    const iconIndex = pickIconIndex(args.iconIndex);
+    const projectId = pickProjectId(args);
 
-    const projectId =
-      typeof args.projectId === 'string' && args.projectId.trim()
-        ? args.projectId.trim()
-        : typeof args.project_id === 'string' && args.project_id.trim()
-          ? args.project_id.trim()
-          : 'default';
     const agent = {
       id: generateId(),
       name,
@@ -3725,10 +3757,7 @@ async function agentCreate(args = {}) {
       id: agent.id,
       name: agent.name,
       description: agent.description,
-      config: {
-        tools: toolIds.length > 0 ? toolIds.join(', ') : 'none',
-        instructions: systemInstructions ? systemInstructions.slice(0, 120) + (systemInstructions.length > 120 ? '…' : '') : '—',
-      },
+      config: buildAgentConfigPayload(agent, toolIds, systemInstructions),
     };
     return `ENTITY_CREATED:${JSON.stringify(payload)}`;
   } catch (err) {

@@ -1,0 +1,20 @@
+---
+description: Fix a batch of SonarQube issues with minimal diffs and small PRs
+alwaysApply: false
+---
+
+# Sonar fix batch
+
+When fixing SonarQube issues (from GitHub label `sonar` or `.quality-loop/batch.json`):
+
+1. **Scope**: Max 5 issues per PR; same rule or same directory when possible.
+2. **Minimal diff**: Fix only what Sonar reports; no drive-by refactors.
+3. **Verify before PR**:
+   - `pnpm run typecheck`
+   - `pnpm run lint`
+   - `pnpm run test:coverage`
+4. **Branch**: `fix/sonar-<rule-slug>-<issue#>` from latest `main`.
+5. **PR body**: Table of Sonar keys + `Closes #<github>` for each synced issue.
+6. **Do not merge** — open PR only; Jenkins/CI + Sonar validate on merge.
+
+Priority order: SECURITY → RELIABILITY → HIGH maintainability (void operator, cognitive complexity).

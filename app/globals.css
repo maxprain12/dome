@@ -2791,10 +2791,10 @@ a:hover {
 @media (prefers-reduced-motion: reduce) {
   .many-status-shimmer {
     animation: none;
-    -webkit-background-clip: unset;
-    background-clip: unset;
     background: none;
     color: var(--secondary-text);
+    -webkit-background-clip: unset;
+    background-clip: unset;
   }
 }
 

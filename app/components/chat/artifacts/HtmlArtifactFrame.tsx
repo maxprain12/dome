@@ -44,7 +44,7 @@ ${DOME_IFRAME_STORAGE_SHIM_SCRIPT}
   function postReady() {
     if (!window.parent) return;
     try {
-      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'ready' }, '*');
+      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'ready' }, window.origin);
     } catch (e) {}
   }
   function postResize() {
@@ -54,7 +54,7 @@ ${DOME_IFRAME_STORAGE_SHIM_SCRIPT}
       document.body.offsetHeight, document.documentElement.offsetHeight
     );
     try {
-      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'resize', height: h }, '*');
+      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'resize', height: h }, window.origin);
     } catch (e) {}
   }
   window.addEventListener('message', function(ev) {
@@ -118,7 +118,7 @@ export default function HtmlArtifactFrame({
     const w = iframeRef.current?.contentWindow;
     if (!w) return;
     try {
-      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, '*');
+      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, window.origin);
     } catch {
       // iframe was unloaded
     }

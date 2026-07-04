@@ -1,0 +1,52 @@
+name: Quality Loop (OpenCode)
+
+# Optional manual trigger — primary automation is Jenkins dome-quality-loop.
+on:
+  workflow_dispatch:
+    inputs:
+      batch_path:
+        description: Path to batch JSON in workspace
+        required: false
+        default: .quality-loop/batch.json
+
+jobs:
+  sonar-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install OpenCode CLI
+        run: bash scripts/jenkins/bootstrap-opencode.sh "$PWD"
+
+      - name: Install
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run rebuild:natives
+          pnpm run build:packages
+
+      - name: Run OpenCode Sonar agent
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+          SONAR_LOOP_MODEL: MiniMax-M3
+          OPENCODE_CONFIG: ${{ github.workspace }}/scripts/sonar/opencode.ci.json
+          OPENCODE_DISABLE_AUTOUPDATE: '1'
+          PATH: ${{ github.workspace }}/.jenkins-tools/bin:${{ env.PATH }}
+        run: |
+          opencode --version
+          pnpm run sonar:run-agent -- --batch=${{ inputs.batch_path }}
+
+      - name: Upload agent log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sonar-agent-run
+          path: .quality-loop/agent-run.json

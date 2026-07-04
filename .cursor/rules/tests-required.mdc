@@ -1,0 +1,15 @@
+---
+description: Require meaningful tests when fixing logic in main process or packages
+globs: electron/**,packages/**
+alwaysApply: false
+---
+
+# Tests required (Sonar loop)
+
+When a Sonar fix touches **logic** under `electron/` or `packages/`:
+
+- Add or extend a test in `electron/__tests__/*.test.mjs` (Node `--test`) or `packages/*/test/*.test.ts` (vitest).
+- Cover the behavior that regressed or the branch you changed — not trivial "expect(true)".
+- Pure UI/style fixes in `app/` do not require new tests unless you extract testable helpers.
+
+Run `pnpm run test:coverage` before opening the PR.

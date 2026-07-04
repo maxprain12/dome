@@ -37,7 +37,7 @@ export interface InstalledMarketplaceWorkflowRecord {
 
 async function getInstalledIds(): Promise<string[]> {
   const records = await getAgentRecords();
-  return Object.keys(records).sort();
+  return Object.keys(records).sort((a, b) => a.localeCompare(b));
 }
 
 async function getAgentRecords(): Promise<Record<string, InstalledMarketplaceAgentRecord>> {
@@ -249,7 +249,7 @@ export async function uninstallMarketplaceAgent(
 
 async function getInstalledWorkflowIds(): Promise<string[]> {
   const records = await getWorkflowRecords();
-  return Object.keys(records).sort();
+  return Object.keys(records).sort((a, b) => a.localeCompare(b));
 }
 
 async function getWorkflowRecords(): Promise<Record<string, InstalledMarketplaceWorkflowRecord>> {
