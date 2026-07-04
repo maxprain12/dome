@@ -29,7 +29,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            bash scripts/jenkins/bootstrap-agent-tools.sh scripts/jenkins/agent-preflight.sh scripts/jenkins/gh-auth-env.sh scripts/jenkins/run-with-display.sh scripts/jenkins/stage-loop-changes.sh scripts/jenkins/source-tree-clean.sh
+            bash scripts/jenkins/bootstrap-agent-tools.sh "$PWD"
             bash scripts/jenkins/agent-preflight.sh "$PWD"
             cat .jenkins-display.env || true
           '''
