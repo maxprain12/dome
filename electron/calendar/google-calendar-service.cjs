@@ -450,7 +450,7 @@ function upsertGoogleEvent(q, ge, localCal, now) {
   q.createCalendarEventLink.run(`link-${eventId}`, eventId, 'google', ge.id, localCal.id, now, now);
 }
 
-function syncCalendarEvents(q, acc, gc, localCal, oneMonthAgo, threeMonthsAhead, now) {
+async function syncCalendarEvents(q, acc, gc, localCal, oneMonthAgo, threeMonthsAhead, now) {
   const { items } = await listGoogleEvents(acc.id, gc.id, oneMonthAgo, threeMonthsAhead);
   for (const ge of items) {
     if (ge.status === 'cancelled') {
