@@ -16,6 +16,8 @@
         "list": "allow",
         "bash": {
           "*": "deny",
+          "bash scripts/jenkins/verify-batch-pr.sh": "allow",
+          "bash scripts/jenkins/verify-batch-pr.sh *": "allow",
           "pnpm *": "allow",
           "npm *": "allow",
           "node *": "allow"
