@@ -42,65 +42,78 @@ function getBridgePath() {
   return path.join(__dirname, '../dome-mcp-bridge.cjs');
 }
 
+function extractPort(body) {
+  const rawPort =
+    typeof body === 'number' && Number.isFinite(body)
+      ? body
+      : body && typeof body === 'object' && 'port' in body
+        ? body.port
+        : undefined;
+  if (rawPort == null || rawPort === '') return null;
+  const n = Number(rawPort);
+  return Number.isFinite(n) ? n : null;
+}
+
+function readSavedPort(database) {
+  if (!database) return null;
+  try {
+    const q = database.getQueries();
+    const row = q.getSetting?.get('dome_mcp_port');
+    if (row?.value) return parseInt(row.value, 10);
+  } catch {}
+  return null;
+}
+
+function persistStartSettings(database, port) {
+  if (!database) return;
+  try {
+    const q = database.getQueries();
+    q.setSetting?.run('dome_mcp_enabled', '1');
+    q.setSetting?.run('dome_mcp_port', String(port));
+  } catch {}
+}
+
+function persistStopSettings(database) {
+  if (!database) return;
+  try {
+    const q = database.getQueries();
+    q.setSetting?.run('dome_mcp_enabled', '0');
+  } catch {}
+}
+
+function unauthorizedResponse() {
+  return { success: false, error: 'Unauthorized' };
+}
+
+function ensureServerAvailable() {
+  if (!domeMcpServer) return { success: false, error: 'MCP server module not available' };
+  return null;
+}
+
 function register({ ipcMain, windowManager, database }) {
   ipcMain.handle('dome-mcp:start', async (event, payload) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    if (!domeMcpServer) return { success: false, error: 'MCP server module not available' };
+    if (!windowManager.isAuthorized(event.sender.id)) return unauthorizedResponse();
+    const unavailable = ensureServerAvailable();
+    if (unavailable) return unavailable;
 
     const validated = DomeMcpStartPayloadSchema.safeParse(payload);
-    if (!validated.success) {
-      return { success: false, error: 'Invalid payload' };
-    }
-    const body = validated.data;
-    const rawPort =
-      typeof body === 'number' && Number.isFinite(body)
-        ? body
-        : body && typeof body === 'object' && 'port' in body
-          ? body.port
-          : undefined;
-    let listenPort = rawPort != null && rawPort !== '' ? Number(rawPort) : null;
-    if (listenPort !== null && !Number.isFinite(listenPort)) listenPort = null;
+    if (!validated.success) return { success: false, error: 'Invalid payload' };
 
-    // Read saved port from settings if none provided
-    if (!listenPort && database) {
-      try {
-        const q = database.getQueries();
-        const row = q.getSetting?.get('dome_mcp_port');
-        if (row?.value) listenPort = parseInt(row.value, 10);
-      } catch {}
-    }
+    let listenPort = extractPort(validated.data);
+    if (!listenPort) listenPort = readSavedPort(database);
 
     const result = await domeMcpServer.start(listenPort || 37214);
-
-    // Persist the enabled flag
-    if (result.success && database) {
-      try {
-        const q = database.getQueries();
-        q.setSetting?.run('dome_mcp_enabled', '1');
-        q.setSetting?.run('dome_mcp_port', String(result.port));
-      } catch {}
-    }
-
+    if (result.success) persistStartSettings(database, result.port);
     return result;
   });
 
   ipcMain.handle('dome-mcp:stop', async (event) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
-    }
-    if (!domeMcpServer) return { success: false, error: 'MCP server module not available' };
+    if (!windowManager.isAuthorized(event.sender.id)) return unauthorizedResponse();
+    const unavailable = ensureServerAvailable();
+    if (unavailable) return unavailable;
 
     const result = await domeMcpServer.stop();
-
-    if (result.success && database) {
-      try {
-        const q = database.getQueries();
-        q.setSetting?.run('dome_mcp_enabled', '0');
-      } catch {}
-    }
-
+    if (result.success) persistStopSettings(database);
     return result;
   });
 

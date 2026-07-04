@@ -302,24 +302,31 @@ function updateRunStep(stepId, patch, existingStep = null) {
   return nextStep;
 }
 
-function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
-  const stepStatus =
-    runTerminalStatus === 'completed' ? 'done'
-      : runTerminalStatus === 'cancelled' ? 'cancelled'
-        : 'failed';
+function resolveStepStatus(runTerminalStatus) {
+  if (runTerminalStatus === 'completed') return 'done';
+  if (runTerminalStatus === 'cancelled') return 'cancelled';
+  return 'failed';
+}
 
-  if (context?.toolSteps instanceof Map) {
-    for (const [toolCallId, step] of context.toolSteps.entries()) {
-      if (!step || step.status !== 'running') continue;
-      const next = updateRunStep(step.id, {
-        status: stepStatus,
-        metadata: { ...(step.metadata ?? {}), autoFinalized: true },
-      }, step);
-      if (next) context.toolSteps.set(toolCallId, next);
-    }
+function resolveToolCallStatus(runTerminalStatus) {
+  if (runTerminalStatus === 'completed') return 'success';
+  if (runTerminalStatus === 'cancelled') return 'cancelled';
+  return 'error';
+}
+
+function finalizeContextToolSteps(context, stepStatus) {
+  if (!context?.toolSteps || !(context.toolSteps instanceof Map)) return;
+  for (const [toolCallId, step] of context.toolSteps.entries()) {
+    if (!step || step.status !== 'running') continue;
+    const next = updateRunStep(step.id, {
+      status: stepStatus,
+      metadata: { ...(step.metadata ?? {}), autoFinalized: true },
+    }, step);
+    if (next) context.toolSteps.set(toolCallId, next);
   }
+}
 
-  const queries = getQueries();
+function finalizeDbSteps(queries, runId, stepStatus) {
   if (!queries.getAutomationRunById.get(runId)) return;
   const steps = queries.getAutomationRunSteps.all(runId).map(normalizeStepRow);
   for (const step of steps) {
@@ -329,15 +336,24 @@ function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
       metadata: { ...(step.metadata ?? {}), autoFinalized: true },
     }, step);
   }
+}
 
-  if (Array.isArray(context?.toolCalls)) {
-    for (const entry of context.toolCalls) {
-      if (entry.status === 'running') {
-        entry.status = runTerminalStatus === 'completed' ? 'success'
-          : runTerminalStatus === 'cancelled' ? 'cancelled' : 'error';
-      }
-    }
+function finalizeContextToolCalls(context, runTerminalStatus) {
+  if (!Array.isArray(context?.toolCalls)) return;
+  const newStatus = resolveToolCallStatus(runTerminalStatus);
+  for (const entry of context.toolCalls) {
+    if (entry.status === 'running') entry.status = newStatus;
   }
+}
+
+function finalizeRunningRunSteps(runId, runTerminalStatus, context = null) {
+  const stepStatus = resolveStepStatus(runTerminalStatus);
+  finalizeContextToolSteps(context, stepStatus);
+
+  const queries = getQueries();
+  finalizeDbSteps(queries, runId, stepStatus);
+
+  finalizeContextToolCalls(context, runTerminalStatus);
 }
 
 function getRun(runId) {

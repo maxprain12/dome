@@ -326,56 +326,51 @@ async function buildInterpolationContext({ item, stage, pipeline, events, provid
   };
 }
 
+function resolveDataPath(path, data) {
+  const keys = path.slice(5).split('.');
+  let cur = data;
+  for (const k of keys) {
+    if (cur && typeof cur === 'object' && k in cur) cur = cur[k];
+    else return '';
+  }
+  if (cur == null) return '';
+  return typeof cur === 'object' ? JSON.stringify(cur) : String(cur);
+}
+
+function resolveTemplatePath(path, ctx) {
+  const { item, stage, pipeline, data, activity, contextBlock } = ctx;
+  const lookup = {
+    title: () => item.title ?? '',
+    'data.todos': () => renderTodos(data.todos),
+    'data.text': () => (typeof data.text === 'string' ? data.text : ''),
+    last_output: () => item.last_output ?? '',
+    stage: () => stage?.title ?? '',
+    'stage.title': () => stage?.title ?? '',
+    pipeline: () => pipeline?.name ?? '',
+    'pipeline.name': () => pipeline?.name ?? '',
+    status: () => item.exec_status ?? '',
+    start_at: () => formatDate(item.start_at),
+    end_at: () => formatDate(item.end_at),
+    activity: () => activity,
+    context: () => contextBlock,
+  };
+  const resolver = lookup[path];
+  if (resolver) return resolver();
+  if (path.startsWith('data.')) return resolveDataPath(path, data);
+  return '';
+}
+
 /**
  * Resolve {{macro}} placeholders in the stage run_input_template.
  */
 function interpolateTemplate(template, ctx) {
-  const { item, stage, pipeline, data, activity, contextBlock } = ctx;
+  const { data } = ctx;
 
   const withData = String(template).replace(/\{\{\s*data\s*\}\}/g, () =>
     renderLegacyDataSummary(data),
   );
 
-  return withData.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, path) => {
-    switch (path) {
-      case 'title':
-        return item.title ?? '';
-      case 'data.todos':
-        return renderTodos(data.todos);
-      case 'data.text':
-        return typeof data.text === 'string' ? data.text : '';
-      case 'last_output':
-        return item.last_output ?? '';
-      case 'stage':
-      case 'stage.title':
-        return stage?.title ?? '';
-      case 'pipeline':
-      case 'pipeline.name':
-        return pipeline?.name ?? '';
-      case 'status':
-        return item.exec_status ?? '';
-      case 'start_at':
-        return formatDate(item.start_at);
-      case 'end_at':
-        return formatDate(item.end_at);
-      case 'activity':
-        return activity;
-      case 'context':
-        return contextBlock;
-      default:
-        if (path.startsWith('data.')) {
-          const keys = path.slice(5).split('.');
-          let cur = data;
-          for (const k of keys) {
-            if (cur && typeof cur === 'object' && k in cur) cur = cur[k];
-            else return '';
-          }
-          if (cur == null) return '';
-          return typeof cur === 'object' ? JSON.stringify(cur) : String(cur);
-        }
-        return '';
-    }
-  });
+  return withData.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_m, path) => resolveTemplatePath(path, ctx));
 }
 
 async function buildCardContextBlock({
