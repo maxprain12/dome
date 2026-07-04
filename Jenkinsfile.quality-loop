@@ -170,7 +170,7 @@ pipeline {
             JENKINS_GH_SETUP_GIT=1 bash scripts/jenkins/gh-auth-env.sh
             git push -u origin "$BRANCH"
 
-            node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json
+            node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json --branch="$BRANCH"
           '''
         }
       }
