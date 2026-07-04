@@ -4,7 +4,7 @@ const { readSettingSecret, writeSettingSecret } = require('../core/settings-secr
 
 const PROVIDER_DEFAULTS = {
   minimax: {
-    model: 'MiniMax-M2.7-highspeed',
+    model: 'MiniMax-M3',
     envKeys: ['MINIMAX_API_KEY', 'MINIMAX_BENCH_API_KEY', 'AI_API_KEY'],
   },
 };

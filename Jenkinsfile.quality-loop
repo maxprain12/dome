@@ -139,7 +139,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            export SONAR_LOOP_MODEL="${SONAR_LOOP_MODEL:-MiniMax-M2.7-highspeed}"
+            export SONAR_LOOP_MODEL="${SONAR_LOOP_MODEL:-MiniMax-M3}"
             pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json
           '''
         }

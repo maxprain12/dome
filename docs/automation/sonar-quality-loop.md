@@ -45,7 +45,7 @@ Variables de entorno en el job (Environment / pipeline):
 
 | Variable | Default |
 |----------|---------|
-| `SONAR_LOOP_MODEL` | `MiniMax-M2.7-highspeed` |
+| `SONAR_LOOP_MODEL` | `MiniMax-M3` (1M context; evita límite ~2k de M2.7-highspeed) |
 | `SONAR_LOOP_PROVIDER` | `minimax` |
 | `SONAR_LOOP_TIMEOUT_MS` | `900000` (15 min) |
 
@@ -113,7 +113,7 @@ pnpm run sonar:pick-batch -- --size=3 --out=.quality-loop/batch.json
 pnpm run sonar:run-agent -- --dry-run
 
 # Run real
-pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json --model MiniMax-M2.7-highspeed
+pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json --model MiniMax-M3
 ```
 
 Perfil SQLite aislado: `~/.dome-sonar-loop` (no toca `~/.dome`).
