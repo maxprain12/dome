@@ -52,6 +52,7 @@ El pipeline ejecuta **`scripts/jenkins/bootstrap-agent-tools.sh`** + **`agent-pr
 | **`gh`** | `apt-get` si hay root/sudo; si no, **descarga portable** a `.jenkins-tools/bin/` |
 | **`xvfb`** | `apt-get` si hay root/sudo; si no, warning (Electron usa `no-sandbox`) |
 | Node/pnpm | bootstrap en stage Setup |
+| **Electron** | `pnpm rebuild electron` tras `install --ignore-scripts` (harness headless) |
 
 No hace falta instalar `gh` a mano en el agente salvo que `apt` y la descarga fallen (sin red).
 
