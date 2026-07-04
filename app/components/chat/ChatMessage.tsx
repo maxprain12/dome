@@ -422,7 +422,7 @@ export default function ChatMessage({
                     type="button"
                     className="rounded-lg border px-3 py-1.5 text-[12px] font-medium transition-colors hover:bg-[var(--bg-hover)]"
                     style={{ borderColor: 'var(--border)', color: 'var(--secondary-text)' }}
-                    onClick={() => void handlePdfRegionCopyHandoff()}
+                    onClick={() => handlePdfRegionCopyHandoff()}
                   >
                     {t('viewer.pdf_region_qa_copy_handoff')}
                   </button>

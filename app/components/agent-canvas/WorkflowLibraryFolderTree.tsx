@@ -114,7 +114,7 @@ function WorkflowLibraryFolderRow({
             variant="ghost"
             size="sm"
             aria-label={t('filter.new_folder')}
-            onClick={() => void props.onNewChildFolder(folder.id)}
+            onClick={() => props.onNewChildFolder(folder.id)}
           >
             <FolderPlus className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
           </DomeButton>
@@ -129,7 +129,7 @@ function WorkflowLibraryFolderRow({
               {
                 label: t('canvas.rename_workflow_folder'),
                 icon: <Pencil className="size-3.5" />,
-                onClick: () => void props.onRenameFolder(folder),
+                onClick: () => props.onRenameFolder(folder),
               },
               {
                 label: t('canvas.delete_workflow_folder'),
