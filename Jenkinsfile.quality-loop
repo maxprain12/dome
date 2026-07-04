@@ -66,6 +66,7 @@ pipeline {
           pnpm install --frozen-lockfile --ignore-scripts
           # Electron binary download (postinstall skipped above) — required for sonar:run-agent harness
           pnpm rebuild electron
+          bash scripts/jenkins/verify-electron-runtime.sh "$PWD"
           pnpm run rebuild:natives
           pnpm run build:packages
         '''
@@ -137,6 +138,7 @@ pipeline {
           sh '''
             set -eux
             export SONAR_LOOP_MODEL="${SONAR_LOOP_MODEL:-MiniMax-M2.7-highspeed}"
+            bash scripts/jenkins/verify-electron-runtime.sh "$PWD"
             bash scripts/jenkins/run-with-display.sh \
               pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json
           '''

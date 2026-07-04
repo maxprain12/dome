@@ -51,6 +51,7 @@ El pipeline ejecuta **`scripts/jenkins/bootstrap-agent-tools.sh`** + **`agent-pr
 | `git`, `curl` | deben existir en la imagen (Jenkins estándar) |
 | **`gh`** | `apt-get` si hay root/sudo; si no, **descarga portable** a `.jenkins-tools/bin/` |
 | **`xvfb`** | `apt-get` si hay root/sudo; si no, warning (Electron usa `no-sandbox`) |
+| **Electron runtime** | `libglib2.0-0`, GTK, NSS, etc. vía `bootstrap-agent-tools.sh` (requiere apt/root en el agente) |
 | Node/pnpm | bootstrap en stage Setup |
 | **Electron** | `pnpm rebuild electron` tras `install --ignore-scripts` (harness headless) |
 
