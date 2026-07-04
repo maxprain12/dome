@@ -34,10 +34,11 @@ function buildSrcDoc(artifact: HtmlArtifactV, themeCss: string): string {
 ${DOME_IFRAME_STORAGE_SHIM_SCRIPT}
 (function() {
   var resizeTimer;
+  var myOrigin = origin;
   function postReady() {
     if (!window.parent) return;
     try {
-      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'ready' }, '*');
+      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'ready' }, myOrigin);
     } catch (e) {}
   }
   function postResize() {
@@ -47,7 +48,7 @@ ${DOME_IFRAME_STORAGE_SHIM_SCRIPT}
       document.body.offsetHeight, document.documentElement.offsetHeight
     );
     try {
-      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'resize', height: h }, '*');
+      window.parent.postMessage({ type: '${DOME_ARTIFACT}', kind: 'resize', height: h }, myOrigin);
     } catch (e) {}
   }
   window.addEventListener('message', function(ev) {
@@ -97,6 +98,7 @@ export default function HtmlArtifactFrame({
   const { t } = useTranslation();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const iframeReadyRef = useRef(false);
+  const iframeOriginRef = useRef<string | null>(null);
   const [height, setHeight] = useState(artifact.height ?? 240);
   const [showSource, setShowSource] = useState(false);
 
@@ -110,8 +112,10 @@ export default function HtmlArtifactFrame({
     if (!iframeReadyRef.current) return;
     const w = iframeRef.current?.contentWindow;
     if (!w) return;
+    const targetOrigin = iframeOriginRef.current;
+    if (!targetOrigin) return;
     try {
-      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, '*');
+      w.postMessage({ type: DOME_THEME, css: themeCss, vars: themeSnapshot.vars }, targetOrigin);
     } catch {
       // iframe was unloaded
     }
@@ -142,6 +146,7 @@ export default function HtmlArtifactFrame({
     if (!d || d.type !== DOME_ARTIFACT) return;
     if (d.kind === 'ready') {
       iframeReadyRef.current = true;
+      iframeOriginRef.current = ev.origin;
       postThemeRef.current();
       return;
     }
@@ -163,6 +168,7 @@ export default function HtmlArtifactFrame({
   if (srcdoc !== prevSrcdocRef.current) {
     prevSrcdocRef.current = srcdoc;
     iframeReadyRef.current = false;
+    iframeOriginRef.current = null;
   }
 
   return (

@@ -20,7 +20,7 @@ function buildBridgeScript() {
         window.DomePlugin = {
           request(method, params) {
             const id = "plugin_req_" + (++seq);
-            window.parent.postMessage({ source: "dome-plugin", type: "request", id, method, params }, "*");
+            window.parent.postMessage({ source: "dome-plugin", type: "request", id, method, params }, origin);
             return new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
           }
         };
@@ -102,12 +102,13 @@ export default function PluginRuntimeModal({ plugin, onClose }: PluginRuntimeMod
         return;
       }
 
+      const targetOrigin = event.origin;
       const respond = (payload: { result?: unknown; error?: string }) => {
         iframeRef.current?.contentWindow?.postMessage({
           source: 'dome-host',
           id: data.id,
           ...payload,
-        }, '*');
+        }, targetOrigin);
       };
 
       try {
