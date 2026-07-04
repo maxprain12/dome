@@ -59,6 +59,7 @@
     "sonar:sync-github": "node scripts/sonar/sync-github-issues.mjs",
     "sonar:pick-batch": "node scripts/sonar/pick-batch.mjs",
     "sonar:close-resolved": "node scripts/sonar/close-resolved.mjs",
+    "sonar:close-github-duplicates": "node scripts/sonar/close-duplicate-github-issues.mjs",
     "sonar:run-agent": "node scripts/sonar/run-agent.mjs",
     "test": "pnpm run test:security && pnpm --filter @dome/agent-core run test",
     "test:studio": "node scripts/test-studio-validators.mjs",

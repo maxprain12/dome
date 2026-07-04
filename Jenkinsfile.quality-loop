@@ -64,6 +64,8 @@ pipeline {
         sh '''
           set -eux
           pnpm install --frozen-lockfile --ignore-scripts
+          # Electron binary download (postinstall skipped above) — required for sonar:run-agent harness
+          pnpm rebuild electron
           pnpm run rebuild:natives
           pnpm run build:packages
         '''
