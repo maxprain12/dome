@@ -212,7 +212,7 @@ export function sonarImpactLabel(impact) {
   return `sonar-${impact.toLowerCase()}`;
 }
 
-export const SONAR_KEY_RE = /sonarKey:\s*([A-Za-z0-9_-]+)/;
+export const SONAR_KEY_RE = /(?:sonarKey|\*\*Key\*\*):\s*([A-Za-z0-9-]+)/;
 
 /** @param {string} body */
 export function extractSonarKey(body) {
