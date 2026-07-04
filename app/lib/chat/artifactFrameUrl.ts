@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Artifact frame loading (issue #465).
+ * Artifact frame loading (issue 465).
  *
  * `srcdoc` iframes inherit the embedding document's CSP. In packaged builds the
  * renderer CSP is `script-src 'self'`, so every inline <script> of an artifact

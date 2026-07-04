@@ -37,7 +37,7 @@ function buildArtifactThumbSrcDoc(template: string, data: Record<string, unknown
 function ArtifactThumb({ template, data }: { template: string; data: Record<string, unknown> | null }) {
   const srcDoc = useMemo(() => buildArtifactThumbSrcDoc(template, data), [template, data]);
   // Served frame URL: srcdoc would inherit the strict renderer CSP and block
-  // the preview's inline scripts in packaged builds (issue #465).
+  // the preview's inline scripts in packaged builds (issue 465).
   const frameSource = useArtifactFrameSrc(srcDoc);
   return (
     <iframe

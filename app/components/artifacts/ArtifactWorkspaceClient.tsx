@@ -205,7 +205,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     artifact?.state && typeof artifact.state === 'object'
       ? (artifact.state as Record<string, unknown>)
       : {};
-  // Fallback chain (issue #465): state.html → record.template → placeholder.
+  // Fallback chain (issue 465): state.html → record.template → placeholder.
   const rawHtml =
     typeof stateRec.html === 'string' && stateRec.html.trim()
       ? stateRec.html
