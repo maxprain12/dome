@@ -37,12 +37,7 @@ function requireToken() {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/**
- * Low-level request. Returns { status, headers, data }.
- * On 304 (ETag match) returns data:null so callers can keep their cache.
- */
-async function rawRequest(method, path, { body, etag, token } = {}, retries = MAX_RETRIES, backoff = INITIAL_BACKOFF) {
-  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+function buildHeaders(token, etag, hasBody) {
   const headers = {
     Accept: 'application/vnd.github+json',
     Authorization: `Bearer ${token}`,
@@ -50,51 +45,75 @@ async function rawRequest(method, path, { body, etag, token } = {}, retries = MA
     'X-GitHub-Api-Version': '2022-11-28',
   };
   if (etag) headers['If-None-Match'] = etag;
-  if (body) headers['Content-Type'] = 'application/json';
+  if (hasBody) headers['Content-Type'] = 'application/json';
+  return headers;
+}
 
+function getRateLimitWaitMs(res) {
+  const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '1', 10);
+  const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
+  const reset = parseInt(res.headers.get('x-ratelimit-reset') || '0', 10);
+  if (retryAfter > 0) return retryAfter * 1000;
+  if (remaining > 0) return 0;
+  return Math.max(0, reset * 1000 - Date.now()) + 1000;
+}
+
+async function readSuccessBody(res) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return text;
+  }
+}
+
+async function readErrorMessage(res) {
+  const errText = await res.text().catch(() => '');
+  if (!errText) return `GitHub ${res.status}`;
+  try {
+    return JSON.parse(errText).message || `GitHub ${res.status}`;
+  } catch {
+    return `GitHub ${res.status}`;
+  }
+}
+
+async function handleRateLimit(res, method, path, opts, retries, backoff) {
+  if (retries <= 0) return null;
+  if (res.status !== 403 && res.status !== 429) return null;
+  const waitMs = getRateLimitWaitMs(res);
+  if (waitMs <= 0) return null;
+  console.warn(`[github-api] rate limited, waiting ${waitMs}ms`);
+  await sleep(Math.min(waitMs, 60_000));
+  return rawRequest(method, path, opts, retries - 1, backoff);
+}
+
+/**
+ * Low-level request. Returns { status, headers, data }.
+ * On 304 (ETag match) returns data:null so callers can keep their cache.
+ */
+async function rawRequest(method, path, { body, etag, token } = {}, retries = MAX_RETRIES, backoff = INITIAL_BACKOFF) {
+  const url = path.startsWith('http') ? path : `${API_BASE}${path}`;
+  const headers = buildHeaders(token, etag, Boolean(body));
+  const opts = { body, etag, token };
   const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
 
-  // Primary/secondary rate limit handling.
-  if ((res.status === 403 || res.status === 429) && retries > 0) {
-    const remaining = parseInt(res.headers.get('x-ratelimit-remaining') || '1', 10);
-    const retryAfter = parseInt(res.headers.get('retry-after') || '0', 10);
-    const reset = parseInt(res.headers.get('x-ratelimit-reset') || '0', 10);
-    if (remaining <= 0 || retryAfter > 0) {
-      const waitMs = retryAfter > 0 ? retryAfter * 1000 : Math.max(0, reset * 1000 - Date.now()) + 1000;
-      console.warn(`[github-api] rate limited, waiting ${waitMs}ms`);
-      await sleep(Math.min(waitMs, 60_000));
-      return rawRequest(method, path, { body, etag, token }, retries - 1, backoff);
-    }
-  }
+  const retriedAfterRateLimit = await handleRateLimit(res, method, path, opts, retries, backoff);
+  if (retriedAfterRateLimit) return retriedAfterRateLimit;
 
   if (res.status === 304) {
     return { status: 304, headers: res.headers, data: null };
   }
 
   if (res.status >= 200 && res.status < 300) {
-    const text = await res.text();
-    let data = null;
-    try {
-      data = text ? JSON.parse(text) : null;
-    } catch {
-      data = text;
-    }
-    return { status: res.status, headers: res.headers, data };
+    return { status: res.status, headers: res.headers, data: await readSuccessBody(res) };
   }
 
   if (res.status >= 500 && retries > 0) {
     await sleep(backoff);
-    return rawRequest(method, path, { body, etag, token }, retries - 1, backoff * 2);
+    return rawRequest(method, path, opts, retries - 1, backoff * 2);
   }
 
-  const errText = await res.text().catch(() => '');
-  let message = `GitHub ${res.status}`;
-  try {
-    message = JSON.parse(errText).message || message;
-  } catch {
-    /* keep default */
-  }
-  throw new Error(message);
+  throw new Error(await readErrorMessage(res));
 }
 
 /** GET with automatic pagination (follows the Link rel="next" header).

@@ -1517,177 +1517,216 @@ const DEFAULT_NOTEBOOK_JSON = JSON.stringify({
   metadata: { kernelspec: { display_name: 'Python 3 (Pyodide)', name: 'python3', language: 'python' } },
 });
 
+const VALID_CREATE_TYPES = ['note', 'notebook', 'url', 'folder', 'excel'];
+const FOLDER_AUTO_COLORS = ['#596037', '#7b76d0', '#22c55e', '#3b82f6', '#6b7280', '#ef4444', '#f97316', '#ec4899', '#eab308', '#06b6d4'];
+
+function parseCreateMetadata(rawMeta) {
+  let parsed = rawMeta;
+  if (typeof parsed === 'string') {
+    try { parsed = JSON.parse(parsed); } catch { parsed = null; }
+  }
+  return parsed && typeof parsed === 'object' ? { ...parsed } : null;
+}
+
+function prepareFolderMetadata(metadataForCreate) {
+  if (metadataForCreate?.color) return metadataForCreate;
+  const autoColor = FOLDER_AUTO_COLORS[Math.floor(Math.random() * FOLDER_AUTO_COLORS.length)];
+  return { ...(metadataForCreate || {}), color: autoColor };
+}
+
+function prepareNoteContent(content, data, queries, metadataForCreate) {
+  const normalized = noteMarkdown.normalizeAgentNoteInput(content, {
+    title: data.title,
+    isCreate: true,
+    queries,
+    metadata: metadataForCreate || {},
+  });
+  const nextMetadata = normalized.linkedResourceIds.length > 0
+    ? {
+        ...(metadataForCreate || {}),
+        sourceResourceIds: normalized.linkedResourceIds,
+        aiNoteNormalized: true,
+      }
+    : metadataForCreate;
+  return { content: normalized.markdown, links: normalized.linkedResourceIds, metadata: nextMetadata };
+}
+
+function resolveNotebookContent(content) {
+  if (!content.trim()) return DEFAULT_NOTEBOOK_JSON;
+  try {
+    const parsed = JSON.parse(content);
+    if (!parsed.nbformat || !Array.isArray(parsed.cells)) return DEFAULT_NOTEBOOK_JSON;
+  } catch {
+    return DEFAULT_NOTEBOOK_JSON;
+  }
+  return content;
+}
+
+function prepareContentByType(type, data, queries, metadataForCreate) {
+  if (type === 'folder') {
+    return { content: '', links: [], metadata: prepareFolderMetadata(metadataForCreate) };
+  }
+  if (type === 'note') {
+    return prepareNoteContent(data.content || '', data, queries, metadataForCreate);
+  }
+  if (type === 'notebook') {
+    return { content: resolveNotebookContent(data.content || ''), links: [], metadata: metadataForCreate };
+  }
+  return { content: data.content || '', links: [], metadata: metadataForCreate };
+}
+
+async function resolveEffectiveProjectId(queries, requestedProjectId) {
+  let projectId = requestedProjectId;
+  if (!projectId) {
+    const currentProject = await getCurrentProject();
+    projectId = currentProject?.id || 'default';
+  }
+  const projectExists = queries.getProjectById.get(projectId);
+  if (projectExists) return projectId;
+  const projects = queries.getProjects.all();
+  if (!projects.length && !queries.getProjectById.get('default')) {
+    return { error: 'No valid project found. Create a project first.' };
+  }
+  return projects[0]?.id || 'default';
+}
+
+function resolveCreateFolderId(queries, folderId) {
+  if (folderId == null || folderId === '') return null;
+  const folder = queries.getResourceById.get(folderId);
+  if (folder && folder.type === 'folder') return folderId;
+  console.warn('[AI Tools] folder_id invalid or not a folder, using root:', folderId);
+  return null;
+}
+
+async function createExcelResource(data) {
+  let projectId = data.project_id;
+  if (!projectId) {
+    const currentProject = await getCurrentProject();
+    projectId = currentProject?.id || 'default';
+  }
+  const result = await excelToolsHandler.excelCreate(projectId, data.title.trim(), {
+    sheet_name: data.sheet_name,
+    initial_data: data.initial_data,
+    folder_id: data.folder_id,
+  });
+  if (!result.success) return result;
+  const now = Date.now();
+  return {
+    success: true,
+    resource: {
+      id: result.resource.id,
+      title: result.resource.title,
+      type: result.resource.type,
+      project_id: result.resource.project_id,
+      folder_id: data.folder_id || null,
+      created_at: now,
+      updated_at: now,
+    },
+  };
+}
+
+function linkNoteSources(queries, id, links) {
+  for (const targetId of links) {
+    createManualResourceRelation(queries, id, targetId, 'source_note');
+  }
+}
+
+function mirrorFolderToVault(id) {
+  try {
+    vaultStore.createFolderOnDisk(id, { database, fileStorage });
+  } catch (e) {
+    console.warn('[AI Tools] createFolderOnDisk failed:', e?.message);
+  }
+}
+
+function mirrorNoteToVault(id, content, title, metadataForCreate) {
+  const mirrorMeta = metadataForCreate ? JSON.stringify(metadataForCreate) : null;
+  const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
+    { id, markdown: content || '', title, metadata: mirrorMeta },
+    { database, fileStorage, semanticIndexScheduler },
+  );
+  if (!writeResult.success) {
+    console.warn('[AI Tools] writeNoteMarkdownFromAgent failed:', writeResult.error);
+  }
+}
+
+function mirrorUrlOrNotebookToVault(id) {
+  try {
+    const { ensureResourceMirror } = require('../storage/vault-sync.cjs');
+    ensureResourceMirror(id, { database, fileStorage });
+  } catch (e) {
+    console.warn('[AI Tools] ensureResourceMirror failed:', e?.message);
+  }
+}
+
+function broadcastResourceCreated(resource) {
+  if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
+    windowManagerRef.broadcast('resource:created', resource);
+  }
+}
+
 async function resourceCreate(data) {
   try {
     if (!data || !data.title || !data.title.trim()) {
       return { success: false, error: 'Title is required' };
     }
 
-    const db = database.getDB();
     const queries = database.getQueries();
 
     const requestedType = data.type || 'note';
     const type = requestedType === 'document' ? 'note' : requestedType;
-    const validTypes = ['note', 'notebook', 'url', 'folder', 'excel'];
-    if (!validTypes.includes(type)) {
-      return { success: false, error: `AI can only create resources of type: ${validTypes.join(', ')}` };
+    if (!VALID_CREATE_TYPES.includes(type)) {
+      return { success: false, error: `AI can only create resources of type: ${VALID_CREATE_TYPES.join(', ')}` };
     }
 
     if (type === 'excel') {
-      let projectId = data.project_id;
-      if (!projectId) {
-        const currentProject = await getCurrentProject();
-        projectId = currentProject?.id || 'default';
-      }
-      const result = await excelToolsHandler.excelCreate(projectId, data.title.trim(), {
-        sheet_name: data.sheet_name,
-        initial_data: data.initial_data,
-        folder_id: data.folder_id,
-      });
-      if (!result.success) return result;
-      return {
-        success: true,
-        resource: {
-          id: result.resource.id,
-          title: result.resource.title,
-          type: result.resource.type,
-          project_id: result.resource.project_id,
-          folder_id: data.folder_id || null,
-          created_at: Date.now(),
-          updated_at: Date.now(),
-        },
-      };
+      return createExcelResource(data);
     }
 
-    let content = data.content || '';
-    let normalizedNoteLinks = [];
-    // Normalize metadata: some providers pass it as a JSON string instead of an object
-    let _rawMeta = data.metadata;
-    if (typeof _rawMeta === 'string') {
-      try { _rawMeta = JSON.parse(_rawMeta); } catch { _rawMeta = null; }
-    }
-    let metadataForCreate = _rawMeta && typeof _rawMeta === 'object' ? { ..._rawMeta } : null;
-    const FOLDER_AUTO_COLORS = ['#596037', '#7b76d0', '#22c55e', '#3b82f6', '#6b7280', '#ef4444', '#f97316', '#ec4899', '#eab308', '#06b6d4'];
-    if (type === 'folder') {
-      content = '';
-      // Auto-assign a color if the caller didn't provide one
-      if (!metadataForCreate?.color) {
-        const autoColor = FOLDER_AUTO_COLORS[Math.floor(Math.random() * FOLDER_AUTO_COLORS.length)];
-        metadataForCreate = { ...(metadataForCreate || {}), color: autoColor };
-      }
-    } else if (type === 'note') {
-      const normalized = noteMarkdown.normalizeAgentNoteInput(content, {
-        title: data.title,
-        isCreate: true,
-        queries,
-        metadata: metadataForCreate || {},
-      });
-      content = normalized.markdown;
-      normalizedNoteLinks = normalized.linkedResourceIds;
-      if (normalizedNoteLinks.length > 0) {
-        metadataForCreate = {
-          ...(metadataForCreate || {}),
-          sourceResourceIds: normalizedNoteLinks,
-          aiNoteNormalized: true,
-        };
-      }
-    } else if (type === 'notebook') {
-      if (!content.trim()) {
-        content = DEFAULT_NOTEBOOK_JSON;
-      } else {
-        try {
-          const parsed = JSON.parse(content);
-          if (!parsed.nbformat || !Array.isArray(parsed.cells)) {
-            content = DEFAULT_NOTEBOOK_JSON;
-          }
-        } catch {
-          content = DEFAULT_NOTEBOOK_JSON;
-        }
-      }
-    }
+    const metadataForCreate = parseCreateMetadata(data.metadata);
+    const prepared = prepareContentByType(type, data, queries, metadataForCreate);
+    const { content, links: normalizedNoteLinks, metadata: nextMetadata } = prepared;
 
-    // Determine project ID and validate it exists
-    let projectId = data.project_id;
-    if (!projectId) {
-      const currentProject = await getCurrentProject();
-      projectId = currentProject?.id || 'default';
+    const projectResolution = await resolveEffectiveProjectId(queries, data.project_id);
+    if (projectResolution && typeof projectResolution === 'object' && projectResolution.error) {
+      return { success: false, error: projectResolution.error };
     }
-    const projectExists = queries.getProjectById.get(projectId);
-    if (!projectExists) {
-      const projects = queries.getProjects.all();
-      projectId = projects[0]?.id || 'default';
-      const defaultExists = queries.getProjectById.get('default');
-      if (!defaultExists && !projects.length) {
-        return { success: false, error: 'No valid project found. Create a project first.' };
-      }
-    }
+    const projectId = projectResolution;
 
-    // Validate folder_id exists and is type folder (avoid FOREIGN KEY)
-    let resolvedFolderId = null;
-    if (data.folder_id != null && data.folder_id !== '') {
-      const folder = queries.getResourceById.get(data.folder_id);
-      if (folder && folder.type === 'folder') {
-        resolvedFolderId = data.folder_id;
-      } else {
-        console.warn('[AI Tools] folder_id invalid or not a folder, using root:', data.folder_id);
-      }
-    }
+    const resolvedFolderId = resolveCreateFolderId(queries, data.folder_id);
 
     const now = Date.now();
     const id = `res_${now}_${Math.random().toString(36).substr(2, 9)}`;
+    const trimmedTitle = data.title.trim();
 
     queries.createResource.run(
       id,
       projectId,
       type,
-      data.title.trim(),
+      trimmedTitle,
       content,
-      null, // file_path
+      null,
       resolvedFolderId,
-      metadataForCreate ? JSON.stringify(metadataForCreate) : null,
+      nextMetadata ? JSON.stringify(nextMetadata) : null,
       now,
       now
     );
 
     if (type === 'note' && normalizedNoteLinks.length > 0) {
-      for (const targetId of normalizedNoteLinks) {
-        createManualResourceRelation(queries, id, targetId, 'source_note');
-      }
+      linkNoteSources(queries, id, normalizedNoteLinks);
     }
 
     // Mirror to the physical vault so agent-created items exist on disk. The vault
     // is the source of truth and the workspace reflects on-disk state; without this
     // the agent's folders/notes lived only in SQLite (vault_path NULL) and the
     // physical file never appeared. Mirrors electron/ipc/data/database.cjs createResource.
-    if (type === 'folder') {
-      try {
-        vaultStore.createFolderOnDisk(id, { database, fileStorage });
-      } catch (e) {
-        console.warn('[AI Tools] createFolderOnDisk failed:', e?.message);
-      }
-    }
-    if (type === 'note') {
-      const mirrorMeta = metadataForCreate ? JSON.stringify(metadataForCreate) : null;
-      const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
-        { id, markdown: content || '', title: data.title.trim(), metadata: mirrorMeta },
-        { database, fileStorage, semanticIndexScheduler },
-      );
-      if (!writeResult.success) {
-        console.warn('[AI Tools] writeNoteMarkdownFromAgent failed:', writeResult.error);
-      }
-    }
-    if (type === 'url' || type === 'notebook') {
-      try {
-        const { ensureResourceMirror } = require('../storage/vault-sync.cjs');
-        ensureResourceMirror(id, { database, fileStorage });
-      } catch (e) {
-        console.warn('[AI Tools] ensureResourceMirror failed:', e?.message);
-      }
-    }
+    if (type === 'folder') mirrorFolderToVault(id);
+    if (type === 'note') mirrorNoteToVault(id, content, trimmedTitle, nextMetadata);
+    if (type === 'url' || type === 'notebook') mirrorUrlOrNotebookToVault(id);
 
     const resource = {
       id,
-      title: data.title.trim(),
+      title: trimmedTitle,
       type,
       project_id: projectId,
       folder_id: resolvedFolderId,
@@ -1695,9 +1734,7 @@ async function resourceCreate(data) {
       updated_at: now,
     };
 
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      windowManagerRef.broadcast('resource:created', resource);
-    }
+    broadcastResourceCreated(resource);
 
     return { success: true, resource };
   } catch (error) {
@@ -1715,6 +1752,172 @@ async function resourceCreate(data) {
  * @param {Object} [updates.metadata] - Metadata to merge
  * @returns {Promise<Object>}
  */
+function safeParseMeta(raw) {
+  if (!raw) return {};
+  try { return JSON.parse(raw); } catch { return {}; }
+}
+
+function parseIncomingMeta(input) {
+  let incoming = input;
+  if (typeof incoming === 'string') {
+    try { incoming = JSON.parse(incoming); } catch { incoming = {}; }
+  }
+  if (!incoming || typeof incoming !== 'object') return {};
+  return incoming;
+}
+
+function normalizeNoteForUpdate(existing, content, title, queries, updates) {
+  const existingMeta = safeParseMeta(existing.metadata);
+  const incomingMeta = parseIncomingMeta(updates.metadata);
+  const normalized = noteMarkdown.normalizeAgentNoteInput(content, {
+    title,
+    isCreate: false,
+    queries,
+    metadata: { ...existingMeta, ...incomingMeta },
+  });
+  return { markdown: normalized.markdown, links: normalized.linkedResourceIds };
+}
+
+function mergeMetadataForUpdate(existingMetadata, updates, normalizedNoteLinks) {
+  let metadata = existingMetadata;
+  if (updates.metadata) {
+    const existingMeta = safeParseMeta(metadata);
+    const incomingMeta = parseIncomingMeta(updates.metadata);
+    metadata = JSON.stringify({ ...existingMeta, ...incomingMeta });
+  }
+  if (normalizedNoteLinks.length > 0) {
+    const existingMeta = safeParseMeta(metadata);
+    metadata = JSON.stringify({
+      ...existingMeta,
+      sourceResourceIds: Array.from(new Set([...(existingMeta.sourceResourceIds || []), ...normalizedNoteLinks])),
+      aiNoteNormalized: true,
+    });
+  }
+  return metadata;
+}
+
+function isDocxResource(existing) {
+  if (existing.type !== 'document') return false;
+  const filename = (existing.original_filename || existing.title || '').toLowerCase();
+  const mime = existing.file_mime_type || '';
+  if (existing.internal_path?.toLowerCase().endsWith('.docx')) return true;
+  if (filename.endsWith('.docx') || filename.endsWith('.doc')) return true;
+  if (mime.includes('wordprocessingml') || mime.includes('msword')) return true;
+  return false;
+}
+
+async function extractDocxTextSafe(fullPath) {
+  try {
+    return await documentExtractor.extractDocxText(fullPath, 50000);
+  } catch (e) {
+    console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
+    return null;
+  }
+}
+
+async function updateExistingDocx(existing, buffer, now, resourceId) {
+  fileStorage.overwriteFile(existing.internal_path, buffer);
+  const fullPath = fileStorage.getFullPath(existing.internal_path);
+  return extractDocxTextSafe(fullPath);
+}
+
+async function importNewDocx(existing, buffer, queries, now, resourceId) {
+  const safeTitle = (existing.title || 'document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
+  const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
+  const fullPath = fileStorage.getFullPath(importResult.internalPath);
+  queries.updateResourceFile.run(
+    importResult.internalPath,
+    importResult.mimeType,
+    importResult.size,
+    importResult.hash,
+    existing.thumbnail_data,
+    importResult.originalName,
+    now,
+    resourceId,
+  );
+  return extractDocxTextSafe(fullPath);
+}
+
+async function applyDocxUpdate(existing, content, queries, resourceId, now) {
+  try {
+    let html = String(content).trim();
+    if (!html.startsWith('<') || !html.includes('>')) {
+      const { marked } = await import('marked');
+      html = marked.parse(html);
+    }
+    const buffer = await docxConverter.htmlToDocxBuffer(html);
+    if (!buffer) return content;
+    if (existing.internal_path) {
+      const extracted = await updateExistingDocx(existing, buffer, now, resourceId);
+      return extracted || content;
+    }
+    const extracted = await importNewDocx(existing, buffer, queries, now, resourceId);
+    return extracted || content;
+  } catch (docxErr) {
+    console.warn('[AI Tools] DOCX update failed:', docxErr?.message);
+    return content;
+  }
+}
+
+async function persistResourceUpdate(existing, resourceId, title, content, metadata, updates, noteMarkdownBody, queries, now) {
+  if (existing.type === 'note' && updates.content !== undefined) {
+    const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
+      { id: resourceId, markdown: noteMarkdownBody ?? '', title, metadata },
+      { database, fileStorage, semanticIndexScheduler },
+    );
+    if (!writeResult.success) {
+      return { success: false, error: writeResult.error || 'Failed to write note markdown' };
+    }
+    return { success: true };
+  }
+  queries.updateResource.run(title, content, metadata, now, resourceId);
+  return { success: true };
+}
+
+function reconcileUrlOrNotebookMirror(existing, resourceId, titleChanged, updates) {
+  if (!titleChanged && updates.content === undefined) return;
+  const write = existing.type === 'url' ? vaultStore.writeUrlMirror : vaultStore.writeNotebookMirror;
+  write({ id: resourceId }, { database, fileStorage });
+}
+
+function reconcileVaultAfterUpdate(existing, resourceId, title, updates) {
+  try {
+    const titleChanged = updates.title !== undefined && title !== existing.title;
+    if (existing.type === 'url' || existing.type === 'notebook') {
+      reconcileUrlOrNotebookMirror(existing, resourceId, titleChanged, updates);
+      return;
+    }
+    if (existing.type === 'note') {
+      // Content writes already relocate via writeNoteMarkdownFromAgent.
+      if (titleChanged && updates.content === undefined) {
+        vaultStore.relocateResource(resourceId, { database, fileStorage });
+      }
+      return;
+    }
+    if (existing.type === 'artifact') {
+      if (titleChanged) vaultStore.relocateResource(resourceId, { database, fileStorage });
+      return;
+    }
+    if (existing.vault_path && titleChanged) {
+      vaultStore.renameResourceFileToTitle(resourceId, { database, fileStorage });
+    }
+  } catch (e) {
+    console.warn('[AI Tools] vault reconcile (update) failed:', e?.message);
+  }
+}
+
+function broadcastResourceUpdated(resourceId, title, content, metadata, updates, now) {
+  if (!windowManagerRef || typeof windowManagerRef.broadcast !== 'function') return;
+  const broadcastUpdates = { title, updated_at: now };
+  if (updates.content !== undefined) broadcastUpdates.content = content;
+  if (metadata != null) broadcastUpdates.metadata = metadata;
+  windowManagerRef.broadcast('resource:updated', {
+    id: resourceId,
+    fromAgent: true,
+    updates: broadcastUpdates,
+  });
+}
+
 async function resourceUpdate(resourceId, updates) {
   try {
     if (!resourceId) {
@@ -1735,103 +1938,23 @@ async function resourceUpdate(resourceId, updates) {
     let normalizedNoteLinks = [];
     let noteMarkdownBody = null;
     if (existing.type === 'note' && updates.content !== undefined) {
-      let existingMetaForNormalize = {};
-      try { existingMetaForNormalize = existing.metadata ? JSON.parse(existing.metadata) : {}; } catch { existingMetaForNormalize = {}; }
-      const normalized = noteMarkdown.normalizeAgentNoteInput(content, {
-        title,
-        isCreate: false,
-        queries,
-        metadata: {
-          ...existingMetaForNormalize,
-          ...(updates.metadata && typeof updates.metadata === 'object' ? updates.metadata : {}),
-        },
-      });
+      const normalized = normalizeNoteForUpdate(existing, content, title, queries, updates);
       noteMarkdownBody = normalized.markdown;
       content = noteMarkdownBody;
-      normalizedNoteLinks = normalized.linkedResourceIds;
+      normalizedNoteLinks = normalized.links;
     }
 
-    // Merge metadata
-    let metadata = existing.metadata;
-    if (updates.metadata) {
-      let existingMeta = {};
-      try { existingMeta = metadata ? JSON.parse(metadata) : {}; } catch { existingMeta = {}; }
-      // Some LLM providers pass metadata as a JSON string instead of an object;
-      // spreading a string produces character-index keys — parse it defensively.
-      let incomingMeta = updates.metadata;
-      if (typeof incomingMeta === 'string') {
-        try { incomingMeta = JSON.parse(incomingMeta); } catch { incomingMeta = {}; }
-      }
-      if (typeof incomingMeta !== 'object' || incomingMeta === null) incomingMeta = {};
-      metadata = JSON.stringify({ ...existingMeta, ...incomingMeta });
-    }
-    if (normalizedNoteLinks.length > 0) {
-      let existingMeta = {};
-      try { existingMeta = metadata ? JSON.parse(metadata) : {}; } catch { existingMeta = {}; }
-      metadata = JSON.stringify({
-        ...existingMeta,
-        sourceResourceIds: Array.from(new Set([...(existingMeta.sourceResourceIds || []), ...normalizedNoteLinks])),
-        aiNoteNormalized: true,
-      });
-    }
-
+    const metadata = mergeMetadataForUpdate(existing.metadata, updates, normalizedNoteLinks);
     const now = Date.now();
 
-    const filename = (existing.original_filename || existing.title || '').toLowerCase();
-    const mime = existing.file_mime_type || '';
-    const isDocx = existing.type === 'document' && (
-      existing.internal_path?.toLowerCase().endsWith('.docx') ||
-      filename.endsWith('.docx') || filename.endsWith('.doc') ||
-      mime.includes('wordprocessingml') || mime.includes('msword')
+    if (isDocxResource(existing) && updates.content !== undefined && content) {
+      content = await applyDocxUpdate(existing, content, queries, resourceId, now);
+    }
+
+    const persistResult = await persistResourceUpdate(
+      existing, resourceId, title, content, metadata, updates, noteMarkdownBody, queries, now,
     );
-
-    if (isDocx && updates.content !== undefined && content) {
-      try {
-        let html = String(content).trim();
-        if (!html.startsWith('<') || !html.includes('>')) {
-          const { marked } = await import('marked');
-          html = marked.parse(html);
-        }
-        const buffer = await docxConverter.htmlToDocxBuffer(html);
-        if (buffer && existing.internal_path) {
-          fileStorage.overwriteFile(existing.internal_path, buffer);
-          const fullPath = fileStorage.getFullPath(existing.internal_path);
-          let contentText = null;
-          try {
-            contentText = await documentExtractor.extractDocxText(fullPath, 50000);
-          } catch (e) {
-            console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
-          }
-          content = contentText || content;
-        } else if (buffer && !existing.internal_path) {
-          const safeTitle = (existing.title || 'document').replace(/[<>:"/\\|?*]/g, '_').substring(0, 80);
-          const importResult = await fileStorage.importFromBuffer(buffer, `${safeTitle}.docx`, 'document');
-          const fullPath = fileStorage.getFullPath(importResult.internalPath);
-          let contentText = null;
-          try {
-            contentText = await documentExtractor.extractDocxText(fullPath, 50000);
-          } catch (e) {
-            console.warn('[AI Tools] DOCX text extraction failed:', e?.message);
-          }
-          content = contentText || content;
-          queries.updateResourceFile.run(importResult.internalPath, importResult.mimeType, importResult.size, importResult.hash, existing.thumbnail_data, importResult.originalName, now, resourceId);
-        }
-      } catch (docxErr) {
-        console.warn('[AI Tools] DOCX update failed:', docxErr?.message);
-      }
-    }
-
-    if (existing.type === 'note' && updates.content !== undefined) {
-      const writeResult = noteMarkdown.writeNoteMarkdownFromAgent(
-        { id: resourceId, markdown: noteMarkdownBody ?? '', title, metadata },
-        { database, fileStorage, semanticIndexScheduler },
-      );
-      if (!writeResult.success) {
-        return { success: false, error: writeResult.error || 'Failed to write note markdown' };
-      }
-    } else {
-      queries.updateResource.run(title, content, metadata, now, resourceId);
-    }
+    if (!persistResult.success) return persistResult;
 
     if (existing.type === 'note' && normalizedNoteLinks.length > 0) {
       for (const targetId of normalizedNoteLinks) {
@@ -1841,45 +1964,12 @@ async function resourceUpdate(resourceId, updates) {
 
     // Keep the vault mirror in sync with agent edits (workspace == filesystem):
     // renames move the file on disk; url/notebook content rewrites the mirror.
-    try {
-      const titleChanged = updates.title !== undefined && title !== existing.title;
-      if (existing.type === 'url' || existing.type === 'notebook') {
-        if (titleChanged || updates.content !== undefined) {
-          const write = existing.type === 'url' ? vaultStore.writeUrlMirror : vaultStore.writeNotebookMirror;
-          write({ id: resourceId }, { database, fileStorage });
-        }
-      } else if (existing.type === 'note') {
-        // Content writes already relocate via writeNoteMarkdownFromAgent.
-        if (titleChanged && updates.content === undefined) {
-          vaultStore.relocateResource(resourceId, { database, fileStorage });
-        }
-      } else if (existing.type === 'artifact') {
-        if (titleChanged) vaultStore.relocateResource(resourceId, { database, fileStorage });
-      } else if (existing.vault_path && titleChanged) {
-        vaultStore.renameResourceFileToTitle(resourceId, { database, fileStorage });
-      }
-    } catch (e) {
-      console.warn('[AI Tools] vault reconcile (update) failed:', e?.message);
-    }
+    reconcileVaultAfterUpdate(existing, resourceId, title, updates);
 
-    let metadataObj = null;
-    try {
-      metadataObj = metadata ? JSON.parse(metadata) : null;
-    } catch {
-      metadataObj = null;
-    }
+    const metadataObj = metadata ? safeParseMeta(metadata) : null;
 
     // Broadcast so notebook and other viewers get updates in real time when tools run in main (e.g. subagent notebook_add_cell)
-    if (windowManagerRef && typeof windowManagerRef.broadcast === 'function') {
-      const broadcastUpdates = { title, updated_at: now };
-      if (updates.content !== undefined) broadcastUpdates.content = content;
-      if (metadataObj != null) broadcastUpdates.metadata = metadataObj;
-      windowManagerRef.broadcast('resource:updated', {
-        id: resourceId,
-        fromAgent: true,
-        updates: broadcastUpdates,
-      });
-    }
+    broadcastResourceUpdated(resourceId, title, content, metadataObj, updates, now);
 
     return {
       success: true,
@@ -2055,6 +2145,41 @@ async function resourceDelete(resourceId) {
  * @param {string|null} folderId - Target folder ID, or null to move to root
  * @returns {Promise<Object>}
  */
+function validateMoveTarget(queries, resource, folderId, resourceId) {
+  if (folderId == null || folderId === '') return null;
+  const folder = queries.getResourceById.get(folderId);
+  if (!folder) {
+    return { success: false, error: `Folder not found: "${folderId}". Use the exact id from get_library_overview.` };
+  }
+  if (folder.type !== 'folder') {
+    return { success: false, error: 'Target is not a folder' };
+  }
+  if (resourceId === folderId) {
+    return { success: false, error: 'Cannot move folder into itself' };
+  }
+  if (resource.type !== 'folder') return null;
+  let current = folder;
+  while (current && current.folder_id) {
+    if (current.folder_id === resourceId) {
+      return { success: false, error: 'Cannot move folder into its own descendant (would create a cycle)' };
+    }
+    current = queries.getResourceById.get(current.folder_id);
+  }
+  return null;
+}
+
+function resolveTargetFolderId(folderId) {
+  return folderId == null || folderId === '' ? null : folderId;
+}
+
+function applyFolderChange(queries, targetFolderId, resourceId, now) {
+  if (targetFolderId) {
+    queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
+    return;
+  }
+  queries.removeResourceFromFolder.run(now, resourceId);
+}
+
 async function resourceMoveToFolder(resourceId, folderId) {
   try {
     if (!resourceId) {
@@ -2068,37 +2193,12 @@ async function resourceMoveToFolder(resourceId, folderId) {
       return { success: false, error: `Resource not found: "${resourceId}". Use the exact id from get_library_overview or a search result.` };
     }
 
-    if (folderId != null && folderId !== '') {
-      const folder = queries.getResourceById.get(folderId);
-      if (!folder) {
-        return { success: false, error: `Folder not found: "${folderId}". Use the exact id from get_library_overview.` };
-      }
-      if (folder.type !== 'folder') {
-        return { success: false, error: 'Target is not a folder' };
-      }
-      if (resourceId === folderId) {
-        return { success: false, error: 'Cannot move folder into itself' };
-      }
-      // Prevent cycle: moving folder A into B where B is inside A
-      if (resource.type === 'folder') {
-        let current = folder;
-        while (current && current.folder_id) {
-          if (current.folder_id === resourceId) {
-            return { success: false, error: 'Cannot move folder into its own descendant (would create a cycle)' };
-          }
-          current = queries.getResourceById.get(current.folder_id);
-        }
-      }
-    }
+    const validationError = validateMoveTarget(queries, resource, folderId, resourceId);
+    if (validationError) return validationError;
 
     const now = Date.now();
-    const targetFolderId = folderId == null || folderId === '' ? null : folderId;
-
-    if (targetFolderId) {
-      queries.moveResourceToFolder.run(targetFolderId, now, resourceId);
-    } else {
-      queries.removeResourceFromFolder.run(now, resourceId);
-    }
+    const targetFolderId = resolveTargetFolderId(folderId);
+    applyFolderChange(queries, targetFolderId, resourceId, now);
 
     const { syncVaultAfterMoveToFolder } = require('../storage/vault-sync.cjs');
     syncVaultAfterMoveToFolder(resourceId, { database, fileStorage });
