@@ -12,9 +12,10 @@ const marketplaceConfig = require('../marketplace/marketplace-config.cjs');
 const browserContextService = require('./browser-context-service.cjs');
 const cropImage = require('./crop-image.cjs');
 const { sanitizePath } = require('../core/security.cjs');
+const { secureTimestampId } = require('../core/secure-id.cjs');
 
 function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return secureTimestampId();
 }
 
 function normalizeWorkflowNodeType(type) {

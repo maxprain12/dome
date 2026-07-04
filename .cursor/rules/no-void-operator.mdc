@@ -1,0 +1,34 @@
+---
+description: Avoid Sonar void-operator rule in React event handlers
+globs: app/**/*.tsx
+alwaysApply: false
+---
+
+# No void operator in handlers
+
+Sonar rule: remove unnecessary `void` in callbacks.
+
+**Sync handler** (returns void):
+
+```tsx
+// Bad
+onClick={() => void onExport(wf)}
+
+// Good
+onClick={() => onExport(wf)}
+```
+
+**Async handler** (returns Promise):
+
+```tsx
+// Bad
+onClick={() => void onDelete(id)}
+
+// Good
+onClick={() => {
+  void onDelete(id).catch(() => {});
+}}
+// Or define: const handleDelete = () => { void onDelete(id); }; — prefer explicit .catch for Sonar
+```
+
+Use `node scripts/sonar/fix-void-operator.mjs --files=path/to/file.tsx` for mechanical batches.

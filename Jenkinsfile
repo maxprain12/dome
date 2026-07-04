@@ -55,6 +55,12 @@ pipeline {
         stage('Security tests') {
           steps { sh 'pnpm run test:security' }
         }
+        stage('Coverage') {
+          steps {
+            sh 'pnpm run build:packages'
+            sh 'pnpm run test:coverage'
+          }
+        }
       }
     }
 

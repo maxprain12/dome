@@ -104,7 +104,7 @@ export default function WorkflowLibraryCard({
             iconOnly
             title={t('hubExport.title_export_workflow')}
             aria-label={t('hubExport.title_export_workflow')}
-            onClick={() => void onExport(wf)}
+            onClick={() => onExport(wf)}
           >
             <Download className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
           </DomeButton>
@@ -117,7 +117,7 @@ export default function WorkflowLibraryCard({
             aria-label={t('common.delete')}
             disabled={deletingId === wf.id}
             className="!text-[var(--error)] hover:!bg-[var(--error-bg)] disabled:!opacity-50"
-            onClick={() => void onDelete(wf.id)}
+            onClick={() => onDelete(wf.id)}
           >
             {deletingId === wf.id ? (
               <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />

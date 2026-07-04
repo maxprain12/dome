@@ -36,6 +36,7 @@ const vaultStore = require('../storage/vault-store.cjs');
 const noteMarkdown = require('../services/note-markdown.cjs');
 const pdfTranscriptionSvc = require('../services/pdf-transcription.cjs');
 const { progress: studioProgress, createRunId } = require('../services/studio-progress.cjs');
+const { secureTimestampId } = require('../core/secure-id.cjs');
 
 // Reference to window manager (set by main.cjs) for broadcasting resource:updated when tools modify resources
 let windowManagerRef = null;
@@ -49,7 +50,7 @@ function setWindowManager(wm) {
 }
 
 function generateId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return secureTimestampId();
 }
 
 /**
