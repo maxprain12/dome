@@ -72,30 +72,37 @@ pipeline {
 
     stage('Sync Sonar → GitHub') {
       steps {
-        withCredentials([
-          string(credentialsId: 'sonar', variable: 'SONAR_TOKEN'),
-          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
-        ]) {
-          sh '''
-            set -eux
-            bash scripts/jenkins/gh-auth-env.sh
-            pnpm run sonar:sync-github -- --severity=BLOCKER,CRITICAL,MAJOR,HIGH --max=50
-          '''
+        withSonarQubeEnv('SonarQube') {
+          withCredentials([
+            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+          ]) {
+            sh '''
+              set -eux
+              bash scripts/jenkins/gh-auth-env.sh
+              node --input-type=module -e "
+                import { sonarFetch } from './scripts/sonar/lib.mjs';
+                const u = await sonarFetch('/api/authentication/validate');
+                console.log('OK: Sonar auth →', u.login || 'valid');
+              "
+              pnpm run sonar:sync-github -- --severity=BLOCKER,CRITICAL,MAJOR,HIGH --max=50
+            '''
+          }
         }
       }
     }
 
     stage('Pick batch') {
       steps {
-        withCredentials([
-          string(credentialsId: 'sonar', variable: 'SONAR_TOKEN'),
-          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
-        ]) {
-          sh '''
-            set -eux
-            mkdir -p .quality-loop
-            pnpm run sonar:pick-batch -- --size=5 --out=.quality-loop/batch.json
-          '''
+        withSonarQubeEnv('SonarQube') {
+          withCredentials([
+            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+          ]) {
+            sh '''
+              set -eux
+              mkdir -p .quality-loop
+              pnpm run sonar:pick-batch -- --size=5 --out=.quality-loop/batch.json
+            '''
+          }
         }
         archiveArtifacts artifacts: '.quality-loop/batch.json', allowEmptyArchive: true
       }
@@ -171,11 +178,12 @@ pipeline {
 
     stage('Close resolved in Sonar') {
       steps {
-        withCredentials([
-          string(credentialsId: 'sonar', variable: 'SONAR_TOKEN'),
-          string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
-        ]) {
-          sh 'pnpm run sonar:close-resolved -- --since-days=14 || true'
+        withSonarQubeEnv('SonarQube') {
+          withCredentials([
+            string(credentialsId: 'github-quality-loop', variable: 'GITHUB_TOKEN'),
+          ]) {
+            sh 'pnpm run sonar:close-resolved -- --since-days=14 || true'
+          }
         }
       }
     }
