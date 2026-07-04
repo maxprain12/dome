@@ -13,7 +13,6 @@ pipeline {
     SONAR_HOST_URL = 'https://sonar.dowi.es'
     GITHUB_REPOSITORY = 'maxprain12/dome'
     XVFB_DISPLAY = ':99'
-    SONAR_LOOP_NODE = '1'
   }
 
   stages {
@@ -56,6 +55,7 @@ pipeline {
           node --version
           npm install -g "pnpm@${PNPM_VERSION}"
           pnpm --version
+          bash scripts/jenkins/bootstrap-opencode.sh "$PWD"
         '''
       }
     }
@@ -66,10 +66,9 @@ pipeline {
           set -eux
           pnpm install --frozen-lockfile --ignore-scripts
           pnpm run build:packages
-          # Node harness (SONAR_LOOP_NODE) — rebuild better-sqlite3 for Node ABI, not Electron
           npm rebuild better-sqlite3
           node -e "require('better-sqlite3')"
-          echo "OK: better-sqlite3 for Node harness"
+          echo "OK: better-sqlite3 for electron tests"
         '''
       }
     }
@@ -121,13 +120,13 @@ pipeline {
           if (isVoidRule) {
             sh 'node scripts/sonar/fix-void-operator.mjs --batch=.quality-loop/batch.json || true'
           } else {
-            echo 'No mechanical fix for this batch — Dome harness will run next'
+            echo 'No mechanical fix for this batch — OpenCode agent will run next'
           }
         }
       }
     }
 
-    stage('Agent fix (Dome harness)') {
+    stage('Agent fix (OpenCode)') {
       when {
         expression {
           return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) == 0
@@ -139,7 +138,11 @@ pipeline {
         ]) {
           sh '''
             set -eux
+            export OPENCODE_CONFIG="$PWD/scripts/sonar/opencode.ci.json"
+            export OPENCODE_DISABLE_AUTOUPDATE=1
             export SONAR_LOOP_MODEL="${SONAR_LOOP_MODEL:-MiniMax-M3}"
+            command -v opencode
+            opencode --version
             pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json
           '''
         }
