@@ -132,6 +132,24 @@ async function discoverOllamaModels(baseUrl, apiKey) {
  * @param {string} apiKey
  * @returns {Promise<DiscoveredEmbeddingModel[]>}
  */
+function buildGoogleModelFromRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const methods = Array.isArray(row.supportedGenerationMethods) ? row.supportedGenerationMethods : [];
+  if (!methods.includes('embedContent')) return null;
+  const rawName = typeof row.name === 'string' ? row.name : '';
+  const id = rawName.replace(/^models\//, '');
+  if (!id) return null;
+  const displayName = typeof row.displayName === 'string' ? row.displayName : id;
+  const contextTokens = Number(row.inputTokenLimit);
+  return {
+    id,
+    name: displayName,
+    dimensions: GOOGLE_DIMENSIONS[id],
+    contextTokens: Number.isFinite(contextTokens) && contextTokens > 0 ? contextTokens : undefined,
+    recommended: id === 'text-embedding-004',
+  };
+}
+
 async function discoverGoogleModels(apiKey) {
   const json = await httpJson(
     `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}`,
@@ -141,21 +159,8 @@ async function discoverGoogleModels(apiKey) {
   const out = [];
 
   for (const row of rows) {
-    if (!row || typeof row !== 'object') continue;
-    const methods = Array.isArray(row.supportedGenerationMethods) ? row.supportedGenerationMethods : [];
-    if (!methods.includes('embedContent')) continue;
-    const rawName = typeof row.name === 'string' ? row.name : '';
-    const id = rawName.replace(/^models\//, '');
-    if (!id) continue;
-    const displayName = typeof row.displayName === 'string' ? row.displayName : id;
-    const contextTokens = Number(row.inputTokenLimit);
-    out.push({
-      id,
-      name: displayName,
-      dimensions: GOOGLE_DIMENSIONS[id],
-      contextTokens: Number.isFinite(contextTokens) && contextTokens > 0 ? contextTokens : undefined,
-      recommended: id === 'text-embedding-004',
-    });
+    const model = buildGoogleModelFromRow(row);
+    if (model) out.push(model);
   }
 
   out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));

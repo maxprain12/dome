@@ -145,6 +145,58 @@ function syncArtifactFtsContent(queries, resourceId) {
   queries.updateResourceContent.run(payload, Date.now(), resourceId);
 }
 
+function joinTitleAndBody(title, body) {
+  return [title, body].filter(Boolean).join('\n').trim();
+}
+
+function buildIndexedTextOrEmpty(title, body) {
+  const text = joinTitleAndBody(title, body);
+  if (!text) {
+    return { text: '', source: 'empty' };
+  }
+  return { text, source: 'content' };
+}
+
+function extractNoteBody(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('{')) {
+    return stripTags(raw);
+  }
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (
+      parsed &&
+      typeof parsed === 'object' &&
+      parsed.type === 'doc' &&
+      Array.isArray(parsed.content)
+    ) {
+      const extracted = extractPlainTextFromProseMirror(/** @type {Record<string, unknown>} */ (parsed));
+      if (extracted) return extracted;
+    }
+  } catch {
+    /* fall through to stripTags */
+  }
+  return stripTags(raw);
+}
+
+function buildNoteIndexableText(row, title) {
+  // Markdown vault is the source of truth: prefer the cached plain text
+  // derived from the .md (content_text). Fall back to parsing the legacy
+  // Tiptap JSON in `content` for notes not yet mirrored.
+  const cached = String(row.content_text || '').trim();
+  if (cached) {
+    return buildIndexedTextOrEmpty(title, cached);
+  }
+  return buildIndexedTextOrEmpty(title, extractNoteBody(String(row.content || '')));
+}
+
+const CONTENT_BODY_TYPES = ['pdf', 'document', 'url', 'notebook', 'ppt', 'excel'];
+
+function buildContentTypeIndexableText(row, title) {
+  const content = String(row.content || '').trim();
+  return buildIndexedTextOrEmpty(title, stripTags(content));
+}
+
 function getIndexableText(row, queries) {
   const type = String(row.type || '');
   const title = String(row.title || '').trim();
@@ -152,54 +204,12 @@ function getIndexableText(row, queries) {
   if (type === 'artifact') {
     return buildArtifactIndexPayload(row, queries);
   }
-
   if (type === 'note') {
-    // Markdown vault is the source of truth: prefer the cached plain text
-    // derived from the .md (content_text). Fall back to parsing the legacy
-    // Tiptap JSON in `content` for notes not yet mirrored.
-    const cached = String(row.content_text || '').trim();
-    if (cached) {
-      const text = [title, cached].filter(Boolean).join('\n').trim();
-      return text ? { text, source: 'content' } : { text: '', source: 'empty' };
-    }
-    const raw = String(row.content || '');
-    let body = '';
-    const trimmed = raw.trim();
-    if (trimmed.startsWith('{')) {
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (
-          parsed &&
-          typeof parsed === 'object' &&
-          parsed.type === 'doc' &&
-          Array.isArray(parsed.content)
-        ) {
-          body = extractPlainTextFromProseMirror(/** @type {Record<string, unknown>} */ (parsed));
-        }
-      } catch {
-        /* fall through to stripTags */
-      }
-    }
-    if (!body) {
-      body = stripTags(raw);
-    }
-    const text = [title, body].filter(Boolean).join('\n').trim();
-    if (!text) {
-      return { text: '', source: 'empty' };
-    }
-    return { text, source: 'content' };
+    return buildNoteIndexableText(row, title);
   }
-
-  const useContentTypes = ['pdf', 'document', 'url', 'notebook', 'ppt', 'excel'];
-  if (useContentTypes.includes(type)) {
-    const content = String(row.content || '').trim();
-    const text = [title, stripTags(content)].filter(Boolean).join('\n').trim();
-    if (!text) {
-      return { text: '', source: 'empty' };
-    }
-    return { text, source: 'content' };
+  if (CONTENT_BODY_TYPES.includes(type)) {
+    return buildContentTypeIndexableText(row, title);
   }
-
   return { text: '', source: 'empty' };
 }
 
