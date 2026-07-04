@@ -13,6 +13,7 @@ pipeline {
     SONAR_HOST_URL = 'https://sonar.dowi.es'
     GITHUB_REPOSITORY = 'maxprain12/dome'
     XVFB_DISPLAY = ':99'
+    SONAR_BATCH_SIZE = '10'
   }
 
   stages {
@@ -104,7 +105,7 @@ pipeline {
             sh '''
               set -eux
               mkdir -p .quality-loop
-              pnpm run sonar:pick-batch -- --size=5 --out=.quality-loop/batch.json
+              pnpm run sonar:pick-batch -- --size=${SONAR_BATCH_SIZE} --out=.quality-loop/batch.json
             '''
           }
         }
