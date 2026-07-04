@@ -130,7 +130,13 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (!arg.startsWith('--')) continue;
-    const key = arg.slice(2);
+    const raw = arg.slice(2);
+    const eq = raw.indexOf('=');
+    if (eq !== -1) {
+      out[raw.slice(0, eq)] = raw.slice(eq + 1);
+      continue;
+    }
+    const key = raw;
     const next = argv[i + 1];
     if (next && !next.startsWith('--')) {
       out[key] = next;
