@@ -76,27 +76,27 @@ const env = {
   OPENCODE_CLIENT: 'dome-sonar-loop',
 };
 
-const result = spawnSync(
-  'opencode',
-  [
-    'run',
-    '--auto',
-    '--agent',
-    'sonar-fix',
-    '--model',
-    `minimax/${model}`,
-    '--file',
-    batchPath,
-    prompt,
-  ],
-  {
-    cwd: ROOT,
-    env,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    timeout: timeoutMs,
-  },
-);
+// OpenCode `--file` is a greedy yargs array: a trailing positional prompt is treated
+// as another attachment path ("File not found: Fix these…"). Deliver prompt on stdin.
+const opencodeArgs = [
+  'run',
+  '--auto',
+  '--agent',
+  'sonar-fix',
+  '--model',
+  `minimax/${model}`,
+  '--file',
+  batchPath,
+];
+
+const result = spawnSync('opencode', opencodeArgs, {
+  cwd: ROOT,
+  env,
+  input: prompt,
+  encoding: 'utf8',
+  maxBuffer: 64 * 1024 * 1024,
+  timeout: timeoutMs,
+});
 
 const stdout = result.stdout || '';
 const stderr = result.stderr || '';
