@@ -102,49 +102,109 @@ async function triggerStageRunInner(itemId, { force = false } = {}) {
   if (!stage) return null;
 
   // Skip if already marked running with an active run.
-  if (item.exec_status === 'running' && item.current_run_id) {
-    const active = q.getAutomationRunById.get(item.current_run_id);
-    if (active && ['queued', 'running', 'waiting_approval'].includes(active.status)) {
-      return mapItem(item);
-    }
-  }
+  if (itemHasActiveRunningItem(item, q)) return mapItem(item);
 
   // "Use Many" is stored as a config flag (config.useMany), not in
   // assigned_agent_id — that column has a FK to many_agents and 'many' is not
   // a real agent row.
   const stageConfig = parseJson(stage.config_json, {}) || {};
   const useMany = stageConfig.useMany === true;
-  const hasExecutor = stage.assigned_agent_id || stage.assigned_workflow_id || useMany;
-  if (!hasExecutor) return null;
-  if (stage.execution_policy === 'manual_resolve') return null;
-  // auto vs manual: auto runs on drop; manual only when explicitly forced.
-  if (stage.execution_policy === 'manual_agent' && !force) return null;
+  if (!canRunStage(stage, useMany, force)) return null;
 
   // Idempotency: skip if there is already an active run for this item.
   if (item.current_run_id) {
     const existing = q.getAutomationRunById.get(item.current_run_id);
-    if (existing && ['queued', 'running', 'waiting_approval'].includes(existing.status)) {
-      return mapItem(item);
-    }
+    if (isActiveRun(existing)) return mapItem(item);
   }
 
   const now = Date.now();
   // Mark running immediately so the board doesn't show a stale "ready" status
   // while buildRunInput / startAgentRun are still in progress.
+  markItemRunning(item, q, now);
+  return launchStageRun(item, stage, useMany, now);
+}
+
+const ACTIVE_RUN_STATUSES = ['queued', 'running', 'waiting_approval'];
+
+function isActiveRun(run) {
+  return !!(run && ACTIVE_RUN_STATUSES.includes(run.status));
+}
+
+function itemHasActiveRunningItem(item, q) {
+  if (item.exec_status !== 'running' || !item.current_run_id) return false;
+  return isActiveRun(q.getAutomationRunById.get(item.current_run_id));
+}
+
+function canRunStage(stage, useMany, force) {
+  const hasExecutor = stage.assigned_agent_id || stage.assigned_workflow_id || useMany;
+  if (!hasExecutor) return false;
+  if (stage.execution_policy === 'manual_resolve') return false;
+  // auto vs manual: auto runs on drop; manual only when explicitly forced.
+  if (stage.execution_policy === 'manual_agent' && !force) return false;
+  return true;
+}
+
+function markItemRunning(item, q, now) {
   q.updatePipelineItemExecStatus.run('running', item.assigned_kind ?? 'auto', item.current_run_id, item.last_output, now, item.id);
   emitItem(mapItem(q.getPipelineItemById.get(item.id)));
+}
 
-  let runInput;
+function markItemFailed(item, message, now) {
+  const q = queries();
+  q.updatePipelineItemExecStatus.run('failed', item.assigned_kind, item.current_run_id, message, now, item.id);
+  if (_logEvent) _logEvent(item.id, 'run_failed', { actor: 'system', summary: message });
+  emitItem(mapItem(q.getPipelineItemById.get(item.id)));
+}
+
+async function launchStageRun(item, stage, useMany, now) {
+  const q = queries();
+  const runInput = await buildRunInputOrFail(item, stage, q, now);
+  if (runInput == null) return null;
+  return startRunOrFail(item, stage, useMany, runInput, q, now);
+}
+
+async function buildRunInputOrFail(item, stage, q, now) {
   try {
-    runInput = await buildRunInput(stage, item, q, { database: _database });
+    return await buildRunInput(stage, item, q, { database: _database });
   } catch (e) {
     console.error('[PipelineRunner] buildRunInput failed:', e?.message);
-    q.updatePipelineItemExecStatus.run('failed', item.assigned_kind, item.current_run_id, e?.message || 'Run failed', now, item.id);
-    if (_logEvent) _logEvent(item.id, 'run_failed', { actor: 'system', summary: e?.message || 'Run failed' });
-    emitItem(mapItem(q.getPipelineItemById.get(item.id)));
+    markItemFailed(item, e?.message || 'Run failed', now);
     return null;
   }
+}
 
+async function startRunOrFail(item, stage, useMany, runInput, q, now) {
+  try {
+    const run = await dispatchStageRun(item, stage, useMany, runInput);
+    // Mark running and remember the run id so the terminal hook can map back.
+    q.updatePipelineItemExecStatus.run('running', 'auto', run?.id ?? null, item.last_output, now, item.id);
+    if (_logEvent) {
+      _logEvent(item.id, 'run_started', {
+        actor: 'system',
+        summary: (stage.assigned_workflow_id ? 'Workflow' : 'Agent') + ' run started',
+        runId: run?.id,
+      });
+    }
+    const updated = mapItem(q.getPipelineItemById.get(item.id));
+    emitItem(updated);
+    return updated;
+  } catch (e) {
+    console.error('[PipelineRunner] triggerStageRun failed:', e?.message);
+    markItemFailed(item, e?.message || 'Run failed', now);
+    return null;
+  }
+}
+
+async function dispatchStageRun(item, stage, useMany, runInput) {
+  if (stage.assigned_workflow_id) {
+    return _runEngine.startWorkflowRun({
+      workflowId: stage.assigned_workflow_id,
+      projectId: item.project_id,
+      title: item.title,
+      inputs: { prompt: runInput },
+    });
+  }
+  const q = queries();
   const messages = [{ role: 'user', content: runInput }];
   const toolOpts = buildPipelineRunToolOptions(stage, q);
   const agentRunBase = {
@@ -158,44 +218,20 @@ async function triggerStageRunInner(itemId, { force = false } = {}) {
     toolIds: toolOpts.toolIds,
     ...(toolOpts.subagentIds !== undefined ? { subagentIds: toolOpts.subagentIds } : {}),
   };
-
-  try {
-    let run;
-    if (stage.assigned_workflow_id) {
-      run = _runEngine.startWorkflowRun({
-        workflowId: stage.assigned_workflow_id,
-        projectId: item.project_id,
-        title: item.title,
-        inputs: { prompt: runInput },
-      });
-    } else if (useMany) {
-      // Run the stage with Many (the default assistant) instead of a custom
-      // agent row. Mirrors the automation 'many' path (full tool catalog).
-      run = await _runEngine.startAgentRun({
-        ownerType: 'many',
-        ownerId: 'many',
-        ...agentRunBase,
-      });
-    } else {
-      run = await _runEngine.startAgentRun({
-        ownerType: 'agent',
-        ownerId: stage.assigned_agent_id,
-        ...agentRunBase,
-      });
-    }
-    // Mark running and remember the run id so the terminal hook can map back.
-    q.updatePipelineItemExecStatus.run('running', 'auto', run?.id ?? null, item.last_output, now, item.id);
-    if (_logEvent) _logEvent(item.id, 'run_started', { actor: 'system', summary: (stage.assigned_workflow_id ? 'Workflow' : 'Agent') + ' run started', runId: run?.id });
-    const updated = mapItem(q.getPipelineItemById.get(item.id));
-    emitItem(updated);
-    return updated;
-  } catch (e) {
-    console.error('[PipelineRunner] triggerStageRun failed:', e?.message);
-    q.updatePipelineItemExecStatus.run('failed', item.assigned_kind, item.current_run_id, e?.message || 'Run failed', now, item.id);
-    if (_logEvent) _logEvent(item.id, 'run_failed', { actor: 'system', summary: e?.message || 'Run failed' });
-    emitItem(mapItem(q.getPipelineItemById.get(item.id)));
-    return null;
+  if (useMany) {
+    // Run the stage with Many (the default assistant) instead of a custom
+    // agent row. Mirrors the automation 'many' path (full tool catalog).
+    return _runEngine.startAgentRun({
+      ownerType: 'many',
+      ownerId: 'many',
+      ...agentRunBase,
+    });
   }
+  return _runEngine.startAgentRun({
+    ownerType: 'agent',
+    ownerId: stage.assigned_agent_id,
+    ...agentRunBase,
+  });
 }
 
 /**

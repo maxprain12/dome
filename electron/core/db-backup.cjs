@@ -87,28 +87,48 @@ function findLatestBackup(dir, opts = {}) {
   const backups = listAllBackups(dir);
   const allowOversized = opts.allowOversized === true;
 
-  for (const passOversized of [false, allowOversized]) {
-    for (const backup of backups) {
-      let size = 0;
-      try {
-        size = fs.statSync(backup.path).size;
-      } catch {
-        continue;
-      }
-      if (!passOversized && size > MAX_PREFERRED_RESTORE_BYTES) continue;
-      const check = verifyDatabaseFile(backup.path);
-      if (check.ok) return backup.path;
-    }
-    if (allowOversized) break;
+  const normal = pickVerifiedBackup(backups, false);
+  if (normal) return normal;
+  if (allowOversized) {
+    const oversized = pickVerifiedBackup(backups, true);
+    if (oversized) return oversized;
   }
+  return findNewestReasonableBackup(backups);
+}
 
-  // Fallback: newest reasonably-sized file with a SQLite header (e.g. when better-sqlite3 ABI mismatches in tests).
+/** Newest backup that passes verifyDatabaseFile, honoring the size cap according to passOversized. */
+function pickVerifiedBackup(backups, passOversized) {
   for (const backup of backups) {
-    const size = fs.statSync(backup.path).size;
+    const size = readBackupSize(backup.path);
+    if (size == null) continue;
+    if (!passOversized && size > MAX_PREFERRED_RESTORE_BYTES) continue;
+    const check = verifyDatabaseFile(backup.path);
+    if (check.ok) return backup.path;
+  }
+  return null;
+}
+
+/** Latest reasonably-sized backup whose file header identifies it as SQLite (fallback for ABI mismatches). */
+function findNewestReasonableBackup(backups) {
+  for (const backup of backups) {
+    let size = 0;
+    try {
+      size = fs.statSync(backup.path).size;
+    } catch {
+      continue;
+    }
     if (size > MAX_PREFERRED_RESTORE_BYTES) continue;
     if (looksLikeSqliteFile(backup.path)) return backup.path;
   }
   return null;
+}
+
+function readBackupSize(backupPath) {
+  try {
+    return fs.statSync(backupPath).size;
+  } catch {
+    return null;
+  }
 }
 
 /** @deprecated use findLatestBackup */
