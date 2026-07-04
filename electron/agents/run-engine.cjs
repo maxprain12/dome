@@ -762,27 +762,20 @@ async function startAgentRun(params) {
   return getRun(run.id);
 }
 
-async function resumeRun(runId, decisions) {
-  const run = getRun(runId);
-  if (!run?.threadId) {
-    throw new Error('El run no tiene threadId para reanudar');
-  }
-  const metadata = run.metadata ?? {};
-  const providerConfig = await getProviderConfig(metadata.provider, metadata.model);
-  const existingContext = activeRunContexts.get(runId);
-  let controller;
-  if (existingContext?.controller) {
-    controller = existingContext.controller;
-  } else {
-    controller = new AbortController();
-    setMaxListeners(64, controller.signal);
-  }
-  // When the process restarted during HITL, the in-memory context is gone.
-  // Hydrate the accumulated usage from the persisted run metadata so the merge
-  // doesn't lose tokens spent before the interrupt.
-  const hydratedUsage =
-    metadata.usage && typeof metadata.usage === 'object' ? mergeLlmUsage(null, metadata.usage) : null;
-  const context = existingContext ?? {
+function resolveResumeController(existingContext) {
+  if (existingContext?.controller) return existingContext.controller;
+  const controller = new AbortController();
+  setMaxListeners(64, controller.signal);
+  return controller;
+}
+
+function hydrateResumeUsage(rawUsage) {
+  return rawUsage && typeof rawUsage === 'object' ? mergeLlmUsage(null, rawUsage) : null;
+}
+
+function buildResumeContext(run, metadata, providerConfig, existingContext, controller, hydratedUsage) {
+  if (existingContext) return existingContext;
+  return {
     controller,
     fullResponse: run.outputText || '',
     fullThinking: '',
@@ -798,6 +791,109 @@ async function resumeRun(runId, decisions) {
     llmUsage: hydratedUsage,
     llmUsageLive: hydratedUsage,
   };
+}
+
+async function runAgentResume(run, context, metadata, providerConfig, controller, decisions, runId) {
+  const pendingApproval = metadata.pendingApproval ?? {};
+  const resumeOpts = metadata.resumeOpts ?? {};
+  const runSurface = run.ownerType === 'agent' ? 'agent-chat' : 'many';
+
+  const result = await agentRuntime.resumeDomeAgent(runSurface, {
+    threadId: run.threadId,
+    decisions,
+    pendingApproval,
+    pendingToolCall: pendingApproval.pendingToolCall ?? null,
+    provider: providerConfig.provider,
+    model: providerConfig.model,
+    apiKey: providerConfig.apiKey,
+    baseUrl: providerConfig.baseUrl,
+    messages: resumeOpts.messages ?? [{ role: 'user', content: 'Continue after approval.' }],
+    toolDefinitions: resumeOpts.toolDefinitions ?? [],
+    mcpServerIds: resumeOpts.mcpServerIds,
+    runtimeContext: resumeOpts.runtimeContext,
+    signal: controller.signal,
+    onChunk: createRunChunkEmitter(runId, context),
+  });
+
+  if (result && typeof result === 'object' && result.__interrupt__) {
+    return getRun(runId);
+  }
+
+  if (run.sessionId) {
+    tryPersistRunAssistantMessage(
+      run.sessionId,
+      {
+        ownerType: run.ownerType,
+        runId,
+        contextId: metadata.contextId ?? null,
+        sessionTitle: metadata.sessionTitle ?? null,
+        toolIds: metadata.toolIds ?? [],
+        mcpServerIds: metadata.mcpServerIds ?? [],
+      },
+      context,
+    );
+  }
+  appendRunStep({
+    runId,
+    stepType: 'completion',
+    title: 'Run completado',
+    status: 'done',
+    content: context.fullResponse.slice(0, 8000),
+    ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
+  });
+  finalizeRunningRunSteps(runId, 'completed', context);
+  return patchRun(runId, {
+    status: 'completed',
+    outputText: context.fullResponse,
+    summary: context.fullResponse.slice(0, 280) || 'Run completado',
+    finishedAt: now(),
+    error: null,
+    threadId: context.threadId,
+    metadata: {
+      kind: metadata.kind ?? 'harness',
+      provider: context.provider,
+      model: context.model,
+      toolCalls: context.toolCalls,
+      pendingApproval: null,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+  });
+}
+
+function markResumeFailed(runId, run, error, context) {
+  const failMeta = run.metadata ?? {};
+  return patchRun(runId, {
+    status: 'failed',
+    error: error?.message || String(error),
+    finishedAt: now(),
+    metadata: {
+      ...failMeta,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+  });
+}
+
+function cleanupResumeContext(runId) {
+  const latest = getRun(runId);
+  if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
+    releaseRunContext(runId, { force: true });
+  }
+}
+
+async function resumeRun(runId, decisions) {
+  const run = getRun(runId);
+  if (!run?.threadId) {
+    throw new Error('El run no tiene threadId para reanudar');
+  }
+  const metadata = run.metadata ?? {};
+  const providerConfig = await getProviderConfig(metadata.provider, metadata.model);
+  const existingContext = activeRunContexts.get(runId);
+  const controller = resolveResumeController(existingContext);
+  // When the process restarted during HITL, the in-memory context is gone.
+  // Hydrate the accumulated usage from the persisted run metadata so the merge
+  // doesn't lose tokens spent before the interrupt.
+  const hydratedUsage = hydrateResumeUsage(metadata.usage);
+  const context = buildResumeContext(run, metadata, providerConfig, existingContext, controller, hydratedUsage);
   if (existingContext && existingContext.projectId == null) {
     existingContext.projectId = run.projectId ?? 'default';
   }
@@ -819,86 +915,11 @@ async function resumeRun(runId, decisions) {
     },
   });
   try {
-    const pendingApproval = metadata.pendingApproval ?? {};
-    const resumeOpts = metadata.resumeOpts ?? {};
-    const runSurface = run.ownerType === 'agent' ? 'agent-chat' : 'many';
-
-    const result = await agentRuntime.resumeDomeAgent(runSurface, {
-      threadId: run.threadId,
-      decisions,
-      pendingApproval,
-      pendingToolCall: pendingApproval.pendingToolCall ?? null,
-      provider: providerConfig.provider,
-      model: providerConfig.model,
-      apiKey: providerConfig.apiKey,
-      baseUrl: providerConfig.baseUrl,
-      messages: resumeOpts.messages ?? [{ role: 'user', content: 'Continue after approval.' }],
-      toolDefinitions: resumeOpts.toolDefinitions ?? [],
-      mcpServerIds: resumeOpts.mcpServerIds,
-      runtimeContext: resumeOpts.runtimeContext,
-      signal: controller.signal,
-      onChunk: createRunChunkEmitter(runId, context),
-    });
-
-    if (result && typeof result === 'object' && result.__interrupt__) {
-      return getRun(runId);
-    }
-
-    if (run.sessionId) {
-      tryPersistRunAssistantMessage(
-        run.sessionId,
-        {
-          ownerType: run.ownerType,
-          runId,
-          contextId: metadata.contextId ?? null,
-          sessionTitle: metadata.sessionTitle ?? null,
-          toolIds: metadata.toolIds ?? [],
-          mcpServerIds: metadata.mcpServerIds ?? [],
-        },
-        context,
-      );
-    }
-    appendRunStep({
-      runId,
-      stepType: 'completion',
-      title: 'Run completado',
-      status: 'done',
-      content: context.fullResponse.slice(0, 8000),
-      ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
-    });
-    finalizeRunningRunSteps(runId, 'completed', context);
-    return patchRun(runId, {
-      status: 'completed',
-      outputText: context.fullResponse,
-      summary: context.fullResponse.slice(0, 280) || 'Run completado',
-      finishedAt: now(),
-      error: null,
-      threadId: context.threadId,
-      metadata: {
-        kind: metadata.kind ?? 'harness',
-        provider: context.provider,
-        model: context.model,
-        toolCalls: context.toolCalls,
-        pendingApproval: null,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
+    return await runAgentResume(run, context, metadata, providerConfig, controller, decisions, runId);
   } catch (error) {
-    const failMeta = run.metadata ?? {};
-    return patchRun(runId, {
-      status: 'failed',
-      error: error?.message || String(error),
-      finishedAt: now(),
-      metadata: {
-        ...failMeta,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
+    return markResumeFailed(runId, run, error, context);
   } finally {
-    const latest = getRun(runId);
-    if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
-      releaseRunContext(runId, { force: true });
-    }
+    cleanupResumeContext(runId);
   }
 }
 
