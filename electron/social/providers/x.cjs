@@ -11,6 +11,10 @@
 const API = 'https://api.x.com/2';
 const TOKEN_URL = 'https://api.x.com/2/oauth2/token';
 
+const database = require('../../core/database.cjs');
+const fileStorage = require('../../storage/file-storage.cjs');
+const { resolveMediaItems, uploadXMedia } = require('../social-media.cjs');
+
 async function xFetch(accessToken, path, options = {}) {
   const res = await fetch(path.startsWith('http') ? path : `${API}${path}`, {
     method: options.method || 'GET',
@@ -126,7 +130,24 @@ async function publishPost(store, post) {
     text = text ? `${text}\n${post.linkUrl}` : post.linkUrl;
   }
 
-  const result = await xFetch(accessToken, '/tweets', { method: 'POST', body: { text } });
+  // Local files / vault resources → v2 chunked binary upload (needs media.write scope).
+  const sources = resolveMediaItems(database, fileStorage, post.media);
+  const fileSources = sources.filter((s) => s.kind === 'file');
+  if (sources.some((s) => s.kind === 'url')) {
+    throw new Error('X cannot ingest external media URLs — attach a local file or a vault resource instead.');
+  }
+  const videos = fileSources.filter((s) => s.mediaKind === 'video');
+  if (videos.length > 1 || (videos.length === 1 && fileSources.length > 1)) {
+    throw new Error('X allows one video OR up to 4 images per post');
+  }
+  const mediaIds = [];
+  for (const source of fileSources.slice(0, 4)) {
+    mediaIds.push(await uploadXMedia(accessToken, source));
+  }
+
+  const body = { text };
+  if (mediaIds.length > 0) body.media = { media_ids: mediaIds };
+  const result = await xFetch(accessToken, '/tweets', { method: 'POST', body });
   const tweetId = result?.data?.id;
   const handle = (account.handle || '').replace(/^@/, '');
   return {

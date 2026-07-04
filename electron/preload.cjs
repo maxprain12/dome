@@ -629,6 +629,9 @@ const ALLOWED_CHANNELS = {
     'social:metrics:post',
     'social:metrics:refresh',
     'social:summary',
+    'social:media:pick',
+    'social:media:library',
+    'social:media:preview',
     // Artifact feeders (sandbox scripts → runtime data)
     'feeders:create',
     'feeders:get',

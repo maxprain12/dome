@@ -14,7 +14,20 @@ export interface SocialAccount {
 
 export interface SocialMediaItem {
   type?: 'image' | 'video' | 'reel';
-  url: string;
+  /** Public https URL (only path Instagram photos accept). */
+  url?: string;
+  /** Local file picked from the user's machine. */
+  path?: string;
+  /** Dome vault image/video resource. */
+  resourceId?: string;
+  /** Display name (file basename or resource title). */
+  name?: string;
+}
+
+export interface SocialLibraryItem {
+  resourceId: string;
+  title: string;
+  type: 'image' | 'video';
 }
 
 export interface SocialMetric {

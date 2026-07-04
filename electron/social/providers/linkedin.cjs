@@ -12,6 +12,10 @@
 
 const API = 'https://api.linkedin.com/v2';
 
+const database = require('../../core/database.cjs');
+const fileStorage = require('../../storage/file-storage.cjs');
+const { resolveMediaItems, uploadLinkedInImage } = require('../social-media.cjs');
+
 async function linkedinFetch(accessToken, path, options = {}) {
   const res = await fetch(path.startsWith('http') ? path : `${API}${path}`, {
     method: options.method || 'GET',
@@ -90,11 +94,24 @@ async function publishPost(store, post) {
   const accessToken = await ensureAccessToken(store, account.id);
   const authorUrn = `urn:li:person:${account.external_id}`;
 
+  // Local files / vault resources → native binary upload (Assets API).
+  const sources = resolveMediaItems(database, fileStorage, post.media);
+  const fileSources = sources.filter((s) => s.kind === 'file');
+  if (sources.some((s) => s.kind === 'url')) {
+    throw new Error('LinkedIn cannot ingest external media URLs — attach a local file or a vault resource instead.');
+  }
+  const imageAssets = [];
+  for (const source of fileSources.slice(0, 9)) {
+    imageAssets.push(await uploadLinkedInImage(accessToken, authorUrn, source));
+  }
+
   const shareContent = {
     shareCommentary: { text: String(post.body || '') },
-    shareMediaCategory: post.linkUrl ? 'ARTICLE' : 'NONE',
+    shareMediaCategory: imageAssets.length > 0 ? 'IMAGE' : post.linkUrl ? 'ARTICLE' : 'NONE',
   };
-  if (post.linkUrl) {
+  if (imageAssets.length > 0) {
+    shareContent.media = imageAssets.map((asset) => ({ status: 'READY', media: asset }));
+  } else if (post.linkUrl) {
     shareContent.media = [{ status: 'READY', originalUrl: post.linkUrl }];
   }
 

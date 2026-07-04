@@ -17,10 +17,26 @@ const ConnectOAuthSchema = z.object({ provider: ProviderSchema });
 const ConnectTokenSchema = z.object({ provider: ProviderSchema, accessToken: z.string().min(1) });
 const AccountIdSchema = z.object({ accountId: z.string().min(1) });
 const PostIdSchema = z.object({ postId: z.string().min(1) });
-const MediaItemSchema = z.object({
-  type: z.enum(['image', 'video', 'reel']).optional(),
-  url: z.string().url(),
+const MediaItemSchema = z
+  .object({
+    type: z.enum(['image', 'video', 'reel']).optional(),
+    url: z.string().url().optional(),
+    path: z.string().min(1).optional(),
+    resourceId: z.string().min(1).optional(),
+    name: z.string().max(300).optional(),
+  })
+  .refine((m) => Boolean(m.url || m.path || m.resourceId), {
+    message: 'media item needs url, path or resourceId',
+  });
+const LibraryQuerySchema = z.object({
+  projectId: z.string().optional().nullable(),
 });
+const MediaPreviewSchema = z
+  .object({
+    path: z.string().min(1).optional(),
+    resourceId: z.string().min(1).optional(),
+  })
+  .refine((m) => Boolean(m.path || m.resourceId), { message: 'path or resourceId required' });
 const PostCreateSchema = z.object({
   provider: ProviderSchema,
   accountId: z.string().optional().nullable(),
@@ -50,34 +66,33 @@ const PostListSchema = z.object({
   limit: z.number().int().positive().max(500).optional(),
 });
 
-function register({ ipcMain, windowManager, database }) {
+function register({ ipcMain, windowManager, database, fileStorage }) {
   const service = getSocialService(database, windowManager);
 
-  const handle = (channel, schema, fn) => {
-    ipcMain.handle(channel, async (event, raw) => {
-      if (!windowManager.isAuthorized(event.sender.id)) {
-        return { success: false, error: 'Unauthorized' };
+  /** Auth + zod validation + uniform {success,data|error} envelope. */
+  const wrap = (schema, fn) => async (event, raw) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+    let input = raw;
+    if (schema) {
+      const parsed = schema.safeParse(raw ?? {});
+      if (!parsed.success) {
+        return { success: false, error: 'Invalid payload: ' + parsed.error.issues.map((i) => i.message).join('; ') };
       }
-      let input = raw;
-      if (schema) {
-        const parsed = schema.safeParse(raw ?? {});
-        if (!parsed.success) {
-          return { success: false, error: 'Invalid payload: ' + parsed.error.issues.map((i) => i.message).join('; ') };
-        }
-        input = parsed.data;
-      }
-      try {
-        const data = await fn(input, event);
-        return { success: true, data };
-      } catch (error) {
-        console.error(`[Social IPC] ${channel} error:`, error.message);
-        return { success: false, error: error.message };
-      }
-    });
+      input = parsed.data;
+    }
+    try {
+      const data = await fn(input, event);
+      return { success: true, data };
+    } catch (error) {
+      console.error('[Social IPC] error:', error.message);
+      return { success: false, error: error.message };
+    }
   };
 
   // Provider app configuration (Settings → Social)
-  handle('social:providers:status', null, () => ({
+  ipcMain.handle('social:providers:status', wrap(null, () => ({
     providers: service.PROVIDERS.map((p) => ({
       ...service.store.getProviderConfigStatus(p),
       ...service.providerCapabilities[p],
@@ -85,60 +100,127 @@ function register({ ipcMain, windowManager, database }) {
     })),
     oauthPort: service.store.getOAuthPort(),
     encryptionAvailable: service.store.encryptionAvailable(),
-  }));
+  })));
 
-  handle('social:providers:set-config', ProviderConfigSchema, ({ provider, clientId, clientSecret }) => {
+  ipcMain.handle('social:providers:set-config', wrap(ProviderConfigSchema, ({ provider, clientId, clientSecret }) => {
     service.store.setProviderConfig(provider, { clientId, clientSecret });
     return service.store.getProviderConfigStatus(provider);
-  });
+  }));
 
-  handle('social:oauth:set-port', OAuthPortSchema, ({ port }) => {
+  ipcMain.handle('social:oauth:set-port', wrap(OAuthPortSchema, ({ port }) => {
     service.store.setOAuthPort(port);
     return { port };
-  });
+  }));
 
   // Accounts
-  handle('social:accounts:list', null, () => service.store.listAccounts());
-  handle('social:connect-oauth', ConnectOAuthSchema, ({ provider }) => service.connectOAuth(provider));
-  handle('social:connect-token', ConnectTokenSchema, ({ provider, accessToken }) =>
+  ipcMain.handle('social:accounts:list', wrap(null, () => service.store.listAccounts()));
+  ipcMain.handle('social:connect-oauth', wrap(ConnectOAuthSchema, ({ provider }) => service.connectOAuth(provider)));
+  ipcMain.handle('social:connect-token', wrap(ConnectTokenSchema, ({ provider, accessToken }) =>
     service.connectWithToken(provider, accessToken)
-  );
-  handle('social:oauth:cancel', null, () => ({ cancelled: service.oauth.cancelPending() }));
-  handle('social:disconnect', AccountIdSchema, ({ accountId }) => {
+  ));
+  ipcMain.handle('social:oauth:cancel', wrap(null, () => ({ cancelled: service.oauth.cancelPending() })));
+  ipcMain.handle('social:disconnect', wrap(AccountIdSchema, ({ accountId }) => {
     service.disconnect(accountId);
     return { deleted: true };
-  });
+  }));
 
   // Posts
-  handle('social:posts:list', PostListSchema, ({ status, limit }) =>
+  ipcMain.handle('social:posts:list', wrap(PostListSchema, ({ status, limit }) =>
     service.store.listPosts({ status: status || null, limit: limit || 100 })
-  );
-  handle('social:posts:get', PostIdSchema, ({ postId }) => {
+  ));
+  ipcMain.handle('social:posts:get', wrap(PostIdSchema, ({ postId }) => {
     const post = service.store.getPost(postId);
     if (!post) throw new Error('Post not found');
     return post;
-  });
-  handle('social:posts:create', PostCreateSchema, (input) => {
+  }));
+  ipcMain.handle('social:posts:create', wrap(PostCreateSchema, (input) => {
     const post = service.store.createPost(input);
     windowManager.broadcast?.('social:post-updated', post);
     return post;
-  });
-  handle('social:posts:update', PostUpdateSchema, ({ postId, patch }) => {
+  }));
+  ipcMain.handle('social:posts:update', wrap(PostUpdateSchema, ({ postId, patch }) => {
     const post = service.store.updatePost(postId, patch);
     windowManager.broadcast?.('social:post-updated', post);
     return post;
-  });
-  handle('social:posts:delete', PostIdSchema, ({ postId }) => {
+  }));
+  ipcMain.handle('social:posts:delete', wrap(PostIdSchema, ({ postId }) => {
     service.store.deletePost(postId);
     windowManager.broadcast?.('social:post-updated', { id: postId, deleted: true });
     return { deleted: true };
-  });
-  handle('social:posts:publish', PostIdSchema, ({ postId }) => service.publishPost(postId));
+  }));
+  ipcMain.handle('social:posts:publish', wrap(PostIdSchema, ({ postId }) => service.publishPost(postId)));
+
+  // Media pickers — local files (native dialog) and vault image/video resources
+  ipcMain.handle('social:media:pick', wrap(null, async () => {
+    const { dialog } = require('electron');
+    const path = require('path');
+    const fs = require('fs');
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Media', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'mp4', 'mov', 'm4v'] },
+        { name: 'Images', extensions: ['jpg', 'jpeg', 'png', 'gif', 'webp'] },
+        { name: 'Videos', extensions: ['mp4', 'mov', 'm4v'] },
+      ],
+    });
+    if (result.canceled) return { cancelled: true, items: [] };
+    const { IMAGE_EXTS } = require('../../social/social-media.cjs');
+    return {
+      cancelled: false,
+      items: result.filePaths.map((p) => ({
+        path: p,
+        name: path.basename(p),
+        size: fs.statSync(p).size,
+        type: IMAGE_EXTS.has(path.extname(p).toLowerCase()) ? 'image' : 'video',
+      })),
+    };
+  }));
+
+  ipcMain.handle('social:media:library', wrap(LibraryQuerySchema, ({ projectId }) => {
+    const vaultStore = require('../../storage/vault-store.cjs');
+    const fs = require('fs');
+    const queries = database.getQueries();
+    const rows = queries.getResourcesByProject.all(projectId || 'default');
+    return rows
+      .filter((r) => r.type === 'image' || r.type === 'video')
+      .map((r) => {
+        let hasFile = false;
+        try {
+          const p = vaultStore.getResourceFilePath(r, queries, fileStorage);
+          hasFile = Boolean(p && fs.existsSync(p));
+        } catch { /* unresolvable → skip */ }
+        return hasFile ? { resourceId: r.id, title: r.title, type: r.type } : null;
+      })
+      .filter(Boolean)
+      .slice(0, 200);
+  }));
+
+  // Composer preview thumbnails (images only, size-capped data URL)
+  ipcMain.handle('social:media:preview', wrap(MediaPreviewSchema, ({ path: filePath, resourceId }) => {
+    const fs = require('fs');
+    const path = require('path');
+    const { IMAGE_EXTS } = require('../../social/social-media.cjs');
+    let resolved = filePath || null;
+    if (resourceId) {
+      const vaultStore = require('../../storage/vault-store.cjs');
+      const queries = database.getQueries();
+      const resource = queries.getResourceById.get(resourceId);
+      if (!resource) return { dataUrl: null };
+      resolved = vaultStore.getResourceFilePath(resource, queries, fileStorage);
+    }
+    if (!resolved || !fs.existsSync(resolved)) return { dataUrl: null };
+    const ext = path.extname(resolved).toLowerCase();
+    if (!IMAGE_EXTS.has(ext)) return { dataUrl: null }; // videos → icon placeholder
+    const stat = fs.statSync(resolved);
+    if (stat.size > 4 * 1024 * 1024) return { dataUrl: null };
+    const mime = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.gif': 'image/gif', '.webp': 'image/webp' }[ext];
+    return { dataUrl: `data:${mime};base64,${fs.readFileSync(resolved).toString('base64')}` };
+  }));
 
   // Metrics & dashboard
-  handle('social:metrics:post', PostIdSchema, ({ postId }) => service.store.listMetricsForPost(postId));
-  handle('social:metrics:refresh', null, () => service.refreshAllMetrics());
-  handle('social:summary', null, () => service.getSummary());
+  ipcMain.handle('social:metrics:post', wrap(PostIdSchema, ({ postId }) => service.store.listMetricsForPost(postId)));
+  ipcMain.handle('social:metrics:refresh', wrap(null, () => service.refreshAllMetrics()));
+  ipcMain.handle('social:summary', wrap(null, () => service.getSummary()));
 
   service.startScheduler();
 }

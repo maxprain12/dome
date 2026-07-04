@@ -15,14 +15,17 @@ export const socialPostDraftDefinition: ToolDefinition = {
         body: { type: 'string', description: 'Post text/caption. Limits: X 280, Instagram 2200, LinkedIn 3000 chars.' },
         media: {
           type: 'array',
-          description: 'Media items. Required for Instagram. Each: { type: "image"|"video", url: "https://..." } (public URL).',
+          description:
+            'Media items. Each item has ONE source: resource_id (Dome vault image/video resource — preferred), path (absolute local file), or url (public https). ' +
+            'LinkedIn/X upload files natively (vault resources and local paths). Instagram accepts ONLY public https urls (its API downloads the media; no file upload).',
           items: {
             type: 'object',
             properties: {
               type: { type: 'string', enum: ['image', 'video', 'reel'] },
-              url: { type: 'string' },
+              resource_id: { type: 'string', description: 'Dome image/video resource id (from resource_search/resource_list)' },
+              path: { type: 'string', description: 'Absolute local file path' },
+              url: { type: 'string', description: 'Public https URL' },
             },
-            required: ['url'],
           },
         },
         link_url: { type: 'string', description: 'Optional link to share (LinkedIn article / appended to X text).' },

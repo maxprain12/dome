@@ -37,7 +37,7 @@ const AUTH_ENDPOINTS = {
   x: {
     authUrl: 'https://x.com/i/oauth2/authorize',
     tokenUrl: 'https://api.x.com/2/oauth2/token',
-    scopes: 'tweet.read tweet.write users.read offline.access',
+    scopes: 'tweet.read tweet.write users.read media.write offline.access',
     pkce: true,
   },
 };
@@ -141,6 +141,12 @@ function createSocialOAuth(store) {
       const port = store.getOAuthPort();
       const state = crypto.randomBytes(16).toString('base64url');
       const { codeVerifier, codeChallenge } = ep.pkce ? generatePKCE() : {};
+      // Browsers sometimes hit the callback URL twice (prefetch / duplicate GET).
+      // Exchanging the same authorization code twice makes the provider revoke
+      // the token issued to the first exchange (OAuth code-reuse protection,
+      // seen as LinkedIn REVOKED_ACCESS_TOKEN) — so only the FIRST valid
+      // request may run the exchange.
+      let consumed = false;
 
       const server = http.createServer(async (req, res) => {
         try {
@@ -165,6 +171,13 @@ function createSocialOAuth(store) {
             res.end(htmlPage('Invalid callback', 'State mismatch — please retry from Dome.'));
             return;
           }
+          if (consumed) {
+            // Duplicate delivery of the same code: acknowledge without exchanging.
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(htmlPage('Connecting…', 'Already processing — you can close this tab and return to Dome.'));
+            return;
+          }
+          consumed = true;
 
           const tokenData = await exchangeCode(provider, code, port, codeVerifier);
           const account = await finalizeAccount(provider, tokenData);

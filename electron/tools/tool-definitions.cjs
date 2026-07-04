@@ -803,7 +803,7 @@ function getAllToolDefinitions() {
           properties: {
             provider: { type: 'string', enum: ['linkedin', 'instagram', 'x'] },
             body: { type: 'string' },
-            media: { type: 'array', items: { type: 'object', properties: { type: { type: 'string' }, url: { type: 'string' } }, required: ['url'] } },
+            media: { type: 'array', items: { type: 'object', properties: { type: { type: 'string' }, url: { type: 'string' }, path: { type: 'string' }, resource_id: { type: 'string' } } } },
             link_url: { type: 'string' },
             topics: { type: 'array', items: { type: 'string' } },
             campaign: { type: 'string' },

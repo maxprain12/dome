@@ -177,7 +177,7 @@ function registerAll(deps) {
   domeMcpHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   artifactsHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   feedersHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
-  socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
+  socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   cloudSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   threadsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });

@@ -73,7 +73,7 @@
     "edit_title": "Editar publicação",
     "body_placeholder": "O que quer partilhar?",
     "link_placeholder": "URL do link (opcional)",
-    "media_placeholder": "URL https pública de imagem/vídeo (obrigatória no Instagram)",
+    "media_placeholder": "URL https pública de imagem/vídeo (a única opção que o Instagram aceita)",
     "add_media": "Adicionar média",
     "topics_placeholder": "Temas (separados por vírgulas)",
     "campaign_placeholder": "Campanha (opcional)",
@@ -84,8 +84,15 @@
     "no_account": "{{provider}} não tem conta conectada",
     "error_no_provider": "Selecione pelo menos uma rede.",
     "error_empty": "Escreva algum texto ou adicione média.",
-    "error_instagram_media": "O Instagram requer pelo menos uma URL de média pública.",
-    "error_too_long": "O texto excede o limite de {{limit}} caracteres da rede selecionada."
+    "error_instagram_media": "O Instagram precisa de pelo menos um média via URL https pública (foto ou vídeo).",
+    "error_too_long": "O texto excede o limite de {{limit}} caracteres da rede selecionada.",
+    "media_from_computer": "Do seu computador",
+    "media_from_library": "Da biblioteca",
+    "media_from_url": "URL pública",
+    "library_empty": "Ainda não há imagens nem vídeos neste projeto.",
+    "media_source_library": "Biblioteca",
+    "media_source_local": "Local",
+    "warning_instagram_local_image": "O Instagram não pode receber ficheiros locais (a sua API só descarrega de URLs públicas). Adicione uma URL pública para a variante do Instagram — os ficheiros locais funcionam no LinkedIn e no X."
   },
   "wizard": {
     "title": "Configurar {{provider}}",
@@ -255,5 +262,26 @@
         ]
       }
     }
+  },
+  "preview": {
+    "title": "Pré-visualização",
+    "your_account": "A sua conta",
+    "caption_placeholder": "A sua legenda aparecerá aqui…",
+    "text_placeholder": "O seu texto aparecerá aqui…",
+    "now": "Agora",
+    "like": "Gostar",
+    "comment": "Comentar",
+    "repost": "Partilhar",
+    "send": "Enviar",
+    "format_post": "Post",
+    "format_image": "Imagem",
+    "format_carousel": "Carrossel",
+    "format_article": "Artigo",
+    "format_reel": "Reel",
+    "format_video": "Vídeo",
+    "hint_reel_needs_video": "Um Reel precisa de um vídeo — adicione um (URL pública para o Instagram).",
+    "hint_article_needs_link": "O cartão de artigo aparece quando adiciona uma URL de link.",
+    "hint_carousel_needs_images": "Adicione pelo menos 2 imagens para um carrossel.",
+    "hint_needs_media": "Adicione média para preencher este formato."
   }
 }

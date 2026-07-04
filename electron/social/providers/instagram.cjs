@@ -16,6 +16,11 @@
 const GRAPH = 'https://graph.instagram.com/v23.0';
 const CONTAINER_POLL_MS = 2000;
 const CONTAINER_POLL_MAX = 15;
+const VIDEO_POLL_MAX = 150; // video processing can take minutes
+
+const database = require('../../core/database.cjs');
+const fileStorage = require('../../storage/file-storage.cjs');
+const { resolveMediaItems } = require('../social-media.cjs');
 
 async function igFetch(path, { method = 'GET', params = {}, accessToken } = {}) {
   const url = new URL(path.startsWith('http') ? path : `${GRAPH}${path}`);
@@ -135,8 +140,8 @@ async function ensureAccessToken(store, accountId) {
   return tokens.access_token;
 }
 
-async function waitForContainer(igUserId, containerId, accessToken) {
-  for (let i = 0; i < CONTAINER_POLL_MAX; i++) {
+async function waitForContainer(igUserId, containerId, accessToken, maxPolls = CONTAINER_POLL_MAX) {
+  for (let i = 0; i < maxPolls; i++) {
     const status = await igFetch(`/${containerId}`, { accessToken, params: { fields: 'status_code' } });
     if (status.status_code === 'FINISHED') return;
     if (status.status_code === 'ERROR') throw new Error('Instagram media container failed to process.');
@@ -151,28 +156,39 @@ async function publishPost(store, post) {
   const accessToken = await ensureAccessToken(store, account.id);
   const igUserId = account.external_id;
 
-  const media = Array.isArray(post.media) ? post.media : [];
-  const image = media.find((m) => m?.url && (!m.type || m.type === 'image'));
-  const video = media.find((m) => m?.url && (m.type === 'video' || m.type === 'reel'));
-  if (!image && !video) {
-    throw new Error('Instagram posts require at least one media item with a public https URL.');
+  const sources = resolveMediaItems(database, fileStorage, post.media);
+  if (sources.length === 0) {
+    throw new Error('Instagram posts require at least one media item (photo URL, or a local/vault video).');
   }
 
-  const containerParams = video
-    ? { media_type: 'REELS', video_url: video.url, caption: post.body || '' }
-    : { image_url: image.url, caption: post.body || '' };
+  // "Instagram API with Instagram Login" (graph.instagram.com) has NO binary
+  // upload at all: resumable uploads are exclusive to Facebook-Login apps, so
+  // photos AND videos must be reachable at a public https URL.
+  const localFile = sources.find((s) => s.kind === 'file');
+  if (localFile) {
+    throw new Error(
+      'Instagram (with Instagram Login) cannot receive files directly — Meta downloads media from a public https URL. ' +
+      'Paste a public URL for the Instagram variant of this post; local files and vault resources work on LinkedIn and X.'
+    );
+  }
 
+  const urlVideo = sources.find((s) => s.kind === 'url' && s.mediaKind === 'video');
+  const urlImage = sources.find((s) => s.kind === 'url' && s.mediaKind === 'image');
+  const containerParams = urlVideo
+    ? { media_type: 'REELS', video_url: urlVideo.url, caption: post.body || '' }
+    : { image_url: urlImage.url, caption: post.body || '' };
   const container = await igFetch(`/${igUserId}/media`, {
     method: 'POST',
     accessToken,
     params: containerParams,
   });
-  if (video) await waitForContainer(igUserId, container.id, accessToken);
+  const containerId = container.id;
+  if (urlVideo) await waitForContainer(igUserId, containerId, accessToken, VIDEO_POLL_MAX);
 
   const published = await igFetch(`/${igUserId}/media_publish`, {
     method: 'POST',
     accessToken,
-    params: { creation_id: container.id },
+    params: { creation_id: containerId },
   });
 
   let permalink = null;

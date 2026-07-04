@@ -3060,11 +3060,32 @@ async function socialPostDraft({ provider, body, media, link_url, topics, campai
     if (text.length > limits[provider]) {
       return { success: false, error: `Body too long for ${provider}: ${text.length}/${limits[provider]} chars` };
     }
-    const mediaArr = Array.isArray(media)
-      ? media.filter((m) => m && typeof m.url === 'string' && /^https?:\/\//.test(m.url))
-      : [];
+    const mediaArr = (Array.isArray(media) ? media : [])
+      .map((m) => {
+        if (!m || typeof m !== 'object') return null;
+        const item = {};
+        if (typeof m.type === 'string' && ['image', 'video', 'reel'].includes(m.type)) item.type = m.type;
+        if (typeof m.url === 'string' && /^https:\/\//.test(m.url)) item.url = m.url;
+        const rid = m.resource_id ?? m.resourceId;
+        if (typeof rid === 'string' && rid) item.resourceId = rid;
+        if (typeof m.path === 'string' && m.path) item.path = m.path;
+        if (typeof m.name === 'string' && m.name) item.name = m.name;
+        return item.url || item.resourceId || item.path ? item : null;
+      })
+      .filter(Boolean);
     if (provider === 'instagram' && mediaArr.length === 0) {
-      return { success: false, error: 'Instagram posts require at least one media item with a public https URL' };
+      return {
+        success: false,
+        error: 'Instagram posts require at least one media item with a public https url (photo or video)',
+      };
+    }
+    if (provider === 'instagram' && mediaArr.some((m) => !m.url)) {
+      return {
+        success: false,
+        error:
+          'Instagram (Instagram Login API) cannot receive files — every media item needs a public https url. ' +
+          'Local paths and vault resources work on LinkedIn and X only.',
+      };
     }
     let scheduledAt = null;
     if (scheduled_at) {

@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-03T19:40:34.351Z
+> Última generación: 2026-07-04T07:34:22.629Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -489,6 +489,25 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `skills:openFolder` | `electron/ipc/integrations/skills.cjs:38` |
 | `skills:readFile` | `electron/ipc/integrations/skills.cjs:125` |
 | `skills:remove` | `electron/ipc/integrations/skills.cjs:111` |
+| `social:accounts:list` | `electron/ipc/integrations/social.cjs:110` |
+| `social:connect-oauth` | `electron/ipc/integrations/social.cjs:111` |
+| `social:connect-token` | `electron/ipc/integrations/social.cjs:112` |
+| `social:disconnect` | `electron/ipc/integrations/social.cjs:116` |
+| `social:media:library` | `electron/ipc/integrations/social.cjs:173` |
+| `social:media:pick` | `electron/ipc/integrations/social.cjs:148` |
+| `social:metrics:post` | `electron/ipc/integrations/social.cjs:193` |
+| `social:metrics:refresh` | `electron/ipc/integrations/social.cjs:194` |
+| `social:oauth:cancel` | `electron/ipc/integrations/social.cjs:115` |
+| `social:oauth:set-port` | `electron/ipc/integrations/social.cjs:104` |
+| `social:posts:create` | `electron/ipc/integrations/social.cjs:130` |
+| `social:posts:delete` | `electron/ipc/integrations/social.cjs:140` |
+| `social:posts:get` | `electron/ipc/integrations/social.cjs:125` |
+| `social:posts:list` | `electron/ipc/integrations/social.cjs:122` |
+| `social:posts:publish` | `electron/ipc/integrations/social.cjs:145` |
+| `social:posts:update` | `electron/ipc/integrations/social.cjs:135` |
+| `social:providers:set-config` | `electron/ipc/integrations/social.cjs:99` |
+| `social:providers:status` | `electron/ipc/integrations/social.cjs:89` |
+| `social:summary` | `electron/ipc/integrations/social.cjs:195` |
 | `storage:cleanup` | `electron/ipc/data/storage.cjs:20` |
 | `storage:getPath` | `electron/ipc/data/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/data/storage.cjs:3` |
