@@ -55,6 +55,8 @@ El pipeline ejecuta **`scripts/jenkins/bootstrap-agent-tools.sh`** + **`agent-pr
 
 No hace falta instalar `gh` a mano en el agente salvo que `apt` y la descarga fallen (sin red).
 
+**Git commit:** el stage Verify & PR usa `stage-loop-changes.sh` — solo `app/`, `electron/`, `packages/`, `shared/`, `scripts/`, `docs/`. Nunca commitea `.jenkins-node/`, `.jenkins-tools/` ni artefactos del loop.
+
 ## Flujo del pipeline
 
 1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`)
