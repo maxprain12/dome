@@ -20,6 +20,8 @@ Fix the Sonar issues listed below with **minimal, targeted diffs**. Jenkins will
 - Allowed: \`file_read\`, \`file_write\`, \`shell_exec\` (pnpm/npm only for verify).
 - Do not list or explore the whole tree — go straight to reported paths.
 - Do not load large generated/vendor files.
+- **Never replace an entire file** with a snippet — use minimal edits at the reported line only.
+- \`app/globals.css\` and \`electron/mcp/mcp-client.cjs\` are large: patch in place; deleting thousands of lines is a failure.
 - skipHitl: automated CI — never ask for approval.
 
 ## Priority
