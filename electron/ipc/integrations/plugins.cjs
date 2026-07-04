@@ -19,6 +19,71 @@ const fs = require('fs');
 const { dialog, BrowserWindow } = require('electron');
 const pluginLoader = require('../../marketplace/plugin-loader.cjs');
 
+function sanitizeEntryPath(entryFileName) {
+  const normalized = path.normalize(entryFileName);
+  if (normalized.includes('\0')) {
+    throw new Error('Path contains null byte');
+  }
+  return normalized;
+}
+
+function resolveWithinExtractDir(fileName, extractDir) {
+  const sanitized = sanitizeEntryPath(fileName);
+  const joined = path.join(extractDir, sanitized);
+  const resolved = path.resolve(joined);
+  const resolvedExtractDir = path.resolve(extractDir);
+  if (!resolved.startsWith(resolvedExtractDir + path.sep)) {
+    throw new Error('Path traversal detected: ' + fileName);
+  }
+  return resolved;
+}
+
+function extractEntryToDir(readStream, entry, extractDir, zipfile, reject) {
+  try {
+    const destPath = resolveWithinExtractDir(entry.fileName, extractDir);
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    const writeStream = fs.createWriteStream(destPath);
+    readStream.pipe(writeStream);
+    writeStream.on('finish', () => zipfile.readEntry());
+    writeStream.on('error', reject);
+  } catch (err) {
+    reject(err);
+  }
+}
+
+function handleZipEntry(zipfile, entry, extractDir, reject) {
+  if (/\/$/.test(entry.fileName)) {
+    try {
+      const dirPath = resolveWithinExtractDir(entry.fileName, extractDir);
+      fs.mkdirSync(dirPath, { recursive: true });
+      zipfile.readEntry();
+    } catch (err) {
+      reject(err);
+    }
+    return;
+  }
+  zipfile.openReadStream(entry, (openErr, readStream) => {
+    if (openErr) {
+      reject(openErr);
+      return;
+    }
+    extractEntryToDir(readStream, entry, extractDir, zipfile, reject);
+  });
+}
+
+function extractZip(zipPath, extractDir) {
+  return new Promise((resolve, reject) => {
+    const yauzl = require('yauzl');
+    yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
+      if (err) return reject(err);
+      zipfile.readEntry();
+      zipfile.on('entry', (entry) => handleZipEntry(zipfile, entry, extractDir, reject));
+      zipfile.on('end', () => resolve());
+      zipfile.on('error', reject);
+    });
+  });
+}
+
 function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
   ipcMain.handle('plugin:list', async (event) => {
     if (!windowManager.isAuthorized(event.sender.id)) {
@@ -174,58 +239,7 @@ function register({ ipcMain, windowManager, validateSender, sanitizePath }) {
       const extractDir = path.join(tempDir, 'extract');
       fs.mkdirSync(extractDir, { recursive: true });
 
-      const yauzl = require('yauzl');
-      await new Promise((resolve, reject) => {
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
-          if (err) return reject(err);
-          zipfile.readEntry();
-          zipfile.on('entry', (entry) => {
-            try {
-              const sanitizeEntryPath = (entryFileName) => {
-                const normalized = path.normalize(entryFileName);
-                if (normalized.includes('\0')) {
-                  throw new Error('Path contains null byte');
-                }
-                return normalized;
-              };
-
-              const resolveWithinExtractDir = (fileName) => {
-                const sanitized = sanitizeEntryPath(fileName);
-                const joined = path.join(extractDir, sanitized);
-                const resolved = path.resolve(joined);
-                const resolvedExtractDir = path.resolve(extractDir);
-                if (!resolved.startsWith(resolvedExtractDir + path.sep)) {
-                  throw new Error('Path traversal detected: ' + fileName);
-                }
-                return resolved;
-              };
-
-              if (/\/$/.test(entry.fileName)) {
-                const dirPath = resolveWithinExtractDir(entry.fileName);
-                fs.mkdirSync(dirPath, { recursive: true });
-                zipfile.readEntry();
-                return;
-              }
-              zipfile.openReadStream(entry, (openErr, readStream) => {
-                if (openErr) {
-                  reject(openErr);
-                  return;
-                }
-                const destPath = resolveWithinExtractDir(entry.fileName);
-                fs.mkdirSync(path.dirname(destPath), { recursive: true });
-                const writeStream = fs.createWriteStream(destPath);
-                readStream.pipe(writeStream);
-                writeStream.on('finish', () => zipfile.readEntry());
-                writeStream.on('error', reject);
-              });
-            } catch (err) {
-              reject(err);
-            }
-          });
-          zipfile.on('end', () => resolve());
-          zipfile.on('error', reject);
-        });
-      });
+      await extractZip(zipPath, extractDir);
 
       const topLevel = fs.readdirSync(extractDir);
       const sourceDir = topLevel.length === 1
