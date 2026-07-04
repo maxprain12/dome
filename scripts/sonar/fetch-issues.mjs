@@ -8,10 +8,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseArgs, sonarFetch, sonarProjectKey } from './lib.mjs';
+import { parseArgs, sonarFetch, sonarProjectKey, withIssueSeverityFilter } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
-const severities = (args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH').split(',').map((s) => s.trim());
+const severityFilter = args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH';
 const impacts = args.impact ? args.impact.split(',').map((s) => s.trim()) : null;
 const maxIssues = Number(args.max || 500);
 const pageSize = Math.min(500, maxIssues);
@@ -21,13 +21,18 @@ const all = [];
 let page = 1;
 
 while (all.length < maxIssues) {
-  const data = await sonarFetch('/api/issues/search', {
-    componentKeys: sonarProjectKey(),
-    statuses: 'OPEN,CONFIRMED,REOPENED',
-    severities: severities.join(','),
-    ps: pageSize,
-    p: page,
-  });
+  const data = await sonarFetch(
+    '/api/issues/search',
+    withIssueSeverityFilter(
+      {
+        componentKeys: sonarProjectKey(),
+        statuses: 'OPEN,CONFIRMED,REOPENED',
+        ps: pageSize,
+        p: page,
+      },
+      severityFilter,
+    ),
+  );
 
   const issues = data.issues || [];
   if (issues.length === 0) break;

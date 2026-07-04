@@ -154,6 +154,58 @@ export function sonarSeverityLabel(severity) {
   return map[severity] || 'sonar-unknown';
 }
 
+const SONAR_LEGACY_SEVERITIES = ['INFO', 'MINOR', 'MAJOR', 'CRITICAL', 'BLOCKER'];
+const SONAR_IMPACT_SEVERITIES = ['HIGH', 'MEDIUM', 'LOW'];
+
+/**
+ * Split CLI severity tokens into Sonar `/api/issues/search` params.
+ * Legacy: INFO…BLOCKER → `severities`. Impact: HIGH/MEDIUM/LOW → `impactSeverities`.
+ * @param {string} csv e.g. "BLOCKER,CRITICAL,MAJOR,HIGH"
+ */
+export function parseIssueSeverityFilter(csv) {
+  /** @type {string[]} */
+  const severities = [];
+  /** @type {string[]} */
+  const impactSeverities = [];
+  /** @type {string[]} */
+  const unknown = [];
+
+  for (const raw of csv.split(',')) {
+    const token = raw.trim().toUpperCase();
+    if (!token) continue;
+    if (SONAR_LEGACY_SEVERITIES.includes(token)) {
+      severities.push(token);
+    } else if (SONAR_IMPACT_SEVERITIES.includes(token)) {
+      impactSeverities.push(token);
+    } else {
+      unknown.push(raw.trim());
+    }
+  }
+
+  if (unknown.length) {
+    throw new Error(
+      `Invalid severity filter: ${unknown.join(', ')}. ` +
+        `Use legacy [${SONAR_LEGACY_SEVERITIES.join(', ')}] ` +
+        `and/or impact [${SONAR_IMPACT_SEVERITIES.join(', ')}].`,
+    );
+  }
+
+  return { severities, impactSeverities };
+}
+
+/**
+ * @param {Record<string, string | number | boolean | undefined>} params
+ * @param {string} severityCsv
+ */
+export function withIssueSeverityFilter(params, severityCsv) {
+  const { severities, impactSeverities } = parseIssueSeverityFilter(severityCsv);
+  /** @type {Record<string, string | number | boolean | undefined>} */
+  const out = { ...params };
+  if (severities.length) out.severities = severities.join(',');
+  if (impactSeverities.length) out.impactSeverities = impactSeverities.join(',');
+  return out;
+}
+
 /** @param {string} impact Software quality impact (SECURITY, RELIABILITY, MAINTAINABILITY) */
 export function sonarImpactLabel(impact) {
   if (!impact) return 'sonar-maintainability';
