@@ -68,6 +68,12 @@ const PdfExtractTablesSchema = Type.Object({
   }),
 });
 
+/** Split a pipe-delimited row string into trimmed cells; return [] when not a string. */
+function parseTableRow(row: unknown): string[] {
+  if (typeof row !== 'string') return [];
+  return row.split(' | ').map((c) => c.trim());
+}
+
 // =============================================================================
 // Tool Implementations
 // =============================================================================
@@ -324,7 +330,7 @@ export function createPdfExtractTablesTool(): AnyAgentTool {
         const rawTables = Array.isArray(result.tables) ? result.tables : [];
         const normalizedTables = rawTables.map((t: { page?: number; rows?: string[] }) => {
           const rawRows = Array.isArray(t.rows) ? t.rows : [];
-          const split = rawRows.map((row) => (typeof row === 'string' ? row.split(' | ').map((c) => c.trim()) : []));
+          const split = rawRows.map(parseTableRow);
           const headers = split[0] ?? [];
           const rows = split.slice(1);
           return { page: t.page, headers, rows };
