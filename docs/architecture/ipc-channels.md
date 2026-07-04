@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-04T00:39:16.234Z
+> Última generación: 2026-07-04T07:06:17.002Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -437,12 +437,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `pipelines:stages:reorder` | `electron/ipc/agents/pipelines.cjs:487` |
 | `pipelines:stages:update` | `electron/ipc/agents/pipelines.cjs:456` |
 | `pipelines:update` | `electron/ipc/agents/pipelines.cjs:216` |
-| `plugin:install-from-folder` | `electron/ipc/integrations/plugins.cjs:36` |
-| `plugin:install-from-repo` | `electron/ipc/integrations/plugins.cjs:139` |
-| `plugin:list` | `electron/ipc/integrations/plugins.cjs:23` |
-| `plugin:read-asset` | `electron/ipc/integrations/plugins.cjs:90` |
-| `plugin:setEnabled` | `electron/ipc/integrations/plugins.cjs:78` |
-| `plugin:uninstall` | `electron/ipc/integrations/plugins.cjs:66` |
+| `plugin:install-from-folder` | `electron/ipc/integrations/plugins.cjs:101` |
+| `plugin:install-from-repo` | `electron/ipc/integrations/plugins.cjs:204` |
+| `plugin:list` | `electron/ipc/integrations/plugins.cjs:88` |
+| `plugin:read-asset` | `electron/ipc/integrations/plugins.cjs:155` |
+| `plugin:setEnabled` | `electron/ipc/integrations/plugins.cjs:143` |
+| `plugin:uninstall` | `electron/ipc/integrations/plugins.cjs:131` |
 | `quiz:createRun` | `electron/ipc/learn/quiz.cjs:25` |
 | `quiz:getRun` | `electron/ipc/learn/quiz.cjs:110` |
 | `quiz:listRuns` | `electron/ipc/learn/quiz.cjs:92` |
