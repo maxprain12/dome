@@ -466,56 +466,108 @@ let isQuitting = false;
 let appTray = null;
 
 /**
+ * Resolve the assets directory, packaged vs dev.
+ */
+function resolveTrayResourcesPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'assets')
+    : path.join(__dirname, '../assets');
+}
+
+/**
+ * Per-platform tray icon:
+ * - macOS: template image (18x18, white/black auto-switching for menu bar)
+ * - Linux: dedicated small icon (~24px) for AppIndicator/StatusNotifier hosts;
+ *          the 512px icon.png is too large/unreliable for the system tray
+ * - Windows/other: icon.png
+ */
+function resolveTrayIconName() {
+  if (process.platform === 'darwin') return 'trayTemplate.png';
+  if (process.platform === 'linux') return 'tray-linux.png';
+  return 'icon.png';
+}
+
+/**
+ * Pick the first existing icon path, falling back to the bundled icon, else null.
+ */
+function resolveTrayIconPath(primaryPath, fallbackPath) {
+  if (fs.existsSync(primaryPath)) return primaryPath;
+  if (fs.existsSync(fallbackPath)) return fallbackPath;
+  return null;
+}
+
+/**
+ * Build a tray image, downscaling oversized Linux icons. Some Linux
+ * desktops (GNOME via AppIndicator, KDE StatusNotifier) render the raw
+ * pixel size, so an oversized icon shows up huge or not at all.
+ */
+function buildLinuxTrayImage(iconPath) {
+  const trayImage = nativeImage.createFromPath(iconPath);
+  if (trayImage.isEmpty()) return iconPath;
+  const { width } = trayImage.getSize();
+  if (width > 32) {
+    return trayImage.resize({ width: 24, height: 24, quality: 'best' });
+  }
+  return trayImage;
+}
+
+/**
+ * Show the main window if it exists, otherwise create it.
+ */
+function showOrCreateMainWindow() {
+  const win = windowManager.get('main');
+  if (win && !win.isDestroyed()) {
+    win.show();
+    win.focus();
+  } else {
+    createWindow();
+  }
+}
+
+/**
+ * Single click on tray icon shows/hides the main window.
+ */
+function toggleMainWindowFromTray() {
+  const win = windowManager.get('main');
+  if (!win || win.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (win.isVisible()) {
+    win.hide();
+  } else {
+    win.show();
+    win.focus();
+  }
+}
+
+/**
+ * Quit the app from the tray menu (sets the tray-hide flag first).
+ */
+function quitAppFromTray() {
+  isQuitting = true;
+  app.quit();
+}
+
+/**
  * Create the system tray icon with a context menu.
  * Called once after the main window is ready.
  */
-function createTray(mainWindow) {
-  const RESOURCES_PATH = app.isPackaged
-    ? path.join(process.resourcesPath, 'assets')
-    : path.join(__dirname, '../assets');
-
-  // Per-platform tray icon:
-  // - macOS: template image (18x18, white/black auto-switching for menu bar)
-  // - Linux: dedicated small icon (~24px) for AppIndicator/StatusNotifier hosts;
-  //          the 512px icon.png is too large/unreliable for the system tray
-  // - Windows/other: icon.png
-  const trayIconName =
-    process.platform === 'darwin'
-      ? 'trayTemplate.png'
-      : process.platform === 'linux'
-      ? 'tray-linux.png'
-      : 'icon.png';
-  const trayIconPath = path.join(RESOURCES_PATH, trayIconName);
-  const fallbackIconPath = path.join(RESOURCES_PATH, 'icon.png');
-
-  const resolvedIconPath = fs.existsSync(trayIconPath)
-    ? trayIconPath
-    : fs.existsSync(fallbackIconPath)
-    ? fallbackIconPath
-    : null;
+function createTray() {
+  const resourcesPath = resolveTrayResourcesPath();
+  const trayIconPath = path.join(resourcesPath, resolveTrayIconName());
+  const fallbackIconPath = path.join(resourcesPath, 'icon.png');
+  const resolvedIconPath = resolveTrayIconPath(trayIconPath, fallbackIconPath);
 
   if (!resolvedIconPath) {
     console.warn('[Tray] No icon found, skipping tray creation');
     return;
   }
 
-  if (process.platform === 'linux') {
-    // Build a nativeImage and downscale to a tray-friendly size. Some Linux
-    // desktops (GNOME via AppIndicator, KDE StatusNotifier) render the raw
-    // pixel size, so an oversized icon shows up huge or not at all.
-    let trayImage = nativeImage.createFromPath(resolvedIconPath);
-    if (!trayImage.isEmpty()) {
-      const { width } = trayImage.getSize();
-      if (width > 32) {
-        trayImage = trayImage.resize({ width: 24, height: 24, quality: 'best' });
-      }
-      appTray = new Tray(trayImage);
-    } else {
-      appTray = new Tray(resolvedIconPath);
-    }
-  } else {
-    appTray = new Tray(resolvedIconPath);
-  }
+  const trayIcon = process.platform === 'linux'
+    ? buildLinuxTrayImage(resolvedIconPath)
+    : resolvedIconPath;
+  appTray = new Tray(trayIcon);
 
   if (process.platform === 'darwin') {
     // Template image auto-adapts to light/dark menu bar
@@ -523,54 +575,17 @@ function createTray(mainWindow) {
   }
   appTray.setToolTip('Dome');
 
-  const openMainWindow = () => {
-    const win = windowManager.get('main');
-    if (win && !win.isDestroyed()) {
-      win.show();
-      win.focus();
-    } else {
-      createWindow();
-    }
-  };
-
-  const quitApp = () => {
-    isQuitting = true;
-    app.quit();
-  };
-
   appTray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: 'Open Dome', click: openMainWindow },
+      { label: 'Open Dome', click: showOrCreateMainWindow },
       { type: 'separator' },
-      { label: 'Quit', click: quitApp },
+      { label: 'Quit', click: quitAppFromTray },
     ]),
   );
 
-  // Single click on tray icon shows/hides the main window
-  appTray.on('click', () => {
-    const win = windowManager.get('main');
-    if (!win || win.isDestroyed()) {
-      createWindow();
-      return;
-    }
-    if (win.isVisible()) {
-      win.hide();
-    } else {
-      win.show();
-      win.focus();
-    }
-  });
-
+  appTray.on('click', toggleMainWindowFromTray);
   // Double-click on Windows also opens the window
-  appTray.on('double-click', () => {
-    const win = windowManager.get('main');
-    if (win && !win.isDestroyed()) {
-      win.show();
-      win.focus();
-    } else {
-      createWindow();
-    }
-  });
+  appTray.on('double-click', showOrCreateMainWindow);
 }
 
 /**
@@ -1086,7 +1101,7 @@ app
     });
 
     // Create tray icon for background operation (automations, notifications)
-    createTray(mainWindow);
+    createTray();
 
     // Enable auto-launch on first install
     configureFirstLaunchAutoStart();

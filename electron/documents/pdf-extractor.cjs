@@ -30,6 +30,77 @@ async function loadPdfJs() {
 }
 
 /**
+ * Load the PDF.js document for the given file path.
+ * @param {string} filePath
+ * @param {object} pdfjs
+ */
+async function openPdfDocument(filePath, pdfjs) {
+  const data = new Uint8Array(fs.readFileSync(filePath));
+  const loadingTask = pdfjs.getDocument({
+    data,
+    disableFontFace: true,
+    useSystemFonts: true,
+  });
+  return loadingTask.promise;
+}
+
+/**
+ * Resolve the list of pages to extract. When `pageSpec` is given (e.g. "1-5" or "1,3,5")
+ * it is parsed into a sorted, de-duplicated page list; otherwise all pages are returned.
+ * @param {number} numPages
+ * @param {string|undefined} pageSpec
+ * @returns {number[]}
+ */
+function resolvePagesToExtract(numPages, pageSpec) {
+  if (!pageSpec) {
+    return Array.from({ length: numPages }, (_, i) => i + 1);
+  }
+  const parts = pageSpec.split(',').map((p) => {
+    const range = p.trim().split('-');
+    if (range.length === 2) {
+      return { start: parseInt(range[0]), end: parseInt(range[1]) };
+    }
+    return { start: parseInt(p), end: parseInt(p) };
+  });
+  const pages = [];
+  for (const part of parts) {
+    for (let i = part.start; i <= part.end && i <= numPages; i += 1) {
+      if (!pages.includes(i)) pages.push(i);
+    }
+  }
+  return pages.sort((a, b) => a - b);
+}
+
+/**
+ * Extract text from each requested page, stopping once `maxChars` is reached.
+ * @param {object} pdfDoc
+ * @param {number[]} pagesToExtract
+ * @param {number} maxChars
+ * @returns {Promise<string>}
+ */
+async function extractPagesText(pdfDoc, pagesToExtract, maxChars) {
+  const textParts = [];
+  let totalChars = 0;
+  for (const pageNum of pagesToExtract) {
+    if (totalChars >= maxChars) break;
+
+    const page = await pdfDoc.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const pageText = textContent.items.map((item) => item.str || '').join(' ');
+
+    if (totalChars + pageText.length > maxChars) {
+      const remaining = maxChars - totalChars;
+      textParts.push(pageText.substring(0, remaining));
+      break;
+    }
+
+    textParts.push(pageText);
+    totalChars += pageText.length;
+  }
+  return textParts.join('\n\n').trim();
+}
+
+/**
  * Extract text content from a PDF file
  * @param {string} filePath - Path to PDF file
  * @param {object} options - Extraction options
@@ -39,7 +110,7 @@ async function loadPdfJs() {
  */
 async function extractPdfText(filePath, options = {}) {
   const { maxChars = 50000, pages: pageSpec } = options;
-  
+
   if (!filePath || !fs.existsSync(filePath)) {
     return { success: false, error: 'PDF file not found' };
   }
@@ -50,64 +121,15 @@ async function extractPdfText(filePath, options = {}) {
   }
 
   try {
-    const data = new Uint8Array(fs.readFileSync(filePath));
-    const loadingTask = pdfjs.getDocument({
-      data,
-      disableFontFace: true,
-      useSystemFonts: true,
-    });
-    const pdfDoc = await loadingTask.promise;
-    const numPages = pdfDoc.numPages;
-    
-    // Parse page specification
-    let pagesToExtract = [];
-    if (pageSpec) {
-      const parts = pageSpec.split(',').map(p => {
-        const range = p.trim().split('-');
-        if (range.length === 2) {
-          return { start: parseInt(range[0]), end: parseInt(range[1]) };
-        }
-        return { start: parseInt(p), end: parseInt(p) };
-      });
-      
-      for (const part of parts) {
-        for (let i = part.start; i <= part.end && i <= numPages; i++) {
-          if (!pagesToExtract.includes(i)) {
-            pagesToExtract.push(i);
-          }
-        }
-      }
-      pagesToExtract.sort((a, b) => a - b);
-    } else {
-      pagesToExtract = Array.from({ length: numPages }, (_, i) => i + 1);
-    }
-
-    const textParts = [];
-    let totalChars = 0;
-
-    for (const pageNum of pagesToExtract) {
-      if (totalChars >= maxChars) break;
-      
-      const page = await pdfDoc.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str || '').join(' ');
-      
-      if (totalChars + pageText.length > maxChars) {
-        const remaining = maxChars - totalChars;
-        textParts.push(pageText.substring(0, remaining));
-        totalChars += remaining;
-        break;
-      }
-      
-      textParts.push(pageText);
-      totalChars += pageText.length;
-    }
+    const pdfDoc = await openPdfDocument(filePath, pdfjs);
+    const pagesToExtract = resolvePagesToExtract(pdfDoc.numPages, pageSpec);
+    const text = await extractPagesText(pdfDoc, pagesToExtract, maxChars);
 
     return {
       success: true,
-      text: textParts.join('\n\n').trim(),
+      text,
       pages: pagesToExtract.length,
-      totalPages: numPages,
+      totalPages: pdfDoc.numPages,
     };
   } catch (error) {
     console.error('[PDF Extractor] Error extracting text:', error.message);

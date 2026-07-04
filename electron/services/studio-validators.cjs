@@ -108,6 +108,120 @@ function normalizeQuizCorrect(correct, type, options) {
 }
 
 /**
+ * @param {Record<string, unknown>} q
+ * @param {string} id
+ * @param {string} questionText
+ * @param {string[]} options
+ * @param {number} correctIdx
+ */
+function buildMultipleChoiceQuestion(q, id, questionText, options, correctIdx) {
+  const explanation = trimString(q.explanation) || '';
+  return {
+    id,
+    type: 'multiple_choice',
+    question: questionText,
+    options,
+    correct: correctIdx,
+    explanation,
+    ...(q.source_citation && typeof q.source_citation === 'object'
+      ? { source_citation: q.source_citation }
+      : {}),
+  };
+}
+
+/**
+ * @param {Record<string, unknown>} q
+ * @param {string} id
+ * @param {string} questionText
+ * @param {number} correctIdx
+ */
+function buildTrueFalseQuestion(q, id, questionText, correctIdx) {
+  const explanation = trimString(q.explanation) || '';
+  return {
+    id,
+    type: 'true_false',
+    question: questionText,
+    correct: correctIdx,
+    explanation,
+    ...(q.source_citation && typeof q.source_citation === 'object'
+      ? { source_citation: q.source_citation }
+      : {}),
+  };
+}
+
+/**
+ * Validate a single multiple-choice quiz item. Returns the normalized question
+ * or `null` when the item is invalid (an error is pushed in that case).
+ */
+function normalizeMultipleChoiceItem(q, qIndex, fallbackId, errors, questionText, correctRaw) {
+  const optionsRaw = q.options;
+  if (!Array.isArray(optionsRaw)) {
+    errors.push(`quiz: question ${qIndex} missing options array`);
+    return null;
+  }
+  const options = optionsRaw.map((o) => trimString(o)).filter(Boolean);
+  if (options.length < 2) {
+    errors.push(`quiz: question ${qIndex} needs at least 2 options`);
+    return null;
+  }
+  const correctIdx = normalizeQuizCorrect(correctRaw, 'multiple_choice', options);
+  if (correctIdx === null) {
+    errors.push(`quiz: question ${qIndex} has invalid correct answer`);
+    return null;
+  }
+  const id = trimString(q.id) || fallbackId;
+  return buildMultipleChoiceQuestion(q, id, questionText, options, correctIdx);
+}
+
+/**
+ * Validate a single true/false quiz item. Returns the normalized question
+ * or `null` when the item is invalid (an error is pushed in that case).
+ */
+function normalizeTrueFalseItem(q, qIndex, fallbackId, errors, questionText, correctRaw) {
+  const tfOptions = Array.isArray(q.options)
+    ? q.options.map((o) => trimString(o)).filter(Boolean)
+    : undefined;
+  const correctIdx = normalizeQuizCorrect(
+    correctRaw,
+    'true_false',
+    tfOptions && tfOptions.length >= 2 ? tfOptions : undefined,
+  );
+  if (correctIdx === null) {
+    errors.push(`quiz: question ${qIndex} has invalid true/false correct value`);
+    return null;
+  }
+  const id = trimString(q.id) || fallbackId;
+  return buildTrueFalseQuestion(q, id, questionText, correctIdx);
+}
+
+/**
+ * Validate a single quiz item (any of the supported types). Returns the normalized
+ * question or `null` when the item is invalid (an error is pushed in that case).
+ */
+function normalizeQuizItem(item, qIndex, fallbackId, errors) {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) {
+    errors.push(`quiz: question ${qIndex} is not an object`);
+    return null;
+  }
+  const q = item;
+  const questionText = trimString(q.question);
+  if (!questionText) {
+    errors.push(`quiz: question ${qIndex} missing question text`);
+    return null;
+  }
+  const typeRaw = trimString(q.type).toLowerCase();
+  if (typeRaw !== 'multiple_choice' && typeRaw !== 'true_false') {
+    errors.push(`quiz: question ${qIndex} has unsupported type "${q.type}"`);
+    return null;
+  }
+  const correctRaw = q.correct ?? q.correct_answer ?? q.answer;
+  if (typeRaw === 'multiple_choice') {
+    return normalizeMultipleChoiceItem(q, qIndex, fallbackId, errors, questionText, correctRaw);
+  }
+  return normalizeTrueFalseItem(q, qIndex, fallbackId, errors, questionText, correctRaw);
+}
+
+/**
  * @param {unknown} raw
  * @returns {{ ok: boolean, content: object|null, normalized: object|null, errors: string[] }}
  */
@@ -126,85 +240,10 @@ function validateQuizContent(raw) {
   /** @type {Array<Record<string, unknown>>} */
   const questions = [];
   let qIndex = 0;
-
   for (const item of questionsRaw) {
     qIndex += 1;
-    if (!item || typeof item !== 'object' || Array.isArray(item)) {
-      errors.push(`quiz: question ${qIndex} is not an object`);
-      continue;
-    }
-
-    const q = /** @type {Record<string, unknown>} */ (item);
-    const questionText = trimString(q.question);
-    if (!questionText) {
-      errors.push(`quiz: question ${qIndex} missing question text`);
-      continue;
-    }
-
-    const typeRaw = trimString(q.type).toLowerCase();
-    if (typeRaw !== 'multiple_choice' && typeRaw !== 'true_false') {
-      errors.push(`quiz: question ${qIndex} has unsupported type "${q.type}"`);
-      continue;
-    }
-
-    const id = trimString(q.id) || `q${questions.length + 1}`;
-    const explanation = trimString(q.explanation) || '';
-    const correctRaw = q.correct ?? q.correct_answer ?? q.answer;
-
-    if (typeRaw === 'multiple_choice') {
-      const optionsRaw = q.options;
-      if (!Array.isArray(optionsRaw)) {
-        errors.push(`quiz: question ${qIndex} missing options array`);
-        continue;
-      }
-      const options = optionsRaw.map((o) => trimString(o)).filter(Boolean);
-      if (options.length < 2) {
-        errors.push(`quiz: question ${qIndex} needs at least 2 options`);
-        continue;
-      }
-
-      const correctIdx = normalizeQuizCorrect(correctRaw, 'multiple_choice', options);
-      if (correctIdx === null) {
-        errors.push(`quiz: question ${qIndex} has invalid correct answer`);
-        continue;
-      }
-
-      questions.push({
-        id,
-        type: 'multiple_choice',
-        question: questionText,
-        options,
-        correct: correctIdx,
-        explanation,
-        ...(q.source_citation && typeof q.source_citation === 'object'
-          ? { source_citation: q.source_citation }
-          : {}),
-      });
-    } else {
-      const tfOptions = Array.isArray(q.options)
-        ? q.options.map((o) => trimString(o)).filter(Boolean)
-        : undefined;
-      const correctIdx = normalizeQuizCorrect(
-        correctRaw,
-        'true_false',
-        tfOptions && tfOptions.length >= 2 ? tfOptions : undefined,
-      );
-      if (correctIdx === null) {
-        errors.push(`quiz: question ${qIndex} has invalid true/false correct value`);
-        continue;
-      }
-
-      questions.push({
-        id,
-        type: 'true_false',
-        question: questionText,
-        correct: correctIdx,
-        explanation,
-        ...(q.source_citation && typeof q.source_citation === 'object'
-          ? { source_citation: q.source_citation }
-          : {}),
-      });
-    }
+    const normalized = normalizeQuizItem(item, qIndex, `q${questions.length + 1}`, errors);
+    if (normalized) questions.push(normalized);
   }
 
   if (questions.length === 0) {

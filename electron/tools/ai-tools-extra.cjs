@@ -427,42 +427,62 @@ async function imageThumbnailForTool(args = {}) {
   return cropImage.generateThumbnail(filePath, { maxWidth, maxHeight, format, quality });
 }
 
+/**
+ * Fetch a single resource snippet. Returns null when the lookup fails or yields no resource.
+ * @param {(id: string, opts: object) => Promise<any>} resourceGetFn
+ * @param {string} id
+ * @param {number} maxContentLength
+ */
+async function fetchResourceSnippet(resourceGetFn, id, maxContentLength) {
+  try {
+    const result = await resourceGetFn(id, { includeContent: true, maxContentLength });
+    if (!result?.success || !result.resource) return null;
+    return {
+      id: result.resource.id,
+      title: result.resource.title,
+      snippet: String(result.resource.content || result.resource.summary || '').slice(0, maxContentLength),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch snippets for a list of explicit source ids.
+ */
+async function gatherSnippetsByIds(resourceGetFn, sourceIds, maxContentLength) {
+  const snippets = [];
+  for (const id of sourceIds) {
+    const snippet = await fetchResourceSnippet(resourceGetFn, id, maxContentLength);
+    if (snippet) snippets.push(snippet);
+  }
+  return snippets;
+}
+
+/**
+ * List recent resources for a project and gather their snippets.
+ */
+async function gatherSnippetsByProject(resourceListFn, resourceGetFn, projectId, limit, maxContentLength) {
+  const listResult = await resourceListFn({ project_id: projectId, limit, sort: 'updated_at' });
+  if (!listResult?.success || !Array.isArray(listResult.resources)) return [];
+  const snippets = [];
+  for (const r of listResult.resources) {
+    const snippet = await fetchResourceSnippet(resourceGetFn, r.id, maxContentLength);
+    if (snippet) snippets.push(snippet);
+  }
+  return snippets;
+}
+
 async function gatherStudioMindmapContext(args = {}, resourceGetFn, resourceListFn) {
   const projectId = typeof args.project_id === 'string' ? args.project_id.trim() : '';
   const topic = typeof args.topic === 'string' ? args.topic : '';
   const sourceIds = Array.isArray(args.source_ids) ? args.source_ids.filter((x) => typeof x === 'string') : [];
-  const sourceContent = [];
 
-  if (sourceIds.length > 0 && resourceGetFn) {
-    for (const sourceId of sourceIds) {
-      try {
-        const result = await resourceGetFn(sourceId, { includeContent: true, maxContentLength: 5000 });
-        if (result?.success && result.resource) {
-          sourceContent.push({
-            id: result.resource.id,
-            title: result.resource.title,
-            snippet: String(result.resource.content || result.resource.summary || '').slice(0, 500),
-          });
-        }
-      } catch { /* skip */ }
-    }
-  } else if (projectId && resourceListFn && resourceGetFn) {
-    const listResult = await resourceListFn({ project_id: projectId, limit: 10, sort: 'updated_at' });
-    if (listResult?.success && Array.isArray(listResult.resources)) {
-      for (const r of listResult.resources) {
-        try {
-          const result = await resourceGetFn(r.id, { includeContent: true, maxContentLength: 5000 });
-          if (result?.success && result.resource) {
-            sourceContent.push({
-              id: result.resource.id,
-              title: result.resource.title,
-              snippet: String(result.resource.content || result.resource.summary || '').slice(0, 500),
-            });
-          }
-        } catch { /* skip */ }
-      }
-    }
-  }
+  const sourceContent = sourceIds.length > 0 && resourceGetFn
+    ? await gatherSnippetsByIds(resourceGetFn, sourceIds, 500)
+    : (projectId && resourceListFn && resourceGetFn
+      ? await gatherSnippetsByProject(resourceListFn, resourceGetFn, projectId, 10, 500)
+      : []);
 
   return {
     status: 'success',
