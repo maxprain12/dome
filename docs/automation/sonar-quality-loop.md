@@ -16,7 +16,7 @@ Automated correction loop: SonarQube → GitHub Issues → OpenCode CLI (MiniMax
 
 - Pipeline from SCM → **`Jenkinsfile.quality-loop`**
 - Branch `*/main`
-- Cron incluido en el pipeline (`H */6 * * *`)
+- Cron incluido en el pipeline (`H * * * *` — cada hora, minuto aleatorio)
 
 ### Credentials (Manage Jenkins → Credentials)
 
