@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Bootstrap missing Jenkins agent tools (gh, xvfb) without manual image setup.
-# Prefers apt when root/sudo is available; falls back to portable gh in workspace.
 set -euo pipefail
 
 ROOT="${1:-.}"
@@ -46,7 +45,7 @@ run_apt() {
   return 1
 }
 
-# Electron headless harness (sonar:run-agent) on Debian/Ubuntu — libglib, GTK, NSS, etc.
+# Optional xvfb for other Electron-based jobs — not required for Sonar OpenCode harness.
 ELECTRON_RUNTIME_PKGS=(
   libglib2.0-0
   libnss3

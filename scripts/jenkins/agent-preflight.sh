@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Jenkins agent preflight for dome-quality-loop (Linux).
-# Bootstraps missing tools, validates CLI, prepares virtual display for Electron.
+# Bootstraps missing tools and validates CLI before pipeline stages.
 set -euo pipefail
 
 ROOT="${1:-.}"
@@ -62,7 +62,7 @@ elif command -v xvfb-run >/dev/null 2>&1; then
   echo "OK: xvfb-run available (fallback for Electron)"
   echo "XVFB_RUN=1" >> "$ENV_FILE"
 else
-  echo "WARN: neither Xvfb nor xvfb-run found — Electron harness may fail"
+  echo "WARN: neither Xvfb nor xvfb-run found (not required for OpenCode Sonar agent)"
 fi
 
 echo "=== Preflight complete ==="

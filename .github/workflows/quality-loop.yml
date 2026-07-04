@@ -1,4 +1,4 @@
-name: Quality Loop (Dome harness)
+name: Quality Loop (OpenCode)
 
 # Optional manual trigger — primary automation is Jenkins dome-quality-loop.
 on:
@@ -24,17 +24,24 @@ jobs:
           node-version: '24'
           cache: pnpm
 
+      - name: Install OpenCode CLI
+        run: bash scripts/jenkins/bootstrap-opencode.sh "$PWD"
+
       - name: Install
         run: |
           pnpm install --frozen-lockfile
           pnpm run rebuild:natives
           pnpm run build:packages
 
-      - name: Run Dome Sonar harness
+      - name: Run OpenCode Sonar agent
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           SONAR_LOOP_MODEL: MiniMax-M3
+          OPENCODE_CONFIG: ${{ github.workspace }}/scripts/sonar/opencode.ci.json
+          OPENCODE_DISABLE_AUTOUPDATE: '1'
+          PATH: ${{ github.workspace }}/.jenkins-tools/bin:${{ env.PATH }}
         run: |
+          opencode --version
           pnpm run sonar:run-agent -- --batch=${{ inputs.batch_path }}
 
       - name: Upload agent log
