@@ -17,6 +17,7 @@ import {
   parseArgs,
   sonarFetch,
   sonarProjectKey,
+  withIssueSeverityFilter,
 } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
@@ -89,13 +90,18 @@ async function loadIssues() {
   }
 
   if (ghIssues.length === 0) {
-    const data = await sonarFetch('/api/issues/search', {
-      componentKeys: sonarProjectKey(),
-      statuses: 'OPEN,CONFIRMED,REOPENED',
-      severities: 'BLOCKER,CRITICAL,MAJOR,HIGH',
-      ps: 100,
-      p: 1,
-    });
+    const data = await sonarFetch(
+      '/api/issues/search',
+      withIssueSeverityFilter(
+        {
+          componentKeys: sonarProjectKey(),
+          statuses: 'OPEN,CONFIRMED,REOPENED',
+          ps: 100,
+          p: 1,
+        },
+        'BLOCKER,CRITICAL,MAJOR,HIGH',
+      ),
+    );
     return data.issues || [];
   }
 

@@ -61,8 +61,17 @@ No hace falta instalar `gh` a mano en el agente salvo que `apt` y la descarga fa
 2. Pick batch → `.quality-loop/batch.json`
 3. Fix mecánico (`void` operator) si aplica
 4. **Agent fix** — `pnpm run sonar:run-agent` (MiniMax via Dome harness)
-5. Si hay diff → typecheck, lint, coverage → branch + PR
+5. Si hay diff → typecheck, lint, coverage → branch + PR (**auto-merge squash** cuando pase CI)
 6. Close resolved en Sonar
+
+### Auto-merge de PRs
+
+Tras `gh pr create`, el script `create-batch-pr.mjs` ejecuta `gh pr merge --auto --squash`. El merge ocurre cuando pasen los checks de GitHub Actions (igual que el flujo de [AGENTS.md](../../AGENTS.md)).
+
+Requisitos en el repo **maxprain12/dome**:
+
+- **Settings → General → Allow auto-merge** activado
+- Branch protection en `main` con status checks requeridos (CI)
 
 ## Probar localmente
 

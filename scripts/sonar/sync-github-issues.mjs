@@ -18,10 +18,11 @@ import {
   sonarImpactLabel,
   sonarProjectKey,
   sonarSeverityLabel,
+  withIssueSeverityFilter,
 } from './lib.mjs';
 
 const args = parseArgs(process.argv.slice(2));
-const severities = (args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH').split(',').map((s) => s.trim());
+const severityFilter = args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH';
 const maxCreate = Number(args.max || 50);
 const dryRun = args['dry-run'] === 'true';
 
@@ -105,15 +106,20 @@ const candidates = [];
 let page = 1;
 
 while (candidates.length < maxCreate) {
-  const data = await sonarFetch('/api/issues/search', {
-    componentKeys: sonarProjectKey(),
-    statuses: 'OPEN,CONFIRMED,REOPENED',
-    severities: severities.join(','),
-    ps: 100,
-    p: page,
-    s: 'SEVERITY',
-    asc: 'false',
-  });
+  const data = await sonarFetch(
+    '/api/issues/search',
+    withIssueSeverityFilter(
+      {
+        componentKeys: sonarProjectKey(),
+        statuses: 'OPEN,CONFIRMED,REOPENED',
+        ps: 100,
+        p: page,
+        s: 'SEVERITY',
+        asc: 'false',
+      },
+      severityFilter,
+    ),
+  );
 
   const issues = data.issues || [];
   if (issues.length === 0) break;

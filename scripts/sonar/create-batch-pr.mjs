@@ -3,7 +3,7 @@
  * Create a PR for a mechanical Sonar batch (used by Jenkins quality loop).
  *
  * Usage:
- *   GITHUB_TOKEN=... node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json
+ *   GITHUB_TOKEN=... node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json [--branch=fix/sonar-batch-...]
  */
 
 import { execFileSync } from 'node:child_process';
@@ -16,6 +16,10 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const args = parseArgs(process.argv.slice(2));
 const batchPath = path.resolve(args.batch || '.quality-loop/batch.json');
 const batch = JSON.parse(fs.readFileSync(batchPath, 'utf8'));
+const branch =
+  args.branch ||
+  process.env.SONAR_LOOP_BRANCH ||
+  `fix/sonar-batch-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
 
 const closes = (batch.batch || [])
   .map((i) => i.githubNumber)
@@ -34,22 +38,32 @@ ${closes.length ? closes.join('\n') : '_No linked GitHub issue numbers in batch.
 - [x] test:coverage
 `;
 
-const branch = `fix/sonar-batch-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
 const bodyFile = path.join(root, '.quality-loop', 'pr-body.md');
 fs.mkdirSync(path.dirname(bodyFile), { recursive: true });
 fs.writeFileSync(bodyFile, body);
 
-execFileSync('gh', [
-  'pr',
-  'create',
-  '--repo',
-  githubRepo(),
-  '--title',
-  'fix(sonar): mechanical quality batch',
-  '--body-file',
-  bodyFile,
-  '--head',
-  branch,
-], { cwd: root, stdio: 'inherit' });
+const repo = githubRepo();
+const prUrl = execFileSync(
+  'gh',
+  [
+    'pr',
+    'create',
+    '--repo',
+    repo,
+    '--title',
+    'fix(sonar): quality loop batch',
+    '--body-file',
+    bodyFile,
+    '--head',
+    branch,
+  ],
+  { cwd: root, encoding: 'utf8' },
+).trim();
 
-console.log(`PR created for branch ${branch}`);
+execFileSync(
+  'gh',
+  ['pr', 'merge', prUrl, '--auto', '--squash', '--repo', repo],
+  { cwd: root, stdio: 'inherit' },
+);
+
+console.log(`PR created with auto-merge (squash): ${prUrl}`);
