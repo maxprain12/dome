@@ -3160,8 +3160,7 @@ async function githubUpdateIssue({ issue_id, title, body, state, milestone_numbe
     if (milestone_number !== undefined) patch.milestoneNumber = milestone_number;
     const { issue, changed } = githubStore().updateLocalIssue(issue_id, patch);
     if (!issue) return { success: false, error: 'Issue not found' };
-    if (changed) {
-      void githubSyncService().scheduleSync(githubStore().getRepo(issue.repo_id)?.project_id);
+    if (changed) { githubSyncService().scheduleSync(githubStore().getRepo(issue.repo_id)?.project_id);
     }
     return { success: true, source: 'github', issue };
   } catch (err) {

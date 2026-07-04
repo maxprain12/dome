@@ -750,8 +750,7 @@ async function startAgentRun(params) {
   if (autoSpeak) {
     streamingTts.start(run.id, { language: voiceLanguage });
   }
-  setImmediate(() => {
-    void executeAgentRun(run.id, {
+  setImmediate(() => { executeAgentRun(run.id, {
       ...params,
       sessionId: run.sessionId,
       title: run.title,
@@ -930,8 +929,7 @@ function startWorkflowRun(params) {
   const controller = new AbortController();
   setMaxListeners(64, controller.signal);
   activeRunContexts.set(run.id, { controller, createdAt: Date.now() });
-  setImmediate(() => {
-    void executeWorkflowRun(run.id, params, workflow);
+  setImmediate(() => { executeWorkflowRun(run.id, params, workflow);
   });
   return getRun(run.id);
 }
