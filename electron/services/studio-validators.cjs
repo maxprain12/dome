@@ -39,72 +39,83 @@ function trimString(value) {
  * @param {string[]|undefined} options
  * @returns {number|null}
  */
-function normalizeQuizCorrect(correct, type, options) {
-  if (type === 'true_false') {
-    if (options && options.length >= 2) {
-      const fromOptions = normalizeQuizCorrect(correct, 'multiple_choice', options);
-      if (fromOptions !== null && fromOptions <= 1) return fromOptions;
-    }
+function normalizeTrueFalseFromString(correct) {
+  if (typeof correct !== 'string') return null;
+  const lower = correct.trim().toLowerCase();
+  if (TRUE_STRINGS.has(lower)) return 0;
+  if (FALSE_STRINGS.has(lower)) return 1;
+  const parsed = Number.parseInt(lower, 10);
+  if (!Number.isNaN(parsed) && (parsed === 0 || parsed === 1)) return parsed;
+  return null;
+}
 
-    if (typeof correct === 'boolean') {
-      return correct ? 0 : 1;
-    }
-    if (typeof correct === 'number' && Number.isFinite(correct)) {
-      const n = Math.trunc(correct);
-      if (n === 0 || n === 1) return n;
-      return null;
-    }
-    if (typeof correct === 'string') {
-      const lower = correct.trim().toLowerCase();
-      if (TRUE_STRINGS.has(lower)) return 0;
-      if (FALSE_STRINGS.has(lower)) return 1;
-      const parsed = Number.parseInt(lower, 10);
-      if (!Number.isNaN(parsed) && (parsed === 0 || parsed === 1)) return parsed;
-    }
-    return null;
+function normalizeTrueFalseCorrect(correct, options) {
+  if (options && options.length >= 2) {
+    const fromOptions = normalizeMultipleChoiceCorrect(correct, options);
+    if (fromOptions !== null && fromOptions <= 1) return fromOptions;
   }
-
-  if (type !== 'multiple_choice') {
-    return null;
-  }
-
-  const opts = Array.isArray(options) ? options.map((o) => trimString(o)).filter(Boolean) : [];
-  if (opts.length < 2) return null;
-
-  if (typeof correct === 'number' && Number.isFinite(correct)) {
-    const n = Math.trunc(correct);
-    if (n >= 0 && n < opts.length) return n;
-    // 1-based: last option when AI uses options.length (e.g. 4 options, correct: 4)
-    if (n >= 1 && n === opts.length) return n - 1;
-    return null;
-  }
-
   if (typeof correct === 'boolean') {
     return correct ? 0 : 1;
   }
+  if (typeof correct === 'number' && Number.isFinite(correct)) {
+    const n = Math.trunc(correct);
+    if (n === 0 || n === 1) return n;
+    return null;
+  }
+  return normalizeTrueFalseFromString(correct);
+}
 
-  if (typeof correct === 'string') {
-    const trimmed = correct.trim();
-    if (!trimmed) return null;
+function normalizeMultipleChoiceFromNumber(correct, opts) {
+  if (typeof correct !== 'number' || !Number.isFinite(correct)) return null;
+  const n = Math.trunc(correct);
+  if (n >= 0 && n < opts.length) return n;
+  // 1-based: last option when AI uses options.length (e.g. 4 options, correct: 4)
+  if (n >= 1 && n === opts.length) return n - 1;
+  return null;
+}
 
-    const letterMatch = /^[A-Za-z]$/.exec(trimmed);
-    if (letterMatch) {
-      const idx = letterMatch[0].toUpperCase().charCodeAt(0) - 65;
-      if (idx >= 0 && idx < opts.length) return idx;
-    }
+function normalizeMultipleChoiceFromString(correct, opts) {
+  if (typeof correct !== 'string') return null;
+  const trimmed = correct.trim();
+  if (!trimmed) return null;
 
-    const asNum = Number.parseInt(trimmed, 10);
-    if (!Number.isNaN(asNum)) {
-      if (asNum >= 0 && asNum < opts.length) return asNum;
-      if (asNum >= 1 && asNum <= opts.length) return asNum - 1;
-    }
-
-    const lower = trimmed.toLowerCase();
-    const matchIdx = opts.findIndex((o) => o.toLowerCase() === lower);
-    if (matchIdx >= 0) return matchIdx;
+  const letterMatch = /^[A-Za-z]$/.exec(trimmed);
+  if (letterMatch) {
+    const idx = letterMatch[0].toUpperCase().charCodeAt(0) - 65;
+    if (idx >= 0 && idx < opts.length) return idx;
   }
 
+  const asNum = Number.parseInt(trimmed, 10);
+  if (!Number.isNaN(asNum)) {
+    if (asNum >= 0 && asNum < opts.length) return asNum;
+    if (asNum >= 1 && asNum <= opts.length) return asNum - 1;
+  }
+
+  const lower = trimmed.toLowerCase();
+  const matchIdx = opts.findIndex((o) => o.toLowerCase() === lower);
+  if (matchIdx >= 0) return matchIdx;
   return null;
+}
+
+function normalizeMultipleChoiceCorrect(correct, options) {
+  const opts = Array.isArray(options) ? options.map((o) => trimString(o)).filter(Boolean) : [];
+  if (opts.length < 2) return null;
+  const fromNumber = normalizeMultipleChoiceFromNumber(correct, opts);
+  if (fromNumber !== null) return fromNumber;
+  if (typeof correct === 'boolean') {
+    return correct ? 0 : 1;
+  }
+  return normalizeMultipleChoiceFromString(correct, opts);
+}
+
+function normalizeQuizCorrect(correct, type, options) {
+  if (type === 'true_false') {
+    return normalizeTrueFalseCorrect(correct, options);
+  }
+  if (type !== 'multiple_choice') {
+    return null;
+  }
+  return normalizeMultipleChoiceCorrect(correct, options);
 }
 
 /**
@@ -524,24 +535,43 @@ function parseContentInput(contentInput) {
  * @param {unknown} contentInput - raw content (string JSON or object)
  * @returns {{ ok: boolean, content: string|null, normalized: object|null, errors: string[] }}
  */
-function validateAndNormalizeStudioContent(type, contentInput) {
-  if (!VALID_STUDIO_TYPES.has(type)) {
-    return { ok: false, content: null, normalized: null, errors: [`unknown studio type: ${type}`] };
-  }
+function buildContentlessStudioResult(contentInput) {
+  return {
+    ok: true,
+    content:
+      contentInput == null
+        ? null
+        : typeof contentInput === 'string'
+          ? contentInput
+          : JSON.stringify(contentInput),
+    normalized: null,
+    errors: [],
+  };
+}
 
-  if (CONTENTLESS_TYPES.has(type)) {
-    return { ok: true, content: contentInput == null ? null : (typeof contentInput === 'string' ? contentInput : JSON.stringify(contentInput)), normalized: null, errors: [] };
+function buildPassthroughStudioResult(contentInput) {
+  const { parsed, parseError } = parseContentInput(contentInput);
+  if (parseError) {
+    return { ok: false, content: null, normalized: null, errors: [parseError] };
   }
+  const str = parsed
+    ? JSON.stringify(parsed)
+    : typeof contentInput === 'string'
+      ? contentInput
+      : null;
+  return { ok: true, content: str, normalized: parsed, errors: [] };
+}
 
-  if (PASSTHROUGH_TYPES.has(type)) {
-    const { parsed, parseError } = parseContentInput(contentInput);
-    if (parseError) {
-      return { ok: false, content: null, normalized: null, errors: [parseError] };
-    }
-    const str = parsed ? JSON.stringify(parsed) : (typeof contentInput === 'string' ? contentInput : null);
-    return { ok: true, content: str, normalized: parsed, errors: [] };
-  }
+const STUDIO_VALIDATORS = {
+  quiz: validateQuizContent,
+  mindmap: validateMindmapContent,
+  guide: validateGuideContent,
+  faq: validateFaqContent,
+  timeline: validateTimelineContent,
+  table: validateTableContent,
+};
 
+function buildTypedStudioResult(type, contentInput) {
   const { parsed, parseError } = parseContentInput(contentInput);
   if (parseError) {
     return { ok: false, content: null, normalized: null, errors: [parseError] };
@@ -549,33 +579,11 @@ function validateAndNormalizeStudioContent(type, contentInput) {
   if (!parsed) {
     return { ok: false, content: null, normalized: null, errors: ['studio.validation_no_items'] };
   }
-
-  /** @type {{ ok: boolean, content: object|null, normalized: object|null, errors: string[] }} */
-  let result;
-  switch (type) {
-    case 'quiz':
-      result = validateQuizContent(parsed);
-      break;
-    case 'mindmap':
-      result = validateMindmapContent(parsed);
-      break;
-    case 'guide':
-      result = validateGuideContent(parsed);
-      break;
-    case 'faq':
-      result = validateFaqContent(parsed);
-      break;
-    case 'timeline':
-      result = validateTimelineContent(parsed);
-      break;
-    case 'table':
-      result = validateTableContent(parsed);
-      break;
-    default:
-      result = { ok: false, content: null, normalized: null, errors: [`unsupported validation for type: ${type}`] };
-  }
-
-  if (!result.ok || !result.normalized) {
+  const validator = STUDIO_VALIDATORS[type];
+  const result = validator
+    ? validator(parsed)
+    : { ok: false, content: null, normalized: null, errors: [`unsupported validation for type: ${type}`] };
+  if (!result.ok) {
     return {
       ok: false,
       content: null,
@@ -583,13 +591,28 @@ function validateAndNormalizeStudioContent(type, contentInput) {
       errors: result.errors.length ? result.errors : ['studio.validation_no_items'],
     };
   }
-
+  if (!result.normalized) {
+    return { ok: false, content: null, normalized: null, errors: ['studio.validation_no_items'] };
+  }
   return {
     ok: true,
     content: JSON.stringify(result.normalized),
     normalized: result.normalized,
     errors: result.errors,
   };
+}
+
+function validateAndNormalizeStudioContent(type, contentInput) {
+  if (!VALID_STUDIO_TYPES.has(type)) {
+    return { ok: false, content: null, normalized: null, errors: [`unknown studio type: ${type}`] };
+  }
+  if (CONTENTLESS_TYPES.has(type)) {
+    return buildContentlessStudioResult(contentInput);
+  }
+  if (PASSTHROUGH_TYPES.has(type)) {
+    return buildPassthroughStudioResult(contentInput);
+  }
+  return buildTypedStudioResult(type, contentInput);
 }
 
 module.exports = {
