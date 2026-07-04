@@ -111,6 +111,20 @@ function parseCellValue(raw: string): string | number | boolean {
   return trimmed;
 }
 
+/** Return a sheet with the given row patched so `sheet.data[row][col] === String(value)`. */
+function applyRowEdit(sheet: SheetData, row: number, col: number, value: string): SheetData {
+  return {
+    ...sheet,
+    data: sheet.data.map((r, ri) => {
+      if (ri !== row) return r;
+      const newRow = [...r];
+      while (newRow.length <= col) newRow.push('');
+      newRow[col] = String(value);
+      return newRow;
+    }),
+  };
+}
+
 function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
   const [sheets, setSheets] = useState<SheetData[]>([]);
   const [activeSheet, setActiveSheet] = useState(0);
@@ -303,18 +317,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         if (result?.success) {
           setSheets((prev) => {
             const next = prev.map((s, i) =>
-              i === activeSheet
-                ? {
-                    ...s,
-                    data: s.data.map((r, ri) => {
-                      if (ri !== row) return r;
-                      const newRow = [...r];
-                      while (newRow.length <= col) newRow.push('');
-                      newRow[col] = String(value);
-                      return newRow;
-                    }),
-                  }
-                : s
+              i === activeSheet ? applyRowEdit(s, row, col, value) : s
             );
             return next;
           });
