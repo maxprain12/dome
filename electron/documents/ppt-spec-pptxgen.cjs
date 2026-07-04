@@ -83,124 +83,173 @@ function applySlideBackground(slide, bgHex) {
   slide.background = { color: hexNoHash(bgHex) };
 }
 
+function renderTitleLayout(slide, slideSpec, themeColors) {
+  slide.addText(String(slideSpec.title ?? ''), {
+    x: 0.5,
+    y: 1.8,
+    w: 9,
+    h: 1.2,
+    fontSize: 44,
+    bold: true,
+    color: hexNoHash(themeColors.title),
+  });
+  slide.addText(String(slideSpec.subtitle ?? ''), {
+    x: 0.5,
+    y: 3.2,
+    w: 9,
+    h: 0.6,
+    fontSize: 16,
+    color: hexNoHash(themeColors.body),
+  });
+}
+
+function renderContentLayout(slide, slideSpec, themeColors) {
+  slide.addText(String(slideSpec.title ?? ''), {
+    x: 0.35,
+    y: 0.18,
+    w: 9.3,
+    h: 0.65,
+    fontSize: 28,
+    bold: true,
+    color: hexNoHash(themeColors.title),
+  });
+  const bullets = normalizeBullets(slideSpec.bullets);
+  if (bullets.length === 0) return;
+  const runs = bullets.map((text, i) => ({
+    text,
+    options: {
+      bullet: true,
+      breakLine: i < bullets.length - 1,
+    },
+  }));
+  slide.addText(runs, {
+    x: 0.35,
+    y: 1.1,
+    w: 9.3,
+    h: 3.8,
+    fontSize: 15,
+    color: hexNoHash(themeColors.body),
+  });
+}
+
+function renderTitleOnlyLayout(slide, slideSpec, themeColors) {
+  slide.addText(String(slideSpec.title ?? ''), {
+    x: 0.5,
+    y: 2,
+    w: 9,
+    h: 1.2,
+    fontSize: 36,
+    bold: true,
+    color: hexNoHash(themeColors.title),
+  });
+}
+
+function renderBlankLayout(slide, slideSpec, themeColors) {
+  const boxes = Array.isArray(slideSpec.textboxes) ? slideSpec.textboxes : [];
+  for (const tb of boxes) {
+    if (!tb || typeof tb !== 'object') continue;
+    slide.addText(String(tb.text ?? ''), {
+      x: Number(tb.left ?? 1),
+      y: Number(tb.top ?? 1),
+      w: Number(tb.width ?? 8),
+      h: Number(tb.height ?? 1),
+      fontSize: 14,
+      color: hexNoHash(themeColors.body),
+    });
+  }
+}
+
+const LAYOUT_RENDERERS = {
+  title: renderTitleLayout,
+  content: renderContentLayout,
+  bullet: renderContentLayout,
+  title_only: renderTitleOnlyLayout,
+  blank: renderBlankLayout,
+};
+
+function renderSlideByLayout(pptx, slideSpec, themeColors) {
+  const layoutName = typeof slideSpec.layout === 'string' ? slideSpec.layout : 'content';
+  const slide = pptx.addSlide();
+  applySlideBackground(slide, themeColors.background);
+  const renderer = LAYOUT_RENDERERS[layoutName] || renderContentLayout;
+  renderer(slide, slideSpec, themeColors);
+}
+
+async function writePptxBuffer(pptx) {
+  const out = await pptx.write({ outputType: 'nodebuffer' });
+  return Buffer.isBuffer(out) ? out : Buffer.from(out);
+}
+
+function loadPptxGenLib() {
+  try {
+    return require('pptxgenjs');
+  } catch (e) {
+    return { __loadError: e };
+  }
+}
+
+function buildCoverSlide(pptx, titleText, themeColors) {
+  const slide = pptx.addSlide();
+  applySlideBackground(slide, themeColors.background);
+  slide.addText(String(titleText || 'Untitled'), {
+    x: 0.5,
+    y: 2,
+    w: 9,
+    h: 1.5,
+    fontSize: 44,
+    bold: true,
+    color: hexNoHash(themeColors.title),
+  });
+  return slide;
+}
+
+function isValidSlideSpec(slideSpec) {
+  return Boolean(slideSpec) && typeof slideSpec === 'object' && !Array.isArray(slideSpec);
+}
+
+function normalizeSpec(spec) {
+  const specObj = spec && typeof spec === 'object' && !Array.isArray(spec) ? spec : {};
+  return {
+    specObj,
+    themeColors: resolveThemeColors(specObj),
+    slidesData: Array.isArray(specObj.slides) ? specObj.slides : [],
+  };
+}
+
+function createPptxInstance(PptxGenJS, title) {
+  const pptx = new PptxGenJS();
+  pptx.layout = 'LAYOUT_16x9';
+  pptx.title = typeof title === 'string' ? title : 'Presentation';
+  return pptx;
+}
+
 /**
  * @param {Record<string, unknown>} spec
  * @returns {Promise<{ success: boolean; buffer?: Buffer; error?: string }>}
  */
 async function generatePptFromSpec(spec) {
-  let PptxGenJS;
-  try {
-    PptxGenJS = require('pptxgenjs');
-  } catch (e) {
-    return { success: false, error: `pptxgenjs: ${e.message || e}` };
+  const PptxGenJS = loadPptxGenLib();
+  if (PptxGenJS.__loadError) {
+    return { success: false, error: `pptxgenjs: ${PptxGenJS.__loadError.message || PptxGenJS.__loadError}` };
   }
 
-  const specObj = spec && typeof spec === 'object' && !Array.isArray(spec) ? spec : {};
-  const themeColors = resolveThemeColors(specObj);
-  const slidesData = Array.isArray(specObj.slides) ? specObj.slides : [];
+  const { specObj, themeColors, slidesData } = normalizeSpec(spec);
 
   try {
-    const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_16x9';
-    pptx.title = typeof specObj.title === 'string' ? specObj.title : 'Presentation';
+    const pptx = createPptxInstance(PptxGenJS, specObj.title);
 
     if (slidesData.length === 0) {
-      const slide = pptx.addSlide();
-      applySlideBackground(slide, themeColors.background);
-      slide.addText(String(specObj.title || 'Untitled'), {
-        x: 0.5,
-        y: 2,
-        w: 9,
-        h: 1.5,
-        fontSize: 44,
-        bold: true,
-        color: hexNoHash(themeColors.title),
-      });
-      const out = await pptx.write({ outputType: 'nodebuffer' });
-      const buffer = Buffer.isBuffer(out) ? out : Buffer.from(out);
+      buildCoverSlide(pptx, specObj.title, themeColors);
+      const buffer = await writePptxBuffer(pptx);
       return { success: true, buffer };
     }
 
     for (const slideSpec of slidesData) {
-      if (!slideSpec || typeof slideSpec !== 'object' || Array.isArray(slideSpec)) continue;
-      const layoutName = typeof slideSpec.layout === 'string' ? slideSpec.layout : 'content';
-      const slide = pptx.addSlide();
-      applySlideBackground(slide, themeColors.background);
-
-      if (layoutName === 'title') {
-        slide.addText(String(slideSpec.title ?? ''), {
-          x: 0.5,
-          y: 1.8,
-          w: 9,
-          h: 1.2,
-          fontSize: 44,
-          bold: true,
-          color: hexNoHash(themeColors.title),
-        });
-        slide.addText(String(slideSpec.subtitle ?? ''), {
-          x: 0.5,
-          y: 3.2,
-          w: 9,
-          h: 0.6,
-          fontSize: 16,
-          color: hexNoHash(themeColors.body),
-        });
-      } else if (layoutName === 'content' || layoutName === 'bullet') {
-        slide.addText(String(slideSpec.title ?? ''), {
-          x: 0.35,
-          y: 0.18,
-          w: 9.3,
-          h: 0.65,
-          fontSize: 28,
-          bold: true,
-          color: hexNoHash(themeColors.title),
-        });
-        const bullets = normalizeBullets(slideSpec.bullets);
-        if (bullets.length > 0) {
-          const runs = bullets.map((text, i) => ({
-            text,
-            options: {
-              bullet: true,
-              breakLine: i < bullets.length - 1,
-            },
-          }));
-          slide.addText(runs, {
-            x: 0.35,
-            y: 1.1,
-            w: 9.3,
-            h: 3.8,
-            fontSize: 15,
-            color: hexNoHash(themeColors.body),
-          });
-        }
-      } else if (layoutName === 'title_only') {
-        slide.addText(String(slideSpec.title ?? ''), {
-          x: 0.5,
-          y: 2,
-          w: 9,
-          h: 1.2,
-          fontSize: 36,
-          bold: true,
-          color: hexNoHash(themeColors.title),
-        });
-      } else if (layoutName === 'blank') {
-        const boxes = Array.isArray(slideSpec.textboxes) ? slideSpec.textboxes : [];
-        for (const tb of boxes) {
-          if (!tb || typeof tb !== 'object') continue;
-          slide.addText(String(tb.text ?? ''), {
-            x: Number(tb.left ?? 1),
-            y: Number(tb.top ?? 1),
-            w: Number(tb.width ?? 8),
-            h: Number(tb.height ?? 1),
-            fontSize: 14,
-            color: hexNoHash(themeColors.body),
-          });
-        }
-      }
+      if (!isValidSlideSpec(slideSpec)) continue;
+      renderSlideByLayout(pptx, slideSpec, themeColors);
     }
 
-    const out = await pptx.write({ outputType: 'nodebuffer' });
-    const buffer = Buffer.isBuffer(out) ? out : Buffer.from(out);
+    const buffer = await writePptxBuffer(pptx);
     return { success: true, buffer };
   } catch (e) {
     return { success: false, error: e.message || String(e) };

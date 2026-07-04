@@ -401,6 +401,86 @@ async function extractVideoMetadata(filePath) {
   });
 }
 
+async function loadNapiCanvas() {
+  if (napiCanvas || napiCanvasLoadAttempted) return;
+  napiCanvasLoadAttempted = true;
+  try {
+    napiCanvas = require('@napi-rs/canvas');
+  } catch (error) {
+    console.warn('[Thumbnail] @napi-rs/canvas not available, PDF thumbnails will use placeholders:', error.message);
+  }
+}
+
+async function loadPdfJsLib() {
+  if (pdfjsLib || pdfjsLoadAttempted) return;
+  pdfjsLoadAttempted = true;
+  try {
+    pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    if (pdfjsLib.VerbosityLevel) {
+      pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
+    }
+  } catch (error) {
+    console.warn('[Thumbnail] pdfjs-dist not available, PDF thumbnails will use SVG placeholders:', error.message);
+  }
+}
+
+function buildCanvasFactory() {
+  return {
+    create(w, h) {
+      const c = napiCanvas.createCanvas(w, h);
+      return { canvas: c, context: c.getContext('2d') };
+    },
+    reset(canvasAndContext, w, h) {
+      if (!canvasAndContext.canvas) return;
+      canvasAndContext.canvas.width = w;
+      canvasAndContext.canvas.height = h;
+    },
+    destroy(canvasAndContext) {
+      canvasAndContext.canvas = null;
+      canvasAndContext.context = null;
+    },
+  };
+}
+
+async function renderPdfPageToJpeg(page, scaledViewport, width, height) {
+  const canvas = napiCanvas.createCanvas(width, height);
+  const ctx = canvas.getContext('2d');
+  const renderContext = {
+    canvasContext: ctx,
+    viewport: scaledViewport,
+    canvasFactory: buildCanvasFactory(),
+  };
+  await page.render(renderContext).promise;
+  const pngBuffer = await canvas.encode('png');
+  const jpegBuffer = await sharp(pngBuffer)
+    .resize(THUMBNAIL_CONFIG.maxWidth, THUMBNAIL_CONFIG.maxHeight, {
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .jpeg({ quality: THUMBNAIL_CONFIG.quality })
+    .toBuffer();
+  return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+}
+
+async function loadPdfDocument(filePath) {
+  const data = new Uint8Array(fs.readFileSync(filePath));
+  const loadingTask = pdfjsLib.getDocument({
+    data,
+    disableFontFace: true,
+    useSystemFonts: true,
+  });
+  return loadingTask.promise;
+}
+
+function computeScaledViewport(page) {
+  const viewport = page.getViewport({ scale: 1.0 });
+  const scale = Math.min(
+    THUMBNAIL_CONFIG.maxWidth / viewport.width,
+    THUMBNAIL_CONFIG.maxHeight / viewport.height
+  );
+  return page.getViewport({ scale });
+}
+
 /**
  * Generate a real PDF thumbnail by rendering the first page
  * Uses pdfjs-dist + @napi-rs/canvas for actual page render, fallback to SVG placeholder
@@ -413,28 +493,8 @@ async function generatePdfThumbnail(filePath) {
     return generatePdfPlaceholder(filePath);
   }
 
-  // Lazy-load @napi-rs/canvas for real rendering
-  if (!napiCanvas && !napiCanvasLoadAttempted) {
-    napiCanvasLoadAttempted = true;
-    try {
-      napiCanvas = require('@napi-rs/canvas');
-    } catch (error) {
-      console.warn('[Thumbnail] @napi-rs/canvas not available, PDF thumbnails will use placeholders:', error.message);
-    }
-  }
-
-  // Lazy-load pdfjs-dist (ESM module) on first use
-  if (!pdfjsLib && !pdfjsLoadAttempted) {
-    pdfjsLoadAttempted = true;
-    try {
-      pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs');
-      if (pdfjsLib.VerbosityLevel) {
-        pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS;
-      }
-    } catch (error) {
-      console.warn('[Thumbnail] pdfjs-dist not available, PDF thumbnails will use SVG placeholders:', error.message);
-    }
-  }
+  await loadNapiCanvas();
+  await loadPdfJsLib();
 
   if (!pdfjsLib || !pdfjsLib.getDocument) {
     return generatePdfPlaceholder(filePath);
@@ -446,65 +506,19 @@ async function generatePdfThumbnail(filePath) {
   }
 
   try {
-    const data = new Uint8Array(fs.readFileSync(filePath));
-    const loadingTask = pdfjsLib.getDocument({
-      data,
-      disableFontFace: true,
-      useSystemFonts: true,
-    });
-
-    const pdfDoc = await loadingTask.promise;
+    const pdfDoc = await loadPdfDocument(filePath);
     const page = await pdfDoc.getPage(1);
 
-    const viewport = page.getViewport({ scale: 1.0 });
-    const scale = Math.min(
-      THUMBNAIL_CONFIG.maxWidth / viewport.width,
-      THUMBNAIL_CONFIG.maxHeight / viewport.height
-    );
-    const scaledViewport = page.getViewport({ scale });
+    const scaledViewport = computeScaledViewport(page);
     const width = Math.floor(scaledViewport.width);
     const height = Math.floor(scaledViewport.height);
 
     // Try real render with @napi-rs/canvas
     if (napiCanvas && napiCanvas.createCanvas) {
       try {
-        const canvas = napiCanvas.createCanvas(width, height);
-        const ctx = canvas.getContext('2d');
-
-        const renderContext = {
-          canvasContext: ctx,
-          viewport: scaledViewport,
-          canvasFactory: {
-            create(w, h) {
-              const c = napiCanvas.createCanvas(w, h);
-              return { canvas: c, context: c.getContext('2d') };
-            },
-            reset(canvasAndContext, w, h) {
-              if (canvasAndContext.canvas) {
-                canvasAndContext.canvas.width = w;
-                canvasAndContext.canvas.height = h;
-              }
-            },
-            destroy(canvasAndContext) {
-              canvasAndContext.canvas = null;
-              canvasAndContext.context = null;
-            },
-          },
-        };
-
-        await page.render(renderContext).promise;
+        const dataUrl = await renderPdfPageToJpeg(page, scaledViewport, width, height);
         pdfDoc.destroy();
-
-        const pngBuffer = await canvas.encode('png');
-        const jpegBuffer = await sharp(pngBuffer)
-          .resize(THUMBNAIL_CONFIG.maxWidth, THUMBNAIL_CONFIG.maxHeight, {
-            fit: 'inside',
-            withoutEnlargement: true,
-          })
-          .jpeg({ quality: THUMBNAIL_CONFIG.quality })
-          .toBuffer();
-
-        return `data:image/jpeg;base64,${jpegBuffer.toString('base64')}`;
+        return dataUrl;
       } catch (renderError) {
         console.warn('[Thumbnail] PDF real render failed, using placeholder:', renderError.message);
       }
