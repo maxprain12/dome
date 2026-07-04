@@ -40,23 +40,16 @@ Variables de entorno en el job (Environment / pipeline):
 
 ### Agente Jenkins (Linux)
 
-El pipeline ejecuta **`scripts/jenkins/agent-preflight.sh`** al inicio:
+El pipeline ejecuta **`scripts/jenkins/bootstrap-agent-tools.sh`** + **`agent-preflight.sh`** al inicio:
 
-| Herramienta | Validación |
-|-------------|------------|
-| `git` | obligatorio |
-| `curl` | obligatorio |
-| `gh` | obligatorio (+ login con `GITHUB_TOKEN`) |
+| Herramienta | Comportamiento |
+|-------------|----------------|
+| `git`, `curl` | deben existir en la imagen (Jenkins estándar) |
+| **`gh`** | `apt-get` si hay root/sudo; si no, **descarga portable** a `.jenkins-tools/bin/` |
+| **`xvfb`** | `apt-get` si hay root/sudo; si no, warning (Electron usa `no-sandbox`) |
 | Node/pnpm | bootstrap en stage Setup |
-| **Xvfb** | auto: `DISPLAY=:99` o fallback `xvfb-run` |
 
-Instalación en el agente (Debian/Ubuntu):
-
-```bash
-apt-get update && apt-get install -y git curl gh xvfb
-```
-
-Si falta alguna herramienta, el job falla en **Agent preflight** con instrucciones.
+No hace falta instalar `gh` a mano en el agente salvo que `apt` y la descarga fallen (sin red).
 
 ## Flujo del pipeline
 

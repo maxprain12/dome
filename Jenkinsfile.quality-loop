@@ -9,7 +9,7 @@ pipeline {
     PNPM_VERSION = '11.8.0'
     NODE_VERSION = '24.13.0'
     NODE_HOME = "${WORKSPACE}/.jenkins-node"
-    PATH = "${WORKSPACE}/.jenkins-node/bin:${env.PATH}"
+    PATH = "${WORKSPACE}/.jenkins-tools/bin:${WORKSPACE}/.jenkins-node/bin:${env.PATH}"
     SONAR_HOST_URL = 'https://sonar.dowi.es'
     GITHUB_REPOSITORY = 'maxprain12/dome'
     XVFB_DISPLAY = ':99'
@@ -29,7 +29,7 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            chmod +x scripts/jenkins/agent-preflight.sh scripts/jenkins/run-with-display.sh
+            chmod +x scripts/jenkins/bootstrap-agent-tools.sh scripts/jenkins/agent-preflight.sh scripts/jenkins/run-with-display.sh
             bash scripts/jenkins/agent-preflight.sh "$PWD"
             cat .jenkins-display.env || true
           '''

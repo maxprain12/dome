@@ -2,6 +2,13 @@
 # Source .jenkins-display.env and run a command (optionally via xvfb-run).
 set -euo pipefail
 
+if [ -f .jenkins-tools.env ]; then
+  # shellcheck disable=SC1091
+  set -a
+  . ./.jenkins-tools.env
+  set +a
+fi
+
 if [ -f .jenkins-display.env ]; then
   # shellcheck disable=SC1091
   set -a

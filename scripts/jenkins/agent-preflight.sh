@@ -1,10 +1,17 @@
 #!/usr/bin/env bash
 # Jenkins agent preflight for dome-quality-loop (Linux).
-# Validates required CLI tools and prepares a virtual display for Electron.
+# Bootstraps missing tools, validates CLI, prepares virtual display for Electron.
 set -euo pipefail
 
 ROOT="${1:-.}"
 cd "$ROOT"
+
+if [ -f .jenkins-tools.env ]; then
+  # shellcheck disable=SC1091
+  set -a
+  source ./.jenkins-tools.env
+  set +a
+fi
 
 ENV_FILE=".jenkins-display.env"
 : > "$ENV_FILE"
@@ -12,25 +19,24 @@ ENV_FILE=".jenkins-display.env"
 echo "=== Jenkins agent preflight ==="
 echo "uname: $(uname -a)"
 
-missing=0
+bash scripts/jenkins/bootstrap-agent-tools.sh "$ROOT"
+
+if [ -f .jenkins-tools.env ]; then
+  # shellcheck disable=SC1091
+  set -a
+  source ./.jenkins-tools.env
+  set +a
+fi
+
 for tool in git curl gh; do
   if command -v "$tool" >/dev/null 2>&1; then
     echo "OK: $tool → $($tool --version 2>&1 | head -1)"
   else
-    echo "ERROR: required tool not found: $tool"
-    missing=1
+    echo "ERROR: required tool not found after bootstrap: $tool"
+    exit 1
   fi
 done
 
-if [ "$missing" -ne 0 ]; then
-  echo ""
-  echo "Install on the Jenkins agent (Debian/Ubuntu example):"
-  echo "  apt-get update && apt-get install -y git curl gh xvfb"
-  echo "Or gh: https://github.com/cli/cli/blob/trunk/docs/install_linux.md"
-  exit 1
-fi
-
-# GitHub CLI must see a token when GITHUB_TOKEN is injected by Jenkins
 if [ -n "${GITHUB_TOKEN:-}" ]; then
   if ! echo "$GITHUB_TOKEN" | gh auth login --with-token >/dev/null 2>&1; then
     echo "WARN: gh auth login failed (check github-quality-loop credential)"
@@ -61,7 +67,6 @@ elif command -v xvfb-run >/dev/null 2>&1; then
   echo "XVFB_RUN=1" >> "$ENV_FILE"
 else
   echo "WARN: neither Xvfb nor xvfb-run found — Electron harness may fail"
-  echo "  apt-get install -y xvfb"
 fi
 
 echo "=== Preflight complete ==="
