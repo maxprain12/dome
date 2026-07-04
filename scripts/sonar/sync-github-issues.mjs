@@ -4,7 +4,9 @@
  *
  * Usage:
  *   SONAR_TOKEN=... GITHUB_TOKEN=... node scripts/sonar/sync-github-issues.mjs [--severity=HIGH,MAJOR] [--max=50]
- *   --max=N  Max open GitHub issues with sonarKey (default 50). Creates only until backlog < N.
+ *
+ * --max caps total open GitHub issues with label `sonar` (default 50). No new issues are
+ * created while at or above the cap.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -24,12 +26,12 @@ import {
 
 const args = parseArgs(process.argv.slice(2));
 const severityFilter = args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH';
-/** @type {number} Max open tracked issues before we stop creating new ones */
 const maxOpen = Number(args.max || 50);
 const dryRun = args['dry-run'] === 'true';
 
 /** @type {Set<string>} */
 const existingKeys = new Set();
+let openSonarCount = 0;
 
 async function loadExistingGithubIssues() {
   let page = 1;
@@ -42,6 +44,8 @@ async function loadExistingGithubIssues() {
     });
     if (!data || data.length === 0) break;
     for (const issue of data) {
+      if (issue.pull_request) continue;
+      openSonarCount++;
       const key = extractSonarKey(issue.body || '');
       if (key) existingKeys.add(key);
     }
@@ -101,15 +105,14 @@ async function createGithubIssue(issue) {
 }
 
 await loadExistingGithubIssues();
-const openTracked = existingKeys.size;
-const createBudget = Math.max(0, maxOpen - openTracked);
-
+const createBudget = Math.max(0, maxOpen - openSonarCount);
 console.log(
-  `Found ${openTracked} existing open GitHub issues with sonarKey (cap ${maxOpen}, create budget ${createBudget})`,
+  `Found ${existingKeys.size} existing open GitHub issues with sonarKey ` +
+    `(${openSonarCount} total open with label sonar, cap ${maxOpen}, create budget ${createBudget})`,
 );
 
 if (createBudget === 0) {
-  console.log('Open backlog at cap — skipping create until issues are closed/merged');
+  console.log('Sync complete: at cap, created 0 GitHub issue(s)');
   process.exit(0);
 }
 
