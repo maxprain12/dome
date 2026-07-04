@@ -249,6 +249,83 @@ function safeUnlink(p) {
  * @param {{ model?: string, language?: string|null, apiUrl?: string, prompt?: string|null, verbose?: boolean, sttProvider?: 'openai'|'groq'|'custom' }} opts
  * @returns {Promise<{ text: string, whisperSegments: Array<{ start: number, end: number, text: string, speaker?: string }>, duration: number|null, language: string|null }>}
  */
+function appendTranscriptionForm(form, { fileBuffer, model, language, prompt, isDiarize, useVerbose, sttProvider }) {
+  const blob = new Blob([fileBuffer], { type: 'audio/mpeg' });
+  form.append('file', blob, 'audio.mp3');
+  form.append('model', model);
+  if (language) form.append('language', language);
+  if (prompt) form.append('prompt', prompt);
+  if (isDiarize) {
+    tryAppend(form, 'response_format', 'diarized_json');
+  } else if (useVerbose) {
+    tryAppend(form, 'response_format', 'verbose_json');
+    if (sttProvider === 'groq') {
+      tryAppend(form, 'timestamp_granularities[]', 'segment');
+      tryAppend(form, 'timestamp_granularities[]', 'word');
+    }
+  }
+}
+
+function tryAppend(form, key, value) {
+  try {
+    form.append(key, value);
+  } catch (_) {
+    /* FormData may vary */
+  }
+}
+
+async function postTranscriptionRequest(apiUrl, apiKey, form) {
+  return fetch(apiUrl, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}` },
+    body: form,
+  });
+}
+
+async function doTranscriptionRequest(fileBuffer, apiKey, ctx, useVerbose) {
+  const form = new FormData();
+  appendTranscriptionForm(form, { fileBuffer, ...ctx, useVerbose });
+  return postTranscriptionRequest(ctx.apiUrl, apiKey, form);
+}
+
+async function readErrorDetail(res) {
+  try {
+    const j = await res.json();
+    return j.error?.message || JSON.stringify(j);
+  } catch (_) {
+    try {
+      return await res.text();
+    } catch (_) {
+      /* */
+    }
+  }
+  return res.statusText;
+}
+
+async function readBodySafe(res) {
+  try {
+    return await res.clone().text();
+  } catch (_) {
+    return '';
+  }
+}
+
+function normalizeWhisperSegment(seg, isDiarize) {
+  return {
+    start: typeof seg.start === 'number' ? seg.start : 0,
+    end: typeof seg.end === 'number' ? seg.end : 0,
+    text: String(seg.text).trim(),
+    ...(isDiarize && typeof seg.speaker === 'string' ? { speaker: seg.speaker } : {}),
+  };
+}
+
+function extractWhisperSegments(data, isDiarize) {
+  if (!Array.isArray(data.segments)) return [];
+  return data.segments
+    .filter((s) => s && typeof s.text === 'string' && String(s.text).trim())
+    .map((s) => normalizeWhisperSegment(s, isDiarize));
+}
+
 async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
   const model = opts.model || 'whisper-1';
   const language = opts.language && String(opts.language).trim() ? String(opts.language).trim() : null;
@@ -262,66 +339,18 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
   const isDiarize = model === 'gpt-4o-transcribe-diarize';
   const tryVerbose = !isGpt4oTranscribe && opts.verbose !== false;
 
-  async function doRequest(useVerbose) {
-    const blob = new Blob([fileBuffer], { type: 'audio/mpeg' });
-    const form = new FormData();
-    form.append('file', blob, 'audio.mp3');
-    form.append('model', model);
-    if (language) form.append('language', language);
-    if (prompt) form.append('prompt', prompt);
-    if (isDiarize) {
-      try { form.append('response_format', 'diarized_json'); } catch (_) { /* */ }
-    } else if (useVerbose) {
-      try {
-        form.append('response_format', 'verbose_json');
-      } catch (_) {
-        /* FormData may vary */
-      }
-      if (sttProvider === 'groq') {
-        try {
-          form.append('timestamp_granularities[]', 'segment');
-          form.append('timestamp_granularities[]', 'word');
-        } catch (_) {
-          /* */
-        }
-      }
-    }
+  const ctx = { model, language, prompt, isDiarize, sttProvider, apiUrl };
 
-    const res = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: form,
-    });
-    return res;
-  }
-
-  let res = await doRequest(tryVerbose);
+  let res = await doTranscriptionRequest(fileBuffer, apiKey, ctx, tryVerbose);
   if (!res.ok && tryVerbose && res.status === 400) {
-    let body = '';
-    try {
-      body = await res.clone().text();
-    } catch (_) {
-      /* */
-    }
+    const body = await readBodySafe(res);
     if (/response_format|verbose|json/i.test(body)) {
-      res = await doRequest(false);
+      res = await doTranscriptionRequest(fileBuffer, apiKey, ctx, false);
     }
   }
 
   if (!res.ok) {
-    let detail = res.statusText;
-    try {
-      const j = await res.json();
-      detail = j.error?.message || JSON.stringify(j);
-    } catch (_) {
-      try {
-        detail = await res.text();
-      } catch (_) {
-        /* */
-      }
-    }
+    const detail = await readErrorDetail(res);
     throw new Error(`Transcription failed: ${res.status} ${detail}`);
   }
 
@@ -331,18 +360,7 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
   }
 
   const text = data.text.trim();
-  /** @type {Array<{ start: number, end: number, text: string, speaker?: string }>} */
-  let whisperSegments = [];
-  if (Array.isArray(data.segments)) {
-    whisperSegments = data.segments
-      .filter((s) => s && typeof s.text === 'string' && String(s.text).trim())
-      .map((s) => ({
-        start: typeof s.start === 'number' ? s.start : 0,
-        end: typeof s.end === 'number' ? s.end : 0,
-        text: String(s.text).trim(),
-        ...(isDiarize && typeof s.speaker === 'string' ? { speaker: s.speaker } : {}),
-      }));
-  }
+  let whisperSegments = extractWhisperSegments(data, isDiarize);
 
   const duration = typeof data.duration === 'number' && Number.isFinite(data.duration) ? data.duration : null;
   const languageOut = typeof data.language === 'string' ? data.language : null;
