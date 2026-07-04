@@ -4,7 +4,7 @@ import { truncateToolResultForRenderer } from '@/lib/chat/truncateToolResult';
 function stableArgsKey(args: Record<string, unknown>): string {
   try {
     const raw = args || {};
-    const keys = Object.keys(raw).sort();
+    const keys = Object.keys(raw).sort((a, b) => a.localeCompare(b));
     const sorted: Record<string, unknown> = {};
     for (const k of keys) sorted[k] = raw[k];
     return JSON.stringify(sorted);
