@@ -4,6 +4,9 @@
  *
  * Usage:
  *   SONAR_TOKEN=... GITHUB_TOKEN=... node scripts/sonar/sync-github-issues.mjs [--severity=HIGH,MAJOR] [--max=50]
+ *
+ * --max caps total open GitHub issues with label `sonar` (default 50). No new issues are
+ * created while at or above the cap.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -23,11 +26,12 @@ import {
 
 const args = parseArgs(process.argv.slice(2));
 const severityFilter = args.severity || 'BLOCKER,CRITICAL,MAJOR,HIGH';
-const maxCreate = Number(args.max || 50);
+const maxOpen = Number(args.max || 50);
 const dryRun = args['dry-run'] === 'true';
 
 /** @type {Set<string>} */
 const existingKeys = new Set();
+let openSonarCount = 0;
 
 async function loadExistingGithubIssues() {
   let page = 1;
@@ -40,6 +44,8 @@ async function loadExistingGithubIssues() {
     });
     if (!data || data.length === 0) break;
     for (const issue of data) {
+      if (issue.pull_request) continue;
+      openSonarCount++;
       const key = extractSonarKey(issue.body || '');
       if (key) existingKeys.add(key);
     }
@@ -99,13 +105,22 @@ async function createGithubIssue(issue) {
 }
 
 await loadExistingGithubIssues();
-console.log(`Found ${existingKeys.size} existing open GitHub issues with sonarKey`);
+const createBudget = Math.max(0, maxOpen - openSonarCount);
+console.log(
+  `Found ${existingKeys.size} existing open GitHub issues with sonarKey ` +
+    `(${openSonarCount} total open with label sonar, cap ${maxOpen}, create budget ${createBudget})`,
+);
+
+if (createBudget === 0) {
+  console.log('Sync complete: at cap, created 0 GitHub issue(s)');
+  process.exit(0);
+}
 
 /** @type {Array<Record<string, unknown>>} */
 const candidates = [];
 let page = 1;
 
-while (candidates.length < maxCreate) {
+while (candidates.length < createBudget) {
   const data = await sonarFetch(
     '/api/issues/search',
     withIssueSeverityFilter(
@@ -127,7 +142,7 @@ while (candidates.length < maxCreate) {
   for (const issue of issues) {
     if (existingKeys.has(issue.key)) continue;
     candidates.push(issue);
-    if (candidates.length >= maxCreate) break;
+    if (candidates.length >= createBudget) break;
   }
 
   if (issues.length < 100) break;

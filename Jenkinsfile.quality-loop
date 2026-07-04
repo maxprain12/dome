@@ -88,6 +88,7 @@ pipeline {
                 const u = await sonarFetch('/api/authentication/validate');
                 console.log('OK: Sonar auth →', u.login || 'valid');
               "
+              pnpm run sonar:close-github-duplicates
               pnpm run sonar:sync-github -- --severity=BLOCKER,CRITICAL,MAJOR,HIGH --max=50
             '''
           }
