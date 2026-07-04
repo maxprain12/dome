@@ -8,7 +8,7 @@ Automated correction loop: SonarQube → GitHub Issues → Dome agent (MiniMax) 
 |-----------|------|
 | Jenkins `dome-sonar` | Sonar analysis on push to `main` |
 | Jenkins `dome-quality-loop` | Cron ~6h: sync issues, pick batch, mechanical fix, **Dome harness**, PR |
-| Dome CLI | `pnpm run sonar:run-agent` — Electron headless + `@dome/agent-core` + MiniMax |
+| Dome CLI | `pnpm run sonar:run-agent` — `@dome/agent-core` + MiniMax (Node en CI; Electron en local) |
 
 ## Jenkins setup
 
@@ -50,11 +50,26 @@ El pipeline ejecuta **`scripts/jenkins/bootstrap-agent-tools.sh`** + **`agent-pr
 |-------------|----------------|
 | `git`, `curl` | deben existir en la imagen (Jenkins estándar) |
 | **`gh`** | `apt-get` si hay root/sudo; si no, **descarga portable** a `.jenkins-tools/bin/` |
-| **`xvfb`** | `apt-get` si hay root/sudo; si no, warning (Electron usa `no-sandbox`) |
+| **`xvfb`** | opcional (solo si usas harness Electron local en Linux headless) |
 | Node/pnpm | bootstrap en stage Setup |
-| **Electron** | `pnpm rebuild electron` tras `install --ignore-scripts` (harness headless) |
+| **Sonar agent (CI)** | `SONAR_LOOP_NODE=1` — harness **Node puro** (`main-node.cjs`), sin binario Electron ni `apt` |
+| **better-sqlite3** | `npm rebuild better-sqlite3` en Setup (ABI de Node, no Electron) |
 
 No hace falta instalar `gh` a mano en el agente salvo que `apt` y la descarga fallen (sin red).
+
+### Coolify / contenedor sin root
+
+En Coolify (o cualquier agente Jenkins **sin** `sudo`/`apt`), el pipeline exporta **`SONAR_LOOP_NODE=1`**. El stage *Agent fix* usa el harness **Node puro** (`electron/sonar-loop/main-node.cjs`): mock de `require('electron')`, SQLite con `better-sqlite3` compilado para **Node** (`npm rebuild better-sqlite3`), sin descargar el binario Electron ni instalar `libglib2.0`.
+
+No se requiere `xvfb`, `verify-electron-runtime.sh` ni libs GTK/NSS del sistema.
+
+**Local con el mismo modo que CI:**
+
+```bash
+export SONAR_LOOP_NODE=1
+npm rebuild better-sqlite3   # una vez, ABI de tu Node (no Electron)
+pnpm run sonar:run-agent -- --dry-run
+```
 
 **Git commit:** el stage Verify & PR usa `stage-loop-changes.sh` — solo `app/`, `electron/`, `packages/`, `shared/`, `scripts/`, `docs/`. Nunca commitea `.jenkins-node/`, `.jenkins-tools/` ni artefactos del loop.
 

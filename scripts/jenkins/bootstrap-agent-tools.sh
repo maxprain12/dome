@@ -28,6 +28,9 @@ run_apt() {
     return 1
   fi
   local pkgs=( "$@" )
+  if [ "${#pkgs[@]}" -eq 0 ]; then
+    return 0
+  fi
   if [ "$(id -u)" = "0" ]; then
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
@@ -43,6 +46,38 @@ run_apt() {
   return 1
 }
 
+# Electron headless harness (sonar:run-agent) on Debian/Ubuntu — libglib, GTK, NSS, etc.
+ELECTRON_RUNTIME_PKGS=(
+  libglib2.0-0
+  libnss3
+  libnspr4
+  libatk1.0-0
+  libatk-bridge2.0-0
+  libatspi2.0-0
+  libgtk-3-0
+  libx11-6
+  libx11-xcb1
+  libxcb1
+  libxcomposite1
+  libxdamage1
+  libxext6
+  libxfixes3
+  libxrandr2
+  libxss1
+  libxtst6
+  libgbm1
+  libdrm2
+  libasound2
+  libpango-1.0-0
+  libcairo2
+  libxkbcommon0
+  libdbus-1-3
+  libexpat1
+  libfontconfig1
+  libfreetype6
+  ca-certificates
+)
+
 # shellcheck source=/dev/null
 set -a
 # shellcheck disable=SC1091
@@ -54,12 +89,17 @@ command -v gh >/dev/null 2>&1 || need_apt+=( gh )
 command -v Xvfb >/dev/null 2>&1 || command -v xvfb-run >/dev/null 2>&1 || need_apt+=( xvfb )
 command -v xdpyinfo >/dev/null 2>&1 || need_apt+=( x11-xserver-utils )
 
+if [ "$(uname -s)" = "Linux" ]; then
+  need_apt+=( "${ELECTRON_RUNTIME_PKGS[@]}" )
+fi
+
 if [ "${#need_apt[@]}" -gt 0 ]; then
+  mapfile -t need_apt < <(printf '%s\n' "${need_apt[@]}" | awk '!seen[$0]++')
   echo "Trying apt-get for: ${need_apt[*]}"
   if run_apt "${need_apt[@]}"; then
-    echo "OK: apt-get installed ${need_apt[*]}"
+    echo "OK: apt-get installed ${#need_apt[@]} package(s)"
   else
-    echo "apt-get skipped (no root/sudo or not Debian/Ubuntu)"
+    echo "WARN: apt-get skipped (no root/sudo or not Debian/Ubuntu) — Electron harness may fail without libglib/GTK"
   fi
 fi
 
