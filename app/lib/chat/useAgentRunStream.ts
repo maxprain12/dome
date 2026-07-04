@@ -256,13 +256,18 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
             ...(payload.agentName ? { agentName: payload.agentName } : {}),
           };
           const idx = existing.findIndex((c) => c.id === tc.id);
+          const mergeIntoExisting = (
+            list: ToolCallData[],
+            targetIdx: number,
+            patch: ToolCallData,
+          ): ToolCallData[] => {
+            const next = list.slice();
+            next[targetIdx] = { ...next[targetIdx], ...patch };
+            return next;
+          };
           const nextToolCalls: ToolCallData[] =
             idx >= 0
-              ? (() => {
-                  const next = existing.slice();
-                  next[idx] = { ...next[idx], ...entry };
-                  return next;
-                })()
+              ? mergeIntoExisting(existing, idx, entry)
               : [...existing, entry];
           return prev
             ? {

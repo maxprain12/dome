@@ -602,13 +602,14 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
       }
 
       const tryRefresh = (attemptsLeft: number) => {
+        const scheduleRetry = () => tryRefresh(attemptsLeft - 1);
         void refreshSessionFromThreadRef
           .current()
           .then((hydrated) => {
             if (hydrated) {
               requestAnimationFrame(() => scrollToBottomRef.current(true));
             } else if (attemptsLeft > 0) {
-              setTimeout(() => tryRefresh(attemptsLeft - 1), 600);
+              setTimeout(scheduleRetry, 600);
             }
           })
           .catch((err) => {

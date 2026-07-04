@@ -99,15 +99,16 @@ export default function CalendarPage() {
     }
   }, []);
 
-  const loadCalendars = useCallback(async () => {
+const loadCalendars = useCallback(async () => {
     if (!window.electron?.calendar?.listCalendars) return;
     const r = await window.electron.calendar.listCalendars({ projectId });
     if (r.success && r.calendars) {
       const rows = r.calendars as CalRow[];
-      setCalendars(rows);
+      const rowIds = new Set(rows.map((c) => c.id));
+      const isVisibleCalendar = (id: string) => rowIds.has(id);
       setVisibleCalendarIds((prev) => {
         if (prev.length === 0) return rows.map((c) => c.id);
-        const valid = prev.filter((id) => rows.some((c) => c.id === id));
+        const valid = prev.filter(isVisibleCalendar);
         return valid.length > 0 ? valid : rows.map((c) => c.id);
       });
       const def = rows.find((c) => c.account_id === 'local' || !c.account_id) ?? rows[0];

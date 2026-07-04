@@ -161,7 +161,8 @@ function register({ ipcMain, app, windowManager, validateSender, sanitizePath, v
       validateSender(event, windowManager);
       // allowExternal: revealing arbitrary user files in Finder/Explorer is this channel's purpose
       const safePath = sanitizePath(filePath, true);
-      return { success: true, data: await shell.showItemInFolder(safePath) };
+      shell.showItemInFolder(safePath);
+      return { success: true };
     } catch (error) {
       console.error('[IPC] Error in show-item-in-folder:', error.message);
       return { success: false, error: error.message };

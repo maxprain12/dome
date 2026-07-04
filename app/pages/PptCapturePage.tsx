@@ -16,6 +16,14 @@ import './ppt-capture-page.css';
 const SLIDE_W = 960;
 const SLIDE_H = 540;
 
+/** Wait two animation frames so the DOM has had a chance to settle. */
+const waitTwoPaintCycles = (): Promise<void> =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+
 interface PptxTheme {
   clrScheme?: {
     lt1?: string;
@@ -104,9 +112,7 @@ export default function PptCapturePage() {
         }
         (window as unknown as Record<string, unknown>).__pptLightColor = lightColor;
 
-        await new Promise<void>((r) =>
-          requestAnimationFrame(() => requestAnimationFrame(() => r())),
-        );
+        await waitTwoPaintCycles();
         if (containerRef.current) {
           fixDarkSlideTextColors(containerRef.current, lightColor);
         }
