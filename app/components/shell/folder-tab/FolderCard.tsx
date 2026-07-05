@@ -4,7 +4,7 @@ import { memo, useEffect, useMemo, useRef, useState, type ReactNode } from 'reac
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
-import { Check, FileText, Folder, MoreVertical, X } from 'lucide-react';
+import { Check, FileText, Folder, MoreVertical, Play, X } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
@@ -243,6 +243,12 @@ function FolderCardImpl({
   const displayTitle = item.title || t('folder.untitled');
   const isFolderCard = isFolder;
 
+  // Format-aware card shape: media keeps the asset's own aspect ratio,
+  // documents render as a portrait "page", folders are compact tiles.
+  const isMediaCard = !isFolder && (item.type === 'image' || item.type === 'video');
+  const isDocCard = !isFolder && !isMediaCard && (item.type === 'pdf' || coverShowsSnippet);
+  const isVideoCard = !isFolder && item.type === 'video';
+
   const commitRename = () => {
     const trimmed = renameValue.trim();
     if (trimmed && trimmed !== item.title) onRename(trimmed);
@@ -276,6 +282,10 @@ function FolderCardImpl({
 
   const cardClass = [
     'dome-fs-card',
+    isFolderCard ? 'dome-fs-card--folder' : '',
+    isMediaCard ? 'dome-fs-card--media' : '',
+    isDocCard ? 'dome-fs-card--doc' : '',
+    artifactTemplate ? 'dome-fs-card--artifact-card' : '',
     searchFocused ? 'dome-fs-card--focused' : '',
     selected ? 'dome-fs-card--selected' : '',
     menuOpen ? 'dome-fs-card--menu-open' : '',
@@ -304,12 +314,7 @@ function FolderCardImpl({
         onClick={handleCardActivate}
         style={isFolderCard
           ? { background: `color-mix(in srgb, ${typeColor} 12%, var(--dome-surface))` }
-          : coverImage
-            ? {
-                backgroundImage: `url(${coverImage})`,
-                ...(isPdfCover ? { backgroundSize: 'contain', backgroundColor: 'var(--dome-surface)' } : {}),
-              }
-            : undefined}
+          : undefined}
       >
         {showSelectionChrome ? (
           <span className="dome-fs-card__select">
@@ -332,7 +337,17 @@ function FolderCardImpl({
           />
         ) : artifactTemplate ? (
           <ArtifactThumb template={artifactTemplate} data={visual.artifact?.data ?? null} />
-        ) : coverImage ? null : coverShowsSnippet ? (
+        ) : coverImage ? (
+          // Real <img> so the asset's intrinsic aspect ratio drives the card
+          // height (masonry layout); PDF pages pin to the top like a document.
+          <img
+            src={coverImage}
+            alt=""
+            className={`dome-fs-card__cover-img${isPdfCover ? ' dome-fs-card__cover-img--page' : ''}`}
+            draggable={false}
+            loading="lazy"
+          />
+        ) : coverShowsSnippet ? (
           <p className="dome-fs-card__cover-snippet">
             {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
           </p>
@@ -349,6 +364,12 @@ function FolderCardImpl({
             )}
           </div>
         )}
+
+        {isVideoCard ? (
+          <span className="dome-fs-card__play-badge" aria-hidden>
+            <Play className="size-4" fill="currentColor" strokeWidth={0} />
+          </span>
+        ) : null}
 
         {(hovered || menuOpen) && !renaming ? (
           <button
