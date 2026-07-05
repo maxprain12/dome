@@ -2,13 +2,15 @@ import { useTranslation } from 'react-i18next';
 import type { ActivityItem } from '@/lib/hooks/useDashboardData';
 import { formatShortDistance, getResourceTypeLabel } from '@/lib/utils';
 import { DomeResourceIconBox } from '@/components/ui/DomeResourceIcon';
-import type { ResourceVisualKind } from '@/lib/resources/resourceVisual';
+import { inferResourceVisualKind, type ResourceVisualKind } from '@/lib/resources/resourceVisual';
 import { HomeSectionHeader } from '@/components/home/dashboard/editorial/HomeSectionHeader';
 
 function activityIconKind(item: ActivityItem): ResourceVisualKind {
   if (item.kind === 'chat') return 'chat';
-  if (item.resourceType === 'folder') return 'folder';
-  return (item.resourceType as ResourceVisualKind | undefined) ?? 'file';
+  // resourceType is a DB string ('document', 'transcription', …) — it must go
+  // through the type→kind mapping; a raw cast crashed Home when the recent
+  // activity contained a 'document' (Sentry 132319823, React error 130).
+  return inferResourceVisualKind(item.resourceType, item.title);
 }
 
 export function ContinueActivityList({

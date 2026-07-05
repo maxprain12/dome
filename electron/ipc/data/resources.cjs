@@ -22,27 +22,91 @@ async function extractDocumentTextOffMain(fullPath, mimeType) {
   }
 }
 
+// Text files that import as editable vault notes (same pipeline as creating a
+// document in the vault) instead of opaque 'document' files no viewer can open.
+const NOTE_IMPORT_EXTS = new Set(['.md', '.markdown', '.txt']);
+// Above this size the file goes through the regular vault file import — the
+// note editor is not meant for multi-megabyte documents.
+const NOTE_IMPORT_MAX_BYTES = 1024 * 1024;
+
+/** Strip one leading YAML frontmatter block (Obsidian-style exports). */
+function stripLeadingFrontmatter(raw) {
+  const m = String(raw).match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/);
+  return m ? String(raw).slice(m[0].length) : String(raw);
+}
+
 function register({ ipcMain, fs, path, windowManager, database, fileStorage, thumbnail, documentExtractor, documentGenerator, docxConverter, initModule, ollamaService, sanitizePath }) {
   semanticIndexScheduler.init(database);
+
   /**
-   * Import a file: copy to internal storage and create resource
+   * Import a markdown / plain-text file as a vault NOTE: content into the DB
+   * `content` column (markdown) + `.md` mirror via writeNoteMarkdown — exactly
+   * what `db:resources:create` does for documents created inside the vault.
    */
-  ipcMain.handle('resource:import', async (event, { filePath, projectId, type, title }) => {
-    if (!windowManager.isAuthorized(event.sender.id)) {
-      return { success: false, error: 'Unauthorized' };
+  function importTextFileAsNote(filePath, { projectId, title }) {
+    const queries = database.getQueries();
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const stripped = stripLeadingFrontmatter(raw);
+    const markdown = stripped.trim() ? stripped : raw;
+
+    const originalName = path.basename(filePath);
+    const resourceTitle =
+      (title && String(title).trim()) ||
+      originalName.replace(/\.[^.]+$/, '').trim() ||
+      'Untitled';
+
+    const resourceId = generateId();
+    const now = Date.now();
+    queries.createResource.run(
+      resourceId,
+      projectId,
+      'note',
+      resourceTitle,
+      markdown,
+      null, // file_path
+      null, // folder_id (caller moves it afterwards if needed)
+      null, // metadata
+      now,
+      now
+    );
+    vaultStore.writeNoteMarkdown({ id: resourceId, markdown }, { database, fileStorage });
+
+    const resource = queries.getResourceById.get(resourceId);
+    windowManager.broadcast('resource:created', resource);
+    if (semanticIndexScheduler.shouldIndex(resource)) {
+      semanticIndexScheduler.scheduleSemanticReindex(resourceId);
+    }
+    autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
+    return resource;
+  }
+
+  /**
+   * Vault-native single-file import shared by `resource:import` and
+   * `resource:importMultiple` (the import buttons). Markdown/plain text
+   * becomes a note; everything else is referenced in the project vault.
+   */
+  async function importFileAsResource(filePath, { projectId, type, title }) {
+    // Validate file exists
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'File not found' };
     }
 
-    try {
-      // Validate file exists
-      if (!fs.existsSync(filePath)) {
-        return { success: false, error: 'File not found' };
+    const ext = path.extname(filePath).toLowerCase();
+    if (NOTE_IMPORT_EXTS.has(ext)) {
+      try {
+        const stat = fs.statSync(filePath);
+        if (stat.size <= NOTE_IMPORT_MAX_BYTES) {
+          const resource = importTextFileAsNote(filePath, { projectId, title });
+          return { success: true, data: resource, thumbnailDataUrl: null };
+        }
+      } catch (noteErr) {
+        console.warn('[Resource] Note import fell back to file import:', noteErr.message);
       }
-
-      const ext = path.extname(filePath).toLowerCase();
-      const effectiveType = fileStorage.classifyFileType(ext, type);
-      const queries = database.getQueries();
-      const resourceId = generateId();
-      const originalName = path.basename(filePath);
+    }
+    const effectiveType = fileStorage.classifyFileType(ext, type);
+    const queries = database.getQueries();
+    const resourceId = generateId();
+    const originalName = path.basename(filePath);
 
       // Import the file INTO the project's vault (referenced in place — no
       // content-addressed copy). Vault duplicates are allowed.
@@ -56,13 +120,13 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
       const fullPath = importResult.absPath;
       const thumbnailData = await thumbnail.generateThumbnail(
         fullPath,
-        type,
+        effectiveType,
         importResult.mimeType
       );
 
       // Extract video metadata if applicable
       let metadata = null;
-      if (type === 'video') {
+      if (effectiveType === 'video') {
         try {
           metadata = await thumbnail.extractVideoMetadata(fullPath);
         } catch (metadataError) {
@@ -80,7 +144,7 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         }
       }
       // Extract text from PDFs on import (so resource_get has content without on-demand extraction)
-      const isPdf = type === 'pdf' || (importResult.mimeType || '').includes('pdf') || (originalName || '').toLowerCase().endsWith('.pdf');
+      const isPdf = effectiveType === 'pdf' || (importResult.mimeType || '').includes('pdf') || (originalName || '').toLowerCase().endsWith('.pdf');
       if (isPdf && !contentText) {
         try {
           contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
@@ -131,6 +195,18 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
         data: resource,
         thumbnailDataUrl: thumbnailData,
       };
+  }
+
+  /**
+   * Import a file: reference it in the project vault and create the resource
+   */
+  ipcMain.handle('resource:import', async (event, { filePath, projectId, type, title }) => {
+    if (!windowManager.isAuthorized(event.sender.id)) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    try {
+      return await importFileAsResource(filePath, { projectId, type, title });
     } catch (error) {
       console.error('[Resource] Error importing file:', error);
       return { success: false, error: error.message };
@@ -179,91 +255,18 @@ function register({ ipcMain, fs, path, windowManager, database, fileStorage, thu
     const results = [];
     const errors = [];
 
+    // Same vault-native pipeline as `resource:import` (markdown/plain text →
+    // editable note; other files referenced in the project vault). The legacy
+    // internal-storage copy left imports invisible to the vault (issue: "md
+    // imports corrupt documents").
     for (const filePath of filePaths) {
       try {
-        if (!fs.existsSync(filePath)) {
-          errors.push({ filePath, error: 'File not found' });
-          continue;
+        const result = await importFileAsResource(filePath, { projectId, type });
+        if (result.success) {
+          results.push({ success: true, data: result.data });
+        } else {
+          errors.push({ filePath, error: result.error, duplicate: result.duplicate });
         }
-
-        // Determine type from extension if not provided
-        const ext = path.extname(filePath).toLowerCase();
-        const fileType = fileStorage.classifyFileType(ext, type);
-
-        const importResult = await fileStorage.importFile(filePath, fileType);
-
-        // Check for duplicate
-        const queries = database.getQueries();
-        const existingResource = queries.findByHash.get(importResult.hash);
-        if (existingResource) {
-          errors.push({
-            filePath,
-            error: 'duplicate',
-            duplicate: existingResource,
-          });
-          continue;
-        }
-
-        // Generate thumbnail
-        const fullPath = fileStorage.getFullPath(importResult.internalPath);
-        const thumbnailData = await thumbnail.generateThumbnail(
-          fullPath,
-          fileType,
-          importResult.mimeType
-        );
-
-        // Extract text for documents, spreadsheets and presentations
-        let contentText = null;
-        if (fileType === 'document' || fileType === 'excel' || fileType === 'ppt') {
-          try {
-            contentText = await extractDocumentTextOffMain(fullPath, importResult.mimeType);
-          } catch (e) {
-            console.warn('[Resource] Document extraction failed:', e.message);
-          }
-        }
-        const isPdf = fileType === 'pdf' || (importResult.mimeType || '').includes('pdf') || (importResult.originalName || '').toLowerCase().endsWith('.pdf');
-        if (isPdf && !contentText) {
-          try {
-            contentText = await documentExtractor.extractTextFromPDF(fullPath, 50000);
-          } catch (e) {
-            console.warn('[Resource] PDF extraction failed:', e.message);
-          }
-        }
-
-        // Create resource
-        const resourceId = generateId();
-        const now = Date.now();
-
-        queries.createResourceWithFile.run(
-          resourceId,
-          projectId,
-          fileType,
-          importResult.originalName,
-          contentText,
-          null,
-          importResult.internalPath,
-          importResult.mimeType,
-          importResult.size,
-          importResult.hash,
-          thumbnailData,
-          importResult.originalName,
-          null,
-          now,
-          now
-        );
-
-        const resource = queries.getResourceById.get(resourceId);
-
-        // Broadcast so Home and other windows update immediately
-        windowManager.broadcast('resource:created', resource);
-
-        if (semanticIndexScheduler.shouldIndex(resource)) {
-          semanticIndexScheduler.scheduleSemanticReindex(resourceId);
-        }
-
-        autoMetadata.scheduleCloudAutoMetadata(resourceId, { database, fileStorage, windowManager });
-
-        results.push({ success: true, data: resource });
       } catch (error) {
         errors.push({ filePath, error: error.message });
       }

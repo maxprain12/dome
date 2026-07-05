@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-05T11:28:33.492Z
+> Última generación: 2026-07-05T18:39:44.156Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -448,22 +448,22 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `quiz:createRun` | `electron/ipc/learn/quiz.cjs:25` |
 | `quiz:getRun` | `electron/ipc/learn/quiz.cjs:110` |
 | `quiz:listRuns` | `electron/ipc/learn/quiz.cjs:92` |
-| `resource:delete` | `electron/ipc/data/resources.cjs:716` |
-| `resource:duplicate` | `electron/ipc/data/resources.cjs:676` |
-| `resource:export` | `electron/ipc/data/resources.cjs:624` |
-| `resource:extractPptImages` | `electron/ipc/data/resources.cjs:402` |
-| `resource:getFilePath` | `electron/ipc/data/resources.cjs:282` |
-| `resource:import` | `electron/ipc/data/resources.cjs:30` |
-| `resource:importFromContent` | `electron/ipc/data/resources.cjs:814` |
-| `resource:importMultiple` | `electron/ipc/data/resources.cjs:174` |
-| `resource:readDocumentContent` | `electron/ipc/data/resources.cjs:439` |
-| `resource:readFile` | `electron/ipc/data/resources.cjs:352` |
-| `resource:readFileBuffer` | `electron/ipc/data/resources.cjs:314` |
-| `resource:regenerateThumbnail` | `electron/ipc/data/resources.cjs:742` |
-| `resource:saveDocxFromHtml` | `electron/ipc/data/resources.cjs:537` |
-| `resource:scheduleIndex` | `electron/ipc/data/resources.cjs:144` |
-| `resource:setThumbnail` | `electron/ipc/data/resources.cjs:781` |
-| `resource:writeExcelContent` | `electron/ipc/data/resources.cjs:480` |
+| `resource:delete` | `electron/ipc/data/resources.cjs:719` |
+| `resource:duplicate` | `electron/ipc/data/resources.cjs:679` |
+| `resource:export` | `electron/ipc/data/resources.cjs:627` |
+| `resource:extractPptImages` | `electron/ipc/data/resources.cjs:405` |
+| `resource:getFilePath` | `electron/ipc/data/resources.cjs:285` |
+| `resource:import` | `electron/ipc/data/resources.cjs:203` |
+| `resource:importFromContent` | `electron/ipc/data/resources.cjs:817` |
+| `resource:importMultiple` | `electron/ipc/data/resources.cjs:250` |
+| `resource:readDocumentContent` | `electron/ipc/data/resources.cjs:442` |
+| `resource:readFile` | `electron/ipc/data/resources.cjs:355` |
+| `resource:readFileBuffer` | `electron/ipc/data/resources.cjs:317` |
+| `resource:regenerateThumbnail` | `electron/ipc/data/resources.cjs:745` |
+| `resource:saveDocxFromHtml` | `electron/ipc/data/resources.cjs:540` |
+| `resource:scheduleIndex` | `electron/ipc/data/resources.cjs:220` |
+| `resource:setThumbnail` | `electron/ipc/data/resources.cjs:784` |
+| `resource:writeExcelContent` | `electron/ipc/data/resources.cjs:483` |
 | `runs:abort` | `electron/ipc/agents/runs.cjs:66` |
 | `runs:delete` | `electron/ipc/agents/runs.cjs:77` |
 | `runs:get` | `electron/ipc/agents/runs.cjs:6` |
@@ -551,7 +551,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `updater:download` | `electron/ipc/core/updater.cjs:20` |
 | `updater:install` | `electron/ipc/core/updater.cjs:31` |
 | `updater:skip` | `electron/ipc/core/updater.cjs:42` |
-| `vault:openRoot` | `electron/ipc/data/resources.cjs:695` |
+| `vault:openRoot` | `electron/ipc/data/resources.cjs:698` |
 | `web:get-youtube-thumbnail` | `electron/ipc/integrations/web.cjs:43` |
 | `web:process` | `electron/ipc/integrations/web.cjs:116` |
 | `web:save-screenshot` | `electron/ipc/integrations/web.cjs:60` |

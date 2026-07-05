@@ -30,7 +30,9 @@ export default function DomeResourceIcon({
   style,
 }: DomeResourceIconProps) {
   const kind = kindOverride ?? inferResourceVisualKind(type, name);
-  const Icon = RESOURCE_ICON_MAP[kind];
+  // Defensive fallback: an out-of-map `kind` override must degrade to the
+  // generic file icon, never render `undefined` (React error 130).
+  const Icon = RESOURCE_ICON_MAP[kind] ?? RESOURCE_ICON_MAP.file;
   return (
     <Icon
       size={size}

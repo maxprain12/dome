@@ -48,5 +48,6 @@
   "path_copied": "Path copied",
   "duplicate": "Duplicate",
   "copy_suffix": "copy",
-  "no_file_on_disk": "This item has no file on disk yet"
+  "no_file_on_disk": "This item has no file on disk yet",
+  "dropToImport": "Drop to import here"
 }

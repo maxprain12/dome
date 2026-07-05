@@ -373,10 +373,8 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     }
   }, [effectiveProjectId, listFolderId, t, openResourceTab]);
 
-  const handleUpload = useCallback(async () => {
-    if (!window.electron?.selectFiles || !window.electron?.resource?.importMultiple) return;
-    const paths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
-    if (!paths?.length) return;
+  const importPathsIntoView = useCallback(async (paths: string[]) => {
+    if (!paths.length || !window.electron?.resource?.importMultiple) return;
     const result = await window.electron.resource.importMultiple(paths, effectiveProjectId);
     if (listFolderId && result?.data?.length) {
       const moves: Promise<unknown>[] = [];
@@ -388,6 +386,54 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
     }
     await refetch();
   }, [effectiveProjectId, listFolderId, refetch]);
+
+  const handleUpload = useCallback(async () => {
+    if (!window.electron?.selectFiles) return;
+    const paths = await window.electron.selectFiles({ properties: ['openFile', 'multiSelections'] });
+    if (!paths?.length) return;
+    await importPathsIntoView(paths);
+  }, [importPathsIntoView]);
+
+  // ── Drag & drop import from Finder / OS file explorer ─────────────────────
+  // dragenter/dragleave fire on every child; a depth counter keeps the overlay
+  // stable until the pointer actually leaves the view.
+  const dragDepthRef = useRef(0);
+  const [osDropActive, setOsDropActive] = useState(false);
+
+  const isOsFileDrag = useCallback((e: React.DragEvent) => {
+    return Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  }, []);
+
+  const handleOsDragEnter = useCallback((e: React.DragEvent) => {
+    if (!isOsFileDrag(e)) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setOsDropActive(true);
+  }, [isOsFileDrag]);
+
+  const handleOsDragOver = useCallback((e: React.DragEvent) => {
+    if (!isOsFileDrag(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, [isOsFileDrag]);
+
+  const handleOsDragLeave = useCallback((e: React.DragEvent) => {
+    if (!isOsFileDrag(e)) return;
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setOsDropActive(false);
+  }, [isOsFileDrag]);
+
+  const handleOsDrop = useCallback(async (e: React.DragEvent) => {
+    if (!isOsFileDrag(e)) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setOsDropActive(false);
+    const files = Array.from(e.dataTransfer.files ?? []);
+    if (!files.length) return;
+    const paths = (window.electron?.getPathsForFiles?.(files) ?? []).filter(Boolean) as string[];
+    if (!paths.length) return;
+    await importPathsIntoView(paths);
+  }, [isOsFileDrag, importPathsIntoView]);
 
   const handleAddUrl = useCallback((url: string) => {
     if (url && window.electron?.db?.resources?.create) {
@@ -584,7 +630,21 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
       : t('folder.itemCount', { count: itemCount });
 
   return (
-    <div className="dome-folder-view">
+    <div
+      className="dome-folder-view"
+      onDragEnter={handleOsDragEnter}
+      onDragOver={handleOsDragOver}
+      onDragLeave={handleOsDragLeave}
+      onDrop={handleOsDrop}
+    >
+      {osDropActive && (
+        <div className="dome-folder-view__drop-overlay" aria-hidden>
+          <div className="dome-folder-view__drop-overlay-card">
+            <Upload className="size-6" aria-hidden />
+            <span>{t('folder.dropToImport', 'Suelta para importar aquí')}</span>
+          </div>
+        </div>
+      )}
       <div className="dome-folder-view__toolbar">
         <div className="dome-folder-view__nav-controls">
           <button
