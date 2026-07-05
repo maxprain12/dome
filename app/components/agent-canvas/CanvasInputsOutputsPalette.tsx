@@ -42,14 +42,15 @@ export function CanvasInputsPalette({
   const { t } = useTranslation();
 
   return (
-    <div className="px-3 pt-3 pb-2">
+    <div className="px-3 pt-2 pb-2">
       <CanvasPaletteSectionHeader
         expanded={expanded}
         onToggle={onToggle}
         label={t('canvas.palette_inputs')}
+        count={INPUT_NODE_CONFIG.length}
       />
       {expanded && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {INPUT_NODE_CONFIG.map((n) => (
             <CanvasPaletteRow
               key={n.type}
@@ -79,18 +80,19 @@ export function CanvasOutputsPalette({
   const { t } = useTranslation();
 
   return (
-    <div className="p-3">
+    <div className="px-3 py-2">
       <CanvasPaletteSectionHeader
         expanded={expanded}
         onToggle={onToggle}
         label={t('canvas.palette_outputs')}
+        count={1}
       />
       {expanded && (
         <CanvasPaletteRow
           icon={Terminal}
           label={t('canvas.output_result_label')}
           description={t('canvas.output_result_desc')}
-          color="var(--dome-accent)"
+          color="var(--info)"
           onAdd={() => onAddNode(createCanvasPaletteNode(t, 'output'))}
           onDragStart={(e) => handleCanvasPaletteDragStart(e, 'output')}
         />

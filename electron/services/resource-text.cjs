@@ -190,7 +190,7 @@ function buildNoteIndexableText(row, title) {
   return buildIndexedTextOrEmpty(title, extractNoteBody(String(row.content || '')));
 }
 
-const CONTENT_BODY_TYPES = ['pdf', 'document', 'url', 'notebook', 'ppt', 'excel'];
+const CONTENT_BODY_TYPES = new Set(['pdf', 'document', 'url', 'notebook', 'ppt', 'excel']);
 
 function buildContentTypeIndexableText(row, title) {
   const content = String(row.content || '').trim();
@@ -207,7 +207,7 @@ function getIndexableText(row, queries) {
   if (type === 'note') {
     return buildNoteIndexableText(row, title);
   }
-  if (CONTENT_BODY_TYPES.includes(type)) {
+  if (CONTENT_BODY_TYPES.has(type)) {
     return buildContentTypeIndexableText(row, title);
   }
   return { text: '', source: 'empty' };

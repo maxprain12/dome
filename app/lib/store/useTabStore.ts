@@ -24,7 +24,6 @@ export type TabType =
   | 'tags'
   | 'marketplace'
   | 'pipelines'
-  // Deprecated: collapsed into 'pipelines'. Kept for backward-compatible tab restore.
   | 'agents'
   | 'workflows'
   | 'automations'
@@ -690,23 +689,20 @@ export const useTabStore = create<TabStore>((set, get) => {
       get().openTab({ id: PIPELINES_TAB_ID, type: 'pipelines', title: i18n.t('tabs.pipelines'), pinned: false });
     },
 
-    // The agents/workflows/automations/runs experiences were unified into
-    // Pipelines. These openers are kept as aliases so existing callers keep
-    // working; they all focus the single Pipelines tab.
     openAgentsTab: () => {
-      get().openPipelinesTab();
+      get().openTab({ id: AGENTS_TAB_ID, type: 'agents', title: i18n.t('tabs.agents'), pinned: false });
     },
 
     openWorkflowsTab: () => {
-      get().openPipelinesTab();
+      get().openTab({ id: WORKFLOWS_TAB_ID, type: 'workflows', title: i18n.t('tabs.workflows'), pinned: false });
     },
 
     openAutomationsTab: () => {
-      get().openPipelinesTab();
+      get().openTab({ id: AUTOMATIONS_TAB_ID, type: 'automations', title: i18n.t('tabs.automations'), pinned: false });
     },
 
     openRunsTab: () => {
-      get().openPipelinesTab();
+      get().openTab({ id: RUNS_TAB_ID, type: 'runs', title: i18n.t('tabs.runs'), pinned: false });
     },
 
     openProjectsTab: () => {

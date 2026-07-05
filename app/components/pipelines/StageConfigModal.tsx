@@ -17,7 +17,7 @@ import type { ExecutionPolicy, PipelineStage, StageDeliverable } from '@/lib/pip
 import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
 import type { ManyAgent } from '@/types';
 
-const AgentOnboarding = lazy(() => import('@/components/agents/AgentOnboarding'));
+const AgentOnboarding = lazy(() => import('@/components/orchestration/AgentEditor'));
 
 interface Props {
   stage: PipelineStage;

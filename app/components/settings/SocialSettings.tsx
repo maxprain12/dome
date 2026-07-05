@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Share2, Linkedin, Instagram, Twitter, Trash2, Loader2, CheckCircle2,
-  AlertTriangle, Copy, KeyRound, Link2, HelpCircle,
+  AlertTriangle, Copy, KeyRound, Link2, HelpCircle, Building2, RefreshCw,
 } from 'lucide-react';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 import SocialConnectWizard from '@/components/settings/SocialConnectWizard';
@@ -16,11 +16,14 @@ interface ProviderStatus {
   supportsManualToken: boolean;
   requiresMedia: boolean;
   redirectUri: string;
+  /** LinkedIn only: request organization scopes for company pages. */
+  orgEnabled?: boolean;
 }
 
 interface SocialAccount {
   id: string;
   provider: SocialProvider;
+  accountKind?: 'member' | 'organization';
   displayName: string | null;
   handle: string | null;
   status: 'active' | 'error' | 'expired';
@@ -159,15 +162,21 @@ function ProviderCard({
   const [connecting, setConnecting] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orgEnabled, setOrgEnabled] = useState(Boolean(status.orgEnabled));
+  const [syncingOrgs, setSyncingOrgs] = useState(false);
 
   useEffect(() => setClientId(status.clientId), [status.clientId]);
+  useEffect(() => setOrgEnabled(Boolean(status.orgEnabled)), [status.orgEnabled]);
 
-  const saveConfig = async () => {
+  const saveConfig = async (patch?: { orgEnabled?: boolean }) => {
     setSaving(true);
     setError(null);
     setSaved(false);
-    const payload: Record<string, string> = { provider: status.provider, clientId: clientId.trim() };
+    const payload: Record<string, string | boolean> = { provider: status.provider, clientId: clientId.trim() };
     if (clientSecret.trim()) payload.clientSecret = clientSecret.trim();
+    if (status.provider === 'linkedin' && patch?.orgEnabled !== undefined) {
+      payload.orgEnabled = patch.orgEnabled;
+    }
     const res = await window.electron.invoke('social:providers:set-config', payload);
     setSaving(false);
     if (!res?.success) {
@@ -211,6 +220,25 @@ function ProviderCard({
     await window.electron.invoke('social:disconnect', { accountId });
     await onChanged();
   };
+
+  const syncLinkedInOrgs = async (accountId: string) => {
+    setSyncingOrgs(true);
+    setError(null);
+    const res = await window.electron.invoke('social:linkedin:sync-orgs', { accountId });
+    setSyncingOrgs(false);
+    if (!res?.success) setError(res?.error || 'Error');
+    await onChanged();
+  };
+
+  const toggleOrgEnabled = async () => {
+    const next = !orgEnabled;
+    setOrgEnabled(next);
+    await saveConfig({ orgEnabled: next });
+  };
+
+  const linkedInMemberAccount = accounts.find(
+    (a) => a.provider === 'linkedin' && (a.accountKind || 'member') === 'member',
+  );
 
   const copyRedirect = () => {
     void navigator.clipboard?.writeText(status.redirectUri);
@@ -283,12 +311,27 @@ function ProviderCard({
               style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
             >
               <div className="min-w-0">
-                <div className="text-sm truncate" style={{ color: 'var(--dome-text)' }}>
-                  {acc.displayName || acc.handle || acc.id}
-                  {acc.handle && acc.displayName ? (
-                    <span className="ml-1 text-xs" style={{ color: 'var(--dome-text-muted)' }}>{acc.handle}</span>
-                  ) : null}
+                <div className="flex items-center gap-1.5 min-w-0">
+                  {acc.provider === 'linkedin' && (acc.accountKind || 'member') === 'organization' && (
+                    <Building2 className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+                  )}
+                  <div className="text-sm truncate" style={{ color: 'var(--dome-text)' }}>
+                    {acc.displayName || acc.handle || acc.id}
+                  </div>
+                  {acc.provider === 'linkedin' && (
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                      style={{ background: 'var(--dome-bg-secondary)', color: 'var(--dome-text-muted)', border: '1px solid var(--dome-border)' }}
+                    >
+                      {(acc.accountKind || 'member') === 'organization'
+                        ? t('social.settings.account_kind_organization')
+                        : t('social.settings.account_kind_member')}
+                    </span>
+                  )}
                 </div>
+                {acc.handle && acc.displayName && (
+                  <div className="text-xs truncate mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{acc.handle}</div>
+                )}
                 {acc.status !== 'active' && (
                   <div className="text-xs" style={{ color: 'var(--dome-error)' }}>
                     {acc.lastError || t(`social.settings.status_${acc.status}`)}
@@ -311,6 +354,43 @@ function ProviderCard({
             </div>
           ))}
         </div>
+      )}
+
+      {status.provider === 'linkedin' && orgEnabled && linkedInMemberAccount && (
+        <button
+          type="button"
+          onClick={() => void syncLinkedInOrgs(linkedInMemberAccount.id)}
+          disabled={syncingOrgs}
+          className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+          style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-accent)' }}
+        >
+          <RefreshCw className={`size-3.5 ${syncingOrgs ? 'animate-spin' : ''}`} />
+          {syncingOrgs ? t('social.settings.linkedin_sync_orgs_busy') : t('social.settings.linkedin_sync_orgs')}
+        </button>
+      )}
+
+      {status.provider === 'linkedin' && (
+        <label
+          aria-label={t('social.settings.linkedin_org_enabled')}
+          className="flex items-start gap-2 rounded-md px-3 py-2 cursor-pointer"
+          style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+        >
+          <input
+            type="checkbox"
+            checked={orgEnabled}
+            onChange={() => void toggleOrgEnabled()}
+            disabled={saving}
+            className="mt-0.5"
+          />
+          <span className="min-w-0">
+            <span className="text-xs font-medium block" style={{ color: 'var(--dome-text)' }}>
+              {t('social.settings.linkedin_org_enabled')}
+            </span>
+            <span className="text-xs block mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
+              {t('social.settings.linkedin_org_hint')}
+            </span>
+          </span>
+        </label>
       )}
 
       {/* App credentials */}

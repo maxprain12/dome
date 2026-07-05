@@ -925,8 +925,15 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
               <div className="dome-folder-view__grid-header">
                 <span className="dome-folder-view__list-header-count">{statusLabel}</span>
               </div>
-              <div className="dome-folder-view__grid">
-                {rowsToRender.map(({ item, isFolder }, idx) => (
+              {(() => {
+                // Grid mode is format-aware: folders as compact tiles in their
+                // own row, files in a masonry flow where each card keeps its
+                // asset's aspect ratio. Indices stay aligned with
+                // `rowsToRender` (folders always come first) so search focus
+                // keeps working.
+                const folderEntries = rowsToRender.filter((e) => e.isFolder);
+                const fileEntries = rowsToRender.filter((e) => !e.isFolder);
+                const renderCard = ({ item, isFolder }: { item: Resource; isFolder: boolean }, idx: number) => (
                   <FolderCard
                     key={item.id}
                     item={item}
@@ -957,17 +964,31 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     searchQuery={isFiltering ? normalizedSearchQuery : undefined}
                     searchFocused={isFiltering && idx === searchFocusIndex}
                   />
-                ))}
-                {creatingFolder ? (
-                  <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
-                    <NewFolderInline
-                      variant="grid"
-                      onConfirm={handleCreateFolder}
-                      onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
-                    />
-                  </div>
-                ) : null}
-              </div>
+                );
+                return (
+                  <>
+                    {(folderEntries.length > 0 || creatingFolder) ? (
+                      <div className="dome-folder-view__grid dome-folder-view__grid--folders">
+                        {folderEntries.map((entry, i) => renderCard(entry, i))}
+                        {creatingFolder ? (
+                          <div className="dome-folder-view__inline-create dome-folder-view__inline-create--grid">
+                            <NewFolderInline
+                              variant="grid"
+                              onConfirm={handleCreateFolder}
+                              onCancel={() => { setCreatingFolder(false); setCreateFolderParentId(null); }}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+                    {fileEntries.length > 0 ? (
+                      <div className="dome-folder-view__grid dome-folder-view__grid--masonry">
+                        {fileEntries.map((entry, i) => renderCard(entry, folderEntries.length + i))}
+                      </div>
+                    ) : null}
+                  </>
+                );
+              })()}
             </>
           )
         ) : creatingFolder ? (

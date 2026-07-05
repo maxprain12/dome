@@ -8,7 +8,7 @@ import { useAppStore } from '@/lib/store/useAppStore';
 import { getManyAgents } from '@/lib/agents/api';
 import { getAgentTeams } from '@/lib/agent-team/api';
 import type { ManyAgent, AgentTeam } from '@/types';
-import AgentOnboarding from '@/components/agents/AgentOnboarding';
+import AgentOnboarding from '@/components/orchestration/AgentEditor';
 import ManyIcon from '@/components/many/ManyIcon';
 import { startDomeTour } from '@/lib/tour/domeTour';
 

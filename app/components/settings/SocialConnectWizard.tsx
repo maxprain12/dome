@@ -15,6 +15,7 @@ interface ProviderStatus {
   hasClientSecret: boolean;
   supportsManualToken: boolean;
   redirectUri: string;
+  orgEnabled?: boolean;
 }
 
 interface ConnectedAccount {
@@ -73,6 +74,7 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
   const [connecting, setConnecting] = useState(false);
   const [connectedNow, setConnectedNow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [orgEnabled, setOrgEnabled] = useState(Boolean(status.orgEnabled));
 
   const activeAccount = accounts.find((a) => a.status === 'active') ?? null;
   const stepId = STEP_IDS[step];
@@ -92,8 +94,9 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
   const saveCredentials = async () => {
     setSaving(true);
     setError(null);
-    const payload: Record<string, string> = { provider, clientId: clientId.trim() };
+    const payload: Record<string, string | boolean> = { provider, clientId: clientId.trim() };
     if (clientSecret.trim()) payload.clientSecret = clientSecret.trim();
+    if (provider === 'linkedin') payload.orgEnabled = orgEnabled;
     const res = await window.electron.invoke('social:providers:set-config', payload);
     setSaving(false);
     if (!res?.success) {
@@ -238,6 +241,25 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
               <ExternalLink className="size-3.5" />
               {t(stepId === 'create_app' ? 'social.wizard.open_create' : 'social.wizard.open_dashboard')}
             </a>
+          )}
+
+          {showRedirect && provider === 'linkedin' && (
+            <label aria-label={t('social.settings.linkedin_org_enabled')} className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3 cursor-pointer" style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}>
+              <input
+                type="checkbox"
+                checked={orgEnabled}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setOrgEnabled(next);
+                  void window.electron.invoke('social:providers:set-config', { provider, orgEnabled: next });
+                }}
+                className="mt-0.5"
+              />
+              <span className="min-w-0 text-xs">
+                <span className="font-medium block" style={{ color: 'var(--dome-text)' }}>{t('social.settings.linkedin_org_enabled')}</span>
+                <span className="block mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{t('social.settings.linkedin_org_hint')}</span>
+              </span>
+            </label>
           )}
 
           {/* Redirect URI copy box */}

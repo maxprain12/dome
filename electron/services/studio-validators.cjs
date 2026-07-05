@@ -536,17 +536,11 @@ function parseContentInput(contentInput) {
  * @returns {{ ok: boolean, content: string|null, normalized: object|null, errors: string[] }}
  */
 function buildContentlessStudioResult(contentInput) {
-  return {
-    ok: true,
-    content:
-      contentInput == null
-        ? null
-        : typeof contentInput === 'string'
-          ? contentInput
-          : JSON.stringify(contentInput),
-    normalized: null,
-    errors: [],
-  };
+  let content = null;
+  if (contentInput != null) {
+    content = typeof contentInput === 'string' ? contentInput : JSON.stringify(contentInput);
+  }
+  return { ok: true, content, normalized: null, errors: [] };
 }
 
 function buildPassthroughStudioResult(contentInput) {
@@ -554,11 +548,12 @@ function buildPassthroughStudioResult(contentInput) {
   if (parseError) {
     return { ok: false, content: null, normalized: null, errors: [parseError] };
   }
-  const str = parsed
-    ? JSON.stringify(parsed)
-    : typeof contentInput === 'string'
-      ? contentInput
-      : null;
+  let str = null;
+  if (parsed) {
+    str = JSON.stringify(parsed);
+  } else if (typeof contentInput === 'string') {
+    str = contentInput;
+  }
   return { ok: true, content: str, normalized: parsed, errors: [] };
 }
 

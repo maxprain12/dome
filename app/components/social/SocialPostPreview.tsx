@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Heart, MessageCircle, Send, Repeat2, ThumbsUp, Share2, Film, ImageIcon, Globe, Bookmark } from 'lucide-react';
 import type { SocialAccount, SocialMediaItem, SocialProvider } from '@/components/social/socialTypes';
@@ -69,15 +70,29 @@ function MediaThumb({
   className?: string;
   style?: React.CSSProperties;
 }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const src = item ? thumbnails[mediaKey(item)] : undefined;
   const isVideo = item?.type === 'video' || item?.type === 'reel';
+  // Public video URLs (e.g. signed MinIO/S3 links) can't render in an <img> —
+  // use a real <video> so the first frame shows as the preview.
+  const videoSrc = isVideo && item?.url ? item.url : undefined;
+  const failed = failedSrc != null && failedSrc === (videoSrc ?? src);
   return (
     <div
       className={`flex items-center justify-center overflow-hidden ${className ?? ''}`}
       style={{ background: 'var(--dome-bg-tertiary, var(--dome-bg-secondary))', ...style }}
     >
-      {src ? (
-        <img src={src} alt="" className="w-full h-full object-cover" />
+      {videoSrc && !failed ? (
+        <video
+          src={videoSrc}
+          muted
+          playsInline
+          preload="metadata"
+          className="w-full h-full object-cover"
+          onError={() => setFailedSrc(videoSrc)}
+        />
+      ) : src && !failed ? (
+        <img src={src} alt="" className="w-full h-full object-cover" onError={() => setFailedSrc(src)} />
       ) : isVideo ? (
         <Film className="size-6" style={{ color: 'var(--dome-text-muted)' }} />
       ) : (

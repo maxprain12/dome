@@ -106,5 +106,6 @@
   "transcript_copy_empty": "Nada para copiar",
   "transcript_copy_failed": "Não foi possível copiar",
   "transcript_open_settings": "Definições STT",
-  "transcript_editorial_hint": "A pesquisa destaca correspondências. Renomeie falantes acima para as suas notas."
+  "transcript_editorial_hint": "A pesquisa destaca correspondências. Renomeie falantes acima para as suas notas.",
+  "image_viewer_hints": "+ / −: zoom · R: girar · 0: redefinir · arraste para mover · Ctrl + roda: zoom"
 }

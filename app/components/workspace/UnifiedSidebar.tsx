@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown, Share2 } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown, Share2, Bot, GitBranch, Zap, Activity } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -66,6 +66,10 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openProjectsTab,
     openLearnTab,
     openPipelinesTab,
+    openAgentsTab,
+    openWorkflowsTab,
+    openAutomationsTab,
+    openRunsTab,
     openMarketplaceTab,
     openFolderTab,
     activeTabId,
@@ -80,6 +84,10 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
       openProjectsTab: s.openProjectsTab,
       openLearnTab: s.openLearnTab,
       openPipelinesTab: s.openPipelinesTab,
+      openAgentsTab: s.openAgentsTab,
+      openWorkflowsTab: s.openWorkflowsTab,
+      openAutomationsTab: s.openAutomationsTab,
+      openRunsTab: s.openRunsTab,
       openMarketplaceTab: s.openMarketplaceTab,
       openFolderTab: s.openFolderTab,
       activeTabId: s.activeTabId,
@@ -448,6 +456,38 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
         icon: <Workflow className="size-4 shrink-0" strokeWidth={sw} />,
         onOpen: openPipelinesTab,
       },
+      {
+        key: 'agents',
+        kind: 'tab',
+        tabType: 'agents',
+        label: t('tabs.agents'),
+        icon: <Bot className="size-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openAgentsTab,
+      },
+      {
+        key: 'workflows',
+        kind: 'tab',
+        tabType: 'workflows',
+        label: t('tabs.workflows'),
+        icon: <GitBranch className="size-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openWorkflowsTab,
+      },
+      {
+        key: 'automations',
+        kind: 'tab',
+        tabType: 'automations',
+        label: t('tabs.automations'),
+        icon: <Zap className="size-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openAutomationsTab,
+      },
+      {
+        key: 'runs',
+        kind: 'tab',
+        tabType: 'runs',
+        label: t('tabs.runs'),
+        icon: <Activity className="size-4 shrink-0" strokeWidth={sw} />,
+        onOpen: openRunsTab,
+      },
     ];
   }, [
     t,
@@ -457,6 +497,10 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
     openSocialTab,
     openProjectsTab,
     openPipelinesTab,
+    openAgentsTab,
+    openWorkflowsTab,
+    openAutomationsTab,
+    openRunsTab,
   ]);
 
   /** Menos uso típico: estudio, taxonomía, extensiones — encima de Ajustes. */

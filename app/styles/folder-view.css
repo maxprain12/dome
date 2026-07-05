@@ -684,6 +684,30 @@
   align-items: start;
 }
 
+/* Folders row: compact tiles, Finder-style, above the files flow. Fixed
+   tracks so tiles never stretch to fill leftover width. */
+.dome-folder-view__grid--folders {
+  grid-template-columns: repeat(auto-fill, 180px);
+  gap: 12px;
+  padding-bottom: 0;
+}
+
+/* Files flow: fixed-width cards in top-aligned wrapping rows (Finder-style).
+   Each card's height follows its own content — bounded per type below — so
+   thumbnails never get blown up to fill an oversized column. */
+.dome-folder-view__grid--masonry {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: flex-start;
+  align-content: flex-start;
+}
+
+.dome-folder-view__grid--masonry > * {
+  flex: 0 0 auto;
+  width: 190px;
+}
+
 .dome-fs-card {
   position: relative;
   display: flex;
@@ -736,6 +760,86 @@
   height: 40px;
   opacity: 0.9;
   fill: color-mix(in srgb, currentColor 18%, transparent);
+}
+
+/* ── Format-aware card variants ─────────────────────────────────────────── */
+
+/* Folder: compact tile — big icon, short cover. */
+.dome-fs-card--folder .dome-fs-card__cover {
+  height: 78px;
+}
+
+/* Media (image/video): the cover grows with the asset's intrinsic ratio;
+   without a thumbnail yet it falls back to a 16:9 placeholder. */
+.dome-fs-card--media .dome-fs-card__cover {
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 16 / 9;
+  background: color-mix(in srgb, black 45%, var(--dome-bg-secondary));
+}
+
+.dome-fs-card--media .dome-fs-card__cover:has(.dome-fs-card__cover-img) {
+  aspect-ratio: auto;
+}
+
+.dome-fs-card--media .dome-fs-card__cover-fallback {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* Document (PDF page / note excerpt): portrait "page" preview. */
+.dome-fs-card--doc .dome-fs-card__cover {
+  height: auto;
+  aspect-ratio: 4 / 5;
+  max-height: 250px;
+  background: var(--dome-surface);
+}
+
+.dome-fs-card--doc .dome-fs-card__cover-snippet {
+  -webkit-line-clamp: 14;
+  padding: 14px 16px;
+  font-size: 10.5px;
+  background: var(--dome-surface);
+}
+
+/* Persisted artifact: 4:3 live mini-render. */
+.dome-fs-card--artifact-card .dome-fs-card__cover {
+  height: auto;
+  aspect-ratio: 4 / 3;
+}
+
+/* Cover image rendered as a real <img> so its intrinsic aspect ratio drives
+   the card height inside the masonry flow. */
+.dome-fs-card__cover-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* Keeps the asset's ratio until this cap, then crops (vertical reels read
+     as portrait without producing a giant card). */
+  max-height: 250px;
+  object-fit: cover;
+}
+
+.dome-fs-card__cover-img--page {
+  object-fit: cover;
+  object-position: top center;
+  max-height: 250px;
+  background: var(--dome-surface);
+}
+
+.dome-fs-card__play-badge {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
 }
 
 .dome-fs-card__cover-fallback {
@@ -797,6 +901,96 @@
   /* Fade the bottom so the clamped text reads as a preview, not a hard cut. */
   -webkit-mask-image: linear-gradient(180deg, black 60%, transparent);
   mask-image: linear-gradient(180deg, black 60%, transparent);
+}
+
+/* Rendered-Markdown note preview: scaled-down editor typography so the card
+   reads like the note does in the editor, not like raw source text. */
+.dome-fs-card__md-thumb {
+  width: 100%;
+  height: 100%;
+  padding: 12px 14px;
+  overflow: hidden;
+  pointer-events: none;
+  text-align: left;
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--dome-text-secondary);
+  background: var(--dome-surface);
+  -webkit-mask-image: linear-gradient(180deg, black 70%, transparent);
+  mask-image: linear-gradient(180deg, black 70%, transparent);
+}
+
+.dome-fs-card__md-thumb h1,
+.dome-fs-card__md-thumb h2,
+.dome-fs-card__md-thumb h3,
+.dome-fs-card__md-thumb h4 {
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: var(--dome-text);
+  line-height: 1.3;
+}
+
+.dome-fs-card__md-thumb h1 { font-size: 13px; }
+.dome-fs-card__md-thumb h2 { font-size: 12px; }
+.dome-fs-card__md-thumb h3,
+.dome-fs-card__md-thumb h4 { font-size: 11px; }
+
+.dome-fs-card__md-thumb p {
+  margin: 0 0 5px;
+}
+
+.dome-fs-card__md-thumb ul,
+.dome-fs-card__md-thumb ol {
+  margin: 0 0 5px;
+  padding-left: 14px;
+}
+
+.dome-fs-card__md-thumb li {
+  margin: 0 0 2px;
+}
+
+.dome-fs-card__md-thumb strong {
+  color: var(--dome-text);
+}
+
+.dome-fs-card__md-thumb code {
+  font-size: 9px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--dome-bg-secondary);
+}
+
+.dome-fs-card__md-thumb pre {
+  margin: 0 0 5px;
+  padding: 5px 7px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--dome-bg-secondary);
+}
+
+.dome-fs-card__md-thumb blockquote {
+  margin: 0 0 5px;
+  padding-left: 8px;
+  border-left: 2px solid var(--dome-border);
+  color: var(--dome-text-muted);
+}
+
+.dome-fs-card__md-thumb table {
+  margin: 0 0 5px;
+  font-size: 9px;
+  border-collapse: collapse;
+}
+
+.dome-fs-card__md-thumb th,
+.dome-fs-card__md-thumb td {
+  padding: 1px 5px;
+  border: 1px solid var(--dome-border);
+}
+
+.dome-fs-card__md-thumb hr {
+  margin: 5px 0;
+  border: none;
+  border-top: 1px solid var(--dome-border);
 }
 
 .dome-fs-card__select {

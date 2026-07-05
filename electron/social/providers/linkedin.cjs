@@ -3,9 +3,12 @@
 /* eslint-disable no-console */
 
 /**
- * LinkedIn provider — member posts via ugcPosts + OIDC profile.
+ * LinkedIn provider — member posts via ugcPosts + OIDC profile, and company
+ * pages (organizations) the user administers.
  * Requires the "Sign In with LinkedIn using OpenID Connect" and
- * "Share on LinkedIn" products enabled on the user's LinkedIn app.
+ * "Share on LinkedIn" products enabled on the user's LinkedIn app; company
+ * pages additionally need the "Community Management API" product (org scopes
+ * are opt-in via Settings → Social → LinkedIn → company pages).
  * Member tokens last ~60 days and cannot be refreshed on the standard tier:
  * on expiry the account is marked `expired` and the user reconnects.
  */
@@ -48,6 +51,31 @@ async function fetchProfile(accessToken) {
   };
 }
 
+/** Company pages where the token's member is an APPROVED ADMINISTRATOR. */
+async function fetchAdminOrganizations(accessToken) {
+  const acls = await linkedinFetch(
+    accessToken,
+    '/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED&count=50'
+  );
+  const orgs = [];
+  for (const element of acls?.elements || []) {
+    const urn = element?.organization; // urn:li:organization:123456
+    const orgId = typeof urn === 'string' ? urn.split(':').pop() : null;
+    if (!orgId) continue;
+    let name = `LinkedIn Page ${orgId}`;
+    let vanityName = null;
+    try {
+      const org = await linkedinFetch(accessToken, `/organizations/${orgId}`);
+      name = org?.localizedName || name;
+      vanityName = org?.vanityName || null;
+    } catch (err) {
+      console.warn(`[Social] LinkedIn org ${orgId} lookup failed:`, err.message);
+    }
+    orgs.push({ id: orgId, name, vanityName });
+  }
+  return orgs;
+}
+
 async function finalizeOAuthAccount(store, tokenData) {
   const accessToken = tokenData.access_token;
   if (!accessToken) throw new Error('LinkedIn: no access_token in token response');
@@ -56,26 +84,92 @@ async function finalizeOAuthAccount(store, tokenData) {
     access_token: accessToken,
     expires_at: tokenData.expires_in ? Date.now() + tokenData.expires_in * 1000 : null,
   };
-  return upsertAccount(store, profile, tokens, tokenData.scope || null);
+  const scopes = tokenData.scope || null;
+  const account = upsertAccount(store, profile, tokens, scopes);
+  // Company-page mode: the granted scope includes org permissions → also
+  // upsert one account per administered page (they share the member token).
+  if (String(scopes || '').includes('organization')) {
+    try {
+      await syncOrganizationAccounts(store, tokens, scopes);
+    } catch (err) {
+      console.warn('[Social] LinkedIn org discovery failed (member connected anyway):', err.message);
+    }
+  }
+  return account;
 }
 
 async function connectWithToken(store, { accessToken }) {
   const profile = await fetchProfile(accessToken);
-  return upsertAccount(store, profile, { access_token: accessToken, expires_at: null }, null);
+  const tokens = { access_token: accessToken, expires_at: null };
+  const account = upsertAccount(store, profile, tokens, null);
+  // Manual tokens may carry org scopes too; discover pages silently.
+  try {
+    await syncOrganizationAccounts(store, tokens, null);
+  } catch { /* token without org scopes — member-only connect */ }
+  return account;
 }
 
-function upsertAccount(store, profile, tokens, scopes) {
+function upsertAccount(store, profile, tokens, scopes, accountKind = 'member') {
   const existing = store
     .listAccounts('linkedin')
-    .find((a) => a.externalId === profile.externalId);
+    .find((a) => a.externalId === profile.externalId && (a.accountKind || 'member') === accountKind);
   if (existing) {
     store.updateAccountTokens(existing.id, tokens, { scopes, status: 'active' });
     store.updateAccountProfile(existing.id, profile);
     return store.serializeAccount(store.getAccount(existing.id));
   }
   return store.serializeAccount(
-    store.getAccount(store.createAccount({ provider: 'linkedin', ...profile, tokens, scopes }).id)
+    store.getAccount(store.createAccount({ provider: 'linkedin', accountKind, ...profile, tokens, scopes }).id)
   );
+}
+
+/** Upsert one `organization` account per administered company page. */
+async function syncOrganizationAccounts(store, tokens, scopes) {
+  const orgs = await fetchAdminOrganizations(tokens.access_token);
+  return orgs.map((org) =>
+    upsertAccount(
+      store,
+      {
+        externalId: org.id,
+        displayName: org.name,
+        handle: org.vanityName ? `linkedin.com/company/${org.vanityName}` : null,
+      },
+      tokens,
+      scopes,
+      'organization'
+    )
+  );
+}
+
+/**
+ * Re-discover company pages using an already-connected LinkedIn account's
+ * token (Settings → "Buscar páginas de empresa"). Fails with guidance when
+ * the token lacks org scopes or the app lacks the Community Management API.
+ */
+async function syncOrganizations(store, accountId) {
+  const account = store.getAccount(accountId);
+  if (!account || account.provider !== 'linkedin') throw new Error('LinkedIn account not found');
+  await ensureAccessToken(store, accountId); // validates presence + expiry
+  const tokens = store.getAccountTokens(accountId);
+  try {
+    return await syncOrganizationAccounts(store, tokens, account.scopes);
+  } catch (err) {
+    if (err.status === 403 || err.status === 401) {
+      throw new Error(
+        'LinkedIn rejected the organization lookup. Enable company-page mode in Settings → Social → LinkedIn, ' +
+        'make sure your developer app has the "Community Management API" product approved, and reconnect the account ' +
+        `so the token includes the organization scopes. (${err.message})`
+      );
+    }
+    throw err;
+  }
+}
+
+/** Post author URN: company pages post as the organization, not the member. */
+function authorUrnFor(accountRow) {
+  return (accountRow.account_kind || 'member') === 'organization'
+    ? `urn:li:organization:${accountRow.external_id}`
+    : `urn:li:person:${accountRow.external_id}`;
 }
 
 async function ensureAccessToken(store, accountId) {
@@ -92,7 +186,7 @@ async function publishPost(store, post) {
   const account = store.getAccount(post.accountId);
   if (!account) throw new Error('LinkedIn account not found for post');
   const accessToken = await ensureAccessToken(store, account.id);
-  const authorUrn = `urn:li:person:${account.external_id}`;
+  const authorUrn = authorUrnFor(account);
 
   // Local files / vault resources → native binary upload (Assets API).
   const sources = resolveMediaItems(database, fileStorage, post.media);
@@ -148,12 +242,45 @@ async function fetchPostMetrics(store, post) {
   };
 }
 
+/**
+ * Account-level metrics. Member follower counts need a partner tier we don't
+ * have, but organization pages expose follower counts via networkSizes with
+ * the Community Management API scopes.
+ */
+async function fetchAccountMetrics(store, account) {
+  if ((account.accountKind || 'member') !== 'organization') return null;
+  const accessToken = await ensureAccessToken(store, account.id);
+  const urn = encodeURIComponent(`urn:li:organization:${account.externalId}`);
+  // The edgeType enum differs per API surface: legacy /v2 wants camel case,
+  // the versioned /rest API wants SCREAMING_SNAKE + a LinkedIn-Version header.
+  // Mixing them yields a confusing 403 "validation failed ... [/edgeType]".
+  let data;
+  try {
+    data = await linkedinFetch(
+      accessToken,
+      `/networkSizes/${urn}?edgeType=CompanyFollowedByMember`
+    );
+  } catch (err) {
+    if (!err.status || err.status < 400 || err.status >= 500) throw err;
+    data = await linkedinFetch(
+      accessToken,
+      `https://api.linkedin.com/rest/networkSizes/${urn}?edgeType=COMPANY_FOLLOWED_BY_MEMBER`,
+      { headers: { 'LinkedIn-Version': '202506' } }
+    );
+  }
+  const followers = data?.firstDegreeSize;
+  if (typeof followers !== 'number') return null;
+  return { followers, raw: data };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken,
   ensureAccessToken,
   publishPost,
   fetchPostMetrics,
+  fetchAccountMetrics,
+  syncOrganizations,
   supportsManualToken: true,
   requiresMedia: false,
 };

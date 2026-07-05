@@ -129,6 +129,11 @@ export default function StartTranscriptionPopover({ anchorRef, onClose }: Props)
       style={{
         top: position.top,
         right: position.right,
+        // The <dialog> UA stylesheet sets `inset: 0`; with an explicit width
+        // that over-constrains the box and `right` gets ignored, pinning the
+        // popover to the window's left edge. Neutralize left/bottom.
+        left: 'auto',
+        bottom: 'auto',
       }}
       onCancel={(e) => { e.preventDefault(); onClose(); }}
     >

@@ -177,12 +177,26 @@ async function fetchPostMetrics(store, post) {
   };
 }
 
+async function fetchAccountMetrics(store, account) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const me = await xFetch(accessToken, '/users/me?user.fields=public_metrics');
+  const m = me?.data?.public_metrics;
+  if (!m) return null;
+  return {
+    followers: m.followers_count ?? null,
+    following: m.following_count ?? null,
+    postsCount: m.tweet_count ?? null,
+    raw: me,
+  };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken: null, // X user-context tokens cannot be hand-issued; use OAuth
   ensureAccessToken,
   publishPost,
   fetchPostMetrics,
+  fetchAccountMetrics,
   supportsManualToken: false,
   requiresMedia: false,
 };

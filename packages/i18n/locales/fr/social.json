@@ -24,7 +24,13 @@
     "disconnect": "Déconnecter le compte",
     "status_error": "Erreur de connexion",
     "status_expired": "Token expiré — reconnectez-vous",
-    "hint_linkedin": "LinkedIn : activez les produits « Sign In with LinkedIn using OpenID Connect » et « Share on LinkedIn » dans votre app. Enregistrez la redirect URI ci-dessus. Les tokens durent ~60 jours.",
+    "hint_linkedin": "LinkedIn : activez « Sign In with LinkedIn using OpenID Connect » et « Share on LinkedIn » dans votre app. Pour les pages entreprise, activez aussi « Pages entreprise » ci-dessous et ajoutez le produit « Community Management API ». Enregistrez la redirect URI ci-dessus. Les tokens durent ~60 jours.",
+    "linkedin_org_enabled": "Pages entreprise",
+    "linkedin_org_hint": "Gérez les pages entreprise LinkedIn que vous administrez (pas seulement votre profil personnel). Nécessite le produit « Community Management API » sur votre app développeur. Après activation, enregistrez et reconnectez pour inclure les scopes organisation.",
+    "linkedin_sync_orgs": "Découvrir les pages entreprise",
+    "linkedin_sync_orgs_busy": "Recherche…",
+    "account_kind_member": "Profil personnel",
+    "account_kind_organization": "Page entreprise",
     "hint_instagram": "Instagram : nécessite un compte Business/Creator et une app Meta avec le produit Instagram. Le plus simple : générez un access token dans le tableau de bord Meta et collez-le ici. La publication exige des URLs https publiques pour les médias.",
     "hint_x": "X : créez projet + app avec OAuth 2.0 (le type 'Native App' fonctionne sans secret grâce à PKCE), activez Read and write et enregistrez l'URI ci-dessus. Attention : depuis février 2026, les nouveaux développeurs paient à l'usage (~0,015 $/post)."
   },
@@ -66,7 +72,15 @@
     "recent_performance": "Performance des publications récentes",
     "analytics_empty": "Pas encore de publications avec métriques.",
     "col_post": "Publication",
-    "col_shares": "Partages"
+    "col_shares": "Partages",
+    "section_reports": "Rapports IA",
+    "growth_title": "Croissance des comptes (90 j)",
+    "growth_empty": "Aucun compte connecté. Connectez-en un dans Réglages → Social pour suivre la croissance.",
+    "growth_followers": "abonnés",
+    "growth_following": "Abonnements",
+    "growth_posts": "Publications",
+    "growth_unavailable_linkedin_member": "LinkedIn n'expose pas le nombre d'abonnés des profils personnels sur le palier standard de son API. Activez les pages entreprise dans les Réglages pour suivre les abonnés de la page.",
+    "growth_pending": "Pas encore de relevés — les métriques sont capturées automatiquement toutes les quelques heures, ou cliquez sur « Actualiser les métriques »."
   },
   "composer": {
     "title": "Nouvelle publication",
@@ -92,7 +106,33 @@
     "library_empty": "Pas encore d'images ni de vidéos dans ce projet.",
     "media_source_library": "Bibliothèque",
     "media_source_local": "Local",
-    "warning_instagram_local_image": "Instagram ne peut pas recevoir de fichiers locaux (son API ne télécharge que depuis des URLs publiques). Ajoutez une URL publique pour la variante Instagram — les fichiers locaux fonctionnent sur LinkedIn et X."
+    "warning_instagram_local_image": "Instagram ne peut pas recevoir de fichiers locaux (son API ne télécharge que depuis des URLs publiques). Ajoutez une URL publique pour la variante Instagram — les fichiers locaux fonctionnent sur LinkedIn et X.",
+    "format_label": "Type de publication",
+    "section_content": "Contenu",
+    "section_media": "Médias",
+    "section_details": "Détails",
+    "section_schedule": "Programmation",
+    "ai_assist_label": "Assistant IA",
+    "ai_improve": "Améliorer",
+    "ai_shorten": "Adapter à la limite",
+    "ai_hashtags": "Hashtags",
+    "ai_generate": "Générer un brouillon",
+    "ai_tone_professional": "Professionnel",
+    "ai_tone_casual": "Décontracté",
+    "ai_tone_selling": "Commercial",
+    "ai_tone_informative": "Informatif",
+    "ai_need_text": "Écrivez d'abord du texte pour utiliser l'assistant IA.",
+    "ai_need_brief": "Ajoutez des thèmes, une campagne ou une idée initiale pour générer un brouillon.",
+    "ai_error": "L'IA n'a pas pu terminer l'action : {{error}}",
+    "media_type_image": "Image",
+    "media_type_video": "Vidéo",
+    "media_toggle_type": "Changer le type (image/vidéo)",
+    "schedule_today_evening": "Aujourd'hui 18:00",
+    "schedule_tomorrow_morning": "Demain 09:00",
+    "schedule_next_week": "Sem. prochaine 09:00",
+    "schedule_clear": "Effacer",
+    "schedule_calendar_note": "Cette publication apparaîtra automatiquement dans votre Calendrier.",
+    "linkedin_account_label": "Publier en tant que"
   },
   "wizard": {
     "title": "Configurer {{provider}}",
@@ -111,7 +151,7 @@
     "step_credentials": "Identifiants",
     "step_connect": "Connexion",
     "linkedin": {
-      "intro": "Publiez sur votre profil LinkedIn avec votre propre app développeur. Environ 5 minutes, tout est gratuit.",
+      "intro": "Publiez sur votre profil LinkedIn ou vos pages entreprise avec votre propre app développeur. Environ 5 minutes, tout est gratuit.",
       "requirements": {
         "title": "Avant de commencer",
         "body": "Il vous faut seulement :",
@@ -136,6 +176,8 @@
         "body": "Dans votre app sur le portail :",
         "bullets": [
           "Onglet 'Products' → demandez 'Sign In with LinkedIn using OpenID Connect' ET 'Share on LinkedIn' — accordés instantanément",
+          "Pour les pages entreprise : demandez aussi 'Community Management API' (peut nécessiter une validation LinkedIn)",
+          "Dans Dome Réglages → Social → LinkedIn, activez « Pages entreprise » avant de connecter",
           "Onglet 'Auth' → 'OAuth 2.0 settings' → 'Authorized redirect URLs' → ajoutez l'URI ci-dessous telle quelle"
         ],
         "notes": [
@@ -156,7 +198,8 @@
         "bullets": [],
         "notes": [
           "Les tokens personnels durent ~60 jours et ne se renouvellent pas seuls sur le tier standard — reconnectez-vous ici à expiration.",
-          "Les statistiques de profil personnel se limitent aux likes et commentaires."
+          "Les statistiques de profil personnel se limitent aux likes et commentaires. Les pages entreprise peuvent afficher les abonnés.",
+          "Après connexion avec les pages entreprise activées, Dome découvre chaque page que vous administrez comme compte séparé."
         ]
       }
     },
@@ -283,5 +326,23 @@
     "hint_article_needs_link": "La carte article apparaît quand vous ajoutez une URL de lien.",
     "hint_carousel_needs_images": "Ajoutez au moins 2 images pour un carrousel.",
     "hint_needs_media": "Ajoutez un média pour remplir ce format."
+  },
+  "reports": {
+    "auto_interval": "Rapport automatique",
+    "interval_off": "Désactivé",
+    "interval_days_one": "Chaque jour",
+    "interval_days_other": "Tous les {{count}} jours",
+    "period": "Période d'analyse",
+    "period_days_one": "{{count}} jour",
+    "period_days_other": "{{count}} jours",
+    "auto_hint_on": "Dome actualisera les métriques et générera un nouveau rapport IA à cette cadence.",
+    "auto_hint_off": "Activez une cadence et l'IA analysera périodiquement vos comptes et vous dira comment orienter votre contenu.",
+    "generate_now": "Générer un rapport",
+    "generating": "Génération…",
+    "generating_hint": "L'IA analyse votre croissance et la performance de vos publications. Cela peut prendre une minute.",
+    "empty_title": "Aucun rapport pour le moment",
+    "empty_hint": "Générez votre premier rapport IA : croissance par réseau, ce qui a fonctionné, quoi abandonner et des idées de contenu concrètes pour la prochaine période.",
+    "untitled": "Rapport",
+    "trigger_auto": "automatique"
   }
 }

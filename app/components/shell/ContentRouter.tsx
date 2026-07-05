@@ -29,6 +29,10 @@ const LearnPage = lazy(() => import('@/components/learn/LearnPage'));
 const LearnTabShell = lazy(() => import('@/components/learn/LearnTabShell'));
 const MarketplacePage = lazy(() => import('@/components/marketplace/MarketplaceView'));
 const PipelinesBoard = lazy(() => import('@/components/pipelines/PipelinesBoard'));
+const AgentsStudioView = lazy(() => import('@/components/orchestration/AgentsStudioView'));
+const WorkflowsStudioView = lazy(() => import('@/components/orchestration/WorkflowsStudioView'));
+const AutomationsStudioView = lazy(() => import('@/components/orchestration/AutomationsStudioView'));
+const RunsStudioView = lazy(() => import('@/components/orchestration/RunsStudioView'));
 const FolderTabView = lazy(() => import('@/components/shell/FolderTabView'));
 const TranscriptionsListPage = lazy(() => import('@/components/transcription/TranscriptionsListPage'));
 const TranscriptionDetailPage = lazy(() => import('@/components/transcription/TranscriptionDetailPage'));
@@ -363,19 +367,56 @@ function TabContent({ tab, referenceMode = false }: { tab: DomeTab; referenceMod
         </ErrorBoundary>
       );
 
-    // Pipelines unifies the former agents/workflows/automations/runs tabs.
-    // The deprecated tab types fall through to the same board so any persisted
-    // tabs from before the migration keep rendering.
     case 'pipelines':
-    case 'agents':
-    case 'workflows':
-    case 'automations':
-    case 'runs':
       return (
         <ErrorBoundary>
           <Suspense fallback={<Loading />}>
             <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
               <PipelinesBoard />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'agents':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <AgentsStudioView />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'workflows':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <WorkflowsStudioView />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'automations':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <AutomationsStudioView />
+            </div>
+          </Suspense>
+        </ErrorBoundary>
+      );
+
+    case 'runs':
+      return (
+        <ErrorBoundary>
+          <Suspense fallback={<Loading />}>
+            <div className="flex flex-col h-full min-h-0 overflow-hidden" style={{ background: 'var(--dome-bg)' }}>
+              <RunsStudioView />
             </div>
           </Suspense>
         </ErrorBoundary>

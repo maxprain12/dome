@@ -1271,9 +1271,9 @@ function buildQueries(db) {
     // Social hub (migration 59) — accounts, posts, metrics
     createSocialAccount: db.prepare(`
       INSERT INTO social_accounts (
-        id, provider, display_name, handle, external_id, credentials, scopes,
+        id, provider, account_kind, display_name, handle, external_id, credentials, scopes,
         status, last_error, connected_at, last_sync_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getSocialAccountById: db.prepare('SELECT * FROM social_accounts WHERE id = ?'),
     listSocialAccounts: db.prepare('SELECT * FROM social_accounts ORDER BY created_at ASC'),
@@ -1348,6 +1348,42 @@ function buildQueries(db) {
         SELECT post_id, MAX(captured_at) AS max_at FROM social_metrics GROUP BY post_id
       ) latest ON latest.post_id = m.post_id AND latest.max_at = m.captured_at
     `),
+
+    insertSocialAccountMetric: db.prepare(`
+      INSERT INTO social_account_metrics (
+        id, account_id, captured_at, followers, following, posts_count, raw
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `),
+    getLatestSocialAccountMetric: db.prepare(`
+      SELECT * FROM social_account_metrics WHERE account_id = ? ORDER BY captured_at DESC LIMIT 1
+    `),
+    listSocialAccountMetrics: db.prepare(`
+      SELECT * FROM social_account_metrics WHERE account_id = ? AND captured_at >= ?
+      ORDER BY captured_at ASC
+    `),
+    listLatestSocialAccountMetrics: db.prepare(`
+      SELECT m.* FROM social_account_metrics m
+      JOIN (
+        SELECT account_id, MAX(captured_at) AS max_at FROM social_account_metrics GROUP BY account_id
+      ) latest ON latest.account_id = m.account_id AND latest.max_at = m.captured_at
+    `),
+
+    createSocialReport: db.prepare(`
+      INSERT INTO social_reports (
+        id, status, trigger, period_days, title, content, model, error, data, created_at, completed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `),
+    updateSocialReportResult: db.prepare(`
+      UPDATE social_reports
+      SET status = ?, title = ?, content = ?, model = ?, error = ?, data = ?, completed_at = ?
+      WHERE id = ?
+    `),
+    getSocialReportById: db.prepare('SELECT * FROM social_reports WHERE id = ?'),
+    listSocialReports: db.prepare('SELECT * FROM social_reports ORDER BY created_at DESC LIMIT ?'),
+    getLatestSocialReportByTrigger: db.prepare(`
+      SELECT * FROM social_reports WHERE trigger = ? ORDER BY created_at DESC LIMIT 1
+    `),
+    deleteSocialReport: db.prepare('DELETE FROM social_reports WHERE id = ?'),
   };
 }
 

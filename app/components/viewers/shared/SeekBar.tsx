@@ -34,7 +34,7 @@ function SeekBarComponent({
         max={duration || 100}
         value={currentTime}
         onChange={(e) => onSeek(parseFloat(e.target.value))}
-        className="w-full h-2 rounded-full appearance-none cursor-pointer"
+        className="dome-media-seekbar w-full h-2 rounded-full appearance-none cursor-pointer"
         style={{
           background: `linear-gradient(to right, var(--accent) 0%, var(--accent) ${progress}%, var(--border) ${progress}%, var(--border) 100%)`,
         }}

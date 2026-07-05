@@ -26,6 +26,8 @@ const PROVIDER_CONFIG_FIELDS = {
 const SECRET_FIELDS = new Set(['clientSecret']);
 const OAUTH_PORT_KEY = 'social_oauth_port';
 const DEFAULT_OAUTH_PORT = 8737;
+const LINKEDIN_ORG_KEY = 'social_linkedin_org_enabled';
+const ACCOUNT_KINDS = ['member', 'organization'];
 
 function encryptionAvailable() {
   try {
@@ -98,11 +100,22 @@ function createSocialStore(database) {
   /** Config summary safe for the renderer: never returns the secret itself. */
   function getProviderConfigStatus(provider) {
     const cfg = getProviderConfig(provider);
-    return {
+    const status = {
       provider,
       clientId: cfg.clientId || '',
       hasClientSecret: Boolean(cfg.clientSecret),
     };
+    if (provider === 'linkedin') status.orgEnabled = getLinkedInOrgEnabled();
+    return status;
+  }
+
+  /** LinkedIn company-page mode: adds organization scopes to the OAuth request. */
+  function getLinkedInOrgEnabled() {
+    return q().getSetting.get(LINKEDIN_ORG_KEY)?.value === '1';
+  }
+
+  function setLinkedInOrgEnabled(enabled) {
+    q().setSetting.run(LINKEDIN_ORG_KEY, enabled ? '1' : '0', Date.now());
   }
 
   function getOAuthPort() {
@@ -140,12 +153,13 @@ function createSocialStore(database) {
 
   // ── Accounts ─────────────────────────────────────────────────────────────
 
-  function createAccount({ provider, displayName, handle, externalId, tokens, scopes }) {
+  function createAccount({ provider, accountKind = 'member', displayName, handle, externalId, tokens, scopes }) {
     if (!PROVIDERS.includes(provider)) throw new Error(`Unknown social provider: ${provider}`);
+    if (!ACCOUNT_KINDS.includes(accountKind)) throw new Error(`Unknown account kind: ${accountKind}`);
     const now = Date.now();
     const id = `soc-${provider}-${crypto.randomBytes(6).toString('hex')}`;
     q().createSocialAccount.run(
-      id, provider, displayName || null, handle || null, externalId || null,
+      id, provider, accountKind, displayName || null, handle || null, externalId || null,
       encryptCredentials(tokens || {}), scopes || null, 'active', null, now, null, now, now
     );
     return getAccount(id);
@@ -199,6 +213,7 @@ function createSocialStore(database) {
     return {
       id: row.id,
       provider: row.provider,
+      accountKind: row.account_kind || 'member',
       displayName: row.display_name,
       handle: row.handle,
       externalId: row.external_id,
@@ -381,12 +396,136 @@ function createSocialStore(database) {
     return q().listLatestSocialMetrics.all().map(serializeMetric);
   }
 
+  // ── Account metrics (growth snapshots) ───────────────────────────────────
+
+  function serializeAccountMetric(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      accountId: row.account_id,
+      capturedAt: row.captured_at,
+      followers: row.followers,
+      following: row.following,
+      postsCount: row.posts_count,
+    };
+  }
+
+  function insertAccountMetric(accountId, metric) {
+    const id = `sam-${crypto.randomBytes(8).toString('hex')}`;
+    q().insertSocialAccountMetric.run(
+      id, accountId, Date.now(),
+      metric.followers ?? null, metric.following ?? null, metric.postsCount ?? null,
+      metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null
+    );
+    return serializeAccountMetric(q().getLatestSocialAccountMetric.get(accountId));
+  }
+
+  function getLatestAccountMetric(accountId) {
+    return serializeAccountMetric(q().getLatestSocialAccountMetric.get(accountId));
+  }
+
+  function listAccountMetrics(accountId, sinceMs) {
+    return q().listSocialAccountMetrics.all(accountId, sinceMs ?? 0).map(serializeAccountMetric);
+  }
+
+  function listLatestAccountMetrics() {
+    return q().listLatestSocialAccountMetrics.all().map(serializeAccountMetric);
+  }
+
+  // ── AI reports ───────────────────────────────────────────────────────────
+
+  function serializeReport(row) {
+    if (!row) return null;
+    let data = null;
+    try {
+      data = row.data ? JSON.parse(row.data) : null;
+    } catch { /* keep null */ }
+    return {
+      id: row.id,
+      status: row.status,
+      trigger: row.trigger,
+      periodDays: row.period_days,
+      title: row.title,
+      content: row.content,
+      model: row.model,
+      error: row.error,
+      data,
+      createdAt: row.created_at,
+      completedAt: row.completed_at,
+    };
+  }
+
+  function createReport({ trigger = 'user', periodDays = 30 } = {}) {
+    const id = `srp-${crypto.randomBytes(8).toString('hex')}`;
+    q().createSocialReport.run(id, 'generating', trigger, periodDays, null, null, null, null, null, Date.now(), null);
+    return getReport(id);
+  }
+
+  function markReportReady(reportId, { title, content, model, data }) {
+    q().updateSocialReportResult.run(
+      'ready', title || null, content || null, model || null, null,
+      data ? JSON.stringify(data).slice(0, 100000) : null, Date.now(), reportId
+    );
+    return getReport(reportId);
+  }
+
+  function markReportFailed(reportId, error) {
+    q().updateSocialReportResult.run(
+      'failed', null, null, null, String(error || 'Unknown error').slice(0, 2000), null, Date.now(), reportId
+    );
+    return getReport(reportId);
+  }
+
+  function getReport(reportId) {
+    return serializeReport(q().getSocialReportById.get(reportId));
+  }
+
+  function listReports(limit = 30) {
+    return q().listSocialReports.all(Math.min(Math.max(Number(limit) || 30, 1), 100)).map(serializeReport);
+  }
+
+  function getLatestReportByTrigger(trigger) {
+    return serializeReport(q().getLatestSocialReportByTrigger.get(trigger));
+  }
+
+  function deleteReport(reportId) {
+    q().deleteSocialReport.run(reportId);
+  }
+
+  // ── Report scheduling config (settings) ──────────────────────────────────
+
+  const REPORT_INTERVAL_KEY = 'social_report_interval_hours';
+  const REPORT_PERIOD_KEY = 'social_report_period_days';
+  const REPORT_LANG_KEY = 'social_report_language';
+
+  function getReportConfig() {
+    const readInt = (key, fallback, min, max) => {
+      const v = Number.parseInt(q().getSetting.get(key)?.value ?? '', 10);
+      return Number.isInteger(v) && v >= min && v <= max ? v : fallback;
+    };
+    return {
+      intervalHours: readInt(REPORT_INTERVAL_KEY, 0, 0, 24 * 90),
+      periodDays: readInt(REPORT_PERIOD_KEY, 30, 7, 365),
+      language: q().getSetting.get(REPORT_LANG_KEY)?.value || 'es',
+    };
+  }
+
+  function setReportConfig({ intervalHours, periodDays, language } = {}) {
+    const now = Date.now();
+    if (intervalHours !== undefined) q().setSetting.run(REPORT_INTERVAL_KEY, String(intervalHours), now);
+    if (periodDays !== undefined) q().setSetting.run(REPORT_PERIOD_KEY, String(periodDays), now);
+    if (language !== undefined) q().setSetting.run(REPORT_LANG_KEY, String(language), now);
+    return getReportConfig();
+  }
+
   return {
     PROVIDERS,
     encryptionAvailable,
     getProviderConfig,
     setProviderConfig,
     getProviderConfigStatus,
+    getLinkedInOrgEnabled,
+    setLinkedInOrgEnabled,
     getOAuthPort,
     setOAuthPort,
     createAccount,
@@ -414,6 +553,19 @@ function createSocialStore(database) {
     getLatestMetric,
     listMetricsForPost,
     listLatestMetrics,
+    insertAccountMetric,
+    getLatestAccountMetric,
+    listAccountMetrics,
+    listLatestAccountMetrics,
+    createReport,
+    markReportReady,
+    markReportFailed,
+    getReport,
+    listReports,
+    getLatestReportByTrigger,
+    deleteReport,
+    getReportConfig,
+    setReportConfig,
   };
 }
 

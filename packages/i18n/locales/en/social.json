@@ -24,7 +24,13 @@
     "disconnect": "Disconnect account",
     "status_error": "Connection error",
     "status_expired": "Token expired — reconnect",
-    "hint_linkedin": "LinkedIn: enable the products \"Sign In with LinkedIn using OpenID Connect\" and \"Share on LinkedIn\" in your app. Register the redirect URI above. Tokens last ~60 days.",
+    "hint_linkedin": "LinkedIn: enable \"Sign In with LinkedIn using OpenID Connect\" and \"Share on LinkedIn\" in your app. For company pages, also enable \"Company pages\" below and add the \"Community Management API\" product. Register the redirect URI above. Tokens last ~60 days.",
+    "linkedin_org_enabled": "Company pages",
+    "linkedin_org_hint": "Manage LinkedIn company pages you administer (not just your personal profile). Requires the \"Community Management API\" product on your developer app. After enabling, save and reconnect so the token includes organization scopes.",
+    "linkedin_sync_orgs": "Discover company pages",
+    "linkedin_sync_orgs_busy": "Searching…",
+    "account_kind_member": "Personal profile",
+    "account_kind_organization": "Company page",
     "hint_instagram": "Instagram: requires a Business/Creator account and a Meta app with the Instagram product. Easiest path: generate an access token in the Meta dashboard (API setup with Instagram login) and paste it here. Publishing needs public https media URLs.",
     "hint_x": "X: create a project + app with OAuth 2.0 ('Native App' works without secret thanks to PKCE), enable Read and write, and register the redirect URI above. Note: since Feb 2026 new developers pay per use (~$0.015/post)."
   },
@@ -66,7 +72,15 @@
     "recent_performance": "Recent posts performance",
     "analytics_empty": "No published posts with metrics yet.",
     "col_post": "Post",
-    "col_shares": "Shares"
+    "col_shares": "Shares",
+    "section_reports": "AI Reports",
+    "growth_title": "Account growth (90d)",
+    "growth_empty": "No connected accounts yet. Connect one in Settings → Social to start tracking growth.",
+    "growth_followers": "followers",
+    "growth_following": "Following",
+    "growth_posts": "Posts",
+    "growth_unavailable_linkedin_member": "LinkedIn does not expose follower counts for personal profiles on the standard API tier. Enable company pages in Settings to track page followers.",
+    "growth_pending": "No snapshots yet — metrics are captured automatically every few hours, or press \"Refresh metrics\"."
   },
   "composer": {
     "title": "New post",
@@ -92,7 +106,33 @@
     "library_empty": "No images or videos in this project yet.",
     "media_source_library": "Library",
     "media_source_local": "Local",
-    "warning_instagram_local_image": "Instagram cannot receive local files (its API only downloads from public URLs). Add a public URL for the Instagram variant — local files still work for LinkedIn and X."
+    "warning_instagram_local_image": "Instagram cannot receive local files (its API only downloads from public URLs). Add a public URL for the Instagram variant — local files still work for LinkedIn and X.",
+    "format_label": "Post type",
+    "section_content": "Content",
+    "section_media": "Media",
+    "section_details": "Details",
+    "section_schedule": "Schedule",
+    "ai_assist_label": "AI assistant",
+    "ai_improve": "Improve",
+    "ai_shorten": "Fit to limit",
+    "ai_hashtags": "Hashtags",
+    "ai_generate": "Generate draft",
+    "ai_tone_professional": "Professional",
+    "ai_tone_casual": "Casual",
+    "ai_tone_selling": "Sales-driven",
+    "ai_tone_informative": "Informative",
+    "ai_need_text": "Write some text first to use the AI assistant.",
+    "ai_need_brief": "Add topics, a campaign or an initial idea to generate a draft.",
+    "ai_error": "The AI could not complete the action: {{error}}",
+    "media_type_image": "Image",
+    "media_type_video": "Video",
+    "media_toggle_type": "Toggle type (image/video)",
+    "schedule_today_evening": "Today 18:00",
+    "schedule_tomorrow_morning": "Tomorrow 09:00",
+    "schedule_next_week": "Next week 09:00",
+    "schedule_clear": "Clear",
+    "schedule_calendar_note": "This post will automatically show up in your Calendar.",
+    "linkedin_account_label": "Post as"
   },
   "wizard": {
     "title": "Set up {{provider}}",
@@ -111,7 +151,7 @@
     "step_credentials": "Credentials",
     "step_connect": "Connect",
     "linkedin": {
-      "intro": "Publish on your LinkedIn profile with your own developer app. About 5 minutes, all free.",
+      "intro": "Publish on your LinkedIn profile or company pages with your own developer app. About 5 minutes, all free.",
       "requirements": {
         "title": "Before you start",
         "body": "You only need:",
@@ -136,6 +176,8 @@
         "body": "Inside your app in the developer portal:",
         "bullets": [
           "'Products' tab → request 'Sign In with LinkedIn using OpenID Connect' AND 'Share on LinkedIn' — both approve instantly",
+          "For company pages: also request 'Community Management API' (may need LinkedIn review)",
+          "In Dome Settings → Social → LinkedIn, enable 'Company pages' before connecting",
           "'Auth' tab → 'OAuth 2.0 settings' → 'Authorized redirect URLs' → add the URI below exactly as shown"
         ],
         "notes": [
@@ -156,7 +198,8 @@
         "bullets": [],
         "notes": [
           "Personal tokens last ~60 days and can't auto-renew on the standard tier — when it expires, just reconnect here.",
-          "Personal-profile analytics are limited to likes and comments."
+          "Personal-profile analytics are limited to likes and comments. Company pages can track follower counts.",
+          "After connecting with company pages enabled, Dome discovers each page you administer as a separate account."
         ]
       }
     },
@@ -283,5 +326,23 @@
     "hint_article_needs_link": "The article card appears when you add a link URL.",
     "hint_carousel_needs_images": "Add at least 2 images to build a carousel.",
     "hint_needs_media": "Add media to fill this format."
+  },
+  "reports": {
+    "auto_interval": "Automatic report",
+    "interval_off": "Off",
+    "interval_days_one": "Every day",
+    "interval_days_other": "Every {{count}} days",
+    "period": "Analysis period",
+    "period_days_one": "{{count}} day",
+    "period_days_other": "{{count}} days",
+    "auto_hint_on": "Dome will refresh metrics and generate a new AI report on this cadence.",
+    "auto_hint_off": "Enable a cadence and the AI will periodically analyze your accounts and tell you how to keep focusing your content.",
+    "generate_now": "Generate report",
+    "generating": "Generating…",
+    "generating_hint": "The AI is analyzing your growth and post performance. This can take up to a minute.",
+    "empty_title": "No reports yet",
+    "empty_hint": "Generate your first AI report: growth per network, what worked, what to drop, and concrete content ideas for the next period.",
+    "untitled": "Report",
+    "trigger_auto": "automatic"
   }
 }

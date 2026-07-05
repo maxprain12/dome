@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>Protocol</key>
+        <string>s3</string>
+        <key>Vendor</key>
+        <string>seaweedfs-dowi</string>
+        <key>Scheme</key>
+        <string>https</string>
+        <key>Description</key>
+        <string>SeaweedFS S3 (Dowi, path-style)</string>
+        <key>Hostname Configurable</key>
+        <true/>
+        <key>Port Configurable</key>
+        <true/>
+        <key>Username Configurable</key>
+        <true/>
+        <key>Path Configurable</key>
+        <true/>
+        <key>Region</key>
+        <string>us-east-1</string>
+        <key>Regions</key>
+        <array>
+            <string>us-east-1</string>
+        </array>
+        <key>Properties</key>
+        <dict>
+            <key>s3.bucket.virtualhost.disable</key>
+            <true/>
+            <key>s3.location</key>
+            <string>us-east-1</string>
+        </dict>
+    </dict>
+</plist>

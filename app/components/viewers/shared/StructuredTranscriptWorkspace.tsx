@@ -337,7 +337,12 @@ export default function StructuredTranscriptWorkspace({
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4 md:px-6">
         {showEmpty ? (
-          <TranscriptEmptyState t={t} hint={t('media.transcript_empty_hint')} />
+          <TranscriptEmptyState
+            t={t}
+            hint={t('media.transcript_empty_hint')}
+            onTranscribe={() => void handleTranscribe()}
+            transcribing={transcribing || metaProcessing}
+          />
         ) : (
           <TranscriptSegmentList
             t={t}

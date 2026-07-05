@@ -87,7 +87,7 @@ export function TreeNode({
       <div
         className="flex items-center w-full relative rounded transition-colors"
         style={{
-          paddingLeft: 6 + depth * 16,
+          paddingLeft: 6,
           paddingRight: 4,
           height: 28,
           background: rowBg,
@@ -194,7 +194,9 @@ export function TreeNode({
       </div>
 
       {isExpanded && hasChildren && (
-        <div style={{ borderLeft: '1px solid var(--dome-border)', marginLeft: 6 + depth * 16 + 7 }}>
+        // Constant per-level offset (containers nest, so indentation stays
+        // linear even in deep trees); the guide line sits under the chevron.
+        <div style={{ borderLeft: '1px solid var(--dome-border)', marginLeft: 13, minWidth: 0 }}>
           {node.children!.map((child) => (
             <TreeNode
               key={child.id}

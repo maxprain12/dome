@@ -106,5 +106,6 @@
   "transcript_copy_empty": "No transcript text to copy",
   "transcript_copy_failed": "Could not copy to clipboard",
   "transcript_open_settings": "STT settings",
-  "transcript_editorial_hint": "Search highlights matches. Rename speakers above to suit your notes."
+  "transcript_editorial_hint": "Search highlights matches. Rename speakers above to suit your notes.",
+  "image_viewer_hints": "+ / −: zoom · R: rotate · 0: reset · drag to pan · Ctrl + wheel: zoom"
 }
