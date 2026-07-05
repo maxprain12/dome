@@ -19,5 +19,6 @@
   "palette_hint": "↑↓ navegar · ↵ abrir",
   "palette_esc": "esc cerrar",
   "navigate": "Ir a",
-  "quick_actions": "Acciones rápidas"
+  "quick_actions": "Acciones rápidas",
+  "preview_empty": "Sin vista previa disponible"
 }
