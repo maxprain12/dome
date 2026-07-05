@@ -8,5 +8,8 @@
   "agents_flows": "Agents & Flows",
   "learn": "Learn",
   "marketplace": "Marketplace",
-  "pipelines": "Pipelines"
+  "pipelines": "Pipelines",
+  "workflows": "Workflows",
+  "automations": "Automations",
+  "runs": "Runs"
 }

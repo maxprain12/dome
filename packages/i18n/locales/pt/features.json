@@ -49,6 +49,22 @@
     "social": {
       "label": "Redes sociais",
       "desc": "Gira conteúdo do LinkedIn, Instagram e X."
+    },
+    "agents": {
+      "label": "Agentes",
+      "desc": "Biblioteca de agentes de IA: crie, edite e converse com seus agentes."
+    },
+    "workflows": {
+      "label": "Workflows",
+      "desc": "Fluxos multi-etapas em canvas visual encadeando agentes e ferramentas."
+    },
+    "automations": {
+      "label": "Automações",
+      "desc": "Regras agendadas, manuais ou contextuais que executam agentes e workflows."
+    },
+    "runs": {
+      "label": "Execuções",
+      "desc": "Monitor de todas as execuções de agentes e workflows com detalhe passo a passo."
     }
   }
 }

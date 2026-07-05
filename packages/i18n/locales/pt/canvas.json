@@ -111,5 +111,14 @@
   "exec_agents_count": "· {{completed}}/{{total}} agentes",
   "exec_current_run": "Execução atual",
   "exec_starting": "A iniciar workflow…",
-  "exec_no_entries": "Sem entradas nesta execução"
+  "exec_no_entries": "Sem entradas nesta execução",
+  "unsaved_changes": "Não salvo",
+  "all_saved": "Salvo",
+  "palette_title": "Blocos",
+  "palette_hint": "Arraste para o canvas ou clique para adicionar.",
+  "palette_create_agent": "Criar agente",
+  "empty_step_input": "Entrada",
+  "empty_step_agent": "Agente",
+  "empty_step_output": "Resultado",
+  "empty_quick_start": "Criar fluxo de exemplo"
 }

@@ -111,5 +111,14 @@
   "exec_agents_count": "· {{completed}}/{{total}} agents",
   "exec_current_run": "Exécution actuelle",
   "exec_starting": "Démarrage du workflow…",
-  "exec_no_entries": "Aucune entrée pour cette exécution"
+  "exec_no_entries": "Aucune entrée pour cette exécution",
+  "unsaved_changes": "Non enregistré",
+  "all_saved": "Enregistré",
+  "palette_title": "Blocs",
+  "palette_hint": "Glissez sur le canvas ou cliquez pour ajouter.",
+  "palette_create_agent": "Créer un agent",
+  "empty_step_input": "Entrée",
+  "empty_step_agent": "Agent",
+  "empty_step_output": "Résultat",
+  "empty_quick_start": "Créer un flux d'exemple"
 }

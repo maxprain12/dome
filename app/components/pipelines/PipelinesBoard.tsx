@@ -1,18 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, Database, Download, LayoutDashboard, Loader2, MoreVertical, Pencil, Plus, Trash2, Upload, Zap } from 'lucide-react';
+import { Database, Download, LayoutDashboard, Loader2, MoreVertical, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useTabStore } from '@/lib/store/useTabStore';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { showToast } from '@/lib/store/useToastStore';
 import DomeModal from '@/components/ui/DomeModal';
 import DomeButton from '@/components/ui/DomeButton';
 import DomeContextMenu from '@/components/ui/DomeContextMenu';
 import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
-import { getManyAgents } from '@/lib/agents/api';
-import { getWorkflows } from '@/lib/agent-canvas/api';
-import type { ManyAgent } from '@/types';
-import type { CanvasWorkflow } from '@/types/canvas';
 import type { PipelineItem, PipelineStage } from '@/lib/pipelines/types';
 import StageColumn from './StageColumn';
 import NewStageColumn from './NewStageColumn';
@@ -20,11 +17,7 @@ import CardDetailModal from './CardDetailModal';
 import StageConfigModal from './StageConfigModal';
 import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
-import AgentsWorkflowsModalView from './modal/AgentsWorkflowsModalView';
-import AutomationsRunsModalView from './modal/AutomationsRunsModalView';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
-
-type ManageView = 'agentsWorkflows' | 'automationsRuns';
 
 function pipelineToolbarBtnStyle(active: boolean) {
   return {
@@ -80,12 +73,10 @@ export default function PipelinesBoard() {
   // Pipelines always opens on the hub/dashboard.
   const [showDashboard, setShowDashboard] = useState(true);
   const [sourcesOpen, setSourcesOpen] = useState(false);
-  const [manageView, setManageView] = useState<ManageView | null>(null);
-  const [manageSegment, setManageSegment] = useState<'agents' | 'workflows'>('agents');
-  const [automationsSegment, setAutomationsSegment] = useState<'automations' | 'runs'>('automations');
-  const [fullAgents, setFullAgents] = useState<ManyAgent[]>([]);
-  const [fullWorkflows, setFullWorkflows] = useState<CanvasWorkflow[]>([]);
   const projectId = useAppStore((s) => s.currentProject?.id ?? 'default');
+  // Agents/workflows/automations/runs live in their own sidebar sections now;
+  // the dashboard shortcuts route to those tabs.
+  const { openAgentsTab, openWorkflowsTab, openAutomationsTab, openRunsTab } = useTabStore();
   // Horizontal wheel-scroll + drag for the Kanban columns row.
   const boardScrollRef = useRef<HTMLDivElement>(null);
   const boardScrollReady = !showDashboard && !loadingBoard;
@@ -98,15 +89,6 @@ export default function PipelinesBoard() {
   useEffect(() => {
     void init();
   }, [init, projectId]);
-
-  // The Automations management view needs full agent/workflow objects.
-  useEffect(() => {
-    if (manageView !== 'automationsRuns') return;
-    void Promise.all([getManyAgents(projectId), getWorkflows(projectId)]).then(([a, w]) => {
-      setFullAgents(a);
-      setFullWorkflows(w);
-    });
-  }, [manageView, projectId]);
 
   const sortedStages = [...stages].sort((a, b) => a.position - b.position);
   const itemsByStage = (stageId: string) =>
@@ -308,40 +290,16 @@ export default function PipelinesBoard() {
           </button>
         )}
 
-        {/* Manage agents/workflows and automations/runs from within Pipelines.
-            Two grouped modals (DomeSegmentedControl inside each) keep the bar
-            compact while still giving access to all four management surfaces. */}
-        <DomeButton
-          iconOnly
-          variant="ghost"
-          size="sm"
-          aria-label={t('pipelines.manage_agents_workflows')}
-          onClick={() => {
-            setManageSegment('agents');
-            setManageView('agentsWorkflows');
-          }}
-        >
-          <Bot size={14} />
-        </DomeButton>
-        <DomeButton
-          iconOnly
-          variant="ghost"
-          size="sm"
-          aria-label={t('pipelines.manage_automations_runs')}
-          onClick={() => { setAutomationsSegment('automations'); setManageView('automationsRuns'); }}
-        >
-          <Zap size={14} />
-        </DomeButton>
       </div>
 
       {/* Body: dashboard overview or the active board */}
       {showDashboard ? (
         <PipelinesDashboard
           onOpenPipeline={(id) => { setShowDashboard(false); void selectPipeline(id); }}
-          onOpenAgents={() => { setManageSegment('agents'); setManageView('agentsWorkflows'); }}
-          onOpenWorkflows={() => { setManageSegment('workflows'); setManageView('agentsWorkflows'); }}
-          onOpenAutomations={() => { setAutomationsSegment('automations'); setManageView('automationsRuns'); }}
-          onOpenRuns={() => { setAutomationsSegment('runs'); setManageView('automationsRuns'); }}
+          onOpenAgents={openAgentsTab}
+          onOpenWorkflows={openWorkflowsTab}
+          onOpenAutomations={openAutomationsTab}
+          onOpenRuns={openRunsTab}
         />
       ) : loadingBoard ? (
         <div className="flex items-center justify-center flex-1" style={{ color: 'var(--tertiary-text)' }}>
@@ -409,41 +367,9 @@ export default function PipelinesBoard() {
           onExecutorsChanged={() => void loadExecutors()}
           onCreateWorkflow={() => {
             setConfigStage(null);
-            setManageSegment('workflows');
-            setManageView('agentsWorkflows');
+            openWorkflowsTab();
           }}
         />
-      )}
-
-      {manageView && (
-        <DomeModal
-          open
-          onClose={() => {
-            setManageView(null);
-            // Refresh executor lists so newly created agents/workflows appear.
-            void loadExecutors();
-          }}
-          title={
-            manageView === 'agentsWorkflows'
-              ? t('pipelines.manage_agents_workflows')
-              : t('pipelines.manage_automations_runs')
-          }
-          size="full"
-        >
-          {/* Fill the modal body (85vh) instead of the old h-[70vh] cap so the
-              management surfaces get the full workspace area. */}
-          <div className="h-full min-h-0 overflow-hidden">
-            {manageView === 'agentsWorkflows' && <AgentsWorkflowsModalView initialSegment={manageSegment} />}
-            {manageView === 'automationsRuns' && (
-              <AutomationsRunsModalView
-                projectId={projectId}
-                agents={fullAgents}
-                workflows={fullWorkflows}
-                initialSegment={automationsSegment}
-              />
-            )}
-          </div>
-        </DomeModal>
       )}
 
       {confirmDelete && activePipeline && (

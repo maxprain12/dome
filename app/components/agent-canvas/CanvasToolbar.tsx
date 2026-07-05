@@ -1,8 +1,20 @@
 'use client';
 
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Save, Trash2, Loader2, CheckCircle2, AlertCircle, Pencil, ChevronLeft } from 'lucide-react';
+import {
+  Play,
+  Square,
+  Save,
+  Trash2,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Pencil,
+  ChevronLeft,
+  GitBranch,
+} from 'lucide-react';
 import { useCanvasStore } from '@/lib/store/useCanvasStore';
+import DomeButton from '@/components/ui/DomeButton';
 
 interface CanvasToolbarProps {
   onRun: () => void;
@@ -13,8 +25,6 @@ interface CanvasToolbarProps {
   onRename: () => void;
 }
 
-const ghostBtnStyle = { color: 'var(--dome-text-secondary)' } as const;
-
 export default function CanvasToolbar({
   onRun,
   onStop,
@@ -24,120 +34,140 @@ export default function CanvasToolbar({
   onRename,
 }: CanvasToolbarProps) {
   const { t } = useTranslation();
-  const { executionStatus, activeWorkflowName, isDirty } = useCanvasStore((s) => ({
+  const { executionStatus, activeWorkflowName, isDirty, nodes } = useCanvasStore((s) => ({
     executionStatus: s.executionStatus,
     activeWorkflowName: s.activeWorkflowName,
     isDirty: s.isDirty,
+    nodes: s.nodes,
   }));
 
   const isRunning = executionStatus === 'running';
 
-  const ghostBtn =
-    'flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors border border-transparent hover:border-[var(--dome-border)] hover:bg-[var(--dome-bg)]';
-
   return (
     <div
-      className="flex items-center gap-2 px-3 py-2 shrink-0"
-      style={{
-        background: 'var(--dome-surface)',
-        borderBottom: '1px solid var(--dome-border)',
-        zIndex: 10,
-      }}
+      className="flex shrink-0 items-center gap-2 px-3 py-2"
+      style={{ background: 'var(--dome-surface)', borderBottom: '1px solid var(--dome-border)', zIndex: 10 }}
     >
-      <button
+      {/* Identity group */}
+      <DomeButton
         type="button"
+        variant="ghost"
+        size="sm"
+        iconOnly
         onClick={onBackToLibrary}
-        className="flex items-center justify-center size-8 rounded-lg shrink-0 transition-colors hover:bg-[var(--dome-bg-hover)]"
-        style={{ color: 'var(--dome-text-muted)' }}
         title={t('canvas.back_to_library')}
         aria-label={t('canvas.back_to_library')}
       >
-        <ChevronLeft className="size-4" aria-hidden />
-      </button>
+        <ChevronLeft className="size-4" style={{ color: 'var(--dome-text-muted)' }} />
+      </DomeButton>
+
+      <div
+        className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+        style={{ background: 'var(--info-bg)', color: 'var(--info)' }}
+        aria-hidden
+      >
+        <GitBranch className="size-3.5" strokeWidth={1.75} />
+      </div>
 
       <button
         type="button"
         onClick={onRename}
-        className="flex items-center gap-1.5 px-2 py-1.5 rounded-xl text-sm font-medium transition-colors max-w-[min(240px,40vw)] truncate hover:bg-[var(--dome-bg)]"
+        className="flex max-w-[min(240px,40vw)] items-center gap-1.5 truncate rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors hover:bg-[var(--dome-bg)]"
         style={{ color: 'var(--dome-text)' }}
         title={t('canvas.rename_workflow')}
       >
         <span className="truncate">{activeWorkflowName}</span>
-        {isDirty ? <span className="size-1.5 rounded-full bg-[var(--dome-accent)] shrink-0" /> : null}
         <Pencil className="size-3 shrink-0 opacity-40" />
       </button>
 
-      <div className="w-px h-5 mx-0.5 shrink-0" style={{ background: 'var(--dome-border)' }} />
+      {/* Save-state chip */}
+      <span
+        className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
+        style={{
+          background: isDirty ? 'var(--warning-bg)' : 'var(--dome-bg-hover)',
+          color: isDirty ? 'var(--warning)' : 'var(--dome-text-muted)',
+          border: '1px solid var(--dome-border)',
+        }}
+      >
+        {isDirty ? t('canvas.unsaved_changes') : t('canvas.all_saved')}
+      </span>
 
+      <span className="hidden shrink-0 text-[11px] tabular-nums sm:inline" style={{ color: 'var(--dome-text-muted)' }}>
+        {t('orchestration.workflows.nodes_count', { count: nodes.length })}
+      </span>
+
+      <div className="mx-1 h-5 w-px shrink-0" style={{ background: 'var(--dome-border)' }} />
+
+      {/* Execution group */}
       {isRunning ? (
-        <button
+        <DomeButton
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={onStop}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors"
-          style={{
-            background: 'var(--error-bg)',
-            color: 'var(--error)',
-            border: '1px solid var(--dome-border)',
-          }}
+          className="!text-[var(--error)]"
+          leftIcon={<Square className="size-3.5" />}
         >
-          <Square className="size-3.5" />
           {t('canvas.stop')}
-        </button>
+        </DomeButton>
       ) : (
-        <button
+        <DomeButton
           type="button"
+          variant="primary"
+          size="sm"
           onClick={onRun}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-opacity hover:opacity-90 active:opacity-80"
-          style={{
-            background: 'var(--dome-accent)',
-            color: 'var(--base-text)',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
-          }}
+          className="!bg-[var(--dome-accent)]"
+          leftIcon={<Play className="size-3.5" />}
         >
-          <Play className="size-3.5" />
           {t('canvas.run')}
-        </button>
+        </DomeButton>
       )}
 
       {executionStatus === 'running' && (
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--dome-accent)' }}>
           <Loader2 className="size-3.5 animate-spin" />
-          <span>{t('canvas.running_workflow')}</span>
-        </div>
+          {t('canvas.running_workflow')}
+        </span>
       )}
       {executionStatus === 'done' && (
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--success)' }}>
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--success)' }}>
           <CheckCircle2 className="size-3.5" />
-          <span>{t('canvas.completed')}</span>
-        </div>
+          {t('canvas.completed')}
+        </span>
       )}
       {executionStatus === 'error' && (
-        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--error)' }}>
+        <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--error)' }}>
           <AlertCircle className="size-3.5" />
-          <span>{t('canvas.execution_error')}</span>
-        </div>
+          {t('canvas.execution_error')}
+        </span>
       )}
 
-      <div className="flex-1 min-w-2" />
+      <div className="min-w-2 flex-1" />
 
-      <button
+      {/* Persistence group */}
+      <DomeButton
         type="button"
+        variant={isDirty ? 'outline' : 'ghost'}
+        size="sm"
         onClick={onSave}
-        className={ghostBtn}
-        style={{
-          color: isDirty ? 'var(--dome-accent)' : 'var(--dome-text-secondary)',
-          borderColor: isDirty ? 'var(--dome-accent)' : 'transparent',
-        }}
+        className={isDirty ? '!border-[var(--dome-accent)] !text-[var(--dome-accent)]' : ''}
         title={t('canvas.save_workflow')}
+        leftIcon={<Save className="size-3.5" />}
       >
-        <Save className="size-3.5" />
-        <span>{t('canvas.save')}</span>
-      </button>
+        {t('canvas.save')}
+      </DomeButton>
 
-      <button type="button" onClick={onClear} className={ghostBtn} style={ghostBtnStyle} title={t('canvas.clear_canvas')}>
-        <Trash2 className="size-3.5" />
-        <span>{t('canvas.clear_canvas')}</span>
-      </button>
+      <DomeButton
+        type="button"
+        variant="ghost"
+        size="sm"
+        onClick={onClear}
+        title={t('canvas.clear_canvas')}
+        className="!text-[var(--dome-text-muted)] hover:!text-[var(--error)]"
+        leftIcon={<Trash2 className="size-3.5" />}
+      >
+        {t('canvas.clear_canvas')}
+      </DomeButton>
     </div>
   );
 }

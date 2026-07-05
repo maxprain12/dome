@@ -1,9 +1,11 @@
 'use client';
 
-import { Bot, ChevronDown, ChevronRight, RefreshCw, Search } from 'lucide-react';
+import { Bot, Plus, RefreshCw, Search } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { ManyAgent } from '@/types';
 import type { CanvasNodeData, WorkflowNode } from '@/types/canvas';
+import { useTabStore } from '@/lib/store/useTabStore';
+import { CanvasPaletteSectionHeader, CanvasPaletteRow } from './CanvasPaletteParts';
 import { createCanvasPaletteNode, handleCanvasPaletteDragStart } from './createCanvasPaletteNode';
 
 export function CanvasAgentsPalette({
@@ -26,42 +28,36 @@ export function CanvasAgentsPalette({
   onReload: () => void;
 }) {
   const { t } = useTranslation();
+  const openAgentsTab = useTabStore((s) => s.openAgentsTab);
 
   return (
-    <div className="p-3 flex-1 flex flex-col min-h-0">
-      <div className="flex items-center gap-1.5 mb-2">
-        <button
-          type="button"
-          onClick={onToggle}
-          className="flex items-center gap-1.5 text-left flex-1 min-w-0"
-        >
-          {expanded ? (
-            <ChevronDown className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-          ) : (
-            <ChevronRight className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} />
-          )}
-          <span className="text-[11px] font-semibold tracking-wide truncate" style={{ color: 'var(--dome-text-muted)' }}>
-            {t('canvas.palette_my_agents')}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={onReload}
-          className="p-1 rounded-md transition-colors hover:bg-[var(--dome-bg)] shrink-0"
-          title={t('canvas.reload_agents')}
-        >
-          <RefreshCw
-            className={`size-3.5 ${loadingAgents ? 'animate-spin' : ''}`}
-            style={{ color: 'var(--dome-text-muted)' }}
-          />
-        </button>
-      </div>
+    <div className="flex min-h-0 flex-1 flex-col px-3 py-2">
+      <CanvasPaletteSectionHeader
+        expanded={expanded}
+        onToggle={onToggle}
+        label={t('canvas.palette_my_agents')}
+        count={filteredAgents.length}
+        trailing={
+          <button
+            type="button"
+            onClick={onReload}
+            className="shrink-0 rounded-md p-1 transition-colors hover:bg-[var(--dome-bg)]"
+            title={t('canvas.reload_agents')}
+            aria-label={t('canvas.reload_agents')}
+          >
+            <RefreshCw
+              className={`size-3 ${loadingAgents ? 'animate-spin' : ''}`}
+              style={{ color: 'var(--dome-text-muted)' }}
+            />
+          </button>
+        }
+      />
 
       {expanded && (
         <>
           <div className="relative mb-2">
             <Search
-              className="absolute left-2 top-1/2 -translate-y-1/2 size-3 pointer-events-none"
+              className="pointer-events-none absolute left-2 top-1/2 size-3 -translate-y-1/2"
               style={{ color: 'var(--dome-text-muted)' }}
             />
             <input
@@ -70,7 +66,7 @@ export function CanvasAgentsPalette({
               onChange={(e) => onAgentQueryChange(e.target.value)}
               placeholder={t('canvas.palette_search_agents')}
               aria-label={t('canvas.palette_search_agents')}
-              className="w-full pl-7 pr-2 py-1.5 text-[11px] rounded-lg outline-none border transition-colors"
+              className="w-full rounded-lg border py-1.5 pl-7 pr-2 text-[11px] outline-none transition-colors focus:border-[var(--dome-accent)]"
               style={{
                 background: 'var(--dome-bg)',
                 color: 'var(--dome-text)',
@@ -78,52 +74,41 @@ export function CanvasAgentsPalette({
               }}
             />
           </div>
-          <div className="space-y-2 flex-1 overflow-y-auto min-h-0">
+          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto">
             {filteredAgents.length === 0 && !loadingAgents ? (
-              <p className="text-[11px] text-center py-3 leading-relaxed px-1" style={{ color: 'var(--dome-text-muted)' }}>
-                {t('canvas.no_agents_yet')}
-              </p>
-            ) : (
-              filteredAgents.map((agent) => {
-                const descSnippet =
-                  agent.description.length > 40 ? `${agent.description.slice(0, 40)}…` : agent.description;
-                return (
+              <div
+                className="flex flex-col items-center gap-2 rounded-xl px-3 py-4 text-center"
+                style={{ background: 'var(--dome-bg)', border: '1px dashed var(--dome-border)' }}
+              >
+                <Bot className="size-5" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={1.5} aria-hidden />
+                <p className="text-[11px] leading-snug" style={{ color: 'var(--dome-text-muted)' }}>
+                  {agentQuery ? t('canvas.no_workflow_search_results') : t('canvas.no_agents_yet')}
+                </p>
+                {!agentQuery ? (
                   <button
-                    key={agent.id}
                     type="button"
-                    draggable
-                    onDragStart={(e) => handleCanvasPaletteDragStart(e, 'agent', agent)}
-                    onClick={() => onAddNode(createCanvasPaletteNode(t, 'agent', agent))}
-                    className="flex w-full items-center gap-2 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors hover:bg-[var(--dome-bg)] border border-transparent hover:border-[var(--dome-border)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-1"
+                    onClick={openAgentsTab}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-semibold transition-opacity hover:opacity-90"
+                    style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
                   >
-                    <div
-                      className="size-7 rounded-md overflow-hidden shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
-                      style={{ background: 'var(--dome-accent)' }}
-                    >
-                      {agent.iconIndex > 0 ? (
-                        <img
-                          src={`/agents/sprite_${agent.iconIndex}.png`}
-                          alt={agent.name}
-                          className="size-full object-cover"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = 'none';
-                          }}
-                        />
-                      ) : (
-                        <Bot className="size-3.5" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-medium truncate leading-tight" style={{ color: 'var(--dome-text)' }}>
-                        {agent.name}
-                      </p>
-                      <p className="text-[11px] truncate leading-snug mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-                        {descSnippet}
-                      </p>
-                    </div>
+                    <Plus className="size-3" aria-hidden />
+                    {t('canvas.palette_create_agent')}
                   </button>
-                );
-              })
+                ) : null}
+              </div>
+            ) : (
+              filteredAgents.map((agent) => (
+                <CanvasPaletteRow
+                  key={agent.id}
+                  icon={agent.iconIndex > 0 ? undefined : Bot}
+                  iconImage={agent.iconIndex > 0 ? `/agents/sprite_${agent.iconIndex}.png` : undefined}
+                  label={agent.name}
+                  description={agent.description || t('agents.all_tools_available')}
+                  color="var(--dome-accent)"
+                  onAdd={() => onAddNode(createCanvasPaletteNode(t, 'agent', agent))}
+                  onDragStart={(e) => handleCanvasPaletteDragStart(e, 'agent', agent)}
+                />
+              ))
             )}
           </div>
         </>

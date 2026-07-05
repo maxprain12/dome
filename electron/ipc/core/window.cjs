@@ -82,7 +82,7 @@ function buildUrlRoute(resource, resourceId) {
   try {
     metadata = resource.metadata ? JSON.parse(resource.metadata) : {};
   } catch (e) {
-    /* ignore */
+    console.warn('[window] Ignoring invalid resource metadata JSON:', e.message);
   }
   const isYouTube = metadata.url_type === 'youtube' || !!metadata.video_id;
   return isYouTube ? `/workspace/youtube?id=${resourceId}` : `/workspace/url?id=${resourceId}`;
@@ -102,11 +102,14 @@ function buildDocumentRoute(resource, resourceId, page) {
     mime.includes('wordprocessingml') ||
     mime.includes('msword') ||
     !resource.internal_path;
-  const base = isPptx
-    ? `/workspace/ppt?id=${resourceId}`
-    : isDocx
-      ? `/workspace/docx?id=${resourceId}`
-      : `/workspace?id=${resourceId}`;
+  let base;
+  if (isPptx) {
+    base = `/workspace/ppt?id=${resourceId}`;
+  } else if (isDocx) {
+    base = `/workspace/docx?id=${resourceId}`;
+  } else {
+    base = `/workspace?id=${resourceId}`;
+  }
   return page && !isPptx && !isDocx ? `${base}&page=${page}` : base;
 }
 

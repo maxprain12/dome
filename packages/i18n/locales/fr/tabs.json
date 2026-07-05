@@ -8,5 +8,8 @@
   "agents_flows": "Agents et flux",
   "learn": "Apprendre",
   "marketplace": "Boutique",
-  "pipelines": "Pipelines"
+  "pipelines": "Pipelines",
+  "workflows": "Workflows",
+  "automations": "Automatisations",
+  "runs": "Exécutions"
 }
