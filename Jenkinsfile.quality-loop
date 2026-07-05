@@ -15,6 +15,7 @@ pipeline {
     XVFB_DISPLAY = ':99'
     SONAR_BATCH_SIZE = '10'
     SONAR_LOOP_REVIEWER = '1'
+    SONAR_LOOP_TIMEOUT_MS = '3000000'
   }
 
   stages {
