@@ -129,8 +129,8 @@ async function discoverOllamaModels(baseUrl, apiKey) {
 }
 
 /**
- * @param {string} apiKey
- * @returns {Promise<DiscoveredEmbeddingModel[]>}
+ * @param {unknown} row
+ * @returns {DiscoveredEmbeddingModel|null}
  */
 function buildGoogleModelFromRow(row) {
   if (!row || typeof row !== 'object') return null;
