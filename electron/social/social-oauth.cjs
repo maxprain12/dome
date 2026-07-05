@@ -21,11 +21,19 @@ const { shell } = require('electron');
 
 const FLOW_TIMEOUT_MS = 5 * 60 * 1000;
 
+// LinkedIn organization scopes need the "Community Management API" product on
+// the developer app; requesting them without it makes LinkedIn reject the
+// authorization, so they are opt-in (Settings → Social → LinkedIn).
+const LINKEDIN_BASE_SCOPES = 'openid profile w_member_social';
+const LINKEDIN_ORG_SCOPES = 'w_organization_social r_organization_social rw_organization_admin';
+
 const AUTH_ENDPOINTS = {
   linkedin: {
     authUrl: 'https://www.linkedin.com/oauth/v2/authorization',
     tokenUrl: 'https://www.linkedin.com/oauth/v2/accessToken',
-    scopes: 'openid profile w_member_social',
+    scopes: (store) => (store?.getLinkedInOrgEnabled?.()
+      ? `${LINKEDIN_BASE_SCOPES} ${LINKEDIN_ORG_SCOPES}`
+      : LINKEDIN_BASE_SCOPES),
     pkce: false,
   },
   instagram: {
@@ -79,7 +87,7 @@ function createSocialOAuth(store) {
       client_id: clientId,
       redirect_uri: redirectUri(provider, port),
       state,
-      scope: ep.scopes,
+      scope: typeof ep.scopes === 'function' ? ep.scopes(store) : ep.scopes,
     });
     if (ep.pkce && codeChallenge) {
       params.set('code_challenge', codeChallenge);

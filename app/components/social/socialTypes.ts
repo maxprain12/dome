@@ -3,6 +3,8 @@ export type SocialProvider = 'linkedin' | 'instagram' | 'x';
 export interface SocialAccount {
   id: string;
   provider: SocialProvider;
+  /** LinkedIn: 'organization' = company page; everything else is 'member'. */
+  accountKind: 'member' | 'organization';
   displayName: string | null;
   handle: string | null;
   externalId: string | null;
@@ -28,6 +30,8 @@ export interface SocialLibraryItem {
   resourceId: string;
   title: string;
   type: 'image' | 'video';
+  /** Vault folder path ("images / p1"); empty for root-level items. */
+  folderPath?: string;
 }
 
 export interface SocialMetric {
@@ -73,6 +77,50 @@ export interface SocialSummary {
   byProvider: Partial<Record<SocialProvider, { posts: number; impressions: number; likes: number; comments: number }>>;
   recentPosts: SocialPost[];
   topPosts: SocialPost[];
+}
+
+export interface SocialAccountMetric {
+  id: string;
+  accountId: string;
+  capturedAt: number;
+  followers: number | null;
+  following: number | null;
+  postsCount: number | null;
+}
+
+export interface SocialGrowthAccount {
+  accountId: string;
+  provider: SocialProvider;
+  accountKind?: 'member' | 'organization';
+  displayName: string | null;
+  handle: string | null;
+  status: 'active' | 'error' | 'expired';
+  latest: SocialAccountMetric | null;
+  points: { t: number; followers: number | null }[];
+  delta: number | null;
+}
+
+export interface SocialReport {
+  id: string;
+  status: 'generating' | 'ready' | 'failed';
+  trigger: 'user' | 'auto';
+  periodDays: number;
+  title: string | null;
+  content: string | null;
+  model: string | null;
+  error: string | null;
+  data: {
+    accounts?: { provider: SocialProvider; handle: string | null; followersNow: number | null; followersDelta: number | null }[];
+    postsInPeriod?: number;
+  } | null;
+  createdAt: number;
+  completedAt: number | null;
+}
+
+export interface SocialReportConfig {
+  intervalHours: number;
+  periodDays: number;
+  language: 'es' | 'en' | 'fr' | 'pt';
 }
 
 export const PROVIDER_CHAR_LIMITS: Record<SocialProvider, number> = {

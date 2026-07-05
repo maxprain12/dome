@@ -24,7 +24,13 @@
     "disconnect": "Desconectar conta",
     "status_error": "Erro de conexão",
     "status_expired": "Token expirado — reconecte",
-    "hint_linkedin": "LinkedIn: ative os produtos \"Sign In with LinkedIn using OpenID Connect\" e \"Share on LinkedIn\" na sua app. Registe a redirect URI acima. Os tokens duram ~60 dias.",
+    "hint_linkedin": "LinkedIn: ative \"Sign In with LinkedIn using OpenID Connect\" e \"Share on LinkedIn\" na sua app. Para páginas de empresa, ative também \"Páginas de empresa\" abaixo e adicione o produto \"Community Management API\". Registe a redirect URI acima. Os tokens duram ~60 dias.",
+    "linkedin_org_enabled": "Páginas de empresa",
+    "linkedin_org_hint": "Gira as páginas de empresa do LinkedIn que administra (não só o seu perfil pessoal). Requer o produto \"Community Management API\" na app de programador. Depois de ativar, guarde e reconecte para o token incluir os scopes de organização.",
+    "linkedin_sync_orgs": "Descobrir páginas de empresa",
+    "linkedin_sync_orgs_busy": "A procurar…",
+    "account_kind_member": "Perfil pessoal",
+    "account_kind_organization": "Página de empresa",
     "hint_instagram": "Instagram: requer conta Business/Creator e uma app Meta com o produto Instagram. Mais fácil: gere um access token no painel da Meta e cole-o aqui. Publicar exige URLs https públicas para as imagens.",
     "hint_x": "X: crie projeto + app com OAuth 2.0 (tipo 'Native App' funciona sem secret graças ao PKCE), ative Read and write e registe a redirect URI acima. Atenção: desde fev 2026 os novos developers pagam por uso (~$0.015/post)."
   },
@@ -66,7 +72,15 @@
     "recent_performance": "Desempenho das publicações recentes",
     "analytics_empty": "Ainda não há publicações com métricas.",
     "col_post": "Publicação",
-    "col_shares": "Partilhas"
+    "col_shares": "Partilhas",
+    "section_reports": "Relatórios IA",
+    "growth_title": "Crescimento das contas (90d)",
+    "growth_empty": "Ainda não há contas conectadas. Conecte uma em Configurações → Social para acompanhar o crescimento.",
+    "growth_followers": "seguidores",
+    "growth_following": "Seguindo",
+    "growth_posts": "Publicações",
+    "growth_unavailable_linkedin_member": "O LinkedIn não expõe o número de seguidores de perfis pessoais no nível padrão da API. Ative páginas de empresa nas Definições para acompanhar seguidores da página.",
+    "growth_pending": "Ainda sem capturas — as métricas são coletadas automaticamente a cada poucas horas, ou clique em «Atualizar métricas»."
   },
   "composer": {
     "title": "Nova publicação",
@@ -92,7 +106,33 @@
     "library_empty": "Ainda não há imagens nem vídeos neste projeto.",
     "media_source_library": "Biblioteca",
     "media_source_local": "Local",
-    "warning_instagram_local_image": "O Instagram não pode receber ficheiros locais (a sua API só descarrega de URLs públicas). Adicione uma URL pública para a variante do Instagram — os ficheiros locais funcionam no LinkedIn e no X."
+    "warning_instagram_local_image": "O Instagram não pode receber ficheiros locais (a sua API só descarrega de URLs públicas). Adicione uma URL pública para a variante do Instagram — os ficheiros locais funcionam no LinkedIn e no X.",
+    "format_label": "Tipo de publicação",
+    "section_content": "Conteúdo",
+    "section_media": "Mídia",
+    "section_details": "Detalhes",
+    "section_schedule": "Agendamento",
+    "ai_assist_label": "Assistente de IA",
+    "ai_improve": "Melhorar",
+    "ai_shorten": "Ajustar ao limite",
+    "ai_hashtags": "Hashtags",
+    "ai_generate": "Gerar rascunho",
+    "ai_tone_professional": "Profissional",
+    "ai_tone_casual": "Descontraído",
+    "ai_tone_selling": "Vendedor",
+    "ai_tone_informative": "Informativo",
+    "ai_need_text": "Escreva primeiro algum texto para usar o assistente de IA.",
+    "ai_need_brief": "Adicione temas, campanha ou uma ideia inicial para gerar um rascunho.",
+    "ai_error": "A IA não conseguiu concluir a ação: {{error}}",
+    "media_type_image": "Imagem",
+    "media_type_video": "Vídeo",
+    "media_toggle_type": "Alterar tipo (imagem/vídeo)",
+    "schedule_today_evening": "Hoje 18:00",
+    "schedule_tomorrow_morning": "Amanhã 09:00",
+    "schedule_next_week": "Próx. semana 09:00",
+    "schedule_clear": "Remover",
+    "schedule_calendar_note": "Esta publicação aparecerá automaticamente no seu Calendário.",
+    "linkedin_account_label": "Publicar como"
   },
   "wizard": {
     "title": "Configurar {{provider}}",
@@ -111,7 +151,7 @@
     "step_credentials": "Credenciais",
     "step_connect": "Conectar",
     "linkedin": {
-      "intro": "Publique no seu perfil do LinkedIn com a sua própria app de developer. Cerca de 5 minutos, tudo grátis.",
+      "intro": "Publique no seu perfil do LinkedIn ou em páginas de empresa com a sua própria app de developer. Cerca de 5 minutos, tudo grátis.",
       "requirements": {
         "title": "Antes de começar",
         "body": "Só precisa de:",
@@ -136,6 +176,8 @@
         "body": "Dentro da sua app no portal:",
         "bullets": [
           "Separador 'Products' → solicite 'Sign In with LinkedIn using OpenID Connect' E 'Share on LinkedIn' — aprovados de imediato",
+          "Para páginas de empresa: solicite também 'Community Management API' (pode exigir revisão do LinkedIn)",
+          "No Dome Definições → Social → LinkedIn, ative 'Páginas de empresa' antes de conectar",
           "Separador 'Auth' → 'OAuth 2.0 settings' → 'Authorized redirect URLs' → adicione a URI abaixo tal como aparece"
         ],
         "notes": [
@@ -156,7 +198,8 @@
         "bullets": [],
         "notes": [
           "Os tokens pessoais duram ~60 dias e não se renovam sozinhos no tier padrão — quando expirar, reconecte aqui.",
-          "As análises de perfil pessoal limitam-se a gostos e comentários."
+          "As análises de perfil pessoal limitam-se a gostos e comentários. As páginas de empresa podem mostrar seguidores.",
+          "Após conectar com páginas de empresa ativadas, o Dome descobre cada página que administra como conta separada."
         ]
       }
     },
@@ -283,5 +326,23 @@
     "hint_article_needs_link": "O cartão de artigo aparece quando adiciona uma URL de link.",
     "hint_carousel_needs_images": "Adicione pelo menos 2 imagens para um carrossel.",
     "hint_needs_media": "Adicione média para preencher este formato."
+  },
+  "reports": {
+    "auto_interval": "Relatório automático",
+    "interval_off": "Desativado",
+    "interval_days_one": "Todos os dias",
+    "interval_days_other": "A cada {{count}} dias",
+    "period": "Período de análise",
+    "period_days_one": "{{count}} dia",
+    "period_days_other": "{{count}} dias",
+    "auto_hint_on": "O Dome atualizará as métricas e gerará um novo relatório IA nessa cadência.",
+    "auto_hint_off": "Ative uma cadência e a IA analisará suas contas periodicamente e dirá como continuar focando seu conteúdo.",
+    "generate_now": "Gerar relatório",
+    "generating": "Gerando…",
+    "generating_hint": "A IA está analisando seu crescimento e o desempenho dos seus posts. Pode levar até um minuto.",
+    "empty_title": "Ainda não há relatórios",
+    "empty_hint": "Gere seu primeiro relatório IA: crescimento por rede, o que funcionou, o que descartar e ideias de conteúdo concretas para o próximo período.",
+    "untitled": "Relatório",
+    "trigger_auto": "automático"
   }
 }

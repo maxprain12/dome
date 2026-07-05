@@ -3955,6 +3955,72 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  if (version < 60) {
+    console.log('[DB] Running migration 60 - social account metrics + AI reports');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS social_account_metrics (
+          id TEXT PRIMARY KEY,
+          account_id TEXT NOT NULL,
+          captured_at INTEGER NOT NULL,
+          followers INTEGER,
+          following INTEGER,
+          posts_count INTEGER,
+          raw TEXT,
+          FOREIGN KEY (account_id) REFERENCES social_accounts(id) ON DELETE CASCADE
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_account_metrics ON social_account_metrics(account_id, captured_at)');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS social_reports (
+          id TEXT PRIMARY KEY,
+          status TEXT NOT NULL DEFAULT 'generating' CHECK(status IN ('generating', 'ready', 'failed')),
+          trigger TEXT NOT NULL DEFAULT 'user' CHECK(trigger IN ('user', 'auto')),
+          period_days INTEGER NOT NULL DEFAULT 30,
+          title TEXT,
+          content TEXT,
+          model TEXT,
+          error TEXT,
+          data TEXT,
+          created_at INTEGER NOT NULL,
+          completed_at INTEGER
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_social_reports_created ON social_reports(created_at)');
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '60', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '60', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 60 complete - social account metrics + reports');
+    } catch (error) {
+      console.error('[DB] Migration 60 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 61) {
+    console.log('[DB] Running migration 61 - social account kind (member vs organization pages)');
+    try {
+      const cols = db.prepare("PRAGMA table_info('social_accounts')").all().map((c) => c.name);
+      if (!cols.includes('account_kind')) {
+        db.exec("ALTER TABLE social_accounts ADD COLUMN account_kind TEXT NOT NULL DEFAULT 'member'");
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '61', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '61', updated_at = excluded.updated_at
+      `).run(Date.now());
+      console.log('[DB] Migration 61 complete - social account kind');
+    } catch (error) {
+      console.error('[DB] Migration 61 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-04T14:33:34.100Z
+> Última generación: 2026-07-04T18:16:58.790Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -489,26 +489,34 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `skills:openFolder` | `electron/ipc/integrations/skills.cjs:38` |
 | `skills:readFile` | `electron/ipc/integrations/skills.cjs:125` |
 | `skills:remove` | `electron/ipc/integrations/skills.cjs:111` |
-| `social:accounts:list` | `electron/ipc/integrations/social.cjs:116` |
-| `social:connect-oauth` | `electron/ipc/integrations/social.cjs:117` |
-| `social:connect-token` | `electron/ipc/integrations/social.cjs:118` |
-| `social:disconnect` | `electron/ipc/integrations/social.cjs:122` |
-| `social:media:library` | `electron/ipc/integrations/social.cjs:179` |
-| `social:media:pick` | `electron/ipc/integrations/social.cjs:154` |
-| `social:media:preview` | `electron/ipc/integrations/social.cjs:199` |
-| `social:metrics:post` | `electron/ipc/integrations/social.cjs:221` |
-| `social:metrics:refresh` | `electron/ipc/integrations/social.cjs:222` |
-| `social:oauth:cancel` | `electron/ipc/integrations/social.cjs:121` |
-| `social:oauth:set-port` | `electron/ipc/integrations/social.cjs:110` |
-| `social:posts:create` | `electron/ipc/integrations/social.cjs:136` |
-| `social:posts:delete` | `electron/ipc/integrations/social.cjs:146` |
-| `social:posts:get` | `electron/ipc/integrations/social.cjs:131` |
-| `social:posts:list` | `electron/ipc/integrations/social.cjs:128` |
-| `social:posts:publish` | `electron/ipc/integrations/social.cjs:151` |
-| `social:posts:update` | `electron/ipc/integrations/social.cjs:141` |
-| `social:providers:set-config` | `electron/ipc/integrations/social.cjs:105` |
-| `social:providers:status` | `electron/ipc/integrations/social.cjs:95` |
-| `social:summary` | `electron/ipc/integrations/social.cjs:223` |
+| `social:accounts:list` | `electron/ipc/integrations/social.cjs:130` |
+| `social:connect-oauth` | `electron/ipc/integrations/social.cjs:131` |
+| `social:connect-token` | `electron/ipc/integrations/social.cjs:132` |
+| `social:linkedin:sync-orgs` | `electron/ipc/integrations/social.cjs:144` |
+| `social:disconnect` | `electron/ipc/integrations/social.cjs:147` |
+| `social:growth` | `electron/ipc/integrations/social.cjs:241` |
+| `social:media:library` | `electron/ipc/integrations/social.cjs:196` |
+| `social:media:pick` | `electron/ipc/integrations/social.cjs:171` |
+| `social:media:preview` | `electron/ipc/integrations/social.cjs:216` |
+| `social:metrics:post` | `electron/ipc/integrations/social.cjs:238` |
+| `social:metrics:refresh` | `electron/ipc/integrations/social.cjs:239` |
+| `social:oauth:cancel` | `electron/ipc/integrations/social.cjs:135` |
+| `social:oauth:set-port` | `electron/ipc/integrations/social.cjs:124` |
+| `social:posts:create` | `electron/ipc/integrations/social.cjs:150` |
+| `social:posts:delete` | `electron/ipc/integrations/social.cjs:162` |
+| `social:posts:get` | `electron/ipc/integrations/social.cjs:145` |
+| `social:posts:list` | `electron/ipc/integrations/social.cjs:142` |
+| `social:posts:publish` | `electron/ipc/integrations/social.cjs:168` |
+| `social:posts:update` | `electron/ipc/integrations/social.cjs:156` |
+| `social:providers:set-config` | `electron/ipc/integrations/social.cjs:119` |
+| `social:providers:status` | `electron/ipc/integrations/social.cjs:109` |
+| `social:reports:config:get` | `electron/ipc/integrations/social.cjs:263` |
+| `social:reports:config:set` | `electron/ipc/integrations/social.cjs:264` |
+| `social:reports:delete` | `electron/ipc/integrations/social.cjs:258` |
+| `social:reports:generate` | `electron/ipc/integrations/social.cjs:253` |
+| `social:reports:get` | `electron/ipc/integrations/social.cjs:248` |
+| `social:reports:list` | `electron/ipc/integrations/social.cjs:244` |
+| `social:summary` | `electron/ipc/integrations/social.cjs:240` |
 | `storage:cleanup` | `electron/ipc/data/storage.cjs:20` |
 | `storage:getPath` | `electron/ipc/data/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/data/storage.cjs:3` |
@@ -548,14 +556,14 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `web:process` | `electron/ipc/integrations/web.cjs:116` |
 | `web:save-screenshot` | `electron/ipc/integrations/web.cjs:60` |
 | `web:scrape` | `electron/ipc/integrations/web.cjs:24` |
-| `window:broadcast` | `electron/ipc/core/window.cjs:316` |
-| `window:close` | `electron/ipc/core/window.cjs:230` |
-| `window:close-current` | `electron/ipc/core/window.cjs:281` |
-| `window:create` | `electron/ipc/core/window.cjs:173` |
-| `window:create-modal` | `electron/ipc/core/window.cjs:200` |
-| `window:list` | `electron/ipc/core/window.cjs:297` |
-| `window:maximize-toggle` | `electron/ipc/core/window.cjs:264` |
-| `window:minimize-current` | `electron/ipc/core/window.cjs:248` |
-| `window:open-folder` | `electron/ipc/core/window.cjs:346` |
-| `window:open-settings` | `electron/ipc/core/window.cjs:397` |
-| `window:open-workspace` | `electron/ipc/core/window.cjs:368` |
+| `window:broadcast` | `electron/ipc/core/window.cjs:319` |
+| `window:close` | `electron/ipc/core/window.cjs:233` |
+| `window:close-current` | `electron/ipc/core/window.cjs:284` |
+| `window:create` | `electron/ipc/core/window.cjs:176` |
+| `window:create-modal` | `electron/ipc/core/window.cjs:203` |
+| `window:list` | `electron/ipc/core/window.cjs:300` |
+| `window:maximize-toggle` | `electron/ipc/core/window.cjs:267` |
+| `window:minimize-current` | `electron/ipc/core/window.cjs:251` |
+| `window:open-folder` | `electron/ipc/core/window.cjs:349` |
+| `window:open-settings` | `electron/ipc/core/window.cjs:400` |
+| `window:open-workspace` | `electron/ipc/core/window.cjs:371` |

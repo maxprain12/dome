@@ -241,12 +241,27 @@ async function fetchPostMetrics(store, post) {
   };
 }
 
+async function fetchAccountMetrics(store, account) {
+  const accessToken = await ensureAccessToken(store, account.id);
+  const me = await igFetch('/me', {
+    accessToken,
+    params: { fields: 'followers_count,follows_count,media_count,username' },
+  });
+  return {
+    followers: me.followers_count ?? null,
+    following: me.follows_count ?? null,
+    postsCount: me.media_count ?? null,
+    raw: me,
+  };
+}
+
 module.exports = {
   finalizeOAuthAccount,
   connectWithToken,
   ensureAccessToken,
   publishPost,
   fetchPostMetrics,
+  fetchAccountMetrics,
   supportsManualToken: true,
   requiresMedia: true,
 };

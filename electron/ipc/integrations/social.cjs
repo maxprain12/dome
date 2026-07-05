@@ -5,12 +5,15 @@
 const { z } = require('zod');
 
 const { getSocialService } = require('../../social/social-service.cjs');
+const socialCalendarBridge = require('../../social/social-calendar-bridge.cjs');
 
 const ProviderSchema = z.enum(['linkedin', 'instagram', 'x']);
 const ProviderConfigSchema = z.object({
   provider: ProviderSchema,
   clientId: z.string().optional(),
   clientSecret: z.string().optional(),
+  /** LinkedIn only: request organization scopes to manage company pages. */
+  orgEnabled: z.boolean().optional(),
 });
 const OAuthPortSchema = z.object({ port: z.number().int().min(1025).max(65535) });
 const ConnectOAuthSchema = z.object({ provider: ProviderSchema });
@@ -65,6 +68,19 @@ const PostListSchema = z.object({
   status: z.enum(['draft', 'scheduled', 'publishing', 'published', 'failed']).optional().nullable(),
   limit: z.number().int().positive().max(500).optional(),
 });
+const GrowthQuerySchema = z.object({
+  days: z.number().int().min(7).max(365).optional(),
+});
+const ReportGenerateSchema = z.object({
+  periodDays: z.number().int().min(7).max(365).optional(),
+  language: z.enum(['es', 'en', 'fr', 'pt']).optional(),
+});
+const ReportIdSchema = z.object({ reportId: z.string().min(1) });
+const ReportConfigSchema = z.object({
+  intervalHours: z.number().int().min(0).max(2160).optional(),
+  periodDays: z.number().int().min(7).max(365).optional(),
+  language: z.enum(['es', 'en', 'fr', 'pt']).optional(),
+});
 
 function register({ ipcMain, windowManager, database, fileStorage }) {
   const service = getSocialService(database, windowManager);
@@ -102,8 +118,14 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     encryptionAvailable: service.store.encryptionAvailable(),
   })));
 
-  ipcMain.handle('social:providers:set-config', wrap(ProviderConfigSchema, ({ provider, clientId, clientSecret }) => {
-    service.store.setProviderConfig(provider, { clientId, clientSecret });
+  ipcMain.handle('social:providers:set-config', wrap(ProviderConfigSchema, ({ provider, clientId, clientSecret, orgEnabled }) => {
+    const patch = {};
+    if (clientId !== undefined) patch.clientId = clientId;
+    if (clientSecret !== undefined) patch.clientSecret = clientSecret;
+    if (Object.keys(patch).length > 0) service.store.setProviderConfig(provider, patch);
+    if (provider === 'linkedin' && orgEnabled !== undefined) {
+      service.store.setLinkedInOrgEnabled(orgEnabled);
+    }
     return service.store.getProviderConfigStatus(provider);
   }));
 
@@ -119,6 +141,9 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     service.connectWithToken(provider, accessToken)
   ));
   ipcMain.handle('social:oauth:cancel', wrap(null, () => ({ cancelled: service.oauth.cancelPending() })));
+  ipcMain.handle('social:linkedin:sync-orgs', wrap(AccountIdSchema, ({ accountId }) =>
+    service.syncLinkedInOrganizations(accountId)
+  ));
   ipcMain.handle('social:disconnect', wrap(AccountIdSchema, ({ accountId }) => {
     service.disconnect(accountId);
     return { deleted: true };
@@ -136,16 +161,19 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('social:posts:create', wrap(PostCreateSchema, (input) => {
     const post = service.store.createPost(input);
     windowManager.broadcast?.('social:post-updated', post);
+    void socialCalendarBridge.syncPostEvent(post);
     return post;
   }));
   ipcMain.handle('social:posts:update', wrap(PostUpdateSchema, ({ postId, patch }) => {
     const post = service.store.updatePost(postId, patch);
     windowManager.broadcast?.('social:post-updated', post);
+    void socialCalendarBridge.syncPostEvent(post);
     return post;
   }));
   ipcMain.handle('social:posts:delete', wrap(PostIdSchema, ({ postId }) => {
     service.store.deletePost(postId);
     windowManager.broadcast?.('social:post-updated', { id: postId, deleted: true });
+    void socialCalendarBridge.removePostEvent(postId);
     return { deleted: true };
   }));
   ipcMain.handle('social:posts:publish', wrap(PostIdSchema, ({ postId }) => service.publishPost(postId)));
@@ -181,6 +209,20 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     const fs = require('fs');
     const queries = database.getQueries();
     const rows = queries.getResourcesByProject.all(projectId || 'default');
+    const byId = new Map(rows.map((r) => [r.id, r]));
+    // Vault folder path ("images / p1") so the composer can show where each
+    // media item lives — titles alone are ambiguous (01.png in many folders).
+    const folderPathOf = (row) => {
+      const parts = [];
+      const seen = new Set();
+      let cur = row.folder_id ? byId.get(row.folder_id) : null;
+      while (cur && !seen.has(cur.id)) {
+        seen.add(cur.id);
+        parts.unshift(cur.title || '');
+        cur = cur.folder_id ? byId.get(cur.folder_id) : null;
+      }
+      return parts.filter(Boolean).join(' / ');
+    };
     return rows
       .filter((r) => r.type === 'image' || r.type === 'video')
       .map((r) => {
@@ -189,9 +231,12 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
           const p = vaultStore.getResourceFilePath(r, queries, fileStorage);
           hasFile = Boolean(p && fs.existsSync(p));
         } catch { /* unresolvable → skip */ }
-        return hasFile ? { resourceId: r.id, title: r.title, type: r.type } : null;
+        return hasFile
+          ? { resourceId: r.id, title: r.title, type: r.type, folderPath: folderPathOf(r) }
+          : null;
       })
       .filter(Boolean)
+      .sort((a, b) => a.folderPath.localeCompare(b.folderPath) || a.title.localeCompare(b.title))
       .slice(0, 200);
   }));
 
@@ -221,8 +266,34 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
   ipcMain.handle('social:metrics:post', wrap(PostIdSchema, ({ postId }) => service.store.listMetricsForPost(postId)));
   ipcMain.handle('social:metrics:refresh', wrap(null, () => service.refreshAllMetrics()));
   ipcMain.handle('social:summary', wrap(null, () => service.getSummary()));
+  ipcMain.handle('social:growth', wrap(GrowthQuerySchema, ({ days }) => service.getGrowth({ days: days || 90 })));
+
+  // AI growth reports
+  ipcMain.handle('social:reports:list', wrap(null, () => ({
+    reports: service.store.listReports(30),
+    config: service.store.getReportConfig(),
+  })));
+  ipcMain.handle('social:reports:get', wrap(ReportIdSchema, ({ reportId }) => {
+    const report = service.store.getReport(reportId);
+    if (!report) throw new Error('Report not found');
+    return report;
+  }));
+  ipcMain.handle('social:reports:generate', wrap(ReportGenerateSchema, ({ periodDays, language }) => {
+    // Persist the requested language so scheduled reports match the UI language.
+    if (language) service.store.setReportConfig({ language });
+    return service.generateReport({ periodDays, language, trigger: 'user' });
+  }));
+  ipcMain.handle('social:reports:delete', wrap(ReportIdSchema, ({ reportId }) => {
+    service.store.deleteReport(reportId);
+    windowManager.broadcast?.('social:report-updated', { id: reportId, deleted: true });
+    return { deleted: true };
+  }));
+  ipcMain.handle('social:reports:config:get', wrap(null, () => service.store.getReportConfig()));
+  ipcMain.handle('social:reports:config:set', wrap(ReportConfigSchema, (input) => service.store.setReportConfig(input)));
 
   service.startScheduler();
+  // Backfill calendar events for already-scheduled posts (boot catch-up).
+  setTimeout(() => void socialCalendarBridge.syncAllFromStore(service.store), 20 * 1000);
 }
 
 module.exports = { register };

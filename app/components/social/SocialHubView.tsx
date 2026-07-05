@@ -3,13 +3,15 @@ import { useTranslation } from 'react-i18next';
 import {
   Share2, Plus, RefreshCw, Linkedin, Instagram, Twitter, Trash2, Send,
   CalendarClock, Pencil, ExternalLink, Loader2, Settings as SettingsIcon,
-  BarChart3, FileText, LayoutDashboard,
+  BarChart3, FileText, LayoutDashboard, Sparkles, Building2,
 } from 'lucide-react';
 import { useTabStore } from '@/lib/store/useTabStore';
 import SocialComposerModal from '@/components/social/SocialComposerModal';
-import type { SocialAccount, SocialPost, SocialSummary } from '@/components/social/socialTypes';
+import SocialGrowthCards from '@/components/social/SocialGrowthCards';
+import SocialReportsSection from '@/components/social/SocialReportsSection';
+import type { SocialAccount, SocialGrowthAccount, SocialPost, SocialProvider, SocialSummary } from '@/components/social/socialTypes';
 
-type HubSection = 'dashboard' | 'posts' | 'analytics';
+type HubSection = 'dashboard' | 'posts' | 'analytics' | 'reports';
 
 const PROVIDER_ICONS = { linkedin: Linkedin, instagram: Instagram, x: Twitter } as const;
 const PROVIDER_LABELS = { linkedin: 'LinkedIn', instagram: 'Instagram', x: 'X' } as const;
@@ -29,6 +31,7 @@ export default function SocialHubView() {
   const [summary, setSummary] = useState<SocialSummary | null>(null);
   const [posts, setPosts] = useState<SocialPost[]>([]);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
+  const [growth, setGrowth] = useState<SocialGrowthAccount[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [composerOpen, setComposerOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<SocialPost | null>(null);
@@ -37,14 +40,16 @@ export default function SocialHubView() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [summaryRes, postsRes, accountsRes] = await Promise.all([
+    const [summaryRes, postsRes, accountsRes, growthRes] = await Promise.all([
       window.electron.invoke('social:summary'),
       window.electron.invoke('social:posts:list', { limit: 200 }),
       window.electron.invoke('social:accounts:list'),
+      window.electron.invoke('social:growth', { days: 90 }),
     ]);
     if (summaryRes?.success) setSummary(summaryRes.data);
     if (postsRes?.success) setPosts(postsRes.data);
     if (accountsRes?.success) setAccounts(accountsRes.data);
+    if (growthRes?.success) setGrowth(growthRes.data.accounts);
   }, []);
 
   useEffect(() => {
@@ -85,6 +90,20 @@ export default function SocialHubView() {
     [posts, statusFilter],
   );
 
+  const accountStrip = useMemo(() => {
+    const items: Array<{ key: string; provider: SocialProvider; account: SocialAccount | null }> = [];
+    for (const p of ['linkedin', 'instagram', 'x'] as const) {
+      const provAccounts = accounts.filter((a) => a.provider === p);
+      if (p === 'linkedin') {
+        if (provAccounts.length === 0) items.push({ key: p, provider: p, account: null });
+        else provAccounts.forEach((acc) => items.push({ key: acc.id, provider: p, account: acc }));
+      } else {
+        items.push({ key: p, provider: p, account: provAccounts[0] ?? null });
+      }
+    }
+    return items;
+  }, [accounts]);
+
   const goToSettings = () => {
     openSettingsTab();
     setTimeout(() => {
@@ -99,10 +118,10 @@ export default function SocialHubView() {
     <div className="flex flex-col h-full min-w-0 overflow-hidden">
       {/* Header */}
       <div
-        className="flex items-center justify-between gap-3 px-5 py-3 shrink-0"
+        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-3 shrink-0"
         style={{ borderBottom: '1px solid var(--dome-border)' }}
       >
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex flex-wrap items-center gap-2 min-w-0">
           <Share2 className="size-5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
           <h1 className="text-base font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
             {t('social.hub.title')}
@@ -113,13 +132,14 @@ export default function SocialHubView() {
                 ['dashboard', LayoutDashboard],
                 ['posts', FileText],
                 ['analytics', BarChart3],
+                ['reports', Sparkles],
               ] as const
             ).map(([id, Icon]) => (
               <button
                 key={id}
                 type="button"
                 onClick={() => setSection(id)}
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap"
                 style={{
                   background: section === id ? 'var(--dome-bg-secondary)' : 'transparent',
                   color: section === id ? 'var(--dome-text)' : 'var(--dome-text-muted)',
@@ -137,7 +157,7 @@ export default function SocialHubView() {
             type="button"
             onClick={() => void refreshMetrics()}
             disabled={refreshing}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium"
+            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap"
             style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             title={t('social.hub.refresh_metrics')}
           >
@@ -150,7 +170,7 @@ export default function SocialHubView() {
               setEditingPost(null);
               setComposerOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
+            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap"
             style={{ background: 'var(--dome-accent)', color: 'white' }}
           >
             <Plus className="size-3.5" />
@@ -170,12 +190,14 @@ export default function SocialHubView() {
           <div className="space-y-5 max-w-5xl">
             {/* Connected accounts strip */}
             <div className="flex flex-wrap items-center gap-2">
-              {(['linkedin', 'instagram', 'x'] as const).map((p) => {
-                const Icon = PROVIDER_ICONS[p];
-                const acc = accounts.find((a) => a.provider === p);
+              {accountStrip.map(({ key, provider: p, account: acc }) => {
+                const Icon = acc?.accountKind === 'organization' ? Building2 : PROVIDER_ICONS[p];
+                const label = acc
+                  ? `${acc.displayName || acc.handle || PROVIDER_LABELS[p]}${acc.status !== 'active' ? ` · ${t(`social.settings.status_${acc.status}`)}` : ''}`
+                  : t('social.hub.not_connected', { provider: PROVIDER_LABELS[p] });
                 return (
                   <div
-                    key={p}
+                    key={key}
                     className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs"
                     style={{
                       background: 'var(--dome-bg-secondary)',
@@ -185,9 +207,7 @@ export default function SocialHubView() {
                     }}
                   >
                     <Icon className="size-3.5" style={{ color: acc ? 'var(--dome-accent)' : undefined }} />
-                    {acc
-                      ? `${acc.handle || acc.displayName || PROVIDER_LABELS[p]}${acc.status !== 'active' ? ` · ${t(`social.settings.status_${acc.status}`)}` : ''}`
-                      : t('social.hub.not_connected', { provider: PROVIDER_LABELS[p] })}
+                    {label}
                   </div>
                 );
               })}
@@ -309,6 +329,10 @@ export default function SocialHubView() {
 
         {section === 'analytics' && (
           <div className="space-y-5 max-w-5xl">
+            <SectionCard title={t('social.hub.growth_title')}>
+              <SocialGrowthCards accounts={growth} />
+            </SectionCard>
+
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               {(['linkedin', 'instagram', 'x'] as const).map((p) => {
                 const agg = summary?.byProvider?.[p];
@@ -347,6 +371,8 @@ export default function SocialHubView() {
             </SectionCard>
           </div>
         )}
+
+        {section === 'reports' && <SocialReportsSection />}
       </div>
 
       {composerOpen && (
