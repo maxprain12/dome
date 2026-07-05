@@ -48,5 +48,6 @@
   "path_copied": "Ruta copiada",
   "duplicate": "Duplicar",
   "copy_suffix": "copia",
-  "no_file_on_disk": "Este elemento aún no tiene archivo en el disco"
+  "no_file_on_disk": "Este elemento aún no tiene archivo en el disco",
+  "dropToImport": "Suelta para importar aquí"
 }

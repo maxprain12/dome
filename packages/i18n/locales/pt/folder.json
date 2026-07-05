@@ -48,5 +48,6 @@
   "path_copied": "Caminho copiado",
   "duplicate": "Duplicar",
   "copy_suffix": "cópia",
-  "no_file_on_disk": "Este item ainda não tem arquivo no disco"
+  "no_file_on_disk": "Este item ainda não tem arquivo no disco",
+  "dropToImport": "Solte para importar aqui"
 }
