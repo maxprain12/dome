@@ -274,8 +274,13 @@ function ArtifactHeader({
   copied: boolean;
 }) {
   const { t } = useTranslation();
-  const styles = ARTIFACT_STYLES[artifact.type];
-  const Icon = ARTIFACT_ICONS[artifact.type];
+  // Fallbacks: chat history can contain artifact types from other app
+  // versions; an unknown type must degrade, not crash the tab (React error 130).
+  const styles = ARTIFACT_STYLES[artifact.type] ?? {
+    borderColor: 'var(--border)',
+    iconColor: 'var(--secondary-text)',
+  };
+  const Icon = ARTIFACT_ICONS[artifact.type] ?? FileText;
 
   const handleOpenTab = () => {
     const title = artifact.title || getArtifactTitle(artifact);
