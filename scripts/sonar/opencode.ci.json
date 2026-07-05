@@ -7,7 +7,6 @@
       "description": "Sonar quality loop — minimal targeted fixes for CI",
       "model": "minimax/MiniMax-M3",
       "prompt": "{file:../../.cursor/prompts/sonar-fix-batch-ci.md}",
-      "steps": 40,
       "permission": {
         "read": "allow",
         "edit": "allow",
@@ -34,7 +33,6 @@
       "description": "Sonar quality loop — read-only diff reviewer before PR",
       "model": "minimax/MiniMax-M3",
       "prompt": "{file:../../.cursor/prompts/sonar-review-batch-ci.md}",
-      "steps": 20,
       "permission": {
         "read": "allow",
         "edit": "deny",

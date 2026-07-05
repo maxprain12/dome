@@ -6,7 +6,7 @@
  *   MINIMAX_API_KEY=... pnpm run sonar:run-agent -- --batch=.quality-loop/batch.json
  *   pnpm run sonar:run-agent -- --dry-run
  */
-import { spawnSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -129,6 +129,19 @@ if (stderr) process.stderr.write(stderr);
 if (error) {
   console.error('[SonarLoop] Failed:', error);
   process.exit(1);
+}
+
+if (/Maximum steps reached/i.test(stdout)) {
+  console.error('[SonarLoop] Agent hit step limit — increase steps in opencode.ci.json or reduce batch size');
+  process.exit(1);
+}
+
+try {
+  execFileSync('bash', ['scripts/jenkins/source-tree-clean.sh', ROOT], { cwd: ROOT, stdio: 'pipe' });
+  console.error('[SonarLoop] Agent finished with no source changes — batch not fixed');
+  process.exit(1);
+} catch {
+  // source-tree-clean exits 1 when there are fix-worthy changes — expected
 }
 
 console.log('[SonarLoop] Done.');
