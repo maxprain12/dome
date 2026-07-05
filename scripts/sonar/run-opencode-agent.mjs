@@ -19,7 +19,7 @@ const ROOT = path.join(__dirname, '../..');
 const args = parseArgs(process.argv.slice(2));
 const batchPath = path.resolve(args.batch || '.quality-loop/batch.json');
 const model = args.model || process.env.SONAR_LOOP_MODEL || 'MiniMax-M3';
-const timeoutMs = Number(process.env.SONAR_LOOP_TIMEOUT_MS || 900_000);
+const timeoutMs = Number(process.env.SONAR_LOOP_TIMEOUT_MS || 3_000_000);
 const opencodeConfig = path.resolve(
   process.env.OPENCODE_CONFIG || path.join(ROOT, 'scripts/sonar/opencode.ci.json'),
 );

@@ -47,7 +47,7 @@ Variables de entorno en el job (Environment / pipeline):
 |----------|---------|
 | `SONAR_BATCH_SIZE` | `10` (issues por batch en pick-batch) |
 | `SONAR_LOOP_MODEL` | `MiniMax-M3` (1M context) |
-| `SONAR_LOOP_TIMEOUT_MS` | `900000` (15 min fixer — único límite duro del agente; sin cap de steps en OpenCode) |
+| `SONAR_LOOP_TIMEOUT_MS` | `3000000` (50 min fixer — único límite duro del agente; sin cap de steps en OpenCode) |
 | `SONAR_REVIEW_TIMEOUT_MS` | `300000` (5 min reviewer) |
 | `SONAR_LOOP_REVIEWER` | `1` — set `0` to skip LLM reviewer stage |
 | `SONAR_LOOP_MAX_CHANGED_FILES` | `15` |
