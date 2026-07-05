@@ -14,6 +14,7 @@ pipeline {
     GITHUB_REPOSITORY = 'maxprain12/dome'
     XVFB_DISPLAY = ':99'
     SONAR_BATCH_SIZE = '10'
+    SONAR_LOOP_REVIEWER = '1'
   }
 
   stages {
@@ -113,13 +114,37 @@ pipeline {
       }
     }
 
+    stage('Validate batch') {
+      steps {
+        sh '''
+          set -eux
+          pnpm run sonar:validate-batch -- --batch=.quality-loop/batch.json
+        '''
+      }
+    }
+
     stage('Mechanical fix') {
       steps {
         script {
           def batchText = fileExists('.quality-loop/batch.json') ? readFile('.quality-loop/batch.json') : '{}'
-          def isVoidRule = batchText.contains('void') || batchText.contains('S7735') || batchText.contains('no-void')
+          def batch = new groovy.json.JsonSlurper().parseText(batchText)
+          def isVoidRule = (batch.batch ?: []).any { issue ->
+            def rule = issue.rule?.toString() ?: ''
+            rule.endsWith(':S7735') || rule.contains('no-void')
+          }
           if (isVoidRule) {
             sh 'node scripts/sonar/fix-void-operator.mjs --batch=.quality-loop/batch.json || true'
+            def dirty = sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) != 0
+            if (dirty) {
+              def gatesOk = sh(
+                script: 'bash scripts/jenkins/run-fast-gates.sh "$PWD" .quality-loop/batch.json',
+                returnStatus: true,
+              ) == 0
+              if (!gatesOk) {
+                sh 'git checkout -- .'
+                echo 'Mechanical void fix reverted (fast gates failed) — OpenCode agent will run'
+              }
+            }
           } else {
             echo 'No mechanical fix for this batch — OpenCode agent will run next'
           }
@@ -151,6 +176,63 @@ pipeline {
       }
     }
 
+    stage('Fast gates') {
+      when {
+        expression {
+          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) != 0
+        }
+      }
+      steps {
+        sh '''
+          set -eux
+          bash scripts/jenkins/run-fast-gates.sh "$PWD" .quality-loop/batch.json
+        '''
+        archiveArtifacts artifacts: '.quality-loop/fast-gates.json,.quality-loop/gate-failure.log', allowEmptyArchive: true
+      }
+    }
+
+    stage('Full verify') {
+      when {
+        expression {
+          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) != 0
+        }
+      }
+      steps {
+        sh '''
+          set -eux
+          bash scripts/jenkins/verify-batch-pr.sh "$PWD"
+        '''
+      }
+    }
+
+    stage('Agent review (OpenCode)') {
+      when {
+        allOf {
+          expression {
+            return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) != 0
+          }
+          expression {
+            return env.SONAR_LOOP_REVIEWER != '0'
+          }
+        }
+      }
+      steps {
+        withCredentials([
+          string(credentialsId: 'minimax-api-key', variable: 'MINIMAX_API_KEY'),
+        ]) {
+          sh '''
+            set -eux
+            export OPENCODE_CONFIG="$PWD/scripts/sonar/opencode.ci.json"
+            export OPENCODE_DISABLE_AUTOUPDATE=1
+            export SONAR_LOOP_MODEL="${SONAR_LOOP_MODEL:-MiniMax-M3}"
+            export SONAR_REVIEW_TIMEOUT_MS="${SONAR_REVIEW_TIMEOUT_MS:-300000}"
+            pnpm run sonar:run-reviewer -- --batch=.quality-loop/batch.json
+          '''
+        }
+        archiveArtifacts artifacts: '.quality-loop/review-verdict.json', allowEmptyArchive: true
+      }
+    }
+
     stage('Verify & PR') {
       when {
         expression {
@@ -163,8 +245,6 @@ pipeline {
         ]) {
           sh '''
             set -eux
-            bash scripts/jenkins/verify-batch-pr.sh "$PWD"
-
             BRANCH="fix/sonar-batch-$(date +%Y%m%d-%H%M)"
             git config user.email "jenkins@dowi.es"
             git config user.name "Jenkins Quality Loop"
@@ -197,6 +277,7 @@ pipeline {
 
   post {
     always {
+      archiveArtifacts artifacts: '.quality-loop/**', allowEmptyArchive: true
       cleanWs()
     }
   }

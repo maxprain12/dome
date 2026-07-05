@@ -7,8 +7,8 @@ Automated correction loop: SonarQube → GitHub Issues → OpenCode CLI (MiniMax
 | Component | Role |
 |-----------|------|
 | Jenkins `dome-sonar` | Sonar analysis on push to `main` |
-| Jenkins `dome-quality-loop` | Cron ~6h: sync issues, pick batch, mechanical fix, **OpenCode agent**, PR |
-| OpenCode CLI | `pnpm run sonar:run-agent` — `opencode run --auto --agent sonar-fix` + MiniMax via `MINIMAX_API_KEY` |
+| Jenkins `dome-quality-loop` | Cron hourly: sync, pick batch, validate, mechanical fix (S7735 only), **OpenCode fixer**, fast gates, full verify, **OpenCode reviewer**, PR |
+| OpenCode CLI | `sonar-fix` agent edits; `sonar-reviewer` read-only audit before PR |
 
 ## Jenkins setup
 
@@ -47,7 +47,11 @@ Variables de entorno en el job (Environment / pipeline):
 |----------|---------|
 | `SONAR_BATCH_SIZE` | `10` (issues por batch en pick-batch) |
 | `SONAR_LOOP_MODEL` | `MiniMax-M3` (1M context) |
-| `SONAR_LOOP_TIMEOUT_MS` | `900000` (15 min) |
+| `SONAR_LOOP_TIMEOUT_MS` | `900000` (15 min fixer) |
+| `SONAR_REVIEW_TIMEOUT_MS` | `300000` (5 min reviewer) |
+| `SONAR_LOOP_REVIEWER` | `1` — set `0` to skip LLM reviewer stage |
+| `SONAR_LOOP_MAX_CHANGED_FILES` | `15` |
+| `SONAR_LOOP_MAX_TOTAL_DIFF_LINES` | `800` |
 | `OPENCODE_CONFIG` | `scripts/sonar/opencode.ci.json` |
 
 ### Agente Jenkins (Linux)
@@ -86,16 +90,22 @@ pnpm run sonar:run-agent -- --dry-run
 
 **Salvaguarda anti-truncado:** antes del commit, `verify-loop-diff.sh` bloquea diffs que borren >200 líneas en archivos guardados (p. ej. `globals.css`, `mcp-client.cjs`).
 
-**Cuándo corre el agente:** stage *Agent fix* solo si `source-tree-clean.sh` (sin diff en código fuente). El `chmod` del preflight u otros artefactos Jenkins **no** deben saltarse el agente. Si el fix mecánico (`void`) ya modificó archivos, el agente se omite a propósito y Verify & PR usa esos cambios.
+**Cuándo corre el agente fixer:** stage *Agent fix* solo si `source-tree-clean.sh` (sin diff en código fuente). Si el fix mecánico void falla fast gates, se **revierte** (`git checkout -- .`) y el fixer corre sobre el batch.
 
-## Flujo del pipeline
+**Cuándo corre el fix mecánico void:** solo si el batch contiene regla **S7735** / `no-void` — **no** por la palabra `void` en el JSON.
 
-1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`) — mantiene **máx. 50 issues abiertas** con `sonarKey`; no crea más hasta que se cierren
+## Flujo del pipeline (tiers)
+
+1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`) — cap 50 issues abiertas
 2. Pick batch → `.quality-loop/batch.json`
-3. Fix mecánico (`void` operator) si aplica
-4. **Agent fix (OpenCode)** — `pnpm run sonar:run-agent` (MiniMax M3 vía OpenCode CLI)
-5. `verify-batch-pr.sh` + `verify-loop-diff.sh` → branch + PR (**auto-merge squash** cuando pase CI)
-6. Close resolved en Sonar
+3. **Validate batch** — `pnpm run sonar:validate-batch`
+4. Fix mecánico void (**S7735 only**) → fast gates; revert si fallan
+5. **Agent fix (OpenCode `sonar-fix`)** — si árbol limpio
+6. **Fast gates (parallel)** — typecheck, lint, scope, diff safety → `.quality-loop/fast-gates.json`
+7. **Full verify** — `verify-batch-pr.sh` (mirror GitHub CI)
+8. **Agent review (OpenCode `sonar-reviewer`)** — read-only; `APPROVE` required (disable with `SONAR_LOOP_REVIEWER=0`)
+9. Verify & PR — commit + push + PR (**auto-merge squash** cuando pase GitHub CI)
+10. Close resolved en Sonar (fail-soft)
 
 ### Auto-merge de PRs
 
@@ -131,7 +141,10 @@ Artefacto del run: `.quality-loop/agent-run.json`.
 pnpm run sonar:fetch-issues
 pnpm run sonar:sync-github
 pnpm run sonar:pick-batch
+pnpm run sonar:validate-batch
+pnpm run sonar:fast-gates
 pnpm run sonar:run-agent
+pnpm run sonar:run-reviewer
 pnpm run sonar:close-resolved
 ```
 

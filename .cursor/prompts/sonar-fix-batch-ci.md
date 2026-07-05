@@ -40,6 +40,11 @@ Line numbers in IPC handlers change → `ipc-channels.md` must stay in sync. The
 - Do not load large generated/vendor files.
 - **Never replace an entire file** with a snippet — patch in place at the reported line only.
 - `app/globals.css` and large `electron/**/*.cjs` files: surgical edits only; deleting thousands of lines is a failure.
+- **Void operator (S7735):** remove `void` only as an expression operator (`() => void save()`). Never strip `void` from TypeScript types (`() => void`, `Promise<void>`).
+
+## Scope manifest
+
+The user message includes `ALLOWED_FILES` and per-issue `ACTION` / `DONE_WHEN`. **Only edit ALLOWED_FILES.** If IPC changes require it, regenerate `docs/architecture/ipc-channels.md` via verify script only.
 
 ## Priority
 
