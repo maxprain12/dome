@@ -10,6 +10,8 @@ export interface PaletteRow {
   type?: string;
   icon: ReactNode;
   run: () => void;
+  /** Backing resource id (resource/interaction rows) for the preview pane. */
+  resourceId?: string;
 }
 
 export interface SearchResourceRow {

@@ -5707,3 +5707,86 @@ input[type='range'].dome-media-seekbar::-webkit-slider-thumb {
 input[type='range'].dome-media-seekbar::-webkit-slider-thumb:hover {
   transform: scale(1.2);
 }
+
+/* Command palette preview pane: highlight marks + scaled-down Markdown
+   typography so the selected result's content is verifiable at a glance. */
+.dome-cmdk-preview mark {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--dome-text);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+.dome-cmdk-md {
+  font-size: 11px;
+  line-height: 1.55;
+  color: var(--dome-text-secondary);
+  text-align: left;
+}
+
+.dome-cmdk-md h1,
+.dome-cmdk-md h2,
+.dome-cmdk-md h3,
+.dome-cmdk-md h4 {
+  margin: 0 0 4px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--dome-text);
+}
+
+.dome-cmdk-md h1 { font-size: 14px; }
+.dome-cmdk-md h2 { font-size: 13px; }
+.dome-cmdk-md h3,
+.dome-cmdk-md h4 { font-size: 12px; }
+
+.dome-cmdk-md p { margin: 0 0 6px; }
+
+.dome-cmdk-md ul,
+.dome-cmdk-md ol {
+  margin: 0 0 6px;
+  padding-left: 16px;
+}
+
+.dome-cmdk-md li { margin: 0 0 2px; }
+
+.dome-cmdk-md strong { color: var(--dome-text); }
+
+.dome-cmdk-md code {
+  font-size: 10px;
+  padding: 0 3px;
+  border-radius: 3px;
+  background: var(--dome-bg-tertiary);
+}
+
+.dome-cmdk-md pre {
+  margin: 0 0 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  overflow-x: auto;
+  background: var(--dome-bg-tertiary);
+}
+
+.dome-cmdk-md blockquote {
+  margin: 0 0 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--dome-border);
+  color: var(--dome-text-muted);
+}
+
+.dome-cmdk-md table {
+  margin: 0 0 6px;
+  font-size: 10px;
+  border-collapse: collapse;
+}
+
+.dome-cmdk-md th,
+.dome-cmdk-md td {
+  padding: 1px 5px;
+  border: 1px solid var(--dome-border);
+}
+
+.dome-cmdk-md hr {
+  margin: 6px 0;
+  border: none;
+  border-top: 1px solid var(--dome-border);
+}

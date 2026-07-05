@@ -14,6 +14,7 @@ import { buildNavigationDestinations, buildQuickActions } from './commandPalette
 import { matchesQuery, modKeyLabel, type PaletteRow } from './commandPaletteTypes';
 import { useCommandPaletteSearch } from './useCommandPaletteSearch';
 import { CommandPaletteResultsList } from './CommandPaletteResultsList';
+import CommandPaletteResourcePreview from './CommandPaletteResourcePreview';
 
 export default function CommandPalette() {
   const { t } = useTranslation();
@@ -216,6 +217,7 @@ export default function CommandPalette() {
         kind: 'resource',
         label: r.title,
         type: r.type,
+        resourceId: r.id,
         sublabel: r.updated_at ? formatDistanceToNow(r.updated_at * 1000) : undefined,
         icon: (
           <DomeResourceIcon type={r.type} name={r.title} size={16} className="size-4 shrink-0" strokeWidth={1.5} />
@@ -230,6 +232,7 @@ export default function CommandPalette() {
         kind: 'interaction',
         label: r.title,
         type: r.type,
+        resourceId: r.id,
         sublabel: t('command.notes_annotations'),
         icon: (
           <DomeResourceIcon type={r.type} name={r.title} size={16} className="size-4 shrink-0" strokeWidth={1.5} />
@@ -261,6 +264,14 @@ export default function CommandPalette() {
   const hasResults = flatRows.length > 0;
   const showNoResults = Boolean(trimmedQuery) && !isSearching && !hasResults;
 
+  // Preview pane: stable while arrowing (falls back to the first result when
+  // a nav row is selected) so the dialog width doesn't flicker.
+  const selectedRow = selectedIndex !== undefined ? flatRows[selectedIndex] : undefined;
+  const hasResourceResults = Boolean(trimmedQuery) && (resources.length > 0 || interactions.length > 0);
+  const previewResourceId = hasResourceResults
+    ? (selectedRow?.resourceId ?? resources[0]?.id ?? interactions[0]?.id ?? null)
+    : null;
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-start justify-center px-4 pt-[12vh]"
@@ -274,7 +285,10 @@ export default function CommandPalette() {
       <dialog
         ref={panelRef}
         open
-        className="w-full max-w-xl overflow-hidden rounded-2xl border shadow-2xl m-0 max-h-none p-0"
+        // `static` neutralizes the <dialog> UA stylesheet (position: absolute
+        // + inset: 0) which would pin the panel to the overlay's left edge
+        // instead of letting flexbox center it.
+        className={`static w-full ${previewResourceId ? 'max-w-3xl' : 'max-w-xl'} overflow-hidden rounded-2xl border shadow-2xl m-0 max-h-none p-0 transition-[max-width] duration-150`}
         style={{
           background: 'var(--dome-bg)',
           borderColor: 'var(--dome-border)',
@@ -294,7 +308,7 @@ export default function CommandPalette() {
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('command.palette_placeholder')}
             aria-label={t('command.palette_placeholder')}
-            className="flex-1 bg-transparent text-sm outline-none"
+            className="flex-1 border-0 bg-transparent text-sm shadow-none outline-none focus-visible:border-0 focus-visible:shadow-none"
             style={{ color: 'var(--dome-text)' }}
             autoComplete="off"
             spellCheck={false}
@@ -323,20 +337,32 @@ export default function CommandPalette() {
           </kbd>
         </div>
 
-        <CommandPaletteResultsList
-          showEmptyQuery={showEmptyQuery}
-          showNoResults={showNoResults}
-          trimmedQuery={trimmedQuery}
-          quickActions={quickActions}
-          navigationDestinations={navigationDestinations}
-          filteredNav={filteredNav}
-          resources={resources}
-          interactions={interactions}
-          flatRows={flatRows}
-          selectedIndex={selectedIndex}
-          setSelectedIndex={setSelectedIndex}
-          listRef={listRef}
-        />
+        <div className="flex min-h-0">
+          <div className="min-w-0 flex-1">
+            <CommandPaletteResultsList
+              showEmptyQuery={showEmptyQuery}
+              showNoResults={showNoResults}
+              trimmedQuery={trimmedQuery}
+              quickActions={quickActions}
+              navigationDestinations={navigationDestinations}
+              filteredNav={filteredNav}
+              resources={resources}
+              interactions={interactions}
+              flatRows={flatRows}
+              selectedIndex={selectedIndex}
+              setSelectedIndex={setSelectedIndex}
+              listRef={listRef}
+            />
+          </div>
+          {previewResourceId ? (
+            <div
+              className="hidden w-[290px] shrink-0 overflow-hidden border-l sm:block"
+              style={{ borderColor: 'var(--dome-border)', background: 'var(--dome-surface)' }}
+            >
+              <CommandPaletteResourcePreview resourceId={previewResourceId} query={trimmedQuery} />
+            </div>
+          ) : null}
+        </div>
 
         <div
           className="flex items-center justify-between border-t px-4 py-2 text-[11px]"
