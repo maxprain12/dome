@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ArtifactRecord, Resource } from '@/types';
+import { loadNoteMarkdown } from '@/lib/notes/loadNoteMarkdown';
 
 /**
  * Lazy, cached visual previews for `ResourceCard`:
@@ -152,10 +153,22 @@ async function fetchResourceDetail(resourceId: string): Promise<ResourceDetailPr
       }
       if (snippet && snippet.length > SNIPPET_MAX) snippet = `${snippet.slice(0, SNIPPET_MAX - 1)}…`;
 
+      // Notes keep their Markdown in the vault `.md` mirror (DB `content` is
+      // empty) — load it through the same path the editor uses so the card
+      // preview matches what the editor renders.
+      let markdown: string | null = null;
+      if (r.type === 'note') {
+        try {
+          const md = await loadNoteMarkdown(r as unknown as Resource);
+          markdown = md?.trim() ? md.trim().slice(0, MARKDOWN_MAX) : null;
+        } catch { /* fall back to content-based detection */ }
+      }
+      if (!markdown) markdown = extractMarkdownSource(r.content);
+
       const detail: ResourceDetailPreview = {
         imageUrl,
         snippet: snippet || null,
-        markdown: extractMarkdownSource(r.content),
+        markdown,
       };
       setBounded(detailCache, resourceId, detail);
       return detail;
