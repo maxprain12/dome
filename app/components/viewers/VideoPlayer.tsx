@@ -13,6 +13,10 @@ import SeekBar from './shared/SeekBar';
 import AnnotationInput from './shared/AnnotationInput';
 import StructuredTranscriptWorkspace from './shared/StructuredTranscriptWorkspace';
 import { useMediaPlaybackStore } from '@/lib/store/useMediaPlaybackStore';
+import {
+  parseResourceMetadata,
+  getTranscriptionSegmentsForDisplay,
+} from '@/lib/utils/resource-metadata';
 
 interface VideoPlayerProps {
   resource: Resource;
@@ -312,6 +316,12 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
 
   const mainLoading = isLoading || sourceLoading;
 
+  // With no transcript the video takes the full height; once a transcript
+  // exists the player shrinks to a fixed band and the transcript gets the rest.
+  const meta = parseResourceMetadata(resource);
+  const hasTranscript =
+    getTranscriptionSegmentsForDisplay(meta).length > 0 || Boolean(meta.transcription?.trim());
+
   return (
     <div
       ref={containerRef}
@@ -319,8 +329,12 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
       style={{ background: 'var(--dome-bg)' }}
     >
       {!miniPlayerCollapsed && (
-        <div className="relative flex min-h-[180px] max-h-[42vh] shrink-0 flex-col bg-black">
-          <div className="relative flex min-h-[140px] flex-1 items-center justify-center">
+        <div
+          className={`relative flex min-h-[180px] flex-col bg-black ${
+            hasTranscript ? 'max-h-[45vh] shrink-0' : 'min-h-0 flex-1'
+          }`}
+        >
+          <div className="relative flex min-h-[140px] min-w-0 flex-1 items-center justify-center overflow-hidden">
             {mainLoading && !videoUrl ? (
               <div className="absolute inset-0 flex items-center justify-center">
                 <LoadingState message={t('media.loading_video')} />
@@ -333,7 +347,9 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
                 ref={videoRef}
                 src={videoUrl}
                 preload="metadata"
-                className="max-h-[38vh] max-w-full object-contain"
+                className={
+                  hasTranscript ? 'max-h-[40vh] max-w-full object-contain' : 'h-full w-full object-contain'
+                }
                 aria-label={t('media.video_player', 'Video player')}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
@@ -427,7 +443,7 @@ function VideoPlayerComponent({ resource }: VideoPlayerProps) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className={hasTranscript || miniPlayerCollapsed ? 'min-h-0 flex-1 overflow-hidden' : 'shrink-0 overflow-hidden'}>
         <StructuredTranscriptWorkspace
           resource={resource}
           mediaLabel="video"

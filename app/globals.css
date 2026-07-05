@@ -5689,3 +5689,21 @@ a:hover {
 .ppt-thumb-scroll::-webkit-scrollbar {
   display: none;
 }
+
+/* Media seek bar (audio/video viewers): custom thumb so it matches the
+   accent palette instead of Chromium's native blue dot. */
+input[type='range'].dome-media-seekbar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 9999px;
+  background: var(--accent);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+input[type='range'].dome-media-seekbar::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}

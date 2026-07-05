@@ -106,5 +106,6 @@
   "transcript_copy_empty": "Aucun texte à copier",
   "transcript_copy_failed": "Copie impossible",
   "transcript_open_settings": "Paramètres STT",
-  "transcript_editorial_hint": "La recherche surligne les correspondances. Renommez les locuteurs ci-dessus pour vos notes."
+  "transcript_editorial_hint": "La recherche surligne les correspondances. Renommez les locuteurs ci-dessus pour vos notes.",
+  "image_viewer_hints": "+ / − : zoom · R : pivoter · 0 : réinitialiser · glisser pour déplacer · Ctrl + molette : zoom"
 }

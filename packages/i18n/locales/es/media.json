@@ -106,5 +106,6 @@
   "transcript_copy_empty": "No hay texto para copiar",
   "transcript_copy_failed": "No se pudo copiar",
   "transcript_open_settings": "Ajustes de STT",
-  "transcript_editorial_hint": "La búsqueda resalta coincidencias. Renombra hablantes arriba para tus notas."
+  "transcript_editorial_hint": "La búsqueda resalta coincidencias. Renombra hablantes arriba para tus notas.",
+  "image_viewer_hints": "+ / −: zoom · R: rotar · 0: restablecer · arrastra para mover · Ctrl + rueda: zoom"
 }
