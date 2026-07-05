@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Create a PR for a mechanical Sonar batch (used by Jenkins quality loop).
+ * Create a PR for a Sonar quality-loop batch (used by Jenkins).
  *
  * Usage:
  *   GITHUB_TOKEN=... node scripts/sonar/create-batch-pr.mjs --batch=.quality-loop/batch.json [--branch=fix/sonar-batch-...]
@@ -26,16 +26,45 @@ const closes = (batch.batch || [])
   .filter(Boolean)
   .map((n) => `Closes #${n}`);
 
+/** @param {string} rel */
+function readJsonIfExists(rel) {
+  const p = path.join(root, rel);
+  if (!fs.existsSync(p)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+const fastGates = readJsonIfExists('.quality-loop/fast-gates.json');
+const review = readJsonIfExists('.quality-loop/review-verdict.json');
+
+const gateRows = fastGates
+  ? `| Fast gates | ${fastGates.overall || 'unknown'} |`
+  : '| Fast gates | (not run) |';
+
+const reviewRow = review
+  ? `| LLM reviewer | ${review.verdict || 'unknown'} |`
+  : '| LLM reviewer | (skipped) |';
+
 const body = `## Sonar quality loop (Jenkins)
 
-Automated mechanical fix from \`.quality-loop/batch.json\`.
+Automated fix from \`.quality-loop/batch.json\`.
 
 ${closes.length ? closes.join('\n') : '_No linked GitHub issue numbers in batch._'}
 
-## Checks
-- [x] typecheck
-- [x] lint
-- [x] test:coverage
+## Local gates (Jenkins)
+
+| Gate | Result |
+|------|--------|
+${gateRows}
+${reviewRow}
+| Full verify | pass |
+| GitHub CI | pending |
+
+## Checks (GitHub CI)
+- typecheck, lint, test:coverage, build, depcruise
 `;
 
 const bodyFile = path.join(root, '.quality-loop', 'pr-body.md');

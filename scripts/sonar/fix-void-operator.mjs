@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Mechanical fix: remove unnecessary `void` operator in arrow callbacks.
- * Reads .quality-loop/batch.json or --files list.
+ * Only touches files with S7735 (void operator) issues in the batch.
  *
  * Usage:
  *   node scripts/sonar/fix-void-operator.mjs --batch=.quality-loop/batch.json
@@ -11,10 +11,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from './lib.mjs';
+import { componentToRelativePath, isVoidOperatorRule, parseArgs } from './lib.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const args = parseArgs(process.argv.slice(2));
+
+/** void followed by an expression — not a TS return type `=> void` */
+const VOID_EXPR = '(?=[a-zA-Z_$([])';
 
 /** @returns {string[]} */
 function targetFiles() {
@@ -29,8 +32,8 @@ function targetFiles() {
   const batch = JSON.parse(fs.readFileSync(batchPath, 'utf8'));
   const files = new Set();
   for (const issue of batch.batch || []) {
-    const component = String(issue.component || '');
-    const file = component.includes(':') ? component.split(':').slice(1).join(':') : component;
+    if (!isVoidOperatorRule(issue.rule)) continue;
+    const file = componentToRelativePath(issue.component);
     if (file) files.add(path.resolve(root, file));
   }
   return [...files];
@@ -40,15 +43,22 @@ function targetFiles() {
 function stripVoidOperator(content) {
   // () => void fn(...)  →  () => fn(...)
   // () => { void fn(...); }  →  () => { fn(...); }
+  // Does NOT match `=> void` type annotations (no expression after void).
   return content
-    .replace(/\(\)\s*=>\s*void\s+/g, '() => ')
-    .replace(/(\([^)]*\))\s*=>\s*void\s+/g, '$1 => ')
-    .replace(/\{\s*void\s+/g, '{ ')
-    .replace(/;\s*void\s+/g, '; ');
+    .replace(new RegExp(`\\(\\)\\s*=>\\s*void\\s+${VOID_EXPR}`, 'g'), '() => ')
+    .replace(new RegExp(`(\\([^)]*\\))\\s*=>\\s*void\\s+${VOID_EXPR}`, 'g'), '$1 => ')
+    .replace(new RegExp(`\\{\\s*void\\s+${VOID_EXPR}`, 'g'), '{ ')
+    .replace(new RegExp(`;\\s*void\\s+${VOID_EXPR}`, 'g'), '; ');
 }
 
 let changed = 0;
-for (const file of targetFiles()) {
+const files = targetFiles();
+if (files.length === 0) {
+  console.log('No S7735 files in batch — nothing to fix');
+  process.exit(0);
+}
+
+for (const file of files) {
   if (!fs.existsSync(file)) {
     console.warn(`Skip missing file: ${file}`);
     continue;
@@ -63,4 +73,4 @@ for (const file of targetFiles()) {
 }
 
 console.log(`Done: ${changed} file(s) updated`);
-process.exit(changed > 0 ? 0 : 0);
+process.exit(0);

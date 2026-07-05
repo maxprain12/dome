@@ -225,6 +225,29 @@ export function sonarImpactLabel(impact) {
   return `sonar-${impact.toLowerCase()}`;
 }
 
+/** @param {string} component Sonar component key (project:relative/path) */
+export function componentToRelativePath(component) {
+  const raw = String(component || '');
+  return raw.includes(':') ? raw.split(':').slice(1).join(':') : raw;
+}
+
+/** @param {string} rule Sonar rule id */
+export function isVoidOperatorRule(rule) {
+  const r = String(rule || '');
+  return r.endsWith(':S7735') || r.includes('no-void');
+}
+
+/** @param {{ batch?: Array<{ component?: string }> }} batchPayload */
+export function batchAllowedFiles(batchPayload) {
+  /** @type {Set<string>} */
+  const files = new Set();
+  for (const issue of batchPayload.batch || []) {
+    const file = componentToRelativePath(issue.component);
+    if (file) files.add(file);
+  }
+  return files;
+}
+
 export const SONAR_KEY_RE = /(?:sonarKey|\*\*Key\*\*):\s*([A-Za-z0-9-]+)/;
 
 /** @param {string} body */

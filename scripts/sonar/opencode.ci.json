@@ -28,6 +28,35 @@
         "todowrite": "deny",
         "skill": "deny"
       }
+    },
+    "sonar-reviewer": {
+      "mode": "primary",
+      "description": "Sonar quality loop — read-only diff reviewer before PR",
+      "model": "minimax/MiniMax-M3",
+      "prompt": "{file:../../.cursor/prompts/sonar-review-batch-ci.md}",
+      "steps": 20,
+      "permission": {
+        "read": "allow",
+        "edit": "deny",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "bash": {
+          "*": "deny",
+          "git diff": "allow",
+          "git diff *": "allow",
+          "git diff --stat": "allow",
+          "git diff --stat *": "allow",
+          "git diff --name-only": "allow",
+          "git diff --name-only *": "allow",
+          "pnpm run typecheck": "allow"
+        },
+        "webfetch": "deny",
+        "websearch": "deny",
+        "task": "deny",
+        "todowrite": "deny",
+        "skill": "deny"
+      }
     }
   },
   "provider": {
