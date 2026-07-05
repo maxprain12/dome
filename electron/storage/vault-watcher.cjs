@@ -558,32 +558,42 @@ function scanImportUnknownFile(abs, deps) {
 }
 
 function dispatchScanImport(abs, buf, ext, ctx, deps) {
-  if (ext === '.md') {
-    const raw = buf.toString('utf8');
-    const fid = vaultStore.parseFrontmatterId(raw);
-    if (fid && deps.database.getDB().prepare('SELECT id FROM resources WHERE id=?').get(fid)) return;
-    try { importExternalNote(raw, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan note import failed:', err.message); }
+  const handlers = {
+    '.md': { run: () => importScanNote(buf, ctx, deps), label: 'note' },
+    '.html': { run: () => importScanHtmlArtifact(buf, ctx, deps), label: 'artifact' },
+    '.url': { run: () => importScanUrl(abs, buf, ext, ctx, deps), label: 'url' },
+    '.dnb': { run: () => importScanNotebook(abs, buf, ext, ctx, deps), label: 'notebook' },
+  };
+  const cfg = handlers[ext];
+  if (cfg) {
+    try { cfg.run(); }
+    catch (err) { console.warn(`[VaultWatcher] scan ${cfg.label} import failed:`, err.message); }
     return;
   }
-  if (ext === '.html' && vaultStore.isDomeArtifactHtml(buf.toString('utf8'))) {
-    try { importExternalArtifact(buf.toString('utf8'), ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan artifact import failed:', err.message); }
-    return;
-  }
-  if (ext === '.url') {
-    const raw = buf.toString('utf8');
-    try {
-      if (!importExternalUrlFile(raw, ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
-    } catch (err) { console.warn('[VaultWatcher] scan url import failed:', err.message); }
-    return;
-  }
-  if (ext === '.dnb') {
-    const raw = buf.toString('utf8');
-    try {
-      if (!importExternalNotebook(raw, ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
-    } catch (err) { console.warn('[VaultWatcher] scan notebook import failed:', err.message); }
-    return;
-  }
-  try { importExternalBinary(abs, buf, ext, ctx, deps); } catch (err) { console.warn('[VaultWatcher] scan file import failed:', err.message); }
+  try { importExternalBinary(abs, buf, ext, ctx, deps); }
+  catch (err) { console.warn('[VaultWatcher] scan file import failed:', err.message); }
+}
+
+function importScanNote(buf, ctx, deps) {
+  const raw = buf.toString('utf8');
+  const fid = vaultStore.parseFrontmatterId(raw);
+  if (fid && deps.database.getDB().prepare('SELECT id FROM resources WHERE id=?').get(fid)) return;
+  importExternalNote(raw, ctx, deps);
+}
+
+function importScanHtmlArtifact(buf, ctx, deps) {
+  if (!vaultStore.isDomeArtifactHtml(buf.toString('utf8'))) return;
+  importExternalArtifact(buf.toString('utf8'), ctx, deps);
+}
+
+function importScanUrl(abs, buf, ext, ctx, deps) {
+  const raw = buf.toString('utf8');
+  if (!importExternalUrlFile(raw, ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
+}
+
+function importScanNotebook(abs, buf, ext, ctx, deps) {
+  const raw = buf.toString('utf8');
+  if (!importExternalNotebook(raw, ctx, deps)) importExternalBinary(abs, buf, ext, ctx, deps);
 }
 
 function watchTargets(deps) {
