@@ -42,6 +42,8 @@ interface ResourceDetailPreview {
   imageUrl: string | null;
   /** Short plain-text snippet of the resource content, when available. */
   snippet: string | null;
+  /** Raw Markdown source (vault notes), for rendered card previews. */
+  markdown: string | null;
 }
 
 /** Types that get a content/text snippet preview. */
@@ -75,6 +77,21 @@ function stripToPlainText(input: string): string {
     }
   }
   return trimmed.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+const MARKDOWN_MAX = 1500;
+
+/**
+ * Vault notes store raw Markdown in `content`; older notes may hold Tiptap
+ * JSON and imported pages may hold HTML — only pass through actual Markdown
+ * so cards can render it formatted.
+ */
+function extractMarkdownSource(content: unknown): string | null {
+  if (typeof content !== 'string') return null;
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<')) return null;
+  return trimmed.slice(0, MARKDOWN_MAX);
 }
 
 function parseMeta(metadata: unknown): Record<string, unknown> {
@@ -135,7 +152,11 @@ async function fetchResourceDetail(resourceId: string): Promise<ResourceDetailPr
       }
       if (snippet && snippet.length > SNIPPET_MAX) snippet = `${snippet.slice(0, SNIPPET_MAX - 1)}…`;
 
-      const detail: ResourceDetailPreview = { imageUrl, snippet: snippet || null };
+      const detail: ResourceDetailPreview = {
+        imageUrl,
+        snippet: snippet || null,
+        markdown: extractMarkdownSource(r.content),
+      };
       setBounded(detailCache, resourceId, detail);
       return detail;
     } catch {
@@ -308,6 +329,8 @@ export interface ResourceVisualPreview {
   imageUrl: string | null;
   /** Plain-text content snippet (text kinds, also a fallback for url). */
   snippet: string | null;
+  /** Raw Markdown source for rendered note previews (text kinds). */
+  markdown: string | null;
   /** True if the fetch failed (caller should fall back to the generic icon). */
   failed: boolean;
 }
@@ -319,6 +342,7 @@ const EMPTY_PREVIEW: ResourceVisualPreview = {
   artifact: null,
   imageUrl: null,
   snippet: null,
+  markdown: null,
   failed: false,
 };
 
@@ -354,6 +378,7 @@ function initialPreview(resource: Resource | null | undefined): ResourceVisualPr
       kind: detailKind,
       imageUrl: detail?.imageUrl ?? null,
       snippet: detail?.snippet ?? null,
+      markdown: detail?.markdown ?? null,
     };
   }
   return EMPTY_PREVIEW;
@@ -384,7 +409,7 @@ export function useResourceVisualPreview(
   ref: (node: Element | null) => void;
 } {
   const [preview, setPreview] = useState<ResourceVisualPreview>(() => initialPreview(resource));
-  const [el, setEl] = useState<Element | null>(null);
+  const [, setEl] = useState<Element | null>(null);
   const [visible, setVisible] = useState(false);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
@@ -456,6 +481,7 @@ export function useResourceVisualPreview(
           kind,
           imageUrl: detail?.imageUrl ?? null,
           snippet: detail?.snippet ?? null,
+          markdown: detail?.markdown ?? null,
           failed: detail == null || (!detail.imageUrl && !detail.snippet),
         });
       }

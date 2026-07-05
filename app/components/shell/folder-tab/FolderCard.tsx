@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { formatDistanceToNow } from 'date-fns';
 import { Check, FileText, Folder, MoreVertical, Play, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/lib/hooks/useResources';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
 import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
@@ -106,6 +108,36 @@ function pickSnippet(item: Resource): string {
     if (text) return text.slice(0, SNIPPET_MAX);
   }
   return '';
+}
+
+const MARKDOWN_PREVIEW_MAX = 1500;
+
+/** Raw Markdown from the eager list payload (vault notes store Markdown in
+ *  `content`); Tiptap JSON / HTML fall back to the plain-text snippet. */
+function pickMarkdown(item: Resource): string | null {
+  const content = item.content;
+  if (typeof content !== 'string') return null;
+  const trimmed = content.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('<')) return null;
+  return trimmed.slice(0, MARKDOWN_PREVIEW_MAX);
+}
+
+/** Non-interactive rendered Markdown for the card cover (links/images inert). */
+function NoteMarkdownThumb({ markdown }: { markdown: string }) {
+  return (
+    <div className="dome-fs-card__md-thumb" aria-hidden>
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          a: ({ children }) => <span>{children}</span>,
+          img: () => null,
+        }}
+      >
+        {markdown}
+      </ReactMarkdown>
+    </div>
+  );
 }
 
 function pickThumbnail(item: Resource): string | null {
@@ -239,6 +271,11 @@ function FolderCardImpl({
   // When there is no cover image and no artifact thumbnail, a text excerpt
   // becomes the cover preview; avoid duplicating it in the body in that case.
   const coverShowsSnippet = !isFolder && !coverImage && !artifactTemplate && !!snippet;
+  // Rendered-Markdown cover for notes (falls back to plain text while
+  // searching so match highlighting keeps working).
+  const noteMarkdown = coverShowsSnippet && !searchQuery
+    ? (pickMarkdown(item) ?? visual.markdown)
+    : null;
 
   const displayTitle = item.title || t('folder.untitled');
   const isFolderCard = isFolder;
@@ -347,6 +384,8 @@ function FolderCardImpl({
             draggable={false}
             loading="lazy"
           />
+        ) : noteMarkdown ? (
+          <NoteMarkdownThumb markdown={noteMarkdown} />
         ) : coverShowsSnippet ? (
           <p className="dome-fs-card__cover-snippet">
             {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
