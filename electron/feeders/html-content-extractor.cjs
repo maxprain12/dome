@@ -160,6 +160,34 @@ function filterBoilerplate(content) {
   return normalizeWhitespace(filtered.join('\n\n'));
 }
 
+function extractAuthorFromItem(item) {
+  if (typeof item.author === 'string') return item.author;
+  if (item.author && typeof item.author.name === 'string') return item.author.name;
+  return undefined;
+}
+
+function extractImageFromItem(item) {
+  if (typeof item.image === 'string') return item.image;
+  if (Array.isArray(item.image) && typeof item.image[0] === 'string') return item.image[0];
+  return undefined;
+}
+
+function processJsonLdItem(item, result) {
+  if (!item || typeof item !== 'object') return;
+  const type = item['@type'];
+  const isArticle = type === 'Article' || type === 'NewsArticle' || type === 'BlogPosting' || item.datePublished;
+  if (!isArticle) return;
+
+  if (!result.author) result.author = extractAuthorFromItem(item);
+  if (!result.publishedDate && typeof item.datePublished === 'string') {
+    result.publishedDate = item.datePublished;
+  }
+  if (!result.modifiedDate && typeof item.dateModified === 'string') {
+    result.modifiedDate = item.dateModified;
+  }
+  if (!result.image) result.image = extractImageFromItem(item);
+}
+
 function parseJsonLd(document) {
   const result = {
     author: undefined,
@@ -174,31 +202,7 @@ function parseJsonLd(document) {
       const raw = JSON.parse(script.textContent || 'null');
       const items = Array.isArray(raw) ? raw : [raw];
       for (const item of items) {
-        if (!item || typeof item !== 'object') continue;
-        const type = item['@type'];
-        const isArticle = type === 'Article' || type === 'NewsArticle' || type === 'BlogPosting' || item.datePublished;
-        if (!isArticle) continue;
-
-        if (!result.author) {
-          if (typeof item.author === 'string') {
-            result.author = item.author;
-          } else if (item.author && typeof item.author.name === 'string') {
-            result.author = item.author.name;
-          }
-        }
-        if (!result.publishedDate && typeof item.datePublished === 'string') {
-          result.publishedDate = item.datePublished;
-        }
-        if (!result.modifiedDate && typeof item.dateModified === 'string') {
-          result.modifiedDate = item.dateModified;
-        }
-        if (!result.image) {
-          if (typeof item.image === 'string') {
-            result.image = item.image;
-          } else if (Array.isArray(item.image) && typeof item.image[0] === 'string') {
-            result.image = item.image[0];
-          }
-        }
+        processJsonLdItem(item, result);
       }
     } catch {
       // Ignore malformed JSON-LD blocks.

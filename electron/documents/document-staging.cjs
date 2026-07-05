@@ -53,6 +53,42 @@ function stageBuffer(buffer, filename) {
   return { stagingId, stagingPath, hash, size: buffer.length };
 }
 
+async function validateExcelStaging(stagingPath) {
+  const { ExcelJS } = require('../tools/exceljs-helpers.cjs');
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.readFile(stagingPath);
+  if (wb.worksheets.length === 0) {
+    return { ok: false, error: 'Excel file has no worksheets' };
+  }
+  return { ok: true };
+}
+
+async function validateDocumentStaging(stagingPath) {
+  // DOCX is a ZIP-based OOXML archive; verify it loads and contains word/ entries.
+  const JSZip = require('jszip');
+  const buf = fs.readFileSync(stagingPath);
+  const zip = await JSZip.loadAsync(buf);
+  const files = Object.keys(zip.files);
+  const hasRoot = files.some((f) => f === 'word/document.xml' || f.startsWith('word/'));
+  if (!hasRoot) return { ok: false, error: 'DOCX file is missing word/ entries' };
+  return { ok: true };
+}
+
+async function validatePptStaging(stagingPath) {
+  // PPTX is a ZIP-based OOXML archive; verify it loads and contains ppt/ entries
+  // plus at least one slide.
+  const JSZip = require('jszip');
+  const buf = fs.readFileSync(stagingPath);
+  const zip = await JSZip.loadAsync(buf);
+  const files = Object.keys(zip.files);
+  const hasRoot = files.some((f) => f === 'ppt/presentation.xml' || f.startsWith('ppt/'));
+  if (!hasRoot) return { ok: false, error: 'PPTX file is missing ppt/ entries' };
+  const { validatePptxBuffer } = require('./pptx-validate.cjs');
+  const pptCheck = await validatePptxBuffer(buf, { minSlides: 1 });
+  if (!pptCheck.ok) return { ok: false, error: pptCheck.error };
+  return { ok: true };
+}
+
 /**
  * Validate a staged file without touching the canonical store.
  * @param {string} stagingId
@@ -64,38 +100,9 @@ async function validateStaging(stagingId, type) {
   if (!stagingPath) return { ok: false, error: 'Staging file not found' };
 
   try {
-    if (type === 'excel') {
-      const { ExcelJS } = require('../tools/exceljs-helpers.cjs');
-      const wb = new ExcelJS.Workbook();
-      await wb.xlsx.readFile(stagingPath);
-      if (wb.worksheets.length === 0) {
-        return { ok: false, error: 'Excel file has no worksheets' };
-      }
-      return { ok: true };
-    }
-
-    if (type === 'document' || type === 'ppt') {
-      // Both DOCX and PPTX are ZIP-based OOXML. Verify the archive is intact
-      // and contains the expected root entry.
-      const JSZip = require('jszip');
-      const buf = fs.readFileSync(stagingPath);
-      const zip = await JSZip.loadAsync(buf);
-      const files = Object.keys(zip.files);
-
-      if (type === 'document') {
-        const hasRoot = files.some((f) => f === 'word/document.xml' || f.startsWith('word/'));
-        if (!hasRoot) return { ok: false, error: 'DOCX file is missing word/ entries' };
-      }
-      if (type === 'ppt') {
-        const hasRoot = files.some((f) => f === 'ppt/presentation.xml' || f.startsWith('ppt/'));
-        if (!hasRoot) return { ok: false, error: 'PPTX file is missing ppt/ entries' };
-        const { validatePptxBuffer } = require('./pptx-validate.cjs');
-        const pptCheck = await validatePptxBuffer(buf, { minSlides: 1 });
-        if (!pptCheck.ok) return { ok: false, error: pptCheck.error };
-      }
-      return { ok: true };
-    }
-
+    if (type === 'excel') return validateExcelStaging(stagingPath);
+    if (type === 'document') return validateDocumentStaging(stagingPath);
+    if (type === 'ppt') return validatePptStaging(stagingPath);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err?.message || 'Validation failed' };

@@ -302,6 +302,8 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     ? milestones.find((m) => m.number === initial.milestone_number)
     : null;
   const initialAssignees = parseAssignees(initial.assignees);
+  const handleRemoveAssignee = (login: string) => () =>
+    setAssignees((prev) => prev.filter((a) => a !== login));
 
   const save = async () => {
     setSaving(true);
@@ -499,7 +501,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
                     key={login}
                     login={login}
                     avatarUrl={u?.avatar_url ?? null}
-                    onRemove={() => setAssignees((prev) => prev.filter((a) => a !== login))}
+                    onRemove={handleRemoveAssignee(login)}
                   />
                 );
               })}

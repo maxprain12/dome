@@ -25,59 +25,61 @@ function jsonSchemaToZod(schema: Record<string, unknown>): z.ZodTypeAny {
     return z.unknown();
   }
 
-  const type = schema.type as string | undefined;
   const desc = schema.description as string | undefined;
-  const describe = (s: z.ZodTypeAny) =>
-    desc ? s.describe(desc) : s;
+  const describe = (s: z.ZodTypeAny) => (desc ? s.describe(desc) : s);
 
-  if (schema.enum && Array.isArray(schema.enum) && schema.enum.length > 0) {
-    const values = schema.enum as unknown[];
-    const strings = values.filter((v): v is string => typeof v === 'string');
-    if (strings.length > 0) {
-      return describe(z.enum(strings as [string, ...string[]]));
-    }
+  if (schema.enum && Array.isArray(schema.enum)) {
+    const strings = (schema.enum as unknown[]).filter((v): v is string => typeof v === 'string');
+    if (strings.length > 0) return describe(z.enum(strings as [string, ...string[]]));
   }
 
-  if (type === 'string') {
-    return describe(z.string());
-  }
-  if (type === 'number') {
-    let s = z.number();
-    if (schema.minimum !== undefined) s = s.min(schema.minimum as number);
-    if (schema.maximum !== undefined) s = s.max(schema.maximum as number);
-    return describe(s);
-  }
-  if (type === 'integer') {
-    let s = z.number().int();
-    if (schema.minimum !== undefined) s = s.min(schema.minimum as number);
-    if (schema.maximum !== undefined) s = s.max(schema.maximum as number);
-    return describe(s);
-  }
-  if (type === 'boolean') {
-    return describe(z.boolean());
-  }
-  if (type === 'array') {
-    const items = schema.items as Record<string, unknown> | undefined;
-    if (items?.type === 'string') {
-      return describe(z.array(z.string()));
-    }
-    return describe(z.array(z.unknown()));
-  }
-  if (type === 'object') {
-    const props = schema.properties as Record<string, Record<string, unknown>> | undefined;
-    const required = new Set((schema.required as string[]) ?? []);
-    if (!props || typeof props !== 'object') {
-      return describe(z.record(z.string(), z.unknown()));
-    }
-    const shape: Record<string, z.ZodTypeAny> = {};
-    for (const [key, propSchema] of Object.entries(props)) {
-      const zodType = jsonSchemaToZod(propSchema ?? {});
-      shape[key] = required.has(key) ? zodType : zodType.optional();
-    }
-    return describe(z.object(shape));
-  }
-
+  const type = schema.type as string | undefined;
+  const handler = TYPE_HANDLERS[type as string];
+  if (handler) return handler(schema, describe);
   return z.unknown();
+}
+
+type ZodSchemaBuilder = (
+  schema: Record<string, unknown>,
+  describe: (s: z.ZodTypeAny) => z.ZodTypeAny,
+) => z.ZodTypeAny;
+
+const TYPE_HANDLERS: Record<string, ZodSchemaBuilder> = {
+  string: (_schema, describe) => describe(z.string()),
+  number: (schema, describe) => describe(applyNumberBounds(z.number(), schema)),
+  integer: (schema, describe) => describe(applyNumberBounds(z.number().int(), schema)),
+  boolean: (_schema, describe) => describe(z.boolean()),
+  array: (schema, describe) => describe(z.array(getArrayItemType(schema))),
+  object: (schema, describe) => describe(getObjectShape(schema, describe)),
+};
+
+function applyNumberBounds(s: z.ZodTypeAny, schema: Record<string, unknown>): z.ZodTypeAny {
+  let bounded: z.ZodTypeAny = s;
+  if (schema.minimum !== undefined) bounded = (bounded as z.ZodNumber).min(schema.minimum as number);
+  if (schema.maximum !== undefined) bounded = (bounded as z.ZodNumber).max(schema.maximum as number);
+  return bounded;
+}
+
+function getArrayItemType(schema: Record<string, unknown>): z.ZodTypeAny {
+  const items = schema.items as Record<string, unknown> | undefined;
+  return items?.type === 'string' ? z.string() : z.unknown();
+}
+
+function getObjectShape(
+  schema: Record<string, unknown>,
+  describe: (s: z.ZodTypeAny) => z.ZodTypeAny,
+): z.ZodTypeAny {
+  const props = schema.properties as Record<string, Record<string, unknown>> | undefined;
+  if (!props || typeof props !== 'object') {
+    return describe(z.record(z.string(), z.unknown()));
+  }
+  const required = new Set((schema.required as string[]) ?? []);
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const [key, propSchema] of Object.entries(props)) {
+    const zodType = jsonSchemaToZod(propSchema ?? {});
+    shape[key] = required.has(key) ? zodType : zodType.optional();
+  }
+  return describe(z.object(shape));
 }
 
 /**

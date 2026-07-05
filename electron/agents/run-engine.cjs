@@ -497,9 +497,9 @@ function createRunChunkEmitter(runId, context) {
   };
 }
 
-async function executeAgentRun(runId, params) {
+function prepareAgentRunContext(runId, params) {
   const context = activeRunContexts.get(runId);
-  if (!context) return;
+  if (!context) return null;
   patchRun(runId, {
     status: 'running',
     threadId: context.threadId,
@@ -546,6 +546,139 @@ async function executeAgentRun(runId, params) {
       ownerType: params.ownerType,
       runtimeContext,
   };
+  return { context, useDirectToolsRun, automationProjectId, runtimeContext };
+}
+
+async function finalizeAgentRunSuccess(runId, params, context) {
+  if (params.sessionId) {
+    tryPersistRunAssistantMessage(
+      params.sessionId,
+      {
+        ownerType: params.ownerType,
+        runId,
+        contextId: params.contextId ?? null,
+        sessionTitle: params.sessionTitle ?? null,
+        toolIds: params.toolIds ?? [],
+        mcpServerIds: params.mcpServerIds ?? [],
+      },
+      context,
+    );
+  }
+  appendRunStep({
+    runId,
+    stepType: 'completion',
+    title: 'Run completado',
+    status: 'done',
+    content: context.fullResponse.slice(0, 8000),
+    ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
+  });
+  if (context.autoSpeak) {
+    streamingTts.flush(runId);
+  }
+  finalizeRunningRunSteps(runId, 'completed', context);
+  return patchRun(runId, {
+    status: 'completed',
+    outputText: context.fullResponse,
+    summary: context.fullResponse.slice(0, 280) || params.title || 'Run completado',
+    finishedAt: now(),
+    error: null,
+    threadId: context.threadId,
+    metadata: {
+      kind: 'harness',
+      provider: context.provider,
+      model: context.model,
+      toolCalls: context.toolCalls,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+  });
+}
+
+function persistCancelledAssistantMessage(params, context, runId) {
+  try {
+    persistAssistantMessage(params.sessionId, {
+      content: context.fullResponse.trim(),
+      toolCalls: context.toolCalls,
+      thinking: context.fullThinking,
+      metadata: {
+        mode: params.ownerType,
+        runId,
+        cancelled: true,
+        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+      },
+      mode: params.ownerType === 'agent' ? 'agent' : 'many',
+      contextId: params.contextId ?? null,
+      threadId: context.threadId,
+      title: params.sessionTitle ?? null,
+      toolIds: params.toolIds ?? [],
+      mcpServerIds: params.mcpServerIds ?? [],
+    });
+  } catch (e) {
+    console.warn('[RunEngine] Could not persist partial assistant message on cancel:', e?.message);
+  }
+}
+
+function shouldPersistCancelledPartial(context, params, aborted) {
+  if (!aborted || !params.sessionId) return false;
+  return context.fullResponse.trim().length > 0 || context.toolCalls.length > 0;
+}
+
+async function finalizeAgentRunError(runId, params, context, error, aborted) {
+  if (context.autoSpeak) {
+    streamingTts.cancel(runId);
+  }
+  for (const entry of context.toolCalls) {
+    if (entry.status === 'running') entry.status = aborted ? 'cancelled' : 'error';
+  }
+  finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
+  appendRunStep({
+    runId,
+    stepType: aborted ? 'cancelled' : 'error',
+    title: aborted ? 'Run cancelado' : 'Run con error',
+    status: aborted ? 'cancelled' : 'failed',
+    content: error?.message || String(error),
+    ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
+  });
+  if (!aborted) {
+    notifyError({
+      scope: 'runs',
+      message: error?.message || String(error),
+      runId,
+      title: getRun(runId)?.title || undefined,
+    });
+  }
+  const currentMeta = getRun(runId)?.metadata ?? {};
+  const patched = await patchRun(runId, {
+    status: aborted ? 'cancelled' : 'failed',
+    outputText: context.fullResponse,
+    summary: context.fullResponse.slice(0, 280) || null,
+    error: aborted ? null : (error?.message || String(error)),
+    finishedAt: now(),
+    metadata: {
+      ...currentMeta,
+      kind: currentMeta.kind ?? 'harness',
+      provider: context.provider,
+      model: context.model,
+      toolCalls: context.toolCalls,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+  });
+  if (shouldPersistCancelledPartial(context, params, aborted)) {
+    persistCancelledAssistantMessage(params, context, runId);
+  }
+  return patched;
+}
+
+function releaseAgentContextIfTerminal(runId) {
+  const latest = getRun(runId);
+  if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
+    releaseRunContext(runId, { force: true });
+  }
+}
+
+async function executeAgentRun(runId, params) {
+  const prepared = prepareAgentRunContext(runId, params);
+  if (!prepared) return;
+  const { context, useDirectToolsRun, automationProjectId, runtimeContext } = prepared;
 
   // Single-agent surface: Many (ownerType 'many') and agent-chat (ownerType
   // 'agent') share this path. Both run through the Dome-native harness
@@ -579,123 +712,12 @@ async function executeAgentRun(runId, params) {
     if (current?.status === 'waiting_approval' || result?.__interrupt__) {
       return getRun(runId);
     }
-    if (params.sessionId) {
-      tryPersistRunAssistantMessage(
-        params.sessionId,
-        {
-          ownerType: params.ownerType,
-          runId,
-          contextId: params.contextId ?? null,
-          sessionTitle: params.sessionTitle ?? null,
-          toolIds: params.toolIds ?? [],
-          mcpServerIds: params.mcpServerIds ?? [],
-        },
-        context,
-      );
-    }
-    appendRunStep({
-      runId,
-      stepType: 'completion',
-      title: 'Run completado',
-      status: 'done',
-      content: context.fullResponse.slice(0, 8000),
-      ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
-    });
-    // Flush streaming TTS (plays any remaining buffered text)
-    if (context.autoSpeak) {
-      streamingTts.flush(runId);
-    }
-    finalizeRunningRunSteps(runId, 'completed', context);
-    return patchRun(runId, {
-      status: 'completed',
-      outputText: context.fullResponse,
-      summary: context.fullResponse.slice(0, 280) || params.title || 'Run completado',
-      finishedAt: now(),
-      error: null,
-      threadId: context.threadId,
-      metadata: {
-        kind: 'harness',
-        provider: context.provider,
-        model: context.model,
-        toolCalls: context.toolCalls,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
+    return finalizeAgentRunSuccess(runId, params, context);
   } catch (error) {
     const aborted = isRunAbortedError(error, context.controller?.signal);
-    // Cancel streaming TTS on error/abort
-    if (context.autoSpeak) {
-      streamingTts.cancel(runId);
-    }
-    for (const entry of context.toolCalls) {
-      if (entry.status === 'running') entry.status = aborted ? 'cancelled' : 'error';
-    }
-    finalizeRunningRunSteps(runId, aborted ? 'cancelled' : 'failed', context);
-    appendRunStep({
-      runId,
-      stepType: aborted ? 'cancelled' : 'error',
-      title: aborted ? 'Run cancelado' : 'Run con error',
-      status: aborted ? 'cancelled' : 'failed',
-      content: error?.message || String(error),
-      ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
-    });
-    if (!aborted) {
-      notifyError({
-        scope: 'runs',
-        message: error?.message || String(error),
-        runId,
-        title: getRun(runId)?.title || undefined,
-      });
-    }
-    const currentMeta = getRun(runId)?.metadata ?? {};
-    const patched = await patchRun(runId, {
-      status: aborted ? 'cancelled' : 'failed',
-      outputText: context.fullResponse,
-      summary: context.fullResponse.slice(0, 280) || null,
-      error: aborted ? null : (error?.message || String(error)),
-      finishedAt: now(),
-      metadata: {
-        ...currentMeta,
-        kind: currentMeta.kind ?? 'harness',
-        provider: context.provider,
-        model: context.model,
-        toolCalls: context.toolCalls,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
-    if (
-      aborted &&
-      params.sessionId &&
-      (context.fullResponse.trim().length > 0 || context.toolCalls.length > 0)
-    ) {
-      try {
-        persistAssistantMessage(params.sessionId, {
-          content: context.fullResponse.trim(),
-          toolCalls: context.toolCalls,
-          thinking: context.fullThinking,
-          metadata: {
-            mode: params.ownerType,
-            runId,
-            cancelled: true,
-            ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-          },
-          mode: params.ownerType === 'agent' ? 'agent' : 'many',
-          contextId: params.contextId ?? null,
-          threadId: context.threadId,
-          title: params.sessionTitle ?? null,
-          toolIds: params.toolIds ?? [],
-          mcpServerIds: params.mcpServerIds ?? [],
-        });
-      } catch (e) {
-        console.warn('[RunEngine] Could not persist partial assistant message on cancel:', e?.message);
-      }
-    }
-    return patched;
+    return finalizeAgentRunError(runId, params, context, error, aborted);
   } finally {
-    const latest = getRun(runId);
-    if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
-      releaseRunContext(runId, { force: true });
-    }
+    releaseAgentContextIfTerminal(runId);
   }
 }
 
@@ -762,27 +784,20 @@ async function startAgentRun(params) {
   return getRun(run.id);
 }
 
-async function resumeRun(runId, decisions) {
-  const run = getRun(runId);
-  if (!run?.threadId) {
-    throw new Error('El run no tiene threadId para reanudar');
-  }
-  const metadata = run.metadata ?? {};
-  const providerConfig = await getProviderConfig(metadata.provider, metadata.model);
-  const existingContext = activeRunContexts.get(runId);
-  let controller;
-  if (existingContext?.controller) {
-    controller = existingContext.controller;
-  } else {
-    controller = new AbortController();
-    setMaxListeners(64, controller.signal);
-  }
-  // When the process restarted during HITL, the in-memory context is gone.
-  // Hydrate the accumulated usage from the persisted run metadata so the merge
-  // doesn't lose tokens spent before the interrupt.
-  const hydratedUsage =
-    metadata.usage && typeof metadata.usage === 'object' ? mergeLlmUsage(null, metadata.usage) : null;
-  const context = existingContext ?? {
+function resolveResumeController(existingContext) {
+  if (existingContext?.controller) return existingContext.controller;
+  const controller = new AbortController();
+  setMaxListeners(64, controller.signal);
+  return controller;
+}
+
+function hydrateResumeUsage(rawUsage) {
+  return rawUsage && typeof rawUsage === 'object' ? mergeLlmUsage(null, rawUsage) : null;
+}
+
+function buildResumeContext(run, metadata, providerConfig, existingContext, controller, hydratedUsage) {
+  if (existingContext) return existingContext;
+  return {
     controller,
     fullResponse: run.outputText || '',
     fullThinking: '',
@@ -798,6 +813,109 @@ async function resumeRun(runId, decisions) {
     llmUsage: hydratedUsage,
     llmUsageLive: hydratedUsage,
   };
+}
+
+async function runAgentResume(run, context, metadata, providerConfig, controller, decisions, runId) {
+  const pendingApproval = metadata.pendingApproval ?? {};
+  const resumeOpts = metadata.resumeOpts ?? {};
+  const runSurface = run.ownerType === 'agent' ? 'agent-chat' : 'many';
+
+  const result = await agentRuntime.resumeDomeAgent(runSurface, {
+    threadId: run.threadId,
+    decisions,
+    pendingApproval,
+    pendingToolCall: pendingApproval.pendingToolCall ?? null,
+    provider: providerConfig.provider,
+    model: providerConfig.model,
+    apiKey: providerConfig.apiKey,
+    baseUrl: providerConfig.baseUrl,
+    messages: resumeOpts.messages ?? [{ role: 'user', content: 'Continue after approval.' }],
+    toolDefinitions: resumeOpts.toolDefinitions ?? [],
+    mcpServerIds: resumeOpts.mcpServerIds,
+    runtimeContext: resumeOpts.runtimeContext,
+    signal: controller.signal,
+    onChunk: createRunChunkEmitter(runId, context),
+  });
+
+  if (result && typeof result === 'object' && result.__interrupt__) {
+    return getRun(runId);
+  }
+
+  if (run.sessionId) {
+    tryPersistRunAssistantMessage(
+      run.sessionId,
+      {
+        ownerType: run.ownerType,
+        runId,
+        contextId: metadata.contextId ?? null,
+        sessionTitle: metadata.sessionTitle ?? null,
+        toolIds: metadata.toolIds ?? [],
+        mcpServerIds: metadata.mcpServerIds ?? [],
+      },
+      context,
+    );
+  }
+  appendRunStep({
+    runId,
+    stepType: 'completion',
+    title: 'Run completado',
+    status: 'done',
+    content: context.fullResponse.slice(0, 8000),
+    ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
+  });
+  finalizeRunningRunSteps(runId, 'completed', context);
+  return patchRun(runId, {
+    status: 'completed',
+    outputText: context.fullResponse,
+    summary: context.fullResponse.slice(0, 280) || 'Run completado',
+    finishedAt: now(),
+    error: null,
+    threadId: context.threadId,
+    metadata: {
+      kind: metadata.kind ?? 'harness',
+      provider: context.provider,
+      model: context.model,
+      toolCalls: context.toolCalls,
+      pendingApproval: null,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+  });
+}
+
+function markResumeFailed(runId, run, error, context) {
+  const failMeta = run.metadata ?? {};
+  return patchRun(runId, {
+    status: 'failed',
+    error: error?.message || String(error),
+    finishedAt: now(),
+    metadata: {
+      ...failMeta,
+      ...(context.llmUsage ? { usage: context.llmUsage } : {}),
+    },
+  });
+}
+
+function cleanupResumeContext(runId) {
+  const latest = getRun(runId);
+  if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
+    releaseRunContext(runId, { force: true });
+  }
+}
+
+async function resumeRun(runId, decisions) {
+  const run = getRun(runId);
+  if (!run?.threadId) {
+    throw new Error('El run no tiene threadId para reanudar');
+  }
+  const metadata = run.metadata ?? {};
+  const providerConfig = await getProviderConfig(metadata.provider, metadata.model);
+  const existingContext = activeRunContexts.get(runId);
+  const controller = resolveResumeController(existingContext);
+  // When the process restarted during HITL, the in-memory context is gone.
+  // Hydrate the accumulated usage from the persisted run metadata so the merge
+  // doesn't lose tokens spent before the interrupt.
+  const hydratedUsage = hydrateResumeUsage(metadata.usage);
+  const context = buildResumeContext(run, metadata, providerConfig, existingContext, controller, hydratedUsage);
   if (existingContext && existingContext.projectId == null) {
     existingContext.projectId = run.projectId ?? 'default';
   }
@@ -819,86 +937,11 @@ async function resumeRun(runId, decisions) {
     },
   });
   try {
-    const pendingApproval = metadata.pendingApproval ?? {};
-    const resumeOpts = metadata.resumeOpts ?? {};
-    const runSurface = run.ownerType === 'agent' ? 'agent-chat' : 'many';
-
-    const result = await agentRuntime.resumeDomeAgent(runSurface, {
-      threadId: run.threadId,
-      decisions,
-      pendingApproval,
-      pendingToolCall: pendingApproval.pendingToolCall ?? null,
-      provider: providerConfig.provider,
-      model: providerConfig.model,
-      apiKey: providerConfig.apiKey,
-      baseUrl: providerConfig.baseUrl,
-      messages: resumeOpts.messages ?? [{ role: 'user', content: 'Continue after approval.' }],
-      toolDefinitions: resumeOpts.toolDefinitions ?? [],
-      mcpServerIds: resumeOpts.mcpServerIds,
-      runtimeContext: resumeOpts.runtimeContext,
-      signal: controller.signal,
-      onChunk: createRunChunkEmitter(runId, context),
-    });
-
-    if (result && typeof result === 'object' && result.__interrupt__) {
-      return getRun(runId);
-    }
-
-    if (run.sessionId) {
-      tryPersistRunAssistantMessage(
-        run.sessionId,
-        {
-          ownerType: run.ownerType,
-          runId,
-          contextId: metadata.contextId ?? null,
-          sessionTitle: metadata.sessionTitle ?? null,
-          toolIds: metadata.toolIds ?? [],
-          mcpServerIds: metadata.mcpServerIds ?? [],
-        },
-        context,
-      );
-    }
-    appendRunStep({
-      runId,
-      stepType: 'completion',
-      title: 'Run completado',
-      status: 'done',
-      content: context.fullResponse.slice(0, 8000),
-      ...(context.llmUsage ? { metadata: { usage: context.llmUsage } } : {}),
-    });
-    finalizeRunningRunSteps(runId, 'completed', context);
-    return patchRun(runId, {
-      status: 'completed',
-      outputText: context.fullResponse,
-      summary: context.fullResponse.slice(0, 280) || 'Run completado',
-      finishedAt: now(),
-      error: null,
-      threadId: context.threadId,
-      metadata: {
-        kind: metadata.kind ?? 'harness',
-        provider: context.provider,
-        model: context.model,
-        toolCalls: context.toolCalls,
-        pendingApproval: null,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
+    return await runAgentResume(run, context, metadata, providerConfig, controller, decisions, runId);
   } catch (error) {
-    const failMeta = run.metadata ?? {};
-    return patchRun(runId, {
-      status: 'failed',
-      error: error?.message || String(error),
-      finishedAt: now(),
-      metadata: {
-        ...failMeta,
-        ...(context.llmUsage ? { usage: context.llmUsage } : {}),
-      },
-    });
+    return markResumeFailed(runId, run, error, context);
   } finally {
-    const latest = getRun(runId);
-    if (!latest || RUN_TERMINAL_STATUSES.has(latest.status)) {
-      releaseRunContext(runId, { force: true });
-    }
+    cleanupResumeContext(runId);
   }
 }
 

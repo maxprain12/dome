@@ -59,6 +59,15 @@ function parseInteraction(interaction: Interaction): ParsedInteraction {
   };
 }
 
+/** Return a new array excluding any item whose `id` matches the given id. */
+function filterOutById<T extends { id: string }>(items: T[], id: string): T[] {
+  const next: T[] = [];
+  for (const item of items) {
+    if (item.id !== id) next.push(item);
+  }
+  return next;
+}
+
 export function useInteractions(resourceId: string): UseInteractionsResult {
   const [interactions, setInteractions] = useState<ParsedInteraction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -148,7 +157,7 @@ export function useInteractions(resourceId: string): UseInteractionsResult {
     // Listener: Interacción eliminada
     const unsubscribeDelete = window.electron.on('interaction:deleted',
       ({ id }: { id: string }) => {
-        setInteractions(prev => prev.filter(i => i.id !== id));
+        setInteractions((prev) => filterOutById(prev, id));
       }
     );
 

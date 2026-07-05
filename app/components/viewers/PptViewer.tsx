@@ -13,6 +13,14 @@ import { normalizePptxArrayBuffer, countSlidesInArrayBuffer } from '@/lib/pptx-n
 const SLIDE_W = 960;
 const SLIDE_H = 540;
 
+/** Wait two animation frames so the DOM has had a chance to settle. */
+const waitTwoPaintCycles = (): Promise<void> =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+
 /** Imperative handle reserved for future navigation APIs. */
 export type PptViewerHandle = Record<string, never>;
 
@@ -246,11 +254,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
 
         // Fix near-black text on dark slides (pptx-preview applies dk1 inline
         // which overrides any CSS rule — must be done with DOM manipulation).
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => resolve());
-          });
-        });
+        await waitTwoPaintCycles();
         if (containerRef.current) {
           fixDarkSlideTextColors(containerRef.current, lightColor);
         }
@@ -280,9 +284,7 @@ const PptViewerComponent = forwardRef<PptViewerHandle, PptViewerProps>(
               for (let i = 0; i < thumbCount; i++) {
                 if (i !== 0) safeRenderSlide(thumbPreviewer, i, thumbCount);
                 // Two rAF cycles to let the DOM settle
-                await new Promise<void>((r) =>
-                  requestAnimationFrame(() => requestAnimationFrame(() => r())),
-                );
+                await waitTwoPaintCycles();
                 // Fix dark-slide text colors before cloning
                 fixDarkSlideTextColors(thumbDiv, thumbLightColor);
                 const wrapper = thumbDiv.querySelector('.pptx-preview-slide-wrapper');
