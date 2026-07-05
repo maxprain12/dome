@@ -371,6 +371,7 @@ function ProviderCard({
 
       {status.provider === 'linkedin' && (
         <label
+          aria-label={t('social.settings.linkedin_org_enabled')}
           className="flex items-start gap-2 rounded-md px-3 py-2 cursor-pointer"
           style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
         >

@@ -114,7 +114,7 @@ IPC subfolders in `electron/ipc/` (each holds one `.cjs` per domain):
 **SQLite** (`electron/core/database.cjs` via `better-sqlite3`):
 
 - Stored at `app.getPath('userData')/dome.db`
-- Legacy schema HEAD: `settings.schema_version = 53` (`electron/core/db/migrations.cjs`)
+- Legacy schema HEAD: `settings.schema_version = 61` (`electron/core/db/migrations.cjs`)
 - **Drizzle incremental:** `@dome/db` (`packages/db/`) — baseline post-v53, repos piloto (settings, tags); bridge in `electron/core/db/drizzle-bridge.cjs`
 - FTS5 + triggers: raw SQL in `electron/core/db/fts-schema.cjs` (not Drizzle)
 - Heavy reads/extraction: `electron/workers/` (db-read, document-extract)
@@ -171,6 +171,8 @@ dome/
 │   │   ├── agent-canvas/       # Visual workflow canvas (D3)
 │   │   ├── agent-team/         # Multi-agent team chat
 │   │   ├── automations/        # Automation rules and run logs UI
+│   │   ├── orchestration/      # Agents/Workflows/Automations/Runs studio tabs (OrchestrationShell)
+│   │   ├── social/             # Social hub (LinkedIn/Instagram/X): composer, growth cards, AI reports
 │   │   ├── cloud/              # Cloud storage file picker
 │   │   ├── marketplace/        # Plugin marketplace UI
 │   │   ├── settings/           # Settings panels

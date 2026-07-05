@@ -2,7 +2,7 @@
 
 Dome persiste el estado de la app en **SQLite** (`better-sqlite3`) en el main process. El renderer **nunca** toca la DB directamente: usa IPC vía `app/lib/db/client.ts`.
 
-**Schema HEAD:** `settings.schema_version = 53` (migraciones legacy) + journal Drizzle (`__drizzle_migrations`).
+**Schema HEAD:** `settings.schema_version = 61` (migraciones legacy) + journal Drizzle (`__drizzle_migrations`).
 
 ---
 

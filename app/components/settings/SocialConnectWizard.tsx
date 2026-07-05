@@ -244,7 +244,7 @@ export default function SocialConnectWizard({ status, accounts, onChanged, onClo
           )}
 
           {showRedirect && provider === 'linkedin' && (
-            <label className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3 cursor-pointer" style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}>
+            <label aria-label={t('social.settings.linkedin_org_enabled')} className="flex items-start gap-2 rounded-lg px-3 py-2.5 mb-3 cursor-pointer" style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}>
               <input
                 type="checkbox"
                 checked={orgEnabled}
