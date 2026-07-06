@@ -51,7 +51,6 @@ Variables de entorno en el job (Environment / pipeline):
 | `SONAR_REVIEW_TIMEOUT_MS` | `300000` (5 min reviewer) |
 | `SONAR_LOOP_REVIEWER` | `1` — set `0` to skip LLM reviewer stage |
 | `SONAR_LOOP_MAX_CHANGED_FILES` | `15` |
-| `SONAR_LOOP_MAX_TOTAL_DIFF_LINES` | `800` |
 | `OPENCODE_CONFIG` | `scripts/sonar/opencode.ci.json` |
 
 ### Agente Jenkins (Linux)

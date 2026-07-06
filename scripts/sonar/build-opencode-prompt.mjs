@@ -16,9 +16,24 @@ const ROOT = path.join(__dirname, '../..');
 const args = parseArgs(process.argv.slice(2));
 const batchPath = path.resolve(args.batch || '.quality-loop/batch.json');
 
-/** @param {string} rule */
-function actionHint(rule) {
+const MIGRATIONS_CJS = 'electron/core/db/migrations.cjs';
+
+/** @param {string} file */
+function isMigrationsFile(file) {
+  return file === MIGRATIONS_CJS || file.endsWith('/migrations.cjs');
+}
+
+/** @param {string} rule @param {string} file */
+function actionHint(rule, file = '') {
   const r = String(rule || '');
+  if (isMigrationsFile(file)) {
+    return [
+      'CRITICAL: preserve every migration step exactly — same SQL, version order, and schema_version updates.',
+      'Refactor incrementally (extract helpers / per-version functions); review each block you touch.',
+      'After each section: `node --test electron/__tests__/drizzle-bridge.test.mjs electron/__tests__/migration-backup.test.mjs`.',
+      'Then full verify-batch-pr.sh before finishing.',
+    ].join(' ');
+  }
   if (isVoidOperatorRule(r)) {
     return 'Remove void **operator** only (`() => void fn()` → `() => fn()`). Never remove `void` from type annotations (`() => void`).';
   }
@@ -42,7 +57,7 @@ export function formatIssue(issue) {
     `- RULE: \`${issue.rule || 'unknown'}\`${impact ? ` (${impact})` : ''}`,
     `- FILE: \`${file}${line}\``,
     `- MESSAGE: ${issue.message || issue.title || ''}`,
-    `- ACTION: ${actionHint(String(issue.rule || ''))}`,
+    `- ACTION: ${actionHint(String(issue.rule || ''), file)}`,
     `- DONE_WHEN: issue rule satisfied; verify-batch-pr.sh passes`,
     issue.githubNumber ? `- GitHub: #${issue.githubNumber}` : null,
   ]
@@ -57,6 +72,7 @@ function buildOpencodePrompt(batchPathArg = batchPath) {
   const batchPayload = JSON.parse(fs.readFileSync(resolved, 'utf8'));
   const issues = batchPayload.batch || [];
   const allowed = [...batchAllowedFiles(batchPayload)].sort();
+  const hasMigrations = allowed.some(isMigrationsFile);
   const issueBlock =
     issues.length > 0
       ? issues.map(formatIssue).join('\n\n')
@@ -73,7 +89,17 @@ FORBIDDEN:
 - Touching files outside ALLOWED_FILES (except regenerating \`docs/architecture/ipc-channels.md\` after IPC edits)
 - \`pnpm-lock.yaml\`, \`package.json\`, \`.jenkins-*\`, deleting/truncating large files
 - Unrequested refactors, renames, or behavior changes
+${hasMigrations ? `
+## Migration safety (mandatory — \`${MIGRATIONS_CJS}\` in batch)
 
+This batch touches the SQLite migration chain. **Data loss or partial schema upgrades are unacceptable.**
+
+- Refactor in small sections; validate after each section.
+- Run after every meaningful edit:
+  \`node --test electron/__tests__/drizzle-bridge.test.mjs electron/__tests__/migration-backup.test.mjs\`
+- Confirm \`applyMigrations\` contract and \`schema_version\` progression unchanged.
+- Finish with \`bash scripts/jenkins/verify-batch-pr.sh\` exit 0.
+` : ''}
 ## Issues
 
 ${issueBlock}`;
