@@ -326,29 +326,62 @@ function extractWhisperSegments(data, isDiarize) {
     .map((s) => normalizeWhisperSegment(s, isDiarize));
 }
 
-async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
-  const model = opts.model || 'whisper-1';
-  const language = opts.language && String(opts.language).trim() ? String(opts.language).trim() : null;
-  const apiUrl = opts.apiUrl || `${DEFAULT_OPENAI_ORIGIN}/v1/audio/transcriptions`;
-  const prompt = opts.prompt && String(opts.prompt).trim() ? String(opts.prompt).trim() : null;
-  const sttProvider = opts.sttProvider || 'openai';
+function normalizeTranscriptionOptions(opts) {
+  const trimOrNull = (v) => (v && String(v).trim() ? String(v).trim() : null);
+  return {
+    model: opts.model || 'whisper-1',
+    language: trimOrNull(opts.language),
+    apiUrl: opts.apiUrl || `${DEFAULT_OPENAI_ORIGIN}/v1/audio/transcriptions`,
+    prompt: trimOrNull(opts.prompt),
+    sttProvider: opts.sttProvider || 'openai',
+  };
+}
 
-  // gpt-4o-transcribe family only supports json/text (not verbose_json).
-  // gpt-4o-transcribe-diarize additionally supports diarized_json with speaker labels.
+function isDiarizeModel(model) {
+  return model === 'gpt-4o-transcribe-diarize';
+}
+
+// gpt-4o-transcribe family only supports json/text (not verbose_json).
+function shouldTryVerboseJson(model, opts) {
   const isGpt4oTranscribe = /^gpt-4o(-mini)?-transcribe(-diarize)?$/.test(model);
-  const isDiarize = model === 'gpt-4o-transcribe-diarize';
-  const tryVerbose = !isGpt4oTranscribe && opts.verbose !== false;
+  return !isGpt4oTranscribe && opts.verbose !== false;
+}
 
-  const ctx = { model, language, prompt, isDiarize, sttProvider, apiUrl };
-
+async function requestTranscriptionWithVerboseFallback(fileBuffer, apiKey, ctx, tryVerbose) {
   let res = await doTranscriptionRequest(fileBuffer, apiKey, ctx, tryVerbose);
-  if (!res.ok && tryVerbose && res.status === 400) {
+  if (tryVerbose && !res.ok && res.status === 400) {
     const body = await readBodySafe(res);
     if (/response_format|verbose|json/i.test(body)) {
       res = await doTranscriptionRequest(fileBuffer, apiKey, ctx, false);
     }
   }
+  return res;
+}
 
+function buildTranscriptionFallbackSegment(text, duration) {
+  return { start: 0, end: duration != null ? duration : 0, text };
+}
+
+function buildTranscriptionResult(data, isDiarize) {
+  const text = data.text.trim();
+  let whisperSegments = extractWhisperSegments(data, isDiarize);
+  const duration = typeof data.duration === 'number' && Number.isFinite(data.duration) ? data.duration : null;
+  const language = typeof data.language === 'string' ? data.language : null;
+
+  if (!whisperSegments.length && text) {
+    whisperSegments = [buildTranscriptionFallbackSegment(text, duration)];
+  }
+
+  return { text, whisperSegments, duration, language };
+}
+
+async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
+  const { model, language, apiUrl, prompt, sttProvider } = normalizeTranscriptionOptions(opts);
+  const isDiarize = isDiarizeModel(model);
+  const tryVerbose = shouldTryVerboseJson(model, opts);
+  const ctx = { model, language, prompt, isDiarize, sttProvider, apiUrl };
+
+  const res = await requestTranscriptionWithVerboseFallback(fileBuffer, apiKey, ctx, tryVerbose);
   if (!res.ok) {
     const detail = await readErrorDetail(res);
     throw new Error(`Transcription failed: ${res.status} ${detail}`);
@@ -359,22 +392,7 @@ async function transcMp3BufferDetailed(fileBuffer, apiKey, opts = {}) {
     throw new Error('Transcription: unexpected response (no text)');
   }
 
-  const text = data.text.trim();
-  let whisperSegments = extractWhisperSegments(data, isDiarize);
-
-  const duration = typeof data.duration === 'number' && Number.isFinite(data.duration) ? data.duration : null;
-  const languageOut = typeof data.language === 'string' ? data.language : null;
-
-  if (!whisperSegments.length && text) {
-    whisperSegments = [{ start: 0, end: duration != null ? duration : 0, text }];
-  }
-
-  return {
-    text,
-    whisperSegments,
-    duration,
-    language: languageOut,
-  };
+  return buildTranscriptionResult(data, isDiarize);
 }
 
 /**
