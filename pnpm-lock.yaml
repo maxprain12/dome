@@ -306,7 +306,7 @@ importers:
         specifier: ^2.3.1
         version: 2.3.1
       pyodide:
-        specifier: ^314.0.0
+        specifier: ^314.0.2
         version: 314.0.2
       react:
         specifier: ^18.3.0
