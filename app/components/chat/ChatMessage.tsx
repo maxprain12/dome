@@ -436,7 +436,7 @@ export default function ChatMessage({
                     sources={sourceReferences}
                     onClickSource={(source) => {
                       if (onClickCitation) { onClickCitation(source.number); return; }
-                      void handleOpenCitation(source.number);
+                      handleOpenCitation(source.number);
                     }}
                   />
                 </div>
