@@ -336,7 +336,7 @@ importers:
         specifier: ^4.0.1
         version: 4.0.1
       sharp:
-        specifier: ^0.35.2
+        specifier: ^0.35.3
         version: 0.35.3(@types/node@26.1.0)
       tailwind-merge:
         specifier: ^2.6.1
