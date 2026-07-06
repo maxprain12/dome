@@ -1,7 +1,7 @@
 "use strict";
 var __defProp = Object.defineProperty;
 const __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
+const __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
 var __export = (target, all) => {
   for (var name in all)
@@ -15,7 +15,7 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+const __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 var prompt_assembler_exports = {};
 __export(prompt_assembler_exports, {
   CORE_SECTION_KEYS: () => CORE_SECTION_KEYS,
