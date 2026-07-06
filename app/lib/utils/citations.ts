@@ -17,6 +17,9 @@ export interface ParsedCitation {
   nodePath?: string[];
 }
 
+type ResourceResult = Record<string, unknown>;
+type ResourceResults = ResourceResult[];
+
 /**
  * Extract citation numbers from text like "According to the study [1], this is true [2]."
  * Returns unique sorted citation numbers found.
@@ -59,6 +62,108 @@ export function splitTextWithCitations(text: string): Array<{ type: 'text' | 'ci
   return parts;
 }
 
+function asRecord(value: unknown): ResourceResult | null {
+  return value !== null && typeof value === 'object'
+    ? (value as ResourceResult)
+    : null;
+}
+
+function tryParseJson(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function isResourceSearchTool(name: string): boolean {
+  return (
+    name === 'resource_search' ||
+    name === 'resource_semantic_search' ||
+    name === 'resource_hybrid_search'
+  );
+}
+
+function extractNumericPages(pages: unknown): number[] | undefined {
+  if (!Array.isArray(pages)) return undefined;
+  const result: number[] = [];
+  for (const page of pages) {
+    const n = Number(page);
+    if (Number.isFinite(n)) result.push(n);
+  }
+  return result;
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function buildSearchCitation(r: ResourceResult, citationCounter: number): ParsedCitation {
+  const pages = extractNumericPages(r.pages);
+  const contentStr = asString(r.content);
+  return {
+    number: citationCounter,
+    sourceId: asString(r.id),
+    sourceTitle: asString(r.title),
+    resourceType: asString(r.type),
+    passage: asString(r.snippet) || contentStr?.slice(0, 200),
+    pages,
+    page: pages && pages.length > 0 ? pages[0] : undefined,
+    pageLabel: asString(r.page_range),
+    nodeTitle: asString(r.node_title),
+    nodeId: asString(r.node_id),
+    nodePath: Array.isArray(r.node_path) ? (r.node_path as string[]) : undefined,
+  };
+}
+
+function buildGetCitation(
+  resource: ResourceResult,
+  citationCounter: number,
+): ParsedCitation | null {
+  if (typeof resource.id !== 'string') return null;
+  const passageStr = asString(resource.content)?.slice(0, 200);
+  const summaryStr = asString(resource.summary);
+  return {
+    number: citationCounter,
+    sourceId: resource.id,
+    sourceTitle: asString(resource.title),
+    resourceType: asString(resource.type),
+    passage: passageStr || summaryStr,
+  };
+}
+
+function addSearchCitations(
+  parsedResult: ResourceResult | null,
+  map: Map<number, ParsedCitation>,
+  startCounter: number,
+): number {
+  const rawResults = parsedResult?.results;
+  const results: ResourceResults = Array.isArray(rawResults)
+    ? (rawResults as ResourceResults)
+    : [];
+  let counter = startCounter;
+  for (const r of results) {
+    map.set(counter, buildSearchCitation(r, counter));
+    counter++;
+  }
+  return counter;
+}
+
+function addGetCitation(
+  parsedResult: ResourceResult | null,
+  map: Map<number, ParsedCitation>,
+  counter: number,
+): number {
+  const resourceRaw = parsedResult?.resource ?? parsedResult;
+  const resource = asRecord(resourceRaw);
+  if (!resource) return counter;
+  const citation = buildGetCitation(resource, counter);
+  if (!citation) return counter;
+  map.set(counter, citation);
+  return counter + 1;
+}
+
 /**
  * Build a citation map from tool results.
  * When the AI uses resource_search or resource_get tools, we can map [N] to actual sources.
@@ -71,70 +176,12 @@ export function buildCitationMap(
 
   let citationCounter = 1;
 
-  const parseResult = (value: unknown): unknown => {
-    if (typeof value !== 'string') return value;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return value;
-    }
-  };
-
   for (const toolResult of toolResults) {
-    const parsedResultRaw = parseResult(toolResult.result);
-    const parsedResult =
-      parsedResultRaw !== null && typeof parsedResultRaw === 'object'
-        ? (parsedResultRaw as Record<string, unknown>)
-        : null;
-    if (
-      toolResult.name === 'resource_search' ||
-      toolResult.name === 'resource_semantic_search' ||
-      toolResult.name === 'resource_hybrid_search'
-    ) {
-      const results = (Array.isArray(parsedResult?.results) ? parsedResult.results : []) as Record<
-        string,
-        unknown
-      >[];
-      for (const r of results) {
-        const pages = Array.isArray(r.pages)
-          ? r.pages.map((page: unknown) => Number(page)).filter((page: number) => Number.isFinite(page))
-          : undefined;
-        const contentVal = r.content;
-        const contentStr = typeof contentVal === 'string' ? contentVal : undefined;
-        map.set(citationCounter, {
-          number: citationCounter,
-          sourceId: typeof r.id === 'string' ? r.id : undefined,
-          sourceTitle: typeof r.title === 'string' ? r.title : undefined,
-          resourceType: typeof r.type === 'string' ? r.type : undefined,
-          passage: (typeof r.snippet === 'string' ? r.snippet : undefined) || contentStr?.slice(0, 200),
-          pages,
-          page: pages && pages.length > 0 ? pages[0] : undefined,
-          pageLabel: typeof r.page_range === 'string' ? r.page_range : undefined,
-          nodeTitle: typeof r.node_title === 'string' ? r.node_title : undefined,
-          nodeId: typeof r.node_id === 'string' ? r.node_id : undefined,
-          nodePath: Array.isArray(r.node_path) ? (r.node_path as string[]) : undefined,
-        });
-        citationCounter++;
-      }
+    const parsedResult = asRecord(tryParseJson(toolResult.result));
+    if (isResourceSearchTool(toolResult.name)) {
+      citationCounter = addSearchCitations(parsedResult, map, citationCounter);
     } else if (toolResult.name === 'resource_get') {
-      const resourceRaw = parsedResult?.resource ?? parsedResult;
-      const resource =
-        resourceRaw !== null && typeof resourceRaw === 'object'
-          ? (resourceRaw as Record<string, unknown>)
-          : null;
-      if (resource && typeof resource.id === 'string') {
-        const passageContent = resource.content;
-        const passageStr = typeof passageContent === 'string' ? passageContent.slice(0, 200) : undefined;
-        const summaryStr = typeof resource.summary === 'string' ? resource.summary : undefined;
-        map.set(citationCounter, {
-          number: citationCounter,
-          sourceId: resource.id,
-          sourceTitle: typeof resource.title === 'string' ? resource.title : undefined,
-          resourceType: typeof resource.type === 'string' ? resource.type : undefined,
-          passage: passageStr || summaryStr,
-        });
-        citationCounter++;
-      }
+      citationCounter = addGetCitation(parsedResult, map, citationCounter);
     }
   }
 
