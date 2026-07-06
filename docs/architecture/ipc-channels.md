@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-05T18:39:44.156Z
+> Última generación: 2026-07-06T18:32:06.681Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -552,10 +552,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `updater:install` | `electron/ipc/core/updater.cjs:31` |
 | `updater:skip` | `electron/ipc/core/updater.cjs:42` |
 | `vault:openRoot` | `electron/ipc/data/resources.cjs:698` |
-| `web:get-youtube-thumbnail` | `electron/ipc/integrations/web.cjs:43` |
-| `web:process` | `electron/ipc/integrations/web.cjs:116` |
-| `web:save-screenshot` | `electron/ipc/integrations/web.cjs:60` |
-| `web:scrape` | `electron/ipc/integrations/web.cjs:24` |
+| `web:get-youtube-thumbnail` | `electron/ipc/integrations/web.cjs:231` |
+| `web:process` | `electron/ipc/integrations/web.cjs:304` |
+| `web:save-screenshot` | `electron/ipc/integrations/web.cjs:248` |
+| `web:scrape` | `electron/ipc/integrations/web.cjs:212` |
 | `window:broadcast` | `electron/ipc/core/window.cjs:319` |
 | `window:close` | `electron/ipc/core/window.cjs:233` |
 | `window:close-current` | `electron/ipc/core/window.cjs:284` |
