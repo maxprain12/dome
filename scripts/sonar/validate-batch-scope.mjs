@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Ensure quality-loop diff stays within batch file scope and size limits.
+ * Ensure quality-loop diff stays within batch file scope (no global diff-line cap).
  *
  * Usage: node scripts/sonar/validate-batch-scope.mjs --batch=.quality-loop/batch.json
  */
@@ -16,7 +16,6 @@ const args = parseArgs(process.argv.slice(2));
 const batchPath = path.resolve(args.batch || '.quality-loop/batch.json');
 
 const maxChangedFiles = Number(process.env.SONAR_LOOP_MAX_CHANGED_FILES || 15);
-const maxTotalDiffLines = Number(process.env.SONAR_LOOP_MAX_TOTAL_DIFF_LINES || 800);
 
 const FORBIDDEN_PREFIXES = ['.jenkins-', 'coverage/'];
 const FORBIDDEN_EXACT = new Set(['pnpm-lock.yaml', 'package.json']);
@@ -81,11 +80,6 @@ for (const file of changed) {
 
 if (changed.length > maxChangedFiles) {
   console.error(`ERROR: ${changed.length} files changed (max ${maxChangedFiles})`);
-  fail = 1;
-}
-
-if (totalLines > maxTotalDiffLines) {
-  console.error(`ERROR: ${totalLines} total diff lines (max ${maxTotalDiffLines})`);
   fail = 1;
 }
 

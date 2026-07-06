@@ -42,6 +42,28 @@ Line numbers in IPC handlers change → `ipc-channels.md` must stay in sync. The
 - `app/globals.css` and large `electron/**/*.cjs` files: surgical edits only; deleting thousands of lines is a failure.
 - **Void operator (S7735):** remove `void` only as an expression operator (`() => void save()`). Never strip `void` from TypeScript types (`() => void`, `Promise<void>`).
 
+## Large migration files (`electron/core/db/migrations.cjs`)
+
+This file is **critical infrastructure**: it upgrades every user's SQLite database on app start. A mistake can brick local data or leave schema half-applied.
+
+When the batch includes `electron/core/db/migrations.cjs` (especially S3776 / cognitive complexity):
+
+1. **Treat it as high-risk** — behavior must stay identical for every `schema_version` step; do not change SQL, version numbers, or migration order.
+2. **Work in sections** — read and refactor one migration block (or a small group) at a time; after each section, validate before moving on.
+3. **Prefer extraction** — move repeated logic into top-level helpers or per-version functions; keep `applyMigrations` as a thin orchestrator. Avoid deleting migration bodies.
+4. **Review affected areas** after each edit:
+   - `applyMigrations(db, fromVersion, invalidateQueries)` contract unchanged
+   - `settings.schema_version` still updated correctly
+   - Callers: `electron/core/database.cjs`, `electron/core/db/drizzle-bridge.cjs`
+5. **Run migration unit tests** after every meaningful change (mandatory before finish):
+
+   ```bash
+   node --test electron/__tests__/drizzle-bridge.test.mjs electron/__tests__/migration-backup.test.mjs
+   ```
+
+   If a test fails, fix before continuing. Then run full `bash scripts/jenkins/verify-batch-pr.sh`.
+6. **Do not** use bulk transform scripts that rewrite the whole file without re-running tests between steps.
+
 ## Scope manifest
 
 The user message includes `ALLOWED_FILES` and per-issue `ACTION` / `DONE_WHEN`. **Only edit ALLOWED_FILES.** If IPC changes require it, regenerate `docs/architecture/ipc-channels.md` via verify script only.
