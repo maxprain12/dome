@@ -45,7 +45,7 @@ Variables de entorno en el job (Environment / pipeline):
 
 | Variable | Default |
 |----------|---------|
-| `SONAR_BATCH_SIZE` | `10` (issues por batch en pick-batch) |
+| `SONAR_BATCH_SIZE` | `3` (issues por batch en pick-batch) |
 | `SONAR_LOOP_MODEL` | `MiniMax-M3` (1M context) |
 | `SONAR_LOOP_TIMEOUT_MS` | `3000000` (50 min fixer — único límite duro del agente; sin cap de steps en OpenCode) |
 | `SONAR_REVIEW_TIMEOUT_MS` | `300000` (5 min reviewer) |
@@ -124,7 +124,7 @@ export OPENCODE_CONFIG="$PWD/scripts/sonar/opencode.ci.json"
 export OPENCODE_DISABLE_AUTOUPDATE=1
 
 # Batch de prueba
-pnpm run sonar:pick-batch -- --size=10 --out=.quality-loop/batch.json
+pnpm run sonar:pick-batch -- --size=3 --out=.quality-loop/batch.json
 
 # Dry run (sin API)
 pnpm run sonar:run-agent -- --dry-run
@@ -163,7 +163,7 @@ Mismo prompt que usa el harness interactivo: [`.cursor/prompts/sonar-fix-batch.m
 
 Tras merge a `main`:
 
-1. Build manual de `dome-quality-loop` con batch reducido (`SONAR_BATCH_SIZE=3` en el job) para pruebas
+1. Build manual de `dome-quality-loop` (default `SONAR_BATCH_SIZE=3`) para pruebas
 2. Confirmar stage *Agent fix (OpenCode)* verde y `verify-loop-diff.sh` sin falsos positivos
 3. PR auto-merge solo si CI pasa — **no confiar en auto-merge hasta 1 run verde**
 

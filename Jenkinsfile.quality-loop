@@ -13,7 +13,7 @@ pipeline {
     SONAR_HOST_URL = 'https://sonar.dowi.es'
     GITHUB_REPOSITORY = 'maxprain12/dome'
     XVFB_DISPLAY = ':99'
-    SONAR_BATCH_SIZE = '10'
+    SONAR_BATCH_SIZE = '3'
     SONAR_LOOP_REVIEWER = '1'
     SONAR_LOOP_TIMEOUT_MS = '3000000'
   }
