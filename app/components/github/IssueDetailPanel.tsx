@@ -29,6 +29,10 @@ function parseAssignees(json: string | null | undefined): string[] {
   }
 }
 
+function removeAssigneeFrom(list: string[], login: string): string[] {
+  return list.filter((a) => a !== login);
+}
+
 function IssueCommentCard({ comment }: { comment: GitHubIssueCommentRow }) {
   const { t } = useTranslation();
   return (
@@ -303,7 +307,7 @@ export default function IssueDetailPanel({ issueId, onClose }: { issueId: string
     : null;
   const initialAssignees = parseAssignees(initial.assignees);
   const handleRemoveAssignee = (login: string) => () =>
-    setAssignees((prev) => prev.filter((a) => a !== login));
+    setAssignees((prev) => removeAssigneeFrom(prev, login));
 
   const save = async () => {
     setSaving(true);
