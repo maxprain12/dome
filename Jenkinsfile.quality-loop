@@ -16,6 +16,8 @@ pipeline {
     SONAR_BATCH_SIZE = '3'
     SONAR_LOOP_REVIEWER = '1'
     SONAR_LOOP_TIMEOUT_MS = '3000000'
+    SONAR_TRIAGE_MODEL = 'MiniMax-M2.7-highspeed'
+    SONAR_TRIAGE_TIMEOUT_MS = '180000'
   }
 
   stages {
@@ -124,7 +126,33 @@ pipeline {
       }
     }
 
+    stage('Batch triage (OpenCode)') {
+      steps {
+        withCredentials([
+          string(credentialsId: 'minimax-api-key', variable: 'MINIMAX_API_KEY'),
+        ]) {
+          sh '''
+            set -eux
+            export OPENCODE_CONFIG="$PWD/scripts/sonar/opencode.ci.json"
+            export OPENCODE_DISABLE_AUTOUPDATE=1
+            export SONAR_TRIAGE_MODEL="${SONAR_TRIAGE_MODEL:-MiniMax-M2.7-highspeed}"
+            export SONAR_TRIAGE_TIMEOUT_MS="${SONAR_TRIAGE_TIMEOUT_MS:-180000}"
+            pnpm run sonar:run-triage -- --batch=.quality-loop/batch.json
+            pnpm run sonar:apply-triage -- --batch=.quality-loop/batch.json
+          '''
+        }
+        archiveArtifacts artifacts: '.quality-loop/triage-verdict.json,.quality-loop/triage-applied.json,.quality-loop/batch-deferred.json,.quality-loop/batch.json', allowEmptyArchive: true
+      }
+    }
+
     stage('Mechanical fix') {
+      when {
+        expression {
+          if (!fileExists('.quality-loop/triage-applied.json')) return true
+          def applied = readJSON file: '.quality-loop/triage-applied.json'
+          return applied.fixCount > 0
+        }
+      }
       steps {
         script {
           def batchText = fileExists('.quality-loop/batch.json') ? readFile('.quality-loop/batch.json') : '{}'
@@ -155,8 +183,15 @@ pipeline {
 
     stage('Agent fix (OpenCode)') {
       when {
-        expression {
-          return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) == 0
+        allOf {
+          expression {
+            if (!fileExists('.quality-loop/triage-applied.json')) return true
+            def applied = readJSON file: '.quality-loop/triage-applied.json'
+            return applied.fixCount > 0
+          }
+          expression {
+            return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) == 0
+          }
         }
       }
       steps {

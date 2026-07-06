@@ -50,6 +50,8 @@ Variables de entorno en el job (Environment / pipeline):
 | `SONAR_LOOP_TIMEOUT_MS` | `3000000` (50 min fixer — único límite duro del agente; sin cap de steps en OpenCode) |
 | `SONAR_REVIEW_TIMEOUT_MS` | `300000` (5 min reviewer) |
 | `SONAR_LOOP_REVIEWER` | `1` — set `0` to skip LLM reviewer stage |
+| `SONAR_TRIAGE_MODEL` | `MiniMax-M2.7-highspeed` (fast triage before fixer) |
+| `SONAR_TRIAGE_TIMEOUT_MS` | `180000` (3 min triage agent) |
 | `SONAR_LOOP_MAX_CHANGED_FILES` | `15` |
 | `OPENCODE_CONFIG` | `scripts/sonar/opencode.ci.json` |
 
@@ -98,13 +100,14 @@ pnpm run sonar:run-agent -- --dry-run
 1. Sync Sonar → GitHub issues (`pnpm run sonar:sync-github`) — cap 50 issues abiertas
 2. Pick batch → `.quality-loop/batch.json`
 3. **Validate batch** — `pnpm run sonar:validate-batch`
-4. Fix mecánico void (**S7735 only**) → fast gates; revert si fallan
-5. **Agent fix (OpenCode `sonar-fix`)** — si árbol limpio
-6. **Fast gates (parallel)** — typecheck, lint, scope, diff safety → `.quality-loop/fast-gates.json`
-7. **Full verify** — `verify-batch-pr.sh` (mirror GitHub CI)
-8. **Agent review (OpenCode `sonar-reviewer`)** — read-only; `APPROVE` required (disable with `SONAR_LOOP_REVIEWER=0`)
-9. Verify & PR — commit + push + PR (**auto-merge squash** cuando pase GitHub CI)
-10. Close resolved en Sonar (fail-soft)
+4. **Batch triage (OpenCode `sonar-triage`)** — MiniMax-M2.7-highspeed decides fix vs defer; `apply-batch-triage` filters batch
+5. Fix mecánico void (**S7735 only**) → fast gates; revert si fallan
+6. **Agent fix (OpenCode `sonar-fix`)** — si hay issues en fix subset y árbol limpio
+7. **Fast gates (parallel)** — typecheck, lint, scope, diff safety → `.quality-loop/fast-gates.json`
+8. **Full verify** — `verify-batch-pr.sh` (mirror GitHub CI)
+9. **Agent review (OpenCode `sonar-reviewer`)** — read-only; `APPROVE` required (disable with `SONAR_LOOP_REVIEWER=0`)
+10. Verify & PR — commit + push + PR (**auto-merge squash** cuando pase GitHub CI)
+11. Close resolved en Sonar (fail-soft)
 
 ### Auto-merge de PRs
 
@@ -141,6 +144,8 @@ pnpm run sonar:fetch-issues
 pnpm run sonar:sync-github
 pnpm run sonar:pick-batch
 pnpm run sonar:validate-batch
+pnpm run sonar:run-triage
+pnpm run sonar:apply-triage
 pnpm run sonar:fast-gates
 pnpm run sonar:run-agent
 pnpm run sonar:run-reviewer
@@ -148,7 +153,8 @@ pnpm run sonar:close-resolved
 ```
 
 Config OpenCode CI: [`scripts/sonar/opencode.ci.json`](../../scripts/sonar/opencode.ci.json)  
-Prompt del agente: [`.cursor/prompts/sonar-fix-batch-ci.md`](../.cursor/prompts/sonar-fix-batch-ci.md)
+Prompt del agente fixer: [`.cursor/prompts/sonar-fix-batch-ci.md`](../.cursor/prompts/sonar-fix-batch-ci.md)  
+Prompt triage: [`.cursor/prompts/sonar-triage-batch-ci.md`](../.cursor/prompts/sonar-triage-batch-ci.md)
 
 ## Iteración manual (desarrollo)
 
