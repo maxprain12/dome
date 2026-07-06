@@ -148,9 +148,7 @@ pipeline {
     stage('Mechanical fix') {
       when {
         expression {
-          if (!fileExists('.quality-loop/triage-applied.json')) return true
-          def applied = readJSON file: '.quality-loop/triage-applied.json'
-          return applied.fixCount > 0
+          return sh(script: 'bash scripts/jenkins/triage-has-fixes.sh "$PWD"', returnStatus: true) == 0
         }
       }
       steps {
@@ -185,9 +183,7 @@ pipeline {
       when {
         allOf {
           expression {
-            if (!fileExists('.quality-loop/triage-applied.json')) return true
-            def applied = readJSON file: '.quality-loop/triage-applied.json'
-            return applied.fixCount > 0
+            return sh(script: 'bash scripts/jenkins/triage-has-fixes.sh "$PWD"', returnStatus: true) == 0
           }
           expression {
             return sh(script: 'bash scripts/jenkins/source-tree-clean.sh', returnStatus: true) == 0
