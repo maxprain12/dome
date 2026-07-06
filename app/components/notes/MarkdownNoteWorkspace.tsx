@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
+import type { TFunction } from 'i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { enUS, es, fr, ptBR } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +17,7 @@ import StudioOutputViewer from '@/components/workspace/StudioOutputViewer';
 import MetadataModal from '@/components/workspace/MetadataModal';
 import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { useAppStore } from '@/lib/store/useAppStore';
-import type { Resource } from '@/types';
+import type { Resource, StudioOutput } from '@/types';
 import NoteActionBar from '@/components/notes/NoteActionBar';
 import type { ActionBarCrumbSegment, NoteViewMode } from '@/components/notes/NoteActionBar';
 import type { NoteSavePillState } from '@/components/notes/NoteSavePill';
@@ -69,6 +70,114 @@ async function loadFolderAncestors(
     currentId = res.data.folder_id ?? null;
   }
   return path;
+}
+
+function getSavePillState(
+  saveError: string | null,
+  isSaving: boolean,
+  isDirty: boolean,
+): NoteSavePillState {
+  if (saveError) return 'error';
+  if (isSaving) return 'saving';
+  if (isDirty) return 'dirty';
+  return 'saved';
+}
+
+function getEditorPlaceholder(
+  readOnly: boolean,
+  editorReady: boolean,
+  emptyVisible: boolean,
+  t: TFunction,
+): string | undefined {
+  if (readOnly || !editorReady) return undefined;
+  return emptyVisible ? '' : t('notes.editor_placeholder');
+}
+
+function getNoteHeroEmoji(resource: Resource): string | undefined {
+  const meta = resource.metadata as Record<string, unknown> | undefined;
+  return meta && typeof meta.dome_note_icon === 'string'
+    ? String(meta.dome_note_icon)
+    : undefined;
+}
+
+function getDomeShareLink(resource: Resource): string | null {
+  return typeof resource.id === 'string' ? `dome://resource/${resource.id}/note` : null;
+}
+
+type EditorBlockArgs = {
+  resourceId: string;
+  readOnly: boolean;
+  editorReady: boolean;
+  wordCount: number;
+  saveError: string | null;
+  editorRef: RefObject<MarkdownNoteEditorHandle>;
+  initialMarkdown: string;
+  handleEditorChange: () => void;
+  handleEditorReady: () => void;
+  handlePickTemplate: (id: string) => void;
+  t: TFunction;
+};
+
+function renderEditorBlock(args: EditorBlockArgs) {
+  const emptyVisible = args.editorReady && !args.readOnly && args.wordCount === 0;
+  const placeholder = getEditorPlaceholder(
+    args.readOnly,
+    args.editorReady,
+    emptyVisible,
+    args.t,
+  );
+  return (
+    <>
+      {emptyVisible ? (
+        <NoteEmptyState
+          onPickTemplate={args.readOnly ? undefined : args.handlePickTemplate}
+        />
+      ) : null}
+      <div className="min-h-0 pb-24">
+        <MarkdownNoteEditor
+          key={args.resourceId}
+          ref={args.editorRef}
+          initialMarkdown={args.initialMarkdown}
+          readOnly={args.readOnly}
+          placeholder={placeholder}
+          onChange={args.handleEditorChange}
+          onReady={args.handleEditorReady}
+        />
+      </div>
+      {args.saveError ? (
+        <div role="alert" className="px-4 pb-6 text-xs" style={{ color: 'var(--dome-error)' }}>
+          {args.saveError}
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+type SidePanelsArgs = {
+  resource: Resource;
+  sourcesPanelOpen: boolean;
+  studioPanelOpen: boolean;
+  activeStudioOutput: StudioOutput | null;
+  setActiveStudioOutput: (output: StudioOutput | null) => void;
+};
+
+function renderSidePanels(args: SidePanelsArgs) {
+  return (
+    <>
+      {args.sourcesPanelOpen ? (
+        <SourcesPanel resourceId={args.resource.id} projectId={args.resource.project_id} />
+      ) : null}
+      {args.studioPanelOpen ? (
+        <StudioPanel resourceId={args.resource.id} projectId={args.resource.project_id} />
+      ) : null}
+      {args.activeStudioOutput ? (
+        <StudioOutputViewer
+          output={args.activeStudioOutput}
+          onClose={() => args.setActiveStudioOutput(null)}
+        />
+      ) : null}
+    </>
+  );
 }
 
 export default function MarkdownNoteWorkspace({
@@ -469,46 +578,34 @@ export default function MarkdownNoteWorkspace({
     );
   }
 
-  const savePillState: NoteSavePillState = saveError
-    ? 'error'
-    : isSaving
-      ? 'saving'
-      : isDirty
-        ? 'dirty'
-        : 'saved';
+  const savePillState = getSavePillState(saveError, isSaving, isDirty);
 
   const editedRelative = formatDistanceToNowStrict(resource.updated_at, {
     addSuffix: true,
     locale: localeFor(i18n.language),
   });
 
-  const emptyVisible = editorReady && !readOnly && wordCount === 0;
-  const editorPlaceholder =
-    readOnly || !editorReady ? undefined : emptyVisible ? '' : t('notes.editor_placeholder');
+  const editorBlockNode = renderEditorBlock({
+    resourceId,
+    readOnly,
+    editorReady,
+    wordCount,
+    saveError,
+    editorRef,
+    initialMarkdown,
+    handleEditorChange,
+    handleEditorReady,
+    handlePickTemplate,
+    t,
+  });
 
-  const editorBlock = (
-    <>
-      {emptyVisible ? (
-        <NoteEmptyState onPickTemplate={readOnly ? undefined : handlePickTemplate} />
-      ) : null}
-      <div className="min-h-0 pb-24">
-        <MarkdownNoteEditor
-          key={resourceId}
-          ref={editorRef}
-          initialMarkdown={initialMarkdown}
-          readOnly={readOnly}
-          placeholder={editorPlaceholder}
-          onChange={handleEditorChange}
-          onReady={handleEditorReady}
-        />
-      </div>
-      {saveError ? (
-        <div role="alert" className="px-4 pb-6 text-xs" style={{ color: 'var(--dome-error)' }}>
-          {saveError}
-        </div>
-      ) : null}
-    </>
-  );
+  const sidePanelsNode = renderSidePanels({
+    resource,
+    sourcesPanelOpen,
+    studioPanelOpen,
+    activeStudioOutput,
+    setActiveStudioOutput,
+  });
 
   if (compact) {
     return (
@@ -526,30 +623,16 @@ export default function MarkdownNoteWorkspace({
               onChange={setTitle}
               onBlur={handleTitleBlur}
             />
-            {editorBlock}
+            {editorBlockNode}
           </div>
         </div>
-        {sourcesPanelOpen && (
-          <SourcesPanel resourceId={resource.id} projectId={resource.project_id} />
-        )}
-        {studioPanelOpen && (
-          <StudioPanel resourceId={resource.id} projectId={resource.project_id} />
-        )}
-        {activeStudioOutput ? (
-          <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} />
-        ) : null}
+        {sidePanelsNode}
       </div>
     );
   }
 
-  const noteHeroEmojiRaw =
-    resource.metadata &&
-    typeof (resource.metadata as Record<string, unknown>).dome_note_icon === 'string'
-      ? String((resource.metadata as Record<string, unknown>).dome_note_icon)
-      : undefined;
-
-  const domeShareLink =
-    typeof resource.id === 'string' ? `dome://resource/${resource.id}/note` : null;
+  const noteHeroEmojiRaw = getNoteHeroEmoji(resource);
+  const domeShareLink = getDomeShareLink(resource);
 
   return (
     <div
@@ -601,20 +684,12 @@ export default function MarkdownNoteWorkspace({
                 tags={resourceTags}
                 onRequestAddTag={readOnly ? undefined : () => setTagQuickModalOpen(true)}
               />
-              {editorBlock}
+              {editorBlockNode}
             </div>
           </div>
         </div>
 
-        {sourcesPanelOpen && (
-          <SourcesPanel resourceId={resource.id} projectId={resource.project_id} />
-        )}
-        {studioPanelOpen && (
-          <StudioPanel resourceId={resource.id} projectId={resource.project_id} />
-        )}
-        {activeStudioOutput ? (
-          <StudioOutputViewer output={activeStudioOutput} onClose={() => setActiveStudioOutput(null)} />
-        ) : null}
+        {sidePanelsNode}
         <SidePanel
           resourceId={resource.id}
           resource={resource}
