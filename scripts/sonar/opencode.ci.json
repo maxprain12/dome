@@ -28,6 +28,25 @@
         "skill": "deny"
       }
     },
+    "sonar-triage": {
+      "mode": "primary",
+      "description": "Sonar quality loop — fast batch triage (fix vs defer)",
+      "model": "minimax/MiniMax-M2.7-highspeed",
+      "prompt": "{file:../../.cursor/prompts/sonar-triage-batch-ci.md}",
+      "permission": {
+        "read": "allow",
+        "edit": "deny",
+        "glob": "allow",
+        "grep": "allow",
+        "list": "allow",
+        "bash": "deny",
+        "webfetch": "deny",
+        "websearch": "deny",
+        "task": "deny",
+        "todowrite": "deny",
+        "skill": "deny"
+      }
+    },
     "sonar-reviewer": {
       "mode": "primary",
       "description": "Sonar quality loop — read-only diff reviewer before PR",

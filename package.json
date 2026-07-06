@@ -60,6 +60,8 @@
     "sonar:pick-batch": "node scripts/sonar/pick-batch.mjs",
     "sonar:validate-batch": "node scripts/sonar/validate-batch.mjs",
     "sonar:validate-scope": "node scripts/sonar/validate-batch-scope.mjs",
+    "sonar:run-triage": "node scripts/sonar/run-opencode-triage.mjs",
+    "sonar:apply-triage": "node scripts/sonar/apply-batch-triage.mjs",
     "sonar:fast-gates": "bash scripts/jenkins/run-fast-gates.sh",
     "sonar:verify-batch": "bash scripts/jenkins/verify-batch-pr.sh",
     "sonar:close-resolved": "node scripts/sonar/close-resolved.mjs",
