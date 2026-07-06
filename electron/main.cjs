@@ -659,7 +659,634 @@ function serveFile(filePath) {
   });
 }
 
-// Initialize app
+// ─── Boot helpers (extracted from the original app.whenReady().then() callback) ─
+//
+// The boot sequence used to live in a single async closure (cognitive
+// complexity 37, above Sonar's S3776 threshold of 15). Each helper below owns
+// one concern; the orchestrator at the bottom wires them up in the original
+// order. They all run AFTER `app.whenReady()` resolves, so module-level
+// service handles (database, windowManager, fileStorage, ...) are safe to use.
+
+// --- app:// custom protocol (Vite build assets + sandboxed artifact frames) ---
+
+function registerAppProtocol() {
+  const outDir = app.isPackaged
+    ? path.join(process.resourcesPath, 'app.asar', 'dist')
+    : path.join(__dirname, '../dist');
+  console.log('[Protocol] Registering app:// protocol, serving from:', outDir);
+
+  // Cache for file paths to avoid repeated fs.existsSync calls
+  const fileCache = new Map();
+  const CACHE_TTL = 60000; // 1 minute cache TTL
+
+  protocol.handle('app', (request) =>
+    serveAppProtocolRequest(request, outDir, fileCache, CACHE_TTL),
+  );
+
+  console.log('[Protocol] app:// protocol registered successfully');
+}
+
+function serveAppProtocolRequest(request, outDir, fileCache, CACHE_TTL) {
+  const url = new URL(request.url);
+
+  const artifact = serveAppArtifactFrame(url);
+  if (artifact) return artifact;
+
+  const normalizedPath = resolveAppRequestPath(url, outDir);
+  if (!normalizedPath) return new Response('Forbidden', { status: 403 });
+
+  const cacheKey = normalizedPath;
+  const cached = fileCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.exists
+      ? serveFile(cached.path)
+      : new Response('Not Found', { status: 404 });
+  }
+
+  return serveAppRequestPath(normalizedPath, outDir, fileCache, cacheKey);
+}
+
+// app://artifact/<token> — sandboxed artifact frame documents (issue #465).
+// Served from an in-memory registry with a dedicated CSP so inline scripts run
+// inside the sandboxed iframe without touching the strict renderer CSP
+// (srcdoc would inherit it and block them in prod).
+function serveAppArtifactFrame(url) {
+  if (url.hostname !== 'artifact') return null;
+  const token = url.pathname.replace(/^\//, '');
+  const html = require('./artifacts/artifact-frame-registry.cjs').getFrameHtml(token);
+  if (html === null) return new Response('Not Found', { status: 404 });
+  return new Response(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Security-Policy': require('./core/csp.cjs').ARTIFACT_FRAME_CSP,
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+function resolveAppRequestPath(url, outDir) {
+  let filePath = decodeURIComponent(url.pathname);
+  if (filePath.startsWith('/')) filePath = filePath.slice(1);
+
+  // Default to index.html for root or directory requests
+  if (!filePath || filePath.endsWith('/')) {
+    filePath = filePath + 'index.html';
+  }
+
+  const fullPath = path.join(outDir, filePath);
+  const normalizedPath = path.normalize(fullPath);
+  // Security: ensure the path is within outDir
+  if (!normalizedPath.startsWith(outDir)) {
+    console.error('[Protocol] Security: path traversal attempt blocked:', filePath);
+    return null;
+  }
+  return normalizedPath;
+}
+
+function serveAppRequestPath(normalizedPath, outDir, fileCache, cacheKey) {
+  try {
+    const stats = fs.statSync(normalizedPath);
+    if (stats.isDirectory()) {
+      const indexPath = path.join(normalizedPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
+        return serveFile(indexPath);
+      }
+      fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
+      return new Response('Not Found', { status: 404 });
+    }
+    // Regular file
+    fileCache.set(cacheKey, { exists: true, path: normalizedPath, timestamp: Date.now() });
+    return serveFile(normalizedPath);
+  } catch (err) {
+    return fallbackAppRequestPath(err, normalizedPath, outDir, fileCache, cacheKey);
+  }
+}
+
+function fallbackAppRequestPath(err, normalizedPath, outDir, fileCache, cacheKey) {
+  // Log the failure for debugging
+  console.error('[Protocol] File not found:', normalizedPath, err.message);
+  // For SPA routing: if file doesn't exist and it's not a static asset,
+  // fallback to index.html to let React Router handle it
+  const isStaticAsset = /\.(js|mjs|cjs|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/i.test(normalizedPath);
+
+  if (!isStaticAsset) {
+    const indexPath = path.join(outDir, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
+      return serveFile(indexPath);
+    }
+  }
+
+  fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
+  return new Response('Not Found', { status: 404 });
+}
+
+// --- Permission request/check handlers ---------------------------------------
+
+// Without these, Chromium auto-grants every Web API permission request.
+// Deny all by default; allow only the media permissions Dome actually uses,
+// and only from trusted first-party origins.
+function installPermissionHandlers() {
+  const _TRUSTED_ORIGIN_PREFIXES = [
+    'file://',
+    'http://localhost',
+    'app://dome/',
+    'app://dome',
+  ];
+  // speaker-selection: Chromium checks this for audio output / loopback paths
+  // with getUserMedia & display capture. Denying it logged "Check denied
+  // speaker-selection" and could trigger internal null-iteration errors.
+  // background-sync: often queried by SW / tooling; we allow on first-party only.
+  const _ALLOWED_PERMISSIONS = new Set([
+    'media',
+    'microphone',
+    'camera',
+    'display-capture',
+    'speaker-selection',
+    'background-sync',
+    'clipboard-read',
+    'clipboard-write',
+    'clipboard-sanitized-write',
+    'fullscreen',
+  ]);
+  // Common denials that add no value (PWA, maps, hardware); don't spam console.
+  // DevTools performs hundreds of permission checks on open.
+  const _QUIET_DENY_PERMISSIONS = new Set([
+    'geolocation',
+    'web-app-installation',
+    'midi',
+    'serial',
+    'usb',
+    'hid',
+    'bluetooth',
+    'local-fonts',
+    'window-management',
+    'file-system',
+    'idle-detection',
+  ]);
+
+  const _logPermissions =
+    process.env.DOME_LOG_PERMISSIONS === '1' || process.env.DOME_LOG_PERMISSIONS === 'true';
+
+  function _isTrustedOrigin(origin) {
+    if (!origin) return false;
+    return _TRUSTED_ORIGIN_PREFIXES.some((prefix) => origin.startsWith(prefix));
+  }
+
+  function _isDevtoolsOrigin(origin) {
+    if (!origin || typeof origin !== 'string') return false;
+    return (
+      origin.startsWith('devtools://') ||
+      origin.startsWith('chrome-devtools://') ||
+      origin.includes('://devtools') // some builds
+    );
+  }
+
+  /**
+   * RequestHandler: few events; don't spam empty origins, DevTools, or
+   * permissions we never use. CheckHandler: don't log (Chromium does hundreds
+   * of checks); set DOME_LOG_PERMISSIONS=1 to debug.
+   */
+  function _shouldLogRequestDenial(permission, origin) {
+    if (_logPermissions) return true;
+    if (_QUIET_DENY_PERMISSIONS.has(permission)) return false;
+    if (_isDevtoolsOrigin(origin)) return false;
+    if (!origin || origin === '(unknown)') return false;
+    return true;
+  }
+
+  // Async handler: called when a renderer explicitly requests a permission
+  // (e.g. getUserMedia, getDisplayMedia). Must call callback(boolean).
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    const origin = details?.requestingUrl || webContents?.getURL?.() || '';
+    const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
+    if (!trusted && _shouldLogRequestDenial(permission, origin || '(unknown)')) {
+      console.warn(`[Permissions] Denied "${permission}" request from "${origin || '(unknown)'}"`);
+    }
+    callback(trusted);
+  });
+
+  // Sync handler: called for background permission checks (navigator.permissions.query,
+  // feature-policy evaluation) before the user-facing prompt. Must return boolean.
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    const origin = requestingOrigin || details?.requestingUrl || webContents?.getURL?.() || '';
+    const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
+    if (!trusted && _logPermissions) {
+      console.warn(`[Permissions] Check denied "${permission}" from "${origin || '(unknown)'}"`);
+    }
+    return trusted;
+  });
+}
+
+// --- Deep-link + dome:// protocol-client registration ------------------------
+
+// Register dome:// for OAuth callbacks (MCP backlinks)
+function registerDomeProtocolClient() {
+  if (process.defaultApp && process.argv.length >= 2) {
+    app.setAsDefaultProtocolClient('dome', process.execPath, [path.resolve(process.argv[1])]);
+  } else {
+    app.setAsDefaultProtocolClient('dome');
+  }
+}
+
+// macOS delivers deep links via the 'open-url' app event (Windows/Linux pass
+// them through argv, handled by handleColdStartUrlIfAny() after the window
+// exists).
+function registerMacOsDeepLinkHandler() {
+  if (process.platform !== 'darwin') return;
+  app.on('open-url', async (event, url) => {
+    event.preventDefault();
+    if (mcpOauth.handleOAuthCallback(url)) {
+      console.log('[MCP OAuth] Callback received and processed');
+      return;
+    }
+    const handled = await handleDomeUrl(url, {
+      database,
+      windowManager,
+      nativeTheme,
+    });
+    if (handled) {
+      console.log('[DeepLink] Handled via open-url');
+    }
+  });
+}
+
+// --- Storage / DB / first-run services ---------------------------------------
+
+function tryStartBackupScheduler() {
+  try {
+    const dbBackupScheduler = require('./core/db-backup-scheduler.cjs');
+    dbBackupScheduler.init(database);
+  } catch (e) {
+    console.warn('[Main] db backup scheduler:', e?.message || e);
+  }
+}
+
+// Seed bundled SKILL.md packs to ~/.dome/skills/ on first boot (idempotent)
+function trySeedBundledSkills() {
+  try {
+    const { seedBundledSkills } = require('./marketplace/skills-bootstrap.cjs');
+    seedBundledSkills(database.getDB());
+  } catch (e) {
+    console.warn('[Main] skills bootstrap:', e?.message || e);
+  }
+}
+
+// Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
+function trySeedOnboardingGuide() {
+  try {
+    const { seedGuide } = require('./core/guide-bootstrap.cjs');
+    seedGuide(database.getDB());
+  } catch (e) {
+    console.warn('[Main] guide bootstrap:', e?.message || e);
+  }
+}
+
+async function initSemanticStack() {
+  const lancedbSemantic = require('./services/lancedb-semantic.cjs');
+  try {
+    await lancedbSemantic.init(app.getPath('userData'));
+    await lancedbSemantic.migrateChunksFromSqliteIfNeeded(database.getDB());
+    await lancedbSemantic.bootstrapLexFromSqliteIfNeeded(database.getDB());
+  } catch (lanceErr) {
+    console.error('[Main] LanceDB:', lanceErr?.message || lanceErr);
+  }
+}
+
+function runEmbeddingsRefactorGuard() {
+  try {
+    const q = database.getQueries();
+    const guard = q.getSetting.get('embeddings_refactor_v1');
+    if (guard?.value === '1') return;
+    try {
+      const cacheDir = path.join(app.getPath('userData'), 'transformers-cache');
+      fs.rmSync(cacheDir, { recursive: true, force: true });
+      console.log('[Main] transformers-cache eliminado (refactor embeddings)');
+    } catch {
+      /* ignore */
+    }
+    q.setSetting.run('embeddings_refactor_v1', '1', Date.now());
+  } catch (e) {
+    console.warn('[Main] embeddings refactor guard:', e?.message || e);
+  }
+}
+
+function bindWindowManagerToToolHandlers() {
+  excelToolsHandler.setWindowManager(windowManager);
+  docxToolsHandler.setWindowManager(windowManager);
+  pptToolsHandler.setWindowManager(windowManager);
+  aiToolsHandler.setWindowManager(windowManager);
+}
+
+// --- IPC + dev bridge + third-party services ---------------------------------
+
+// Dev-only: capture IPC handlers so the HTTP bridge can relay them to a
+// browser tab. MUST run before registerAll(). No-op in packaged builds.
+function installDevIpcCapture() {
+  try {
+    require('./core/dev-ipc-bridge.cjs').installIpcCapture();
+  } catch (e) {
+    console.warn('[Main] dev IPC capture:', e?.message || e);
+  }
+}
+
+function registerAllIpcHandlers() {
+  // Register all IPC handlers (modularized in electron/ipc/)
+  registerAll({
+    app,
+    windowManager,
+    database,
+    initModule,
+    fileStorage,
+    thumbnail,
+    cropImage,
+    webScraper,
+    youtubeService,
+    ollamaService,
+    getOllamaManager,
+    aiToolsHandler,
+    ttsService,
+    documentExtractor,
+    documentGenerator,
+    docxConverter,
+    authManager,
+    personalityLoader,
+    notebookPython,
+    validateSender,
+    sanitizePath,
+    validateUrl,
+    pendingDisplayMediaSources,
+  });
+}
+
+// Dev-only: start the HTTP IPC bridge so a browser tab can drive the app.
+function startDevIpcBridge() {
+  try {
+    require('./core/dev-ipc-bridge.cjs').startDevIpcBridge({
+      getSender: () => windowManager.get('main')?.webContents,
+    });
+  } catch (e) {
+    console.warn('[Main] dev IPC bridge:', e?.message || e);
+  }
+}
+
+function tryInitTranscriptionShortcut() {
+  try {
+    transcriptionShortcut.registerFromDatabase(database, windowManager);
+  } catch (shortcutErr) {
+    console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
+  }
+}
+
+// Auto-start Dome MCP server if enabled in settings
+function tryAutoStartDomeMcpServer() {
+  try {
+    const q = database.getQueries();
+    const mcpEnabled = q.getSetting?.get('dome_mcp_enabled');
+    if (mcpEnabled?.value !== '1') return;
+    const domeMcpServer = require('./mcp/dome-mcp-server.cjs');
+    const portRow = q.getSetting?.get('dome_mcp_port');
+    const port = portRow?.value ? parseInt(portRow.value, 10) : 37214;
+    domeMcpServer.start(port).catch((e) =>
+      console.warn('[Main] DomeMCP auto-start failed:', e?.message),
+    );
+  } catch (mcpErr) {
+    console.warn('[Main] DomeMCP auto-start check failed:', mcpErr?.message);
+  }
+}
+
+// Sync Sentry span consent from SQLite before the renderer loads so main-process
+// performance spans honour analytics_enabled without waiting for IPC.
+function trySyncSentryConsent() {
+  try {
+    sentryMain.syncSentryConsentFromDatabase(database);
+  } catch (e) {
+    console.warn('[Main] Sentry consent sync:', e?.message || e);
+  }
+}
+
+// --- Window + post-create schedulers -----------------------------------------
+
+// One-time background semantic chunk reindex; non-blocking (requires embeddings config)
+function scheduleInitialSemanticReindex() {
+  setTimeout(() => {
+    try {
+      if (process.env.NODE_ENV === 'development') return;
+      const q = database.getQueries();
+      const embeddingsService = require('./services/embeddings.service.cjs');
+      if (!embeddingsService.isConfigured(q)) return;
+      const done = q.getSetting.get('semantic_initial_reindex_done_v2');
+      if (done?.value === '1') return;
+      const semanticScheduler = require('./storage/semantic-index-scheduler.cjs');
+      semanticScheduler.init(database);
+      void semanticScheduler
+        .getIndexer()
+        .reindexAll({
+          skipSemanticRelations: true,
+          onProgress: (p) => {
+            try {
+              windowManager.broadcast('semantic:progress', p);
+            } catch {
+              /* ignore */
+            }
+          },
+        })
+        .then(() => {
+          try {
+            q.setSetting.run('semantic_initial_reindex_done_v2', '1', Date.now());
+          } catch {
+            /* ignore */
+          }
+        });
+    } catch (e) {
+      console.warn('[Main] semantic initial reindex:', e?.message || e);
+    }
+  }, 90_000);
+}
+
+// Modern Electron display-media handler for system/meeting audio capture.
+// The renderer calls window.electron.transcription.setDisplayMediaSource(id)
+// BEFORE calling navigator.mediaDevices.getDisplayMedia(), storing the
+// desired source ID here so we can bypass Chromium's own picker and use the
+// right source.
+function installDisplayMediaHandler() {
+  session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+    try {
+      await chooseDisplayMediaSource(request, callback);
+    } catch (err) {
+      console.error('[DisplayMedia] setDisplayMediaRequestHandler error:', err?.message);
+      try {
+        callback({});
+      } catch (cbErr) {
+        console.error('[DisplayMedia] callback error:', cbErr?.message);
+      }
+    }
+  });
+}
+
+async function chooseDisplayMediaSource(request, callback) {
+  // Only start system audio (loopback) when the renderer asked for audio. The
+  // hub uses getDisplayMedia({ audio: false }) for live video preview; always
+  // forcing loopback here caused a second Core Audio tap alongside real capture
+  // and could crash or kill the app on macOS.
+  const audioRequested = request?.audioRequested === true;
+
+  // Consume the pending source ID set by the renderer just before calling
+  // getDisplayMedia().
+  const sourceId = pendingDisplayMediaSources.consume();
+
+  const sources = await desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 1, height: 1 }, // minimal — we only need IDs
+  });
+
+  const videoSource = pickDisplayMediaSource(sources, sourceId);
+  if (!videoSource) {
+    callback({});
+    return;
+  }
+
+  // 'loopback' captures system audio on macOS 13+ and Windows when audioRequested is true.
+  if (audioRequested) {
+    callback({ video: videoSource, audio: 'loopback' });
+  } else {
+    callback({ video: videoSource });
+  }
+}
+
+function pickDisplayMediaSource(sources, sourceId) {
+  if (sourceId) {
+    const match = sources.find((s) => s.id === sourceId);
+    if (match) return match;
+  }
+  return sources[0]; // fallback: first screen
+}
+
+// Cold start on Windows/Linux: dome:// URL may be in argv
+async function handleColdStartUrlIfAny() {
+  if (process.platform === 'darwin') return; // macOS uses the open-url handler above
+  const coldStartUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
+  if (!coldStartUrl) return;
+  if (mcpOauth.handleOAuthCallback(coldStartUrl)) {
+    console.log('[MCP OAuth] Callback received on cold start');
+    return;
+  }
+  const handled = await handleDomeUrl(coldStartUrl, {
+    database,
+    windowManager,
+    nativeTheme,
+  });
+  if (handled) {
+    console.log('[DeepLink] Handled on cold start');
+  }
+}
+
+// Register dome link handler for will-navigate and setWindowOpenHandler
+function setupDomeDeepLinkHandler() {
+  windowManager.setDomeLinkHandler((url) =>
+    handleDomeUrl(url, { database, windowManager, nativeTheme })
+  );
+}
+
+function initAutoUpdater(mainWindow) {
+  // Initialize auto-updater (only in packaged app)
+  updateService.init(
+    mainWindow,
+    (status) => windowManager.broadcast('updater:status', status),
+  );
+  // Ensure tray is destroyed and isQuitting is set synchronously before
+  // the updater calls app.quit() / app.exit() — critical on macOS where
+  // the tray can keep the process alive after windows close.
+  updateService.setBeforeQuitCallback(() => {
+    isQuitting = true;
+    if (appTray) {
+      appTray.destroy();
+      appTray = null;
+    }
+  });
+}
+
+function initRuntimeServices() {
+  // Initialize calendar notification service (upcoming events broadcast)
+  calendarNotificationService.init(windowManager);
+  calendarSyncScheduler.init(windowManager);
+  githubSyncService.init(windowManager);
+  githubSyncScheduler.init(windowManager);
+  // Start proactive main-process memory monitoring so the GitHub sync
+  // scheduler can skip ticks under heap pressure instead of OOMing.
+  memoryMonitor.startMemoryMonitor();
+  runEngine.init(windowManager, database, ttsService);
+  // Reclaim run contexts (steps, AbortController, API keys) for runs that
+  // finished without calling releaseRunContext, or that have been paused on
+  // human approval for too long. See T04-cleanup-run-contexts.md.
+  runLifecycle.startRunContextSweep();
+  automationService.init(windowManager, database);
+  runRetention.init();
+  errorNotify.init(windowManager);
+}
+
+// Initialize the app in background (SQLite settings, filesystem)
+function kickOffBackgroundInitialization() {
+  initModule.initializeApp().catch(err => {
+    console.error('❌ Background initialization failed:', err);
+  });
+}
+
+function initSemanticIndexScheduler() {
+  semanticIndexScheduler.init(database);
+  semanticIndexScheduler.startAutoIndexing();
+}
+
+// Watch the vault for external edits (Obsidian/Finder/etc.). Before the
+// watcher starts, the doctor makes DB↔disk consistent (orphaned refs, missing
+// mirrors, ghost paths) so the workspace tree equals the filesystem.
+function startVaultWatcher() {
+  try {
+    require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
+    const vaultWatcher = require('./storage/vault-watcher.cjs');
+    vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
+  } catch (err) {
+    console.warn('[App] Vault watcher not started:', err?.message || err);
+  }
+}
+
+// Schedule orphan file cleanup after app is ready (non-blocking)
+function scheduleOrphanFileCleanup() {
+  setTimeout(() => {
+    try {
+      console.log('[App] Running automatic orphan file cleanup...');
+      const queries = database.getQueries();
+      const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
+      const internalPaths = [...resourcePaths];
+      const avatarSetting = queries.getSetting.get('user_avatar_path');
+      const currentAvatarPath = avatarSetting?.value || null;
+
+      const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
+
+      if (result.deleted > 0) {
+        console.log(`[App] Auto-cleanup: removed ${result.deleted} orphan files, freed ${(result.freedBytes / 1024 / 1024).toFixed(2)}MB`);
+      } else {
+        console.log('[App] Auto-cleanup: no orphan files found');
+      }
+    } catch (error) {
+      console.error('[App] Auto-cleanup failed:', error);
+    }
+
+    // DB-level orphan cleanup
+    try {
+      database.getDB().prepare(
+        `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`,
+      ).run();
+    } catch (e) { /* non-fatal */ }
+  }, 30_000); // 30 seconds delay to let app stabilize
+}
+
+// ─── Boot orchestrator ───────────────────────────────────────────────────────
+//
+// Each helper above owns one concern and is documented individually. Order
+// matches the original `app.whenReady().then()` callback.
 app
   .whenReady()
   .then(async () => {
@@ -668,231 +1295,10 @@ app
     // Remove stale staging files left by previous crashes or interruptions.
     documentStaging.cleanupStaleStagings();
 
-    // Register custom protocol handler for serving static files
-    // This allows Vite build to work with absolute paths
-    const outDir = app.isPackaged
-      ? path.join(process.resourcesPath, 'app.asar', 'dist')
-      : path.join(__dirname, '../dist');
-    console.log('[Protocol] Registering app:// protocol, serving from:', outDir);
-
-    // Cache for file paths to avoid repeated fs.existsSync calls
-    const fileCache = new Map();
-    const CACHE_TTL = 60000; // 1 minute cache TTL
-
-    protocol.handle('app', (request) => {
-      // Parse the URL and get the pathname
-      const url = new URL(request.url);
-
-      // app://artifact/<token> — sandboxed artifact frame documents (issue #465).
-      // Served from an in-memory registry with a dedicated CSP so inline
-      // scripts run inside the sandboxed iframe without touching the strict
-      // renderer CSP (srcdoc would inherit it and block them in prod).
-      if (url.hostname === 'artifact') {
-        const token = url.pathname.replace(/^\//, '');
-        const html = require('./artifacts/artifact-frame-registry.cjs').getFrameHtml(token);
-        if (html === null) return new Response('Not Found', { status: 404 });
-        return new Response(html, {
-          status: 200,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Content-Security-Policy': require('./core/csp.cjs').ARTIFACT_FRAME_CSP,
-            'Cache-Control': 'no-store',
-          },
-        });
-      }
-
-      let filePath = url.pathname;
-
-      // Remove leading slash and decode URI components
-      filePath = decodeURIComponent(filePath);
-      if (filePath.startsWith('/')) {
-        filePath = filePath.slice(1);
-      }
-
-      // Default to index.html for root or directory requests
-      if (!filePath || filePath.endsWith('/')) {
-        filePath = filePath + 'index.html';
-      }
-
-      // Construct the full file path
-      const fullPath = path.join(outDir, filePath);
-
-      // Security: ensure the path is within outDir
-      const normalizedPath = path.normalize(fullPath);
-      if (!normalizedPath.startsWith(outDir)) {
-        console.error('[Protocol] Security: path traversal attempt blocked:', filePath);
-        return new Response('Forbidden', { status: 403 });
-      }
-
-      // Check cache first
-      const cacheKey = normalizedPath;
-      const cached = fileCache.get(cacheKey);
-      if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-        if (cached.exists) {
-          return serveFile(cached.path);
-        } else {
-          return new Response('Not Found', { status: 404 });
-        }
-      }
-
-      // Check if file exists (minimize fs calls)
-      try {
-        const stats = fs.statSync(normalizedPath);
-        if (stats.isDirectory()) {
-          const indexPath = path.join(normalizedPath, 'index.html');
-          if (fs.existsSync(indexPath)) {
-            fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
-            return serveFile(indexPath);
-          }
-          fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
-          return new Response('Not Found', { status: 404 });
-        }
-        // Regular file
-        fileCache.set(cacheKey, { exists: true, path: normalizedPath, timestamp: Date.now() });
-        return serveFile(normalizedPath);
-      } catch (err) {
-        // Log the failure for debugging
-        console.error('[Protocol] File not found:', normalizedPath, err.message);
-        // For SPA routing: if file doesn't exist and it's not a static asset,
-        // fallback to index.html to let React Router handle it
-        const isStaticAsset = /\.(js|mjs|cjs|css|json|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|map)$/i.test(normalizedPath);
-
-        if (!isStaticAsset) {
-          const indexPath = path.join(outDir, 'index.html');
-          if (fs.existsSync(indexPath)) {
-            fileCache.set(cacheKey, { exists: true, path: indexPath, timestamp: Date.now() });
-            return serveFile(indexPath);
-          }
-        }
-
-        fileCache.set(cacheKey, { exists: false, timestamp: Date.now() });
-        return new Response('Not Found', { status: 404 });
-      }
-    });
-
-    console.log('[Protocol] app:// protocol registered successfully');
-
-    // ─── Permission request/check handlers ──────────────────────────────────
-    // Without these, Chromium auto-grants every Web API permission request.
-    // Deny all by default; allow only the media permissions Dome actually uses,
-    // and only from trusted first-party origins.
-    const _TRUSTED_ORIGIN_PREFIXES = [
-      'file://',
-      'http://localhost',
-      'app://dome/',
-      'app://dome',
-    ];
-    // speaker-selection: Chromium checks this for audio output / loopback paths with getUserMedia & display capture.
-    // Denying it logged "Check denied speaker-selection" and could trigger internal null-iteration errors.
-    // background-sync: often queried by SW / tooling; we allow on first-party only.
-    const _ALLOWED_PERMISSIONS = new Set([
-      'media',
-      'microphone',
-      'camera',
-      'display-capture',
-      'speaker-selection',
-      'background-sync',
-      'clipboard-read',
-      'clipboard-write',
-      'clipboard-sanitized-write',
-      'fullscreen',
-    ]);
-
-    // Denegaciones habituales que no aportan (PWA, mapas, hardware); no spamear consola.
-    // DevTools hace cientos de comprobaciones de permisos al abrir.
-    const _QUIET_DENY_PERMISSIONS = new Set([
-      'geolocation',
-      'web-app-installation',
-      'midi',
-      'serial',
-      'usb',
-      'hid',
-      'bluetooth',
-      'local-fonts',
-      'window-management',
-      'file-system',
-      'idle-detection',
-    ]);
-
-    const _logPermissions =
-      process.env.DOME_LOG_PERMISSIONS === '1' || process.env.DOME_LOG_PERMISSIONS === 'true';
-
-    function _isTrustedOrigin(origin) {
-      if (!origin) return false;
-      return _TRUSTED_ORIGIN_PREFIXES.some((prefix) => origin.startsWith(prefix));
-    }
-
-    function _isDevtoolsOrigin(origin) {
-      if (!origin || typeof origin !== 'string') return false;
-      return (
-        origin.startsWith('devtools://') ||
-        origin.startsWith('chrome-devtools://') ||
-        origin.includes('://devtools') // some builds
-      );
-    }
-
-    /**
-     * RequestHandler: pocos eventos; no spamear orígenes vacíos, DevTools, ni permisos que nunca usamos.
-     * CheckHandler: no loguear (Chromium hace cientos de checks); usar DOME_LOG_PERMISSIONS=1 para depurar.
-     */
-    function _shouldLogRequestDenial(permission, origin) {
-      if (_logPermissions) return true;
-      if (_QUIET_DENY_PERMISSIONS.has(permission)) return false;
-      if (_isDevtoolsOrigin(origin)) return false;
-      if (!origin || origin === '(unknown)') return false;
-      return true;
-    }
-
-    // Async handler: called when a renderer explicitly requests a permission
-    // (e.g. getUserMedia, getDisplayMedia). Must call callback(boolean).
-    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-      const origin = details?.requestingUrl || webContents?.getURL?.() || '';
-      const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
-      if (!trusted && _shouldLogRequestDenial(permission, origin || '(unknown)')) {
-        console.warn(`[Permissions] Denied "${permission}" request from "${origin || '(unknown)'}"`);
-      }
-      callback(trusted);
-    });
-
-    // Sync handler: called for background permission checks (navigator.permissions.query,
-    // feature-policy evaluation) before the user-facing prompt. Must return boolean.
-    session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
-      const origin = requestingOrigin || details?.requestingUrl || webContents?.getURL?.() || '';
-      const trusted = _isTrustedOrigin(origin) && _ALLOWED_PERMISSIONS.has(permission);
-      if (!trusted && _logPermissions) {
-        console.warn(`[Permissions] Check denied "${permission}" from "${origin || '(unknown)'}"`);
-      }
-      return trusted;
-    });
-    // ─── End permission handlers ─────────────────────────────────────────────
-
-    // Register dome:// for OAuth callbacks (MCP backlinks)
-    if (process.defaultApp && process.argv.length >= 2) {
-      app.setAsDefaultProtocolClient('dome', process.execPath, [path.resolve(process.argv[1])]);
-    } else {
-      app.setAsDefaultProtocolClient('dome');
-    }
-
-    // Handle OAuth callback and deep links when user is redirected to dome://...
-    if (process.platform === 'darwin') {
-      app.on('open-url', async (event, url) => {
-        event.preventDefault();
-        if (mcpOauth.handleOAuthCallback(url)) {
-          console.log('[MCP OAuth] Callback received and processed');
-        } else {
-          const handled = await handleDomeUrl(url, {
-            database,
-            windowManager,
-            nativeTheme,
-          });
-          if (handled) {
-            console.log('[DeepLink] Handled via open-url');
-          }
-        }
-      });
-    }
-
-    // Cold start on Windows/Linux: URL may be in argv (handle after database is ready)
+    registerAppProtocol();
+    installPermissionHandlers();
+    registerMacOsDeepLinkHandler();
+    registerDomeProtocolClient();
 
     setupUserDataFolder();
     // Initialize file storage
@@ -901,223 +1307,28 @@ app
     // but we still need to ensure it's ready
     database.initDatabase();
 
-    try {
-      const dbBackupScheduler = require('./core/db-backup-scheduler.cjs');
-      dbBackupScheduler.init(database);
-    } catch (e) {
-      console.warn('[Main] db backup scheduler:', e?.message || e);
-    }
+    tryStartBackupScheduler();
+    trySeedBundledSkills();
+    trySeedOnboardingGuide();
+    await initSemanticStack();
+    runEmbeddingsRefactorGuard();
 
-    // Seed bundled SKILL.md packs to ~/.dome/skills/ on first boot (idempotent)
-    try {
-      const { seedBundledSkills } = require('./marketplace/skills-bootstrap.cjs');
-      seedBundledSkills(database.getDB());
-    } catch (e) {
-      console.warn('[Main] skills bootstrap:', e?.message || e);
-    }
+    bindWindowManagerToToolHandlers();
 
-    // Seed onboarding guide notes on first boot (guide_seeded_v2 + optional guide_body_repaired_v2)
-    try {
-      const { seedGuide } = require('./core/guide-bootstrap.cjs');
-      seedGuide(database.getDB());
-    } catch (e) {
-      console.warn('[Main] guide bootstrap:', e?.message || e);
-    }
+    if (isDev) installDevIpcCapture();
+    registerAllIpcHandlers();
+    if (isDev) startDevIpcBridge();
 
-    const lancedbSemantic = require('./services/lancedb-semantic.cjs');
-    const embeddingsService = require('./services/embeddings.service.cjs');
-    try {
-      await lancedbSemantic.init(app.getPath('userData'));
-      await lancedbSemantic.migrateChunksFromSqliteIfNeeded(database.getDB());
-      await lancedbSemantic.bootstrapLexFromSqliteIfNeeded(database.getDB());
-    } catch (lanceErr) {
-      console.error('[Main] LanceDB:', lanceErr?.message || lanceErr);
-    }
+    tryInitTranscriptionShortcut();
+    tryAutoStartDomeMcpServer();
+    trySyncSentryConsent();
 
-    try {
-      const q = database.getQueries();
-      const guard = q.getSetting.get('embeddings_refactor_v1');
-      if (guard?.value !== '1') {
-        const fs = require('fs');
-        const path = require('path');
-        const cacheDir = path.join(app.getPath('userData'), 'transformers-cache');
-        try {
-          fs.rmSync(cacheDir, { recursive: true, force: true });
-          console.log('[Main] transformers-cache eliminado (refactor embeddings)');
-        } catch {
-          /* ignore */
-        }
-        q.setSetting.run('embeddings_refactor_v1', '1', Date.now());
-      }
-    } catch (e) {
-      console.warn('[Main] embeddings refactor guard:', e?.message || e);
-    }
-
-    excelToolsHandler.setWindowManager(windowManager);
-    docxToolsHandler.setWindowManager(windowManager);
-    pptToolsHandler.setWindowManager(windowManager);
-    aiToolsHandler.setWindowManager(windowManager);
-
-    // Dev-only: capture IPC handlers so the HTTP bridge can relay them to a
-    // browser tab. MUST run before registerAll(). No-op in packaged builds.
-    if (isDev) {
-      try {
-        require('./core/dev-ipc-bridge.cjs').installIpcCapture();
-      } catch (e) {
-        console.warn('[Main] dev IPC capture:', e?.message || e);
-      }
-    }
-
-    // Register all IPC handlers (modularized in electron/ipc/)
-    registerAll({
-      app,
-      windowManager,
-      database,
-      initModule,
-      fileStorage,
-      thumbnail,
-      cropImage,
-      webScraper,
-      youtubeService,
-      ollamaService,
-      getOllamaManager,
-      aiToolsHandler,
-      ttsService,
-      documentExtractor,
-      documentGenerator,
-      docxConverter,
-      authManager,
-      personalityLoader,
-      notebookPython,
-      validateSender,
-      sanitizePath,
-      validateUrl,
-      pendingDisplayMediaSources,
-    });
-
-    // Dev-only: start the HTTP IPC bridge so a browser tab can drive the app.
-    if (isDev) {
-      try {
-        require('./core/dev-ipc-bridge.cjs').startDevIpcBridge({
-          getSender: () => windowManager.get('main')?.webContents,
-        });
-      } catch (e) {
-        console.warn('[Main] dev IPC bridge:', e?.message || e);
-      }
-    }
-
-    try {
-      transcriptionShortcut.registerFromDatabase(database, windowManager);
-    } catch (shortcutErr) {
-      console.warn('[Main] Transcription shortcut init:', shortcutErr?.message);
-    }
-
-    // Auto-start Dome MCP server if enabled in settings
-    try {
-      const q = database.getQueries();
-      const mcpEnabled = q.getSetting?.get('dome_mcp_enabled');
-      if (mcpEnabled?.value === '1') {
-        const domeMcpServer = require('./mcp/dome-mcp-server.cjs');
-        const portRow = q.getSetting?.get('dome_mcp_port');
-        const port = portRow?.value ? parseInt(portRow.value, 10) : 37214;
-        domeMcpServer.start(port).catch((e) =>
-          console.warn('[Main] DomeMCP auto-start failed:', e?.message),
-        );
-      }
-    } catch (mcpErr) {
-      console.warn('[Main] DomeMCP auto-start check failed:', mcpErr?.message);
-    }
-
-    // Sync Sentry span consent from SQLite before the renderer loads so main-process
-    // performance spans honour analytics_enabled without waiting for IPC.
-    try {
-      sentryMain.syncSentryConsentFromDatabase(database);
-    } catch (e) {
-      console.warn('[Main] Sentry consent sync:', e?.message || e);
-    }
-
-    // Crear ventana principal en cuanto la base de datos está lista (LanceDB ya se inicializó arriba).
+    // Crear ventana principal en cuanto la base de datos está lista
+    // (LanceDB ya se inicializó arriba).
     const mainWindow = await createWindow();
 
-    // One-time background semantic chunk reindex; non-blocking (requires embeddings config)
-    setTimeout(() => {
-      try {
-        if (process.env.NODE_ENV === 'development') return;
-        const q = database.getQueries();
-        if (!embeddingsService.isConfigured(q)) return;
-        const done = q.getSetting.get('semantic_initial_reindex_done_v2');
-        if (done?.value === '1') return;
-        const semanticScheduler = require('./storage/semantic-index-scheduler.cjs');
-        semanticScheduler.init(database);
-        void semanticScheduler
-          .getIndexer()
-          .reindexAll({
-            skipSemanticRelations: true,
-            onProgress: (p) => {
-              try {
-                windowManager.broadcast('semantic:progress', p);
-              } catch {
-                /* ignore */
-              }
-            },
-          })
-          .then(() => {
-            try {
-              q.setSetting.run('semantic_initial_reindex_done_v2', '1', Date.now());
-            } catch {
-              /* ignore */
-            }
-          });
-      } catch (e) {
-        console.warn('[Main] semantic initial reindex:', e?.message || e);
-      }
-    }, 90_000);
-
-    // Modern Electron display-media handler for system/meeting audio capture.
-    // The renderer calls window.electron.transcription.setDisplayMediaSource(id)
-    // BEFORE calling navigator.mediaDevices.getDisplayMedia(), storing the desired
-    // source ID here so we can bypass Chromium's own picker and use the right source.
-    session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
-      try {
-        // Only start system audio (loopback) when the renderer asked for audio. The hub uses
-        // getDisplayMedia({ audio: false }) for live video preview; always forcing loopback here
-        // caused a second Core Audio tap alongside real capture and could crash or kill the app on macOS.
-        const audioRequested = request?.audioRequested === true;
-
-        // Consume the pending source ID set by the renderer just before calling getDisplayMedia()
-        const sourceId = pendingDisplayMediaSources.consume();
-
-        const sources = await desktopCapturer.getSources({
-          types: ['screen', 'window'],
-          thumbnailSize: { width: 1, height: 1 }, // minimal — we only need IDs
-        });
-
-        let videoSource = sources[0]; // fallback: first screen
-        if (sourceId) {
-          const match = sources.find((s) => s.id === sourceId);
-          if (match) videoSource = match;
-        }
-
-        if (!videoSource) {
-          callback({});
-          return;
-        }
-
-        // 'loopback' captures system audio on macOS 13+ and Windows when audioRequested is true.
-        if (audioRequested) {
-          callback({ video: videoSource, audio: 'loopback' });
-        } else {
-          callback({ video: videoSource });
-        }
-      } catch (err) {
-        console.error('[DisplayMedia] setDisplayMediaRequestHandler error:', err?.message);
-        try {
-          callback({});
-        } catch (cbErr) {
-          console.error('[DisplayMedia] callback error:', cbErr?.message);
-        }
-      }
-    });
+    scheduleInitialSemanticReindex();
+    installDisplayMediaHandler();
 
     // Create tray icon for background operation (automations, notifications)
     createTray();
@@ -1125,110 +1336,18 @@ app
     // Enable auto-launch on first install
     configureFirstLaunchAutoStart();
 
-    // Cold start on Windows/Linux: dome:// URL may be in argv - handle after window exists
-    if (process.platform !== 'darwin') {
-      const coldStartUrl = process.argv.find((arg) => typeof arg === 'string' && arg.startsWith('dome://'));
-      if (coldStartUrl) {
-        if (mcpOauth.handleOAuthCallback(coldStartUrl)) {
-          console.log('[MCP OAuth] Callback received on cold start');
-        } else {
-          const handled = await handleDomeUrl(coldStartUrl, {
-            database,
-            windowManager,
-            nativeTheme,
-          });
-          if (handled) {
-            console.log('[DeepLink] Handled on cold start');
-          }
-        }
-      }
-    }
+    await handleColdStartUrlIfAny();
 
-    // Register dome link handler for will-navigate and setWindowOpenHandler
-    windowManager.setDomeLinkHandler((url) =>
-      handleDomeUrl(url, { database, windowManager, nativeTheme })
-    );
+    setupDomeDeepLinkHandler();
+    initAutoUpdater(mainWindow);
 
-    // Initialize auto-updater (only in packaged app)
-    updateService.init(
-      mainWindow,
-      (status) => windowManager.broadcast('updater:status', status)
-    );
-    // Ensure tray is destroyed and isQuitting is set synchronously before
-    // the updater calls app.quit() / app.exit() — critical on macOS where
-    // the tray can keep the process alive after windows close.
-    updateService.setBeforeQuitCallback(() => {
-      isQuitting = true;
-      if (appTray) {
-        appTray.destroy();
-        appTray = null;
-      }
-    });
+    initRuntimeServices();
+    kickOffBackgroundInitialization();
 
-    // Initialize calendar notification service (upcoming events broadcast)
-    calendarNotificationService.init(windowManager);
-    calendarSyncScheduler.init(windowManager);
-    githubSyncService.init(windowManager);
-    githubSyncScheduler.init(windowManager);
-    // Start proactive main-process memory monitoring so the GitHub sync
-    // scheduler can skip ticks under heap pressure instead of OOMing.
-    memoryMonitor.startMemoryMonitor();
-    runEngine.init(windowManager, database, ttsService);
-    // Reclaim run contexts (steps, AbortController, API keys) for runs that
-    // finished without calling releaseRunContext, or that have been paused on
-    // human approval for too long. See T04-cleanup-run-contexts.md.
-    runLifecycle.startRunContextSweep();
-    automationService.init(windowManager, database);
-    runRetention.init();
-    errorNotify.init(windowManager);
+    initSemanticIndexScheduler();
+    startVaultWatcher();
 
-    // Initialize the app in background (SQLite settings, filesystem)
-    initModule.initializeApp().catch(err => {
-      console.error('❌ Background initialization failed:', err);
-    });
-
-    semanticIndexScheduler.init(database);
-    semanticIndexScheduler.startAutoIndexing();
-
-    // Watch the vault for external edits (Obsidian/Finder/etc.). Before the
-    // watcher starts, the doctor makes DB↔disk consistent (orphaned refs,
-    // missing mirrors, ghost paths) so the workspace tree equals the filesystem.
-    try {
-      require('./storage/vault-doctor.cjs').runBootReconcile({ database, fileStorage });
-      const vaultWatcher = require('./storage/vault-watcher.cjs');
-      vaultWatcher.start({ database, fileStorage, semanticIndexScheduler, windowManager });
-    } catch (err) {
-      console.warn('[App] Vault watcher not started:', err?.message || err);
-    }
-
-    // Schedule orphan file cleanup after app is ready (non-blocking)
-    setTimeout(() => {
-      try {
-        console.log('[App] Running automatic orphan file cleanup...');
-        const queries = database.getQueries();
-        const resourcePaths = queries.getAllInternalPaths.all().map((r) => r.internal_path);
-        const internalPaths = [...resourcePaths];
-        const avatarSetting = queries.getSetting.get('user_avatar_path');
-        const currentAvatarPath = avatarSetting?.value || null;
-
-        const result = fileStorage.cleanupOrphanedFiles(internalPaths, currentAvatarPath);
-
-        if (result.deleted > 0) {
-          console.log(`[App] Auto-cleanup: removed ${result.deleted} orphan files, freed ${(result.freedBytes / 1024 / 1024).toFixed(2)}MB`);
-        } else {
-          console.log('[App] Auto-cleanup: no orphan files found');
-        }
-      } catch (error) {
-        console.error('[App] Auto-cleanup failed:', error);
-      }
-
-      // DB-level orphan cleanup
-      try {
-        database.getDB().prepare(
-          `DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM resource_tags)`
-        ).run();
-      } catch (e) { /* non-fatal */ }
-    }, 30_000); // 30 seconds delay to let app stabilize
+    scheduleOrphanFileCleanup();
   })
   .catch(console.error);
 
