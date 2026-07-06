@@ -53,6 +53,34 @@ function formatDuration(run: PersistentRun): string | null {
   return `${Math.floor(mins / 60)}h ${mins % 60}m`;
 }
 
+function mergeRunIntoList(prev: PersistentRun[], run: PersistentRun): PersistentRun[] {
+  const existing = prev.find((entry) => entry.id === run.id);
+  const merged = existing
+    ? {
+        ...existing,
+        ...run,
+        steps:
+          Array.isArray(run.steps) && run.steps.length > 0 ? run.steps : existing.steps ?? run.steps,
+        links: run.links ?? existing.links,
+      }
+    : run;
+  const next = existing
+    ? prev.map((entry) => (entry.id === run.id ? merged : entry))
+    : [merged, ...prev];
+  return next.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, 100);
+}
+
+function mergeRunIntoSelected(prev: PersistentRun | null, run: PersistentRun): PersistentRun | null {
+  return prev?.id === run.id
+    ? {
+        ...prev,
+        ...run,
+        steps: Array.isArray(run.steps) && run.steps.length > 0 ? run.steps : prev.steps,
+        links: run.links ?? prev.links,
+      }
+    : prev;
+}
+
 /** Runs section — redesigned execution monitor with live KPIs and status rails. */
 export default function RunsStudioView() {
   const { t } = useTranslation();
@@ -123,32 +151,9 @@ export default function RunsStudioView() {
   // Live updates: merge run/step events into the list and the open detail.
   useEffect(() => {
     const unsubUpdated = onRunUpdated(({ run }) => {
-      setAllRuns((prev) => {
-        const existing = prev.find((entry) => entry.id === run.id);
-        const merged = existing
-          ? {
-              ...existing,
-              ...run,
-              steps: Array.isArray(run.steps) && run.steps.length > 0 ? run.steps : existing.steps ?? run.steps,
-              links: run.links ?? existing.links,
-            }
-          : run;
-        const next = existing
-          ? prev.map((entry) => (entry.id === run.id ? merged : entry))
-          : [merged, ...prev];
-        return next.sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)).slice(0, 100);
-      });
+      setAllRuns((prev) => mergeRunIntoList(prev, run));
       if (selectedRunIdRef.current === run.id) {
-        setSelectedRun((prev) =>
-          prev?.id === run.id
-            ? {
-                ...prev,
-                ...run,
-                steps: Array.isArray(run.steps) && run.steps.length > 0 ? run.steps : prev.steps,
-                links: run.links ?? prev.links,
-              }
-            : prev,
-        );
+        setSelectedRun((prev) => mergeRunIntoSelected(prev, run));
         scheduleRefreshSelectedRun(run.id);
       }
     });
