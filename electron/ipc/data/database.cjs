@@ -1680,6 +1680,116 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     };
   };
 
+  // Sanitize query for FTS5 — quote each term to prevent special chars
+  // (like /, -, etc.) from being interpreted as FTS5 operators
+  const sanitizeFtsQuery = (query) => query
+    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')  // Replace special chars with spaces
+    .split(/\s+/)
+    .filter((term) => term.length > 0)
+    .map((term) => `"${term}"`)
+    .join(' ');
+
+  const extractSearchTerms = (query) => query
+    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')
+    .split(/\s+/)
+    .filter((t) => t.length > 0);
+
+  // Enrich resources: add parent resources for interactions that matched
+  // but whose resource did not match in FTS (e.g. match only in annotation)
+  const enrichResourcesFromInteractions = (queries, resourceResults, interactionResults) => {
+    const resourceIds = new Set(resourceResults.map((r) => r.id));
+    for (const interaction of interactionResults) {
+      const rid = interaction.resource_id;
+      if (rid && !resourceIds.has(rid)) {
+        const resource = queries.getResourceById.get(rid);
+        if (resource) {
+          resourceResults.push(resource);
+          resourceIds.add(rid);
+        }
+      }
+    }
+  };
+
+  // Search studio outputs (study materials) by title/content
+  const searchStudioOutputs = (rawTerms) => {
+    if (rawTerms.length === 0) return [];
+    try {
+      const db = database.getDB();
+      const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
+      const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
+      const stmt = db.prepare(
+        `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
+      );
+      return stmt.all(...params) || [];
+    } catch (studioErr) {
+      console.warn('[DB] Studio search failed:', studioErr);
+      return [];
+    }
+  };
+
+  // FTS-only search of resources + interactions, with interaction enrichment.
+  // Used by the corruption-repair retry paths.
+  const runFtsUnifiedSearch = (sanitizedQuery) => {
+    const queries = database.getQueries();
+    const resourceResults = queries.searchResources.all(sanitizedQuery);
+    const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+    enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
+    return { resourceResults, interactionResults };
+  };
+
+  // Corruption fallback for db:search:unified — repair the FTS tables and
+  // retry (up to two repair cycles), preserving the original error handling.
+  const retryUnifiedSearchAfterRepair = (error, sanitizedQuery, rawTerms, scopeProjectId) => {
+    const handled = database.handleCorruptionError(error);
+    if (!handled) {
+      return { success: false, error: error.message };
+    }
+    // Retry the operation after repair
+    // Queries are automatically invalidated by handleCorruptionError
+    try {
+      const { resourceResults, interactionResults } = runFtsUnifiedSearch(sanitizedQuery);
+      const studioResults = searchStudioOutputs(rawTerms);
+      return {
+        success: true,
+        data: scopeUnifiedData(
+          {
+            resources: resourceResults,
+            interactions: interactionResults,
+            studioOutputs: studioResults,
+          },
+          scopeProjectId,
+        ),
+      };
+    } catch (retryError) {
+      console.error('[DB] Error retrying unified search after repair:', retryError);
+      // If it's still corrupt, try one more repair cycle
+      if (retryError.code === 'SQLITE_CORRUPT' || retryError.code === 'SQLITE_CORRUPT_VTAB') {
+        console.warn('[DB] Corruption persists in unified search, attempting more aggressive repair...');
+        database.invalidateQueries();
+        const repairedAgain = database.repairFTSTables();
+        if (repairedAgain) {
+          try {
+            const { resourceResults, interactionResults } = runFtsUnifiedSearch(sanitizedQuery);
+            return {
+              success: true,
+              data: scopeUnifiedData(
+                {
+                  resources: resourceResults,
+                  interactions: interactionResults,
+                },
+                scopeProjectId,
+              ),
+            };
+          } catch (finalError) {
+            console.error('[DB] Error after second repair attempt:', finalError);
+            return { success: false, error: finalError.message };
+          }
+        }
+      }
+      return { success: false, error: retryError.message };
+    }
+  };
+
   ipcMain.handle('db:search:unified', async (event, query, projectId) => {
     // Validate and sanitize query BEFORE the try block so retry catch blocks can use it
     validateSender(event, windowManager);
@@ -1691,15 +1801,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: false, error: 'Query too long. Maximum 1000 characters' };
     }
 
-    // Sanitize query for FTS5 — quote each term to prevent special chars
-    // (like /, -, etc.) from being interpreted as FTS5 operators
-    const sanitizedQuery = query
-      .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')  // Replace special chars with spaces
-      .split(/\s+/)
-      .filter(term => term.length > 0)
-      .map(term => `"${term}"`)
-      .join(' ');
-
+    const sanitizedQuery = sanitizeFtsQuery(query);
     if (!sanitizedQuery) {
       return {
         success: true,
@@ -1707,13 +1809,10 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       };
     }
 
+    const rawTerms = extractSearchTerms(query);
+
     try {
       const queries = database.getQueries();
-
-      const rawTerms = query
-        .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')
-        .split(/\s+/)
-        .filter((t) => t.length > 0);
       const lanceQuery = rawTerms.join(' ');
 
       /** @type {any[]} */
@@ -1736,35 +1835,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       // Search interactions
       const interactionResults = queries.searchInteractions.all(sanitizedQuery);
 
-      // Enrich resources: add parent resources for interactions that matched
-      // but whose resource did not match in FTS (e.g. match only in annotation)
-      const resourceIds = new Set(resourceResults.map((r) => r.id));
-      for (const interaction of interactionResults) {
-        const rid = interaction.resource_id;
-        if (rid && !resourceIds.has(rid)) {
-          const resource = queries.getResourceById.get(rid);
-          if (resource) {
-            resourceResults.push(resource);
-            resourceIds.add(rid);
-          }
-        }
-      }
+      enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
 
-      // Search studio outputs (study materials) by title/content
-      let studioResults = [];
-      if (rawTerms.length > 0) {
-        try {
-          const db = database.getDB();
-          const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
-          const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
-          const stmt = db.prepare(
-            `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
-          );
-          studioResults = stmt.all(...params) || [];
-        } catch (studioErr) {
-          console.warn('[DB] Studio search failed:', studioErr);
-        }
-      }
+      const studioResults = searchStudioOutputs(rawTerms);
 
       return {
         success: true,
@@ -1779,102 +1852,7 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       };
     } catch (error) {
       console.error('[DB] Error in unified search:', error);
-
-      // Try to handle corruption errors
-      const handled = database.handleCorruptionError(error);
-      if (handled) {
-        // Retry the operation after repair
-        // Queries are automatically invalidated by handleCorruptionError
-        try {
-          const queries = database.getQueries();
-          const resourceResults = queries.searchResources.all(sanitizedQuery);
-          const interactionResults = queries.searchInteractions.all(sanitizedQuery);
-
-          const resourceIds = new Set(resourceResults.map((r) => r.id));
-          for (const interaction of interactionResults) {
-            const rid = interaction.resource_id;
-            if (rid && !resourceIds.has(rid)) {
-              const resource = queries.getResourceById.get(rid);
-              if (resource) {
-                resourceResults.push(resource);
-                resourceIds.add(rid);
-              }
-            }
-          }
-
-          const rawTerms = query.replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ').split(/\s+/).filter((t) => t.length > 0);
-          let studioResults = [];
-          if (rawTerms.length > 0) {
-            try {
-              const db = database.getDB();
-              const placeholders = rawTerms.map(() => '(title LIKE ? OR content LIKE ?)').join(' OR ');
-              const params = rawTerms.flatMap((t) => [`%${t}%`, `%${t}%`]);
-              const stmt = db.prepare(
-                `SELECT * FROM studio_outputs WHERE ${placeholders} ORDER BY updated_at DESC LIMIT 15`
-              );
-              studioResults = stmt.all(...params) || [];
-            } catch {
-              /* ignore */
-            }
-          }
-
-          return {
-            success: true,
-            data: scopeUnifiedData(
-              {
-                resources: resourceResults,
-                interactions: interactionResults,
-                studioOutputs: studioResults,
-              },
-              scopeProjectId,
-            ),
-          };
-        } catch (retryError) {
-          console.error('[DB] Error retrying unified search after repair:', retryError);
-          // If it's still corrupt, try one more repair cycle
-          if (retryError.code === 'SQLITE_CORRUPT' || retryError.code === 'SQLITE_CORRUPT_VTAB') {
-            console.warn('[DB] Corruption persists in unified search, attempting more aggressive repair...');
-            database.invalidateQueries();
-            const repairedAgain = database.repairFTSTables();
-            if (repairedAgain) {
-              try {
-                const queries = database.getQueries();
-                const resourceResults = queries.searchResources.all(sanitizedQuery);
-                const interactionResults = queries.searchInteractions.all(sanitizedQuery);
-
-                const resourceIds = new Set(resourceResults.map((r) => r.id));
-                for (const interaction of interactionResults) {
-                  const rid = interaction.resource_id;
-                  if (rid && !resourceIds.has(rid)) {
-                    const resource = queries.getResourceById.get(rid);
-                    if (resource) {
-                      resourceResults.push(resource);
-                      resourceIds.add(rid);
-                    }
-                  }
-                }
-
-                return {
-                  success: true,
-                  data: scopeUnifiedData(
-                    {
-                      resources: resourceResults,
-                      interactions: interactionResults,
-                    },
-                    scopeProjectId,
-                  ),
-                };
-              } catch (finalError) {
-                console.error('[DB] Error after second repair attempt:', finalError);
-                return { success: false, error: finalError.message };
-              }
-            }
-          }
-          return { success: false, error: retryError.message };
-        }
-      }
-
-      return { success: false, error: error.message };
+      return retryUnifiedSearchAfterRepair(error, sanitizedQuery, rawTerms, scopeProjectId);
     }
   });
 
