@@ -213,13 +213,68 @@ function applyBundlePayload(db, payload) {
 }
 
 /**
- * Upload internal files for resources (best-effort).
+ * Estado local de blobs ya subidos (cache de dispositivo, NO datos de usuario —
+ * por eso se crea lazy aquí y no en la cadena de migraciones). Sin esto, cada
+ * push re-subía TODOS los archivos (vault + internal) en base64 aunque no
+ * hubieran cambiado, saturando el storage/egress del cloud del usuario.
+ */
+function ensureBlobStateTable(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cloud_blob_state (
+      rel_path TEXT PRIMARY KEY,
+      content_hash TEXT NOT NULL,
+      uploaded_at INTEGER NOT NULL
+    )
+  `);
+}
+
+function sha256Hex(buf) {
+  return crypto.createHash('sha256').update(buf).digest('hex');
+}
+
+/**
+ * Tope de subida por la ruta JSON+base64 (`/api/v1/sync/blob`): base64 infla
+ * ~33% y Cloudflare corta cuerpos >100MB (413), la ruta además limita el
+ * binario a 80MB. Los archivos mayores se marcan `skip-large:` para no
+ * reintentar (y fallar) en cada push; si el archivo cambia, se reevalúa.
+ */
+const MAX_BLOB_UPLOAD_BYTES = 64 * 1024 * 1024;
+
+function blobUpToDate(db, rel, hash) {
+  try {
+    const row = db.prepare('SELECT content_hash FROM cloud_blob_state WHERE rel_path = ?').get(rel);
+    return row?.content_hash === hash || row?.content_hash === `skip-large:${hash}`;
+  } catch {
+    return false;
+  }
+}
+
+/** true si hay que saltar el blob por tamaño (deja marcador persistente). */
+function skipIfTooLarge(db, rel, buf, hash) {
+  if (buf.length <= MAX_BLOB_UPLOAD_BYTES) return false;
+  console.warn(
+    `[cloud-sync] blob omitido por tamaño (${Math.round(buf.length / 1024 / 1024)}MB > ${MAX_BLOB_UPLOAD_BYTES / 1024 / 1024}MB):`,
+    rel,
+  );
+  markBlobUploaded(db, rel, `skip-large:${hash}`);
+  return true;
+}
+
+function markBlobUploaded(db, rel, hash) {
+  db.prepare(
+    'INSERT OR REPLACE INTO cloud_blob_state (rel_path, content_hash, uploaded_at) VALUES (?, ?, ?)',
+  ).run(rel, hash, Date.now());
+}
+
+/**
+ * Upload internal files for resources (best-effort, incremental por hash).
  * @param {import('better-sqlite3').Database} db
  * @param {import('./file-storage.cjs')} fileStorage
  * @param {import('../auth/dome-oauth.cjs')} oauthModule
  * @param {Object} database
  */
 async function uploadResourceFiles(db, fileStorage, database, oauthModule) {
+  ensureBlobStateTable(db);
   const rows = db
     .prepare(`SELECT id, internal_path, file_mime_type FROM resources WHERE internal_path IS NOT NULL AND trim(internal_path) != ''`)
     .all();
@@ -230,6 +285,9 @@ async function uploadResourceFiles(db, fileStorage, database, oauthModule) {
     if (!fs.existsSync(full)) continue;
     const buf = fs.readFileSync(full);
     const rel = `files/${r.id}/${pathBasename(r.internal_path)}`;
+    const hash = sha256Hex(buf);
+    if (blobUpToDate(db, rel, hash)) continue;
+    if (skipIfTooLarge(db, rel, buf, hash)) continue;
     const body = JSON.stringify({
       path: rel,
       contentBase64: buf.toString('base64'),
@@ -243,6 +301,8 @@ async function uploadResourceFiles(db, fileStorage, database, oauthModule) {
     if (!res.ok) {
       const t = await res.text();
       console.warn('[cloud-sync] blob upload failed', r.id, res.status, t);
+    } else {
+      markBlobUploaded(db, rel, hash);
     }
   }
 }
@@ -263,6 +323,7 @@ function pathBasename(p) {
 async function downloadResourceFiles(db, fileStorage, database, oauthModule, payload) {
   const resources = payload?.tables?.resources;
   if (!Array.isArray(resources)) return;
+  ensureBlobStateTable(db);
   const baseUrl = getDomeProviderBaseUrl().replace(/\/$/, '');
   for (const res of resources) {
     if (!res.internal_path || !res.id) continue;
@@ -276,6 +337,8 @@ async function downloadResourceFiles(db, fileStorage, database, oauthModule, pay
     if (!fileRes.ok) continue;
     const buf = Buffer.from(await fileRes.arrayBuffer());
     fileStorage.overwriteFile(res.internal_path, buf);
+    // Lo recién bajado ya está en la nube: no re-subirlo en el próximo push.
+    markBlobUploaded(db, rel, sha256Hex(buf));
   }
 }
 
@@ -285,6 +348,7 @@ async function downloadResourceFiles(db, fileStorage, database, oauthModule, pay
  * actual bytes so every device has the portable vault on disk.
  */
 async function uploadVaultFiles(db, fileStorage, database, oauthModule) {
+  ensureBlobStateTable(db);
   const rows = db
     .prepare(`SELECT id, project_id, vault_path, file_mime_type FROM resources WHERE type != 'folder' AND vault_path IS NOT NULL AND trim(vault_path) != ''`)
     .all();
@@ -295,8 +359,12 @@ async function uploadVaultFiles(db, fileStorage, database, oauthModule) {
     const full = require('path').join(root, r.vault_path);
     if (!fs.existsSync(full)) continue;
     const buf = fs.readFileSync(full);
+    const rel = `vault/${r.vault_path}`;
+    const hash = sha256Hex(buf);
+    if (blobUpToDate(db, rel, hash)) continue;
+    if (skipIfTooLarge(db, rel, buf, hash)) continue;
     const body = JSON.stringify({
-      path: `vault/${r.vault_path}`,
+      path: rel,
       contentBase64: buf.toString('base64'),
       contentType: r.file_mime_type || (r.vault_path.endsWith('.md') ? 'text/markdown' : 'application/octet-stream'),
     });
@@ -308,6 +376,8 @@ async function uploadVaultFiles(db, fileStorage, database, oauthModule) {
     if (!res.ok) {
       const t = await res.text().catch(() => '');
       console.warn('[cloud-sync] vault blob upload failed', r.id, res.status, t);
+    } else {
+      markBlobUploaded(db, rel, hash);
     }
   }
 }
@@ -337,6 +407,9 @@ async function downloadVaultFiles(db, fileStorage, database, oauthModule, payloa
       vaultStore.markSelfWrite(abs, vaultStore.contentHash(buf));
       fs.writeFileSync(abs, buf);
       db.prepare('UPDATE resources SET content_hash = ? WHERE id = ?').run(vaultStore.contentHash(buf), res.id);
+      // Lo recién bajado ya está en la nube: no re-subirlo en el próximo push.
+      ensureBlobStateTable(db);
+      markBlobUploaded(db, rel, sha256Hex(buf));
     } catch (e) {
       console.warn('[cloud-sync] vault file write failed', res.id, e.message);
     }

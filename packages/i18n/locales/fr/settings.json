@@ -393,6 +393,16 @@
     "perm_screen_restart_hint": "Après avoir accordé l'Enregistrement d'écran, redémarrez Dome pour que le changement prenne effet.",
     "perm_os_managed": "Les autorisations sont gérées par le système d'exploitation."
   },
+  "domain_sync": {
+    "title": "Sync par domaine (Social, Pipelines, Calendrier)",
+    "description": "Synchronise social, pipelines et calendrier avec Dome Cloud. Nécessite un abonnement Dome actif.",
+    "social": "Hub social",
+    "pipelines": "Tableau pipelines",
+    "calendar": "Calendrier (envoi seul)",
+    "sync_now": "Synchroniser les domaines",
+    "sync_ok": "Domaines synchronisés",
+    "sync_error": "Échec de la synchronisation"
+  },
   "indexing": {
     "title": "Indexation",
     "subtitle": "Votre IA cloud (vision) peut transcrire les PDF et décrire les images ; les embeddings Nomic alimentent la recherche hybride et le graphe.",

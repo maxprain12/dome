@@ -4021,6 +4021,104 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  if (version < 62) {
+    console.log('[DB] Running migration 62 - domain sync (tombstones + domain_sync_state + social cloud columns)');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS sync_tombstones (
+          table_name TEXT NOT NULL,
+          row_id TEXT NOT NULL,
+          deleted_at INTEGER NOT NULL,
+          synced INTEGER NOT NULL DEFAULT 0,
+          PRIMARY KEY (table_name, row_id)
+        )
+      `);
+      db.exec('CREATE INDEX IF NOT EXISTS idx_sync_tombstones_pending ON sync_tombstones(synced) WHERE synced = 0');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS domain_sync_state (
+          domain TEXT PRIMARY KEY,
+          last_pull_cursor TEXT NOT NULL DEFAULT '0',
+          last_push_at INTEGER NOT NULL DEFAULT 0,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          updated_at INTEGER NOT NULL
+        )
+      `);
+
+      const accountCols = db.prepare("PRAGMA table_info('social_accounts')").all().map((c) => c.name);
+      if (!accountCols.includes('cloud_publishing')) {
+        db.exec('ALTER TABLE social_accounts ADD COLUMN cloud_publishing INTEGER NOT NULL DEFAULT 0');
+      }
+
+      const postCols = db.prepare("PRAGMA table_info('social_posts')").all().map((c) => c.name);
+      if (!postCols.includes('media_storage')) {
+        db.exec("ALTER TABLE social_posts ADD COLUMN media_storage TEXT NOT NULL DEFAULT '[]'");
+      }
+
+      const metricsCols = db.prepare("PRAGMA table_info('social_metrics')").all().map((c) => c.name);
+      if (!metricsCols.includes('updated_at')) {
+        db.exec('ALTER TABLE social_metrics ADD COLUMN updated_at INTEGER');
+        db.exec('UPDATE social_metrics SET updated_at = captured_at WHERE updated_at IS NULL');
+      }
+
+      const accountMetricsCols = db
+        .prepare("PRAGMA table_info('social_account_metrics')")
+        .all()
+        .map((c) => c.name);
+      if (!accountMetricsCols.includes('updated_at')) {
+        db.exec('ALTER TABLE social_account_metrics ADD COLUMN updated_at INTEGER');
+        db.exec('UPDATE social_account_metrics SET updated_at = captured_at WHERE updated_at IS NULL');
+      }
+
+      const now = Date.now();
+      for (const domain of ['social', 'pipelines', 'calendar']) {
+        db.prepare(
+          `
+            INSERT INTO domain_sync_state (domain, last_pull_cursor, last_push_at, enabled, updated_at)
+            VALUES (?, '0', 0, 1, ?)
+            ON CONFLICT(domain) DO NOTHING
+          `,
+        ).run(domain, now);
+      }
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '62', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '62', updated_at = excluded.updated_at
+      `).run(now);
+      console.log('[DB] Migration 62 complete - domain sync');
+    } catch (error) {
+      console.error('[DB] Migration 62 failed:', error);
+      throw error;
+    }
+  }
+
+  if (version < 63) {
+    console.log('[DB] Running migration 63 - backfill social metrics updated_at');
+    try {
+      db.exec(`
+        UPDATE social_metrics
+        SET updated_at = captured_at
+        WHERE updated_at IS NULL OR updated_at = 0
+      `);
+      db.exec(`
+        UPDATE social_account_metrics
+        SET updated_at = captured_at
+        WHERE updated_at IS NULL OR updated_at = 0
+      `);
+      const now = Date.now();
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '63', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '63', updated_at = excluded.updated_at
+      `).run(now);
+      console.log('[DB] Migration 63 complete - social metrics updated_at');
+    } catch (error) {
+      console.error('[DB] Migration 63 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

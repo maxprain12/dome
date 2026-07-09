@@ -56,6 +56,7 @@ const feedersHandlers = require('./integrations/feeders.cjs');
 const socialHandlers = require('./integrations/social.cjs');
 const approvalHandlers = require('./agents/approval.cjs');
 const cloudSyncHandlers = require('./sync/cloud-sync.cjs');
+const domainSyncHandlers = require('./sync/domain-sync.cjs');
 const threadsHandlers = require('./agents/threads.cjs');
 const learnHandlers = require('./learn/learn.cjs');
 const quizHandlers = require('./learn/quiz.cjs');
@@ -180,6 +181,7 @@ function registerAll(deps) {
   socialHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
   approvalHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   cloudSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database, fileStorage });
+  domainSyncHandlers.register({ ipcMain: secureIpcMain, windowManager, database });
   threadsHandlers.register({ ipcMain: secureIpcMain, windowManager, validateSender });
   learnHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });
   quizHandlers.register({ ipcMain: secureIpcMain, windowManager, database, validateSender });

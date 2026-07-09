@@ -32,7 +32,10 @@
     "account_kind_member": "Profil personnel",
     "account_kind_organization": "Page entreprise",
     "hint_instagram": "Instagram : nécessite un compte Business/Creator et une app Meta avec le produit Instagram. Le plus simple : générez un access token dans le tableau de bord Meta et collez-le ici. La publication exige des URLs https publiques pour les médias.",
-    "hint_x": "X : créez projet + app avec OAuth 2.0 (le type 'Native App' fonctionne sans secret grâce à PKCE), activez Read and write et enregistrez l'URI ci-dessus. Attention : depuis février 2026, les nouveaux développeurs paient à l'usage (~0,015 $/post)."
+    "hint_x": "X : créez projet + app avec OAuth 2.0 (le type 'Native App' fonctionne sans secret grâce à PKCE), activez Read and write et enregistrez l'URI ci-dessus. Attention : depuis février 2026, les nouveaux développeurs paient à l'usage (~0,015 $/post).",
+    "cloud_publishing": "Publication cloud",
+    "cloud_publishing_consent": "Vos identifiants sont stockés chiffrés sur Dome Cloud pour publier sans l'app bureau.",
+    "cloud_publishing_error": "Impossible de mettre à jour la publication cloud"
   },
   "hub": {
     "title": "Social",
@@ -61,6 +64,7 @@
     "filter_failed": "Échouées",
     "status_draft": "Brouillon",
     "status_scheduled": "Programmée",
+    "cloud_scheduled": "Programmé via Dome Cloud — publication sans l'app bureau ouverte",
     "status_publishing": "Publication…",
     "status_published": "Publiée",
     "status_failed": "Échouée",

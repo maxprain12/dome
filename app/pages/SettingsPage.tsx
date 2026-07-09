@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import SettingsLayout, { type SettingsSection } from '@/components/settings/SettingsLayout';
 import GeneralSettings from '@/components/settings/GeneralSettings';
@@ -20,6 +20,7 @@ import SocialSettings from '@/components/settings/SocialSettings';
 import DomeMcpServerSettings from '@/components/settings/DomeMcpServerSettings';
 import { useUserStore } from '@/lib/store/useUserStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 
 const VALID_SECTIONS = [
   'general',
@@ -78,6 +79,22 @@ export default function SettingsPage() {
     };
   }, []);
   const { loadPreferences } = useAppStore();
+  const cloudEntitlements = useCloudEntitlements();
+
+  const hiddenSections = useMemo(() => {
+    const hidden = new Set<SettingsSection>();
+    if (!cloudEntitlements.loading && !cloudEntitlements.showCloudUi) {
+      hidden.add('dome_sync');
+    }
+    return hidden;
+  }, [cloudEntitlements.loading, cloudEntitlements.showCloudUi]);
+
+  useEffect(() => {
+    if (cloudEntitlements.loading) return;
+    if (activeSection === 'dome_sync' && !cloudEntitlements.showCloudUi) {
+      setActiveSection('general');
+    }
+  }, [activeSection, cloudEntitlements.loading, cloudEntitlements.showCloudUi]);
 
   useEffect(() => {
     loadUserProfile();
@@ -127,7 +144,11 @@ export default function SettingsPage() {
   };
 
   return (
-    <SettingsLayout activeSection={activeSection} onSectionChange={setActiveSection}>
+    <SettingsLayout
+      activeSection={activeSection}
+      onSectionChange={setActiveSection}
+      hiddenSections={hiddenSections}
+    >
       {renderSection()}
     </SettingsLayout>
   );

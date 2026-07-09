@@ -16,6 +16,7 @@ const pipelineRunner = require('../../agents/pipeline-runner.cjs');
 const pipelineCalendarSync = require('../../agents/pipeline-calendar-sync.cjs');
 const pipelineSourceSync = require('../../agents/pipeline-source-sync.cjs');
 const pipelineEventLog = require('../../agents/pipeline-event-log.cjs');
+const syncTombstone = require('../../storage/sync-tombstone.cjs');
 
 function generateId() {
   return crypto.randomUUID();
@@ -243,6 +244,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
     try {
       ensure(event);
       const queries = database.getQueries();
+      const db = database.getDB?.();
+      if (db) syncTombstone.recordPipelineTreeTombstones(db, queries, pipelineId);
       queries.deletePipeline.run(pipelineId);
       emit('pipelines:updated', { deletedId: pipelineId });
       return { success: true };
@@ -511,6 +514,13 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       ensure(event);
       const queries = database.getQueries();
       const stage = queries.getPipelineStageById.get(stageId);
+      const db = database.getDB?.();
+      if (db) {
+        for (const item of queries.listItemsByStage.all(stageId)) {
+          syncTombstone.recordTombstone(db, 'pipeline_items', item.id);
+        }
+        syncTombstone.recordTombstone(db, 'pipeline_stages', stageId);
+      }
       queries.deletePipelineStage.run(stageId);
       emit('pipelines:stage:updated', { deletedId: stageId, pipelineId: stage?.pipeline_id });
       return { success: true };
@@ -732,6 +742,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       const queries = database.getQueries();
       const item = queries.getPipelineItemById.get(itemId);
       if (item) await pipelineCalendarSync.removeItemCalendar(item);
+      const db = database.getDB?.();
+      if (db) syncTombstone.recordTombstone(db, 'pipeline_items', itemId);
       queries.deletePipelineItem.run(itemId);
       if (item) renumberStage(queries, item.stage_id, nowMs());
       emit('pipelines:item:updated', { deletedId: itemId, stageId: item?.stage_id });
@@ -816,6 +828,8 @@ function register({ ipcMain, windowManager, database, validateSender }) {
       ensure(event);
       const queries = database.getQueries();
       const source = queries.getPipelineSourceById.get(sourceId);
+      const db = database.getDB?.();
+      if (db) syncTombstone.recordTombstone(db, 'pipeline_sources', sourceId);
       queries.deletePipelineSource.run(sourceId);
       emit('pipelines:source:updated', { deletedId: sourceId, pipelineId: source?.pipeline_id });
       return { success: true };

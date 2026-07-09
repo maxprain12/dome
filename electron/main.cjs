@@ -265,6 +265,7 @@ const runLifecycle = require('./agents/run-lifecycle.cjs');
 const { validateSender, sanitizePath, validateUrl } = require('./core/security.cjs');
 const { setupContentSecurityPolicy } = require('./core/csp.cjs');
 const semanticIndexScheduler = require('./storage/semantic-index-scheduler.cjs');
+const domainSyncScheduler = require('./storage/domain-sync-scheduler.cjs');
 
 // IPC handlers (modularized)
 const { registerAll } = require('./ipc/index.cjs');
@@ -1225,6 +1226,8 @@ function initRuntimeServices() {
   automationService.init(windowManager, database);
   runRetention.init();
   errorNotify.init(windowManager);
+  domainSyncScheduler.init({ database, windowManager });
+  domainSyncScheduler.start();
 }
 
 // Initialize the app in background (SQLite settings, filesystem)
@@ -1319,6 +1322,9 @@ app
     registerAllIpcHandlers();
     if (isDev) startDevIpcBridge();
 
+    const { startDomeSessionManager } = require('./auth/dome-session-manager.cjs');
+    startDomeSessionManager(database, windowManager);
+
     tryInitTranscriptionShortcut();
     tryAutoStartDomeMcpServer();
     trySyncSentryConsent();
@@ -1361,6 +1367,7 @@ app.on('before-quit', async () => {
   transcriptionShortcut.unregisterAll();
   calendarNotificationService.stop();
   calendarSyncScheduler.stop();
+  domainSyncScheduler.stop();
   automationService.stop();
   runRetention.stop();
   try {

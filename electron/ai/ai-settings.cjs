@@ -25,7 +25,26 @@ function resolveApiKeyProviderBaseUrl(queries, provider) {
  */
 async function getAISettings(database) {
   const queries = database.getQueries();
-  const provider = queries.getSetting.get('ai_provider')?.value || 'ollama';
+  const billingMode = queries.getSetting.get('ai_billing_mode')?.value || 'dome_cloud';
+  const configuredProvider = queries.getSetting.get('ai_provider')?.value || 'dome';
+
+  if (billingMode === 'dome_cloud') {
+    const session = await domeOauth.getOrRefreshSession(database);
+    if (session?.connected && session?.accessToken) {
+      return {
+        provider: 'dome',
+        apiKey: session.accessToken,
+        model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
+        baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
+        billingMode,
+      };
+    }
+  }
+
+  const provider =
+    billingMode === 'custom_api_key'
+      ? (configuredProvider === 'dome' ? 'openai' : configuredProvider)
+      : configuredProvider;
 
   if (provider === 'ollama') {
     return {
@@ -43,6 +62,7 @@ async function getAISettings(database) {
       apiKey: session?.accessToken,
       model: queries.getSetting.get('ai_model')?.value || 'dome/auto',
       baseUrl: `${getDomeProviderBaseUrl()}/api/v1`,
+      billingMode,
     };
   }
 
@@ -62,6 +82,7 @@ async function getAISettings(database) {
     apiKey: readProviderApiKey(queries, provider),
     model: queries.getSetting.get('ai_model')?.value || DEFAULT_MODELS[provider],
     baseUrl: resolveApiKeyProviderBaseUrl(queries, provider),
+    billingMode,
   };
 }
 

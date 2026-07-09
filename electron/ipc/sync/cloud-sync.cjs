@@ -6,6 +6,7 @@
 
 const { z } = require('zod');
 const cloudSyncService = require('../../storage/cloud-sync-service.cjs');
+const planGate = require('../../storage/plan-gate.cjs');
 
 const CloudSyncSetSettingsSchema = z
   .object({
@@ -45,6 +46,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
+    const gate = await planGate.assertFeature(database, 'cloud_sync');
+    if (!gate.ok) return { success: false, error: gate.reason, gated: true };
     try {
       return await cloudSyncService.pushFullSync({ database, fileStorage, windowManager });
     } catch (e) {
@@ -56,6 +59,8 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     if (!windowManager.isAuthorized(event.sender.id)) {
       return { success: false, error: 'Unauthorized' };
     }
+    const gate = await planGate.assertFeature(database, 'cloud_sync');
+    if (!gate.ok) return { success: false, error: gate.reason, gated: true };
     try {
       return await cloudSyncService.pullAndApply({ database, fileStorage, windowManager });
     } catch (e) {

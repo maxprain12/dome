@@ -32,7 +32,10 @@
     "account_kind_member": "Personal profile",
     "account_kind_organization": "Company page",
     "hint_instagram": "Instagram: requires a Business/Creator account and a Meta app with the Instagram product. Easiest path: generate an access token in the Meta dashboard (API setup with Instagram login) and paste it here. Publishing needs public https media URLs.",
-    "hint_x": "X: create a project + app with OAuth 2.0 ('Native App' works without secret thanks to PKCE), enable Read and write, and register the redirect URI above. Note: since Feb 2026 new developers pay per use (~$0.015/post)."
+    "hint_x": "X: create a project + app with OAuth 2.0 ('Native App' works without secret thanks to PKCE), enable Read and write, and register the redirect URI above. Note: since Feb 2026 new developers pay per use (~$0.015/post).",
+    "cloud_publishing": "Cloud publishing",
+    "cloud_publishing_consent": "Your account credentials are stored encrypted on Dome Cloud to publish when the desktop app is off.",
+    "cloud_publishing_error": "Could not update cloud publishing"
   },
   "hub": {
     "title": "Social",
@@ -61,6 +64,7 @@
     "filter_failed": "Failed",
     "status_draft": "Draft",
     "status_scheduled": "Scheduled",
+    "cloud_scheduled": "Scheduled via Dome Cloud — publishes without the desktop app running",
     "status_publishing": "Publishing…",
     "status_published": "Published",
     "status_failed": "Failed",

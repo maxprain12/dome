@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, CloudDownload, Loader2, CloudCog } from 'lucide-react';
+import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 import { showToast } from '@/lib/store/useToastStore';
 import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import DomeCard from '@/components/ui/DomeCard';
@@ -27,13 +29,23 @@ type SyncSettings = {
   interval_minutes: number;
 };
 
+type DomainSyncState = {
+  social: { enabled: boolean; lastPushAt: number };
+  pipelines: { enabled: boolean; lastPushAt: number };
+  calendar: { enabled: boolean; lastPushAt: number };
+};
+
 export default function DomeSyncSettings() {
+  const { t } = useTranslation();
+  const cloudEntitlements = useCloudEntitlements();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<SyncStatus | null>(null);
   const [settings, setSettings] = useState<SyncSettings>({ auto_enabled: false, interval_minutes: 15 });
   const [syncing, setSyncing] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [connectingOAuth, setConnectingOAuth] = useState(false);
+  const [domainSyncing, setDomainSyncing] = useState(false);
+  const [domainState, setDomainState] = useState<DomainSyncState | null>(null);
 
   const autoSyncTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -60,9 +72,22 @@ export default function DomeSyncSettings() {
     }
   }, []);
 
+  const loadDomainStatus = useCallback(async () => {
+    if (!window.electron?.domainSync?.getStatus) return;
+    const result = await window.electron.domainSync.getStatus();
+    if (result.success && result.domains) {
+      const d = result.domains as Record<string, { enabled: boolean; lastPushAt: number }>;
+      setDomainState({
+        social: { enabled: d.social?.enabled !== false, lastPushAt: d.social?.lastPushAt ?? 0 },
+        pipelines: { enabled: d.pipelines?.enabled !== false, lastPushAt: d.pipelines?.lastPushAt ?? 0 },
+        calendar: { enabled: d.calendar?.enabled !== false, lastPushAt: d.calendar?.lastPushAt ?? 0 },
+      });
+    }
+  }, []);
+
   useEffect(() => {
-    Promise.all([loadStatus(), loadSettings()]).finally(() => setLoading(false));
-  }, [loadStatus, loadSettings]);
+    Promise.all([loadStatus(), loadSettings(), loadDomainStatus()]).finally(() => setLoading(false));
+  }, [loadStatus, loadSettings, loadDomainStatus]);
 
   // SSE revision watcher
   useEffect(() => {
@@ -155,6 +180,32 @@ export default function DomeSyncSettings() {
       showToast('error', err instanceof Error ? err.message : 'Error al descargar');
     } finally {
       setPulling(false);
+    }
+  };
+
+  if (!cloudEntitlements.loading && !cloudEntitlements.showCloudUi) {
+    return null;
+  }
+
+  const toggleDomain = async (domain: 'social' | 'pipelines' | 'calendar', enabled: boolean) => {
+    if (!window.electron?.domainSync?.setDomainEnabled) return;
+    const res = await window.electron.domainSync.setDomainEnabled({ domain, enabled });
+    if (res?.success) await loadDomainStatus();
+  };
+
+  const syncDomainsNow = async () => {
+    if (!window.electron?.domainSync?.syncNow) return;
+    setDomainSyncing(true);
+    try {
+      const res = await window.electron.domainSync.syncNow({});
+      if (!res?.success && !res?.skipped) {
+        showToast('error', res?.error || t('settings.domain_sync.sync_error'));
+      } else {
+        showToast('success', t('settings.domain_sync.sync_ok'));
+        await loadDomainStatus();
+      }
+    } finally {
+      setDomainSyncing(false);
     }
   };
 
@@ -339,6 +390,55 @@ export default function DomeSyncSettings() {
               )}
             </DomeCard>
           </div>
+
+          {(cloudEntitlements.hasSocialCloud || cloudEntitlements.hasPipelinesCloud || cloudEntitlements.hasCloudSync) && domainState && (
+            <div className="space-y-3">
+              <DomeSectionLabel>{t('settings.domain_sync.title')}</DomeSectionLabel>
+              <DomeCard className="space-y-3">
+                <p className="text-xs text-[var(--dome-text-muted)]">{t('settings.domain_sync.description')}</p>
+                {cloudEntitlements.hasSocialCloud && (
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>{t('settings.domain_sync.social')}</span>
+                    <input
+                      type="checkbox"
+                      checked={domainState.social.enabled}
+                      onChange={(e) => void toggleDomain('social', e.target.checked)}
+                    />
+                  </label>
+                )}
+                {cloudEntitlements.hasPipelinesCloud && (
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>{t('settings.domain_sync.pipelines')}</span>
+                    <input
+                      type="checkbox"
+                      checked={domainState.pipelines.enabled}
+                      onChange={(e) => void toggleDomain('pipelines', e.target.checked)}
+                    />
+                  </label>
+                )}
+                {cloudEntitlements.hasCloudSync && (
+                  <label className="flex items-center justify-between gap-3 text-sm">
+                    <span>{t('settings.domain_sync.calendar')}</span>
+                    <input
+                      type="checkbox"
+                      checked={domainState.calendar.enabled}
+                      onChange={(e) => void toggleDomain('calendar', e.target.checked)}
+                    />
+                  </label>
+                )}
+                <DomeButton
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={domainSyncing}
+                  onClick={() => void syncDomainsNow()}
+                  leftIcon={domainSyncing ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />}
+                >
+                  {t('settings.domain_sync.sync_now')}
+                </DomeButton>
+              </DomeCard>
+            </div>
+          )}
 
           {/* Desconectar */}
           <div>

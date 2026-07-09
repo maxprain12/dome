@@ -393,6 +393,16 @@
     "perm_screen_restart_hint": "After granting Screen Recording, restart Dome for the change to take effect.",
     "perm_os_managed": "Permissions are managed by the operating system."
   },
+  "domain_sync": {
+    "title": "Domain sync (Social, Pipelines, Calendar)",
+    "description": "Keeps social posts, pipelines and calendar in sync with Dome Cloud. Requires an active Dome subscription.",
+    "social": "Social hub",
+    "pipelines": "Pipelines board",
+    "calendar": "Calendar (push only)",
+    "sync_now": "Sync domains now",
+    "sync_ok": "Domains synced",
+    "sync_error": "Domain sync failed"
+  },
   "indexing": {
     "title": "Indexing",
     "subtitle": "Your configured cloud AI (vision) can transcribe PDF pages and describe images; Nomic embeddings power hybrid search and the semantic graph.",

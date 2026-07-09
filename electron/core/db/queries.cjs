@@ -1292,6 +1292,12 @@ function buildQueries(db) {
     touchSocialAccountSync: db.prepare(`
       UPDATE social_accounts SET last_sync_at = ?, updated_at = ? WHERE id = ?
     `),
+    updateSocialAccountCloudPublishing: db.prepare(`
+      UPDATE social_accounts SET cloud_publishing = ?, updated_at = ? WHERE id = ?
+    `),
+    updateSocialPostMediaStorage: db.prepare(`
+      UPDATE social_posts SET media_storage = ?, updated_at = ? WHERE id = ?
+    `),
     deleteSocialAccount: db.prepare('DELETE FROM social_accounts WHERE id = ?'),
 
     createSocialPost: db.prepare(`
@@ -1333,8 +1339,8 @@ function buildQueries(db) {
 
     insertSocialMetric: db.prepare(`
       INSERT INTO social_metrics (
-        id, post_id, captured_at, impressions, likes, comments, shares, saves, clicks, followers, raw
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        id, post_id, captured_at, impressions, likes, comments, shares, saves, clicks, followers, raw, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getLatestSocialMetricForPost: db.prepare(`
       SELECT * FROM social_metrics WHERE post_id = ? ORDER BY captured_at DESC LIMIT 1
@@ -1351,8 +1357,8 @@ function buildQueries(db) {
 
     insertSocialAccountMetric: db.prepare(`
       INSERT INTO social_account_metrics (
-        id, account_id, captured_at, followers, following, posts_count, raw
-      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        id, account_id, captured_at, followers, following, posts_count, raw, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `),
     getLatestSocialAccountMetric: db.prepare(`
       SELECT * FROM social_account_metrics WHERE account_id = ? ORDER BY captured_at DESC LIMIT 1

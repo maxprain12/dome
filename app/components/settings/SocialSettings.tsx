@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import SettingsPanel from '@/components/settings/SettingsPanel';
 import SocialConnectWizard from '@/components/settings/SocialConnectWizard';
+import { useCloudEntitlements } from '@/lib/hooks/useCloudEntitlements';
 
 type SocialProvider = 'linkedin' | 'instagram' | 'x';
 
@@ -29,6 +30,7 @@ interface SocialAccount {
   status: 'active' | 'error' | 'expired';
   lastError: string | null;
   connectedAt: number | null;
+  cloudPublishing?: boolean;
 }
 
 const PROVIDER_ICONS: Record<SocialProvider, typeof Linkedin> = {
@@ -51,6 +53,7 @@ const DEV_PORTAL_URLS: Record<SocialProvider, string> = {
 
 export default function SocialSettings() {
   const { t } = useTranslation();
+  const cloudEntitlements = useCloudEntitlements();
   const [providers, setProviders] = useState<ProviderStatus[]>([]);
   const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [oauthPort, setOauthPort] = useState<number>(8737);
@@ -115,6 +118,7 @@ export default function SocialSettings() {
             status={p}
             accounts={accounts.filter((a) => a.provider === p.provider)}
             onChanged={load}
+            hasSocialCloud={cloudEntitlements.hasSocialCloud}
           />
         ))}
       </div>
@@ -146,10 +150,12 @@ function ProviderCard({
   status,
   accounts,
   onChanged,
+  hasSocialCloud,
 }: {
   status: ProviderStatus;
   accounts: SocialAccount[];
   onChanged: () => Promise<void>;
+  hasSocialCloud: boolean;
 }) {
   const { t } = useTranslation();
   const Icon = PROVIDER_ICONS[status.provider];
@@ -164,6 +170,7 @@ function ProviderCard({
   const [error, setError] = useState<string | null>(null);
   const [orgEnabled, setOrgEnabled] = useState(Boolean(status.orgEnabled));
   const [syncingOrgs, setSyncingOrgs] = useState(false);
+  const [cloudBusyId, setCloudBusyId] = useState<string | null>(null);
 
   useEffect(() => setClientId(status.clientId), [status.clientId]);
   useEffect(() => setOrgEnabled(Boolean(status.orgEnabled)), [status.orgEnabled]);
@@ -213,6 +220,19 @@ function ProviderCard({
     }
     setManualToken('');
     setShowManual(false);
+    await onChanged();
+  };
+
+  const toggleCloudPublishing = async (accountId: string, enabled: boolean) => {
+    if (!window.electron?.socialCloud?.setCloudPublishing) return;
+    setCloudBusyId(accountId);
+    setError(null);
+    const res = await window.electron.socialCloud.setCloudPublishing({ accountId, enabled });
+    setCloudBusyId(null);
+    if (!res?.success) {
+      setError(res?.error || t('social.settings.cloud_publishing_error'));
+      return;
+    }
     await onChanged();
   };
 
@@ -336,6 +356,22 @@ function ProviderCard({
                   <div className="text-xs" style={{ color: 'var(--dome-error)' }}>
                     {acc.lastError || t(`social.settings.status_${acc.status}`)}
                   </div>
+                )}
+                {hasSocialCloud && acc.status === 'active' && (
+                  <label className="mt-2 flex items-center gap-2 text-xs cursor-pointer" style={{ color: 'var(--dome-text-muted)' }}>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(acc.cloudPublishing)}
+                      disabled={cloudBusyId === acc.id}
+                      onChange={(e) => void toggleCloudPublishing(acc.id, e.target.checked)}
+                    />
+                    <span>{t('social.settings.cloud_publishing')}</span>
+                  </label>
+                )}
+                {hasSocialCloud && acc.cloudPublishing && (
+                  <p className="text-[10px] mt-1" style={{ color: 'var(--dome-text-muted)' }}>
+                    {t('social.settings.cloud_publishing_consent')}
+                  </p>
                 )}
               </div>
               <div className="flex items-center gap-1">

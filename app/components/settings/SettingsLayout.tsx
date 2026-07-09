@@ -6,6 +6,7 @@ import DomeSectionLabel from '@/components/ui/DomeSectionLabel';
 import SettingsNavDropdown from '@/components/settings/SettingsNavDropdown';
 import {
   NAV_GROUPS,
+  filterNavGroups,
   getGroupItems,
   type SettingsSection,
 } from '@/components/settings/settingsNavConfig';
@@ -16,6 +17,7 @@ export type { SettingsSection } from '@/components/settings/settingsNavConfig';
 interface SettingsLayoutProps {
   activeSection: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
+  hiddenSections?: ReadonlySet<SettingsSection>;
   children: ReactNode;
 }
 
@@ -49,8 +51,11 @@ function SettingsNavItem({
   );
 }
 
-export default function SettingsLayout({ activeSection, onSectionChange, children }: SettingsLayoutProps) {
+export default function SettingsLayout({ activeSection, onSectionChange, hiddenSections, children }: SettingsLayoutProps) {
   const { t } = useTranslation();
+  const navGroups = hiddenSections?.size
+    ? filterNavGroups(NAV_GROUPS, hiddenSections)
+    : NAV_GROUPS;
 
   return (
     <div className="settings-shell h-full w-full min-h-0">
@@ -68,11 +73,12 @@ export default function SettingsLayout({ activeSection, onSectionChange, childre
           <SettingsNavDropdown
             activeSection={activeSection}
             onSectionChange={onSectionChange}
+            hiddenSections={hiddenSections}
           />
         </div>
 
         <nav className="settings-nav" aria-label={t('settings.nav.sidebar')}>
-          {NAV_GROUPS.map((group) => {
+          {navGroups.map((group) => {
             const runs = getGroupItems(group);
             return (
               <div key={group.labelKey} className="settings-nav-group">

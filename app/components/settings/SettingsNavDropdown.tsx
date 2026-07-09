@@ -5,6 +5,7 @@ import DomeButton from '@/components/ui/DomeButton';
 import { cn } from '@/lib/utils';
 import {
   NAV_GROUPS,
+  filterNavGroups,
   findNavItem,
   getGroupItems,
   normalizeNavSection,
@@ -14,13 +15,18 @@ import {
 interface SettingsNavDropdownProps {
   activeSection: SettingsSection;
   onSectionChange: (section: SettingsSection) => void;
+  hiddenSections?: ReadonlySet<SettingsSection>;
 }
 
 export default function SettingsNavDropdown({
   activeSection,
   onSectionChange,
+  hiddenSections,
 }: SettingsNavDropdownProps) {
   const { t } = useTranslation();
+  const navGroups = hiddenSections?.size
+    ? filterNavGroups(NAV_GROUPS, hiddenSections)
+    : NAV_GROUPS;
   const normalizedActive = normalizeNavSection(activeSection);
   const activeItem = findNavItem(activeSection);
   const activeLabel = t(`settings.tabs.${normalizedActive}`);
@@ -60,7 +66,7 @@ export default function SettingsNavDropdown({
       </Menu.Target>
 
       <Menu.Dropdown role="listbox" aria-label={t('settings.nav.select_section')}>
-        {NAV_GROUPS.map((group, groupIndex) => {
+        {navGroups.map((group, groupIndex) => {
           const runs = getGroupItems(group);
           const groupLabel = t(group.labelKey);
 

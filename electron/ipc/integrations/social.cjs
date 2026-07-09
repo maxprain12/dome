@@ -6,6 +6,7 @@ const { z } = require('zod');
 
 const { getSocialService } = require('../../social/social-service.cjs');
 const socialCalendarBridge = require('../../social/social-calendar-bridge.cjs');
+const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
 
 const ProviderSchema = z.enum(['linkedin', 'instagram', 'x']);
 const ProviderConfigSchema = z.object({
@@ -158,17 +159,38 @@ function register({ ipcMain, windowManager, database, fileStorage }) {
     if (!post) throw new Error('Post not found');
     return post;
   }));
-  ipcMain.handle('social:posts:create', wrap(PostCreateSchema, (input) => {
+  ipcMain.handle('social:posts:create', wrap(PostCreateSchema, async (input) => {
     const post = service.store.createPost(input);
-    windowManager.broadcast?.('social:post-updated', post);
-    void socialCalendarBridge.syncPostEvent(post);
-    return post;
+    if (
+      post.accountId
+      && service.store.isAccountCloudPublishing(post.accountId)
+      && (post.status === 'scheduled' || post.scheduledAt)
+    ) {
+      await socialCloudAdapter
+        .syncPostMediaStorage({ database, windowManager }, service.store, post.id)
+        .catch((err) => console.warn('[Social] cloud media sync:', err?.message || err));
+    }
+    const latest = service.store.getPost(post.id);
+    windowManager.broadcast?.('social:post-updated', latest);
+    void socialCalendarBridge.syncPostEvent(latest);
+    return latest;
   }));
-  ipcMain.handle('social:posts:update', wrap(PostUpdateSchema, ({ postId, patch }) => {
+  ipcMain.handle('social:posts:update', wrap(PostUpdateSchema, async ({ postId, patch }) => {
     const post = service.store.updatePost(postId, patch);
-    windowManager.broadcast?.('social:post-updated', post);
-    void socialCalendarBridge.syncPostEvent(post);
-    return post;
+    const accountId = patch.accountId ?? post.accountId;
+    if (
+      accountId
+      && service.store.isAccountCloudPublishing(accountId)
+      && (post.status === 'scheduled' || post.scheduledAt)
+    ) {
+      await socialCloudAdapter
+        .syncPostMediaStorage({ database, windowManager }, service.store, postId)
+        .catch((err) => console.warn('[Social] cloud media sync:', err?.message || err));
+    }
+    const latest = service.store.getPost(postId);
+    windowManager.broadcast?.('social:post-updated', latest);
+    void socialCalendarBridge.syncPostEvent(latest);
+    return latest;
   }));
   ipcMain.handle('social:posts:delete', wrap(PostIdSchema, ({ postId }) => {
     service.store.deletePost(postId);

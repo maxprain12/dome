@@ -259,7 +259,10 @@ function createSocialService(database, windowManager) {
     if (tickRunning) return;
     tickRunning = true;
     try {
-      const due = store.listDuePosts();
+      const due = store.listDuePosts().filter((post) => {
+        if (!post.accountId) return true;
+        return !store.isAccountCloudPublishing(post.accountId);
+      });
       for (const post of due) {
         try {
           await publishPost(post.id);

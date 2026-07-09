@@ -392,6 +392,16 @@
     "perm_screen_restart_hint": "Após conceder Gravação de tela, reinicie o Dome para que a mudança tenha efeito.",
     "perm_os_managed": "As permissões são gerenciadas pelo sistema operacional."
   },
+  "domain_sync": {
+    "title": "Sincronização por domínio (Social, Pipelines, Calendário)",
+    "description": "Mantém social, pipelines e calendário sincronizados com Dome Cloud. Requer subscrição Dome ativa.",
+    "social": "Hub social",
+    "pipelines": "Quadro pipelines",
+    "calendar": "Calendário (apenas envio)",
+    "sync_now": "Sincronizar domínios agora",
+    "sync_ok": "Domínios sincronizados",
+    "sync_error": "Falha na sincronização"
+  },
   "indexing": {
     "title": "Indexação",
     "subtitle": "A sua IA na nuvem (visão) pode transcrever PDFs e descrever imagens; os embeddings Nomic alimentam a pesquisa híbrida e o grafo semântico.",

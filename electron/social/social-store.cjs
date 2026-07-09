@@ -14,6 +14,7 @@
 
 const crypto = require('crypto');
 const { safeStorage } = require('electron');
+const syncTombstone = require('../storage/sync-tombstone.cjs');
 
 const PROVIDERS = ['linkedin', 'instagram', 'x'];
 
@@ -169,6 +170,27 @@ function createSocialStore(database) {
     return q().getSocialAccountById.get(accountId) || null;
   }
 
+  function getAccountRow(accountId) {
+    return getAccount(accountId);
+  }
+
+  function isAccountCloudPublishing(accountId) {
+    const row = getAccount(accountId);
+    return row?.cloud_publishing === 1;
+  }
+
+  function setCloudPublishing(accountId, enabled) {
+    const row = getAccount(accountId);
+    if (!row) throw new Error(`Social account not found: ${accountId}`);
+    q().updateSocialAccountCloudPublishing.run(enabled ? 1 : 0, Date.now(), accountId);
+  }
+
+  function setPostMediaStorage(postId, storagePaths) {
+    const row = q().getSocialPostById.get(postId);
+    if (!row) throw new Error(`Social post not found: ${postId}`);
+    q().updateSocialPostMediaStorage.run(JSON.stringify(storagePaths || []), Date.now(), postId);
+  }
+
   function getAccountTokens(accountId) {
     const row = getAccount(accountId);
     if (!row) return null;
@@ -204,6 +226,8 @@ function createSocialStore(database) {
   }
 
   function deleteAccount(accountId) {
+    const db = database.getDB?.();
+    if (db) syncTombstone.recordTombstone(db, 'social_accounts', accountId);
     q().deleteSocialAccount.run(accountId);
   }
 
@@ -222,6 +246,7 @@ function createSocialStore(database) {
       lastError: row.last_error,
       connectedAt: row.connected_at,
       lastSyncAt: row.last_sync_at,
+      cloudPublishing: row.cloud_publishing === 1,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -247,6 +272,7 @@ function createSocialStore(database) {
       status: row.status,
       body: row.body,
       media: parseJsonArray(row.media),
+      mediaStorage: parseJsonArray(row.media_storage),
       linkUrl: row.link_url,
       topics: parseJsonArray(row.topics),
       campaign: row.campaign,
@@ -347,6 +373,8 @@ function createSocialStore(database) {
   }
 
   function deletePost(postId) {
+    const db = database.getDB?.();
+    if (db) syncTombstone.recordTombstone(db, 'social_posts', postId);
     q().deleteSocialPost.run(postId);
   }
 
@@ -376,11 +404,13 @@ function createSocialStore(database) {
 
   function insertMetric(postId, metric) {
     const id = `sm-${crypto.randomBytes(8).toString('hex')}`;
+    const capturedAt = Date.now();
     q().insertSocialMetric.run(
-      id, postId, Date.now(),
+      id, postId, capturedAt,
       metric.impressions ?? null, metric.likes ?? null, metric.comments ?? null,
       metric.shares ?? null, metric.saves ?? null, metric.clicks ?? null,
-      metric.followers ?? null, metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null
+      metric.followers ?? null, metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null,
+      capturedAt,
     );
   }
 
@@ -412,10 +442,12 @@ function createSocialStore(database) {
 
   function insertAccountMetric(accountId, metric) {
     const id = `sam-${crypto.randomBytes(8).toString('hex')}`;
+    const capturedAt = Date.now();
     q().insertSocialAccountMetric.run(
-      id, accountId, Date.now(),
+      id, accountId, capturedAt,
       metric.followers ?? null, metric.following ?? null, metric.postsCount ?? null,
-      metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null
+      metric.raw ? JSON.stringify(metric.raw).slice(0, 20000) : null,
+      capturedAt,
     );
     return serializeAccountMetric(q().getLatestSocialAccountMetric.get(accountId));
   }
@@ -530,6 +562,10 @@ function createSocialStore(database) {
     setOAuthPort,
     createAccount,
     getAccount,
+    getAccountRow,
+    isAccountCloudPublishing,
+    setCloudPublishing,
+    setPostMediaStorage,
     getAccountTokens,
     updateAccountTokens,
     updateAccountProfile,

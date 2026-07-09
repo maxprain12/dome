@@ -12,6 +12,7 @@ export interface SocialAccount {
   lastError: string | null;
   connectedAt: number | null;
   lastSyncAt: number | null;
+  cloudPublishing?: boolean;
 }
 
 export interface SocialMediaItem {

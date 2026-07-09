@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Share2, Plus, RefreshCw, Linkedin, Instagram, Twitter, Trash2, Send,
   CalendarClock, Pencil, ExternalLink, Loader2, Settings as SettingsIcon,
-  BarChart3, FileText, LayoutDashboard, Sparkles, Building2,
+  BarChart3, FileText, LayoutDashboard, Sparkles, Building2, Cloud,
 } from 'lucide-react';
 import { useTabStore } from '@/lib/store/useTabStore';
 import SocialComposerModal from '@/components/social/SocialComposerModal';
@@ -56,6 +56,7 @@ export default function SocialHubView() {
     void load();
     const unsubs = [
       window.electron?.on?.('social:post-updated', () => void load()),
+      window.electron?.on?.('social:posts-refresh', () => void load()),
       window.electron?.on?.('social:account-updated', () => void load()),
       window.electron?.on?.('social:metrics-updated', () => void load()),
     ];
@@ -88,6 +89,16 @@ export default function SocialHubView() {
   const filteredPosts = useMemo(
     () => (statusFilter === 'all' ? posts : posts.filter((p) => p.status === statusFilter)),
     [posts, statusFilter],
+  );
+
+  const cloudAccountIds = useMemo(
+    () => new Set(accounts.filter((a) => a.cloudPublishing).map((a) => a.id)),
+    [accounts],
+  );
+
+  const isCloudPost = useCallback(
+    (post: SocialPost) => Boolean(post.accountId && cloudAccountIds.has(post.accountId)),
+    [cloudAccountIds],
   );
 
   const accountStrip = useMemo(() => {
@@ -253,6 +264,7 @@ export default function SocialHubView() {
                       <PostRow
                         key={post.id}
                         post={post}
+                        isCloud={isCloudPost(post)}
                         busy={busyPostId === post.id}
                         onPublish={() => void publishNow(post.id)}
                         onEdit={() => {
@@ -313,6 +325,7 @@ export default function SocialHubView() {
                   <PostRow
                     key={post.id}
                     post={post}
+                    isCloud={isCloudPost(post)}
                     busy={busyPostId === post.id}
                     onPublish={() => void publishNow(post.id)}
                     onEdit={() => {
@@ -439,12 +452,14 @@ function EmptyHint({ text, actionLabel, onAction }: { text: string; actionLabel:
 
 function PostRow({
   post,
+  isCloud,
   busy,
   onPublish,
   onEdit,
   onDelete,
 }: {
   post: SocialPost;
+  isCloud?: boolean;
   busy: boolean;
   onPublish: () => void;
   onEdit: () => void;
@@ -465,6 +480,11 @@ function PostRow({
         </p>
         <div className="flex items-center gap-2 mt-1 text-xs flex-wrap" style={{ color: 'var(--dome-text-muted)' }}>
           <span style={{ color: STATUS_COLORS[post.status] }}>{t(`social.hub.status_${post.status}`)}</span>
+          {isCloud && post.status === 'scheduled' && (
+            <span className="inline-flex items-center gap-0.5" title={t('social.hub.cloud_scheduled')}>
+              <Cloud className="size-3" style={{ color: 'var(--dome-accent)' }} />
+            </span>
+          )}
           {post.scheduledAt && post.status === 'scheduled' && (
             <span className="flex items-center gap-1">
               <CalendarClock className="size-3" />

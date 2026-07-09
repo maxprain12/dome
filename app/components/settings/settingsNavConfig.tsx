@@ -117,3 +117,22 @@ export function findNavItem(section: SettingsSection): NavItem | undefined {
   }
   return undefined;
 }
+
+/** Hide settings sections the current user cannot access (e.g. cloud without subscription). */
+export function filterNavGroups(
+  groups: NavGroup[],
+  hidden: ReadonlySet<SettingsSection>,
+): NavGroup[] {
+  const filterRun = (run: NavItem[]) => run.filter((item) => !hidden.has(item.id));
+  const out: NavGroup[] = [];
+  for (const group of groups) {
+    if (group.itemRuns) {
+      const itemRuns = group.itemRuns.map(filterRun).filter((run) => run.length > 0);
+      if (itemRuns.length > 0) out.push({ ...group, itemRuns });
+      continue;
+    }
+    const items = (group.items ?? []).filter((item) => !hidden.has(item.id));
+    if (items.length > 0) out.push({ ...group, items });
+  }
+  return out;
+}

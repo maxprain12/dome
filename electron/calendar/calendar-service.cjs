@@ -8,6 +8,7 @@
 const crypto = require('crypto');
 const database = require('../core/database.cjs');
 const { normalizeRemindersForStorage } = require('./calendar-reminders.cjs');
+const syncTombstone = require('../storage/sync-tombstone.cjs');
 
 const DEFAULT_REMINDER_MINUTES = 15;
 const MAX_TITLE_LENGTH = 200;
@@ -375,6 +376,16 @@ async function deleteEvent(eventId) {
 
     if (q.deleteCalendarNotificationsForEvent) {
       q.deleteCalendarNotificationsForEvent.run(eventId);
+    }
+    const db = database.getDB?.();
+    if (db) {
+      const links = db
+        .prepare('SELECT id FROM calendar_event_links WHERE event_id = ?')
+        .all(eventId);
+      for (const link of links) {
+        syncTombstone.recordTombstone(db, 'calendar_event_links', link.id);
+      }
+      syncTombstone.recordTombstone(db, 'calendar_events', eventId);
     }
     q.deleteCalendarEventLinksByEvent.run(eventId);
     q.deleteCalendarEvent.run(eventId);

@@ -1131,14 +1131,6 @@ export async function* chatWithToolsStream(
   if (!config) throw new Error('AI not configured.');
 
   const provider = config.provider as string;
-  if (provider === 'dome') {
-    // Architecture-first fallback: Dome proxy streaming without agent runtime.
-    // Tool orchestration remains in phase 2.
-    const toolDefinitions = toOpenAIToolDefinitions(tools);
-    yield* streamDome(messages, config.model || getDefaultModelId('dome'), toolDefinitions);
-    return;
-  }
-
   const model = provider === 'ollama'
     ? (config.ollamaModel || getDefaultModelId('ollama' as AIProviderType))
     : (config.model || getDefaultModelId(provider as AIProviderType));
