@@ -2749,6 +2749,44 @@ async function getDocumentStructure({ resource_id } = {}) {
 // =============================================================================
 
 /**
+ * Insert or update a manual semantic relation between two resources.
+ * Promotes a previously 'rejected' or 'auto' row to 'manual', and silently
+ * swallows UNIQUE-constraint races when inserting a new row.
+ */
+function upsertSemanticRelation(q, db, { id, source_id, target_id, label, now }) {
+  const existing = q.getSemanticRelationByPair?.get(source_id, target_id);
+  if (existing) {
+    if (existing.relation_type === 'rejected') {
+      db.getDB()
+        .prepare(
+          `
+          UPDATE semantic_relations
+          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
+          WHERE id = ?
+        `,
+        )
+        .run(now, label, existing.id);
+    } else if (existing.relation_type === 'auto') {
+      db.getDB()
+        .prepare(
+          `
+          UPDATE semantic_relations
+          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label)
+          WHERE id = ?
+        `,
+        )
+        .run(now, label, existing.id);
+    }
+  } else {
+    try {
+      q.insertSemanticRelation?.run(id, source_id, target_id, 1.0, 'manual', label, now, null);
+    } catch (e) {
+      if (!e.message?.includes('UNIQUE')) throw e;
+    }
+  }
+}
+
+/**
  * Create a manual semantic relation between two resources (semantic_relations table).
  * @param {Object} params
  * @param {string} params.source_id - ID of the source resource
@@ -2770,38 +2808,7 @@ async function linkResources({ source_id, target_id, relation = 'related', descr
     const now = Date.now();
     const label = description || (relation && relation !== 'related' ? relation : null);
     const id = `${source_id}__${target_id}`;
-    const existing = q.getSemanticRelationByPair?.get(source_id, target_id);
-    if (existing) {
-      if (existing.relation_type === 'rejected') {
-        database
-          .getDB()
-          .prepare(
-            `
-          UPDATE semantic_relations
-          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label), confirmed_at = NULL
-          WHERE id = ?
-        `,
-          )
-          .run(now, label, existing.id);
-      } else if (existing.relation_type === 'auto') {
-        database
-          .getDB()
-          .prepare(
-            `
-          UPDATE semantic_relations
-          SET relation_type = 'manual', similarity = 1.0, detected_at = ?, label = COALESCE(?, label)
-          WHERE id = ?
-        `,
-          )
-          .run(now, label, existing.id);
-      }
-    } else {
-      try {
-        q.insertSemanticRelation?.run(id, source_id, target_id, 1.0, 'manual', label, now, null);
-      } catch (e) {
-        if (!e.message?.includes('UNIQUE')) throw e;
-      }
-    }
+    upsertSemanticRelation(q, database, { id, source_id, target_id, label, now });
 
     const edgeId = `edge-${source_id.slice(-8)}-${target_id.slice(-8)}-${now}`;
     try {
