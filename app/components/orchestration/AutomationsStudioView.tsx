@@ -21,6 +21,7 @@ import {
   runAutomationNowRaw,
   saveAutomation,
   type AutomationDefinition,
+  type PersistentRun,
 } from '@/lib/automations/api';
 import { getManyAgents } from '@/lib/agents/api';
 import { getWorkflows } from '@/lib/agent-canvas/api';
@@ -144,21 +145,23 @@ export default function AutomationsStudioView() {
   }, [formMode, projectId]);
 
   // Keep last-run info live as runs finish.
+  const handleRunUpdate = ({ run }: { run: PersistentRun }) => {
+    if (run.ownerType === 'many' || !run.automationId) return;
+    setAutomations((prev) =>
+      prev.map((a) =>
+        a.id === run.automationId
+          ? {
+              ...a,
+              lastRunAt: run.finishedAt ?? run.startedAt ?? run.updatedAt ?? a.lastRunAt,
+              lastRunStatus: run.status,
+            }
+          : a,
+      ),
+    );
+  };
+
   useEffect(() => {
-    const unsub = onRunUpdated(({ run }) => {
-      if (run.ownerType === 'many' || !run.automationId) return;
-      setAutomations((prev) =>
-        prev.map((a) =>
-          a.id === run.automationId
-            ? {
-                ...a,
-                lastRunAt: run.finishedAt ?? run.startedAt ?? run.updatedAt ?? a.lastRunAt,
-                lastRunStatus: run.status,
-              }
-            : a,
-        ),
-      );
-    });
+    const unsub = onRunUpdated(handleRunUpdate);
     return unsub;
   }, []);
 

@@ -246,51 +246,9 @@ export function useAgentRunStream(options: AgentRunStreamOptions): void {
             return {};
           }
         })();
-        setStreamingMessage((prev) => {
-          const existing = prev?.toolCalls ?? [];
-          const entry: ToolCallData = {
-            id: tc.id,
-            name: tc.name,
-            arguments: parsedArgs,
-            status: 'running' as ToolCallData['status'],
-            ...(payload.agentName ? { agentName: payload.agentName } : {}),
-          };
-          const idx = existing.findIndex((c) => c.id === tc.id);
-          const mergeIntoExisting = (
-            list: ToolCallData[],
-            targetIdx: number,
-            patch: ToolCallData,
-          ): ToolCallData[] => {
-            const next = list.slice();
-            next[targetIdx] = { ...next[targetIdx], ...patch };
-            return next;
-          };
-          const nextToolCalls: ToolCallData[] =
-            idx >= 0
-              ? mergeIntoExisting(existing, idx, entry)
-              : [...existing, entry];
-          return prev
-            ? {
-                ...prev,
-                toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
-                streamingLabel: streamingLabelForToolCall(
-                  { name: tc.name, arguments: parsedArgs, agentName: payload.agentName },
-                  t,
-                ),
-              }
-            : {
-                id: `run-${payload.runId}`,
-                role: 'assistant',
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-                toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
-                streamingLabel: streamingLabelForToolCall(
-                  { name: tc.name, arguments: parsedArgs, agentName: payload.agentName },
-                  t,
-                ),
-              };
-        });
+        setStreamingMessage((prev) =>
+          applyToolCallUpdate(prev, payload.runId, payload.agentName, parsedArgs, tc, t),
+        );
         return;
       }
 
@@ -366,4 +324,57 @@ function upsertRunStep(steps: PersistentRunStep[], step: PersistentRunStep): Per
   const next = steps.slice();
   next[idx] = step;
   return next.slice(-24);
+}
+
+function applyToolCallUpdate(
+  prev: ChatMessageData | null,
+  runId: string,
+  agentName: string | undefined,
+  parsedArgs: Record<string, unknown>,
+  tc: { id: string; name: string },
+  t: TFunction,
+): ChatMessageData {
+  const existing = prev?.toolCalls ?? [];
+  const entry: ToolCallData = {
+    id: tc.id,
+    name: tc.name,
+    arguments: parsedArgs,
+    status: 'running' as ToolCallData['status'],
+    ...(agentName ? { agentName } : {}),
+  };
+  const idx = existing.findIndex((c) => c.id === tc.id);
+  const mergeIntoExisting = (
+    list: ToolCallData[],
+    targetIdx: number,
+    patch: ToolCallData,
+  ): ToolCallData[] => {
+    const next = list.slice();
+    next[targetIdx] = { ...next[targetIdx], ...patch };
+    return next;
+  };
+  const nextToolCalls: ToolCallData[] =
+    idx >= 0
+      ? mergeIntoExisting(existing, idx, entry)
+      : [...existing, entry];
+  return prev
+    ? {
+        ...prev,
+        toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
+        streamingLabel: streamingLabelForToolCall(
+          { name: tc.name, arguments: parsedArgs, agentName },
+          t,
+        ),
+      }
+    : {
+        id: `run-${runId}`,
+        role: 'assistant',
+        content: '',
+        timestamp: Date.now(),
+        isStreaming: true,
+        toolCalls: coalesceDuplicateToolCalls(nextToolCalls),
+        streamingLabel: streamingLabelForToolCall(
+          { name: tc.name, arguments: parsedArgs, agentName },
+          t,
+        ),
+      };
 }
