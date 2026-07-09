@@ -34,19 +34,6 @@ function generatePKCE() {
   return { codeVerifier, codeChallenge };
 }
 
-function getUserIdentifier(database) {
-  try {
-    const queries = database.getQueries();
-    const email = queries.getSetting.get('user_email')?.value;
-    const name = queries.getSetting.get('user_name')?.value;
-    if (email && email.trim()) return email.trim();
-    if (name && name.trim()) return name.trim();
-  } catch {
-    // Ignore and fallback.
-  }
-  return `desktop-user-${Date.now()}`;
-}
-
 const REFRESH_BUFFER_MS = 5 * 60 * 1000; // Refresh if expiring within 5 min
 
 async function refreshAccessToken(database, refreshToken) {
@@ -252,7 +239,6 @@ function startOAuthFlow(database) {
   return new Promise((resolve, reject) => {
     const { codeVerifier, codeChallenge } = generatePKCE();
     const state = crypto.randomBytes(24).toString('base64url');
-    const userId = getUserIdentifier(database);
 
     const authUrl = new URL(`${getDomeProviderBaseUrl()}/api/oauth/authorize`);
     authUrl.searchParams.set('response_type', 'code');
@@ -261,10 +247,9 @@ function startOAuthFlow(database) {
     authUrl.searchParams.set('code_challenge', codeChallenge);
     authUrl.searchParams.set('code_challenge_method', 'S256');
     authUrl.searchParams.set('state', state);
-    authUrl.searchParams.set('user_id', userId);
 
     const pending = global.__domeOAuthPending || (global.__domeOAuthPending = new Map());
-    registerOAuthPending(pending, state, { resolve, reject, codeVerifier, userId });
+    registerOAuthPending(pending, state, { resolve, reject, codeVerifier });
 
     shell.openExternal(authUrl.toString());
   });
@@ -352,12 +337,15 @@ function handleOAuthCallback(url, database) {
 
     exchangeCodeForToken(code, flow.codeVerifier)
       .then((tokenResponse) => {
+        if (!tokenResponse.user_id) {
+          throw new Error('OAuth token response missing user_id');
+        }
         const queries = database.getQueries();
         const now = Date.now();
         const expiresInSec = Number(tokenResponse.expires_in || 3600);
         persistSession(
           queries,
-          flow.userId,
+          tokenResponse.user_id,
           tokenResponse.access_token,
           tokenResponse.refresh_token || null,
           now + expiresInSec * 1000,
@@ -365,7 +353,7 @@ function handleOAuthCallback(url, database) {
         flow.resolve({
           success: true,
           connected: true,
-          userId: flow.userId,
+          userId: tokenResponse.user_id,
         });
       })
       .catch((exchangeError) => {
@@ -389,4 +377,5 @@ module.exports = {
   disconnect,
   openDashboard,
   getDomeProviderBaseUrl,
+  persistSession,
 };

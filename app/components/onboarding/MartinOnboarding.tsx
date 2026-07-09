@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import OnboardingStep from './OnboardingStep';
+import AccountStep from './steps/AccountStep';
 import ProfileStep from './steps/ProfileStep';
 import RoleStep from './steps/RoleStep';
 import AISetupStep from './steps/AISetupStep';
@@ -19,7 +20,7 @@ interface MartinOnboardingProps {
   }) => void;
 }
 
-type Step = 'welcome' | 'profile' | 'role' | 'ai';
+type Step = 'account' | 'welcome' | 'profile' | 'role' | 'ai';
 
 export default function MartinOnboarding({
   initialName,
@@ -27,7 +28,11 @@ export default function MartinOnboarding({
   onComplete,
 }: MartinOnboardingProps) {
   const { t } = useTranslation();
-  const [currentStep, setCurrentStep] = useState<Step>('welcome');
+  const [currentStep, setCurrentStep] = useState<Step>('account');
+  const [accountData, setAccountData] = useState<{
+    mode: 'account' | 'local';
+    email?: string;
+  } | null>(null);
   const [profileData, setProfileData] = useState<{
     name: string;
     email: string;
@@ -36,9 +41,15 @@ export default function MartinOnboarding({
     roleId: RoleId;
     freeText: string;
   } | null>(null);
+  const [canProceedAccount, setCanProceedAccount] = useState(false);
   const [canProceedProfile, setCanProceedProfile] = useState(false);
   const [canProceedRole, setCanProceedRole] = useState(false);
   const [canProceedAI, setCanProceedAI] = useState(false);
+
+  const handleAccountComplete = (data: { mode: 'account' | 'local'; email?: string }) => {
+    setAccountData(data);
+    setCurrentStep('welcome');
+  };
 
   const handleWelcomeNext = () => {
     setCurrentStep('profile');
@@ -61,7 +72,9 @@ export default function MartinOnboarding({
   };
 
   const handleBack = () => {
-    if (currentStep === 'profile') {
+    if (currentStep === 'welcome') {
+      setCurrentStep('account');
+    } else if (currentStep === 'profile') {
       setCurrentStep('welcome');
     } else if (currentStep === 'role') {
       setCurrentStep('profile');
@@ -70,11 +83,25 @@ export default function MartinOnboarding({
     }
   };
 
+  if (currentStep === 'account') {
+    return (
+      <OnboardingStep
+        message={t('onboarding.account_message')}
+        onNext={() => window.dispatchEvent(new CustomEvent('onboarding:account-validate'))}
+        nextLabel={t('onboarding.continue')}
+        canProceed={canProceedAccount}
+      >
+        <AccountStep onComplete={handleAccountComplete} onValidationChange={setCanProceedAccount} />
+      </OnboardingStep>
+    );
+  }
+
   if (currentStep === 'welcome') {
     return (
       <OnboardingStep
         message={t('onboarding.welcome_message')}
         onNext={handleWelcomeNext}
+        onBack={handleBack}
         nextLabel={t('onboarding.start')}
         canProceed={true}
       >
@@ -98,7 +125,11 @@ export default function MartinOnboarding({
       >
         <ProfileStep
           initialName={initialName || profileData?.name}
-          initialEmail={initialEmail || profileData?.email}
+          initialEmail={
+            (accountData?.mode === 'account' ? accountData.email : undefined) ||
+            initialEmail ||
+            profileData?.email
+          }
           onComplete={handleProfileComplete}
           onValidationChange={setCanProceedProfile}
         />
@@ -133,7 +164,11 @@ export default function MartinOnboarding({
       nextLabel={t('onboarding.finalize')}
       canProceed={canProceedAI}
     >
-      <AISetupStep onComplete={handleAIComplete} onValidationChange={setCanProceedAI} />
+      <AISetupStep
+        onComplete={handleAIComplete}
+        onValidationChange={setCanProceedAI}
+        localModeOnly={accountData?.mode === 'local'}
+      />
     </OnboardingStep>
   );
 }

@@ -20,20 +20,24 @@ import { accentMix } from '@/lib/ui/accent';
 interface AISetupStepProps {
   onComplete: () => void;
   onValidationChange?: (isValid: boolean) => void;
+  /** Onboarding-only: user chose "local mode" at the account gate — never offer/default to Dome here. */
+  localModeOnly?: boolean;
 }
 
 type OnboardingProviderType = AIProviderType | 'skip';
 
-export default function AISetupStep({ onComplete, onValidationChange }: AISetupStepProps) {
+export default function AISetupStep({ onComplete, onValidationChange, localModeOnly = false }: AISetupStepProps) {
   const { t } = useTranslation();
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
 
+  const domeAvailable = DOME_PROVIDER_ENABLED && !localModeOnly;
+
   const [provider, setProvider] = useState<OnboardingProviderType>(
-    DOME_PROVIDER_ENABLED ? 'dome' : 'openai',
+    domeAvailable ? 'dome' : 'openai',
   );
   const [lastProvider, setLastProvider] = useState<AIProviderType>(
-    DOME_PROVIDER_ENABLED ? 'dome' : 'openai',
+    domeAvailable ? 'dome' : 'openai',
   );
   const [apiKey, setApiKey] = useState('');
   const [model, setModel] = useState(() => getDefaultModelId('openai'));
@@ -146,6 +150,7 @@ export default function AISetupStep({ onComplete, onValidationChange }: AISetupS
         onProviderChange={handleCloudProviderChange}
         showSectionLabel={false}
         highlightSelection={provider !== 'skip'}
+        hideDomeProvider={localModeOnly}
       />
 
       <button

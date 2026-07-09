@@ -353,6 +353,8 @@ const ALLOWED_CHANNELS = {
     'domeauth:getSession',
     'domeauth:disconnect',
     'domeauth:getQuota',
+    'domeauth:nativeLogin',
+    'domeauth:sessionState',
     // Personality Loader
     'personality:get-prompt',
     'personality:get-context-files',
@@ -518,6 +520,11 @@ const ALLOWED_CHANNELS = {
     'cloudSync:stopRevisionWatcher',
     'cloudSync:getSettings',
     'cloudSync:setSettings',
+    'domainSync:getEntitlements',
+    'domainSync:getStatus',
+    'domainSync:setDomainEnabled',
+    'domainSync:syncNow',
+    'social:setCloudPublishing',
     // MCP
     'mcp:testConnection',
     'mcp:testServer',
@@ -782,6 +789,7 @@ const ALLOWED_CHANNELS = {
     // Social hub events
     'social:account-updated',
     'social:post-updated',
+    'social:posts-refresh',
     'social:metrics-updated',
     'social:report-updated',
     // Feeder events
@@ -1012,6 +1020,22 @@ const electronHandler = {
     setSettings: (partial) => ipcRenderer.invoke('cloudSync:setSettings', partial),
   },
 
+  domainSync: {
+    getEntitlements: () => ipcRenderer.invoke('domainSync:getEntitlements'),
+    getStatus: () => ipcRenderer.invoke('domainSync:getStatus'),
+    setDomainEnabled: (args) => ipcRenderer.invoke('domainSync:setDomainEnabled', args),
+    syncNow: (args) => ipcRenderer.invoke('domainSync:syncNow', args),
+    onCompleted: (callback) => {
+      const subscription = (_event, data) => callback(data);
+      ipcRenderer.on('domain-sync:completed', subscription);
+      return () => ipcRenderer.removeListener('domain-sync:completed', subscription);
+    },
+  },
+
+  socialCloud: {
+    setCloudPublishing: (args) => ipcRenderer.invoke('social:setCloudPublishing', args),
+  },
+
   // ============================================
   // EMAIL API (himalaya)
   // ============================================
@@ -1097,6 +1121,13 @@ const electronHandler = {
     getSession: () => ipcRenderer.invoke('domeauth:getSession'),
     disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
     getQuota: () => ipcRenderer.invoke('domeauth:getQuota'),
+    nativeLogin: (email, password, isRegister) =>
+      ipcRenderer.invoke('domeauth:nativeLogin', { email, password, isRegister }),
+    onSessionState: (callback) => {
+      const sub = (_event, state) => callback(state);
+      ipcRenderer.on('domeauth:sessionState', sub);
+      return () => ipcRenderer.removeListener('domeauth:sessionState', sub);
+    },
   },
 
   // ============================================

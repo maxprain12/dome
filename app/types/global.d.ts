@@ -447,6 +447,53 @@ declare global {
         }) => Promise<{ success: boolean; error?: string }>;
       };
 
+      domainSync: {
+        getEntitlements: () => Promise<{
+          success: boolean;
+          subscribed?: boolean;
+          showCloudUi?: boolean;
+          hasCloudSync?: boolean;
+          hasSocialCloud?: boolean;
+          hasPipelinesCloud?: boolean;
+          planId?: string;
+          subscriptionStatus?: string;
+          features?: string[];
+          error?: string;
+        }>;
+        getStatus: () => Promise<{
+          success: boolean;
+          showCloudUi?: boolean;
+          entitlements?: {
+            subscribed: boolean;
+            showCloudUi: boolean;
+            hasCloudSync: boolean;
+            hasSocialCloud: boolean;
+            hasPipelinesCloud: boolean;
+            features: string[];
+          };
+          domains?: Record<string, { enabled: boolean; lastPushAt: number; lastPullCursor?: string }>;
+          error?: string;
+        }>;
+        setDomainEnabled: (args: {
+          domain: 'social' | 'pipelines' | 'calendar';
+          enabled: boolean;
+        }) => Promise<{ success: boolean; error?: string; feature?: string }>;
+        syncNow: (args?: { domain?: 'social' | 'pipelines' | 'calendar' }) => Promise<{
+          success: boolean;
+          skipped?: boolean;
+          error?: string;
+          gated?: boolean;
+        }>;
+        onCompleted: (cb: (data: { domain: string; success?: boolean }) => void) => () => void;
+      };
+
+      socialCloud: {
+        setCloudPublishing: (args: {
+          accountId: string;
+          enabled: boolean;
+        }) => Promise<{ success: boolean; error?: string; feature?: string; account?: unknown }>;
+      };
+
       // Email API (himalaya)
       email: {
         listAccounts: (params?: { projectId?: string }) => Promise<EmailResult<{ accounts?: any[] }>>;
@@ -608,6 +655,18 @@ declare global {
           periodEnd?: number;
           subscriptionStatus?: string;
           error?: string;
+        }>;
+        nativeLogin: (
+          email: string,
+          password: string,
+          isRegister: boolean,
+        ) => Promise<{
+          success: boolean;
+          connected?: boolean;
+          userId?: string;
+          pendingConfirmation?: boolean;
+          error?: string;
+          errorCode?: string;
         }>;
       };
 

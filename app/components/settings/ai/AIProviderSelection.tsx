@@ -23,6 +23,8 @@ export interface AIProviderSelectionProps {
   configuredProviders?: Record<string, boolean>;
   /** Opens the visible-models modal for a provider (gear icon). */
   onConfigureModels?: (provider: AIProviderType) => void;
+  /** Onboarding-only: hide the Dome card even if DOME_PROVIDER_ENABLED (user chose local mode at the account gate). */
+  hideDomeProvider?: boolean;
 }
 
 function ProviderCardCheck() {
@@ -65,6 +67,7 @@ export default function AIProviderSelection({
   highlightSelection = true,
   configuredProviders = EMPTY_CONFIGURED_PROVIDERS,
   onConfigureModels,
+  hideDomeProvider = false,
 }: AIProviderSelectionProps) {
   const { t } = useTranslation();
   const activeProvider = highlightSelection ? provider : null;
@@ -85,7 +88,7 @@ export default function AIProviderSelection({
       ) : null}
 
       <div className="space-y-2">
-        {DOME_PROVIDER_ENABLED && (
+        {DOME_PROVIDER_ENABLED && !hideDomeProvider && (
           <button
             type="button"
             onClick={() => onProviderChange('dome')}
