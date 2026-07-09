@@ -266,37 +266,179 @@ function buildChatPayload(
 	return payload;
 }
 
+/**
+ * Tracks the currently open text/thinking block, emitting start/delta/end
+ * events as the stream alternates between block types.
+ */
+function createBlockTracker(output: AssistantMessage, stream: AssistantMessageEventStream) {
+	let currentBlock: TextContent | ThinkingContent | null = null;
+	const blockIndex = () => output.content.length - 1;
+
+	const finishCurrentBlock = () => {
+		if (!currentBlock) return;
+		if (currentBlock.type === "text") {
+			stream.push({
+				type: "text_end",
+				contentIndex: blockIndex(),
+				content: currentBlock.text,
+				partial: output,
+			});
+		} else {
+			stream.push({
+				type: "thinking_end",
+				contentIndex: blockIndex(),
+				content: currentBlock.thinking,
+				partial: output,
+			});
+		}
+		currentBlock = null;
+	};
+
+	const appendText = (textDelta: string) => {
+		if (!currentBlock || currentBlock.type !== "text") {
+			finishCurrentBlock();
+			currentBlock = { type: "text", text: "" };
+			output.content.push(currentBlock);
+			stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
+		}
+		currentBlock.text += textDelta;
+		stream.push({
+			type: "text_delta",
+			contentIndex: blockIndex(),
+			delta: textDelta,
+			partial: output,
+		});
+	};
+
+	const appendThinking = (thinkingDelta: string) => {
+		if (!currentBlock || currentBlock.type !== "thinking") {
+			finishCurrentBlock();
+			currentBlock = { type: "thinking", thinking: "" };
+			output.content.push(currentBlock);
+			stream.push({ type: "thinking_start", contentIndex: blockIndex(), partial: output });
+		}
+		currentBlock.thinking += thinkingDelta;
+		stream.push({
+			type: "thinking_delta",
+			contentIndex: blockIndex(),
+			delta: thinkingDelta,
+			partial: output,
+		});
+	};
+
+	return { appendText, appendThinking, finishCurrentBlock };
+}
+
+type BlockTracker = ReturnType<typeof createBlockTracker>;
+
+function handleChatContentDelta(
+	deltaContent: string | Array<{ type: string; [key: string]: unknown }>,
+	tracker: BlockTracker,
+): void {
+	const contentItems = typeof deltaContent === "string" ? [deltaContent] : deltaContent;
+	for (const item of contentItems) {
+		if (typeof item === "string") {
+			tracker.appendText(sanitizeSurrogates(item));
+			continue;
+		}
+
+		if (item.type === "thinking") {
+			const deltaText = (item.thinking as Array<Record<string, unknown>>)
+				.map((part) => ("text" in part ? (part.text as string) : ""))
+				.filter((text) => text.length > 0)
+				.join("");
+			const thinkingDelta = sanitizeSurrogates(deltaText);
+			if (!thinkingDelta) continue;
+			tracker.appendThinking(thinkingDelta);
+			continue;
+		}
+
+		if (item.type === "text") {
+			tracker.appendText(sanitizeSurrogates(item.text as string));
+		}
+	}
+}
+
+function handleChatToolCallDelta(
+	toolCall: NonNullable<CompletionEvent["data"]["choices"][number]["delta"]["toolCalls"]>[number],
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+	toolBlocksByKey: Map<string, number>,
+	tracker: BlockTracker,
+): void {
+	tracker.finishCurrentBlock();
+	const callId =
+		toolCall.id && toolCall.id !== "null"
+			? toolCall.id
+			: deriveMistralToolCallId(`toolcall:${toolCall.index ?? 0}`, 0);
+	const key = `${callId}:${toolCall.index || 0}`;
+	const existingIndex = toolBlocksByKey.get(key);
+	let block: (ToolCall & { partialArgs?: string }) | undefined;
+
+	if (existingIndex !== undefined) {
+		const existing = output.content[existingIndex];
+		if (existing?.type === "toolCall") {
+			block = existing as ToolCall & { partialArgs?: string };
+		}
+	}
+
+	if (!block) {
+		block = {
+			type: "toolCall",
+			id: callId,
+			name: toolCall.function.name,
+			arguments: {},
+			partialArgs: "",
+		};
+		output.content.push(block);
+		toolBlocksByKey.set(key, output.content.length - 1);
+		stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
+	}
+
+	const argsDelta =
+		typeof toolCall.function.arguments === "string"
+			? toolCall.function.arguments
+			: JSON.stringify(toolCall.function.arguments || {});
+	block.partialArgs = (block.partialArgs || "") + argsDelta;
+	block.arguments = parseStreamingJson<Record<string, unknown>>(block.partialArgs);
+	stream.push({
+		type: "toolcall_delta",
+		contentIndex: toolBlocksByKey.get(key)!,
+		delta: argsDelta,
+		partial: output,
+	});
+}
+
+function finalizeChatToolCallBlocks(
+	output: AssistantMessage,
+	stream: AssistantMessageEventStream,
+	toolBlocksByKey: Map<string, number>,
+): void {
+	for (const index of toolBlocksByKey.values()) {
+		const block = output.content[index];
+		if (block.type !== "toolCall") continue;
+		const toolBlock = block as ToolCall & { partialArgs?: string };
+		toolBlock.arguments = parseStreamingJson<Record<string, unknown>>(toolBlock.partialArgs);
+		// Finalize in-place and strip the scratch buffer so replay only
+		// carries parsed arguments.
+		delete toolBlock.partialArgs;
+		stream.push({
+			type: "toolcall_end",
+			contentIndex: index,
+			toolCall: toolBlock,
+			partial: output,
+		});
+	}
+}
+
 async function consumeChatStream(
 	model: Model<"mistral-conversations">,
 	output: AssistantMessage,
 	stream: AssistantMessageEventStream,
 	mistralStream: AsyncIterable<CompletionEvent>,
 ): Promise<void> {
-	let currentBlock: TextContent | ThinkingContent | null = null;
-	const blocks = output.content;
-	const blockIndex = () => blocks.length - 1;
 	const toolBlocksByKey = new Map<string, number>();
-
-	const finishCurrentBlock = (block?: typeof currentBlock) => {
-		if (!block) return;
-		if (block.type === "text") {
-			stream.push({
-				type: "text_end",
-				contentIndex: blockIndex(),
-				content: block.text,
-				partial: output,
-			});
-			return;
-		}
-		if (block.type === "thinking") {
-			stream.push({
-				type: "thinking_end",
-				contentIndex: blockIndex(),
-				content: block.thinking,
-				partial: output,
-			});
-		}
-	};
+	const tracker = createBlockTracker(output, stream);
 
 	for await (const event of mistralStream) {
 		const chunk = event.data;
@@ -322,133 +464,16 @@ async function consumeChatStream(
 
 		const delta = choice.delta;
 		if (delta.content !== null && delta.content !== undefined) {
-			const contentItems = typeof delta.content === "string" ? [delta.content] : delta.content;
-			for (const item of contentItems) {
-				if (typeof item === "string") {
-					const textDelta = sanitizeSurrogates(item);
-					if (!currentBlock || currentBlock.type !== "text") {
-						finishCurrentBlock(currentBlock);
-						currentBlock = { type: "text", text: "" };
-						output.content.push(currentBlock);
-						stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
-					}
-					currentBlock.text += textDelta;
-					stream.push({
-						type: "text_delta",
-						contentIndex: blockIndex(),
-						delta: textDelta,
-						partial: output,
-					});
-					continue;
-				}
-
-				if (item.type === "thinking") {
-					const deltaText = item.thinking
-						.map((part) => ("text" in part ? part.text : ""))
-						.filter((text) => text.length > 0)
-						.join("");
-					const thinkingDelta = sanitizeSurrogates(deltaText);
-					if (!thinkingDelta) continue;
-					if (!currentBlock || currentBlock.type !== "thinking") {
-						finishCurrentBlock(currentBlock);
-						currentBlock = { type: "thinking", thinking: "" };
-						output.content.push(currentBlock);
-						stream.push({ type: "thinking_start", contentIndex: blockIndex(), partial: output });
-					}
-					currentBlock.thinking += thinkingDelta;
-					stream.push({
-						type: "thinking_delta",
-						contentIndex: blockIndex(),
-						delta: thinkingDelta,
-						partial: output,
-					});
-					continue;
-				}
-
-				if (item.type === "text") {
-					const textDelta = sanitizeSurrogates(item.text);
-					if (!currentBlock || currentBlock.type !== "text") {
-						finishCurrentBlock(currentBlock);
-						currentBlock = { type: "text", text: "" };
-						output.content.push(currentBlock);
-						stream.push({ type: "text_start", contentIndex: blockIndex(), partial: output });
-					}
-					currentBlock.text += textDelta;
-					stream.push({
-						type: "text_delta",
-						contentIndex: blockIndex(),
-						delta: textDelta,
-						partial: output,
-					});
-				}
-			}
+			handleChatContentDelta(delta.content as Parameters<typeof handleChatContentDelta>[0], tracker);
 		}
 
-		const toolCalls = delta.toolCalls || [];
-		for (const toolCall of toolCalls) {
-			if (currentBlock) {
-				finishCurrentBlock(currentBlock);
-				currentBlock = null;
-			}
-			const callId =
-				toolCall.id && toolCall.id !== "null"
-					? toolCall.id
-					: deriveMistralToolCallId(`toolcall:${toolCall.index ?? 0}`, 0);
-			const key = `${callId}:${toolCall.index || 0}`;
-			const existingIndex = toolBlocksByKey.get(key);
-			let block: (ToolCall & { partialArgs?: string }) | undefined;
-
-			if (existingIndex !== undefined) {
-				const existing = output.content[existingIndex];
-				if (existing?.type === "toolCall") {
-					block = existing as ToolCall & { partialArgs?: string };
-				}
-			}
-
-			if (!block) {
-				block = {
-					type: "toolCall",
-					id: callId,
-					name: toolCall.function.name,
-					arguments: {},
-					partialArgs: "",
-				};
-				output.content.push(block);
-				toolBlocksByKey.set(key, output.content.length - 1);
-				stream.push({ type: "toolcall_start", contentIndex: output.content.length - 1, partial: output });
-			}
-
-			const argsDelta =
-				typeof toolCall.function.arguments === "string"
-					? toolCall.function.arguments
-					: JSON.stringify(toolCall.function.arguments || {});
-			block.partialArgs = (block.partialArgs || "") + argsDelta;
-			block.arguments = parseStreamingJson<Record<string, unknown>>(block.partialArgs);
-			stream.push({
-				type: "toolcall_delta",
-				contentIndex: toolBlocksByKey.get(key)!,
-				delta: argsDelta,
-				partial: output,
-			});
+		for (const toolCall of delta.toolCalls || []) {
+			handleChatToolCallDelta(toolCall, output, stream, toolBlocksByKey, tracker);
 		}
 	}
 
-	finishCurrentBlock(currentBlock);
-	for (const index of toolBlocksByKey.values()) {
-		const block = output.content[index];
-		if (block.type !== "toolCall") continue;
-		const toolBlock = block as ToolCall & { partialArgs?: string };
-		toolBlock.arguments = parseStreamingJson<Record<string, unknown>>(toolBlock.partialArgs);
-		// Finalize in-place and strip the scratch buffer so replay only
-		// carries parsed arguments.
-		delete toolBlock.partialArgs;
-		stream.push({
-			type: "toolcall_end",
-			contentIndex: index,
-			toolCall: toolBlock,
-			partial: output,
-		});
-	}
+	tracker.finishCurrentBlock();
+	finalizeChatToolCallBlocks(output, stream, toolBlocksByKey);
 }
 
 function toFunctionTools(tools: Tool[]): Array<FunctionTool & { type: "function" }> {
