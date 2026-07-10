@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { getAIConfig } from '@/lib/ai';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { getAIConfig, type AIConfig } from '@/lib/ai';
 import {
   findModelById,
   getModelsForProvider,
@@ -16,10 +16,42 @@ export type ComposerMultimodalCapabilities = {
   loading: boolean;
 };
 
+type CapsSetter = Dispatch<SetStateAction<ComposerMultimodalCapabilities>>;
+
 function resolveModel(provider: AIProviderType, modelId: string): ModelDefinition | undefined {
   const found = findModelById(modelId);
   if (found?.provider === provider) return found.model;
   return getModelsForProvider(provider).find((m) => m.id === modelId);
+}
+
+function computeMultimodalCaps(cfg: AIConfig): Partial<ComposerMultimodalCapabilities> {
+  const provider = cfg.provider as AIProviderType;
+  const modelId =
+    provider === 'ollama' ? (cfg.ollamaModel ?? cfg.model ?? '') : (cfg.model ?? '');
+  const model = resolveModel(provider, modelId);
+  if (model) {
+    return {
+      supportsImage: modelSupportsVision(model),
+      supportsVideo: modelSupportsVideo(model),
+      modelId,
+    };
+  }
+  // Unknown model: be permissive (don't block paste) except for the one
+  // provider whose non-vision variants are common (minimax text models).
+  return {
+    supportsImage: provider !== 'minimax' || /^MiniMax-M3$/i.test(modelId),
+    supportsVideo: /^MiniMax-M3$/i.test(modelId),
+    modelId,
+  };
+}
+
+function applyCaps(
+  setCaps: CapsSetter,
+  cancelled: boolean,
+  next: Partial<ComposerMultimodalCapabilities>,
+): void {
+  if (cancelled) return;
+  setCaps((prev) => ({ ...prev, ...next, loading: false }));
 }
 
 export function useComposerMultimodalCapabilities(): ComposerMultimodalCapabilities {
@@ -35,31 +67,7 @@ export function useComposerMultimodalCapabilities(): ComposerMultimodalCapabilit
 
     const loadCaps = () => {
       void getAIConfig().then((cfg) => {
-        if (cancelled || !cfg) {
-          setCaps((prev) => ({ ...prev, loading: false }));
-          return;
-        }
-        const provider = cfg.provider as AIProviderType;
-        const modelId =
-          provider === 'ollama' ? (cfg.ollamaModel ?? cfg.model ?? '') : (cfg.model ?? '');
-        const model = resolveModel(provider, modelId);
-        if (model) {
-          setCaps({
-            supportsImage: modelSupportsVision(model),
-            supportsVideo: modelSupportsVideo(model),
-            modelId,
-            loading: false,
-          });
-          return;
-        }
-        // Unknown model: be permissive (don't block paste) except for the one
-        // provider whose non-vision variants are common (minimax text models).
-        setCaps({
-          supportsImage: provider !== 'minimax' || /^MiniMax-M3$/i.test(modelId),
-          supportsVideo: /^MiniMax-M3$/i.test(modelId),
-          modelId,
-          loading: false,
-        });
+        applyCaps(setCaps, cancelled, cfg ? computeMultimodalCaps(cfg) : {});
       });
     };
 
