@@ -55,6 +55,75 @@ function buildExcelGetOpts(queries, linkedResourceId, syncHints) {
   return getOpts;
 }
 
+function resolveSheetKey(xl) {
+  if (xl.sheet_name != null && String(xl.sheet_name).trim()) {
+    return String(xl.sheet_name).trim();
+  }
+  if (Array.isArray(xl.sheet_names) && xl.sheet_names[0] != null) {
+    return String(xl.sheet_names[0]);
+  }
+  return 'Sheet1';
+}
+
+function buildLinkedDataPayload(xl, linkedResourceId) {
+  const data = Array.isArray(xl.data) ? xl.data : [];
+  const sheetKey = resolveSheetKey(xl);
+  /** @type {Record<string, unknown[][]>} */
+  const sheets = { [sheetKey]: data };
+  return {
+    resource_id: linkedResourceId,
+    title: xl.title,
+    sheet_names: xl.sheet_names,
+    sheet_name: xl.sheet_name,
+    data,
+    sheets,
+    synced_at: Date.now(),
+  };
+}
+
+function errorMessage(e) {
+  return e?.message || e;
+}
+
+function broadcastArtifactUpdate(windowManager, serialized) {
+  if (serialized && windowManager?.broadcast) {
+    windowManager.broadcast('artifact:updated', serialized);
+  }
+}
+
+function writeVaultMirrorIfEnabled(rid, database, fileStorage) {
+  if (!fileStorage) return;
+  try {
+    const vaultStore = require('../storage/vault-store.cjs');
+    vaultStore.writeArtifactHtmlMirror({ id: rid }, { database, fileStorage });
+  } catch (e) {
+    console.warn('[artifact-link-sync] vault mirror failed', errorMessage(e));
+  }
+}
+
+function syncArtifactRow(art, linkedData, now, ctx) {
+  const { queries, windowManager, database, fileStorage } = ctx;
+  const rid = art.resource_id;
+  const state = parseJsonState(art.state);
+  state.linkedData = linkedData;
+  queries.updateArtifactState.run(JSON.stringify(state), now, rid);
+  const resource = queries.getResourceById.get(rid);
+  const updated = queries.getArtifactByResourceId.get(rid);
+  const serialized = serializeArtifactRecord(updated, resource, queries);
+  broadcastArtifactUpdate(windowManager, serialized);
+  writeVaultMirrorIfEnabled(rid, database, fileStorage);
+}
+
+function syncLinkedRows(rows, linkedData, now, ctx) {
+  for (const art of rows) {
+    try {
+      syncArtifactRow(art, linkedData, now, ctx);
+    } catch (e) {
+      console.warn('[artifact-link-sync] row failed', errorMessage(e));
+    }
+  }
+}
+
 /**
  * Snapshot the linked workbook into every artifact pointing at linkedResourceId.
  * @param {{ sheetName?: string } | null | undefined} [syncHints] — e.g. active sheet after excelSetCell so sync matches the edited tab, not always worksheets[0]
@@ -76,52 +145,10 @@ async function syncLinkedArtifactsForResource(database, windowManager, linkedRes
   const xl = await _excelGet(linkedResourceId, getOpts);
   if (!xl || xl.success !== true) return;
 
-  const data = Array.isArray(xl.data) ? xl.data : [];
-  const sheetKey =
-    (xl.sheet_name != null && String(xl.sheet_name).trim()) ||
-    (Array.isArray(xl.sheet_names) && xl.sheet_names[0] != null && String(xl.sheet_names[0])) ||
-    'Sheet1';
-  /** @type {Record<string, unknown[][]>} */
-  const sheets = {};
-  sheets[sheetKey] = data;
-
-  const linkedData = {
-    resource_id: linkedResourceId,
-    title: xl.title,
-    sheet_names: xl.sheet_names,
-    sheet_name: xl.sheet_name,
-    data,
-    sheets,
-    synced_at: Date.now(),
-  };
-
+  const linkedData = buildLinkedDataPayload(xl, linkedResourceId);
   const rows = queries.getArtifactsLinkedToResource.all(linkedResourceId);
   const now = Date.now();
-
-  for (const art of rows) {
-    try {
-      const rid = art.resource_id;
-      const state = parseJsonState(art.state);
-      state.linkedData = linkedData;
-      queries.updateArtifactState.run(JSON.stringify(state), now, rid);
-      const resource = queries.getResourceById.get(rid);
-      const updated = queries.getArtifactByResourceId.get(rid);
-      const serialized = serializeArtifactRecord(updated, resource, queries);
-      if (serialized && windowManager?.broadcast) {
-        windowManager.broadcast('artifact:updated', serialized);
-      }
-      if (fileStorage) {
-        try {
-          const vaultStore = require('../storage/vault-store.cjs');
-          vaultStore.writeArtifactHtmlMirror({ id: rid }, { database, fileStorage });
-        } catch (e) {
-          console.warn('[artifact-link-sync] vault mirror failed', e?.message || e);
-        }
-      }
-    } catch (e) {
-      console.warn('[artifact-link-sync] row failed', e?.message || e);
-    }
-  }
+  syncLinkedRows(rows, linkedData, now, { queries, windowManager, database, fileStorage });
 }
 
 module.exports = {
