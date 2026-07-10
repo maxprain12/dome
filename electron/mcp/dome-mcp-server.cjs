@@ -113,113 +113,147 @@ function readBody(req) {
   });
 }
 
-async function handleRequest(req, res) {
-  // CORS — allow any origin so browser-based clients work
+// CORS — allow any origin so browser-based clients work
+function setCorsHeaders(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
+}
+
+// DELETE — close a specific session
+async function handleDeleteSession(sessionId, res) {
+  const session = sessions.get(sessionId);
+  if (session) {
+    try { await session.transport.close(); } catch {}
+    sessions.delete(sessionId);
+  }
+  res.writeHead(200);
+  res.end();
+}
+
+// GET — SSE stream for an existing session
+async function handleGetSse(sessionId, req, res) {
+  if (!sessionId || !sessions.has(sessionId)) {
+    res.writeHead(404);
+    res.end('Session not found');
+    return;
+  }
+  const session = sessions.get(sessionId);
+  await session.transport.handleRequest(req, res);
+}
+
+// Send a JSON-RPC -32600 response when a new POST does not carry an initialize request.
+function respondInvalidInitialize(res, body) {
+  const reqId = body && typeof body === 'object' && 'id' in body ? body.id : null;
+  res.writeHead(400, { 'Content-Type': 'application/json' });
+  res.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: reqId,
+      error: { code: -32600, message: 'Expected initialize for new session' },
+    }),
+  );
+}
+
+// Create a new MCP transport+server pair, route the initialize request, and register the session.
+async function initializeNewSession(req, res, body) {
+  if (!StreamableHTTPServerTransport || !McpServer) {
+    res.writeHead(503);
+    res.end('MCP SDK unavailable');
+    return;
+  }
+
+  const clientName = body?.params?.clientInfo?.name || 'external';
+  console.log(`[DomeMCP] New session from: ${clientName}`);
+
+  const sessionInfo = { clientName };
+  const transport = new StreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+    // Stdio bridge (dome-mcp-bridge.cjs) expects one JSON-RPC object per POST — not SSE.
+    enableJsonResponse: true,
+  });
+
+  const server = buildMcpServer(sessionInfo);
+  if (!server) {
+    res.writeHead(503);
+    res.end('MCP server build failed');
+    return;
+  }
+
+  transport.onclose = () => {
+    if (transport.sessionId) {
+      sessions.delete(transport.sessionId);
+      console.log(`[DomeMCP] Session closed: ${transport.sessionId} [${clientName}]`);
+    }
+  };
+
+  await server.connect(transport);
+  await transport.handleRequest(req, res, body);
+
+  if (transport.sessionId) {
+    sessionInfo.transport = transport;
+    sessionInfo.server = server;
+    sessions.set(transport.sessionId, sessionInfo);
+    console.log(`[DomeMCP] Session opened: ${transport.sessionId} [${clientName}]`);
+  }
+}
+
+// POST — new session (initialize) or existing session message
+async function handlePostMessage(req, res, sessionId) {
+  let body;
+  try {
+    body = await readBody(req);
+  } catch {
+    res.writeHead(400);
+    res.end('Invalid JSON body');
+    return;
+  }
+
+  // Route to existing session
+  if (sessionId && sessions.has(sessionId)) {
+    const session = sessions.get(sessionId);
+    await session.transport.handleRequest(req, res, body);
+    return;
+  }
+
+  // New session — must begin with initialize
+  if (body?.method !== 'initialize') {
+    respondInvalidInitialize(res, body);
+    return;
+  }
+
+  await initializeNewSession(req, res, body);
+}
+
+async function handleRequest(req, res) {
+  setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
-    return res.end();
+    res.end();
+    return;
   }
 
   if (!req.url?.startsWith('/mcp')) {
     res.writeHead(404);
-    return res.end('Not found');
+    res.end('Not found');
+    return;
   }
 
   const sessionId = req.headers['mcp-session-id'];
 
-  // DELETE — close a specific session
   if (req.method === 'DELETE' && sessionId) {
-    const session = sessions.get(sessionId);
-    if (session) {
-      try { await session.transport.close(); } catch {}
-      sessions.delete(sessionId);
-    }
-    res.writeHead(200);
-    return res.end();
-  }
-
-  // GET — SSE stream for an existing session
-  if (req.method === 'GET') {
-    if (!sessionId || !sessions.has(sessionId)) {
-      res.writeHead(404);
-      return res.end('Session not found');
-    }
-    const session = sessions.get(sessionId);
-    await session.transport.handleRequest(req, res);
+    await handleDeleteSession(sessionId, res);
     return;
   }
 
-  // POST — new session (initialize) or existing session message
+  if (req.method === 'GET') {
+    await handleGetSse(sessionId, req, res);
+    return;
+  }
+
   if (req.method === 'POST') {
-    let body;
-    try {
-      body = await readBody(req);
-    } catch {
-      res.writeHead(400);
-      return res.end('Invalid JSON body');
-    }
-
-    // Route to existing session
-    if (sessionId && sessions.has(sessionId)) {
-      const session = sessions.get(sessionId);
-      await session.transport.handleRequest(req, res, body);
-      return;
-    }
-
-    // New session — must begin with initialize
-    if (body?.method !== 'initialize') {
-      const reqId = body && typeof body === 'object' && 'id' in body ? body.id : null;
-      res.writeHead(400, { 'Content-Type': 'application/json' });
-      return res.end(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id: reqId,
-          error: { code: -32600, message: 'Expected initialize for new session' },
-        }),
-      );
-    }
-
-    if (!StreamableHTTPServerTransport || !McpServer) {
-      res.writeHead(503);
-      return res.end('MCP SDK unavailable');
-    }
-
-    const clientName = body?.params?.clientInfo?.name || 'external';
-    console.log(`[DomeMCP] New session from: ${clientName}`);
-
-    const sessionInfo = { clientName };
-    const transport = new StreamableHTTPServerTransport({
-      sessionIdGenerator: () => randomUUID(),
-      // Stdio bridge (dome-mcp-bridge.cjs) expects one JSON-RPC object per POST — not SSE.
-      enableJsonResponse: true,
-    });
-
-    const server = buildMcpServer(sessionInfo);
-    if (!server) {
-      res.writeHead(503);
-      return res.end('MCP server build failed');
-    }
-
-    transport.onclose = () => {
-      if (transport.sessionId) {
-        sessions.delete(transport.sessionId);
-        console.log(`[DomeMCP] Session closed: ${transport.sessionId} [${clientName}]`);
-      }
-    };
-
-    await server.connect(transport);
-    await transport.handleRequest(req, res, body);
-
-    if (transport.sessionId) {
-      sessionInfo.transport = transport;
-      sessionInfo.server = server;
-      sessions.set(transport.sessionId, sessionInfo);
-      console.log(`[DomeMCP] Session opened: ${transport.sessionId} [${clientName}]`);
-    }
+    await handlePostMessage(req, res, sessionId);
     return;
   }
 
