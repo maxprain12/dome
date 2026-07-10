@@ -58,6 +58,16 @@ export default function McpCapabilitiesSection({
     [t]
   );
 
+  const buildServersWithToggledTool = useCallback(
+    (serverName: string, toolId: string, enabled: boolean): MCPServerConfig[] =>
+      servers.map(currentServer =>
+        currentServer.name === serverName
+          ? toggleGlobalMcpTool(currentServer, toolId, enabled)
+          : currentServer
+      ),
+    [servers]
+  );
+
   if (visibleServers.length === 0) {
     return (
       <div className="px-1 py-2 text-[12px] leading-relaxed" style={{ color: 'var(--tertiary-text)' }}>
@@ -205,14 +215,10 @@ export default function McpCapabilitiesSection({
                             disabled={isSaving}
                             onChange={(event) =>
                               persistServers(
-                                servers.map((currentServer) =>
-                                  currentServer.name === server.name
-                                    ? toggleGlobalMcpTool(
-                                        currentServer,
-                                        toolId,
-                                        event.target.checked
-                                      )
-                                    : currentServer
+                                buildServersWithToggledTool(
+                                  server.name,
+                                  toolId,
+                                  event.target.checked
                                 ),
                                 server.name
                               )
