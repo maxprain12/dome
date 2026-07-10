@@ -1680,37 +1680,39 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     };
   };
 
-  // Sanitize query for FTS5 — quote each term to prevent special chars
-  // (like /, -, etc.) from being interpreted as FTS5 operators
-  const sanitizeFtsQuery = (query) => query
-    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')  // Replace special chars with spaces
-    .split(/\s+/)
-    .filter((term) => term.length > 0)
-    .map((term) => `"${term}"`)
-    .join(' ');
+  // Regex used by both FTS5 sanitization and raw term extraction.
+  const UNIFIED_SEARCH_NON_WORD = /[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g;
 
-  const extractSearchTerms = (query) => query
-    .replace(/[^\w\s\u00C0-\u024F\u1E00-\u1EFF]/g, ' ')
-    .split(/\s+/)
-    .filter((t) => t.length > 0);
+  // Build an FTS5-safe quoted query from a raw user query.
+  const buildFtsSanitizedQuery = (rawQuery) =>
+    rawQuery
+      .replace(UNIFIED_SEARCH_NON_WORD, ' ')
+      .split(/\s+/)
+      .filter((term) => term.length > 0)
+      .map((term) => `"${term}"`)
+      .join(' ');
 
-  // Enrich resources: add parent resources for interactions that matched
-  // but whose resource did not match in FTS (e.g. match only in annotation)
+  // Extract plain search terms (no FTS quoting) — used for LIKE/Lance queries.
+  const extractSearchTerms = (rawQuery) =>
+    rawQuery.replace(UNIFIED_SEARCH_NON_WORD, ' ').split(/\s+/).filter((t) => t.length > 0);
+
+  // Add parent resources for interactions that matched but whose resource did
+  // not match in FTS (e.g. match only in the annotation).
   const enrichResourcesFromInteractions = (queries, resourceResults, interactionResults) => {
     const resourceIds = new Set(resourceResults.map((r) => r.id));
     for (const interaction of interactionResults) {
       const rid = interaction.resource_id;
-      if (rid && !resourceIds.has(rid)) {
-        const resource = queries.getResourceById.get(rid);
-        if (resource) {
-          resourceResults.push(resource);
-          resourceIds.add(rid);
-        }
+      if (!rid || resourceIds.has(rid)) continue;
+      const resource = queries.getResourceById.get(rid);
+      if (resource) {
+        resourceResults.push(resource);
+        resourceIds.add(rid);
       }
     }
   };
 
-  // Search studio outputs (study materials) by title/content
+  // Search studio_outputs by title/content using LIKE. Returns [] on error
+  // so callers don't need to wrap in try/catch.
   const searchStudioOutputs = (rawTerms) => {
     if (rawTerms.length === 0) return [];
     try {
@@ -1727,66 +1729,93 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
   };
 
-  // FTS-only search of resources + interactions, with interaction enrichment.
-  // Used by the corruption-repair retry paths.
-  const runFtsUnifiedSearch = (sanitizedQuery) => {
+  // Search resources via Lance first, then fall back to FTS if nothing matched.
+  const searchResourcesUnified = async (queries, lanceQuery, sanitizedQuery, scopeProjectId) => {
+    /** @type {any[]} */
+    let resourceResults = [];
+    if (lanceQuery) {
+      try {
+        const lexHits = await lancedbSemantic.searchLexResources(
+          lanceQuery,
+          25,
+          scopeProjectId ? { project_id: scopeProjectId } : {}
+        );
+        for (const h of lexHits) {
+          const r = queries.getResourceById.get(h.id);
+          if (r) resourceResults.push(r);
+        }
+      } catch (le) {
+        console.warn('[DB] unified search Lance:', le?.message || le);
+      }
+    }
+    if (!resourceResults.length) {
+      resourceResults = queries.searchResources.all(sanitizedQuery);
+    }
+    return resourceResults;
+  };
+
+  // First-pass search: Lance + FTS + interactions + studio outputs.
+  const performUnifiedSearch = async (queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery) => {
+    const resourceResults = await searchResourcesUnified(queries, lanceQuery, sanitizedQuery, scopeProjectId);
+    const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+    enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
+    const studioResults = searchStudioOutputs(rawTerms);
+    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults };
+  };
+
+  // Retry path after a corruption repair: skip Lance (it may be why we failed),
+  // but still include studio outputs.
+  const retryUnifiedSearchAfterRepair = (sanitizedQuery, rawTerms) => {
     const queries = database.getQueries();
     const resourceResults = queries.searchResources.all(sanitizedQuery);
     const interactionResults = queries.searchInteractions.all(sanitizedQuery);
     enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
-    return { resourceResults, interactionResults };
+    const studioResults = searchStudioOutputs(rawTerms);
+    return { resources: resourceResults, interactions: interactionResults, studioOutputs: studioResults };
   };
 
-  // Corruption fallback for db:search:unified — repair the FTS tables and
-  // retry (up to two repair cycles), preserving the original error handling.
-  const retryUnifiedSearchAfterRepair = (error, sanitizedQuery, rawTerms, scopeProjectId) => {
-    const handled = database.handleCorruptionError(error);
-    if (!handled) {
+  // Last-ditch retry after a second repair cycle. Mirrors the original: studio
+  // outputs are intentionally omitted on this path.
+  const finalRetryUnifiedSearchAfterRepair = (sanitizedQuery) => {
+    const queries = database.getQueries();
+    const resourceResults = queries.searchResources.all(sanitizedQuery);
+    const interactionResults = queries.searchInteractions.all(sanitizedQuery);
+    enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
+    return { resources: resourceResults, interactions: interactionResults };
+  };
+
+  // After a corruption repair fails, run a more aggressive repair cycle.
+  const attemptSecondRepair = (retryError, sanitizedQuery, scopeProjectId) => {
+    if (retryError.code !== 'SQLITE_CORRUPT' && retryError.code !== 'SQLITE_CORRUPT_VTAB') {
+      return { success: false, error: retryError.message };
+    }
+    console.warn('[DB] Corruption persists in unified search, attempting more aggressive repair...');
+    database.invalidateQueries();
+    if (!database.repairFTSTables()) {
+      return { success: false, error: retryError.message };
+    }
+    try {
+      const data = finalRetryUnifiedSearchAfterRepair(sanitizedQuery);
+      return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
+    } catch (finalError) {
+      console.error('[DB] Error after second repair attempt:', finalError);
+      return { success: false, error: finalError.message };
+    }
+  };
+
+  // Catch-block for the unified search handler. Owns the corruption-recovery
+  // branching; called from a single try/catch in the handler itself.
+  const handleUnifiedSearchError = (error, sanitizedQuery, rawTerms, scopeProjectId) => {
+    console.error('[DB] Error in unified search:', error);
+    if (!database.handleCorruptionError(error)) {
       return { success: false, error: error.message };
     }
-    // Retry the operation after repair
-    // Queries are automatically invalidated by handleCorruptionError
     try {
-      const { resourceResults, interactionResults } = runFtsUnifiedSearch(sanitizedQuery);
-      const studioResults = searchStudioOutputs(rawTerms);
-      return {
-        success: true,
-        data: scopeUnifiedData(
-          {
-            resources: resourceResults,
-            interactions: interactionResults,
-            studioOutputs: studioResults,
-          },
-          scopeProjectId,
-        ),
-      };
+      const data = retryUnifiedSearchAfterRepair(sanitizedQuery, rawTerms);
+      return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (retryError) {
       console.error('[DB] Error retrying unified search after repair:', retryError);
-      // If it's still corrupt, try one more repair cycle
-      if (retryError.code === 'SQLITE_CORRUPT' || retryError.code === 'SQLITE_CORRUPT_VTAB') {
-        console.warn('[DB] Corruption persists in unified search, attempting more aggressive repair...');
-        database.invalidateQueries();
-        const repairedAgain = database.repairFTSTables();
-        if (repairedAgain) {
-          try {
-            const { resourceResults, interactionResults } = runFtsUnifiedSearch(sanitizedQuery);
-            return {
-              success: true,
-              data: scopeUnifiedData(
-                {
-                  resources: resourceResults,
-                  interactions: interactionResults,
-                },
-                scopeProjectId,
-              ),
-            };
-          } catch (finalError) {
-            console.error('[DB] Error after second repair attempt:', finalError);
-            return { success: false, error: finalError.message };
-          }
-        }
-      }
-      return { success: false, error: retryError.message };
+      return attemptSecondRepair(retryError, sanitizedQuery, scopeProjectId);
     }
   };
 
@@ -1801,7 +1830,9 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       return { success: false, error: 'Query too long. Maximum 1000 characters' };
     }
 
-    const sanitizedQuery = sanitizeFtsQuery(query);
+    // Sanitize query for FTS5 — quote each term to prevent special chars
+    // (like /, -, etc.) from being interpreted as FTS5 operators
+    const sanitizedQuery = buildFtsSanitizedQuery(query);
     if (!sanitizedQuery) {
       return {
         success: true,
@@ -1810,49 +1841,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
     }
 
     const rawTerms = extractSearchTerms(query);
+    const lanceQuery = rawTerms.join(' ');
 
     try {
       const queries = database.getQueries();
-      const lanceQuery = rawTerms.join(' ');
-
-      /** @type {any[]} */
-      let resourceResults = [];
-      if (lanceQuery) {
-        try {
-          const lexHits = await lancedbSemantic.searchLexResources(lanceQuery, 25, scopeProjectId ? { project_id: scopeProjectId } : {});
-          for (const h of lexHits) {
-            const r = queries.getResourceById.get(h.id);
-            if (r) resourceResults.push(r);
-          }
-        } catch (le) {
-          console.warn('[DB] unified search Lance:', le?.message || le);
-        }
-      }
-      if (!resourceResults.length) {
-        resourceResults = queries.searchResources.all(sanitizedQuery);
-      }
-
-      // Search interactions
-      const interactionResults = queries.searchInteractions.all(sanitizedQuery);
-
-      enrichResourcesFromInteractions(queries, resourceResults, interactionResults);
-
-      const studioResults = searchStudioOutputs(rawTerms);
-
-      return {
-        success: true,
-        data: scopeUnifiedData(
-          {
-            resources: resourceResults,
-            interactions: interactionResults,
-            studioOutputs: studioResults,
-          },
-          scopeProjectId,
-        ),
-      };
+      const data = await performUnifiedSearch(queries, sanitizedQuery, rawTerms, scopeProjectId, lanceQuery);
+      return { success: true, data: scopeUnifiedData(data, scopeProjectId) };
     } catch (error) {
-      console.error('[DB] Error in unified search:', error);
-      return retryUnifiedSearchAfterRepair(error, sanitizedQuery, rawTerms, scopeProjectId);
+      return handleUnifiedSearchError(error, sanitizedQuery, rawTerms, scopeProjectId);
     }
   });
 

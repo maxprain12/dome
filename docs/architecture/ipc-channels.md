@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-10T08:03:55.191Z
+> Última generación: 2026-07-10T08:11:10.233Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -200,25 +200,25 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:projects:getDeletionImpact` | `electron/ipc/data/database.cjs:327` |
 | `db:projects:getVaultRoot` | `electron/ipc/data/database.cjs:316` |
 | `db:projects:setVaultRoot` | `electron/ipc/data/database.cjs:297` |
-| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:2069` |
+| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:2065` |
 | `db:resources:create` | `electron/ipc/data/database.cjs:352` |
-| `db:resources:delete` | `electron/ipc/data/database.cjs:1892` |
+| `db:resources:delete` | `electron/ipc/data/database.cjs:1888` |
 | `db:resources:ensureUrl` | `electron/ipc/data/database.cjs:427` |
-| `db:resources:getAll` | `electron/ipc/data/database.cjs:1860` |
+| `db:resources:getAll` | `electron/ipc/data/database.cjs:1856` |
 | `db:resources:getBacklinks` | `electron/ipc/data/database.cjs:765` |
-| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1909` |
+| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1905` |
 | `db:resources:getById` | `electron/ipc/data/database.cjs:412` |
 | `db:resources:getByProject` | `electron/ipc/data/database.cjs:400` |
-| `db:resources:getRoot` | `electron/ipc/data/database.cjs:1922` |
-| `db:resources:listLight` | `electron/ipc/data/database.cjs:1873` |
-| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:2005` |
-| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1938` |
-| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:2045` |
+| `db:resources:getRoot` | `electron/ipc/data/database.cjs:1918` |
+| `db:resources:listLight` | `electron/ipc/data/database.cjs:1869` |
+| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:2001` |
+| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1934` |
+| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:2041` |
 | `db:resources:search` | `electron/ipc/data/database.cjs:688` |
 | `db:resources:searchForMention` | `electron/ipc/data/database.cjs:740` |
 | `db:resources:update` | `electron/ipc/data/database.cjs:509` |
 | `db:resources:uploadFile` | `electron/ipc/data/database.cjs:778` |
-| `db:search:unified` | `electron/ipc/data/database.cjs:1793` |
+| `db:search:unified` | `electron/ipc/data/database.cjs:1822` |
 | `db:semantic:confirm` | `electron/ipc/ai/semantic.cjs:108` |
 | `db:semantic:createManual` | `electron/ipc/ai/semantic.cjs:147` |
 | `db:semantic:delete` | `electron/ipc/ai/semantic.cjs:121` |

@@ -544,13 +544,14 @@ function recoverArtifactsFromPlainFences(
   return segments.length > 0 ? segments : [{ kind: 'text', content: text }];
 }
 
-export function parseArtifactBlocks(
-  content: string,
-  options: ParseArtifactBlocksOptions = {},
-): ParsedArtifactSegment[] {
-  const segments: ParsedArtifactSegment[] = [];
-  if (!content) return [{ kind: 'text', content: '' }];
+interface MatchScanResult {
+  segments: ParsedArtifactSegment[];
+  consumedLength: number;
+}
 
+/** Walk the closed ```artifact:TYPE``` fences and emit one segment per match. */
+function scanArtifactBlocks(content: string): MatchScanResult {
+  const segments: ParsedArtifactSegment[] = [];
   const regex = new RegExp(ARTIFACT_BLOCK_REGEX.source, 'g');
   let lastIndex = 0;
   let match: RegExpExecArray | null;
@@ -561,8 +562,11 @@ export function parseArtifactBlocks(
       segments.push({ kind: 'text', content: textBefore });
     }
 
-    const artifactType = match[1];
+    const artifactType = match[1] ?? '';
     const rawBody = match[2] ?? '';
+    const advance = () => {
+      lastIndex = match!.index + match![0].length;
+    };
 
     let parsed: unknown;
     try {
@@ -574,13 +578,12 @@ export function parseArtifactBlocks(
         raw: rawBody,
         reason: error instanceof Error ? error.message : 'Invalid JSON',
       });
-      lastIndex = match.index + match[0].length;
+      advance();
       continue;
     }
 
-    const merged = { ...(parsed as Record<string, unknown>), type: artifactType };
-
     if (ZOD_VALIDATED_ARTIFACT_TYPES.has(artifactType)) {
+      const merged = { ...(parsed as Record<string, unknown>), type: artifactType };
       const validated = tryParseArtifact(artifactType, merged);
       if (validated.ok) {
         segments.push({
@@ -597,58 +600,94 @@ export function parseArtifactBlocks(
         });
       }
     } else {
-      segments.push({ kind: 'artifact', artifactType, value: merged });
+      segments.push({
+        kind: 'artifact',
+        artifactType,
+        value: { ...(parsed as Record<string, unknown>), type: artifactType },
+      });
     }
 
-    lastIndex = match.index + match[0].length;
+    advance();
   }
 
-  const remainder = content.slice(lastIndex);
-  if (remainder.trim().length > 0) {
-    if (options.allowStreaming) {
-      const streamingMatch = UNCLOSED_ARTIFACT_REGEX.exec(remainder);
-      if (streamingMatch) {
-        const textBeforeStreaming = remainder.slice(0, streamingMatch.index);
-        if (textBeforeStreaming.trim().length > 0) {
-          segments.push({ kind: 'text', content: textBeforeStreaming });
-        }
-        segments.push({
-          kind: 'streaming',
-          artifactType: streamingMatch[1],
-          raw: streamingMatch[2] ?? '',
-        });
-      } else {
-        segments.push({ kind: 'text', content: remainder });
-      }
-    } else {
-      segments.push({ kind: 'text', content: remainder });
-    }
+  return { segments, consumedLength: lastIndex };
+}
+
+/** Append trailing-text segments, possibly as a streaming placeholder when allowed. */
+function buildRemainderSegments(
+  content: string,
+  fromIndex: number,
+  allowStreaming: boolean,
+): ParsedArtifactSegment[] {
+  const remainder = content.slice(fromIndex);
+  if (remainder.trim().length === 0) return [];
+
+  if (!allowStreaming) {
+    return [{ kind: 'text', content: remainder }];
   }
 
-  const finalSegments: ParsedArtifactSegment[] =
-    segments.length > 0 ? segments : [{ kind: 'text', content: '' }];
+  const streamingMatch = UNCLOSED_ARTIFACT_REGEX.exec(remainder);
+  if (!streamingMatch) {
+    return [{ kind: 'text', content: remainder }];
+  }
 
-  // Lenient recovery: expand any text segment that still contains a plain
-  // ```json fence carrying a serialized artifact object. The last text segment
-  // may also contain an unclosed trailing fence while the response streams in;
-  // we only enable that branch on the final segment so earlier prose (e.g. an
-  // intro paragraph) isn't misclassified.
+  const segments: ParsedArtifactSegment[] = [];
+  const textBeforeStreaming = remainder.slice(0, streamingMatch.index);
+  if (textBeforeStreaming.trim().length > 0) {
+    segments.push({ kind: 'text', content: textBeforeStreaming });
+  }
+  segments.push({
+    kind: 'streaming',
+    artifactType: streamingMatch[1] ?? '',
+    raw: streamingMatch[2] ?? '',
+  });
+  return segments;
+}
+
+/**
+ * Lenient recovery: expand any text segment that still contains a plain
+ * ```json fence carrying a serialized artifact object. The last text segment
+ * may also contain an unclosed trailing fence while the response streams in;
+ * we only enable that branch on the final segment so earlier prose (e.g. an
+ * intro paragraph) isn't misclassified.
+ */
+function expandWithLenientRecovery(
+  segments: ParsedArtifactSegment[],
+  allowStreaming: boolean,
+): ParsedArtifactSegment[] {
   const expanded: ParsedArtifactSegment[] = [];
-  for (let i = 0; i < finalSegments.length; i++) {
-    const seg = finalSegments[i];
+  for (let i = 0; i < segments.length; i++) {
+    const seg = segments[i]!;
     if (seg.kind !== 'text') {
       expanded.push(seg);
       continue;
     }
-    const isLast = i === finalSegments.length - 1;
+    const isLast = i === segments.length - 1;
     const recovered = recoverArtifactsFromPlainFences(
       seg.content,
-      isLast && !!options.allowStreaming,
+      isLast && allowStreaming,
     );
-    expanded.push(...recovered);
+    for (const r of recovered) expanded.push(r);
   }
-
   return expanded.length > 0 ? expanded : [{ kind: 'text', content: '' }];
+}
+
+export function parseArtifactBlocks(
+  content: string,
+  options: ParseArtifactBlocksOptions = {},
+): ParsedArtifactSegment[] {
+  if (!content) return [{ kind: 'text', content: '' }];
+
+  const allowStreaming = !!options.allowStreaming;
+  const scan = scanArtifactBlocks(content);
+  const tailSegments = buildRemainderSegments(content, scan.consumedLength, allowStreaming);
+
+  const baseSegments: ParsedArtifactSegment[] =
+    scan.segments.length > 0 || tailSegments.length > 0
+      ? [...scan.segments, ...tailSegments]
+      : [{ kind: 'text', content: '' }];
+
+  return expandWithLenientRecovery(baseSegments, allowStreaming);
 }
 
 /** Strip every closed artifact block from the text (e.g. for user message display or copy-to-clipboard). */

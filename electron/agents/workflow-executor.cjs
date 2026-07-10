@@ -392,35 +392,9 @@ async function executeWorkflowRun(runId, params, workflow) {
                   // avoid double counting the per-chunk incremental partials.
                   workflowLlmUsage = mergeLlmUsage(workflowLlmUsage, chunk.usage);
                 } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-                  const step = appendRunStep({
-                    runId,
-                    parentStepId: nodeStep?.id ?? null,
-                    stepType: 'tool_call',
-                    title: `${data.label || agentDef.name}: ${chunk.toolCall.name}`,
-                    status: 'running',
-                    metadata: {
-                      nodeId: node.id,
-                      toolCallId: chunk.toolCall.id,
-                      arguments: parseToolArguments(chunk.toolCall.arguments),
-                    },
-                  });
-                  if (step) {
-                    nodeCtx.toolStepIds.set(chunk.toolCall.id, step.id);
-                    nodeCtx.toolSteps.set(chunk.toolCall.id, step);
-                  }
-                  patchRun(runId, { lastHeartbeatAt: now() });
+                  recordAgentToolCallChunk(nodeCtx, runId, nodeStep, chunk, node, data, agentDef);
                 } else if (chunk.type === 'tool_result' && chunk.toolCallId != null) {
-                  const stepId = nodeCtx.toolStepIds.get(chunk.toolCallId);
-                  if (stepId) {
-                    const existingStep = nodeCtx.toolSteps.get(chunk.toolCallId) ?? null;
-                    const nextStep = updateRunStep(
-                      stepId,
-                      getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }, { isError: chunk.isError === true }),
-                      existingStep,
-                    );
-                    if (nextStep) nodeCtx.toolSteps.set(chunk.toolCallId, nextStep);
-                  }
-                  patchRun(runId, { lastHeartbeatAt: now() });
+                  recordAgentToolResultChunk(nodeCtx, runId, chunk, node);
                 }
               },
             });
@@ -582,6 +556,51 @@ async function executeWorkflowRun(runId, params, workflow) {
   } finally {
     releaseRunContext(runId, { force: true });
   }
+}
+
+/**
+ * Persist a `tool_call` streaming chunk: record a child run-step and stash
+ * its id for the matching `tool_result`. Extracted from the `onChunk`
+ * dispatcher to keep `executeWorkflowRun` under the S3776 threshold.
+ */
+function recordAgentToolCallChunk(nodeCtx, runId, nodeStep, chunk, node, data, agentDef) {
+  const step = appendRunStep({
+    runId,
+    parentStepId: nodeStep?.id ?? null,
+    stepType: 'tool_call',
+    title: `${data.label || agentDef.name}: ${chunk.toolCall.name}`,
+    status: 'running',
+    metadata: {
+      nodeId: node.id,
+      toolCallId: chunk.toolCall.id,
+      arguments: parseToolArguments(chunk.toolCall.arguments),
+    },
+  });
+  if (step) {
+    nodeCtx.toolStepIds.set(chunk.toolCall.id, step.id);
+    nodeCtx.toolSteps.set(chunk.toolCall.id, step);
+  }
+  patchRun(runId, { lastHeartbeatAt: now() });
+}
+
+/**
+ * Persist a `tool_result` streaming chunk: amend the matching `tool_call`
+ * step with the tool's output and refresh the in-memory lookup. Extracted
+ * from the `onChunk` dispatcher to keep `executeWorkflowRun` under the
+ * S3776 threshold.
+ */
+function recordAgentToolResultChunk(nodeCtx, runId, chunk, node) {
+  const stepId = nodeCtx.toolStepIds.get(chunk.toolCallId);
+  if (stepId) {
+    const existingStep = nodeCtx.toolSteps.get(chunk.toolCallId) ?? null;
+    const nextStep = updateRunStep(
+      stepId,
+      getToolStepPatch(chunk.toolCallId, chunk.result, { nodeId: node.id }, { isError: chunk.isError === true }),
+      existingStep,
+    );
+    if (nextStep) nodeCtx.toolSteps.set(chunk.toolCallId, nextStep);
+  }
+  patchRun(runId, { lastHeartbeatAt: now() });
 }
 
 module.exports = {
