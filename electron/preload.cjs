@@ -809,6 +809,9 @@ const ALLOWED_CHANNELS = {
     'cloud-sync:pull-done',
     'cloud-sync:pushed',
     'cloud-sync:reindex-done',
+    'domain-sync:completed',
+    'settings:cloud-updated',
+    'domeauth:sessionState',
   ],
   send: [
     'ppt-capture:ready',
@@ -1121,8 +1124,8 @@ const electronHandler = {
     getSession: () => ipcRenderer.invoke('domeauth:getSession'),
     disconnect: () => ipcRenderer.invoke('domeauth:disconnect'),
     getQuota: () => ipcRenderer.invoke('domeauth:getQuota'),
-    nativeLogin: (email, password, isRegister) =>
-      ipcRenderer.invoke('domeauth:nativeLogin', { email, password, isRegister }),
+    nativeLogin: (email, password, isRegister, name) =>
+      ipcRenderer.invoke('domeauth:nativeLogin', { email, password, isRegister, name }),
     onSessionState: (callback) => {
       const sub = (_event, state) => callback(state);
       ipcRenderer.on('domeauth:sessionState', sub);

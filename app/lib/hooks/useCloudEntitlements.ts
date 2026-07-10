@@ -52,6 +52,10 @@ export function useCloudEntitlements(): CloudEntitlements {
 
   useEffect(() => {
     void load();
+    const unsubSession = window.electron?.domeAuth?.onSessionState?.(() => {
+      void load();
+    });
+    return () => unsubSession?.();
   }, [load]);
 
   return state;

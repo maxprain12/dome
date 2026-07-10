@@ -824,6 +824,11 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         if (!isMaskedSecret(value)) writeSettingSecret(queries, key, value);
       } else {
         database.getSettingsRepo().set(key, value, Date.now());
+        const db = database.getDB?.();
+        if (db) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(db, key, value);
+        }
       }
       return { success: true };
     } catch (error) {
@@ -856,7 +861,14 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
       const { provider, apiKey, model, embeddingModel, baseURL } = config;
       const { writeProviderApiKey, writeProviderBaseUrl, KEYLESS_PROVIDERS } = require('../../ai/provider-keys.cjs');
 
-      if (provider) queries.setSetting.run('ai_provider', provider, Date.now());
+      if (provider) {
+        queries.setSetting.run('ai_provider', provider, Date.now());
+        const db = database.getDB?.();
+        if (db) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(db, 'ai_provider', provider);
+        }
+      }
       const targetProvider = provider || queries.getSetting.get('ai_provider')?.value;
       if (apiKey && !isMaskedSecret(apiKey) && targetProvider && !KEYLESS_PROVIDERS.has(targetProvider)) {
         // Per-provider slot (cambiar de provider conserva cada clave); la
@@ -864,8 +876,22 @@ function register({ ipcMain, windowManager, database, fileStorage, validateSende
         writeProviderApiKey(queries, targetProvider, apiKey);
         writeSettingSecret(queries, 'ai_api_key', apiKey);
       }
-      if (model) queries.setSetting.run('ai_model', model, Date.now());
-      if (embeddingModel) queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+      if (model) {
+        queries.setSetting.run('ai_model', model, Date.now());
+        const dbAi = database.getDB?.();
+        if (dbAi) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(dbAi, 'ai_model', model);
+        }
+      }
+      if (embeddingModel) {
+        queries.setSetting.run('ai_embedding_model', embeddingModel, Date.now());
+        const dbEmb = database.getDB?.();
+        if (dbEmb) {
+          const settingsSyncBridge = require('../../storage/settings-sync-bridge.cjs');
+          settingsSyncBridge.mirrorSettingChange(dbEmb, 'ai_embedding_model', embeddingModel);
+        }
+      }
       if (baseURL && targetProvider) writeProviderBaseUrl(queries, targetProvider, baseURL);
       if (baseURL) queries.setSetting.run('ai_base_url', baseURL, Date.now());
 

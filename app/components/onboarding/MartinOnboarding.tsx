@@ -22,6 +22,13 @@ interface MartinOnboardingProps {
 
 type Step = 'account' | 'welcome' | 'profile' | 'role' | 'ai';
 
+type AccountData = {
+  mode: 'account' | 'local';
+  email?: string;
+  name?: string;
+  hadRemoteData?: boolean;
+};
+
 export default function MartinOnboarding({
   initialName,
   initialEmail,
@@ -29,10 +36,7 @@ export default function MartinOnboarding({
 }: MartinOnboardingProps) {
   const { t } = useTranslation();
   const [currentStep, setCurrentStep] = useState<Step>('account');
-  const [accountData, setAccountData] = useState<{
-    mode: 'account' | 'local';
-    email?: string;
-  } | null>(null);
+  const [accountData, setAccountData] = useState<AccountData | null>(null);
   const [profileData, setProfileData] = useState<{
     name: string;
     email: string;
@@ -46,12 +50,20 @@ export default function MartinOnboarding({
   const [canProceedRole, setCanProceedRole] = useState(false);
   const [canProceedAI, setCanProceedAI] = useState(false);
 
-  const handleAccountComplete = (data: { mode: 'account' | 'local'; email?: string }) => {
+  const handleAccountComplete = (data: AccountData) => {
     setAccountData(data);
     setCurrentStep('welcome');
   };
 
   const handleWelcomeNext = () => {
+    if (accountData?.mode === 'account' && accountData.name?.trim()) {
+      setProfileData({
+        name: accountData.name.trim(),
+        email: accountData.email?.trim() || '',
+      });
+      setCurrentStep('role');
+      return;
+    }
     setCurrentStep('profile');
   };
 
@@ -77,7 +89,11 @@ export default function MartinOnboarding({
     } else if (currentStep === 'profile') {
       setCurrentStep('welcome');
     } else if (currentStep === 'role') {
-      setCurrentStep('profile');
+      if (accountData?.mode === 'account' && accountData.name?.trim()) {
+        setCurrentStep('welcome');
+      } else {
+        setCurrentStep('profile');
+      }
     } else if (currentStep === 'ai') {
       setCurrentStep('role');
     }
@@ -168,6 +184,7 @@ export default function MartinOnboarding({
         onComplete={handleAIComplete}
         onValidationChange={setCanProceedAI}
         localModeOnly={accountData?.mode === 'local'}
+        syncedFromCloud={Boolean(accountData?.mode === 'account' && accountData.hadRemoteData)}
       />
     </OnboardingStep>
   );

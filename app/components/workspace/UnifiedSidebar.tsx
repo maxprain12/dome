@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense, type ReactNode } from 'react';
 const CloudFilePicker = lazy(() => import('@/components/cloud/CloudFilePicker'));
-import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown, Share2, Bot, GitBranch, Zap, Activity } from 'lucide-react';
+import { Settings, Moon, Sun, Home, Calendar, BookOpen, Store, RefreshCw, FolderPlus, FolderSymlink, Plus, Workflow, Layers, ListTodo, Mail, ChevronDown, Share2, Bot, GitBranch, Zap, Activity, LogIn } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -10,6 +10,7 @@ import type { Project } from '@/types';
 import { showToast } from '@/lib/store/useToastStore';
 import { useFeaturesStore, useHiddenFeatureCount } from '@/lib/store/useFeaturesStore';
 import { isFeatureVisible } from '@/lib/features/featureKeys';
+import { useDomeSession } from '@/lib/hooks/useDomeSession';
 
 // ---------------------------------------------------------------------------
 // Folder colors — central palette in app/lib/ui/palettes.ts (persisted in DB)
@@ -100,6 +101,28 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
   const featuresLoaded = useFeaturesStore((s) => s.loaded);
   const loadFeatures = useFeaturesStore((s) => s.loadFeatures);
   const hiddenFeatureCount = useHiddenFeatureCount();
+  const domeSession = useDomeSession();
+  const [connectingAccount, setConnectingAccount] = useState(false);
+  const showSignInCta = !domeSession.loading && !domeSession.connected;
+
+  const handleSignIn = useCallback(async () => {
+    if (!window.electron?.domeAuth?.startOAuthFlow) return;
+    setConnectingAccount(true);
+    try {
+      const result = await window.electron.domeAuth.startOAuthFlow();
+      if (result.success) {
+        showToast('success', t('sidebar.sign_in_success'));
+        await domeSession.refresh();
+      } else if (result.error) {
+        showToast('error', result.error);
+      }
+    } catch {
+      showToast('error', t('sidebar.sign_in_error'));
+    } finally {
+      setConnectingAccount(false);
+    }
+  }, [domeSession, t]);
+
   useEffect(() => {
     if (!featuresLoaded) void loadFeatures();
   }, [featuresLoaded, loadFeatures]);
@@ -769,6 +792,24 @@ export default function UnifiedSidebar({ collapsed, onCollapse: _onCollapse }: U
             })}
           </div>
         </div>
+        {showSignInCta ? (
+          <div className="px-2 pt-2">
+            <button
+              type="button"
+              onClick={() => void handleSignIn()}
+              disabled={connectingAccount}
+              className="sidebar-nav-btn flex items-center w-full text-left transition-colors duration-150 rounded-md"
+              style={{ opacity: connectingAccount ? 0.7 : 1 }}
+            >
+              <span className="sidebar-nav-btn-icon shrink-0">
+                <LogIn className="size-4" />
+              </span>
+              <span className="truncate flex-1 min-w-0 text-left">
+                {connectingAccount ? t('sidebar.sign_in_connecting') : t('sidebar.sign_in')}
+              </span>
+            </button>
+          </div>
+        ) : null}
         {hiddenFeatureCount > 0 && (
           <div className="px-2 pt-2">
             <button

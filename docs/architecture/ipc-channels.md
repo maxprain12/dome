@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-09T22:48:52.776Z
+> Última generación: 2026-07-10T08:01:56.361Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -136,10 +136,10 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `copilot:auth:poll` | `electron/ipc/integrations/copilot.cjs:33` |
 | `copilot:auth:start` | `electron/ipc/integrations/copilot.cjs:20` |
 | `copilot:auth:status` | `electron/ipc/integrations/copilot.cjs:48` |
-| `db:agentFolders:create` | `electron/ipc/data/database.cjs:1123` |
-| `db:agentFolders:delete` | `electron/ipc/data/database.cjs:1174` |
-| `db:agentFolders:list` | `electron/ipc/data/database.cjs:1111` |
-| `db:agentFolders:update` | `electron/ipc/data/database.cjs:1146` |
+| `db:agentFolders:create` | `electron/ipc/data/database.cjs:1149` |
+| `db:agentFolders:delete` | `electron/ipc/data/database.cjs:1200` |
+| `db:agentFolders:list` | `electron/ipc/data/database.cjs:1137` |
+| `db:agentFolders:update` | `electron/ipc/data/database.cjs:1172` |
 | `db:chat:addMessage` | `electron/ipc/agents/chat.cjs:205` |
 | `db:chat:appendTrace` | `electron/ipc/agents/chat.cjs:232` |
 | `db:chat:clearSession` | `electron/ipc/agents/chat.cjs:267` |
@@ -176,23 +176,23 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:interactions:getByResource` | `electron/ipc/data/interactions.cjs:29` |
 | `db:interactions:getByType` | `electron/ipc/data/interactions.cjs:42` |
 | `db:interactions:update` | `electron/ipc/data/interactions.cjs:55` |
-| `db:manyAgents:create` | `electron/ipc/data/database.cjs:903` |
-| `db:manyAgents:delete` | `electron/ipc/data/database.cjs:1096` |
-| `db:manyAgents:get` | `electron/ipc/data/database.cjs:892` |
-| `db:manyAgents:list` | `electron/ipc/data/database.cjs:880` |
-| `db:manyAgents:listVersions` | `electron/ipc/data/database.cjs:1017` |
-| `db:manyAgents:restoreVersion` | `electron/ipc/data/database.cjs:1042` |
-| `db:manyAgents:update` | `electron/ipc/data/database.cjs:936` |
-| `db:marketplace:getAgentInstalls` | `electron/ipc/data/database.cjs:1542` |
-| `db:marketplace:getTemplateMappings` | `electron/ipc/data/database.cjs:1634` |
-| `db:marketplace:getWorkflowInstalls` | `electron/ipc/data/database.cjs:1588` |
-| `db:marketplace:replaceAgentInstalls` | `electron/ipc/data/database.cjs:1559` |
-| `db:marketplace:replaceTemplateMappings` | `electron/ipc/data/database.cjs:1650` |
-| `db:marketplace:replaceWorkflowInstalls` | `electron/ipc/data/database.cjs:1605` |
-| `db:mcp:getGlobalEnabled` | `electron/ipc/data/database.cjs:1478` |
-| `db:mcp:list` | `electron/ipc/data/database.cjs:1431` |
-| `db:mcp:replaceAll` | `electron/ipc/data/database.cjs:1442` |
-| `db:mcp:setGlobalEnabled` | `electron/ipc/data/database.cjs:1490` |
+| `db:manyAgents:create` | `electron/ipc/data/database.cjs:929` |
+| `db:manyAgents:delete` | `electron/ipc/data/database.cjs:1122` |
+| `db:manyAgents:get` | `electron/ipc/data/database.cjs:918` |
+| `db:manyAgents:list` | `electron/ipc/data/database.cjs:906` |
+| `db:manyAgents:listVersions` | `electron/ipc/data/database.cjs:1043` |
+| `db:manyAgents:restoreVersion` | `electron/ipc/data/database.cjs:1068` |
+| `db:manyAgents:update` | `electron/ipc/data/database.cjs:962` |
+| `db:marketplace:getAgentInstalls` | `electron/ipc/data/database.cjs:1568` |
+| `db:marketplace:getTemplateMappings` | `electron/ipc/data/database.cjs:1660` |
+| `db:marketplace:getWorkflowInstalls` | `electron/ipc/data/database.cjs:1614` |
+| `db:marketplace:replaceAgentInstalls` | `electron/ipc/data/database.cjs:1585` |
+| `db:marketplace:replaceTemplateMappings` | `electron/ipc/data/database.cjs:1676` |
+| `db:marketplace:replaceWorkflowInstalls` | `electron/ipc/data/database.cjs:1631` |
+| `db:mcp:getGlobalEnabled` | `electron/ipc/data/database.cjs:1504` |
+| `db:mcp:list` | `electron/ipc/data/database.cjs:1457` |
+| `db:mcp:replaceAll` | `electron/ipc/data/database.cjs:1468` |
+| `db:mcp:setGlobalEnabled` | `electron/ipc/data/database.cjs:1516` |
 | `db:projects:create` | `electron/ipc/data/database.cjs:248` |
 | `db:projects:deleteWithContent` | `electron/ipc/data/database.cjs:337` |
 | `db:projects:getAll` | `electron/ipc/data/database.cjs:271` |
@@ -200,25 +200,25 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:projects:getDeletionImpact` | `electron/ipc/data/database.cjs:327` |
 | `db:projects:getVaultRoot` | `electron/ipc/data/database.cjs:316` |
 | `db:projects:setVaultRoot` | `electron/ipc/data/database.cjs:297` |
-| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:2091` |
+| `db:resources:bulkDelete` | `electron/ipc/data/database.cjs:2117` |
 | `db:resources:create` | `electron/ipc/data/database.cjs:352` |
-| `db:resources:delete` | `electron/ipc/data/database.cjs:1914` |
+| `db:resources:delete` | `electron/ipc/data/database.cjs:1940` |
 | `db:resources:ensureUrl` | `electron/ipc/data/database.cjs:427` |
-| `db:resources:getAll` | `electron/ipc/data/database.cjs:1882` |
+| `db:resources:getAll` | `electron/ipc/data/database.cjs:1908` |
 | `db:resources:getBacklinks` | `electron/ipc/data/database.cjs:765` |
-| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1931` |
+| `db:resources:getByFolder` | `electron/ipc/data/database.cjs:1957` |
 | `db:resources:getById` | `electron/ipc/data/database.cjs:412` |
 | `db:resources:getByProject` | `electron/ipc/data/database.cjs:400` |
-| `db:resources:getRoot` | `electron/ipc/data/database.cjs:1944` |
-| `db:resources:listLight` | `electron/ipc/data/database.cjs:1895` |
-| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:2027` |
-| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1960` |
-| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:2067` |
+| `db:resources:getRoot` | `electron/ipc/data/database.cjs:1970` |
+| `db:resources:listLight` | `electron/ipc/data/database.cjs:1921` |
+| `db:resources:moveToFolder` | `electron/ipc/data/database.cjs:2053` |
+| `db:resources:moveToProject` | `electron/ipc/data/database.cjs:1986` |
+| `db:resources:removeFromFolder` | `electron/ipc/data/database.cjs:2093` |
 | `db:resources:search` | `electron/ipc/data/database.cjs:688` |
 | `db:resources:searchForMention` | `electron/ipc/data/database.cjs:740` |
 | `db:resources:update` | `electron/ipc/data/database.cjs:509` |
 | `db:resources:uploadFile` | `electron/ipc/data/database.cjs:778` |
-| `db:search:unified` | `electron/ipc/data/database.cjs:1683` |
+| `db:search:unified` | `electron/ipc/data/database.cjs:1709` |
 | `db:semantic:confirm` | `electron/ipc/ai/semantic.cjs:108` |
 | `db:semantic:createManual` | `electron/ipc/ai/semantic.cjs:147` |
 | `db:semantic:delete` | `electron/ipc/ai/semantic.cjs:121` |
@@ -229,12 +229,12 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:semantic:reject` | `electron/ipc/ai/semantic.cjs:135` |
 | `db:semantic:resourceHasChunks` | `electron/ipc/ai/semantic.cjs:221` |
 | `db:semantic:search` | `electron/ipc/ai/semantic.cjs:284` |
-| `db:settings:aiProviderKeyStatus` | `electron/ipc/data/database.cjs:836` |
+| `db:settings:aiProviderKeyStatus` | `electron/ipc/data/database.cjs:841` |
 | `db:settings:get` | `electron/ipc/data/database.cjs:801` |
-| `db:settings:saveAI` | `electron/ipc/data/database.cjs:851` |
+| `db:settings:saveAI` | `electron/ipc/data/database.cjs:856` |
 | `db:settings:set` | `electron/ipc/data/database.cjs:817` |
-| `db:skills:list` | `electron/ipc/data/database.cjs:1503` |
-| `db:skills:replaceAll` | `electron/ipc/data/database.cjs:1514` |
+| `db:skills:list` | `electron/ipc/data/database.cjs:1529` |
+| `db:skills:replaceAll` | `electron/ipc/data/database.cjs:1540` |
 | `db:studio:create` | `electron/ipc/learn/studio.cjs:35` |
 | `db:studio:delete` | `electron/ipc/learn/studio.cjs:189` |
 | `db:studio:getAll` | `electron/ipc/learn/studio.cjs:80` |
@@ -247,18 +247,18 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `db:tags:getByResource` | `electron/ipc/data/tags.cjs:5` |
 | `db:tags:getResources` | `electron/ipc/data/tags.cjs:29` |
 | `db:tags:removeFromResource` | `electron/ipc/data/tags.cjs:77` |
-| `db:workflowExecutions:get` | `electron/ipc/data/database.cjs:1419` |
-| `db:workflowExecutions:listByWorkflow` | `electron/ipc/data/database.cjs:1405` |
-| `db:workflowExecutions:save` | `electron/ipc/data/database.cjs:1375` |
-| `db:workflowFolders:create` | `electron/ipc/data/database.cjs:1308` |
-| `db:workflowFolders:delete` | `electron/ipc/data/database.cjs:1362` |
-| `db:workflowFolders:list` | `electron/ipc/data/database.cjs:1296` |
-| `db:workflowFolders:update` | `electron/ipc/data/database.cjs:1334` |
-| `db:workflows:create` | `electron/ipc/data/database.cjs:1211` |
-| `db:workflows:delete` | `electron/ipc/data/database.cjs:1282` |
-| `db:workflows:get` | `electron/ipc/data/database.cjs:1200` |
-| `db:workflows:list` | `electron/ipc/data/database.cjs:1188` |
-| `db:workflows:update` | `electron/ipc/data/database.cjs:1239` |
+| `db:workflowExecutions:get` | `electron/ipc/data/database.cjs:1445` |
+| `db:workflowExecutions:listByWorkflow` | `electron/ipc/data/database.cjs:1431` |
+| `db:workflowExecutions:save` | `electron/ipc/data/database.cjs:1401` |
+| `db:workflowFolders:create` | `electron/ipc/data/database.cjs:1334` |
+| `db:workflowFolders:delete` | `electron/ipc/data/database.cjs:1388` |
+| `db:workflowFolders:list` | `electron/ipc/data/database.cjs:1322` |
+| `db:workflowFolders:update` | `electron/ipc/data/database.cjs:1360` |
+| `db:workflows:create` | `electron/ipc/data/database.cjs:1237` |
+| `db:workflows:delete` | `electron/ipc/data/database.cjs:1308` |
+| `db:workflows:get` | `electron/ipc/data/database.cjs:1226` |
+| `db:workflows:list` | `electron/ipc/data/database.cjs:1214` |
+| `db:workflows:update` | `electron/ipc/data/database.cjs:1265` |
 | `domainSync:getEntitlements` | `electron/ipc/sync/domain-sync.cjs:29` |
 | `domainSync:getStatus` | `electron/ipc/sync/domain-sync.cjs:41` |
 | `domainSync:setDomainEnabled` | `electron/ipc/sync/domain-sync.cjs:60` |
@@ -268,7 +268,7 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `dome-mcp:status` | `electron/ipc/integrations/dome-mcp.cjs:120` |
 | `dome-mcp:stop` | `electron/ipc/integrations/dome-mcp.cjs:110` |
 | `domeauth:disconnect` | `electron/ipc/integrations/dome-auth.cjs:46` |
-| `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:80` |
+| `domeauth:getQuota` | `electron/ipc/integrations/dome-auth.cjs:82` |
 | `domeauth:getSession` | `electron/ipc/integrations/dome-auth.cjs:21` |
 | `domeauth:nativeLogin` | `electron/ipc/integrations/dome-auth.cjs:60` |
 | `domeauth:openDashboard` | `electron/ipc/integrations/dome-auth.cjs:34` |

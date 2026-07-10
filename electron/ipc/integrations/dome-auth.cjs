@@ -10,7 +10,7 @@ function register({ ipcMain, windowManager, database }) {
     }
 
     try {
-      const result = await domeOauth.startOAuthFlow(database);
+      const result = await domeOauth.startOAuthFlow(database, windowManager);
       return result;
     } catch (error) {
       console.error('[DomeAuth] OAuth flow failed:', error);
@@ -69,6 +69,8 @@ function register({ ipcMain, windowManager, database }) {
         email: payload.email.trim(),
         password: payload.password,
         isRegister: Boolean(payload.isRegister),
+        name: typeof payload.name === 'string' ? payload.name.trim() : undefined,
+        windowManager,
       });
       if (result.connected) planGate.invalidateEntitlementsCache();
       return result;

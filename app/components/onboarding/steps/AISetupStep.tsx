@@ -22,11 +22,18 @@ interface AISetupStepProps {
   onValidationChange?: (isValid: boolean) => void;
   /** Onboarding-only: user chose "local mode" at the account gate — never offer/default to Dome here. */
   localModeOnly?: boolean;
+  /** Account login pulled AI preferences from cloud sync. */
+  syncedFromCloud?: boolean;
 }
 
 type OnboardingProviderType = AIProviderType | 'skip';
 
-export default function AISetupStep({ onComplete, onValidationChange, localModeOnly = false }: AISetupStepProps) {
+export default function AISetupStep({
+  onComplete,
+  onValidationChange,
+  localModeOnly = false,
+  syncedFromCloud = false,
+}: AISetupStepProps) {
   const { t } = useTranslation();
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
@@ -143,6 +150,10 @@ export default function AISetupStep({ onComplete, onValidationChange, localModeO
     <div className="space-y-4">
       {saveError ? (
         <DomeCallout tone="error">{saveError}</DomeCallout>
+      ) : null}
+
+      {syncedFromCloud && provider !== 'skip' ? (
+        <DomeCallout tone="success">{t('onboarding.ai_synced_from_cloud')}</DomeCallout>
       ) : null}
 
       <AIProviderSelection

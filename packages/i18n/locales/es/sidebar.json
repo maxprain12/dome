@@ -2,5 +2,9 @@
   "quick_create_project_placeholder": "Nombre del nuevo proyecto…",
   "quick_create_project_button": "Añadir",
   "manage_projects": "Gestionar proyectos",
-  "more_tools": "Más"
+  "more_tools": "Más",
+  "sign_in": "Iniciar sesión en Dome",
+  "sign_in_connecting": "Conectando…",
+  "sign_in_success": "Conectado a Dome",
+  "sign_in_error": "No se pudo iniciar sesión"
 }

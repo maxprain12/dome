@@ -644,7 +644,14 @@ declare global {
       domeAuth: {
         startOAuthFlow: () => Promise<{ success: boolean; connected?: boolean; error?: string }>;
         openDashboard: () => Promise<{ success: boolean; error?: string }>;
-        getSession: () => Promise<{ success: boolean; connected: boolean; userId?: string; error?: string }>;
+        getSession: () => Promise<{
+          success: boolean;
+          connected: boolean;
+          userId?: string;
+          expiresAt?: number;
+          stale?: boolean;
+          error?: string;
+        }>;
         disconnect: () => Promise<{ success: boolean; error?: string }>;
         getQuota: () => Promise<{
           success: boolean;
@@ -660,14 +667,26 @@ declare global {
           email: string,
           password: string,
           isRegister: boolean,
+          name?: string,
         ) => Promise<{
           success: boolean;
           connected?: boolean;
           userId?: string;
+          name?: string | null;
+          email?: string | null;
+          hadRemoteData?: boolean;
           pendingConfirmation?: boolean;
           error?: string;
           errorCode?: string;
         }>;
+        onSessionState: (
+          callback: (state: {
+            connected: boolean;
+            userId?: string | null;
+            expiresAt?: number | null;
+            error?: string;
+          }) => void,
+        ) => () => void;
       };
 
       // GitHub Copilot OAuth API

@@ -4119,6 +4119,40 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+
+  if (version < 64) {
+    console.log('[DB] Running migration 64 - settings domain sync (synced_settings)');
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS synced_settings (
+          id TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at INTEGER NOT NULL,
+          device_id TEXT,
+          deleted_at INTEGER
+        )
+      `);
+
+      const now = Date.now();
+      db.prepare(
+        `
+          INSERT INTO domain_sync_state (domain, last_pull_cursor, last_push_at, enabled, updated_at)
+          VALUES ('settings', '0', 0, 1, ?)
+          ON CONFLICT(domain) DO NOTHING
+        `,
+      ).run(now);
+
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('schema_version', '64', ?)
+        ON CONFLICT(key) DO UPDATE SET value = '64', updated_at = excluded.updated_at
+      `).run(now);
+      console.log('[DB] Migration 64 complete - settings domain sync');
+    } catch (error) {
+      console.error('[DB] Migration 64 failed:', error);
+      throw error;
+    }
+  }
 }
 
 module.exports = { applyMigrations };

@@ -117,6 +117,7 @@ function featureForDomain(domain) {
     social: 'social_cloud',
     pipelines: 'pipelines_cloud',
     calendar: 'cloud_sync',
+    settings: 'cloud_sync',
     actions: 'cloud_sync',
   };
   return map[domain] ?? 'cloud_sync';

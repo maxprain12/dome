@@ -13,6 +13,7 @@ import AppShell from '@/components/shell/AppShell';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { reconcileLanguageWithOsIfNeeded } from '@/lib/i18n';
 import { ensureHubEventsBridge } from '@/lib/hub/hubEventsBridge';
+import { subscribeSettingsCloudUpdates } from '@/lib/settings';
 import PptCapturePage from './pages/PptCapturePage';
 import NoteFocusPage from './pages/NoteFocusPage';
 import ManyPopoutPage from './pages/ManyPopoutPage';
@@ -71,6 +72,16 @@ function MainApp() {
     void loadPreferences();
     void loadUserProfile();
   }, [loadPreferences, loadUserProfile]);
+
+  useEffect(() => {
+    const unsub = subscribeSettingsCloudUpdates((payload) => {
+      const keys = payload?.keys ?? [];
+      if (keys.some((k) => k.startsWith('ai_') || k.startsWith('ollama_') || k.startsWith('embeddings_'))) {
+        window.dispatchEvent(new CustomEvent('dome:ai-config-changed'));
+      }
+    });
+    return unsub;
+  }, []);
 
   // Handle dome://studio/ID deep links
   useEffect(() => {

@@ -10,7 +10,7 @@ const planGate = require('../../storage/plan-gate.cjs');
 const socialCloudAdapter = require('../../storage/social-cloud-adapter.cjs');
 const { getSocialService } = require('../../social/social-service.cjs');
 
-const DomainSchema = z.enum(['social', 'pipelines', 'calendar']);
+const DomainSchema = z.enum(['social', 'pipelines', 'calendar', 'settings']);
 const SetDomainEnabledSchema = z.object({
   domain: DomainSchema,
   enabled: z.boolean(),

@@ -12,10 +12,12 @@ const { getOrCreateDeviceId } = require('./cloud-sync-service.cjs');
 const syncTombstone = require('./sync-tombstone.cjs');
 const planGate = require('./plan-gate.cjs');
 
-const DOMAIN_PULL_LIMIT = 500;
-const VALID_DOMAINS = /** @type {const} */ (['social', 'pipelines', 'calendar']);
+const settingsSyncBridge = require('./settings-sync-bridge.cjs');
 
-/** @typedef {'social' | 'pipelines' | 'calendar'} DomainName */
+const DOMAIN_PULL_LIMIT = 500;
+const VALID_DOMAINS = /** @type {const} */ (['social', 'pipelines', 'calendar', 'settings']);
+
+/** @typedef {'social' | 'pipelines' | 'calendar' | 'settings'} DomainName */
 
 /**
  * @typedef {object} TableSpec
@@ -51,6 +53,9 @@ const DOMAIN_SPECS = {
       { name: 'calendar_events', deltaColumn: 'updated_at' },
       { name: 'calendar_event_links', deltaColumn: 'updated_at' },
     ],
+  },
+  settings: {
+    tables: [{ name: 'synced_settings', deltaColumn: 'updated_at' }],
   },
 };
 
@@ -334,6 +339,9 @@ async function pullDomain(deps, domain) {
   }
   if (domain === 'calendar' && applied > 0) {
     adoptOrphanCalendarEvents(db, deps.windowManager);
+  }
+  if (domain === 'settings' && applied > 0) {
+    settingsSyncBridge.applySyncedSettingsToLocal(db, deps.windowManager);
   }
   return { success: true, applied, nextSince: cursor };
 }

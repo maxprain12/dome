@@ -1,8 +1,8 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LogIn, HardDrive, Mail, Lock, ArrowLeft } from 'lucide-react';
-import { validateEmail } from '@/lib/utils/validation';
+import { LogIn, HardDrive, Mail, Lock, User, ArrowLeft } from 'lucide-react';
+import { validateEmail, validateName } from '@/lib/utils/validation';
 import { DomeInput } from '@/components/ui/DomeInput';
 import DomeCallout from '@/components/ui/DomeCallout';
 import { ACCENT_END } from '@/lib/ui/accent';
@@ -12,7 +12,12 @@ type SubView = 'choice' | 'form';
 type AuthMode = 'login' | 'register';
 
 interface AccountStepProps {
-  onComplete: (data: { mode: Choice; email?: string }) => void;
+  onComplete: (data: {
+    mode: Choice;
+    email?: string;
+    name?: string;
+    hadRemoteData?: boolean;
+  }) => void;
   onValidationChange?: (isValid: boolean) => void;
 }
 
@@ -32,20 +37,22 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
   const [subView, setSubView] = useState<SubView>('choice');
   const [choice, setChoice] = useState<Choice | null>(null);
   const [authMode, setAuthMode] = useState<AuthMode>('login');
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [touched, setTouched] = useState<{ email?: boolean; password?: boolean }>({});
+  const [touched, setTouched] = useState<{ name?: boolean; email?: boolean; password?: boolean }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(false);
 
   const emailValid = validateEmail(email);
   const passwordValid = password.length >= MIN_PASSWORD_LENGTH;
+  const nameValid = authMode !== 'register' || validateName(name);
 
   const canProceed =
     subView === 'choice'
       ? choice !== null
-      : emailValid && passwordValid && !isSubmitting && !pendingConfirmation;
+      : emailValid && passwordValid && nameValid && !isSubmitting && !pendingConfirmation;
 
   useEffect(() => {
     onValidationChange?.(canProceed);
@@ -65,8 +72,8 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
       return;
     }
 
-    if (!emailValid || !passwordValid) {
-      setTouched({ email: true, password: true });
+    if (!emailValid || !passwordValid || !nameValid) {
+      setTouched({ name: true, email: true, password: true });
       return;
     }
 
@@ -77,6 +84,7 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
         email.trim(),
         password,
         authMode === 'register',
+        authMode === 'register' ? name.trim() : undefined,
       );
       if (!result.success) {
         setError(result.errorCode ? ERROR_CODE_TO_KEY[result.errorCode] ?? 'onboarding.account_error_generic' : 'onboarding.account_error_generic');
@@ -86,13 +94,18 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
         setPendingConfirmation(true);
         return;
       }
-      onComplete({ mode: 'account', email: email.trim() });
+      onComplete({
+        mode: 'account',
+        email: result.email ?? email.trim(),
+        name: result.name ?? (authMode === 'register' ? name.trim() : undefined),
+        hadRemoteData: Boolean(result.hadRemoteData),
+      });
     } catch {
       setError('onboarding.account_error_generic');
     } finally {
       setIsSubmitting(false);
     }
-  }, [subView, choice, emailValid, passwordValid, email, password, authMode, onComplete]);
+  }, [subView, choice, emailValid, passwordValid, nameValid, email, password, name, authMode, onComplete]);
 
   handleNextRef.current = handleNext;
 
@@ -179,6 +192,10 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
     );
   }
 
+  const nameError = touched.name && authMode === 'register' && !nameValid
+    ? t('onboarding.name_min_length')
+    : undefined;
+
   return (
     <div className="flex flex-col gap-4">
       <button
@@ -195,6 +212,27 @@ export default function AccountStep({ onComplete, onValidationChange }: AccountS
       </button>
 
       {error ? <DomeCallout tone="error">{t(error)}</DomeCallout> : null}
+
+      {authMode === 'register' ? (
+        <div className="flex flex-col gap-1.5">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center pointer-events-none z-10" style={{ color: 'var(--dome-text-muted)' }}>
+              <User className="size-4" />
+            </span>
+            <DomeInput
+              id="account-name"
+              type="text"
+              autoComplete="name"
+              label={t('onboarding.account_name_label')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() => setTouched((prev) => ({ ...prev, name: true }))}
+              error={nameError}
+              inputClassName="pl-9"
+            />
+          </div>
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-1.5">
         <div className="relative">
