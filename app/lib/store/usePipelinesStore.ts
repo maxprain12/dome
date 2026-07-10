@@ -116,49 +116,9 @@ export const usePipelinesStore = create<PipelinesState>((set, get) => ({
     if (!get()._subscribed) {
       set({ _subscribed: true });
       // Live updates from the main process. Only apply events for the active pipeline.
-      pipelinesEvents.onItemUpdated((p) => {
-        const activeId = get().activePipelineId;
-        if (p.deletedId) {
-          set((s) => ({ items: s.items.filter((i) => i.id !== p.deletedId) }));
-          return;
-        }
-        if (p.item && p.item.pipelineId === activeId) {
-          set((s) => {
-            const runInFlightIds = { ...s.runInFlightIds };
-            if (p.item!.execStatus === 'ready' || p.item!.execStatus === 'failed') {
-              delete runInFlightIds[p.item!.id];
-            }
-            return {
-              items: upsert(s.items, p.item!),
-              runInFlightIds,
-            };
-          });
-        }
-      });
-      pipelinesEvents.onStageUpdated((p) => {
-        const activeId = get().activePipelineId;
-        if (p.deletedId) {
-          set((s) => ({ stages: s.stages.filter((st) => st.id !== p.deletedId) }));
-          return;
-        }
-        if (p.reordered && p.pipelineId === activeId) {
-          void get().reloadActive();
-          return;
-        }
-        if (p.stage && p.stage.pipelineId === activeId) {
-          set((s) => ({ stages: upsert(s.stages, p.stage!) }));
-        }
-      });
-      pipelinesEvents.onSourceUpdated((p) => {
-        const activeId = get().activePipelineId;
-        if (p.deletedId) {
-          set((s) => ({ sources: s.sources.filter((src) => src.id !== p.deletedId) }));
-          return;
-        }
-        if (p.source && p.source.pipelineId === activeId) {
-          set((s) => ({ sources: upsert(s.sources, p.source!) }));
-        }
-      });
+      pipelinesEvents.onItemUpdated(handleItemUpdated);
+      pipelinesEvents.onStageUpdated(handleStageUpdated);
+      pipelinesEvents.onSourceUpdated(handleSourceUpdated);
       pipelinesEvents.onPipelineUpdated(() => {
         void get().loadPipelines();
       });
@@ -450,3 +410,74 @@ export const usePipelinesStore = create<PipelinesState>((set, get) => ({
     }
   },
 }));
+
+/** Item event handler — keeps the board in sync with main-process broadcasts. */
+function handleItemUpdated(p: {
+  item?: PipelineItem;
+  deletedId?: string;
+  stageId?: string;
+  movedFrom?: string;
+}): void {
+  const activeId = usePipelinesStore.getState().activePipelineId;
+  if (p.deletedId) {
+    usePipelinesStore.setState((s) => ({
+      items: s.items.filter((i) => i.id !== p.deletedId),
+    }));
+    return;
+  }
+  if (p.item && p.item.pipelineId === activeId) {
+    usePipelinesStore.setState((s) => {
+      const runInFlightIds = { ...s.runInFlightIds };
+      if (p.item!.execStatus === 'ready' || p.item!.execStatus === 'failed') {
+        delete runInFlightIds[p.item!.id];
+      }
+      return {
+        items: upsert(s.items, p.item!),
+        runInFlightIds,
+      };
+    });
+  }
+}
+
+/** Stage event handler — keeps the board in sync with main-process broadcasts. */
+function handleStageUpdated(p: {
+  stage?: PipelineStage;
+  deletedId?: string;
+  pipelineId?: string;
+  reordered?: boolean;
+}): void {
+  const activeId = usePipelinesStore.getState().activePipelineId;
+  if (p.deletedId) {
+    usePipelinesStore.setState((s) => ({
+      stages: s.stages.filter((st) => st.id !== p.deletedId),
+    }));
+    return;
+  }
+  if (p.reordered && p.pipelineId === activeId) {
+    void usePipelinesStore.getState().reloadActive();
+    return;
+  }
+  if (p.stage && p.stage.pipelineId === activeId) {
+    usePipelinesStore.setState((s) => ({ stages: upsert(s.stages, p.stage!) }));
+  }
+}
+
+/** Source event handler — keeps the board in sync with main-process broadcasts. */
+function handleSourceUpdated(p: {
+  source?: PipelineSource;
+  deletedId?: string;
+  pipelineId?: string;
+}): void {
+  const activeId = usePipelinesStore.getState().activePipelineId;
+  if (p.deletedId) {
+    usePipelinesStore.setState((s) => ({
+      sources: s.sources.filter((src) => src.id !== p.deletedId),
+    }));
+    return;
+  }
+  if (p.source && p.source.pipelineId === activeId) {
+    usePipelinesStore.setState((s) => ({
+      sources: upsert(s.sources, p.source!),
+    }));
+  }
+}
