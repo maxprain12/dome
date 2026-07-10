@@ -145,6 +145,218 @@ function buildAgentInputPayload(payloads: CanvasNodePayload[]): CanvasNodePayloa
   };
 }
 
+/** Build the payload sent to NodeExecutionState (kind derived from resources). */
+function buildAgentExecutionPayload(base: CanvasNodePayload, text: string): CanvasNodePayload {
+  return {
+    ...base,
+    kind: base.resources?.length ? 'bundle' : 'text',
+    text,
+  };
+}
+
+/** Truncate long text for compact log entries. */
+function truncateForLog(text: string, max: number): string {
+  return `${text.slice(0, max)}${text.length > max ? '...' : ''}`;
+}
+
+/** Build the chat messages list (optional system prompt + user input). */
+function buildAgentMessages(
+  systemPrompt: string | undefined,
+  inputText: string,
+): Array<{ role: string; content: string }> {
+  const messages: Array<{ role: string; content: string }> = [];
+  if (systemPrompt) {
+    messages.push({ role: 'system', content: systemPrompt });
+  }
+  messages.push({ role: 'user', content: inputText });
+  return messages;
+}
+
+type AgentRuntimeConfig = {
+  toolIds: string[];
+  systemPrompt: string | undefined;
+  mcpServerIds: string[];
+};
+
+/** Resolve runtime config (tools, system prompt, MCP servers) for an agent node. */
+async function resolveAgentRuntimeConfig(
+  agentData: AgentNodeData,
+  node: WorkflowNode<CanvasNodeData>,
+  store: StoreActions,
+  onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void,
+): Promise<AgentRuntimeConfig> {
+  if (agentData.agentId) {
+    const agent = await getManyAgentById(agentData.agentId);
+    if (!agent) {
+      const errMsg = `Agente "${agentData.agentName ?? agentData.agentId}" no encontrado`;
+      store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
+      store.setNodeExecutionState(node.id, {
+        nodeId: node.id,
+        status: 'error',
+        output: '',
+        error: errMsg,
+      });
+      onLog({ nodeId: node.id, nodeLabel: agentData.label, message: errMsg, type: 'error' });
+      throw new Error(errMsg);
+    }
+    return {
+      toolIds: agent.toolIds ?? [],
+      systemPrompt: agent.systemInstructions || undefined,
+      mcpServerIds: agent.mcpServerIds ?? [],
+    };
+  }
+
+  if (agentData.systemAgentRole) {
+    const sysAgent = getSystemAgent(agentData.systemAgentRole);
+    return {
+      toolIds: sysAgent.toolIds,
+      systemPrompt: sysAgent.systemPrompt,
+      mcpServerIds: [],
+    };
+  }
+
+  onLog({
+    nodeId: node.id,
+    nodeLabel: agentData.label,
+    message: 'Sin agente asignado — ejecutando sin herramientas',
+    type: 'info',
+  });
+  return { toolIds: [], systemPrompt: undefined, mcpServerIds: [] };
+}
+
+/** Mark the agent node as running and emit the starting log entry. */
+function markAgentRunning(
+  node: WorkflowNode<CanvasNodeData>,
+  agentData: AgentNodeData,
+  store: StoreActions,
+  onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void,
+): void {
+  store.updateNode(node.id, {
+    status: 'running',
+    outputText: '',
+    errorMessage: null,
+  } as Partial<AgentNodeData>);
+  store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'running', output: '' });
+  onLog({ nodeId: node.id, nodeLabel: agentData.label, message: 'Iniciando...', type: 'info' });
+}
+
+/** Record a stream failure on the node + logs (call site re-throws). */
+function recordAgentFailure(
+  err: unknown,
+  node: WorkflowNode<CanvasNodeData>,
+  agentData: AgentNodeData,
+  mergedInputPayload: CanvasNodePayload,
+  agentOutput: string,
+  store: StoreActions,
+  onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void,
+): void {
+  const msg = err instanceof Error ? err.message : 'Error desconocido';
+  store.updateNode(node.id, { status: 'error', errorMessage: msg } as Partial<AgentNodeData>);
+  store.setNodeExecutionState(node.id, {
+    nodeId: node.id,
+    status: 'error',
+    output: agentOutput,
+    payload: buildAgentExecutionPayload(mergedInputPayload, agentOutput),
+    error: msg,
+  });
+  onLog({ nodeId: node.id, nodeLabel: agentData.label, message: msg, type: 'error' });
+}
+
+/** Finalize the agent node on success and return its output payload. */
+function finalizeAgentSuccess(
+  node: WorkflowNode<CanvasNodeData>,
+  agentData: AgentNodeData,
+  mergedInputPayload: CanvasNodePayload,
+  agentOutput: string,
+  inputPayloadCount: number,
+  store: StoreActions,
+  onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void,
+): CanvasNodePayload {
+  const outputPayload: CanvasNodePayload = {
+    kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
+    text: agentOutput,
+    resources: mergedInputPayload.resources,
+    metadata: { sourceNodeIds: inputPayloadCount },
+  };
+  store.updateNode(node.id, {
+    status: 'done',
+    outputText: agentOutput,
+  } as Partial<AgentNodeData>);
+  store.setNodeExecutionState(node.id, {
+    nodeId: node.id,
+    status: 'done',
+    output: agentOutput,
+    payload: outputPayload,
+  });
+  onLog({ nodeId: node.id, nodeLabel: agentData.label, message: 'Completado ✓', type: 'done' });
+  return outputPayload;
+}
+
+/** Stream agent chunks and accumulate the assistant's text output. */
+async function streamAgentChunks(
+  node: WorkflowNode<CanvasNodeData>,
+  agentData: AgentNodeData,
+  messages: Array<{ role: string; content: string }>,
+  tools: ReturnType<typeof createToolsForAgent>,
+  mcpServerIds: string[],
+  mergedInputPayload: CanvasNodePayload,
+  store: StoreActions,
+  onLog: (entry: Omit<ExecutionLogEntry, 'id' | 'timestamp'>) => void,
+): Promise<string> {
+  let agentOutput = '';
+  const stream = chatWithToolsStream(messages, tools, {
+    threadId: `canvas-${node.id}-${Date.now()}`,
+    skipHitl: true,
+    mcpServerIds,
+  });
+
+  for await (const chunk of stream) {
+    if (chunk.type === 'done') break;
+
+    if (chunk.type === 'text' && chunk.text) {
+      agentOutput += chunk.text;
+      store.updateNode(node.id, {
+        status: 'running',
+        outputText: agentOutput,
+      } as Partial<AgentNodeData>);
+      store.setNodeExecutionState(node.id, {
+        nodeId: node.id,
+        status: 'running',
+        output: agentOutput,
+        payload: buildAgentExecutionPayload(mergedInputPayload, agentOutput),
+      });
+    } else if (chunk.type === 'thinking' && chunk.text) {
+      onLog({
+        nodeId: node.id,
+        nodeLabel: agentData.label,
+        message: `💭 ${truncateForLog(chunk.text, 80)}`,
+        type: 'info',
+      });
+    } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+      onLog({
+        nodeId: node.id,
+        nodeLabel: agentData.label,
+        message: `🔧 ${chunk.toolCall.name}(${(chunk.toolCall.arguments ?? '{}').slice(0, 60)})`,
+        type: 'tool_call',
+      });
+    } else if (chunk.type === 'error') {
+      const errMsg = chunk.error ?? 'Error del agente';
+      store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
+      store.setNodeExecutionState(node.id, {
+        nodeId: node.id,
+        status: 'error',
+        output: agentOutput,
+        payload: buildAgentExecutionPayload(mergedInputPayload, agentOutput),
+        error: errMsg,
+      });
+      onLog({ nodeId: node.id, nodeLabel: agentData.label, message: errMsg, type: 'error' });
+      throw new Error(errMsg);
+    }
+  }
+
+  return agentOutput;
+}
+
 /** Resolve the "output value" of a non-agent node (text-input, document, image). */
 function resolveStaticNodeOutput(node: WorkflowNode<CanvasNodeData>): CanvasNodePayload {
   const data = node.data;
@@ -207,6 +419,7 @@ async function executeAgentNode(
   const inputPayloads = getInputPayloads(node.id, edges, resolvedPayloads);
   const mergedInputPayload = buildAgentInputPayload(inputPayloads);
   const inputText = mergedInputPayload.text;
+
   if (!inputText.trim()) {
     const errMsg = 'No hay inputs conectados a este agente';
     store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
@@ -221,149 +434,30 @@ async function executeAgentNode(
     throw new Error(errMsg);
   }
 
-  // Resolve tools and system prompt
-  let toolIds: string[] = [];
-  let systemPrompt: string | undefined;
-  let mcpServerIds: string[] = [];
+  const config = await resolveAgentRuntimeConfig(agentData, node, store, onLog);
+  const tools = createToolsForAgent(config.toolIds);
+  const messages = buildAgentMessages(config.systemPrompt, inputText);
 
-  if (agentData.agentId) {
-    // User-defined ManyAgent
-    const agent = await getManyAgentById(agentData.agentId);
-    if (!agent) {
-      const errMsg = `Agente "${agentData.agentName ?? agentData.agentId}" no encontrado`;
-      store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
-      store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'error', output: '', error: errMsg });
-      onLog({ nodeId: node.id, nodeLabel: agentData.label, message: errMsg, type: 'error' });
-      throw new Error(errMsg);
-    }
-    toolIds = agent.toolIds ?? [];
-    systemPrompt = agent.systemInstructions || undefined;
-    mcpServerIds = agent.mcpServerIds ?? [];
-  } else if (agentData.systemAgentRole) {
-    // Built-in system agent
-    const sysAgent = getSystemAgent(agentData.systemAgentRole);
-    toolIds = sysAgent.toolIds;
-    systemPrompt = sysAgent.systemPrompt;
-  } else {
-    // No agent at all — run without tools
-    onLog({ nodeId: node.id, nodeLabel: agentData.label, message: 'Sin agente asignado — ejecutando sin herramientas', type: 'info' });
-  }
-
-  const tools = createToolsForAgent(toolIds);
-
-  const messages: Array<{ role: string; content: string }> = [];
-  if (systemPrompt) {
-    messages.push({ role: 'system', content: systemPrompt });
-  }
-  messages.push({ role: 'user', content: inputText });
-
-  store.updateNode(node.id, {
-    status: 'running',
-    outputText: '',
-    errorMessage: null,
-  } as Partial<AgentNodeData>);
-  store.setNodeExecutionState(node.id, { nodeId: node.id, status: 'running', output: '' });
-  onLog({ nodeId: node.id, nodeLabel: agentData.label, message: 'Iniciando...', type: 'info' });
+  markAgentRunning(node, agentData, store, onLog);
 
   let agentOutput = '';
-
   try {
-    const stream = chatWithToolsStream(messages, tools, {
-      threadId: `canvas-${node.id}-${Date.now()}`,
-      skipHitl: true,
-      mcpServerIds,
-    });
-
-    for await (const chunk of stream) {
-      if (chunk.type === 'text' && chunk.text) {
-        agentOutput += chunk.text;
-        store.updateNode(node.id, {
-          status: 'running',
-          outputText: agentOutput,
-        } as Partial<AgentNodeData>);
-        store.setNodeExecutionState(node.id, {
-          nodeId: node.id,
-          status: 'running',
-          output: agentOutput,
-          payload: {
-            ...mergedInputPayload,
-            kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
-            text: agentOutput,
-          },
-        });
-      } else if (chunk.type === 'thinking' && chunk.text) {
-        onLog({
-          nodeId: node.id,
-          nodeLabel: agentData.label,
-          message: `💭 ${chunk.text.slice(0, 80)}${chunk.text.length > 80 ? '...' : ''}`,
-          type: 'info',
-        });
-      } else if (chunk.type === 'tool_call' && chunk.toolCall) {
-        onLog({
-          nodeId: node.id,
-          nodeLabel: agentData.label,
-          message: `🔧 ${chunk.toolCall.name}(${(chunk.toolCall.arguments ?? '{}').slice(0, 60)})`,
-          type: 'tool_call',
-        });
-      } else if (chunk.type === 'error') {
-        const errMsg = (chunk as { type: 'error'; error?: string }).error ?? 'Error del agente';
-        store.updateNode(node.id, { status: 'error', errorMessage: errMsg } as Partial<AgentNodeData>);
-        store.setNodeExecutionState(node.id, {
-          nodeId: node.id,
-          status: 'error',
-          output: agentOutput,
-          payload: {
-            ...mergedInputPayload,
-            kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
-            text: agentOutput,
-          },
-          error: errMsg,
-        });
-        onLog({ nodeId: node.id, nodeLabel: agentData.label, message: errMsg, type: 'error' });
-        throw new Error(errMsg);
-      } else if (chunk.type === 'done') {
-        break;
-      }
-    }
+    agentOutput = await streamAgentChunks(
+      node,
+      agentData,
+      messages,
+      tools,
+      config.mcpServerIds,
+      mergedInputPayload,
+      store,
+      onLog,
+    );
   } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Error desconocido';
-    store.updateNode(node.id, { status: 'error', errorMessage: msg } as Partial<AgentNodeData>);
-    store.setNodeExecutionState(node.id, {
-      nodeId: node.id,
-      status: 'error',
-      output: agentOutput,
-      payload: {
-        ...mergedInputPayload,
-        kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
-        text: agentOutput,
-      },
-      error: msg,
-    });
-    onLog({ nodeId: node.id, nodeLabel: agentData.label, message: msg, type: 'error' });
+    recordAgentFailure(err, node, agentData, mergedInputPayload, agentOutput, store, onLog);
     throw err;
   }
 
-  store.updateNode(node.id, {
-    status: 'done',
-    outputText: agentOutput,
-  } as Partial<AgentNodeData>);
-  const outputPayload: CanvasNodePayload = {
-    kind: mergedInputPayload.resources?.length ? 'bundle' : 'text',
-    text: agentOutput,
-    resources: mergedInputPayload.resources,
-    metadata: {
-      sourceNodeIds: inputPayloads.length,
-    },
-  };
-  store.setNodeExecutionState(node.id, {
-    nodeId: node.id,
-    status: 'done',
-    output: agentOutput,
-    payload: outputPayload,
-  });
-  onLog({ nodeId: node.id, nodeLabel: agentData.label, message: 'Completado ✓', type: 'done' });
-
-  return outputPayload;
+  return finalizeAgentSuccess(node, agentData, mergedInputPayload, agentOutput, inputPayloads.length, store, onLog);
 }
 
 export async function executeWorkflow(
