@@ -444,6 +444,26 @@ function fetchBinary(url) {
 }
 
 /**
+ * Move the downloaded skill directory to its canonical location under userSkillsDir().
+ * If a directory already exists at the canonical path it is removed first.
+ * Returns the (possibly updated) destDir.
+ * @param {string} destDir
+ * @param {string} skillId
+ * @returns {string}
+ */
+function moveToCanonicalDest(destDir, skillId) {
+  const correctDest = path.join(userSkillsDir(), skillId);
+  if (path.resolve(correctDest) !== path.resolve(destDir)) {
+    if (fs.existsSync(correctDest)) {
+      fs.rmSync(correctDest, { recursive: true, force: true });
+    }
+    fs.renameSync(destDir, correctDest);
+    return correctDest;
+  }
+  return destDir;
+}
+
+/**
  * Download a skill folder from GitHub into destDir.
  * @param {string} owner
  * @param {string} repo
@@ -498,14 +518,7 @@ async function downloadSkillFolder(owner, repo, branch, repoPath, destDir) {
   }
 
   const skillId = slugifySkillId(meta.name);
-  const correctDest = path.join(userSkillsDir(), skillId);
-  if (path.resolve(correctDest) !== path.resolve(destDir)) {
-    if (fs.existsSync(correctDest)) {
-      fs.rmSync(correctDest, { recursive: true, force: true });
-    }
-    fs.renameSync(destDir, correctDest);
-    destDir = correctDest;
-  }
+  destDir = moveToCanonicalDest(destDir, skillId);
 
   return {
     id: skillId,
