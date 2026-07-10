@@ -149,94 +149,94 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
   // Soft confirmation requested by tool (needs_confirmation status)
   const needsConfirmation = (parsedResult as Record<string, unknown> | null)?.status === 'needs_confirmation';
 
-  const renderResultContent = () => {
-    // Inline approval UI for soft confirmations (needs_confirmation pattern)
-    if (needsConfirmation && toolCall.status === 'success') {
-      const msg = (parsedResult as Record<string, unknown>)?.error;
-      return (
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10,
-            padding: '8px 10px',
-            background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
-            border: '1px solid var(--border)',
-            borderRadius: 6,
-          }}
-        >
-          <p style={{ fontSize: 13, color: 'var(--secondary-text)', margin: 0 }}>
-            {typeof msg === 'string' ? msg : 'Esta acción requiere confirmación.'}
-          </p>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: 12, padding: '5px 12px' }}
-              onClick={() => dispatchSoftConfirm(false)}
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ fontSize: 12, padding: '5px 12px' }}
-              onClick={() => dispatchSoftConfirm(true)}
-            >
-              Confirmar
-            </button>
-          </div>
+  // Each renderer handles a single concern and returns null when not applicable;
+  // the orchestrator below walks them in priority order.
+  const renderSoftConfirmation = (): ReactNode => {
+    if (!needsConfirmation || toolCall.status !== 'success') return null;
+    const msg = (parsedResult as Record<string, unknown>)?.error;
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          padding: '8px 10px',
+          background: 'color-mix(in srgb, var(--accent) 6%, transparent)',
+          border: '1px solid var(--border)',
+          borderRadius: 6,
+        }}
+      >
+        <p style={{ fontSize: 13, color: 'var(--secondary-text)', margin: 0 }}>
+          {typeof msg === 'string' ? msg : 'Esta acción requiere confirmación.'}
+        </p>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ fontSize: 12, padding: '5px 12px' }}
+            onClick={() => dispatchSoftConfirm(false)}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ fontSize: 12, padding: '5px 12px' }}
+            onClick={() => dispatchSoftConfirm(true)}
+          >
+            Confirmar
+          </button>
         </div>
-      );
-    }
+      </div>
+    );
+  };
 
-    if (toolCall.error) {
-      return (
-        <div
-          style={{
-            fontSize: 12,
-            color: 'var(--error)',
-            padding: '6px 8px',
-            background: 'color-mix(in srgb, var(--error) 8%, transparent)',
-            borderRadius: 4,
-          }}
-        >
-          {toolCall.error}
-        </div>
-      );
-    }
+  const renderErrorBlock = (): ReactNode => {
+    if (!toolCall.error) return null;
+    return (
+      <div
+        style={{
+          fontSize: 12,
+          color: 'var(--error)',
+          padding: '6px 8px',
+          background: 'color-mix(in srgb, var(--error) 8%, transparent)',
+          borderRadius: 4,
+        }}
+      >
+        {toolCall.error}
+      </div>
+    );
+  };
 
-    if (!showRawJson) {
-      if (treeToolSummary) {
-        return renderTreeToolSummary(treeToolSummary, t);
-      }
-      const codegen = getCodegenPreview(toolCall.name, toolCall.arguments);
-      if (codegen) {
-        return <CodegenPreview preview={codegen} t={t} />;
-      }
-      const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
-      if (highlight) {
-        return <div style={{ marginTop: 4 }}>{highlight}</div>;
-      }
-    }
+  const renderFormattedView = (): ReactNode => {
+    if (showRawJson) return null;
+    if (treeToolSummary) return renderTreeToolSummary(treeToolSummary, t);
+    const codegen = getCodegenPreview(toolCall.name, toolCall.arguments);
+    if (codegen) return <CodegenPreview preview={codegen} t={t} />;
+    const highlight = renderToolSuccessHighlight(toolCall.name, toolCall.result, t);
+    if (highlight) return <div style={{ marginTop: 4 }}>{highlight}</div>;
+    return null;
+  };
 
-    if (showRawJson) {
-      return (
-        <pre className="chat-tool-result-pre">
-          {resultText}
-        </pre>
-      );
-    }
+  const renderRawJson = (): ReactNode => {
+    if (!showRawJson) return null;
+    return (
+      <pre className="chat-tool-result-pre">
+        {resultText}
+      </pre>
+    );
+  };
 
-    if (documentItems && documentItems.length > 0) {
-      const counts = new Map<string, number>();
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {documentItems.map((item) => {
-            const h = stableStringHash(JSON.stringify(item));
-            const ord = (counts.get(h) ?? 0) + 1;
-            counts.set(h, ord);
-            return (
+  const renderDocuments = (): ReactNode => {
+    if (!documentItems || documentItems.length === 0) return null;
+    const counts = new Map<string, number>();
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {documentItems.map((item) => {
+          const h = stableStringHash(JSON.stringify(item));
+          const ord = (counts.get(h) ?? 0) + 1;
+          counts.set(h, ord);
+          return (
             <div key={`doc:${h}:${ord}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {item.metadata?.title != null && (
                 <p style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary-text)', margin: 0 }}>
@@ -249,69 +249,72 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
                 </div>
               )}
             </div>
-            );
-          })}
-        </div>
-      );
-    }
+          );
+        })}
+      </div>
+    );
+  };
 
-    if (persistedArtifact) {
-      return (
-        <div
-          style={{
-            marginTop: 6,
-            padding: '10px 12px',
-            borderRadius: 8,
-            border: '1px solid var(--border)',
-            background: 'var(--bg-secondary)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-          }}
+  const renderPersistedArtifact = (): ReactNode => {
+    if (!persistedArtifact) return null;
+    return (
+      <div
+        style={{
+          marginTop: 6,
+          padding: '10px 12px',
+          borderRadius: 8,
+          border: '1px solid var(--border)',
+          background: 'var(--bg-secondary)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 8,
+        }}
+      >
+        <div>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--primary-text)' }}>
+            {persistedArtifact.title}
+          </p>
+          <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--secondary-text)' }}>
+            {persistedArtifact.artifactType}
+          </p>
+        </div>
+        <DomeButton
+          size="xs"
+          variant="primary"
+          onClick={() =>
+            useTabStore.getState().openResourceTab(
+              persistedArtifact.resourceId,
+              'artifact',
+              persistedArtifact.title,
+            )
+          }
         >
-          <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: 'var(--primary-text)' }}>
-              {persistedArtifact.title}
-            </p>
-            <p style={{ margin: '4px 0 0', fontSize: 12, color: 'var(--secondary-text)' }}>
-              {persistedArtifact.artifactType}
-            </p>
-          </div>
-          <DomeButton
-            size="xs"
-            variant="primary"
-            onClick={() =>
-              useTabStore.getState().openResourceTab(
-                persistedArtifact.resourceId,
-                'artifact',
-                persistedArtifact.title,
-              )
-            }
-          >
-            {t('artifacts.open_artifact', { defaultValue: 'Abrir artifact' })}
-          </DomeButton>
-        </div>
-      );
-    }
+          {t('artifacts.open_artifact', { defaultValue: 'Abrir artifact' })}
+        </DomeButton>
+      </div>
+    );
+  };
 
-    if (artifactItems) {
-      return (
-        <div style={{ marginTop: 6 }}>
-          <ArtifactCard artifact={artifactItems} />
-        </div>
-      );
-    }
+  const renderArtifactCardItem = (): ReactNode => {
+    if (!artifactItems) return null;
+    return (
+      <div style={{ marginTop: 6 }}>
+        <ArtifactCard artifact={artifactItems} />
+      </div>
+    );
+  };
 
-    if (contentImages && contentImages.length > 0) {
-      const imgCounts = new Map<string, number>();
-      return (
-        <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {contentImages.map((item) => {
-            const h = stableStringHash(item.dataUrl);
-            const ord = (imgCounts.get(h) ?? 0) + 1;
-            imgCounts.set(h, ord);
-            const figureN = ord;
-            return (
+  const renderContentImageItems = (): ReactNode => {
+    if (!contentImages || contentImages.length === 0) return null;
+    const imgCounts = new Map<string, number>();
+    return (
+      <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {contentImages.map((item) => {
+          const h = stableStringHash(item.dataUrl);
+          const ord = (imgCounts.get(h) ?? 0) + 1;
+          imgCounts.set(h, ord);
+          const figureN = ord;
+          return (
             <div key={`fig:${h}:${ord}`} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {item.label && (
                 <p style={{ fontSize: 12, color: 'var(--secondary-text)', margin: 0 }}>{item.label}</p>
@@ -328,126 +331,147 @@ export default function ChatToolCard({ toolCall, className = '', surfaceVariant 
                 }}
               />
             </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    if (imageItems) {
-      return (
-        <div style={{ marginTop: 6, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <img
-            src={imageItems.dataUrl}
-            alt={imageItems.alt || t('chat.tool_image_processed')}
-            style={{
-              maxWidth: 200,
-              maxHeight: 200,
-              objectFit: 'contain',
-              borderRadius: 6,
-              border: '1px solid var(--border)',
-            }}
-          />
-          <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
-            <p style={{ fontWeight: 600, color: 'var(--primary-text)', margin: '0 0 4px' }}>{t('chat.tool_image_processed')}</p>
-            <p style={{ opacity: 0.7, margin: 0 }}>{t('chat.tool_image_expand')}</p>
-          </div>
-        </div>
-      );
-    }
-
-    // Resource list/search results with add-to-context buttons
-    if (resourceItems && resourceItems.length > 0) {
-      return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {resourceItems.map((item) => {
-            const isPinned = pinnedIds.has(item.id);
-            return (
-              <div
-                key={item.id}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 6,
-                  padding: '5px 6px',
-                  borderRadius: 5,
-                  border: '1px solid var(--border)',
-                  background: isPinned ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : 'var(--bg-tertiary)',
-                }}
-              >
-                <FileText style={{ width: 12, height: 12, flexShrink: 0, marginTop: 2, color: 'var(--tertiary-text)' }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--primary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {item.title}
-                  </span>
-                  {item.snippet && (
-                    <span style={{ fontSize: 12, color: 'var(--tertiary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {item.snippet}
-                    </span>
-                  )}
-                </div>
-                {item.similarity != null && (
-                  <DomeBadge
-                    label={`${Math.round(item.similarity * 100)}%`}
-                    variant="soft"
-                    size="xs"
-                    color="var(--tertiary-text)"
-                    className="shrink-0 mt-0.5"
-                  />
-                )}
-                <DomeButton
-                  type="button"
-                  variant="ghost"
-                  size="xs"
-                  iconOnly
-                  onClick={() => {
-                    if (isPinned) {
-                      removePinnedResource(item.id);
-                    } else {
-                      addPinnedResource({ id: item.id, title: item.title, type: item.type });
-                    }
-                  }}
-                  title={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
-                  aria-label={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
-                  className="!p-0 size-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
-                >
-                  {isPinned ? (
-                    <CheckCircle2 className="w-[13px] h-[13px]" />
-                  ) : (
-                    <PlusCircle className="w-[13px] h-[13px]" />
-                  )}
-                </DomeButton>
-              </div>
-            );
-          })}
-        </div>
-      );
-    }
-
-    // JSON pretty view for objects/arrays
-    if (parsedResult && typeof parsedResult === 'object') {
-      return (
-        <div
-          style={{
-            fontSize: 12,
-            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            overflowY: 'auto',
-            maxHeight: 256,
-            background: 'var(--bg-tertiary)',
-            borderRadius: 4,
-            padding: '8px 10px',
-          }}
-        >
-          <JsonPrettyPrinterRoot value={parsedResult} />
-        </div>
-      );
-    }
-
-    return (
-      <pre className="chat-tool-result-pre">
-        {resultText}
-      </pre>
+          );
+        })}
+      </div>
     );
+  };
+
+  const renderImageResult = (): ReactNode => {
+    if (!imageItems) return null;
+    return (
+      <div style={{ marginTop: 6, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+        <img
+          src={imageItems.dataUrl}
+          alt={imageItems.alt || t('chat.tool_image_processed')}
+          style={{
+            maxWidth: 200,
+            maxHeight: 200,
+            objectFit: 'contain',
+            borderRadius: 6,
+            border: '1px solid var(--border)',
+          }}
+        />
+        <div style={{ fontSize: 12, color: 'var(--secondary-text)' }}>
+          <p style={{ fontWeight: 600, color: 'var(--primary-text)', margin: '0 0 4px' }}>{t('chat.tool_image_processed')}</p>
+          <p style={{ opacity: 0.7, margin: 0 }}>{t('chat.tool_image_expand')}</p>
+        </div>
+      </div>
+    );
+  };
+
+  const renderResourceList = (): ReactNode => {
+    if (!resourceItems || resourceItems.length === 0) return null;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {resourceItems.map((item) => {
+          const isPinned = pinnedIds.has(item.id);
+          return (
+            <div
+              key={item.id}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 6,
+                padding: '5px 6px',
+                borderRadius: 5,
+                border: '1px solid var(--border)',
+                background: isPinned ? 'color-mix(in srgb, var(--accent) 6%, transparent)' : 'var(--bg-tertiary)',
+              }}
+            >
+              <FileText style={{ width: 12, height: 12, flexShrink: 0, marginTop: 2, color: 'var(--tertiary-text)' }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--primary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.title}
+                </span>
+                {item.snippet && (
+                  <span style={{ fontSize: 12, color: 'var(--tertiary-text)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {item.snippet}
+                  </span>
+                )}
+              </div>
+              {item.similarity != null && (
+                <DomeBadge
+                  label={`${Math.round(item.similarity * 100)}%`}
+                  variant="soft"
+                  size="xs"
+                  color="var(--tertiary-text)"
+                  className="shrink-0 mt-0.5"
+                />
+              )}
+              <DomeButton
+                type="button"
+                variant="ghost"
+                size="xs"
+                iconOnly
+                onClick={() => {
+                  if (isPinned) {
+                    removePinnedResource(item.id);
+                  } else {
+                    addPinnedResource({ id: item.id, title: item.title, type: item.type });
+                  }
+                }}
+                title={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
+                aria-label={isPinned ? t('chat.remove_from_context') : t('chat.add_to_context')}
+                className="!p-0 size-5 min-w-0 shrink-0 text-[var(--tertiary-text)] hover:text-[var(--accent)]"
+              >
+                {isPinned ? (
+                  <CheckCircle2 className="w-[13px] h-[13px]" />
+                ) : (
+                  <PlusCircle className="w-[13px] h-[13px]" />
+                )}
+              </DomeButton>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const renderJsonPrettyView = (): ReactNode => {
+    if (!parsedResult || typeof parsedResult !== 'object') return null;
+    return (
+      <div
+        style={{
+          fontSize: 12,
+          fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+          overflowY: 'auto',
+          maxHeight: 256,
+          background: 'var(--bg-tertiary)',
+          borderRadius: 4,
+          padding: '8px 10px',
+        }}
+      >
+        <JsonPrettyPrinterRoot value={parsedResult} />
+      </div>
+    );
+  };
+
+  const renderFallback = (): ReactNode => (
+    <pre className="chat-tool-result-pre">
+      {resultText}
+    </pre>
+  );
+
+  const renderResultContent = (): ReactNode => {
+    const renderers: ReadonlyArray<() => ReactNode> = [
+      renderSoftConfirmation,
+      renderErrorBlock,
+      renderFormattedView,
+      renderRawJson,
+      renderDocuments,
+      renderPersistedArtifact,
+      renderArtifactCardItem,
+      renderContentImageItems,
+      renderImageResult,
+      renderResourceList,
+      renderJsonPrettyView,
+    ];
+    for (const renderer of renderers) {
+      const node = renderer();
+      if (node) return node;
+    }
+    return renderFallback();
   };
 
   const hasResult = Boolean(toolCall.result || toolCall.error);
