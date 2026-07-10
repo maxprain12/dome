@@ -1,7 +1,35 @@
 import type { Editor } from "@tiptap/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react"
 
 type Orientation = "horizontal" | "vertical" | "both"
+
+function moveNext<T>(
+  items: T[],
+  onNavigate: ((item: T, index: number) => void) | undefined,
+  setSelectedIndex: Dispatch<SetStateAction<number>>,
+): void {
+  setSelectedIndex((currentIndex) => {
+    const nextIndex =
+      currentIndex === -1 ? 0 : (currentIndex + 1) % items.length
+    onNavigate?.(items[nextIndex], nextIndex)
+    return nextIndex
+  })
+}
+
+function movePrev<T>(
+  items: T[],
+  onNavigate: ((item: T, index: number) => void) | undefined,
+  setSelectedIndex: Dispatch<SetStateAction<number>>,
+): void {
+  setSelectedIndex((currentIndex) => {
+    const nextIndex =
+      currentIndex === -1
+        ? items.length - 1
+        : (currentIndex - 1 + items.length) % items.length
+    onNavigate?.(items[nextIndex], nextIndex)
+    return nextIndex
+  })
+}
 
 interface MenuNavigationOptions<T> {
   /**
@@ -72,59 +100,41 @@ export function useMenuNavigation<T>({
     const handleKeyboardNavigation = (event: KeyboardEvent) => {
       if (!items.length) return false
 
-      const moveNext = () =>
-        setSelectedIndex((currentIndex) => {
-          const nextIndex =
-            currentIndex === -1 ? 0 : (currentIndex + 1) % items.length
-          onNavigate?.(items[nextIndex], nextIndex)
-          return nextIndex
-        })
-
-      const movePrev = () =>
-        setSelectedIndex((currentIndex) => {
-          const nextIndex =
-            currentIndex === -1
-              ? items.length - 1
-              : (currentIndex - 1 + items.length) % items.length
-          onNavigate?.(items[nextIndex], nextIndex)
-          return nextIndex
-        })
-
       switch (event.key) {
         case "ArrowUp": {
           if (orientation === "horizontal") return false
           event.preventDefault()
-          movePrev()
+          movePrev(items, onNavigate, setSelectedIndex)
           return true
         }
 
         case "ArrowDown": {
           if (orientation === "horizontal") return false
           event.preventDefault()
-          moveNext()
+          moveNext(items, onNavigate, setSelectedIndex)
           return true
         }
 
         case "ArrowLeft": {
           if (orientation === "vertical") return false
           event.preventDefault()
-          movePrev()
+          movePrev(items, onNavigate, setSelectedIndex)
           return true
         }
 
         case "ArrowRight": {
           if (orientation === "vertical") return false
           event.preventDefault()
-          moveNext()
+          moveNext(items, onNavigate, setSelectedIndex)
           return true
         }
 
         case "Tab": {
           event.preventDefault()
           if (event.shiftKey) {
-            movePrev()
+            movePrev(items, onNavigate, setSelectedIndex)
           } else {
-            moveNext()
+            moveNext(items, onNavigate, setSelectedIndex)
           }
           return true
         }
