@@ -563,62 +563,103 @@ function buildParams(
 		params.tool_choice = options.toolChoice;
 	}
 
-	if (compat.thinkingFormat === "zai" && model.reasoning) {
-		(params as any).enable_thinking = !!options?.reasoningEffort;
-	} else if (compat.thinkingFormat === "qwen" && model.reasoning) {
-		(params as any).enable_thinking = !!options?.reasoningEffort;
-	} else if (compat.thinkingFormat === "qwen-chat-template" && model.reasoning) {
-		(params as any).chat_template_kwargs = {
-			enable_thinking: !!options?.reasoningEffort,
-			preserve_thinking: true,
-		};
-	} else if (compat.thinkingFormat === "deepseek" && model.reasoning) {
-		(params as any).thinking = { type: options?.reasoningEffort ? "enabled" : "disabled" };
-		if (options?.reasoningEffort && compat.supportsReasoningEffort) {
-			(params as any).reasoning_effort =
-				model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-		}
-	} else if (compat.thinkingFormat === "openrouter" && model.reasoning) {
-		// OpenRouter normalizes reasoning across providers via a nested reasoning object.
-		const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
-		if (options?.reasoningEffort) {
-			openRouterParams.reasoning = {
-				effort: model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort,
+	applyReasoningParams(params, model, compat, options);
+	applyProviderRoutingParams(params, model);
+
+	return params;
+}
+
+/**
+ * Map options.reasoningEffort onto the provider-specific thinking/reasoning
+ * params. Each named thinkingFormat handles the request fully, except
+ * "ant-ling" without a reasoningEffort, which (like unknown formats) falls
+ * back to the generic OpenAI-style reasoning_effort handling.
+ */
+function applyReasoningParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+	options?: OpenAICompletionsOptions,
+): void {
+	if (!model.reasoning) return;
+	const requestedEffort = options?.reasoningEffort;
+	const mappedEffort = requestedEffort ? (model.thinkingLevelMap?.[requestedEffort] ?? requestedEffort) : undefined;
+
+	switch (compat.thinkingFormat) {
+		case "zai":
+		case "qwen":
+			(params as any).enable_thinking = !!requestedEffort;
+			return;
+		case "qwen-chat-template":
+			(params as any).chat_template_kwargs = {
+				enable_thinking: !!requestedEffort,
+				preserve_thinking: true,
 			};
-		} else if (model.thinkingLevelMap?.off !== null) {
-			openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
+			return;
+		case "deepseek":
+			(params as any).thinking = { type: requestedEffort ? "enabled" : "disabled" };
+			if (requestedEffort && compat.supportsReasoningEffort) {
+				(params as any).reasoning_effort = mappedEffort;
+			}
+			return;
+		case "openrouter": {
+			// OpenRouter normalizes reasoning across providers via a nested reasoning object.
+			const openRouterParams = params as typeof params & { reasoning?: { effort?: string } };
+			if (requestedEffort) {
+				openRouterParams.reasoning = { effort: mappedEffort };
+			} else if (model.thinkingLevelMap?.off !== null) {
+				openRouterParams.reasoning = { effort: model.thinkingLevelMap?.off ?? "none" };
+			}
+			return;
 		}
-	} else if (compat.thinkingFormat === "ant-ling" && model.reasoning && options?.reasoningEffort) {
-		const effort = model.thinkingLevelMap?.[options.reasoningEffort];
-		if (typeof effort === "string") {
-			(params as typeof params & { reasoning?: { effort: string } }).reasoning = { effort };
+		case "ant-ling": {
+			if (!requestedEffort) break; // falls back to generic reasoning_effort handling
+			const effort = model.thinkingLevelMap?.[requestedEffort];
+			if (typeof effort === "string") {
+				(params as typeof params & { reasoning?: { effort: string } }).reasoning = { effort };
+			}
+			return;
 		}
-	} else if (compat.thinkingFormat === "together" && model.reasoning) {
-		const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
-			reasoning?: { enabled: boolean };
-			reasoning_effort?: string;
-		};
-		togetherParams.reasoning = { enabled: !!options?.reasoningEffort };
-		if (options?.reasoningEffort && compat.supportsReasoningEffort) {
-			togetherParams.reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
+		case "together": {
+			const togetherParams = params as Omit<typeof params, "reasoning_effort"> & {
+				reasoning?: { enabled: boolean };
+				reasoning_effort?: string;
+			};
+			togetherParams.reasoning = { enabled: !!requestedEffort };
+			if (requestedEffort && compat.supportsReasoningEffort) {
+				togetherParams.reasoning_effort = mappedEffort;
+			}
+			return;
 		}
-	} else if (compat.thinkingFormat === "string-thinking" && model.reasoning) {
-		const stringThinkingParams = params as typeof params & { thinking?: string };
-		if (options?.reasoningEffort) {
-			stringThinkingParams.thinking = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-		} else if (model.thinkingLevelMap?.off !== null) {
-			stringThinkingParams.thinking = model.thinkingLevelMap?.off ?? "none";
+		case "string-thinking": {
+			const stringThinkingParams = params as typeof params & { thinking?: string };
+			if (requestedEffort) {
+				stringThinkingParams.thinking = mappedEffort;
+			} else if (model.thinkingLevelMap?.off !== null) {
+				stringThinkingParams.thinking = model.thinkingLevelMap?.off ?? "none";
+			}
+			return;
 		}
-	} else if (options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
-		// OpenAI-style reasoning_effort
-		(params as any).reasoning_effort = model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort;
-	} else if (!options?.reasoningEffort && model.reasoning && compat.supportsReasoningEffort) {
+		default:
+			break;
+	}
+
+	// Generic OpenAI-style reasoning_effort
+	if (!compat.supportsReasoningEffort) return;
+	if (requestedEffort) {
+		(params as any).reasoning_effort = mappedEffort;
+	} else {
 		const offValue = model.thinkingLevelMap?.off;
 		if (typeof offValue === "string") {
 			(params as any).reasoning_effort = offValue;
 		}
 	}
+}
 
+function applyProviderRoutingParams(
+	params: OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+	model: Model<"openai-completions">,
+): void {
 	// OpenRouter provider routing preferences
 	if (model.compat?.openRouterRouting) {
 		(params as any).provider = model.compat.openRouterRouting;
@@ -634,8 +675,6 @@ function buildParams(
 			(params as any).providerOptions = { gateway: gatewayOptions };
 		}
 	}
-
-	return params;
 }
 
 function getCompatCacheControl(
@@ -753,6 +792,246 @@ function addCacheControlToTextContent(
 	return false;
 }
 
+function normalizeToolCallId(id: string, model: Model<"openai-completions">): string {
+	// Handle pipe-separated IDs from OpenAI Responses API
+	// Format: {call_id}|{id} where {id} can be 400+ chars with special chars (+, /, =)
+	// These come from providers like github-copilot, openai-codex, opencode
+	// Extract just the call_id part and normalize it
+	if (id.includes("|")) {
+		const [callId] = id.split("|");
+		// Sanitize to allowed chars and truncate to 40 chars (OpenAI limit)
+		return callId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
+	}
+
+	if (model.provider === "openai") return id.length > 40 ? id.slice(0, 40) : id;
+	return id;
+}
+
+/** Returns null when the message converts to empty content and must be skipped. */
+function convertUserMessage(msg: Extract<Message, { role: "user" }>): ChatCompletionMessageParam | null {
+	if (typeof msg.content === "string") {
+		return {
+			role: "user",
+			content: sanitizeSurrogates(msg.content),
+		};
+	}
+	const content: ChatCompletionContentPart[] = msg.content.map((item): ChatCompletionContentPart => {
+		if (item.type === "text") {
+			return {
+				type: "text",
+				text: sanitizeSurrogates(item.text),
+			} satisfies ChatCompletionContentPartText;
+		} else {
+			return {
+				type: "image_url",
+				image_url: {
+					url: `data:${item.mimeType};base64,${item.data}`,
+				},
+			} satisfies ChatCompletionContentPartImage;
+		}
+	});
+	if (content.length === 0) return null;
+	return { role: "user", content };
+}
+
+function applyAssistantThinkingBlocks(
+	assistantMsg: ChatCompletionAssistantMessageParam,
+	msg: AssistantMessage,
+	assistantTextParts: ChatCompletionContentPartText[],
+	assistantText: string,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+): void {
+	const nonEmptyThinkingBlocks = msg.content
+		.filter(isThinkingContentBlock)
+		.filter((block) => block.thinking.trim().length > 0);
+	if (nonEmptyThinkingBlocks.length > 0) {
+		if (compat.requiresThinkingAsText) {
+			// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
+			const thinkingText = nonEmptyThinkingBlocks
+				.map((block) => sanitizeSurrogates(block.thinking))
+				.join("\n\n");
+			assistantMsg.content = [{ type: "text", text: thinkingText }, ...assistantTextParts];
+		} else {
+			// Always send assistant content as a plain string (OpenAI Chat Completions
+			// API standard format). Sending as an array of {type:"text", text:"..."}
+			// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
+			// NVIDIA NIM) to mirror the content-block structure literally in their
+			// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
+			if (assistantText.length > 0) {
+				assistantMsg.content = assistantText;
+			}
+
+			// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
+			let signature = nonEmptyThinkingBlocks[0].thinkingSignature;
+			if (model.provider === "opencode-go" && signature === "reasoning") {
+				signature = "reasoning_content";
+			}
+			if (signature && signature.length > 0) {
+				(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
+			}
+		}
+	} else if (assistantText.length > 0) {
+		// Always send assistant content as a plain string (OpenAI Chat Completions
+		// API standard format). Sending as an array of {type:"text", text:"..."}
+		// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
+		// NVIDIA NIM) to mirror the content-block structure literally in their
+		// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
+		assistantMsg.content = assistantText;
+	}
+}
+
+function applyAssistantToolCalls(assistantMsg: ChatCompletionAssistantMessageParam, msg: AssistantMessage): void {
+	const toolCalls = msg.content.filter(isToolCallBlock);
+	if (toolCalls.length === 0) return;
+	assistantMsg.tool_calls = toolCalls.map((tc) => ({
+		id: tc.id,
+		type: "function" as const,
+		function: {
+			name: tc.name,
+			arguments: JSON.stringify(tc.arguments),
+		},
+	}));
+	const reasoningDetails = toolCalls
+		.filter((tc) => tc.thoughtSignature)
+		.map((tc) => {
+			try {
+				return JSON.parse(tc.thoughtSignature!);
+			} catch {
+				return null;
+			}
+		})
+		.filter(Boolean);
+	if (reasoningDetails.length > 0) {
+		(assistantMsg as any).reasoning_details = reasoningDetails;
+	}
+}
+
+/** Returns null when the message has no content and no tool calls and must be skipped. */
+function convertAssistantMessage(
+	msg: AssistantMessage,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+): ChatCompletionAssistantMessageParam | null {
+	// Some providers don't accept null content, use empty string instead
+	const assistantMsg: ChatCompletionAssistantMessageParam = {
+		role: "assistant",
+		content: compat.requiresAssistantAfterToolResult ? "" : null,
+	};
+
+	const assistantTextParts = msg.content
+		.filter(isTextContentBlock)
+		.filter((block) => block.text.trim().length > 0)
+		.map(
+			(block) =>
+				({
+					type: "text",
+					text: sanitizeSurrogates(block.text),
+				}) satisfies ChatCompletionContentPartText,
+		);
+	const assistantText = assistantTextParts.map((part) => part.text).join("");
+
+	applyAssistantThinkingBlocks(assistantMsg, msg, assistantTextParts, assistantText, model, compat);
+	applyAssistantToolCalls(assistantMsg, msg);
+
+	if (
+		compat.requiresReasoningContentOnAssistantMessages &&
+		model.reasoning &&
+		(assistantMsg as { reasoning_content?: string }).reasoning_content === undefined
+	) {
+		(assistantMsg as { reasoning_content?: string }).reasoning_content = "";
+	}
+	// Skip assistant messages that have no content and no tool calls.
+	// Some providers require "either content or tool_calls, but not none".
+	// Other providers also don't accept empty assistant messages.
+	// This handles aborted assistant responses that got no content.
+	const content = assistantMsg.content;
+	const hasContent =
+		content !== null &&
+		content !== undefined &&
+		(typeof content === "string" ? content.length > 0 : content.length > 0);
+	if (!hasContent && !assistantMsg.tool_calls) {
+		return null;
+	}
+	return assistantMsg;
+}
+
+/**
+ * Convert a run of consecutive toolResult messages starting at startIndex.
+ * Returns the converted messages (tool results plus, when images are present,
+ * an optional synthetic assistant bridge and a user message carrying the
+ * images), the index of the last consumed message, and the effective lastRole.
+ */
+function convertToolResultGroup(
+	transformedMessages: Message[],
+	startIndex: number,
+	model: Model<"openai-completions">,
+	compat: ResolvedOpenAICompletionsCompat,
+): { messages: ChatCompletionMessageParam[]; endIndex: number; lastRole: "user" | "toolResult" } {
+	const messages: ChatCompletionMessageParam[] = [];
+	const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
+	let j = startIndex;
+
+	for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
+		const toolMsg = transformedMessages[j] as ToolResultMessage;
+
+		// Extract text and image content
+		const textResult = toolMsg.content
+			.filter(isTextContentBlock)
+			.map((block) => block.text)
+			.join("\n");
+		const hasImages = toolMsg.content.some((c) => c.type === "image");
+
+		// Always send tool result with text (or placeholder if only images)
+		const hasText = textResult.length > 0;
+		// Some providers require the 'name' field in tool results
+		const toolResultMsg: ChatCompletionToolMessageParam = {
+			role: "tool",
+			content: sanitizeSurrogates(hasText ? textResult : "(see attached image)"),
+			tool_call_id: toolMsg.toolCallId,
+		};
+		if (compat.requiresToolResultName && toolMsg.toolName) {
+			(toolResultMsg as any).name = toolMsg.toolName;
+		}
+		messages.push(toolResultMsg);
+
+		if (hasImages && model.input.includes("image")) {
+			for (const block of toolMsg.content) {
+				if (isImageContentBlock(block)) {
+					imageBlocks.push({
+						type: "image_url",
+						image_url: {
+							url: `data:${block.mimeType};base64,${block.data}`,
+						},
+					});
+				}
+			}
+		}
+	}
+
+	if (imageBlocks.length === 0) {
+		return { messages, endIndex: j - 1, lastRole: "toolResult" };
+	}
+
+	if (compat.requiresAssistantAfterToolResult) {
+		messages.push({
+			role: "assistant",
+			content: "I have processed the tool results.",
+		});
+	}
+	messages.push({
+		role: "user",
+		content: [
+			{
+				type: "text",
+				text: "Attached image(s) from tool result:",
+			},
+			...imageBlocks,
+		],
+	});
+	return { messages, endIndex: j - 1, lastRole: "user" };
+}
+
 export function convertMessages(
 	model: Model<"openai-completions">,
 	context: Context,
@@ -760,22 +1039,7 @@ export function convertMessages(
 ): ChatCompletionMessageParam[] {
 	const params: ChatCompletionMessageParam[] = [];
 
-	const normalizeToolCallId = (id: string): string => {
-		// Handle pipe-separated IDs from OpenAI Responses API
-		// Format: {call_id}|{id} where {id} can be 400+ chars with special chars (+, /, =)
-		// These come from providers like github-copilot, openai-codex, opencode
-		// Extract just the call_id part and normalize it
-		if (id.includes("|")) {
-			const [callId] = id.split("|");
-			// Sanitize to allowed chars and truncate to 40 chars (OpenAI limit)
-			return callId.replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 40);
-		}
-
-		if (model.provider === "openai") return id.length > 40 ? id.slice(0, 40) : id;
-		return id;
-	};
-
-	const transformedMessages = transformMessages(context.messages, model, (id) => normalizeToolCallId(id));
+	const transformedMessages = transformMessages(context.messages, model, (id) => normalizeToolCallId(id, model));
 
 	if (context.systemPrompt) {
 		const useDeveloperRole = model.reasoning && compat.supportsDeveloperRole;
@@ -797,199 +1061,20 @@ export function convertMessages(
 		}
 
 		if (msg.role === "user") {
-			if (typeof msg.content === "string") {
-				params.push({
-					role: "user",
-					content: sanitizeSurrogates(msg.content),
-				});
-			} else {
-				const content: ChatCompletionContentPart[] = msg.content.map((item): ChatCompletionContentPart => {
-					if (item.type === "text") {
-						return {
-							type: "text",
-							text: sanitizeSurrogates(item.text),
-						} satisfies ChatCompletionContentPartText;
-					} else {
-						return {
-							type: "image_url",
-							image_url: {
-								url: `data:${item.mimeType};base64,${item.data}`,
-							},
-						} satisfies ChatCompletionContentPartImage;
-					}
-				});
-				if (content.length === 0) continue;
-				params.push({
-					role: "user",
-					content,
-				});
-			}
+			const userMsg = convertUserMessage(msg);
+			// Skip user messages that convert to empty content (lastRole is intentionally not updated)
+			if (!userMsg) continue;
+			params.push(userMsg);
 		} else if (msg.role === "assistant") {
-			// Some providers don't accept null content, use empty string instead
-			const assistantMsg: ChatCompletionAssistantMessageParam = {
-				role: "assistant",
-				content: compat.requiresAssistantAfterToolResult ? "" : null,
-			};
-
-			const assistantTextParts = msg.content
-				.filter(isTextContentBlock)
-				.filter((block) => block.text.trim().length > 0)
-				.map(
-					(block) =>
-						({
-							type: "text",
-							text: sanitizeSurrogates(block.text),
-						}) satisfies ChatCompletionContentPartText,
-				);
-			const assistantText = assistantTextParts.map((part) => part.text).join("");
-
-			const nonEmptyThinkingBlocks = msg.content
-				.filter(isThinkingContentBlock)
-				.filter((block) => block.thinking.trim().length > 0);
-			if (nonEmptyThinkingBlocks.length > 0) {
-				if (compat.requiresThinkingAsText) {
-					// Convert thinking blocks to plain text (no tags to avoid model mimicking them)
-					const thinkingText = nonEmptyThinkingBlocks
-						.map((block) => sanitizeSurrogates(block.thinking))
-						.join("\n\n");
-					assistantMsg.content = [{ type: "text", text: thinkingText }, ...assistantTextParts];
-				} else {
-					// Always send assistant content as a plain string (OpenAI Chat Completions
-					// API standard format). Sending as an array of {type:"text", text:"..."}
-					// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
-					// NVIDIA NIM) to mirror the content-block structure literally in their
-					// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
-					if (assistantText.length > 0) {
-						assistantMsg.content = assistantText;
-					}
-
-					// Use the signature from the first thinking block if available (for llama.cpp server + gpt-oss)
-					let signature = nonEmptyThinkingBlocks[0].thinkingSignature;
-					if (model.provider === "opencode-go" && signature === "reasoning") {
-						signature = "reasoning_content";
-					}
-					if (signature && signature.length > 0) {
-						(assistantMsg as any)[signature] = nonEmptyThinkingBlocks.map((block) => block.thinking).join("\n");
-					}
-				}
-			} else if (assistantText.length > 0) {
-				// Always send assistant content as a plain string (OpenAI Chat Completions
-				// API standard format). Sending as an array of {type:"text", text:"..."}
-				// objects is non-standard and causes some models (e.g. DeepSeek V3.2 via
-				// NVIDIA NIM) to mirror the content-block structure literally in their
-				// output, producing recursive nesting like [{'type':'text','text':'[{...}]'}].
-				assistantMsg.content = assistantText;
-			}
-
-			const toolCalls = msg.content.filter(isToolCallBlock);
-			if (toolCalls.length > 0) {
-				assistantMsg.tool_calls = toolCalls.map((tc) => ({
-					id: tc.id,
-					type: "function" as const,
-					function: {
-						name: tc.name,
-						arguments: JSON.stringify(tc.arguments),
-					},
-				}));
-				const reasoningDetails = toolCalls
-					.filter((tc) => tc.thoughtSignature)
-					.map((tc) => {
-						try {
-							return JSON.parse(tc.thoughtSignature!);
-						} catch {
-							return null;
-						}
-					})
-					.filter(Boolean);
-				if (reasoningDetails.length > 0) {
-					(assistantMsg as any).reasoning_details = reasoningDetails;
-				}
-			}
-			if (
-				compat.requiresReasoningContentOnAssistantMessages &&
-				model.reasoning &&
-				(assistantMsg as { reasoning_content?: string }).reasoning_content === undefined
-			) {
-				(assistantMsg as { reasoning_content?: string }).reasoning_content = "";
-			}
-			// Skip assistant messages that have no content and no tool calls.
-			// Some providers require "either content or tool_calls, but not none".
-			// Other providers also don't accept empty assistant messages.
-			// This handles aborted assistant responses that got no content.
-			const content = assistantMsg.content;
-			const hasContent =
-				content !== null &&
-				content !== undefined &&
-				(typeof content === "string" ? content.length > 0 : content.length > 0);
-			if (!hasContent && !assistantMsg.tool_calls) {
-				continue;
-			}
+			const assistantMsg = convertAssistantMessage(msg, model, compat);
+			// Skip empty assistant messages (lastRole is intentionally not updated)
+			if (!assistantMsg) continue;
 			params.push(assistantMsg);
 		} else if (msg.role === "toolResult") {
-			const imageBlocks: Array<{ type: "image_url"; image_url: { url: string } }> = [];
-			let j = i;
-
-			for (; j < transformedMessages.length && transformedMessages[j].role === "toolResult"; j++) {
-				const toolMsg = transformedMessages[j] as ToolResultMessage;
-
-				// Extract text and image content
-				const textResult = toolMsg.content
-					.filter(isTextContentBlock)
-					.map((block) => block.text)
-					.join("\n");
-				const hasImages = toolMsg.content.some((c) => c.type === "image");
-
-				// Always send tool result with text (or placeholder if only images)
-				const hasText = textResult.length > 0;
-				// Some providers require the 'name' field in tool results
-				const toolResultMsg: ChatCompletionToolMessageParam = {
-					role: "tool",
-					content: sanitizeSurrogates(hasText ? textResult : "(see attached image)"),
-					tool_call_id: toolMsg.toolCallId,
-				};
-				if (compat.requiresToolResultName && toolMsg.toolName) {
-					(toolResultMsg as any).name = toolMsg.toolName;
-				}
-				params.push(toolResultMsg);
-
-				if (hasImages && model.input.includes("image")) {
-					for (const block of toolMsg.content) {
-						if (isImageContentBlock(block)) {
-							imageBlocks.push({
-								type: "image_url",
-								image_url: {
-									url: `data:${block.mimeType};base64,${block.data}`,
-								},
-							});
-						}
-					}
-				}
-			}
-
-			i = j - 1;
-
-			if (imageBlocks.length > 0) {
-				if (compat.requiresAssistantAfterToolResult) {
-					params.push({
-						role: "assistant",
-						content: "I have processed the tool results.",
-					});
-				}
-
-				params.push({
-					role: "user",
-					content: [
-						{
-							type: "text",
-							text: "Attached image(s) from tool result:",
-						},
-						...imageBlocks,
-					],
-				});
-				lastRole = "user";
-			} else {
-				lastRole = "toolResult";
-			}
+			const group = convertToolResultGroup(transformedMessages, i, model, compat);
+			params.push(...group.messages);
+			i = group.endIndex;
+			lastRole = group.lastRole;
 			continue;
 		}
 

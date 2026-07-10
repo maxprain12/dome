@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { Resource } from '@/lib/hooks/useResources';
 import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
-import { useResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
+import { useResourceVisualPreview, type ResourceVisualPreview } from '@/lib/hooks/useResourceVisualPreview';
 import { DOME_IFRAME_STORAGE_SHIM_SCRIPT } from '@/lib/chat/artifactStorageShim';
 import { useArtifactFrameSrc } from '@/lib/chat/artifactFrameUrl';
 import { getFolderColor, TYPE_LABELS, FOLDER_COLOR_DEFAULT } from './folderTabShared';
@@ -176,26 +176,7 @@ function highlightSnippet(text: string, query: string): ReactNode {
   return parts.length > 0 ? parts : text;
 }
 
-function FolderCardImpl({
-  item,
-  isFolder,
-  isLast,
-  onOpen,
-  onDelete,
-  onRename,
-  onChangeColor,
-  onMoveToProject,
-  onMoveToFolder,
-  onOpenInSplit,
-  onOpenInWindow,
-  onNewSubfolder,
-  onToggleSelect,
-  selected,
-  showSelectionChrome,
-  searchQuery,
-  searchFocused,
-  cardRef,
-}: {
+interface FolderCardProps {
   item: Resource;
   isFolder: boolean;
   isLast: boolean;
@@ -214,41 +195,41 @@ function FolderCardImpl({
   searchQuery?: string;
   searchFocused?: boolean;
   cardRef?: React.Ref<HTMLDivElement>;
-}) {
-  const { t } = useTranslation();
-  const [hovered, setHovered] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const [renaming, setRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState(item.title ?? '');
-  const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
-  const menuBtnRef = useRef<HTMLButtonElement>(null);
-  const renameRef = useRef<HTMLInputElement>(null);
+}
 
-  useEffect(() => {
-    if (!menuOpen) return;
-    const close = () => setMenuOpen(false);
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [menuOpen]);
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
 
-  const startRenaming = () => {
-    setRenaming(true);
-    setRenameValue(item.title ?? '');
-    requestAnimationFrame(() => renameRef.current?.focus());
-  };
+/** All render-ready values derived from the resource + lazy visual preview. */
+interface CardPresentation {
+  folderColor: string | undefined;
+  typeColor: string;
+  typeLabel: string;
+  timeAgo: string;
+  coverImage: string | null;
+  isPdfCover: boolean;
+  artifactTemplate: string | null;
+  snippet: string;
+  coverShowsSnippet: boolean;
+  noteMarkdown: string | null;
+  displayTitle: string;
+  isMediaCard: boolean;
+  isDocCard: boolean;
+  isVideoCard: boolean;
+}
 
+function deriveCardPresentation(
+  item: Resource,
+  isFolder: boolean,
+  visual: ResourceVisualPreview,
+  searchQuery: string | undefined,
+  t: TranslateFn,
+): CardPresentation {
   const folderColor = isFolder ? getFolderColor(item) : undefined;
   const typeColor = isFolder ? (folderColor ?? 'var(--dome-accent)') : 'var(--dome-text-muted)';
   const typeLabel = isFolder ? t('folder.typeFolder', 'Carpeta') : (TYPE_LABELS[item.type] ?? item.type);
   const timeAgo = item.updated_at
     ? formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })
     : '—';
-
-  // Lazy content preview (PDF first page, artifact mini-visual, image thumbnail
-  // or text snippet) — the lightweight list payload omits content/thumbnails,
-  // so they are fetched per-card on demand via this hook.
-  const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
 
   const eagerThumbnail = isFolder ? null : pickThumbnail(item);
   const lazyImage = !isFolder
@@ -278,13 +259,426 @@ function FolderCardImpl({
     : null;
 
   const displayTitle = item.title || t('folder.untitled');
-  const isFolderCard = isFolder;
 
   // Format-aware card shape: media keeps the asset's own aspect ratio,
   // documents render as a portrait "page", folders are compact tiles.
   const isMediaCard = !isFolder && (item.type === 'image' || item.type === 'video');
   const isDocCard = !isFolder && !isMediaCard && (item.type === 'pdf' || coverShowsSnippet);
   const isVideoCard = !isFolder && item.type === 'video';
+
+  return {
+    folderColor,
+    typeColor,
+    typeLabel,
+    timeAgo,
+    coverImage,
+    isPdfCover,
+    artifactTemplate,
+    snippet,
+    coverShowsSnippet,
+    noteMarkdown,
+    displayTitle,
+    isMediaCard,
+    isDocCard,
+    isVideoCard,
+  };
+}
+
+function buildCardClass(
+  p: CardPresentation,
+  flags: { isFolderCard: boolean; searchFocused?: boolean; selected: boolean; menuOpen: boolean; isLast: boolean },
+): string {
+  return [
+    'dome-fs-card',
+    flags.isFolderCard ? 'dome-fs-card--folder' : '',
+    p.isMediaCard ? 'dome-fs-card--media' : '',
+    p.isDocCard ? 'dome-fs-card--doc' : '',
+    p.artifactTemplate ? 'dome-fs-card--artifact-card' : '',
+    flags.searchFocused ? 'dome-fs-card--focused' : '',
+    flags.selected ? 'dome-fs-card--selected' : '',
+    flags.menuOpen ? 'dome-fs-card--menu-open' : '',
+    flags.isLast ? 'dome-fs-card--last' : '',
+  ].filter(Boolean).join(' ');
+}
+
+/** Cover preview by priority: folder icon → artifact → image → Markdown → snippet → fallback icon. */
+function CoverPreviewContent({
+  item,
+  isFolderCard,
+  p,
+  visual,
+  searchQuery,
+}: {
+  item: Resource;
+  isFolderCard: boolean;
+  p: CardPresentation;
+  visual: ResourceVisualPreview;
+  searchQuery?: string;
+}) {
+  if (isFolderCard) {
+    return (
+      <Folder
+        className="dome-fs-card__cover-icon"
+        style={{ color: p.typeColor }}
+        strokeWidth={1.25}
+      />
+    );
+  }
+  if (p.artifactTemplate) {
+    return <ArtifactThumb template={p.artifactTemplate} data={visual.artifact?.data ?? null} />;
+  }
+  if (p.coverImage) {
+    // Real <img> so the asset's intrinsic aspect ratio drives the card
+    // height (masonry layout); PDF pages pin to the top like a document.
+    return (
+      <img
+        src={p.coverImage}
+        alt=""
+        className={`dome-fs-card__cover-img${p.isPdfCover ? ' dome-fs-card__cover-img--page' : ''}`}
+        draggable={false}
+        loading="lazy"
+      />
+    );
+  }
+  if (p.noteMarkdown) {
+    return <NoteMarkdownThumb markdown={p.noteMarkdown} />;
+  }
+  if (p.coverShowsSnippet) {
+    return (
+      <p className="dome-fs-card__cover-snippet">
+        {searchQuery ? highlightSnippet(p.snippet, searchQuery) : p.snippet}
+      </p>
+    );
+  }
+  if (visual.loading) {
+    return (
+      <div className="dome-fs-card__cover-fallback" style={{ color: p.typeColor }} aria-hidden>
+        <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
+      </div>
+    );
+  }
+  return (
+    <div className="dome-fs-card__cover-fallback" style={{ color: p.typeColor }}>
+      {item.type === 'note' || item.type === 'notebook' ? (
+        <FileText className="size-7" strokeWidth={1.25} />
+      ) : (
+        <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
+      )}
+    </div>
+  );
+}
+
+function CardCover({
+  item,
+  isFolderCard,
+  p,
+  visual,
+  searchQuery,
+  showSelectionChrome,
+  selected,
+  renaming,
+  hovered,
+  menuOpen,
+  previewRef,
+  menuBtnRef,
+  onActivate,
+  onToggleSelect,
+  onShowMenu,
+  onToggleMenu,
+  t,
+}: {
+  item: Resource;
+  isFolderCard: boolean;
+  p: CardPresentation;
+  visual: ResourceVisualPreview;
+  searchQuery?: string;
+  showSelectionChrome: boolean;
+  selected: boolean;
+  renaming: boolean;
+  hovered: boolean;
+  menuOpen: boolean;
+  previewRef: (node: Element | null) => void;
+  menuBtnRef: React.RefObject<HTMLButtonElement>;
+  onActivate: (e: React.MouseEvent) => void;
+  onToggleSelect: (e: React.MouseEvent) => void;
+  onShowMenu: (pos: { top: number; right: number }) => void;
+  onToggleMenu: () => void;
+  t: TranslateFn;
+}) {
+  return (
+    // Cover is a mouse-only convenience target; the body below is the
+    // keyboard-accessible button (role=button + tabIndex + onKeyDown).
+    // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+    <div
+      ref={previewRef as unknown as React.Ref<HTMLDivElement>}
+      className={`dome-fs-card__cover cursor-pointer${p.artifactTemplate ? ' dome-fs-card__cover--artifact' : ''}`}
+      onClick={onActivate}
+      style={isFolderCard
+        ? { background: `color-mix(in srgb, ${p.typeColor} 12%, var(--dome-surface))` }
+        : undefined}
+    >
+      {showSelectionChrome ? (
+        <span className="dome-fs-card__select">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={() => {}}
+            onClick={(e) => { e.stopPropagation(); onToggleSelect(e); }}
+            className="dome-fs-tree-row__checkbox rounded border"
+            aria-label={t('selection.deselect')}
+          />
+        </span>
+      ) : null}
+
+      <CoverPreviewContent
+        item={item}
+        isFolderCard={isFolderCard}
+        p={p}
+        visual={visual}
+        searchQuery={searchQuery}
+      />
+
+      {p.isVideoCard ? (
+        <span className="dome-fs-card__play-badge" aria-hidden>
+          <Play className="size-4" fill="currentColor" strokeWidth={0} />
+        </span>
+      ) : null}
+
+      {(hovered || menuOpen) && !renaming ? (
+        <button
+          ref={menuBtnRef}
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (!menuOpen && menuBtnRef.current) {
+              const rect = menuBtnRef.current.getBoundingClientRect();
+              onShowMenu({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+            }
+            onToggleMenu();
+          }}
+          className="dome-fs-card__menu-btn"
+          aria-label={t('folder.rowActions', 'Acciones')}
+          title={t('folder.rowActions', 'Acciones')}
+        >
+          <MoreVertical className="size-3.5" />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function CardBody({
+  renaming,
+  renameRef,
+  renameValue,
+  onRenameValueChange,
+  onCommitRename,
+  onCancelRename,
+  onActivate,
+  isFolderCard,
+  p,
+  searchQuery,
+  t,
+}: {
+  renaming: boolean;
+  renameRef: React.RefObject<HTMLInputElement>;
+  renameValue: string;
+  onRenameValueChange: (value: string) => void;
+  onCommitRename: () => void;
+  onCancelRename: () => void;
+  onActivate: (e: React.MouseEvent) => void;
+  isFolderCard: boolean;
+  p: CardPresentation;
+  searchQuery?: string;
+  t: TranslateFn;
+}) {
+  if (renaming) {
+    return (
+      <div className="dome-fs-card__body">
+        <div className="dome-fs-card__rename">
+          <input
+            ref={renameRef}
+            type="text"
+            value={renameValue}
+            onChange={(e) => onRenameValueChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onCommitRename();
+              if (e.key === 'Escape') onCancelRename();
+            }}
+            onClick={(e) => e.stopPropagation()}
+            aria-label={t('ui.rename', 'Rename')}
+            className="dome-fs-tree-row__rename-input"
+          />
+          <button type="button" onClick={(e) => { e.stopPropagation(); onCommitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
+            <Check className="size-3.5" />
+          </button>
+          <button type="button" onClick={(e) => { e.stopPropagation(); onCancelRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
+            <X className="size-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="dome-fs-card__body"
+      onClick={onActivate}
+      aria-label={p.displayTitle}
+    >
+      <h3 className="dome-fs-card__title" title={p.displayTitle}>
+        {searchQuery ? highlightSnippet(p.displayTitle, searchQuery) : p.displayTitle}
+      </h3>
+
+      {!isFolderCard && p.snippet && !p.coverShowsSnippet && !p.artifactTemplate ? (
+        <p className="dome-fs-card__snippet">
+          {searchQuery ? highlightSnippet(p.snippet, searchQuery) : p.snippet}
+        </p>
+      ) : null}
+
+      <div className="dome-fs-card__meta">
+        <span className="dome-fs-card__type-badge" title={p.typeLabel}>{p.typeLabel}</span>
+        <span className="dome-fs-card__modified">{p.timeAgo}</span>
+      </div>
+    </button>
+  );
+}
+
+function CardMenuLayers({
+  item,
+  isFolderCard,
+  folderColor,
+  menuOpen,
+  menuPos,
+  onDismissMenu,
+  startRenaming,
+  openColorPicker,
+  colorPickerPos,
+  onCloseColorPicker,
+  actions,
+}: {
+  item: Resource;
+  isFolderCard: boolean;
+  folderColor: string | undefined;
+  menuOpen: boolean;
+  menuPos: { top: number; right: number } | null;
+  onDismissMenu: () => void;
+  startRenaming: () => void;
+  openColorPicker: () => void;
+  colorPickerPos: { top: number; left: number } | null;
+  onCloseColorPicker: () => void;
+  actions: Pick<
+    FolderCardProps,
+    | 'onDelete'
+    | 'onChangeColor'
+    | 'onMoveToProject'
+    | 'onMoveToFolder'
+    | 'onOpenInSplit'
+    | 'onOpenInWindow'
+    | 'onNewSubfolder'
+  >;
+}) {
+  return (
+    <>
+      {/* Rendered via portal to `document.body`: the card is a containing block
+          for fixed-position descendants (it has `container-type` + `overflow:
+          hidden` + a hover `transform`), which would otherwise clip and
+          mis-position this menu. */}
+      {menuOpen && menuPos && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              role="menu"
+              tabIndex={-1}
+              className="dome-folder-view__row-menu"
+              style={{ top: menuPos.top, right: menuPos.right }}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <ResourceContextMenuItems
+                resource={item}
+                options={{
+                  isFolder: isFolderCard,
+                  isNote: item.type === 'note',
+                  canOpenInSplit: Boolean(actions.onOpenInSplit),
+                }}
+                actions={{
+                  onRename: startRenaming,
+                  onOpenInSplit: actions.onOpenInSplit,
+                  onOpenInWindow: actions.onOpenInWindow,
+                  onChangeColor: isFolderCard && actions.onChangeColor ? openColorPicker : undefined,
+                  onMoveToFolder: actions.onMoveToFolder,
+                  onMoveToProject: actions.onMoveToProject,
+                  onNewSubfolder: isFolderCard ? actions.onNewSubfolder : undefined,
+                  onDelete: actions.onDelete,
+                }}
+                onDismiss={onDismissMenu}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
+
+      {colorPickerPos && actions.onChangeColor ? (
+        <ColorPickerPopover
+          pos={colorPickerPos}
+          currentColor={folderColor?.startsWith('#') ? folderColor : FOLDER_COLOR_DEFAULT}
+          onSave={actions.onChangeColor}
+          onClose={onCloseColorPicker}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function FolderCardImpl({
+  item,
+  isFolder,
+  isLast,
+  onOpen,
+  onDelete,
+  onRename,
+  onChangeColor,
+  onMoveToProject,
+  onMoveToFolder,
+  onOpenInSplit,
+  onOpenInWindow,
+  onNewSubfolder,
+  onToggleSelect,
+  selected,
+  showSelectionChrome,
+  searchQuery,
+  searchFocused,
+  cardRef,
+}: FolderCardProps) {
+  const { t } = useTranslation();
+  const [hovered, setHovered] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(item.title ?? '');
+  const [colorPickerPos, setColorPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const renameRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const close = () => setMenuOpen(false);
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [menuOpen]);
+
+  const startRenaming = () => {
+    setRenaming(true);
+    setRenameValue(item.title ?? '');
+    requestAnimationFrame(() => renameRef.current?.focus());
+  };
+
+  // Lazy content preview (PDF first page, artifact mini-visual, image thumbnail
+  // or text snippet) — the lightweight list payload omits content/thumbnails,
+  // so they are fetched per-card on demand via this hook.
+  const { preview: visual, ref: previewRef } = useResourceVisualPreview(isFolder ? null : item);
+
+  const isFolderCard = isFolder;
+  const p = deriveCardPresentation(item, isFolder, visual, searchQuery, t);
 
   const commitRename = () => {
     const trimmed = renameValue.trim();
@@ -317,17 +711,7 @@ function FolderCardImpl({
     setColorPickerPos({ top, left });
   };
 
-  const cardClass = [
-    'dome-fs-card',
-    isFolderCard ? 'dome-fs-card--folder' : '',
-    isMediaCard ? 'dome-fs-card--media' : '',
-    isDocCard ? 'dome-fs-card--doc' : '',
-    artifactTemplate ? 'dome-fs-card--artifact-card' : '',
-    searchFocused ? 'dome-fs-card--focused' : '',
-    selected ? 'dome-fs-card--selected' : '',
-    menuOpen ? 'dome-fs-card--menu-open' : '',
-    isLast ? 'dome-fs-card--last' : '',
-  ].filter(Boolean).join(' ');
+  const cardClass = buildCardClass(p, { isFolderCard, searchFocused, selected, menuOpen, isLast });
 
   return (
     <div
@@ -342,188 +726,61 @@ function FolderCardImpl({
         setMenuOpen(true);
       }}
     >
-      {/* Cover is a mouse-only convenience target; the body below is the
-          keyboard-accessible button (role=button + tabIndex + onKeyDown). */}
-      {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events */}
-      <div
-        ref={previewRef as unknown as React.Ref<HTMLDivElement>}
-        className={`dome-fs-card__cover cursor-pointer${artifactTemplate ? ' dome-fs-card__cover--artifact' : ''}`}
-        onClick={handleCardActivate}
-        style={isFolderCard
-          ? { background: `color-mix(in srgb, ${typeColor} 12%, var(--dome-surface))` }
-          : undefined}
-      >
-        {showSelectionChrome ? (
-          <span className="dome-fs-card__select">
-            <input
-              type="checkbox"
-              checked={selected}
-              onChange={() => {}}
-              onClick={(e) => { e.stopPropagation(); onToggleSelect(e); }}
-              className="dome-fs-tree-row__checkbox rounded border"
-              aria-label={t('selection.deselect')}
-            />
-          </span>
-        ) : null}
+      <CardCover
+        item={item}
+        isFolderCard={isFolderCard}
+        p={p}
+        visual={visual}
+        searchQuery={searchQuery}
+        showSelectionChrome={showSelectionChrome}
+        selected={selected}
+        renaming={renaming}
+        hovered={hovered}
+        menuOpen={menuOpen}
+        previewRef={previewRef}
+        menuBtnRef={menuBtnRef}
+        onActivate={handleCardActivate}
+        onToggleSelect={onToggleSelect}
+        onShowMenu={setMenuPos}
+        onToggleMenu={() => setMenuOpen((v) => !v)}
+        t={t}
+      />
 
-        {isFolderCard ? (
-          <Folder
-            className="dome-fs-card__cover-icon"
-            style={{ color: typeColor }}
-            strokeWidth={1.25}
-          />
-        ) : artifactTemplate ? (
-          <ArtifactThumb template={artifactTemplate} data={visual.artifact?.data ?? null} />
-        ) : coverImage ? (
-          // Real <img> so the asset's intrinsic aspect ratio drives the card
-          // height (masonry layout); PDF pages pin to the top like a document.
-          <img
-            src={coverImage}
-            alt=""
-            className={`dome-fs-card__cover-img${isPdfCover ? ' dome-fs-card__cover-img--page' : ''}`}
-            draggable={false}
-            loading="lazy"
-          />
-        ) : noteMarkdown ? (
-          <NoteMarkdownThumb markdown={noteMarkdown} />
-        ) : coverShowsSnippet ? (
-          <p className="dome-fs-card__cover-snippet">
-            {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
-          </p>
-        ) : visual.loading ? (
-          <div className="dome-fs-card__cover-fallback" style={{ color: typeColor }} aria-hidden>
-            <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
-          </div>
-        ) : (
-          <div className="dome-fs-card__cover-fallback" style={{ color: typeColor }}>
-            {item.type === 'note' || item.type === 'notebook' ? (
-              <FileText className="size-7" strokeWidth={1.25} />
-            ) : (
-              <DomeResourceIcon type={item.type} name={item.title} size={28} strokeWidth={1.25} />
-            )}
-          </div>
-        )}
+      <CardBody
+        renaming={renaming}
+        renameRef={renameRef}
+        renameValue={renameValue}
+        onRenameValueChange={setRenameValue}
+        onCommitRename={commitRename}
+        onCancelRename={() => setRenaming(false)}
+        onActivate={handleCardActivate}
+        isFolderCard={isFolderCard}
+        p={p}
+        searchQuery={searchQuery}
+        t={t}
+      />
 
-        {isVideoCard ? (
-          <span className="dome-fs-card__play-badge" aria-hidden>
-            <Play className="size-4" fill="currentColor" strokeWidth={0} />
-          </span>
-        ) : null}
-
-        {(hovered || menuOpen) && !renaming ? (
-          <button
-            ref={menuBtnRef}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (!menuOpen && menuBtnRef.current) {
-                const rect = menuBtnRef.current.getBoundingClientRect();
-                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-              }
-              setMenuOpen((v) => !v);
-            }}
-            className="dome-fs-card__menu-btn"
-            aria-label={t('folder.rowActions', 'Acciones')}
-            title={t('folder.rowActions', 'Acciones')}
-          >
-            <MoreVertical className="size-3.5" />
-          </button>
-        ) : null}
-      </div>
-
-      {renaming ? (
-        <div className="dome-fs-card__body">
-          <div className="dome-fs-card__rename">
-            <input
-              ref={renameRef}
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') commitRename();
-                if (e.key === 'Escape') setRenaming(false);
-              }}
-              onClick={(e) => e.stopPropagation()}
-              aria-label={t('ui.rename', 'Rename')}
-              className="dome-fs-tree-row__rename-input"
-            />
-            <button type="button" onClick={(e) => { e.stopPropagation(); commitRename(); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--confirm">
-              <Check className="size-3.5" />
-            </button>
-            <button type="button" onClick={(e) => { e.stopPropagation(); setRenaming(false); }} className="dome-fs-tree-row__rename-btn dome-fs-tree-row__rename-btn--cancel">
-              <X className="size-3.5" />
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          className="dome-fs-card__body"
-          onClick={handleCardActivate}
-          aria-label={displayTitle}
-        >
-          <h3 className="dome-fs-card__title" title={displayTitle}>
-            {searchQuery ? highlightSnippet(displayTitle, searchQuery) : displayTitle}
-          </h3>
-
-          {!isFolderCard && snippet && !coverShowsSnippet && !artifactTemplate ? (
-            <p className="dome-fs-card__snippet">
-              {searchQuery ? highlightSnippet(snippet, searchQuery) : snippet}
-            </p>
-          ) : null}
-
-          <div className="dome-fs-card__meta">
-            <span className="dome-fs-card__type-badge" title={typeLabel}>{typeLabel}</span>
-            <span className="dome-fs-card__modified">{timeAgo}</span>
-          </div>
-        </button>
-      )}
-
-      {/* Rendered via portal to `document.body`: the card is a containing block
-          for fixed-position descendants (it has `container-type` + `overflow:
-          hidden` + a hover `transform`), which would otherwise clip and
-          mis-position this menu. */}
-      {menuOpen && menuPos && typeof document !== 'undefined'
-        ? createPortal(
-            <div
-              role="menu"
-              tabIndex={-1}
-              className="dome-folder-view__row-menu"
-              style={{ top: menuPos.top, right: menuPos.right }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <ResourceContextMenuItems
-                resource={item}
-                options={{
-                  isFolder: isFolderCard,
-                  isNote: item.type === 'note',
-                  canOpenInSplit: Boolean(onOpenInSplit),
-                }}
-                actions={{
-                  onRename: startRenaming,
-                  onOpenInSplit,
-                  onOpenInWindow,
-                  onChangeColor: isFolderCard && onChangeColor ? openColorPicker : undefined,
-                  onMoveToFolder,
-                  onMoveToProject,
-                  onNewSubfolder: isFolderCard ? onNewSubfolder : undefined,
-                  onDelete,
-                }}
-                onDismiss={() => setMenuOpen(false)}
-              />
-            </div>,
-            document.body,
-          )
-        : null}
-
-      {colorPickerPos && onChangeColor ? (
-        <ColorPickerPopover
-          pos={colorPickerPos}
-          currentColor={folderColor?.startsWith('#') ? folderColor : FOLDER_COLOR_DEFAULT}
-          onSave={onChangeColor}
-          onClose={() => setColorPickerPos(null)}
-        />
-      ) : null}
+      <CardMenuLayers
+        item={item}
+        isFolderCard={isFolderCard}
+        folderColor={p.folderColor}
+        menuOpen={menuOpen}
+        menuPos={menuPos}
+        onDismissMenu={() => setMenuOpen(false)}
+        startRenaming={startRenaming}
+        openColorPicker={openColorPicker}
+        colorPickerPos={colorPickerPos}
+        onCloseColorPicker={() => setColorPickerPos(null)}
+        actions={{
+          onDelete,
+          onChangeColor,
+          onMoveToProject,
+          onMoveToFolder,
+          onOpenInSplit,
+          onOpenInWindow,
+          onNewSubfolder,
+        }}
+      />
     </div>
   );
 }

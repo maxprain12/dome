@@ -2,13 +2,15 @@
 /**
  * SQLite migrations (05/T03 fase b — extracted verbatim from database.cjs).
  *
- * Frozen history: each `if (version < N)` block is applied in order by
- * `applyMigrations(db, version)`. New installs get the final schema directly
- * (see schema setup in database.cjs); existing installs run the runner.
- * Backup/restore atomicity is handled by the caller (runMigrations).
+ * Frozen history: each `migrationN(db, version)` function guards itself with
+ * `if (version < N)` (or a runtime schema check) and is applied in order by
+ * `applyMigrations(db, version)` via MIGRATION_STEPS. New installs get the
+ * final schema directly (see schema setup in database.cjs); existing installs
+ * run the runner. Backup/restore atomicity is handled by the caller
+ * (runMigrations).
  *
- * Add a new migration by appending an `if (version < N+1)` block at the end
- * that bumps `schema_version` to the new value.
+ * Add a new migration by defining a `migrationN+1` function that bumps
+ * `schema_version` to the new value and appending it to MIGRATION_STEPS.
  */
 
 const crypto = require('crypto');
@@ -54,11 +56,15 @@ function extractLegacyMcpServers(raw) {
   return [];
 }
 
+// Each migrationN() below was extracted verbatim from the original monolithic
+// applyMigrations body. Every function keeps its own `if (version < N)` /
+// runtime-check guard, so calling them unconditionally in order is exactly
+// equivalent to the previous sequential `if (version < N)` blocks.
 // `invalidateQueries` lives in database.cjs (it clears the prepared-statement
-// cache). It is passed in by the caller; default to a no-op so migrations never
-// throw a ReferenceError if invoked without it.
-function applyMigrations(db, version, invalidateQueries = () => {}) {
-  // Migration 1: Add internal file storage columns to resources
+// cache); default to a no-op so migrations never throw a ReferenceError.
+
+// Migration 1: Add internal file storage columns to resources
+function migration1(db, version) {
   if (version < 1) {
     console.log('[DB] Running migration 1: Add internal file storage columns');
 
@@ -99,9 +105,11 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
 
     console.log('[DB] Migration 1 complete');
   }
+}
 
-  // Migration 2: Update resources table CHECK constraint to include 'folder' type
-  // ALWAYS check if migration is needed by testing the actual constraint
+// Migration 2: Update resources table CHECK constraint to include 'folder' type
+// ALWAYS check if migration is needed by testing the actual constraint
+function migration2(db, version) {
   let needsFolderConstraintUpdate = false;
 
   try {
@@ -230,9 +238,11 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '2', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 3: Add folder_id column for folder containment
-  // Check if folder_id column exists (it may have been added by migration 2)
+// Migration 3: Add folder_id column for folder containment
+// Check if folder_id column exists (it may have been added by migration 2)
+function migration3(db, version) {
   const tableInfoM3 = db.prepare('PRAGMA table_info(resources)').all();
   const existingColumnsM3 = new Set(tableInfoM3.map((col) => col.name));
 
@@ -258,8 +268,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '3', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 4: Add tables for auth profiles and Many memory
+// Migration 4: Add tables for auth profiles and Many memory
+function migration4(db, version) {
   if (version < 4) {
     console.log('[DB] Running migration 4: Add auth_profiles and martin_memory tables');
 
@@ -308,8 +320,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '4', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 5: Add knowledge graph tables (nodes and edges)
+// Migration 5: Add knowledge graph tables (nodes and edges)
+function migration5(db, version) {
   if (version < 5) {
     console.log('[DB] Running migration 5: Add knowledge graph tables');
 
@@ -395,8 +409,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '5', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 6: Add flashcard tables for spaced repetition study
+// Migration 6: Add flashcard tables for spaced repetition study
+function migration6(db, version) {
   if (version < 6) {
     console.log('[DB] Running migration 6: Add flashcard tables');
 
@@ -472,8 +488,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '6', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 7: Add studio_outputs table
+// Migration 7: Add studio_outputs table
+function migration7(db, version) {
   if (version < 7) {
     console.log('[DB] Running migration 7: Add studio_outputs table');
 
@@ -508,8 +526,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '7', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 8: Studio-Flashcards unification (deck_id, resource_id, studio_output_id)
+// Migration 8: Studio-Flashcards unification (deck_id, resource_id, studio_output_id)
+function migration8(db, version) {
   if (version < 8) {
     console.log('[DB] Running migration 8: Studio-Flashcards unification');
 
@@ -546,8 +566,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '8', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 9: Add 'notebook' to resources type constraint
+// Migration 9: Add 'notebook' to resources type constraint
+function migration9(db, version) {
   let needsNotebookConstraint = false;
   try {
     const testStmt = db.prepare(`
@@ -639,8 +661,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       ON CONFLICT(key) DO UPDATE SET value = '9', updated_at = excluded.updated_at
     `).run(Date.now());
   }
+}
 
-  // Migration 10: Add 'excel' to resources type constraint
+// Migration 10: Add 'excel' to resources type constraint
+function migration10(db) {
   let needsExcelConstraint = false;
   try {
     const testStmt = db.prepare(`
@@ -735,8 +759,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       `).run(Date.now());
     }
   }
+}
 
-  // Migration 11: Add 'ppt' to resources type constraint
+// Migration 11: Add 'ppt' to resources type constraint
+function migration11(db) {
   let needsPptConstraint = false;
   try {
     const testStmt = db.prepare(`
@@ -831,9 +857,11 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       `).run(Date.now());
     }
   }
+}
 
-  // Migration 12: Add calendar tables
-  // Also run if schema_version was incorrectly set or tables have wrong schema (e.g. from failed partial migration)
+// Migration 12: Add calendar tables
+// Also run if schema_version was incorrectly set or tables have wrong schema (e.g. from failed partial migration)
+function migration12(db, version) {
   const calendarSchemaValid = (() => {
     try {
       db.prepare('SELECT 1 FROM calendar_accounts LIMIT 1').get();
@@ -964,8 +992,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
-  // Migration 14: Schema cleanup — drop dead tables, fix FKs, remove unused columns
+// Migration 14: Schema cleanup — drop dead tables, fix FKs, remove unused columns
+function migration14(db, version) {
   if (version < 14) {
     console.log('[DB] Running migration 14: Schema cleanup');
 
@@ -1058,8 +1088,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       // Non-fatal: log but don't throw so app still starts
     }
   }
+}
 
-  // Migration 15: Chat sessions, messages, and traces for AI chat traceability
+// Migration 15: Chat sessions, messages, and traces for AI chat traceability
+function migration15(db, version) {
   if (version < 15) {
     console.log('[DB] Running migration 15 - chat sessions and traces');
     try {
@@ -1130,7 +1162,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 15 error:', error.message);
     }
   }
+}
 
+function migration16(db, version) {
   if (version < 16) {
     console.log('[DB] Running migration 16 - enrich chat sessions metadata');
     try {
@@ -1159,7 +1193,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 16 failed:', error);
     }
   }
+}
 
+function migration17(db, version) {
   if (version < 17) {
     console.log('[DB] Running migration 17 - automation definitions and persistent runs');
     try {
@@ -1255,8 +1291,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 17 failed:', error);
     }
   }
+}
 
-  // Migration 18: Resource images from Docling cloud conversion
+// Migration 18: Resource images from Docling cloud conversion
+function migration18(db, version) {
   if (version < 18) {
     try {
       db.exec(`
@@ -1286,7 +1324,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 18 failed:', error);
     }
   }
+}
 
+function migration19(db, version) {
   if (version < 19) {
     try {
       const now = Date.now();
@@ -1595,7 +1635,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 19 failed:', error);
     }
   }
+}
 
+function migration20(db, version, invalidateQueries) {
   if (version < 20) {
     try {
       const now = Date.now();
@@ -1652,9 +1694,11 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 20 failed:', error);
     }
   }
+}
 
-  // Migration 21: repair many_agents.favorite if schema_version reached 20 without the column
-  // (e.g. partial/failed migration 20 or older builds that bumped version early)
+// Migration 21: repair many_agents.favorite if schema_version reached 20 without the column
+// (e.g. partial/failed migration 20 or older builds that bumped version early)
+function migration21(db, version, invalidateQueries) {
   if (version < 21) {
     try {
       const now = Date.now();
@@ -1674,9 +1718,11 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 21 failed:', error);
     }
   }
+}
 
-  // Migration 22: repair folder_id / workflow folder schema if version advanced without migration 20
-  // (e.g. only migration 21 ran, or partial DB state)
+// Migration 22: repair folder_id / workflow folder schema if version advanced without migration 20
+// (e.g. only migration 21 ran, or partial DB state)
+function migration22(db, version, invalidateQueries) {
   if (version < 22) {
     try {
       const now = Date.now();
@@ -1735,8 +1781,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 22 failed:', error);
     }
   }
+}
 
-  // Migration 23: project scope for agents, workflows, chat, automations, runs, folders, executions
+// Migration 23: project scope for agents, workflows, chat, automations, runs, folders, executions
+function migration23(db, version, invalidateQueries) {
   if (version < 23) {
     try {
       const now = Date.now();
@@ -1859,8 +1907,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 23 failed:', error);
     }
   }
+}
 
-  // Migration 24: semantic_relations + note_embeddings replace resource_links
+// Migration 24: semantic_relations + note_embeddings replace resource_links
+function migration24(db, version, invalidateQueries) {
   if (version < 24) {
     try {
       const now = Date.now();
@@ -1954,8 +2004,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 24 failed:', error);
     }
   }
+}
 
-  // Migration 25: resource_chunks (Nomic 768-d), drop legacy note_embeddings, reset auto semantic edges
+// Migration 25: resource_chunks (Nomic 768-d), drop legacy note_embeddings, reset auto semantic edges
+function migration25(db, version, invalidateQueries) {
   if (version < 25) {
     try {
       const now = Date.now();
@@ -2002,8 +2054,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 25 failed:', error);
     }
   }
+}
 
-  // Migration 26: remove PageIndex / Docling tables; Gemma PDF transcripts + page_number on chunks
+// Migration 26: remove PageIndex / Docling tables; Gemma PDF transcripts + page_number on chunks
+function migration26(db, version, invalidateQueries) {
   if (version < 26) {
     try {
       const now = Date.now();
@@ -2052,8 +2106,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 26 failed:', error);
     }
   }
+}
 
-  // Migration 27: transcription sessions & chunks (clean-slate redesign)
+// Migration 27: transcription sessions & chunks (clean-slate redesign)
+function migration27(db, version, invalidateQueries) {
   if (version < 27) {
     console.log('[DB] Running migration 27 - transcription sessions & chunks');
     try {
@@ -2213,7 +2269,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       }
     }
   }
+}
 
+function migration29(db, version, invalidateQueries) {
   if (version < 29) {
     console.log('[DB] Running migration 29 - artifact_runtime_data + automation_artifact_bindings');
     try {
@@ -2290,8 +2348,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 29 failed:', error);
     }
   }
+}
 
-  // Migration 30: Reclassify mis-typed document resources (xlsx→excel, pptx→ppt)
+// Migration 30: Reclassify mis-typed document resources (xlsx→excel, pptx→ppt)
+function migration30(db, version, invalidateQueries) {
   if (version < 30) {
     console.log('[DB] Running migration 30 - reclassify xlsx/pptx resources');
     try {
@@ -2332,8 +2392,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 30 failed:', error);
     }
   }
+}
 
-  // Migration 31: Drop WhatsApp tables (integration removed)
+// Migration 31: Drop WhatsApp tables (integration removed)
+function migration31(db, version, invalidateQueries) {
   if (version < 31) {
     console.log('[DB] Running migration 31 - drop WhatsApp tables');
     try {
@@ -2362,8 +2424,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 31 failed:', error);
     }
   }
+}
 
-  // Migration 32: Local state for Dome cloud sync (Provider + Supabase)
+// Migration 32: Local state for Dome cloud sync (Provider + Supabase)
+function migration32(db, version, invalidateQueries) {
   if (version < 32) {
     console.log('[DB] Running migration 32 - dome_cloud_sync');
     try {
@@ -2388,8 +2452,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 32 failed:', error);
     }
   }
+}
 
-  // Migration 33: Add last_push_at to dome_cloud_sync for delta sync
+// Migration 33: Add last_push_at to dome_cloud_sync for delta sync
+function migration33(db, version, invalidateQueries) {
   if (version < 33) {
     console.log('[DB] Running migration 33 - dome_cloud_sync last_push_at');
     try {
@@ -2410,8 +2476,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 33 failed:', error);
     }
   }
+}
 
-  // Migration 34: agent_store table for the agent runtime BaseStore cross-thread memory
+// Migration 34: agent_store table for the agent runtime BaseStore cross-thread memory
+function migration34(db, version, invalidateQueries) {
   if (version < 34) {
     console.log('[DB] Running migration 34 - agent_store table');
     try {
@@ -2438,8 +2506,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 34 failed:', error);
     }
   }
+}
 
-  // Migration 35: many_agent_versions — snapshot history for agent definitions
+// Migration 35: many_agent_versions — snapshot history for agent definitions
+function migration35(db, version, invalidateQueries) {
   if (version < 35) {
     console.log('[DB] Running migration 35 - many_agent_versions table');
     try {
@@ -2474,8 +2544,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 35 failed:', error);
     }
   }
+}
 
-  // Migration 36: artifact feeders + extend automation target_type for feeder
+// Migration 36: artifact feeders + extend automation target_type for feeder
+function migration36(db, version, invalidateQueries) {
   if (version < 36) {
     console.log('[DB] Running migration 36 - artifact feeders');
     try {
@@ -2585,8 +2657,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 36 failed:', error);
     }
   }
+}
 
-  // Migration 37: quiz run history for Learn deck overview
+// Migration 37: quiz run history for Learn deck overview
+function migration37(db, version, invalidateQueries) {
   if (version < 37) {
     console.log('[DB] Running migration 37 - quiz_runs');
     try {
@@ -2620,8 +2694,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 37 failed:', error);
     }
   }
+}
 
-  // Migration 38: FSRS spaced-repetition fields on flashcards (replaces SM-2)
+// Migration 38: FSRS spaced-repetition fields on flashcards (replaces SM-2)
+function migration38(db, version, invalidateQueries) {
   if (version < 38) {
     console.log('[DB] Running migration 38 - FSRS flashcard fields');
     try {
@@ -2671,8 +2747,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 38 failed:', error);
     }
   }
+}
 
-  // Migration 39: keep flashcard_decks.card_count accurate via triggers
+// Migration 39: keep flashcard_decks.card_count accurate via triggers
+function migration39(db, version) {
   if (version < 39) {
     console.log('[DB] Running migration 39 - card_count triggers');
     try {
@@ -2715,8 +2793,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 39 failed:', error);
     }
   }
+}
 
-  // Migration 40: unified study_events table (flash + quiz) and missing FKs
+// Migration 40: unified study_events table (flash + quiz) and missing FKs
+function migration40(db, version, invalidateQueries) {
   if (version < 40) {
     console.log('[DB] Running migration 40 - study_events + FKs');
     try {
@@ -2842,8 +2922,10 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 40 failed:', error);
     }
   }
+}
 
-  // Migration 41: KPI cache so getKpis/getStreak don't rescan 365 days each call
+// Migration 41: KPI cache so getKpis/getStreak don't rescan 365 days each call
+function migration41(db, version) {
   if (version < 41) {
     console.log('[DB] Running migration 41 - learn_kpis_cache');
     try {
@@ -2865,11 +2947,13 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 41 failed:', error);
     }
   }
+}
 
-  // Migration 42: per-provider API keys/base URLs — copy the legacy shared
-  // ai_api_key / ai_base_url into the active provider's slots (encrypted value
-  // is copied verbatim; same safeStorage encryption). Legacy keys stay as a
-  // read fallback for the active provider only.
+// Migration 42: per-provider API keys/base URLs — copy the legacy shared
+// ai_api_key / ai_base_url into the active provider's slots (encrypted value
+// is copied verbatim; same safeStorage encryption). Legacy keys stay as a
+// read fallback for the active provider only.
+function migration42(db, version) {
   if (version < 42) {
     console.log('[DB] Running migration 42 - per-provider AI credentials');
     try {
@@ -2897,7 +2981,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 42 failed:', error);
     }
   }
+}
 
+function migration43(db, version) {
   if (version < 43) {
     console.log('[DB] Running migration 43 - GitHub project sync tables');
     try {
@@ -3043,7 +3129,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration44(db, version) {
   if (version < 44) {
     console.log('[DB] Running migration 44 - GitHub milestone closed_at');
     try {
@@ -3062,7 +3150,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration45(db, version) {
   if (version < 45) {
     console.log('[DB] Running migration 45 - email accounts (himalaya)');
     try {
@@ -3099,7 +3189,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration46(db, version) {
   if (version < 46) {
     console.log('[DB] Running migration 46 - notes markdown vault (vault_path)');
     try {
@@ -3126,7 +3218,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration47(db, version) {
   if (version < 47) {
     console.log('[DB] Running migration 47 - notes vault source-of-truth (content_text/hash + FTS)');
     try {
@@ -3225,7 +3319,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration48(db, version) {
   if (version < 48) {
     console.log('[DB] Running migration 48 - per-project vault root + project-relative vault_path');
     try {
@@ -3258,7 +3354,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration49(db, version) {
   if (version < 49) {
     console.log('[DB] Running migration 49 - move binaries into the vault');
     try {
@@ -3339,10 +3437,12 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
-  // Migration 51: store release markdown body so the calendar event can render it
-  // without re-hitting the GitHub API. Older sync runs left body out entirely,
-  // which is why the release modal currently shows the tag URL as plain text.
+// Migration 51: store release markdown body so the calendar event can render it
+// without re-hitting the GitHub API. Older sync runs left body out entirely,
+// which is why the release modal currently shows the tag URL as plain text.
+function migration51(db, version) {
   if (version < 51) {
     console.log('[DB] Running migration 51 - github_releases.body');
     try {
@@ -3361,16 +3461,18 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
-  // Migration 50: snap GitHub all-day events to local midnight.
-  // Earlier versions of the GitHub→calendar bridge stored `start_at` and
-  // `end_at` from the raw GitHub timestamps (e.g. `published_at: 18:30 UTC`),
-  // so the all-day event was painted as a 24-hour bar that started mid-day and
-  // the month-view renderer (which collapses only `end == startOfNextDay` back
-  // to a single cell) ended up showing the same release across two days. Fixing
-  // the bridge alone is not enough for events already in the database — this
-  // migration retroactively snaps every `source = 'github'`, `all_day = 1`
-  // event to local midnight and resets `end_at = start_at + 24h`.
+// Migration 50: snap GitHub all-day events to local midnight.
+// Earlier versions of the GitHub→calendar bridge stored `start_at` and
+// `end_at` from the raw GitHub timestamps (e.g. `published_at: 18:30 UTC`),
+// so the all-day event was painted as a 24-hour bar that started mid-day and
+// the month-view renderer (which collapses only `end == startOfNextDay` back
+// to a single cell) ended up showing the same release across two days. Fixing
+// the bridge alone is not enough for events already in the database — this
+// migration retroactively snaps every `source = 'github'`, `all_day = 1`
+// event to local midnight and resets `end_at = start_at + 24h`.
+function migration50(db, version) {
   if (version < 50) {
     console.log('[DB] Running migration 50 - snap GitHub all-day events to midnight');
     try {
@@ -3407,13 +3509,15 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
-  // Migration 52: Pipelines — unified Kanban model on top of the existing run
-  // engine. Adds four tables (pipelines, pipeline_stages, pipeline_items,
-  // pipeline_sources). Purely additive: no DROP/ALTER on existing tables, so it
-  // is reversible by restoring the pre-migration backup. Items reference the
-  // existing automation_runs / calendar_events / many_agents / canvas_workflows
-  // rows rather than duplicating them.
+// Migration 52: Pipelines — unified Kanban model on top of the existing run
+// engine. Adds four tables (pipelines, pipeline_stages, pipeline_items,
+// pipeline_sources). Purely additive: no DROP/ALTER on existing tables, so it
+// is reversible by restoring the pre-migration backup. Items reference the
+// existing automation_runs / calendar_events / many_agents / canvas_workflows
+// rows rather than duplicating them.
+function migration52(db, version) {
   if (version < 52) {
     console.log('[DB] Running migration 52 - pipelines');
     try {
@@ -3527,7 +3631,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration53(db, version) {
   if (version < 53) {
     try {
       db.exec(`
@@ -3558,7 +3664,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration54(db, version) {
   if (version < 54) {
     console.log('[DB] Running migration 54 - email account action permissions');
     try {
@@ -3583,7 +3691,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration55(db, version) {
   if (version < 55) {
     console.log('[DB] Running migration 55 - folder vault_path backfill (vault = source of truth)');
     try {
@@ -3648,7 +3758,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration56(db, version) {
   if (version < 56) {
     console.log('[DB] Running migration 56 - scope calendar/email accounts to vault (project_id)');
     try {
@@ -3673,7 +3785,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration57(db, version) {
   if (version < 57) {
     console.log('[DB] Running migration 57 - scope GitHub repos to vault (project_id)');
     try {
@@ -3853,7 +3967,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration58(db, version) {
   if (version < 58) {
     console.log('[DB] Running migration 58 - artifact vault HTML mirror backfill');
     try {
@@ -3876,7 +3992,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration59(db, version) {
   if (version < 59) {
     console.log('[DB] Running migration 59 - social hub (accounts, posts, metrics)');
     try {
@@ -3955,7 +4073,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration60(db, version) {
   if (version < 60) {
     console.log('[DB] Running migration 60 - social account metrics + AI reports');
     try {
@@ -4001,7 +4121,9 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       throw error;
     }
   }
+}
 
+function migration61(db, version) {
   if (version < 61) {
     console.log('[DB] Running migration 61 - social account kind (member vs organization pages)');
     try {
@@ -4020,6 +4142,78 @@ function applyMigrations(db, version, invalidateQueries = () => {}) {
       console.error('[DB] Migration 61 failed:', error);
       throw error;
     }
+  }
+}
+
+// Ordered migration steps. Order is execution order — do not sort by number
+// (51 intentionally runs before 50, matching the original frozen history).
+// Add a new migration by appending a `migrationN` function above and
+// registering it at the end of this list.
+const MIGRATION_STEPS = [
+  migration1,
+  migration2,
+  migration3,
+  migration4,
+  migration5,
+  migration6,
+  migration7,
+  migration8,
+  migration9,
+  migration10,
+  migration11,
+  migration12,
+  migration14,
+  migration15,
+  migration16,
+  migration17,
+  migration18,
+  migration19,
+  migration20,
+  migration21,
+  migration22,
+  migration23,
+  migration24,
+  migration25,
+  migration26,
+  migration27,
+  migration29,
+  migration30,
+  migration31,
+  migration32,
+  migration33,
+  migration34,
+  migration35,
+  migration36,
+  migration37,
+  migration38,
+  migration39,
+  migration40,
+  migration41,
+  migration42,
+  migration43,
+  migration44,
+  migration45,
+  migration46,
+  migration47,
+  migration48,
+  migration49,
+  migration51,
+  migration50,
+  migration52,
+  migration53,
+  migration54,
+  migration55,
+  migration56,
+  migration57,
+  migration58,
+  migration59,
+  migration60,
+  migration61,
+];
+
+function applyMigrations(db, version, invalidateQueries = () => {}) {
+  for (const step of MIGRATION_STEPS) {
+    step(db, version, invalidateQueries);
   }
 }
 

@@ -38,6 +38,252 @@ interface ManyChatHeaderProps {
   children?: ReactNode;
 }
 
+type TranslateFn = ReturnType<typeof useTranslation>['t'];
+
+interface HeaderPresentation {
+  isThinking: boolean;
+  isSpeaking: boolean;
+  titleText: string;
+  statusBadgeLabel: string | null;
+  subtitleText: string | null;
+  fullscreenLabel: string;
+  headerClass: string;
+}
+
+function deriveHeaderPresentation(
+  props: Pick<
+    ManyChatHeaderProps,
+    'status' | 'sessionTitle' | 'loadingHint' | 'isPopout' | 'isFullscreenActive'
+  >,
+  t: TranslateFn,
+): HeaderPresentation {
+  const { status, sessionTitle, loadingHint, isPopout, isFullscreenActive } = props;
+  const isThinking = status === 'thinking';
+  const isSpeaking = status === 'speaking';
+  const isMac =
+    typeof window !== 'undefined' && Boolean(window.electron?.isMac ?? window.electron?.platform === 'darwin');
+  const needsRightChromeInset =
+    typeof window !== 'undefined' &&
+    Boolean(window.electron?.isWindows || window.electron?.isLinux);
+
+  const titleText =
+    sessionTitle && sessionTitle !== 'New chat'
+      ? sanitizeManySessionTitle(sessionTitle)
+      : t('many.many');
+  const statusBadgeLabel = isSpeaking
+    ? t('many.speaking')
+    : isThinking
+      ? t('many.thinking')
+      : null;
+  const subtitleText = !isThinking && !isSpeaking ? loadingHint || null : null;
+
+  const fullscreenLabel = isFullscreenActive ? t('many.exit_fullscreen') : t('many.fullscreen');
+
+  const headerClass = cn(
+    'many-chat-header flex items-center gap-3 shrink-0 border-b',
+    !isPopout && 'many-chat-header--docked',
+    isPopout && 'many-chat-header--popout drag-region',
+    isPopout && isMac && 'nav-mac',
+    isPopout && needsRightChromeInset && 'win-titlebar-padding',
+  );
+
+  return { isThinking, isSpeaking, titleText, statusBadgeLabel, subtitleText, fullscreenLabel, headerClass };
+}
+
+function HeaderTitleBlock({
+  p,
+  isPopout,
+  contextDescription,
+}: {
+  p: HeaderPresentation;
+  isPopout: boolean;
+  contextDescription: string;
+}) {
+  return (
+    <div className="min-w-0 flex-1 flex flex-col" style={{ gap: 2 }}>
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span
+          className={cn(
+            'many-hd-title text-sm font-semibold leading-[1.3] overflow-hidden text-ellipsis whitespace-nowrap',
+            isPopout ? 'text-[var(--dome-text)]' : 'text-[var(--primary-text)]',
+          )}
+        >
+          {p.titleText}
+        </span>
+        {(p.isThinking || p.isSpeaking) && p.statusBadgeLabel ? (
+          <span className="many-hd-status-badge text-xs text-[var(--accent)] font-medium px-2 py-px rounded-full bg-[var(--accent-bg)] leading-[1.6] shrink min-w-0 max-w-[140px] truncate">
+            {p.statusBadgeLabel}
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex items-center flex-wrap min-w-0" style={{ gap: 5 }}>
+        {/* Model selector intentionally NOT rendered here: it already lives in the
+            composer/input pill, so showing it in the header too is redundant. */}
+        {contextDescription ? (
+          <span className="many-hd-chip many-hd-chip--accent many-hd-meta--extra">
+            {contextDescription}
+          </span>
+        ) : null}
+        {p.subtitleText ? (
+          <span className="many-hd-meta--extra many-hd-subtitle">
+            {p.subtitleText}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+interface HeaderActionsProps {
+  p: HeaderPresentation;
+  historyOpen: boolean;
+  showHistoryToggle: boolean;
+  showFullscreenToggle: boolean;
+  isFullscreenActive: boolean;
+  onToggleFullscreen?: () => void;
+  showPopoutToggle: boolean;
+  onPopout?: () => void;
+  onStartNewChat: () => void;
+  onToggleHistory: () => void;
+  t: TranslateFn;
+}
+
+function HeaderWideActions({
+  p,
+  historyOpen,
+  showHistoryToggle,
+  showFullscreenToggle,
+  isFullscreenActive,
+  onToggleFullscreen,
+  showPopoutToggle,
+  onPopout,
+  onStartNewChat,
+  onToggleHistory,
+  t,
+}: HeaderActionsProps) {
+  return (
+    <div className="many-hd-actions--wide flex items-center" style={{ gap: 2 }}>
+      {showFullscreenToggle && onToggleFullscreen ? (
+        <button
+          type="button"
+          className="many-icon-btn"
+          onClick={onToggleFullscreen}
+          title={p.fullscreenLabel}
+          aria-label={p.fullscreenLabel}
+        >
+          {isFullscreenActive ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
+      ) : null}
+      {showPopoutToggle && onPopout ? (
+        <button
+          type="button"
+          className="many-icon-btn"
+          onClick={onPopout}
+          title={t('many.open_popout')}
+          aria-label={t('many.open_popout')}
+        >
+          <ExternalLink size={16} />
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className="many-icon-btn"
+        onClick={onStartNewChat}
+        title={t('many.newChat')}
+        aria-label={t('many.newChat')}
+      >
+        <Plus size={16} />
+      </button>
+      {showHistoryToggle ? (
+        <button
+          type="button"
+          className="many-icon-btn"
+          onClick={onToggleHistory}
+          title={t('many.toggle_history')}
+          aria-label={t('many.toggle_history')}
+          style={historyOpen ? { background: 'var(--bg-hover)', color: 'var(--accent)' } : undefined}
+        >
+          <Clock size={14} />
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function HeaderCompactMenu({
+  p,
+  historyOpen,
+  showHistoryToggle,
+  showFullscreenToggle,
+  isFullscreenActive,
+  onToggleFullscreen,
+  showPopoutToggle,
+  onPopout,
+  onStartNewChat,
+  onToggleHistory,
+  t,
+}: HeaderActionsProps) {
+  return (
+    <div className="many-hd-actions--compact">
+      <Menu shadow="md" width={236} position="bottom-end" radius="md">
+        <Menu.Target>
+          <button
+            type="button"
+            className="many-icon-btn"
+            aria-label={t('many.more_actions')}
+            title={t('many.more_actions')}
+          >
+            <MoreHorizontal size={16} strokeWidth={2} />
+          </button>
+        </Menu.Target>
+        <Menu.Dropdown>
+          {/* Chat actions first — the primary, most-used ones */}
+          <Menu.Item
+            leftSection={<Plus size={15} />}
+            onClick={onStartNewChat}
+            fw={600}
+          >
+            {t('many.newChat')}
+          </Menu.Item>
+          {showHistoryToggle ? (
+            <Menu.Item
+              leftSection={<Clock size={15} />}
+              onClick={onToggleHistory}
+              rightSection={
+                historyOpen ? <Check size={14} style={{ color: 'var(--accent)' }} /> : undefined
+              }
+              style={historyOpen ? { background: 'var(--accent-bg)', color: 'var(--accent)' } : undefined}
+            >
+              {t('many.toggle_history')}
+            </Menu.Item>
+          ) : null}
+
+          {(showFullscreenToggle && onToggleFullscreen) || (showPopoutToggle && onPopout) ? (
+            <>
+              <Menu.Divider />
+              <Menu.Label>{t('many.view_section')}</Menu.Label>
+              {showFullscreenToggle && onToggleFullscreen ? (
+                <Menu.Item
+                  leftSection={isFullscreenActive ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                  onClick={onToggleFullscreen}
+                >
+                  {p.fullscreenLabel}
+                </Menu.Item>
+              ) : null}
+              {showPopoutToggle && onPopout ? (
+                <Menu.Item leftSection={<ExternalLink size={15} />} onClick={onPopout}>
+                  {t('many.open_popout')}
+                </Menu.Item>
+              ) : null}
+            </>
+          ) : null}
+        </Menu.Dropdown>
+      </Menu>
+    </div>
+  );
+}
+
 const ManyChatHeader = memo(function ManyChatHeader({
   status,
   providerInfo: _providerInfo,
@@ -65,179 +311,35 @@ const ManyChatHeader = memo(function ManyChatHeader({
     contextUsage: ContextUsage,
   });
   const { t } = useTranslation();
-  const isThinking = status === 'thinking';
-  const isSpeaking = status === 'speaking';
-  const isMac =
-    typeof window !== 'undefined' && Boolean(window.electron?.isMac ?? window.electron?.platform === 'darwin');
-  const needsRightChromeInset =
-    typeof window !== 'undefined' &&
-    Boolean(window.electron?.isWindows || window.electron?.isLinux);
+  const p = deriveHeaderPresentation({ status, sessionTitle, loadingHint, isPopout, isFullscreenActive }, t);
 
-  const titleText =
-    sessionTitle && sessionTitle !== 'New chat'
-      ? sanitizeManySessionTitle(sessionTitle)
-      : t('many.many');
-  const statusBadgeLabel = isSpeaking
-    ? t('many.speaking')
-    : isThinking
-      ? t('many.thinking')
-      : null;
-  const subtitleText = !isThinking && !isSpeaking ? loadingHint || null : null;
-
-  const fullscreenLabel = isFullscreenActive ? t('many.exit_fullscreen') : t('many.fullscreen');
+  const actionsProps: HeaderActionsProps = {
+    p,
+    historyOpen,
+    showHistoryToggle,
+    showFullscreenToggle,
+    isFullscreenActive,
+    onToggleFullscreen,
+    showPopoutToggle,
+    onPopout,
+    onStartNewChat,
+    onToggleHistory,
+    t,
+  };
 
   return (
-    <div
-      className={cn(
-        'many-chat-header flex items-center gap-3 shrink-0 border-b',
-        !isPopout && 'many-chat-header--docked',
-        isPopout && 'many-chat-header--popout drag-region',
-        isPopout && isMac && 'nav-mac',
-        isPopout && needsRightChromeInset && 'win-titlebar-padding',
-      )}
-      data-status={status}
-    >
+    <div className={p.headerClass} data-status={status}>
       <ManyAvatar size="md" state="idle" className="many-hd-avatar many-hd-avatar--wide shrink-0" />
       <ManyAvatar size="sm" state="idle" className="many-hd-avatar many-hd-avatar--compact shrink-0" />
 
-      <div className="min-w-0 flex-1 flex flex-col" style={{ gap: 2 }}>
-        <div className="flex items-center gap-1.5 min-w-0">
-          <span
-            className={cn(
-              'many-hd-title text-sm font-semibold leading-[1.3] overflow-hidden text-ellipsis whitespace-nowrap',
-              isPopout ? 'text-[var(--dome-text)]' : 'text-[var(--primary-text)]',
-            )}
-          >
-            {titleText}
-          </span>
-          {(isThinking || isSpeaking) && statusBadgeLabel ? (
-            <span className="many-hd-status-badge text-xs text-[var(--accent)] font-medium px-2 py-px rounded-full bg-[var(--accent-bg)] leading-[1.6] shrink min-w-0 max-w-[140px] truncate">
-              {statusBadgeLabel}
-            </span>
-          ) : null}
-        </div>
-
-        <div className="flex items-center flex-wrap min-w-0" style={{ gap: 5 }}>
-          {/* Model selector intentionally NOT rendered here: it already lives in the
-              composer/input pill, so showing it in the header too is redundant. */}
-          {contextDescription ? (
-            <span className="many-hd-chip many-hd-chip--accent many-hd-meta--extra">
-              {contextDescription}
-            </span>
-          ) : null}
-          {subtitleText ? (
-            <span className="many-hd-meta--extra many-hd-subtitle">
-              {subtitleText}
-            </span>
-          ) : null}
-        </div>
-      </div>
+      <HeaderTitleBlock p={p} isPopout={isPopout} contextDescription={contextDescription} />
 
       <div className="flex items-center shrink-0 no-drag many-hd-actions" style={{ gap: 2 }}>
         {contextUsage}
 
-        <div className="many-hd-actions--wide flex items-center" style={{ gap: 2 }}>
-          {showFullscreenToggle && onToggleFullscreen ? (
-            <button
-              type="button"
-              className="many-icon-btn"
-              onClick={onToggleFullscreen}
-              title={fullscreenLabel}
-              aria-label={fullscreenLabel}
-            >
-              {isFullscreenActive ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </button>
-          ) : null}
-          {showPopoutToggle && onPopout ? (
-            <button
-              type="button"
-              className="many-icon-btn"
-              onClick={onPopout}
-              title={t('many.open_popout')}
-              aria-label={t('many.open_popout')}
-            >
-              <ExternalLink size={16} />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            className="many-icon-btn"
-            onClick={onStartNewChat}
-            title={t('many.newChat')}
-            aria-label={t('many.newChat')}
-          >
-            <Plus size={16} />
-          </button>
-          {showHistoryToggle ? (
-            <button
-              type="button"
-              className="many-icon-btn"
-              onClick={onToggleHistory}
-              title={t('many.toggle_history')}
-              aria-label={t('many.toggle_history')}
-              style={historyOpen ? { background: 'var(--bg-hover)', color: 'var(--accent)' } : undefined}
-            >
-              <Clock size={14} />
-            </button>
-          ) : null}
-        </div>
+        <HeaderWideActions {...actionsProps} />
 
-        <div className="many-hd-actions--compact">
-          <Menu shadow="md" width={236} position="bottom-end" radius="md">
-            <Menu.Target>
-              <button
-                type="button"
-                className="many-icon-btn"
-                aria-label={t('many.more_actions')}
-                title={t('many.more_actions')}
-              >
-                <MoreHorizontal size={16} strokeWidth={2} />
-              </button>
-            </Menu.Target>
-            <Menu.Dropdown>
-              {/* Chat actions first — the primary, most-used ones */}
-              <Menu.Item
-                leftSection={<Plus size={15} />}
-                onClick={onStartNewChat}
-                fw={600}
-              >
-                {t('many.newChat')}
-              </Menu.Item>
-              {showHistoryToggle ? (
-                <Menu.Item
-                  leftSection={<Clock size={15} />}
-                  onClick={onToggleHistory}
-                  rightSection={
-                    historyOpen ? <Check size={14} style={{ color: 'var(--accent)' }} /> : undefined
-                  }
-                  style={historyOpen ? { background: 'var(--accent-bg)', color: 'var(--accent)' } : undefined}
-                >
-                  {t('many.toggle_history')}
-                </Menu.Item>
-              ) : null}
-
-              {(showFullscreenToggle && onToggleFullscreen) || (showPopoutToggle && onPopout) ? (
-                <>
-                  <Menu.Divider />
-                  <Menu.Label>{t('many.view_section')}</Menu.Label>
-                  {showFullscreenToggle && onToggleFullscreen ? (
-                    <Menu.Item
-                      leftSection={isFullscreenActive ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
-                      onClick={onToggleFullscreen}
-                    >
-                      {fullscreenLabel}
-                    </Menu.Item>
-                  ) : null}
-                  {showPopoutToggle && onPopout ? (
-                    <Menu.Item leftSection={<ExternalLink size={15} />} onClick={onPopout}>
-                      {t('many.open_popout')}
-                    </Menu.Item>
-                  ) : null}
-                </>
-              ) : null}
-            </Menu.Dropdown>
-          </Menu>
-        </div>
+        <HeaderCompactMenu {...actionsProps} />
 
         {showClose ? (
           <>
