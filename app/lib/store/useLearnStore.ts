@@ -106,6 +106,15 @@ const initialWizard: WizardState = {
   config: loadSavedGenerateConfig(),
 };
 
+function refreshLearnState(s: LearnState) {
+  void s.loadDecks();
+  void s.loadStudioOutputs();
+  void s.loadKpis();
+  void s.loadStreak();
+  const ids = s.decks.map((d) => d.id);
+  if (ids.length) void s.loadAllDeckStats(ids);
+}
+
 export const useLearnStore = create<LearnState>((set, get) => ({
   activeSection: 'all',
   setActiveSection: (section) => set({ activeSection: section }),
@@ -425,15 +434,7 @@ export const useLearnStore = create<LearnState>((set, get) => ({
     const refresh = () => {
       // Debounce bursts of broadcasts into a single refresh
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        const s = get();
-        void s.loadDecks();
-        void s.loadStudioOutputs();
-        void s.loadKpis();
-        void s.loadStreak();
-        const ids = get().decks.map((d) => d.id);
-        if (ids.length) void s.loadAllDeckStats(ids);
-      }, 150);
+      timer = setTimeout(() => refreshLearnState(get()), 150);
     };
 
     const channels = [
