@@ -6,6 +6,21 @@ const cloudLlm = require('../services/cloud-llm.service.cjs');
 const cloudLlmTasks = require('../services/cloud-llm-tasks.cjs');
 
 /**
+ * Build a generateText adapter that injects queries + windowManager.
+ * Kept at module scope so the inner closure stays shallow.
+ * @param {ReturnType<import('../core/database.cjs').getQueries>} q
+ * @param {{ broadcast: Function }} windowManager
+ */
+function makeGenerateText(q, windowManager) {
+  return (o) =>
+    cloudLlm.generateText({
+      ...o,
+      getQueries: () => q,
+      windowManager,
+    });
+}
+
+/**
  * After resource create/import, suggest title/summary via cloud LLM (non-blocking).
  * @param {string} resourceId
  * @param {{ database: typeof import('../core/database.cjs'), fileStorage: typeof import('../storage/file-storage.cjs'), windowManager: { broadcast: Function } }} deps
@@ -44,13 +59,11 @@ function scheduleCloudAutoMetadata(resourceId, deps) {
 
         if (!imageDataUrl && !body.trim()) return;
 
-        const gen = (o) =>
-          cloudLlm.generateText({
-            ...o,
-            getQueries: () => q,
-            windowManager,
-          });
-        const meta = await cloudLlmTasks.runAutoMetadata(gen, body, imageDataUrl);
+        const meta = await cloudLlmTasks.runAutoMetadata(
+          makeGenerateText(q, windowManager),
+          body,
+          imageDataUrl,
+        );
         if (!meta || typeof meta !== 'object') return;
 
         const newTitle = String(meta.title || '').trim();
