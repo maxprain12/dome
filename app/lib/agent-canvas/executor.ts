@@ -51,23 +51,7 @@ function topologicalLevels(
     inDegree[edge.target] = (inDegree[edge.target] ?? 0) + 1;
   }
 
-  const levels: WorkflowNode<CanvasNodeData>[][] = [];
-  let currentLevel = nodes.filter((n) => inDegree[n.id] === 0);
-
-  while (currentLevel.length > 0) {
-    levels.push(currentLevel);
-    const nextLevel: WorkflowNode<CanvasNodeData>[] = [];
-    for (const node of currentLevel) {
-      for (const neighborId of (adjacency[node.id] ?? [])) {
-        inDegree[neighborId] = (inDegree[neighborId] ?? 1) - 1;
-        if (inDegree[neighborId] === 0) {
-          const neighbor = nodes.find((n) => n.id === neighborId);
-          if (neighbor) nextLevel.push(neighbor);
-        }
-      }
-    }
-    currentLevel = nextLevel;
-  }
+  const levels = computeExecutionLevels(nodes, adjacency, inDegree);
 
   const processedCount = levels.reduce((total, level) => total + level.length, 0);
   if (processedCount !== nodes.length) {
@@ -75,6 +59,43 @@ function topologicalLevels(
   }
 
   return levels;
+}
+
+/** Build BFS execution levels by repeatedly draining the current level's neighbors. */
+function computeExecutionLevels(
+  nodes: WorkflowNode<CanvasNodeData>[],
+  adjacency: Record<string, string[]>,
+  inDegree: Record<string, number>,
+): WorkflowNode<CanvasNodeData>[][] {
+  const levels: WorkflowNode<CanvasNodeData>[][] = [];
+  let currentLevel = nodes.filter((n) => inDegree[n.id] === 0);
+
+  while (currentLevel.length > 0) {
+    levels.push(currentLevel);
+    currentLevel = collectNextLevel(nodes, currentLevel, adjacency, inDegree);
+  }
+
+  return levels;
+}
+
+/** Collect nodes whose in-degree dropped to zero after decrementing from `currentLevel`. */
+function collectNextLevel(
+  nodes: WorkflowNode<CanvasNodeData>[],
+  currentLevel: WorkflowNode<CanvasNodeData>[],
+  adjacency: Record<string, string[]>,
+  inDegree: Record<string, number>,
+): WorkflowNode<CanvasNodeData>[] {
+  const nextLevel: WorkflowNode<CanvasNodeData>[] = [];
+  for (const node of currentLevel) {
+    for (const neighborId of adjacency[node.id] ?? []) {
+      inDegree[neighborId] = (inDegree[neighborId] ?? 1) - 1;
+      if (inDegree[neighborId] === 0) {
+        const neighbor = nodes.find((n) => n.id === neighborId);
+        if (neighbor) nextLevel.push(neighbor);
+      }
+    }
+  }
+  return nextLevel;
 }
 
 /** Collect resolved payloads from nodes connected to a given target node. */
