@@ -554,7 +554,7 @@ function ReadOnlyEventModal({
             <DomeButton
               variant="ghost"
               size="sm"
-              onClick={() => void onDeleteClick()}
+              onClick={() => onDeleteClick()}
               loading={deleting}
               style={{ color: 'var(--home-rose)' }}
             >
