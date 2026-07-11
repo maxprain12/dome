@@ -62,23 +62,14 @@ function restoreMissingMirror(resource, { database, fileStorage }) {
 }
 
 /**
- * Full boot reconciliation. Synchronous (better-sqlite3) — call before the
- * watcher starts so its scan sees a consistent tree.
+ * Backfill rows whose vault mirror is missing. Returns the number of rows
+ * successfully mirrored. Best-effort: query or per-row failures are logged.
  */
-function runBootReconcile({ database, fileStorage }) {
-  const stats = { repairedRefs: 0, backfilled: 0, restored: 0, cleared: 0 };
+function backfillMissingMirrors({ database, fileStorage }) {
   const deps = { database, fileStorage };
-
-  try {
-    stats.repairedRefs = vaultStore.repairFolderIntegrity({ database });
-  } catch (e) {
-    console.warn('[VaultDoctor] repairFolderIntegrity:', e?.message);
-  }
-
   const db = database.getDB();
-  const queries = database.getQueries();
+  let backfilled = 0;
 
-  // 2. Backfill rows without any on-disk representation.
   let missingMirror = [];
   try {
     missingMirror = db
@@ -89,13 +80,25 @@ function runBootReconcile({ database, fileStorage }) {
   }
   for (const row of missingMirror) {
     try {
-      if (ensureResourceMirror(row.id, deps)) stats.backfilled += 1;
+      if (ensureResourceMirror(row.id, deps)) backfilled += 1;
     } catch (e) {
       console.warn('[VaultDoctor] backfill', row.id, e?.message);
     }
   }
+  return backfilled;
+}
 
-  // 3. Restore mirrors whose file vanished from disk.
+/**
+ * Restore mirrors whose file vanished from disk while Dome was closed.
+ * Returns counters of successfully restored rows and rows whose vault_path
+ * was cleared because no source could be found.
+ */
+function restoreVanishedMirrors({ database, fileStorage }) {
+  const deps = { database, fileStorage };
+  const db = database.getDB();
+  const queries = database.getQueries();
+  const stats = { restored: 0, cleared: 0 };
+
   let mirrored = [];
   try {
     mirrored = db
@@ -118,13 +121,39 @@ function runBootReconcile({ database, fileStorage }) {
       console.warn('[VaultDoctor] restore', row.id, e?.message);
     }
   }
+  return stats;
+}
 
+/**
+ * Log a one-line reconciliation summary when anything changed.
+ */
+function logReconciliationSummary(stats) {
   const total = stats.repairedRefs + stats.backfilled + stats.restored + stats.cleared;
-  if (total > 0) {
-    console.log(
-      `[VaultDoctor] reconciled vault↔DB — refs:${stats.repairedRefs} backfilled:${stats.backfilled} restored:${stats.restored} cleared:${stats.cleared}`,
-    );
+  if (total <= 0) return;
+  console.log(
+    `[VaultDoctor] reconciled vault↔DB — refs:${stats.repairedRefs} backfilled:${stats.backfilled} restored:${stats.restored} cleared:${stats.cleared}`,
+  );
+}
+
+/**
+ * Full boot reconciliation. Synchronous (better-sqlite3) — call before the
+ * watcher starts so its scan sees a consistent tree.
+ */
+function runBootReconcile({ database, fileStorage }) {
+  const stats = { repairedRefs: 0, backfilled: 0, restored: 0, cleared: 0 };
+
+  try {
+    stats.repairedRefs = vaultStore.repairFolderIntegrity({ database });
+  } catch (e) {
+    console.warn('[VaultDoctor] repairFolderIntegrity:', e?.message);
   }
+
+  stats.backfilled = backfillMissingMirrors({ database, fileStorage });
+  const restore = restoreVanishedMirrors({ database, fileStorage });
+  stats.restored = restore.restored;
+  stats.cleared = restore.cleared;
+
+  logReconciliationSummary(stats);
   return stats;
 }
 
