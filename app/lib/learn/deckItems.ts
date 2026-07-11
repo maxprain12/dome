@@ -73,72 +73,88 @@ export function parseStudioContentCount(type: StudioOutputType, content?: string
   }
 }
 
+function computeDeckMastery(total: number, stats?: FlashcardDeckStats): number {
+  if (stats?.maturity != null) return stats.maturity;
+  if (total <= 0) return 0;
+  return Math.round(((stats?.mastered_cards ?? 0) / total) * 100);
+}
+
+function buildFlashcardDeckItem(
+  deck: FlashcardDeck,
+  stats?: FlashcardDeckStats,
+): LearnDeckItem {
+  const total = stats?.total ?? deck.card_count;
+  return {
+    id: deck.id,
+    kind: 'flashcard_deck',
+    title: deck.title,
+    description: deck.description,
+    type: 'flashcards',
+    count: total,
+    mastery: computeDeckMastery(total, stats),
+    dueCount: flashcardStudyableCount(stats),
+    lastSeen: deck.updated_at,
+    pinned: false,
+    sourceIds: deck.resource_id ? [deck.resource_id] : undefined,
+    resourceId: deck.resource_id,
+    projectId: deck.project_id,
+    createdAt: deck.created_at,
+    updatedAt: deck.updated_at,
+  };
+}
+
+function parseOutputSourceIds(raw: string | undefined): string[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed)
+      ? parsed.filter((x): x is string => typeof x === 'string')
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildStudioOutputItem(
+  output: StudioOutput,
+  deckIds: Set<string>,
+): LearnDeckItem | null {
+  if (output.type === 'flashcards' && output.deck_id && deckIds.has(output.deck_id)) {
+    return null;
+  }
+  const count =
+    output.type === 'flashcards'
+      ? output.deck_card_count ?? 0
+      : parseStudioContentCount(output.type, output.content);
+  return {
+    id: output.id,
+    kind: output.type,
+    title: output.title,
+    type: output.type,
+    count,
+    mastery: undefined,
+    dueCount: undefined,
+    lastSeen: output.updated_at,
+    pinned: false,
+    sourceIds: parseOutputSourceIds(output.source_ids),
+    resourceId: output.resource_id,
+    projectId: output.project_id,
+    createdAt: output.created_at,
+    updatedAt: output.updated_at,
+  };
+}
+
 export function buildLearnDeckItems(
   decks: FlashcardDeck[],
   studioOutputs: StudioOutput[],
   deckStats: Record<string, FlashcardDeckStats>,
 ): LearnDeckItem[] {
   const deckIds = new Set(decks.map((d) => d.id));
-  const items: LearnDeckItem[] = [];
-
-  for (const deck of decks) {
-    const stats = deckStats[deck.id];
-    const total = stats?.total ?? deck.card_count;
-    items.push({
-      id: deck.id,
-      kind: 'flashcard_deck',
-      title: deck.title,
-      description: deck.description,
-      type: 'flashcards',
-      count: total,
-      mastery: stats?.maturity ?? (total > 0 ? Math.round(((stats?.mastered_cards ?? 0) / total) * 100) : 0),
-      dueCount: flashcardStudyableCount(stats),
-      lastSeen: deck.updated_at,
-      pinned: false,
-      sourceIds: deck.resource_id ? [deck.resource_id] : undefined,
-      resourceId: deck.resource_id,
-      projectId: deck.project_id,
-      createdAt: deck.created_at,
-      updatedAt: deck.updated_at,
-    });
-  }
+  const items: LearnDeckItem[] = decks.map((d) => buildFlashcardDeckItem(d, deckStats[d.id]));
 
   for (const output of studioOutputs) {
-    if (output.type === 'flashcards' && output.deck_id && deckIds.has(output.deck_id)) {
-      continue;
-    }
-
-    const count =
-      output.type === 'flashcards'
-        ? output.deck_card_count ?? 0
-        : parseStudioContentCount(output.type, output.content);
-
-    let sourceIds: string[] | undefined;
-    if (output.source_ids) {
-      try {
-        const parsed = JSON.parse(output.source_ids) as unknown;
-        sourceIds = Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : undefined;
-      } catch {
-        sourceIds = undefined;
-      }
-    }
-
-    items.push({
-      id: output.id,
-      kind: output.type,
-      title: output.title,
-      type: output.type,
-      count,
-      mastery: undefined,
-      dueCount: undefined,
-      lastSeen: output.updated_at,
-      pinned: false,
-      sourceIds,
-      resourceId: output.resource_id,
-      projectId: output.project_id,
-      createdAt: output.created_at,
-      updatedAt: output.updated_at,
-    });
+    const item = buildStudioOutputItem(output, deckIds);
+    if (item) items.push(item);
   }
 
   return items.sort((a, b) => b.updatedAt - a.updatedAt);

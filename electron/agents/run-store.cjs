@@ -176,47 +176,52 @@ function createRun(params) {
   return run;
 }
 
-function patchRun(runId, patch) {
-  const queries = getQueries();
-  const current = normalizeRunRow(queries.getAutomationRunById.get(runId));
-  if (!current) {
-    console.warn('[RunEngine] patchRun skipped — run not found:', runId);
-    return null;
+function resolveNextLastHeartbeat(current, patch) {
+  if (Object.prototype.hasOwnProperty.call(patch, 'lastHeartbeatAt')) {
+    return patch.lastHeartbeatAt;
   }
-  const next = {
+  return patch.status === 'running' ? now() : current.lastHeartbeatAt;
+}
+
+function resolveNextRun(current, patch) {
+  return {
     ...current,
     ...patch,
     metadata: { ...(current.metadata ?? {}), ...(patch.metadata ?? {}) },
     updatedAt: patch.updatedAt ?? now(),
-    lastHeartbeatAt:
-      Object.prototype.hasOwnProperty.call(patch, 'lastHeartbeatAt')
-        ? patch.lastHeartbeatAt
-        : (patch.status === 'running' ? now() : current.lastHeartbeatAt),
+    lastHeartbeatAt: resolveNextLastHeartbeat(current, patch),
   };
-  updateStoredRun(next);
+}
+
+function isHeartbeatOnlyPatch(patch) {
   const patchKeys = Object.keys(patch);
-  const heartbeatOnly =
+  return (
     patchKeys.length > 0 &&
-    patchKeys.every((key) => key === 'lastHeartbeatAt' || key === 'updatedAt');
-  if (!heartbeatOnly) {
-    emit(RUN_EVENT_CHANNEL, { run: next });
+    patchKeys.every((key) => key === 'lastHeartbeatAt' || key === 'updatedAt')
+  );
+}
+
+function safeHookCall(prefix, name, fn) {
+  try {
+    fn();
+  } catch (e) {
+    console.warn(`[${prefix}] ${name} failed:`, e?.message);
   }
+}
+
+function notifyTerminalHooks(next, current) {
   if (next.automationId && RUN_TERMINAL_STATUSES.has(next.status)) {
-    try {
-      _hooks.onTerminalAutomationStatus?.(next.automationId, next.status);
-    } catch (e) {
-      console.warn('[RunStore] onTerminalAutomationStatus failed:', e?.message);
-    }
+    safeHookCall('RunStore', 'onTerminalAutomationStatus', () =>
+      _hooks.onTerminalAutomationStatus?.(next.automationId, next.status));
   }
   // Generic terminal hook (any owner). Used by the pipeline runner to close the
   // run → pipeline_item loop without coupling the core engine to pipelines.
   if (RUN_TERMINAL_STATUSES.has(next.status) && current.status !== next.status) {
-    try {
-      _hooks.onRunTerminal?.(next);
-    } catch (e) {
-      console.warn('[RunStore] onRunTerminal failed:', e?.message);
-    }
+    safeHookCall('RunStore', 'onRunTerminal', () => _hooks.onRunTerminal?.(next));
   }
+}
+
+function applyCompletedArtifactSinks(next, current, runId) {
   const becameCompleted =
     next.status === 'completed' &&
     current.status !== 'completed' &&
@@ -224,17 +229,31 @@ function patchRun(runId, patch) {
     typeof next.outputText === 'string' &&
     next.outputText.trim() !== '';
   if (becameCompleted && _database && _windowManager) {
-    try {
+    safeHookCall('RunEngine', 'artifact sink', () => {
       const { applyArtifactSinksForCompletedRun } = require('../artifacts/artifact-sink.cjs');
       applyArtifactSinksForCompletedRun(_database, _windowManager, {
         automationId: next.automationId,
         runId,
         outputText: next.outputText,
       });
-    } catch (e) {
-      console.warn('[RunEngine] artifact sink failed:', e?.message);
-    }
+    });
   }
+}
+
+function patchRun(runId, patch) {
+  const queries = getQueries();
+  const current = normalizeRunRow(queries.getAutomationRunById.get(runId));
+  if (!current) {
+    console.warn('[RunEngine] patchRun skipped — run not found:', runId);
+    return null;
+  }
+  const next = resolveNextRun(current, patch);
+  updateStoredRun(next);
+  if (!isHeartbeatOnlyPatch(patch)) {
+    emit(RUN_EVENT_CHANNEL, { run: next });
+  }
+  notifyTerminalHooks(next, current);
+  applyCompletedArtifactSinks(next, current, runId);
   return next;
 }
 
