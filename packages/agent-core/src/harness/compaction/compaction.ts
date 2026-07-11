@@ -544,6 +544,46 @@ export interface CompactionPreparation {
 	settings: CompactionSettings;
 }
 
+/** Walk the session backwards to find the most recent compaction entry. */
+function findPreviousCompactionIndex(entries: SessionTreeEntry[]): number {
+	for (let i = entries.length - 1; i >= 0; i--) {
+		if (entries[i].type === "compaction") {
+			return i;
+		}
+	}
+	return -1;
+}
+
+/** Resolve the previous summary and the entry index where compaction's history starts. */
+function resolveCompactionBoundary(
+	entries: SessionTreeEntry[],
+	prevCompactionIndex: number,
+): { previousSummary: string | undefined; boundaryStart: number } {
+	if (prevCompactionIndex < 0) {
+		return { previousSummary: undefined, boundaryStart: 0 };
+	}
+	const prevCompaction = entries[prevCompactionIndex] as CompactionEntry;
+	const firstKeptEntryIndex = entries.findIndex((entry) => entry.id === prevCompaction.firstKeptEntryId);
+	return {
+		previousSummary: prevCompaction.summary,
+		boundaryStart: firstKeptEntryIndex >= 0 ? firstKeptEntryIndex : prevCompactionIndex + 1,
+	};
+}
+
+/** Collect agent messages for entries within [startIndex, endIndex), skipping compaction entries. */
+function collectCompactionMessages(
+	entries: SessionTreeEntry[],
+	startIndex: number,
+	endIndex: number,
+): AgentMessage[] {
+	const messages: AgentMessage[] = [];
+	for (let i = startIndex; i < endIndex; i++) {
+		const msg = getMessageFromEntryForCompaction(entries[i]);
+		if (msg) messages.push(msg);
+	}
+	return messages;
+}
+
 /** Prepare session entries for compaction, or return undefined when compaction is not applicable. */
 export function prepareCompaction(
 	pathEntries: SessionTreeEntry[],
@@ -553,24 +593,9 @@ export function prepareCompaction(
 		return ok(undefined);
 	}
 
-	let prevCompactionIndex = -1;
-	for (let i = pathEntries.length - 1; i >= 0; i--) {
-		if (pathEntries[i].type === "compaction") {
-			prevCompactionIndex = i;
-			break;
-		}
-	}
-
-	let previousSummary: string | undefined;
-	let boundaryStart = 0;
-	if (prevCompactionIndex >= 0) {
-		const prevCompaction = pathEntries[prevCompactionIndex] as CompactionEntry;
-		previousSummary = prevCompaction.summary;
-		const firstKeptEntryIndex = pathEntries.findIndex((entry) => entry.id === prevCompaction.firstKeptEntryId);
-		boundaryStart = firstKeptEntryIndex >= 0 ? firstKeptEntryIndex : prevCompactionIndex + 1;
-	}
+	const prevCompactionIndex = findPreviousCompactionIndex(pathEntries);
+	const { previousSummary, boundaryStart } = resolveCompactionBoundary(pathEntries, prevCompactionIndex);
 	const boundaryEnd = pathEntries.length;
-
 	const tokensBefore = estimateContextTokens(buildSessionContext(pathEntries).messages).tokens;
 
 	const cutPoint = findCutPoint(pathEntries, boundaryStart, boundaryEnd, settings.keepRecentTokens);
@@ -581,23 +606,14 @@ export function prepareCompaction(
 	const firstKeptEntryId = firstKeptEntry.id;
 
 	const historyEnd = cutPoint.isSplitTurn ? cutPoint.turnStartIndex : cutPoint.firstKeptEntryIndex;
-	const messagesToSummarize: AgentMessage[] = [];
-	for (let i = boundaryStart; i < historyEnd; i++) {
-		const msg = getMessageFromEntryForCompaction(pathEntries[i]);
-		if (msg) messagesToSummarize.push(msg);
-	}
-	const turnPrefixMessages: AgentMessage[] = [];
-	if (cutPoint.isSplitTurn) {
-		for (let i = cutPoint.turnStartIndex; i < cutPoint.firstKeptEntryIndex; i++) {
-			const msg = getMessageFromEntryForCompaction(pathEntries[i]);
-			if (msg) turnPrefixMessages.push(msg);
-		}
-	}
+	const messagesToSummarize = collectCompactionMessages(pathEntries, boundaryStart, historyEnd);
+	const turnPrefixMessages = cutPoint.isSplitTurn
+		? collectCompactionMessages(pathEntries, cutPoint.turnStartIndex, cutPoint.firstKeptEntryIndex)
+		: [];
+
 	const fileOps = extractFileOperations(messagesToSummarize, pathEntries, prevCompactionIndex);
-	if (cutPoint.isSplitTurn) {
-		for (const msg of turnPrefixMessages) {
-			extractFileOpsFromMessage(msg, fileOps);
-		}
+	for (const msg of turnPrefixMessages) {
+		extractFileOpsFromMessage(msg, fileOps);
 	}
 
 	return ok({
