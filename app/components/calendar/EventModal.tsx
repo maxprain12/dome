@@ -449,181 +449,182 @@ interface EventModalProps {
   onDelete?: (eventId: string) => Promise<void>;
 }
 
-export default function EventModal({
-  event,
-  initialDate,
-  onClose,
-  onSave,
-  onDelete,
-}: EventModalProps) {
-  const { t, i18n } = useTranslation();
-  const githubEvent = isGithubCalendarEvent(event);
-  const githubUrl = event ? githubEventUrl(event) : null;
-  const pipelineItemId = pipelineItemIdOf(event);
-  const openPipelinesTab = useTabStore((s) => s.openPipelinesTab);
-  // Existing events open in a read-only detail view; new events go straight to
-  // the edit form.
-  const [editing, setEditing] = useState(!event);
-  const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
-  const prevPipelineItemIdRef = useRef(pipelineItemId);
-  if (pipelineItemId !== prevPipelineItemIdRef.current) {
-    prevPipelineItemIdRef.current = pipelineItemId;
-    if (!pipelineItemId) setPipelineInfo(null);
+function githubEventUrlOf(event: CalendarEvent | null | undefined): string | null {
+  return event ? githubEventUrl(event) : null;
+}
+
+function initialStartAtFor(event: CalendarEvent | null | undefined, initialDate?: Date): string {
+  if (event) {
+    return toLocalISO(new Date(event.start_at));
   }
+  return toLocalISO(initialDate ?? new Date());
+}
 
-  useEffect(() => {
-    if (!pipelineItemId) {
-      return;
-    }
-    let cancelled = false;
-    pipelinesClient
-      .getItem(pipelineItemId)
-      .then((d) => {
-        if (!cancelled) setPipelineInfo(d);
-      })
-      .catch(() => {
-        if (!cancelled) setPipelineInfo(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pipelineItemId]);
+function initialEndAtFor(event: CalendarEvent | null | undefined, initialDate?: Date): string {
+  if (event) {
+    return toLocalISO(new Date(event.end_at));
+  }
+  if (initialDate) {
+    return toLocalISO(new Date(initialDate.getTime() + 60 * 60 * 1000));
+  }
+  const d = new Date();
+  d.setHours(d.getHours() + 1);
+  return toLocalISO(d);
+}
 
-  const [title, setTitle] = useState(event?.title ?? '');
-  const [description, setDescription] = useState(event?.description ?? '');
-  const [location, setLocation] = useState(event?.location ?? '');
-  const [startAt, setStartAt] = useState(
-    event ? toLocalISO(new Date(event.start_at)) : initialDate ? toLocalISO(initialDate) : toLocalISO(new Date())
-  );
-  const [endAt, setEndAt] = useState(
-    event
-      ? toLocalISO(new Date(event.end_at))
-      : initialDate
-        ? toLocalISO(new Date(initialDate.getTime() + 60 * 60 * 1000))
-        : (() => {
-            const d = new Date();
-            d.setHours(d.getHours() + 1);
-            return toLocalISO(d);
-          })()
-  );
-  const [allDay, setAllDay] = useState(event?.all_day ?? false);
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+interface GithubEventModalProps {
+  event: CalendarEvent;
+  githubUrl: string | null;
+  onClose: () => void;
+}
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setSaving(true);
-    try {
-      await onSave({
-        title: title.trim(),
-        description: description.trim() || undefined,
-        location: location.trim() || undefined,
-        start_at: new Date(startAt).toISOString(),
-        end_at: new Date(endAt).toISOString(),
-        all_day: allDay,
-      });
-      onClose();
-    } finally {
-      setSaving(false);
-    }
-  };
+function GithubEventModal({ event, githubUrl, onClose }: GithubEventModalProps) {
+  const { t } = useTranslation();
 
-  const handleDelete = async () => {
-    if (!event || !onDelete) return;
-    if (!confirm(t('calendarPage.delete_event_confirm'))) return;
-    setDeleting(true);
-    try {
-      await onDelete(event.id);
-      onClose();
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  if (githubEvent && event) {
-    return (
-      <DomeModal
-        open
-        onClose={onClose}
-        title={event.title}
-        size="lg"
-        headerActions={
-          githubUrl ? (
-            <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
-              <ExternalLink size={16} />
+  return (
+    <DomeModal
+      open
+      onClose={onClose}
+      title={event.title}
+      size="lg"
+      headerActions={
+        githubUrl ? (
+          <a href={githubUrl} target="_blank" rel="noreferrer" title={t('github.open_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
+            <ExternalLink size={16} />
+          </a>
+        ) : null
+      }
+      footer={
+        <div className="flex items-center justify-end w-full">
+          {githubUrl ? (
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm inline-flex items-center gap-1.5 mr-auto"
+              style={{ color: 'var(--dome-accent)' }}
+            >
+              <ExternalLink size={14} />
+              {t('github.calendar_view_on_github')}
             </a>
-          ) : null
-        }
-        footer={
-          <div className="flex items-center justify-end w-full">
-            {githubUrl ? (
-              <a
-                href={githubUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-sm inline-flex items-center gap-1.5 mr-auto"
-                style={{ color: 'var(--dome-accent)' }}
-              >
-                <ExternalLink size={14} />
-                {t('github.calendar_view_on_github')}
-              </a>
-            ) : null}
-            <button type="button" onClick={onClose} className="h-pill-btn primary">
-              {t('common.close', { defaultValue: 'Cerrar' })}
-            </button>
-          </div>
-        }
-      >
-        <GithubEventBody event={event} githubUrl={githubUrl} />
-      </DomeModal>
-    );
-  }
+          ) : null}
+          <button type="button" onClick={onClose} className="h-pill-btn primary">
+            {t('common.close', { defaultValue: 'Cerrar' })}
+          </button>
+        </div>
+      }
+    >
+      <GithubEventBody event={event} githubUrl={githubUrl} />
+    </DomeModal>
+  );
+}
 
-  // Read-only detail view for existing (non-GitHub) events. "Edit" switches to
-  // the form; pipeline-sourced events show extended, relevant info.
-  if (event && !editing) {
-    return (
-      <DomeModal
-        open
-        onClose={onClose}
-        title={event.title}
-        size="md"
-        footer={
-          <>
-            {onDelete ? (
-              <DomeButton
-                variant="ghost"
-                size="sm"
-                onClick={() => void handleDelete()}
-                loading={deleting}
-                style={{ color: 'var(--home-rose)' }}
-              >
-                {t('common.delete')}
-              </DomeButton>
-            ) : null}
-            <div style={{ flex: 1 }} />
-            <DomeButton variant="outline" size="sm" onClick={() => setEditing(true)} leftIcon={<Pencil className="size-4" />}>
-              {t('common.edit', { defaultValue: 'Edit' })}
+interface ReadOnlyEventModalProps {
+  event: CalendarEvent;
+  pipelineInfo: PipelineDetail | null;
+  onClose: () => void;
+  onDelete?: (eventId: string) => Promise<void>;
+  onDeleteClick: () => void;
+  onEdit: () => void;
+  onOpenPipeline: () => void;
+  deleting: boolean;
+}
+
+function ReadOnlyEventModal({
+  event,
+  pipelineInfo,
+  onClose,
+  onDelete,
+  onDeleteClick,
+  onEdit,
+  onOpenPipeline,
+  deleting,
+}: ReadOnlyEventModalProps) {
+  const { t, i18n } = useTranslation();
+
+  return (
+    <DomeModal
+      open
+      onClose={onClose}
+      title={event.title}
+      size="md"
+      footer={
+        <>
+          {onDelete ? (
+            <DomeButton
+              variant="ghost"
+              size="sm"
+              onClick={() => void onDeleteClick()}
+              loading={deleting}
+              style={{ color: 'var(--home-rose)' }}
+            >
+              {t('common.delete')}
             </DomeButton>
-            <DomeButton variant="primary" size="sm" onClick={onClose}>
-              {t('common.close', { defaultValue: 'Close' })}
-            </DomeButton>
-          </>
-        }
-      >
-        <LocalEventDetail
-          event={event}
-          locale={i18n.language}
-          pipeline={pipelineInfo}
-          onOpenPipeline={() => {
-            openPipelinesTab();
-            onClose();
-          }}
-        />
-      </DomeModal>
-    );
-  }
+          ) : null}
+          <div style={{ flex: 1 }} />
+          <DomeButton variant="outline" size="sm" onClick={onEdit} leftIcon={<Pencil className="size-4" />}>
+            {t('common.edit', { defaultValue: 'Edit' })}
+          </DomeButton>
+          <DomeButton variant="primary" size="sm" onClick={onClose}>
+            {t('common.close', { defaultValue: 'Close' })}
+          </DomeButton>
+        </>
+      }
+    >
+      <LocalEventDetail
+        event={event}
+        locale={i18n.language}
+        pipeline={pipelineInfo}
+        onOpenPipeline={onOpenPipeline}
+      />
+    </DomeModal>
+  );
+}
+
+interface EventFormModalProps {
+  event?: CalendarEvent | null;
+  title: string;
+  description: string;
+  location: string;
+  startAt: string;
+  endAt: string;
+  allDay: boolean;
+  saving: boolean;
+  deleting: boolean;
+  onClose: () => void;
+  onDelete?: (eventId: string) => Promise<void>;
+  onDeleteClick: () => void;
+  onSubmit: (e: React.FormEvent<HTMLFormElement>) => void;
+  setTitle: React.Dispatch<React.SetStateAction<string>>;
+  setDescription: React.Dispatch<React.SetStateAction<string>>;
+  setLocation: React.Dispatch<React.SetStateAction<string>>;
+  setStartAt: React.Dispatch<React.SetStateAction<string>>;
+  setEndAt: React.Dispatch<React.SetStateAction<string>>;
+  setAllDay: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+function EventFormModal({
+  event,
+  title,
+  description,
+  location,
+  startAt,
+  endAt,
+  allDay,
+  saving,
+  deleting,
+  onClose,
+  onDelete,
+  onDeleteClick,
+  onSubmit,
+  setTitle,
+  setDescription,
+  setLocation,
+  setStartAt,
+  setEndAt,
+  setAllDay,
+}: EventFormModalProps) {
+  const { t } = useTranslation();
 
   return (
     <DomeModal
@@ -636,7 +637,7 @@ export default function EventModal({
           {event && onDelete ? (
             <button
               type="button"
-              onClick={() => void handleDelete()}
+              onClick={() => void onDeleteClick()}
               disabled={deleting}
               className="h-pill-btn mr-auto"
               style={{ color: 'var(--home-rose)' }}
@@ -653,7 +654,7 @@ export default function EventModal({
         </>
       }
     >
-      <form id="event-modal-form" onSubmit={handleSubmit} className="c-calendar-modal-form">
+      <form id="event-modal-form" onSubmit={onSubmit} className="c-calendar-modal-form">
           <div>
             <label htmlFor="event-modal-title-input" className="c-calendar-modal-label">
               {t('common.name')}
@@ -738,5 +739,134 @@ export default function EventModal({
 
       </form>
     </DomeModal>
+  );
+}
+
+export default function EventModal({
+  event,
+  initialDate,
+  onClose,
+  onSave,
+  onDelete,
+}: EventModalProps) {
+  const { t } = useTranslation();
+  const githubEvent = isGithubCalendarEvent(event);
+  const githubUrl = githubEventUrlOf(event);
+  const pipelineItemId = pipelineItemIdOf(event);
+  const openPipelinesTab = useTabStore((s) => s.openPipelinesTab);
+  // Existing events open in a read-only detail view; new events go straight to
+  // the edit form.
+  const [editing, setEditing] = useState(!event);
+  const [pipelineInfo, setPipelineInfo] = useState<PipelineDetail | null>(null);
+  const prevPipelineItemIdRef = useRef(pipelineItemId);
+  if (pipelineItemId !== prevPipelineItemIdRef.current) {
+    prevPipelineItemIdRef.current = pipelineItemId;
+    if (!pipelineItemId) setPipelineInfo(null);
+  }
+
+  useEffect(() => {
+    if (!pipelineItemId) {
+      return;
+    }
+    let cancelled = false;
+    pipelinesClient
+      .getItem(pipelineItemId)
+      .then((d) => {
+        if (!cancelled) setPipelineInfo(d);
+      })
+      .catch(() => {
+        if (!cancelled) setPipelineInfo(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pipelineItemId]);
+
+  const [title, setTitle] = useState(event?.title ?? '');
+  const [description, setDescription] = useState(event?.description ?? '');
+  const [location, setLocation] = useState(event?.location ?? '');
+  const [startAt, setStartAt] = useState(initialStartAtFor(event, initialDate));
+  const [endAt, setEndAt] = useState(initialEndAtFor(event, initialDate));
+  const [allDay, setAllDay] = useState(event?.all_day ?? false);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setSaving(true);
+    try {
+      await onSave({
+        title: title.trim(),
+        description: description.trim() || undefined,
+        location: location.trim() || undefined,
+        start_at: new Date(startAt).toISOString(),
+        end_at: new Date(endAt).toISOString(),
+        all_day: allDay,
+      });
+      onClose();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!event || !onDelete) return;
+    if (!confirm(t('calendarPage.delete_event_confirm'))) return;
+    setDeleting(true);
+    try {
+      await onDelete(event.id);
+      onClose();
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  if (githubEvent && event) {
+    return <GithubEventModal event={event} githubUrl={githubUrl} onClose={onClose} />;
+  }
+
+  // Read-only detail view for existing (non-GitHub) events. "Edit" switches to
+  // the form; pipeline-sourced events show extended, relevant info.
+  if (event && !editing) {
+    return (
+      <ReadOnlyEventModal
+        event={event}
+        pipelineInfo={pipelineInfo}
+        onClose={onClose}
+        onDelete={onDelete}
+        onDeleteClick={handleDelete}
+        onEdit={() => setEditing(true)}
+        onOpenPipeline={() => {
+          openPipelinesTab();
+          onClose();
+        }}
+        deleting={deleting}
+      />
+    );
+  }
+
+  return (
+    <EventFormModal
+      event={event}
+      title={title}
+      description={description}
+      location={location}
+      startAt={startAt}
+      endAt={endAt}
+      allDay={allDay}
+      saving={saving}
+      deleting={deleting}
+      onClose={onClose}
+      onDelete={onDelete}
+      onDeleteClick={handleDelete}
+      onSubmit={handleSubmit}
+      setTitle={setTitle}
+      setDescription={setDescription}
+      setLocation={setLocation}
+      setStartAt={setStartAt}
+      setEndAt={setEndAt}
+      setAllDay={setAllDay}
+    />
   );
 }
