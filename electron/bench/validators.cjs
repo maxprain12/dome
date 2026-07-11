@@ -26,6 +26,36 @@ function validateExecution({ chunks, error, timedOut, hitInterrupt, skipHitl }) 
   return { pass: true, layer: 'execution' };
 }
 
+function validateOutputShape(outputShape, finalText) {
+  if (!outputShape) return null;
+  const text = finalText || '';
+  if (outputShape.min_length && text.length < outputShape.min_length) {
+    return {
+      pass: false,
+      layer: 'structural',
+      reason: `Output too short (${text.length} < ${outputShape.min_length})`,
+    };
+  }
+  if (outputShape.contains_any?.length) {
+    const lower = text.toLowerCase();
+    const hit = outputShape.contains_any.some((s) => lower.includes(String(s).toLowerCase()));
+    if (!hit) {
+      return {
+        pass: false,
+        layer: 'structural',
+        reason: `Output missing any of: ${outputShape.contains_any.join(', ')}`,
+      };
+    }
+  }
+  if (outputShape.regex) {
+    const re = new RegExp(outputShape.regex, outputShape.regex_flags || 'i');
+    if (!re.test(text)) {
+      return { pass: false, layer: 'structural', reason: `Output does not match regex: ${outputShape.regex}` };
+    }
+  }
+  return null;
+}
+
 /**
  * Layer 1: structural — expected_tools subset, forbidden absent, output_shape
  */
@@ -59,32 +89,9 @@ function validateStructural({
     };
   }
 
-  if (outputShape) {
-    const text = finalText || '';
-    if (outputShape.min_length && text.length < outputShape.min_length) {
-      return {
-        pass: false,
-        layer: 'structural',
-        reason: `Output too short (${text.length} < ${outputShape.min_length})`,
-      };
-    }
-    if (outputShape.contains_any?.length) {
-      const lower = text.toLowerCase();
-      const hit = outputShape.contains_any.some((s) => lower.includes(String(s).toLowerCase()));
-      if (!hit) {
-        return {
-          pass: false,
-          layer: 'structural',
-          reason: `Output missing any of: ${outputShape.contains_any.join(', ')}`,
-        };
-      }
-    }
-    if (outputShape.regex) {
-      const re = new RegExp(outputShape.regex, outputShape.regex_flags || 'i');
-      if (!re.test(text)) {
-        return { pass: false, layer: 'structural', reason: `Output does not match regex: ${outputShape.regex}` };
-      }
-    }
+  const shapeFailure = validateOutputShape(outputShape, finalText);
+  if (shapeFailure) {
+    return shapeFailure;
   }
 
   return { pass: true, layer: 'structural' };
