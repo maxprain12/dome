@@ -19,64 +19,115 @@ import type {
 } from "../types.js";
 import { SessionError } from "../types.js";
 
-export function buildSessionContext(pathEntries: SessionTreeEntry[]): SessionContext {
-	let thinkingLevel = "off";
-	let model: { provider: string; modelId: string } | null = null;
-	let activeToolNames: string[] | null = null;
-	let compaction: CompactionEntry | null = null;
+interface SessionStateAccumulator {
+	thinkingLevel: string;
+	model: { provider: string; modelId: string } | null;
+	activeToolNames: string[] | null;
+	compaction: CompactionEntry | null;
+}
 
-	for (const entry of pathEntries) {
-		if (entry.type === "thinking_level_change") {
-			thinkingLevel = entry.thinkingLevel;
-		} else if (entry.type === "model_change") {
-			model = { provider: entry.provider, modelId: entry.modelId };
-		} else if (entry.type === "message" && entry.message.role === "assistant") {
-			model = { provider: entry.message.provider, modelId: entry.message.model };
-		} else if (entry.type === "active_tools_change") {
-			activeToolNames = [...entry.activeToolNames];
-		} else if (entry.type === "compaction") {
-			compaction = entry;
-		}
+function applyEntryToState(entry: SessionTreeEntry, state: SessionStateAccumulator): void {
+	if (entry.type === "thinking_level_change") {
+		state.thinkingLevel = entry.thinkingLevel;
+		return;
 	}
-
-	const messages: AgentMessage[] = [];
-	const appendMessage = (entry: SessionTreeEntry) => {
-		if (entry.type === "message") {
-			messages.push(entry.message as AgentMessage);
-		} else if (entry.type === "custom_message") {
-			messages.push(
-				createCustomMessage(
-					entry.customType,
-					entry.content as string | (TextContent | ImageContent)[],
-					entry.display,
-					entry.details,
-					entry.timestamp,
-				),
-			);
-		} else if (entry.type === "branch_summary" && entry.summary) {
-			messages.push(createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp));
+	if (entry.type === "model_change") {
+		state.model = { provider: entry.provider, modelId: entry.modelId };
+		return;
+	}
+	if (entry.type === "message") {
+		if (entry.message.role === "assistant") {
+			state.model = { provider: entry.message.provider, modelId: entry.message.model };
 		}
+		return;
+	}
+	if (entry.type === "active_tools_change") {
+		state.activeToolNames = [...entry.activeToolNames];
+		return;
+	}
+	if (entry.type === "compaction") {
+		state.compaction = entry;
+	}
+}
+
+function collectSessionState(pathEntries: SessionTreeEntry[]): SessionStateAccumulator {
+	const state: SessionStateAccumulator = {
+		thinkingLevel: "off",
+		model: null,
+		activeToolNames: null,
+		compaction: null,
 	};
-
-	if (compaction) {
-		messages.push(createCompactionSummaryMessage(compaction.summary, compaction.tokensBefore, compaction.timestamp));
-		const compactionIdx = pathEntries.findIndex((e) => e.type === "compaction" && e.id === compaction.id);
-		let foundFirstKept = false;
-		for (let i = 0; i < compactionIdx; i++) {
-			const entry = pathEntries[i]!;
-			if (entry.id === compaction.firstKeptEntryId) foundFirstKept = true;
-			if (foundFirstKept) appendMessage(entry);
-		}
-		for (let i = compactionIdx + 1; i < pathEntries.length; i++) {
-			appendMessage(pathEntries[i]!);
-		}
-	} else {
-		for (const entry of pathEntries) {
-			appendMessage(entry);
-		}
+	for (const entry of pathEntries) {
+		applyEntryToState(entry, state);
 	}
+	return state;
+}
 
-	return { messages, thinkingLevel, model, activeToolNames };
+function appendEntryAsMessage(messages: AgentMessage[], entry: SessionTreeEntry): void {
+	if (entry.type === "message") {
+		messages.push(entry.message as AgentMessage);
+		return;
+	}
+	if (entry.type === "custom_message") {
+		messages.push(
+			createCustomMessage(
+				entry.customType,
+				entry.content as string | (TextContent | ImageContent)[],
+				entry.display,
+				entry.details,
+				entry.timestamp,
+			),
+		);
+		return;
+	}
+	if (entry.type === "branch_summary" && entry.summary) {
+		messages.push(createBranchSummaryMessage(entry.summary, entry.fromId, entry.timestamp));
+	}
+}
+
+function appendEntriesAroundCompaction(
+	pathEntries: SessionTreeEntry[],
+	compactionIdx: number,
+	compaction: CompactionEntry,
+	messages: AgentMessage[],
+): void {
+	let foundFirstKept = false;
+	for (let i = 0; i < compactionIdx; i++) {
+		const entry = pathEntries[i]!;
+		if (entry.id === compaction.firstKeptEntryId) foundFirstKept = true;
+		if (foundFirstKept) appendEntryAsMessage(messages, entry);
+	}
+	for (let i = compactionIdx + 1; i < pathEntries.length; i++) {
+		appendEntryAsMessage(messages, pathEntries[i]!);
+	}
+}
+
+function buildContextMessages(
+	pathEntries: SessionTreeEntry[],
+	compaction: CompactionEntry | null,
+): AgentMessage[] {
+	const messages: AgentMessage[] = [];
+	if (!compaction) {
+		for (const entry of pathEntries) {
+			appendEntryAsMessage(messages, entry);
+		}
+		return messages;
+	}
+	messages.push(createCompactionSummaryMessage(compaction.summary, compaction.tokensBefore, compaction.timestamp));
+	const compactionIdx = pathEntries.findIndex((e) => e.type === "compaction" && e.id === compaction.id);
+	appendEntriesAroundCompaction(pathEntries, compactionIdx, compaction, messages);
+	return messages;
+}
+
+export function buildSessionContext(pathEntries: SessionTreeEntry[]): SessionContext {
+	const state = collectSessionState(pathEntries);
+	const messages = buildContextMessages(pathEntries, state.compaction);
+	return {
+		messages,
+		thinkingLevel: state.thinkingLevel,
+		model: state.model,
+		activeToolNames: state.activeToolNames,
+	};
 }
 
 export class Session<TMetadata extends SessionMetadata = SessionMetadata> {
