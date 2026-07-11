@@ -44,6 +44,84 @@ function OmittedNodesNotice({ count }: { count: number }) {
   );
 }
 
+function renderDepthLimit(budget: Budget) {
+  budget.omitted += 1;
+  return <span style={{ color: 'var(--tertiary-text)' }}>…</span>;
+}
+
+function renderBudgetLimit(budget: Budget, showOmittedNotice: boolean, depth: number) {
+  budget.omitted += 1;
+  return showOmittedNotice && depth === 0 ? (
+    <OmittedNodesNotice count={budget.omitted} />
+  ) : (
+    <span style={{ color: 'var(--tertiary-text)' }}>…</span>
+  );
+}
+
+function renderPrimitiveValue(value: unknown): ReactNode | null {
+  if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
+  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
+  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
+  if (typeof value === 'string') {
+    const display = value.length > 240 ? `${value.slice(0, 237)}…` : value;
+    return <span style={{ color: 'var(--secondary-text)' }}>"{display}"</span>;
+  }
+
+  return null;
+}
+
+function renderJsonArray(value: unknown[], depth: number, showOmittedNotice: boolean, budget: Budget) {
+  if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
+  return (
+    <span>
+      {'[\u200B'}
+      <span style={{ paddingLeft: 16 * (depth + 1) }}>
+        {value.map((item, i) => (
+          <div
+            key={i}
+            style={{
+              paddingLeft: 16,
+              background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
+            }}
+          >
+            <JsonPrettyPrinter value={item} depth={depth + 1} showOmittedNotice={false} />
+            {i < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
+          </div>
+        ))}
+      </span>
+      {']'}
+      {showOmittedNotice && depth === 0 ? <OmittedNodesNotice count={budget.omitted} /> : null}
+    </span>
+  );
+}
+
+function renderJsonObject(value: Record<string, unknown>, depth: number, showOmittedNotice: boolean, budget: Budget) {
+  const entries = Object.entries(value);
+  if (entries.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>{'{}'}</span>;
+  return (
+    <div>
+      {entries.map(([k, v], i) => (
+        <div
+          key={k}
+          style={{
+            display: 'flex',
+            gap: 6,
+            padding: '2px 6px',
+            borderRadius: 3,
+            background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
+          }}
+        >
+          <span style={{ color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
+          <span style={{ wordBreak: 'break-word', minWidth: 0 }}>
+            <JsonPrettyPrinter value={v} depth={depth + 1} showOmittedNotice={false} />
+          </span>
+        </div>
+      ))}
+      {showOmittedNotice && depth === 0 ? <OmittedNodesNotice count={budget.omitted} /> : null}
+    </div>
+  );
+}
+
 /**
  * JSON pretty-printer with hard node/depth limits to avoid freezing the chat UI.
  */
@@ -58,81 +136,16 @@ export function JsonPrettyPrinter({
 }) {
   const budget = useJsonPrettyBudget();
 
-  if (depth >= JSON_PRETTY_MAX_DEPTH) {
-    budget.omitted += 1;
-    return <span style={{ color: 'var(--tertiary-text)' }}>…</span>;
-  }
-
-  if (budget.nodes >= JSON_PRETTY_MAX_NODES) {
-    budget.omitted += 1;
-    return showOmittedNotice && depth === 0 ? (
-      <OmittedNodesNotice count={budget.omitted} />
-    ) : (
-      <span style={{ color: 'var(--tertiary-text)' }}>…</span>
-    );
-  }
+  if (depth >= JSON_PRETTY_MAX_DEPTH) return renderDepthLimit(budget);
+  if (budget.nodes >= JSON_PRETTY_MAX_NODES) return renderBudgetLimit(budget, showOmittedNotice, depth);
 
   budget.nodes += 1;
 
-  if (value === null) return <span style={{ color: 'var(--tertiary-text)' }}>null</span>;
-  if (typeof value === 'boolean') return <span style={{ color: 'var(--warning)' }}>{String(value)}</span>;
-  if (typeof value === 'number') return <span style={{ color: 'var(--success)' }}>{value}</span>;
-  if (typeof value === 'string') {
-    const display = value.length > 240 ? `${value.slice(0, 237)}…` : value;
-    return <span style={{ color: 'var(--secondary-text)' }}>"{display}"</span>;
-  }
+  const primitive = renderPrimitiveValue(value);
+  if (primitive) return primitive;
 
-  if (Array.isArray(value)) {
-    if (value.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>[]</span>;
-    return (
-      <span>
-        {'[\u200B'}
-        <span style={{ paddingLeft: 16 * (depth + 1) }}>
-          {value.map((item, i) => (
-            <div
-              key={i}
-              style={{
-                paddingLeft: 16,
-                background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
-              }}
-            >
-              <JsonPrettyPrinter value={item} depth={depth + 1} showOmittedNotice={false} />
-              {i < value.length - 1 && <span style={{ color: 'var(--tertiary-text)' }}>,</span>}
-            </div>
-          ))}
-        </span>
-        {']'}
-        {showOmittedNotice && depth === 0 ? <OmittedNodesNotice count={budget.omitted} /> : null}
-      </span>
-    );
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return <span style={{ color: 'var(--tertiary-text)' }}>{'{}'}</span>;
-    return (
-      <div>
-        {entries.map(([k, v], i) => (
-          <div
-            key={k}
-            style={{
-              display: 'flex',
-              gap: 6,
-              padding: '2px 6px',
-              borderRadius: 3,
-              background: i % 2 === 0 ? 'transparent' : 'color-mix(in srgb, var(--bg-hover) 50%, transparent)',
-            }}
-          >
-            <span style={{ color: 'var(--accent)', fontWeight: 500, flexShrink: 0 }}>{k}:</span>
-            <span style={{ wordBreak: 'break-word', minWidth: 0 }}>
-              <JsonPrettyPrinter value={v} depth={depth + 1} showOmittedNotice={false} />
-            </span>
-          </div>
-        ))}
-        {showOmittedNotice && depth === 0 ? <OmittedNodesNotice count={budget.omitted} /> : null}
-      </div>
-    );
-  }
+  if (Array.isArray(value)) return renderJsonArray(value, depth, showOmittedNotice, budget);
+  if (typeof value === 'object') return renderJsonObject(value as Record<string, unknown>, depth, showOmittedNotice, budget);
 
   return <span>{String(value)}</span>;
 }
