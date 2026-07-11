@@ -1910,88 +1910,102 @@ function migration23(db, version, invalidateQueries) {
 }
 
 // Migration 24: semantic_relations + note_embeddings replace resource_links
+function createMigration24Tables(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS note_embeddings (
+      resource_id TEXT PRIMARY KEY,
+      embedding BLOB NOT NULL,
+      model_version TEXT NOT NULL DEFAULT 'all-MiniLM-L6-v2',
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
+    )
+  `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS semantic_relations (
+      id TEXT PRIMARY KEY,
+      source_id TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      similarity REAL NOT NULL,
+      relation_type TEXT NOT NULL CHECK(relation_type IN ('auto', 'manual', 'confirmed', 'rejected')),
+      label TEXT,
+      detected_at INTEGER NOT NULL,
+      confirmed_at INTEGER,
+      FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
+      FOREIGN KEY (target_id) REFERENCES resources(id) ON DELETE CASCADE,
+      UNIQUE(source_id, target_id)
+    )
+  `);
+  db.exec('CREATE INDEX IF NOT EXISTS idx_note_embeddings_updated ON note_embeddings(updated_at)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_source ON semantic_relations(source_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_target ON semantic_relations(target_id)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_sim ON semantic_relations(similarity DESC)');
+}
+
+function hasLegacyResourceLinksTable(db) {
+  return Boolean(
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='resource_links'")
+      .get(),
+  );
+}
+
+function migrateLegacyResourceLinks(db, now) {
+  db.exec('DROP TABLE IF EXISTS resource_links_legacy');
+  db.exec('CREATE TABLE resource_links_legacy AS SELECT * FROM resource_links');
+
+  const pairs = db
+    .prepare(
+      `
+        SELECT source_id, target_id, created_at, link_type
+        FROM resource_links r
+        WHERE source_id != target_id
+          AND r.rowid = (
+            SELECT MIN(r2.rowid) FROM resource_links r2
+            WHERE r2.source_id = r.source_id AND r2.target_id = r.target_id
+          )
+      `,
+    )
+    .all();
+
+  const insertRel = db.prepare(`
+    INSERT OR IGNORE INTO semantic_relations
+      (id, source_id, target_id, similarity, relation_type, label, detected_at)
+    VALUES (?, ?, ?, 1.0, 'manual', ?, ?)
+  `);
+
+  for (const row of pairs) {
+    const ts = typeof row.created_at === 'number' ? row.created_at : now;
+    const label =
+      row.link_type && row.link_type !== 'related' ? String(row.link_type) : null;
+    insertRel.run(`${row.source_id}__${row.target_id}`, row.source_id, row.target_id, label, ts);
+    insertRel.run(`${row.target_id}__${row.source_id}`, row.target_id, row.source_id, label, ts);
+  }
+
+  db.exec('DROP TABLE resource_links');
+}
+
+function dropLegacyResourceLinkIndexes(db) {
+  try {
+    db.exec('DROP INDEX IF EXISTS idx_links_source');
+  } catch {
+    /* ignore */
+  }
+  try {
+    db.exec('DROP INDEX IF EXISTS idx_links_target');
+  } catch {
+    /* ignore */
+  }
+}
+
 function migration24(db, version, invalidateQueries) {
   if (version < 24) {
     try {
       const now = Date.now();
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS note_embeddings (
-          resource_id TEXT PRIMARY KEY,
-          embedding BLOB NOT NULL,
-          model_version TEXT NOT NULL DEFAULT 'all-MiniLM-L6-v2',
-          updated_at INTEGER NOT NULL,
-          FOREIGN KEY (resource_id) REFERENCES resources(id) ON DELETE CASCADE
-        )
-      `);
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS semantic_relations (
-          id TEXT PRIMARY KEY,
-          source_id TEXT NOT NULL,
-          target_id TEXT NOT NULL,
-          similarity REAL NOT NULL,
-          relation_type TEXT NOT NULL CHECK(relation_type IN ('auto', 'manual', 'confirmed', 'rejected')),
-          label TEXT,
-          detected_at INTEGER NOT NULL,
-          confirmed_at INTEGER,
-          FOREIGN KEY (source_id) REFERENCES resources(id) ON DELETE CASCADE,
-          FOREIGN KEY (target_id) REFERENCES resources(id) ON DELETE CASCADE,
-          UNIQUE(source_id, target_id)
-        )
-      `);
-      db.exec('CREATE INDEX IF NOT EXISTS idx_note_embeddings_updated ON note_embeddings(updated_at)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_source ON semantic_relations(source_id)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_target ON semantic_relations(target_id)');
-      db.exec('CREATE INDEX IF NOT EXISTS idx_semantic_sim ON semantic_relations(similarity DESC)');
-
-      const hasOldLinks = db
-        .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='resource_links'")
-        .get();
-      if (hasOldLinks) {
-        db.exec('DROP TABLE IF EXISTS resource_links_legacy');
-        db.exec('CREATE TABLE resource_links_legacy AS SELECT * FROM resource_links');
-
-        const pairs = db
-          .prepare(
-            `
-          SELECT source_id, target_id, created_at, link_type
-          FROM resource_links r
-          WHERE source_id != target_id
-            AND r.rowid = (
-              SELECT MIN(r2.rowid) FROM resource_links r2
-              WHERE r2.source_id = r.source_id AND r2.target_id = r.target_id
-            )
-        `,
-          )
-          .all();
-
-        const insertRel = db.prepare(`
-          INSERT OR IGNORE INTO semantic_relations
-            (id, source_id, target_id, similarity, relation_type, label, detected_at)
-          VALUES (?, ?, ?, 1.0, 'manual', ?, ?)
-        `);
-
-        for (const row of pairs) {
-          const ts = typeof row.created_at === 'number' ? row.created_at : now;
-          const label =
-            row.link_type && row.link_type !== 'related' ? String(row.link_type) : null;
-          insertRel.run(`${row.source_id}__${row.target_id}`, row.source_id, row.target_id, label, ts);
-          insertRel.run(`${row.target_id}__${row.source_id}`, row.target_id, row.source_id, label, ts);
-        }
-
-        db.exec('DROP TABLE resource_links');
+      createMigration24Tables(db);
+      if (hasLegacyResourceLinksTable(db)) {
+        migrateLegacyResourceLinks(db, now);
       }
-
-      try {
-        db.exec('DROP INDEX IF EXISTS idx_links_source');
-      } catch {
-        /* ignore */
-      }
-      try {
-        db.exec('DROP INDEX IF EXISTS idx_links_target');
-      } catch {
-        /* ignore */
-      }
-
+      dropLegacyResourceLinkIndexes(db);
       db.prepare(`
         INSERT INTO settings (key, value, updated_at)
         VALUES ('schema_version', '24', ?)
