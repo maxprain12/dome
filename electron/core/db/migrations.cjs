@@ -3370,76 +3370,99 @@ function migration48(db, version) {
   }
 }
 
+// Helpers extracted from migration49 to keep its cognitive complexity below
+// the Sonar threshold while preserving the original copy-as-rollback-fallback
+// semantics and the on-disk/DB collision-disambiguation loop.
+function migrate49ProjectRoot(db, projectId, defaultVault, vs, pathMod) {
+  const p = db.prepare('SELECT name, vault_root FROM projects WHERE id = ?').get(projectId);
+  const custom = p && typeof p.vault_root === 'string' ? p.vault_root.trim() : '';
+  if (custom) return custom;
+  return pathMod.join(defaultVault, vs.sanitizeSegment((p && p.name) || 'Library', 'Library'));
+}
+
+function migrate49FolderDir(db, folderId, vs) {
+  const segs = [];
+  const seen = new Set();
+  let fid = folderId;
+  while (fid && !seen.has(fid)) {
+    seen.add(fid);
+    const f = db.prepare('SELECT title, folder_id, type FROM resources WHERE id = ?').get(fid);
+    if (!f || f.type !== 'folder') break;
+    segs.unshift(vs.sanitizeSegment(f.title, 'Folder'));
+    fid = f.folder_id || null;
+  }
+  return segs.join('/');
+}
+
+function migrate49UniqueRelPath(root, baseRel, dir, projectId, ownerOf, fsMod, pathMod) {
+  let rel = baseRel;
+  let abs = pathMod.join(root, rel);
+  let n = 0;
+  while (fsMod.existsSync(abs) || ownerOf.get(projectId, rel)) {
+    n += 1;
+    const e = pathMod.extname(rel);
+    const b = pathMod.basename(rel, e);
+    rel = dir ? `${dir}/${b} (${n})${e}` : `${b} (${n})${e}`;
+    abs = pathMod.join(root, rel);
+  }
+  return { rel, abs };
+}
+
+function migrate49MoveOne(r, ctx) {
+  const { db, fsMod, pathMod, vs, domeFiles, defaultVault, ownerOf, setVaultPath } = ctx;
+  const src = pathMod.join(domeFiles, r.internal_path);
+  if (!fsMod.existsSync(src)) return false;
+  const root = migrate49ProjectRoot(db, r.project_id, defaultVault, vs, pathMod);
+  const dir = migrate49FolderDir(db, r.folder_id, vs);
+  const ext = pathMod.extname(r.internal_path) || '';
+  let filename = vs.sanitizeFilename(r.original_filename || `${r.title || 'file'}${ext}`, 'file');
+  if (!pathMod.extname(filename) && ext) filename += ext;
+  const baseRel = dir ? `${dir}/${filename}` : filename;
+  const { rel, abs } = migrate49UniqueRelPath(root, baseRel, dir, r.project_id, ownerOf, fsMod, pathMod);
+  fsMod.mkdirSync(pathMod.dirname(abs), { recursive: true });
+  // Copy (keep dome-files source as a rollback fallback; internal_path stays).
+  fsMod.copyFileSync(src, abs);
+  setVaultPath.run(rel, r.id);
+  return true;
+}
+
+function migrate49MoveBinaries(db) {
+  const userData = app ? app.getPath('userData') : null;
+  if (!userData) return;
+  const fsMod = require('fs');
+  const pathMod = require('path');
+  const vs = require('../../storage/vault-store.cjs');
+  const domeFiles = pathMod.join(userData, 'dome-files');
+  const defaultVault = pathMod.join(domeFiles, 'vault');
+  const rows = db.prepare(
+    "SELECT id, project_id, folder_id, type, title, internal_path, original_filename FROM resources WHERE internal_path IS NOT NULL AND trim(internal_path) != '' AND (vault_path IS NULL OR trim(vault_path) = '') AND type != 'note'",
+  ).all();
+  const ctx = {
+    db,
+    fsMod,
+    pathMod,
+    vs,
+    domeFiles,
+    defaultVault,
+    ownerOf: db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?'),
+    setVaultPath: db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?'),
+  };
+  let moved = 0;
+  for (const r of rows) {
+    try {
+      if (migrate49MoveOne(r, ctx)) moved += 1;
+    } catch (e) {
+      console.warn('[DB] Migration 49 - move failed for', r.id, e.message);
+    }
+  }
+  console.log(`[DB] Migration 49 - moved ${moved} binaries into the vault`);
+}
+
 function migration49(db, version) {
   if (version < 49) {
     console.log('[DB] Running migration 49 - move binaries into the vault');
     try {
-      const fsMod = require('fs');
-      const pathMod = require('path');
-      const vs = require('../../storage/vault-store.cjs');
-      const userData = app ? app.getPath('userData') : null;
-
-      if (userData) {
-        const domeFiles = pathMod.join(userData, 'dome-files');
-        const defaultVault = pathMod.join(domeFiles, 'vault');
-        const projRoot = (projectId) => {
-          const p = db.prepare('SELECT name, vault_root FROM projects WHERE id = ?').get(projectId);
-          const custom = p && typeof p.vault_root === 'string' ? p.vault_root.trim() : '';
-          if (custom) return custom;
-          return pathMod.join(defaultVault, vs.sanitizeSegment((p && p.name) || 'Library', 'Library'));
-        };
-        const folderDir = (folderId) => {
-          const segs = [];
-          const seen = new Set();
-          let fid = folderId;
-          while (fid && !seen.has(fid)) {
-            seen.add(fid);
-            const f = db.prepare('SELECT title, folder_id, type FROM resources WHERE id = ?').get(fid);
-            if (!f || f.type !== 'folder') break;
-            segs.unshift(vs.sanitizeSegment(f.title, 'Folder'));
-            fid = f.folder_id || null;
-          }
-          return segs.join('/');
-        };
-
-        const rows = db.prepare(
-          "SELECT id, project_id, folder_id, type, title, internal_path, original_filename FROM resources WHERE internal_path IS NOT NULL AND trim(internal_path) != '' AND (vault_path IS NULL OR trim(vault_path) = '') AND type != 'note'",
-        ).all();
-        const setVaultPath = db.prepare('UPDATE resources SET vault_path = ? WHERE id = ?');
-        const ownerOf = db.prepare('SELECT id FROM resources WHERE project_id = ? AND vault_path = ?');
-        let moved = 0;
-        for (const r of rows) {
-          try {
-            const src = pathMod.join(domeFiles, r.internal_path);
-            if (!fsMod.existsSync(src)) continue;
-            const root = projRoot(r.project_id);
-            const dir = folderDir(r.folder_id);
-            const ext = pathMod.extname(r.internal_path) || '';
-            let filename = vs.sanitizeFilename(r.original_filename || `${r.title || 'file'}${ext}`, 'file');
-            if (!pathMod.extname(filename) && ext) filename += ext;
-            let rel = dir ? `${dir}/${filename}` : filename;
-            let abs = pathMod.join(root, rel);
-            // Disambiguate against existing files / vault_path collisions.
-            let n = 1;
-            while (fsMod.existsSync(abs) || ownerOf.get(r.project_id, rel)) {
-              const e = pathMod.extname(filename);
-              const b = pathMod.basename(filename, e);
-              rel = `${dir ? `${dir}/` : ''}${b} (${n})${e}`;
-              abs = pathMod.join(root, rel);
-              n++;
-            }
-            fsMod.mkdirSync(pathMod.dirname(abs), { recursive: true });
-            // Copy (keep dome-files source as a rollback fallback; internal_path stays).
-            fsMod.copyFileSync(src, abs);
-            setVaultPath.run(rel, r.id);
-            moved++;
-          } catch (e) {
-            console.warn('[DB] Migration 49 - move failed for', r.id, e.message);
-          }
-        }
-        console.log(`[DB] Migration 49 - moved ${moved} binaries into the vault`);
-      }
-
+      migrate49MoveBinaries(db);
       db.prepare(`
         INSERT INTO settings (key, value, updated_at)
         VALUES ('schema_version', '49', ?)
