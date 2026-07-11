@@ -185,6 +185,18 @@ function consumeAssistantTurn(
   };
 }
 
+function buildUserMessage(msg: PiMessage, messageIndex: number): HarnessManyMessage | null {
+  const ts = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
+  const text = extractTextFromContent(msg.content);
+  if (!text.trim()) return null;
+  return {
+    id: `msg-${ts}-${messageIndex}`,
+    role: 'user',
+    content: text,
+    timestamp: ts,
+  };
+}
+
 /** Convert agent harness messages (JSONL context) into Many UI messages. */
 export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessage[] {
   const out: HarnessManyMessage[] = [];
@@ -199,16 +211,8 @@ export function harnessMessagesToManyMessages(raw: unknown[]): HarnessManyMessag
     const msg = item as PiMessage;
 
     if (msg.role === 'user') {
-      const ts = typeof msg.timestamp === 'number' ? msg.timestamp : Date.now();
-      const text = extractTextFromContent(msg.content);
-      if (text.trim()) {
-        out.push({
-          id: `msg-${ts}-${out.length}`,
-          role: 'user',
-          content: text,
-          timestamp: ts,
-        });
-      }
+      const userMsg = buildUserMessage(msg, out.length);
+      if (userMsg) out.push(userMsg);
       index += 1;
       continue;
     }
