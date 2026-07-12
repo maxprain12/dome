@@ -4347,6 +4347,31 @@ async function fileSearch(args) {
   return { status: 'success', directory, pattern, type, count: matches.length, matches };
 }
 
+function resolveShellSenderId(toolContext) {
+  if (toolContext?.senderWebContentsId != null) return toolContext.senderWebContentsId;
+  const focused = windowManagerRef?.getFocused?.();
+  if (focused && !focused.isDestroyed?.()) {
+    return focused.webContents?.id ?? null;
+  }
+  return null;
+}
+
+async function promptShellExecDialog(command, cwd) {
+  const { dialog } = require('electron');
+  const wm = windowManagerRef;
+  const win = wm ? (wm.getAll?.()[0] ?? null) : null;
+  const { response } = await dialog.showMessageBox(win, {
+    type: 'question',
+    title: 'Many quiere ejecutar un comando',
+    message: `$ ${command}`,
+    detail: cwd ? `en: ${cwd}` : 'en: directorio de trabajo actual',
+    buttons: ['Cancelar', 'Ejecutar'],
+    defaultId: 1,
+    cancelId: 0,
+  });
+  return response === 1;
+}
+
 async function shellExec(args, toolContext = null) {
   const command = typeof args.command === 'string' ? args.command.trim() : '';
   const cwd = typeof args.cwd === 'string' ? args.cwd.trim() : undefined;
@@ -4358,16 +4383,9 @@ async function shellExec(args, toolContext = null) {
   }
 
   const approval = require('../ipc/agents/approval.cjs');
-  let senderId = toolContext?.senderWebContentsId;
-  if (senderId == null && windowManagerRef?.getFocused) {
-    const focused = windowManagerRef.getFocused();
-    if (focused && !focused.isDestroyed?.()) {
-      senderId = focused.webContents?.id;
-    }
-  }
-
   let confirmed = false;
   try {
+    const senderId = resolveShellSenderId(toolContext);
     if (senderId != null) {
       confirmed = await approval.requestApproval({
         kind: 'shell_exec',
@@ -4375,18 +4393,7 @@ async function shellExec(args, toolContext = null) {
         senderId,
       });
     } else {
-      const { dialog } = require('electron');
-      const win = windowManagerRef ? (windowManagerRef.getAll?.()[0] ?? null) : null;
-      const { response } = await dialog.showMessageBox(win, {
-        type: 'question',
-        title: 'Many quiere ejecutar un comando',
-        message: `$ ${command}`,
-        detail: cwd ? `en: ${cwd}` : 'en: directorio de trabajo actual',
-        buttons: ['Cancelar', 'Ejecutar'],
-        defaultId: 1,
-        cancelId: 0,
-      });
-      confirmed = response === 1;
+      confirmed = await promptShellExecDialog(command, cwd);
     }
   } catch (err) {
     return { status: 'error', error: `Dialog error: ${err.message}` };
