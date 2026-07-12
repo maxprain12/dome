@@ -11,6 +11,110 @@ const archiver = require('archiver');
 const { app, dialog, BrowserWindow } = require('electron');
 const yauzl = require('yauzl');
 
+/**
+ * Stream-extract a ZIP file into tempDir. Extracted as a top-level function
+ * so the Promise executor + yauzl callbacks don't compound the nesting depth
+ * of the caller (which previously pushed zf.on('error') to depth 5).
+ */
+function extractZipToTempDir(zipPath, tempDir, isAuthorized) {
+  return new Promise((resolve, reject) => {
+    yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
+      if (err) return reject(err);
+
+      let resolved = false;
+
+      zf.on('end', () => {
+        if (!resolved) {
+          resolved = true;
+          resolve();
+        }
+      });
+      zf.on('error', (e) => {
+        if (!resolved) {
+          resolved = true;
+          reject(e);
+        }
+      });
+
+      zf.on('entry', (entry) => {
+        try {
+          processZipEntry(zf, entry, tempDir, isAuthorized, reject);
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      try {
+        zf.readEntry();
+      } catch (readErr) {
+        reject(readErr);
+      }
+    });
+  });
+}
+
+/**
+ * Handle a single ZIP entry: directories are created in-place, files go
+ * through an auth check and a read/write stream pair. Extracted as a
+ * top-level function so the per-entry callbacks don't compound the depth
+ * of the yauzl extraction (which previously pushed writeStream.on('finish')
+ * to depth 7).
+ */
+function processZipEntry(zf, entry, tempDir, isAuthorized, reject) {
+  const sanitizeEntryPath = (entryFileName) => {
+    const normalized = path.normalize(entryFileName);
+    if (normalized.includes('\0')) {
+      throw new Error('Path contains null byte');
+    }
+    // '..' is intentionally allowed through — the resolveWithinTempDir
+    // check below guards against traversal out of tempDir.
+    return normalized;
+  };
+
+  const resolveWithinTempDir = (fileName) => {
+    const sanitized = sanitizeEntryPath(fileName);
+    const joined = path.join(tempDir, sanitized);
+    const resolved = path.resolve(joined);
+    const resolvedTempDir = path.resolve(tempDir);
+    if (!resolved.startsWith(resolvedTempDir + path.sep)) {
+      throw new Error('Path traversal detected: ' + fileName);
+    }
+    return resolved;
+  };
+
+  if (/\/$/.test(entry.fileName)) {
+    const dirPath = resolveWithinTempDir(entry.fileName);
+    fs.mkdirSync(dirPath, { recursive: true });
+    zf.readEntry();
+    return;
+  }
+
+  if (!isAuthorized()) {
+    reject(new Error('Unauthorized'));
+    return;
+  }
+
+  zf.openReadStream(entry, (openErr, readStream) => {
+    if (openErr) {
+      reject(openErr);
+      return;
+    }
+    const destPath = resolveWithinTempDir(entry.fileName);
+    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+    const writeStream = fs.createWriteStream(destPath);
+    readStream.on('error', reject);
+    writeStream.on('error', reject);
+    writeStream.on('finish', () => {
+      try {
+        zf.readEntry();
+      } catch (readErr) {
+        reject(readErr);
+      }
+    });
+    readStream.pipe(writeStream);
+  });
+}
+
 function register({ ipcMain, windowManager, database, fileStorage, sanitizePath }) {
   /**
    * Export all data to a ZIP file
@@ -114,91 +218,11 @@ function register({ ipcMain, windowManager, database, fileStorage, sanitizePath 
 
       fs.mkdirSync(tempDir, { recursive: true });
 
-      await new Promise((resolve, reject) => {
-        yauzl.open(zipPath, { lazyEntries: true }, (err, zf) => {
-          if (err) return reject(err);
-
-          let resolved = false;
-
-          zf.on('end', () => {
-            if (!resolved) {
-              resolved = true;
-              resolve();
-            }
-          });
-          zf.on('error', (e) => {
-            if (!resolved) {
-              resolved = true;
-              reject(e);
-            }
-          });
-
-          zf.on('entry', (entry) => {
-            try {
-              const sanitizeEntryPath = (entryFileName) => {
-                const normalized = path.normalize(entryFileName);
-                if (normalized.includes('\0')) {
-                  throw new Error('Path contains null byte');
-                }
-                // '..' is intentionally allowed through — the resolveWithinTempDir
-                // check below guards against traversal out of tempDir.
-                return normalized;
-              };
-
-              const resolveWithinTempDir = (fileName) => {
-                const sanitized = sanitizeEntryPath(fileName);
-                const joined = path.join(tempDir, sanitized);
-                const resolved = path.resolve(joined);
-                const resolvedTempDir = path.resolve(tempDir);
-                if (!resolved.startsWith(resolvedTempDir + path.sep)) {
-                  throw new Error('Path traversal detected: ' + fileName);
-                }
-                return resolved;
-              };
-
-              if (/\/$/.test(entry.fileName)) {
-                const dirPath = resolveWithinTempDir(entry.fileName);
-                fs.mkdirSync(dirPath, { recursive: true });
-                zf.readEntry();
-                return;
-              }
-
-              if (!windowManager.isAuthorized(event.sender.id)) {
-                reject(new Error('Unauthorized'));
-                return;
-              }
-
-              zf.openReadStream(entry, (openErr, readStream) => {
-                if (openErr) {
-                  reject(openErr);
-                  return;
-                }
-                const destPath = resolveWithinTempDir(entry.fileName);
-                fs.mkdirSync(path.dirname(destPath), { recursive: true });
-                const writeStream = fs.createWriteStream(destPath);
-                readStream.on('error', reject);
-                writeStream.on('error', reject);
-                writeStream.on('finish', () => {
-                  try {
-                    zf.readEntry();
-                  } catch (readErr) {
-                    reject(readErr);
-                  }
-                });
-                readStream.pipe(writeStream);
-              });
-            } catch (err) {
-              reject(err);
-            }
-          });
-
-          try {
-            zf.readEntry();
-          } catch (readErr) {
-            reject(readErr);
-          }
-        });
-      });
+      await extractZipToTempDir(
+        zipPath,
+        tempDir,
+        () => windowManager.isAuthorized(event.sender.id)
+      );
 
       database.closeDB();
 

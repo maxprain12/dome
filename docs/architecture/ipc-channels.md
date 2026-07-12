@@ -1,7 +1,7 @@
 # Canales IPC (autogenerado)
 
 > **No edites a mano.** Regenera con `pnpm run generate:ipc-inventory`.
-> Última generación: 2026-07-10T08:11:10.233Z
+> Última generación: 2026-07-12T01:31:18.163Z
 
 Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cjs`.
 
@@ -521,8 +521,8 @@ Canales detectados vía `ipcMain.handle` / `ipcMain.on` en `electron/ipc/**/*.cj
 | `storage:getPath` | `electron/ipc/data/storage.cjs:52` |
 | `storage:getUsage` | `electron/ipc/data/storage.cjs:3` |
 | `studio:cancel` | `electron/ipc/learn/studio.cjs:213` |
-| `sync:export` | `electron/ipc/sync/sync.cjs:18` |
-| `sync:import` | `electron/ipc/sync/sync.cjs:85` |
+| `sync:export` | `electron/ipc/sync/sync.cjs:122` |
+| `sync:import` | `electron/ipc/sync/sync.cjs:189` |
 | `system:get-app-locale` | `electron/ipc/core/system.cjs:239` |
 | `system:get-login-item` | `electron/ipc/core/system.cjs:217` |
 | `system:memoryInfo` | `electron/ipc/core/system.cjs:264` |
