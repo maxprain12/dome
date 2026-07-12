@@ -40,6 +40,38 @@ function mapDbResources(
     }));
 }
 
+type DbResourcesApi = Window['electron']['db']['resources'];
+
+async function fetchMentionList(
+  dbResources: DbResourcesApi | undefined,
+  scopedProjectId: string,
+  limit: number,
+): Promise<MentionResource[]> {
+  if (!dbResources?.listLight) return [];
+  const listResult = await dbResources.listLight(limit, scopedProjectId);
+  if (listResult?.success && Array.isArray(listResult.data)) {
+    return mapDbResources(listResult.data);
+  }
+  return [];
+}
+
+async function fetchMentionSearch(
+  dbResources: DbResourcesApi | undefined,
+  trimmed: string,
+  scopedProjectId: string,
+): Promise<MentionResource[]> {
+  if (!dbResources?.searchForMention) return [];
+  const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
+  const fromSearch: MentionResource[] =
+    searchResult?.success && Array.isArray(searchResult.data)
+      ? mapDbResources(searchResult.data)
+      : [];
+  if (fromSearch.length > 0) return fromSearch;
+  // Search returned nothing usable — broaden with listLight(50) and filter client-side.
+  const fallback = await fetchMentionList(dbResources, scopedProjectId, 50);
+  return filterResourcesByQuery(fallback, trimmed);
+}
+
 /**
  * @-mention picker for workspace resources.
  * Uses the same db IPC as the sidebar/editor (`listLight`, `searchForMention`) —
@@ -71,27 +103,10 @@ export function useResourceMention({
       const trimmed = query.trim();
 
       try {
-        let resources: MentionResource[] = [];
-
-        if (trimmed.length === 0) {
-          const listResult = await dbResources.listLight(25, scopedProjectId);
-          if (listResult?.success && Array.isArray(listResult.data)) {
-            resources = mapDbResources(listResult.data);
-          }
-        } else {
-          const searchResult = await dbResources.searchForMention(trimmed, scopedProjectId);
-          if (searchResult?.success && Array.isArray(searchResult.data)) {
-            resources = mapDbResources(searchResult.data);
-          }
-
-          if (resources.length === 0) {
-            const listResult = await dbResources.listLight(50, scopedProjectId);
-            if (listResult?.success && Array.isArray(listResult.data)) {
-              resources = filterResourcesByQuery(mapDbResources(listResult.data), trimmed);
-            }
-          }
-        }
-
+        const resources =
+          trimmed.length === 0
+            ? await fetchMentionList(dbResources, scopedProjectId, 25)
+            : await fetchMentionSearch(dbResources, trimmed, scopedProjectId);
         setMentionResources(resources);
         setMentionSelectedIdx(0);
       } catch {
