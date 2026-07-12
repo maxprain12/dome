@@ -1067,23 +1067,41 @@ function extractWebSocketError(event: unknown): Error {
 	return new Error("WebSocket error");
 }
 
-function extractWebSocketCloseError(event: unknown): Error {
-	if (event && typeof event === "object") {
-		const code = "code" in event ? (event as { code?: unknown }).code : undefined;
-		const reason = "reason" in event ? (event as { reason?: unknown }).reason : undefined;
-		const wasClean = "wasClean" in event ? (event as { wasClean?: unknown }).wasClean : undefined;
-		const codeText = typeof code === "number" ? ` ${code}` : "";
-		let reasonText = typeof reason === "string" && reason.length > 0 ? ` ${reason}` : "";
-		if (!reasonText && code === WEBSOCKET_MESSAGE_TOO_BIG_CLOSE_CODE) {
-			reasonText = " message too big";
-		}
-		return new WebSocketCloseError(`WebSocket closed${codeText}${reasonText}`.trim(), {
-			code: typeof code === "number" ? code : undefined,
-			reason: typeof reason === "string" && reason.length > 0 ? reason : undefined,
-			wasClean: typeof wasClean === "boolean" ? wasClean : undefined,
-		});
+type WebSocketCloseEventFields = {
+	code?: number;
+	reason?: string;
+	wasClean?: boolean;
+};
+
+function readWebSocketCloseEventFields(event: unknown): WebSocketCloseEventFields | null {
+	if (!event || typeof event !== "object") return null;
+	const obj = event as { code?: unknown; reason?: unknown; wasClean?: unknown };
+	const fields: WebSocketCloseEventFields = {};
+	if (typeof obj.code === "number") fields.code = obj.code;
+	if (typeof obj.reason === "string" && obj.reason.length > 0) fields.reason = obj.reason;
+	if (typeof obj.wasClean === "boolean") fields.wasClean = obj.wasClean;
+	return fields;
+}
+
+function formatWebSocketCloseMessage(fields: WebSocketCloseEventFields): string {
+	const codeText = fields.code !== undefined ? ` ${fields.code}` : "";
+	let reasonText = fields.reason !== undefined ? ` ${fields.reason}` : "";
+	if (!reasonText && fields.code === WEBSOCKET_MESSAGE_TOO_BIG_CLOSE_CODE) {
+		reasonText = " message too big";
 	}
-	return new Error("WebSocket closed");
+	return `WebSocket closed${codeText}${reasonText}`.trim();
+}
+
+function extractWebSocketCloseError(event: unknown): Error {
+	const fields = readWebSocketCloseEventFields(event);
+	if (!fields) {
+		return new Error("WebSocket closed");
+	}
+	return new WebSocketCloseError(formatWebSocketCloseMessage(fields), {
+		code: fields.code,
+		reason: fields.reason,
+		wasClean: fields.wasClean,
+	});
 }
 
 async function decodeWebSocketData(data: unknown): Promise<string | null> {
