@@ -13,6 +13,14 @@ interface TrackRecorder {
   seq: number;
 }
 
+type TxApi = Window['electron']['transcription'];
+type AcquisitionResult =
+  | { ok: true; micStream: MediaStream | null; sysStream: MediaStream | null }
+  | { ok: false; error: string };
+type SessionResult =
+  | { ok: true; sessionId: string }
+  | { ok: false; error: string };
+
 // Keeps a getDisplayMedia video track alive so macOS ScreenCaptureKit doesn't
 // terminate the capture session (and its audio loopback) after ~3 s of no
 // video-frame consumption.
@@ -34,6 +42,21 @@ function releaseVideoSink(sink: HTMLVideoElement | null) {
   try { sink.pause(); sink.srcObject = null; } catch { /* */ }
   try { sink.remove(); } catch { /* */ }
 }
+
+function stopStreamTracks(stream: MediaStream | null) {
+  try { stream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+const MIC_CONSTRAINTS: MediaStreamConstraints = {
+  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+  video: false,
+};
+
+const SYS_CONSTRAINTS: MediaStreamConstraints = { audio: true, video: true };
 
 const MIME_PREFERENCES = [
   'audio/webm;codecs=opus',
@@ -64,29 +87,48 @@ export class CaptureController {
 
     // Acquire streams BEFORE creating the session — if permissions fail we don't
     // leave a half-started DB row.
+    const acquired = await this.acquireStreams(opts, tx);
+    if (!acquired.ok) return acquired;
+    const { micStream, sysStream } = acquired;
+
+    const session = await this.createSession(opts, tx);
+    if (!session.ok) {
+      stopStreamTracks(micStream);
+      stopStreamTracks(sysStream);
+      return { ok: false, error: session.error };
+    }
+
+    this.sessionId = session.sessionId;
+    this.startedAt = performance.now();
+    this.chunkMs = opts.livePreview ? 4000 : 15000;
+
+    try {
+      if (micStream) this.mic = this.attachRecorder(micStream, 'mic');
+      if (sysStream) this.sys = this.attachRecorder(sysStream, 'system');
+    } catch (err) {
+      this.rollbackFailedSetup(micStream, sysStream, tx);
+      return { ok: false, error: errorMessage(err) };
+    }
+
+    return { ok: true };
+  }
+
+  private async acquireStreams(opts: StartOptions, tx: TxApi): Promise<AcquisitionResult> {
     let micStream: MediaStream | null = null;
     let sysStream: MediaStream | null = null;
     try {
       if (opts.sources.includes('mic')) {
-        micStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        });
+        micStream = await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
       }
       if (opts.sources.includes('system')) {
-        if (opts.systemSourceId) {
-          await tx.setDisplayMediaSource(opts.systemSourceId);
-        }
+        if (opts.systemSourceId) await tx.setDisplayMediaSource(opts.systemSourceId);
         // setDisplayMediaRequestHandler in main.cjs handles source routing.
         // We must request video so Electron opens the capture session (required to activate
         // the audio loopback), but we do NOT stop or remove the video track — doing so ends
         // the entire getDisplayMedia stream (including the audio track) immediately.
         // MediaRecorder is created with an audio-only mimeType so video is silently ignored.
         // All tracks are stopped together in flushAndStop()/cancel() when the session ends.
-        sysStream = await navigator.mediaDevices.getDisplayMedia({
-          audio: true,
-          video: true,
-        });
+        sysStream = await navigator.mediaDevices.getDisplayMedia(SYS_CONSTRAINTS);
         if (sysStream.getAudioTracks().length === 0) {
           try { sysStream.getTracks().forEach((t) => t.stop()); } catch { /* */ }
           throw new Error('Selected source has no audio track');
@@ -97,11 +139,14 @@ export class CaptureController {
         this.sysVideoSink = attachVideoSink(sysStream);
       }
     } catch (err) {
-      try { micStream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
-      try { sysStream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      stopStreamTracks(micStream);
+      stopStreamTracks(sysStream);
+      return { ok: false, error: errorMessage(err) };
     }
+    return { ok: true, micStream, sysStream };
+  }
 
+  private async createSession(opts: StartOptions, tx: TxApi): Promise<SessionResult> {
     const startResult = await tx.sessionStart({
       sources: opts.sources,
       systemSourceId: opts.systemSourceId,
@@ -111,35 +156,30 @@ export class CaptureController {
       saveAudio: opts.saveAudio,
     });
     if (!startResult?.success || !startResult.sessionId) {
-      try { micStream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
-      try { sysStream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
       return { ok: false, error: startResult?.error || 'Failed to start session' };
     }
+    return { ok: true, sessionId: startResult.sessionId };
+  }
 
-    this.sessionId = startResult.sessionId;
-    this.startedAt = performance.now();
-    this.chunkMs = opts.livePreview ? 4000 : 15000;
-
-    try {
-      if (micStream) this.mic = this.attachRecorder(micStream, 'mic');
-      if (sysStream) this.sys = this.attachRecorder(sysStream, 'system');
-    } catch (err) {
-      // Recorder setup failed after session was already created — cancel the session
-      // in the main process so it doesn't linger, then release tracks.
-      this.cancelled = true;
-      releaseVideoSink(this.sysVideoSink);
-      this.sysVideoSink = null;
-      try { this.mic?.recorder.stop(); } catch { /* */ }
-      if (this.sessionId) try { tx.sessionControl({ sessionId: this.sessionId, action: 'cancel' }); } catch { /* */ }
-      try { micStream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
-      try { sysStream?.getTracks().forEach((t) => t.stop()); } catch { /* */ }
-      this.sessionId = null;
-      this.mic = null;
-      this.sys = null;
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  // Recorder setup failed after the session was already created — cancel the
+  // session in the main process so it doesn't linger, then release tracks.
+  private rollbackFailedSetup(
+    micStream: MediaStream | null,
+    sysStream: MediaStream | null,
+    tx: TxApi,
+  ) {
+    this.cancelled = true;
+    releaseVideoSink(this.sysVideoSink);
+    this.sysVideoSink = null;
+    try { this.mic?.recorder.stop(); } catch { /* */ }
+    if (this.sessionId) {
+      try { tx.sessionControl({ sessionId: this.sessionId, action: 'cancel' }); } catch { /* */ }
     }
-
-    return { ok: true };
+    stopStreamTracks(micStream);
+    stopStreamTracks(sysStream);
+    this.sessionId = null;
+    this.mic = null;
+    this.sys = null;
   }
 
   private attachRecorder(stream: MediaStream, track: 'mic' | 'system'): TrackRecorder {
