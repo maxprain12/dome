@@ -629,6 +629,24 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
       ? t('folder.searchResultCount', { count: visibleCount, total: itemCount })
       : t('folder.itemCount', { count: itemCount });
 
+  // Per-card callback factories. Extracted from `renderCard` so its cognitive
+  // complexity stays under the Sonar limit; the inline `isFolder ? ... : ...`
+  // ternaries previously nested inside JSX-prop arrows pushed it over 15.
+  const buildCardRefHandler = (id: string) => (el: HTMLDivElement | null) => {
+    if (el) rowRefMap.set(id, el as unknown as HTMLDivElement);
+    else rowRefMap.delete(id);
+  };
+  const buildRenameHandler = (item: Resource, isFolder: boolean) => (newTitle: string) =>
+    void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle));
+  const buildChangeColorHandler = (item: Resource, isFolder: boolean) =>
+    isFolder ? (color: string) => void handleSubfolderColor(item.id, color, item) : undefined;
+  const buildOpenInSplitHandler = (item: Resource, isFolder: boolean) =>
+    !isFolder && canOpenInSplit ? () => handleOpenInSplit(item) : undefined;
+  const buildOpenInWindowHandler = (item: Resource, isFolder: boolean) =>
+    !isFolder ? () => void handleOpenInWindow(item) : undefined;
+  const buildNewSubfolderHandler = (item: Resource, isFolder: boolean) =>
+    isFolder ? () => handleNewSubfolder(item.id) : undefined;
+
   return (
     <div
       className="dome-folder-view"
@@ -999,22 +1017,16 @@ export default function FolderTabView({ folderId, folderTitle }: FolderTabViewPr
                     item={item}
                     isFolder={isFolder}
                     isLast={idx === rowsToRender.length - 1 && !creatingFolder}
-                    cardRef={(el) => {
-                      if (el) rowRefMap.set(item.id, el as unknown as HTMLDivElement);
-                      else rowRefMap.delete(item.id);
-                    }}
-                    onOpen={() => {
-                      if (isFolder) handleNavigateToFolder(item.id, item.title, getFolderColor(item));
-                      else openResourceTab(item.id, item.type, item.title ?? t('folder.untitled'), effectiveProjectId);
-                    }}
+                    cardRef={buildCardRefHandler(item.id)}
+                    onOpen={() => openListItem({ item, isFolder })}
                     onDelete={() => setDeleteTarget(item)}
-                    onRename={(newTitle) => void (isFolder ? handleSubfolderRename(item.id, newTitle) : handleRenameFile(item.id, newTitle))}
-                    onChangeColor={isFolder ? (color) => void handleSubfolderColor(item.id, color, item) : undefined}
+                    onRename={buildRenameHandler(item, isFolder)}
+                    onChangeColor={buildChangeColorHandler(item, isFolder)}
                     onMoveToProject={() => setMoveProjectIds([item.id])}
                     onMoveToFolder={() => openFolderPickerFor(item.id)}
-                    onOpenInSplit={!isFolder && canOpenInSplit ? () => handleOpenInSplit(item) : undefined}
-                    onOpenInWindow={!isFolder ? () => void handleOpenInWindow(item) : undefined}
-                    onNewSubfolder={isFolder ? () => handleNewSubfolder(item.id) : undefined}
+                    onOpenInSplit={buildOpenInSplitHandler(item, isFolder)}
+                    onOpenInWindow={buildOpenInWindowHandler(item, isFolder)}
+                    onNewSubfolder={buildNewSubfolderHandler(item, isFolder)}
                     selected={selectedIds.has(item.id)}
                     showSelectionChrome={showSelectionChrome}
                     onToggleSelect={(e) => {
