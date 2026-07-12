@@ -94,6 +94,41 @@ interface ManyPanelProps {
   mode?: 'full' | 'headless';
 }
 
+/**
+ * Purge soft-deleted sessions from the JSONL-backed store and re-hydrate
+ * active run indicators. Extracted at module scope to keep the JSONL
+ * hydration `useEffect` shallow (avoids S2004 nesting-depth).
+ */
+async function purgeAndHydrateManySessions(isCancelled: () => boolean): Promise<void> {
+  await syncManyDeletedIdsFromDb();
+  if (isCancelled()) return;
+
+  const state = useManyStore.getState();
+  const purged = filterOutDeletedSessions(state.sessions);
+  if (purged.length !== state.sessions.length) {
+    persistManySessions(purged);
+    const nextCurrent =
+      state.currentSessionId && purged.some((s) => s.id === state.currentSessionId)
+        ? state.currentSessionId
+        : (purged[0]?.id ?? null);
+    const nextMessages =
+      nextCurrent && nextCurrent === state.currentSessionId
+        ? state.messages
+        : (purged.find((s) => s.id === nextCurrent)?.messages ?? []);
+    useManyStore.setState({
+      sessions: purged,
+      currentSessionId: nextCurrent,
+      messages: nextMessages,
+    });
+  }
+
+  await useManyStore.getState().hydrateFromThreads();
+  if (isCancelled()) return;
+
+  const ids = useManyStore.getState().sessions.slice(0, 20).map((s) => s.id);
+  await syncManyActiveRunIndicators(ids);
+}
+
 export default function ManyPanel({ width, onClose, isVisible, isFullscreen = false, isPopout = false, mode = 'full' }: ManyPanelProps) {
   const isHeadless = mode === 'headless';
   const { t } = useTranslation();
@@ -267,35 +302,9 @@ export default function ManyPanel({ width, onClose, isVisible, isFullscreen = fa
   // Hydrate session list from JSONL on startup.
   useEffect(() => {
     let cancelled = false;
-    void syncManyDeletedIdsFromDb()
-      .then(() => {
-        if (cancelled) return;
-        const state = useManyStore.getState();
-        const purged = filterOutDeletedSessions(state.sessions);
-        if (purged.length !== state.sessions.length) {
-          persistManySessions(purged);
-          const nextCurrent =
-            state.currentSessionId && purged.some((s) => s.id === state.currentSessionId)
-              ? state.currentSessionId
-              : (purged[0]?.id ?? null);
-          const nextMessages =
-            nextCurrent && nextCurrent === state.currentSessionId
-              ? state.messages
-              : (purged.find((s) => s.id === nextCurrent)?.messages ?? []);
-          useManyStore.setState({
-            sessions: purged,
-            currentSessionId: nextCurrent,
-            messages: nextMessages,
-          });
-        }
-        return hydrateFromThreads().then(() => {
-          const ids = useManyStore.getState().sessions.slice(0, 20).map((s) => s.id);
-          return syncManyActiveRunIndicators(ids);
-        });
-      })
-      .catch((err) => {
-        console.warn('[Many] JSONL session hydration failed:', err);
-      });
+    purgeAndHydrateManySessions(() => cancelled).catch((err) => {
+      console.warn('[Many] JSONL session hydration failed:', err);
+    });
     return () => {
       cancelled = true;
     };
