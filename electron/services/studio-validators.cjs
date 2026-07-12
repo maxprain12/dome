@@ -440,6 +440,49 @@ function validateTimelineContent(raw) {
   return { ok: true, content: normalized, normalized, errors: [] };
 }
 
+function normalizeTableColumns(columnsRaw) {
+  const columns = [];
+  const keys = new Set();
+  for (let i = 0; i < columnsRaw.length; i++) {
+    const candidate = columnsRaw[i];
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+    const column = /** @type {Record<string, unknown>} */ (candidate);
+    const key = trimString(column.key) || `col${i + 1}`;
+    const label = trimString(column.label) || key;
+    if (keys.has(key)) continue;
+    keys.add(key);
+    columns.push({ key, label });
+  }
+  return columns;
+}
+
+function normalizeTableRow(row, columnKeys) {
+  /** @type {Record<string, string|number>} */
+  const normalizedRow = {};
+  let hasValue = false;
+  for (const key of columnKeys) {
+    const value = row[key];
+    if (value != null && value !== '') {
+      normalizedRow[key] = typeof value === 'number' ? value : trimString(value);
+      hasValue = true;
+    } else {
+      normalizedRow[key] = '';
+    }
+  }
+  return hasValue ? normalizedRow : null;
+}
+
+function normalizeTableRows(rowsRaw, columnKeys) {
+  const rows = [];
+  if (!Array.isArray(rowsRaw)) return rows;
+  for (const candidate of rowsRaw) {
+    if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) continue;
+    const row = normalizeTableRow(/** @type {Record<string, unknown>} */ (candidate), columnKeys);
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+
 /**
  * @param {unknown} raw
  */
@@ -456,44 +499,14 @@ function validateTableContent(raw) {
     return { ok: false, content: null, normalized: null, errors: ['table: columns array is required'] };
   }
 
-  const columns = [];
-  const keys = new Set();
-  for (let i = 0; i < columnsRaw.length; i++) {
-    const c = columnsRaw[i];
-    if (!c || typeof c !== 'object' || Array.isArray(c)) continue;
-    const col = /** @type {Record<string, unknown>} */ (c);
-    const key = trimString(col.key) || `col${i + 1}`;
-    const label = trimString(col.label) || key;
-    if (keys.has(key)) continue;
-    keys.add(key);
-    columns.push({ key, label });
-  }
+  const columns = normalizeTableColumns(columnsRaw);
 
   if (columns.length === 0) {
     return { ok: false, content: null, normalized: null, errors: ['table: no valid columns'] };
   }
 
-  const columnKeys = columns.map((c) => c.key);
-  const rows = [];
-  if (Array.isArray(rowsRaw)) {
-    for (const r of rowsRaw) {
-      if (!r || typeof r !== 'object' || Array.isArray(r)) continue;
-      const row = /** @type {Record<string, unknown>} */ (r);
-      /** @type {Record<string, string|number>} */
-      const normalizedRow = {};
-      let hasValue = false;
-      for (const key of columnKeys) {
-        const val = row[key];
-        if (val != null && val !== '') {
-          normalizedRow[key] = typeof val === 'number' ? val : trimString(val);
-          hasValue = true;
-        } else {
-          normalizedRow[key] = '';
-        }
-      }
-      if (hasValue) rows.push(normalizedRow);
-    }
-  }
+  const columnKeys = columns.map((column) => column.key);
+  const rows = normalizeTableRows(rowsRaw, columnKeys);
 
   if (rows.length === 0) {
     return { ok: false, content: null, normalized: null, errors: ['table: no valid rows'] };
