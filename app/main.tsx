@@ -8,7 +8,6 @@ import './globals.css';
 import './styles/notes-editor.css';
 import './styles/mention-textarea.css';
 import './styles/shell-header.css';
-import './styles/home-dashboard.css';
 import './styles/calendar-dashboard.css';
 import './styles/hub-dashboard.css';
 import './styles/learn.css';
