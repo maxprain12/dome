@@ -655,7 +655,7 @@ body {
 
 .ai-composer-frame .attach-chip--pdf .attach-icon {
   background: color-mix(in srgb, var(--destructive) 15%, transparent);
-  color: #b35858;
+  color: var(--file-color-pdf);
 }
 
 .ai-composer-frame .attach-chip--note .attach-icon {
@@ -669,28 +669,28 @@ body {
 }
 
 .ai-composer-frame .attach-chip--sheet .attach-icon {
-  background: color-mix(in srgb, #22c55e 14%, transparent);
-  color: #3d8f52;
+  background: color-mix(in srgb, var(--file-color-sheet) 14%, transparent);
+  color: var(--file-color-sheet-text);
 }
 
 .ai-composer-frame .attach-chip--deck .attach-icon {
-  background: color-mix(in srgb, #f97316 14%, transparent);
-  color: #c45c20;
+  background: color-mix(in srgb, var(--file-color-deck) 14%, transparent);
+  color: var(--file-color-deck-text);
 }
 
 .ai-composer-frame .attach-chip--image .attach-icon {
-  background: color-mix(in srgb, #a855f7 14%, transparent);
-  color: #7c3aed;
+  background: color-mix(in srgb, var(--file-color-image) 14%, transparent);
+  color: var(--file-color-image-text);
 }
 
 .ai-composer-frame .attach-chip--audio .attach-icon {
-  background: color-mix(in srgb, #ec4899 12%, transparent);
-  color: #be185d;
+  background: color-mix(in srgb, var(--file-color-audio) 12%, transparent);
+  color: var(--file-color-audio-text);
 }
 
 .ai-composer-frame .attach-chip--video .attach-icon {
-  background: color-mix(in srgb, #3b82f6 14%, transparent);
-  color: #2563eb;
+  background: color-mix(in srgb, var(--file-color-video) 14%, transparent);
+  color: var(--file-color-video-text);
 }
 
 .ai-composer-frame .attach-chip--web .attach-icon {
@@ -839,6 +839,20 @@ body {
   --ctx-seg-subagents: #3b82f6;
   --ctx-seg-summarized: #ef4444;
   --ctx-seg-conversation: #f97316;
+
+  /* Attachment file-type color coding (composer chips) — categorical,
+     intentionally independent of the theme's semantic tokens. */
+  --file-color-pdf: #b35858;
+  --file-color-sheet: #22c55e;
+  --file-color-sheet-text: #3d8f52;
+  --file-color-deck: #f97316;
+  --file-color-deck-text: #c45c20;
+  --file-color-image: #a855f7;
+  --file-color-image-text: #7c3aed;
+  --file-color-audio: #ec4899;
+  --file-color-audio-text: #be185d;
+  --file-color-video: #3b82f6;
+  --file-color-video-text: #2563eb;
 }
 
 /* Many minimal chat — subtle status dots + aligned tool/timeline surfaces */
