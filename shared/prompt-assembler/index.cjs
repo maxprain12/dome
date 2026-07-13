@@ -1,5 +1,5 @@
 "use strict";
-var __defProp = Object.defineProperty;
+const __defProp = Object.defineProperty;
 const __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 const __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
