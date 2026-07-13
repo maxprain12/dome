@@ -100,6 +100,72 @@ for (const relativePath of redesignedSurfaceFiles) {
   }
 }
 
+// ── !important: allowed only in files with a documented reason (vendor
+// overrides, sandboxed/portaled DOM, native pseudo-elements). New files
+// need to be added here deliberately, not silently pick it up. ──────────
+const IMPORTANT_ALLOWED_FILES = new Set([
+  'app/globals.css', // driver.js tour override, reduced-motion kill-switch, responsive shell panels
+  'app/styles/folder-view.css', // FolderCard drag-preview is portaled outside the normal cascade
+  'app/styles/github-view.css', // overrides DomeSegmentedControl's default flex-wrap
+  'app/components/viewers/PptViewer.tsx', // styles the pptx-preview-rendered slide iframe content
+  'app/components/viewers/SpreadsheetViewer.tsx', // sticky row-number column vs. table striping
+  'app/pages/PptCapturePage.tsx', // pptx-preview capture window, same vendor-override reason
+  'app/lib/chat/useDomeThemeSnapshot.ts', // beats hardcoded/rogue styles injected by model-generated HTML
+  'app/lib/email/emailBodyParts.ts', // sandboxed email iframe body, no cascade from app theme
+]);
+
+for (const file of walk(path.join(root, 'app'))) {
+  if (!/\.(?:ts|tsx|css|scss)$/.test(file) || /\.test\.[jt]sx?$/.test(file)) continue;
+  const rel = path.relative(root, file);
+  if (IMPORTANT_ALLOWED_FILES.has(rel)) continue;
+  const source = fs.readFileSync(file, 'utf8');
+  for (const match of source.matchAll(/!important/g)) {
+    const line = source.slice(0, match.index).split('\n').length;
+    violations.push(`${rel}:${line} !important outside allowlist`);
+  }
+}
+
+// ── Hand-rolled .dome-*/.hub-*/.lr-* BEM classes: allowed only in files
+// already carrying a documented irreducible-CSS exception. ──────────────
+const BEM_ALLOWED_FILES = new Set([
+  'app/globals.css', // dome-tour-popover (driver.js), dome-ui-cursor-* (pointer overlay), dome-cmdk-preview
+  'app/styles/folder-view.css',
+  'app/styles/github-view.css',
+  'app/styles/mention-textarea.css',
+  'app/styles/email-view.css',
+  'app/styles/shell-header.css',
+  'app/styles/learn.css', // .lr-* — Quiz/MindMap state-driven styling, see file header
+]);
+
+for (const file of walk(path.join(root, 'app'))) {
+  if (!/\.(?:css|scss)$/.test(file)) continue;
+  const rel = path.relative(root, file);
+  if (BEM_ALLOWED_FILES.has(rel)) continue;
+  const source = fs.readFileSync(file, 'utf8');
+  for (const match of source.matchAll(/^\.(?:dome|hub|lr)-[a-zA-Z0-9_-]+/gm)) {
+    const line = source.slice(0, match.index).split('\n').length;
+    violations.push(`${rel}:${line} hand-rolled .dome-/.hub-/.lr- class outside allowlist`);
+  }
+}
+
+// ── Orphaned .css/.scss files: every stylesheet under app/ must be
+// imported from somewhere (a .ts/.tsx entry point or another stylesheet). ─
+const allCssFiles = walk(path.join(root, 'app')).filter((f) => /\.(?:css|scss)$/.test(f));
+const allSourceFiles = walk(path.join(root, 'app')).filter((f) => /\.(?:tsx?|css|scss)$/.test(f));
+const importedCssBasenames = new Set();
+for (const file of allSourceFiles) {
+  const source = fs.readFileSync(file, 'utf8');
+  for (const match of source.matchAll(/(?:from\s+|@import\s+|import\s+)['"]([^'"]+\.(?:css|scss))['"]/g)) {
+    importedCssBasenames.add(path.basename(match[1]));
+  }
+}
+for (const file of allCssFiles) {
+  const rel = path.relative(root, file);
+  if (!importedCssBasenames.has(path.basename(file))) {
+    violations.push(`${rel} orphaned stylesheet (not imported anywhere)`);
+  }
+}
+
 if (violations.length > 0) {
   console.error('[ui-contracts] Violations found:');
   violations.forEach((violation) => console.error(`  ${violation}`));
