@@ -253,7 +253,7 @@ function ProgressView({
 
   return (
     <div className="flex-1 overflow-y-auto p-6">
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto flex flex-col gap-y-6">
         {/* Status header */}
         <div className="flex items-center gap-3">
           <HugeiconsIcon icon={Loading03Icon}
@@ -282,7 +282,7 @@ function ProgressView({
             className="h-1.5 rounded-full overflow-hidden bg-muted"
           >
             <div
-              className="h-full rounded-full transition-all duration-500"
+              className="h-full rounded-full transition-[width] duration-500"
               style={{
                 width: `${progressPercent}%`,
                 background: 'var(--primary)',
@@ -339,7 +339,7 @@ function TableOfContents({
       >
         Contents
       </div>
-      <nav className="space-y-0.5">
+      <nav className="flex flex-col gap-y-0.5">
         {sections.map((section) => (
           <button
             type="button"
@@ -384,7 +384,7 @@ function SourcesList({
       >
         Sources ({sources.length})
       </h3>
-      <div className="space-y-3">
+      <div className="flex flex-col gap-y-3">
         {sources.map((source, index) => (
           <div key={source.id} className="flex gap-3">
             <span

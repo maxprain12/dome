@@ -97,7 +97,7 @@ export default function MetadataModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">Resource Info</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
-      <div className="space-y-4">
+      <div className="flex flex-col gap-y-4">
           <div>
             <label htmlFor="metadata-title" className="block text-xs font-medium mb-1.5 text-muted-foreground">
               Title

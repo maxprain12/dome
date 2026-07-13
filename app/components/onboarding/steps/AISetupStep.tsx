@@ -147,7 +147,7 @@ export default function AISetupStep({
   const displayProvider = provider === 'skip' ? lastProvider : provider;
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-y-4">
       {saveError ? (
         <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertDescription className="text-xs">{saveError}</AlertDescription></Alert>
       ) : null}

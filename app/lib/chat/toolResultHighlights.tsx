@@ -16,7 +16,7 @@ export function renderToolSuccessHighlight(
   if (cal) {
     return (
       <div
-        className="rounded-md border p-2.5 space-y-1"
+        className="rounded-md border p-2.5 flex flex-col gap-y-1"
         style={{
           borderColor: 'var(--border)',
           background: 'color-mix(in srgb, var(--primary) 8%, transparent)',
@@ -57,7 +57,7 @@ export function renderToolSuccessHighlight(
     const count = typeof deck.card_count === 'number' ? deck.card_count : 0;
     return (
       <div
-        className="rounded-md border p-2.5 space-y-1"
+        className="rounded-md border p-2.5 flex flex-col gap-y-1"
         style={{
           borderColor: 'var(--border)',
           background: 'color-mix(in srgb, var(--success) 8%, transparent)',

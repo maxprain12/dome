@@ -284,7 +284,7 @@ export default function WorkspaceFilesPanel({
           <button
             type="button"
             onClick={handleSelectFolder}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-[opacity,transform,box-shadow] duration-200 hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 shadow-sm"
             style={{
               background: 'var(--primary)',
               color: 'var(--primary-foreground)',
@@ -363,7 +363,7 @@ export default function WorkspaceFilesPanel({
             <button
               type="button"
               onClick={handleSelectFolder}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[background-color,box-shadow] hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               style={{
                 background: 'var(--card)',
                 color: 'var(--foreground)',
@@ -377,7 +377,7 @@ export default function WorkspaceFilesPanel({
               type="button"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddFile(); }}
               disabled={addingFile}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:opacity-90 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[opacity,box-shadow] hover:opacity-90 disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed"
               style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
               title={t('workspaceFiles.copy_file_title')}
             >
@@ -388,7 +388,7 @@ export default function WorkspaceFilesPanel({
             type="button"
             onClick={(e) => { e.preventDefault(); e.stopPropagation(); loadEntries(); }}
             disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all hover:bg-accent disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-[background-color,opacity,box-shadow] hover:bg-accent disabled:opacity-60 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 cursor-pointer"
             style={{
               background: 'var(--card)',
               color: 'var(--foreground)',

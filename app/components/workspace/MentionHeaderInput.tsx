@@ -295,7 +295,7 @@ export default function MentionHeaderInput({
     );
 
   return (
-    <div className="space-y-2 shrink-0">
+    <div className="flex flex-col gap-y-2 shrink-0">
       <div ref={wrapRef} className="relative">
         <HugeiconsIcon icon={Search01Icon}
           size={14}

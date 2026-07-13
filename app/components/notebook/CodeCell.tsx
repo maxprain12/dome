@@ -255,7 +255,7 @@ export default function CodeCell({
 
       {cell.outputs.length > 0 && (
         <div
-          className="p-2 space-y-1 content-visibility-auto"
+          className="p-2 flex flex-col gap-y-1 content-visibility-auto"
           style={{
             borderTop: '1px solid var(--border)',
             background: 'var(--muted)',

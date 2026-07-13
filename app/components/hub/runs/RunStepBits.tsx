@@ -68,7 +68,7 @@ export function WorkflowGroupHeader({ group, accentColor }: { group: WorkflowSte
     >
       <div className="flex min-w-0 gap-2">
         <div className="w-0.5 shrink-0 self-stretch rounded-full" style={{ background: accent }} aria-hidden />
-        <div className="min-w-0 flex-1 space-y-1">
+        <div className="min-w-0 flex-1 flex flex-col gap-y-1">
           <p className="text-xs font-medium leading-snug break-words text-foreground">
             {group.label}
             <span className="font-normal tabular-nums text-muted-foreground">
@@ -132,7 +132,7 @@ export function RunTimelineBar({
   const sum = segments.reduce((a, s) => a + s.widthPct, 0);
 
   return (
-    <div className="shrink-0 space-y-1.5">
+    <div className="shrink-0 flex flex-col gap-y-1.5">
       <figure
         className="flex h-1 w-full min-w-0 overflow-hidden rounded-sm bg-border"
         aria-label={t('runLog.detail_timeline')}
@@ -151,7 +151,7 @@ export function RunTimelineBar({
       </figure>
 
       {agents.length > 1 ? (
-        <div className="space-y-1 pl-0">
+        <div className="flex flex-col gap-y-1 pl-0">
           {agents.map((g) => {
             const laneColor = agentColorByKey.get(g.key) ?? AGENT_LANE_PALETTE[0];
             const laneSteps = g.steps;
@@ -401,7 +401,7 @@ export function StepDetailPanel({
           ) : null}
         </p>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 space-y-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-y-3">
         {hasArgs ? (
           <CollapsibleRow
             expanded={argsOpen}

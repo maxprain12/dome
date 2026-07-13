@@ -39,7 +39,7 @@ export function AgentChatPlusAgentSlot({
 
   if (subview?.kind === 'mcp') {
     return (
-      <div className="space-y-0.5">
+      <div className="flex flex-col gap-y-0.5">
         {backRow}
         <McpCapabilitiesSection
           serverIds={[subview.serverId]}
@@ -53,7 +53,7 @@ export function AgentChatPlusAgentSlot({
   if (!hasMcp) return null;
 
   return (
-    <div className="space-y-1">
+    <div className="flex flex-col gap-y-1">
       <div className="px-0">
         <p className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {t('agent.mcp_servers')}
@@ -65,7 +65,7 @@ export function AgentChatPlusAgentSlot({
             onToggleServer={onToggleMcp}
           />
         ) : (
-          <div className="space-y-0.5">
+          <div className="flex flex-col gap-y-0.5">
             {mcpServerIds.map((id) => (
               <button
                 key={id}

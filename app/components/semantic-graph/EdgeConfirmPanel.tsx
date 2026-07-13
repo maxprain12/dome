@@ -62,7 +62,7 @@ export function EdgeConfirmPanel({ edge, position, onConfirm, onReject, onClose 
           </span>
         ) : null}
       </div>
-      <div className="text-sm mb-3 space-y-1 text-foreground">
+      <div className="text-sm mb-3 flex flex-col gap-y-1 text-foreground">
         <div className="font-medium truncate" title={edge.sourceName}>
           {edge.sourceName}
         </div>

@@ -51,7 +51,7 @@ export default function TextInputNode({
           placeholder={t('canvas.text_placeholder')}
           aria-label={t('canvas.text_placeholder')}
           rows={2}
-          className="nodrag nowheel w-full text-xs resize-none rounded-lg outline-none transition-all leading-snug"
+          className="nodrag nowheel w-full text-xs resize-none rounded-lg outline-none transition-[border-color,box-shadow] leading-snug"
           style={{
             background: 'var(--background)',
             color: 'var(--foreground)',

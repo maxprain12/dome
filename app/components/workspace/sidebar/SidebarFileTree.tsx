@@ -186,7 +186,7 @@ export function TreeNode({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); if (node.resource) onContextMenu(e, node.resource); }}
-            className="shrink-0 flex items-center justify-center rounded-md transition-all"
+            className="shrink-0 flex items-center justify-center rounded-md transition-colors"
             style={{ width: 20, height: 20, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)', flexShrink: 0 }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = 'var(--background)';

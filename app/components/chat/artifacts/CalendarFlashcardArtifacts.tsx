@@ -10,7 +10,7 @@ export function CalendarEventArtifact({ artifact }: { artifact: CalendarEventArt
   const { t } = useTranslation();
   return (
     <div
-      className="rounded-lg border p-3 space-y-2"
+      className="rounded-lg border p-3 flex flex-col gap-y-2"
       style={{ borderColor: 'var(--border)', background: 'color-mix(in srgb, var(--primary) 6%, var(--muted))' }}
     >
       <div className="flex items-center gap-2 min-w-0">
@@ -42,7 +42,7 @@ export function FlashcardDeckArtifact({ artifact }: { artifact: FlashcardDeckArt
   const count = artifact.card_count ?? preview.length;
   return (
     <div
-      className="rounded-lg border p-3 space-y-3"
+      className="rounded-lg border p-3 flex flex-col gap-y-3"
       style={{ borderColor: 'var(--border)', background: 'var(--muted)' }}
     >
       <div className="flex items-center gap-2">
@@ -57,7 +57,7 @@ export function FlashcardDeckArtifact({ artifact }: { artifact: FlashcardDeckArt
         </div>
       </div>
       {preview.length > 0 ? (
-        <ul className="space-y-2 max-h-40 overflow-y-auto">
+        <ul className="flex flex-col gap-y-2 max-h-40 overflow-y-auto">
           {preview.map((c, i) => (
             <li
               key={i}

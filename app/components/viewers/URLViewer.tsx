@@ -283,9 +283,9 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto">
-        <div className="max-w-3xl mx-auto px-4 sm:p-6 space-y-6">
+        <div className="max-w-3xl mx-auto px-4 sm:p-6 flex flex-col gap-y-6">
           {processingStatus === 'processing' || (processingStatus === 'pending' && isBusy) ? (
-            <div className="space-y-6">
+            <div className="flex flex-col gap-y-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {t('viewer.web_pipeline_title')}
               </p>
@@ -299,7 +299,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
               <ListState variant="loading" loadingLabel={t('viewer.processing_content')} fullHeight />
             </div>
           ) : processingStatus === 'failed' ? (
-            <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
+            <div className="flex flex-col items-center justify-center py-14 text-center flex flex-col gap-y-4 max-w-md mx-auto">
               <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-destructive" aria-hidden />
               <h2 className="text-lg font-semibold text-foreground">
                 {t('viewer.scrape_status_failed')}
@@ -322,7 +322,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
               </button>
             </div>
           ) : processingStatus !== 'completed' ? (
-            <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
+            <div className="flex flex-col items-center justify-center py-14 text-center flex flex-col gap-y-4 max-w-md mx-auto">
               <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-[var(--warning)]" aria-hidden />
               <h2 className="text-lg font-semibold text-foreground">
                 {t('viewer.content_not_processed')}
@@ -357,8 +357,8 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 </div>
               )}
 
-              <div className="px-5 py-6 sm:p-8 space-y-5">
-                <header className="space-y-2">
+              <div className="px-5 py-6 sm:p-8 flex flex-col gap-y-5">
+                <header className="flex flex-col gap-y-2">
                   <h1 className="text-xl sm:text-2xl font-semibold font-display leading-tight text-foreground">
                     {displayTitle}
                   </h1>
@@ -389,7 +389,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                 </section>
 
                 <footer
-                  className="pt-4 mt-2 border-t space-y-3 text-sm"
+                  className="pt-4 mt-2 border-t flex flex-col gap-y-3 text-sm"
                   style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
                 >
                   <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

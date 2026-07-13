@@ -148,7 +148,7 @@ export default function StudioPanel({ projectId: projectIdProp, resourceId, embe
         <button
           type="button"
           onClick={() => useAppStore.getState().toggleStudioPanel()}
-          className="p-1.5 rounded-lg transition-all duration-200 hover:bg-accent opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="p-1.5 rounded-lg transition-[background-color,opacity,box-shadow] duration-200 hover:bg-accent opacity-70 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           style={{ color: 'var(--muted-foreground)' }}
           aria-label={t('studio.close_studio_panel')}
         >

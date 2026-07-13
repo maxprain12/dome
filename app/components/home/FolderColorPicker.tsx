@@ -40,7 +40,7 @@ export default memo(function FolderColorPicker({ value, onSave }: FolderColorPic
             key={color}
             type="button"
             onClick={() => setLocalColor(color)}
-            className="size-6 rounded border-2 transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="size-6 rounded border-2 transition-[border-color,box-shadow] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             style={{
               backgroundColor: color,
               borderColor:

@@ -177,7 +177,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
         <MentionHeaderInput resourceId={resourceId} onLinked={loadAll} onTagged={loadAll} />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
+      <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-y-6">
         {empty ? (
           <div className="text-center py-8">
             <HugeiconsIcon icon={Link02Icon} size={32} className="mx-auto mb-3 opacity-30 text-muted-foreground" />
@@ -192,7 +192,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
             <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
               {t('workspace.relations_tags')}
             </h4>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-y-2">
               {tags.map((tag) => (
                 <RelationChip
                   key={tag.id}
@@ -212,7 +212,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
             <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
               {t('workspace.relations_mentions')}
             </h4>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-y-2">
               {mentionRows.map((row) => (
                 <RelationChip
                   key={row.id}
@@ -235,7 +235,7 @@ export default function RelationsTab({ resourceId }: { resourceId: string }) {
             <h4 className="text-xs font-semibold mb-2 uppercase tracking-wide text-muted-foreground">
               {t('workspace.relations_web_links')}
             </h4>
-            <div className="space-y-2">
+            <div className="flex flex-col gap-y-2">
               {webRows.map((row) => (
                 <RelationChip
                   key={row.id}

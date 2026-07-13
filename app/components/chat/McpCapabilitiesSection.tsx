@@ -71,7 +71,7 @@ export default function McpCapabilitiesSection({
   }
 
   return (
-    <div className="space-y-4 px-1 py-0.5">
+    <div className="flex flex-col gap-y-4 px-1 py-0.5">
       {visibleServers.map((server) => {
         const normalizedServerId = normalizeMcpServerId(server.name);
         const tools = server.tools ?? [];
@@ -165,7 +165,7 @@ export default function McpCapabilitiesSection({
                     </Button>
                   </div>
                 </div>
-                <div className="max-h-[min(220px,40vh)] space-y-2 overflow-y-auto pr-0.5">
+                <div className="max-h-[min(220px,40vh)] flex flex-col gap-y-2 overflow-y-auto pr-0.5">
                   {tools.map((tool) => {
                     const toolId = tool.id || tool.name;
                     return (

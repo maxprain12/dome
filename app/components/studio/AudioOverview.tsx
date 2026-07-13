@@ -442,7 +442,7 @@ export default function AudioOverview({
 
       {/* Transcript */}
       <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4">
-        <div className="max-w-2xl mx-auto space-y-3">
+        <div className="max-w-2xl mx-auto flex flex-col gap-y-3">
           {transcript.lines.map((line, index) => {
             const isActive = index === activeLineIndex;
             const speakerColor = getSpeakerColor(line.speaker);

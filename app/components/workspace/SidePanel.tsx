@@ -174,7 +174,7 @@ export default function SidePanel({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg shrink-0 transition-all duration-200 hover:bg-accent opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 text-muted-foreground"
+            className="p-2 rounded-lg shrink-0 transition-[background-color,opacity,box-shadow] duration-200 hover:bg-accent opacity-80 hover:opacity-100 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 text-muted-foreground"
             aria-label={t('workspace.side_panel_close')}
           >
             <HugeiconsIcon icon={Cancel01Icon} size={16} />
@@ -259,7 +259,7 @@ function BacklinksTab({ resourceId }: { resourceId: string }) {
           </p>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-y-2">
           {backlinks.map((link) => (
             <button
               type="button"

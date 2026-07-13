@@ -209,7 +209,7 @@ export default function ThreadTimeline({ threadId, onFork, className }: ThreadTi
       )}
 
       {history.length > 0 && (
-        <div className="space-y-0">
+        <div className="flex flex-col gap-y-0">
           {history.map((entry, idx) => (
             <CheckpointRow
               key={entry.checkpointId ?? idx}

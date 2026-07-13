@@ -137,7 +137,7 @@ export default function ImageNode({
           <button
             type="button"
             onClick={openPicker}
-            className="nodrag w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all hover:opacity-90"
+            className="nodrag w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-opacity hover:opacity-90"
             style={{
               background: 'var(--background)',
               border: '1px dashed var(--border)',
@@ -194,7 +194,7 @@ export default function ImageNode({
                     key={r.id}
                     type="button"
                     onClick={() => selectResource(r)}
-                    className="nodrag aspect-square rounded-lg overflow-hidden border transition-all hover:border-primary"
+                    className="nodrag aspect-square rounded-lg overflow-hidden border transition-colors hover:border-primary"
                     style={{ border: '1px solid var(--border)' }}
                     title={r.title}
                   >

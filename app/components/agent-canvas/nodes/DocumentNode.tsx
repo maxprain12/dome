@@ -138,7 +138,7 @@ export default function DocumentNode({
           <button
             type="button"
             onClick={openPicker}
-            className="nodrag w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-all hover:opacity-90"
+            className="nodrag w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs transition-opacity hover:opacity-90"
             style={{
               background: 'var(--background)',
               border: '1px dashed var(--border)',

@@ -88,7 +88,7 @@ export default function AnnotationsTab({ resourceId }: AnnotationsTabProps) {
       </div>
 
       {/* Annotations List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-y-3">
         {annotations.length === 0 ? (
           <div className="text-center py-8">
             <HugeiconsIcon icon={Comment01Icon}

@@ -143,7 +143,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
         {STEP_ORDER.map((s, i) => (
           <div key={s} className="flex items-center gap-1">
             <div
-              className="flex items-center justify-center size-6 rounded-full text-xs font-medium transition-all"
+              className="flex items-center justify-center size-6 rounded-full text-xs font-medium transition-colors"
               style={{
                 background:
                   s === step
@@ -207,7 +207,7 @@ export default function AgentTeamOnboarding({ onComplete, onCancel }: AgentTeamO
                       type="button"
                       disabled={disabled}
                       className={cn(
-                        'flex items-center gap-3 transition-all cursor-pointer border rounded-xl bg-card p-3 w-full text-left border-border',
+                        'flex items-center gap-3 transition-[box-shadow,opacity] cursor-pointer border rounded-xl bg-card p-3 w-full text-left border-border',
                         selected && 'ring-2 ring-primary',
                         disabled && 'opacity-40 cursor-not-allowed pointer-events-none',
                       )}

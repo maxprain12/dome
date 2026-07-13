@@ -79,11 +79,11 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-y-3">
       <p className="text-xs text-muted-foreground">
         Elige qué servidores MCP puede usar este agente. Las tools de cada MCP se activan globalmente aquí mismo y se comparten con Many y los equipos.
       </p>
-      <div className="space-y-2 max-h-[28rem] overflow-y-auto pr-1">
+      <div className="flex flex-col gap-y-2 max-h-[28rem] overflow-y-auto pr-1">
         {servers.map((s) => (
           <div
             key={s.name}
@@ -156,7 +156,7 @@ export default function AgentMcpStep({ selectedIds, onChange }: AgentMcpStepProp
                     </button>
                   </div>
                 </div>
-                <div className="space-y-1.5">
+                <div className="flex flex-col gap-y-1.5">
                   {s.tools.map((tool) => (
                     <label
                       key={tool.id}

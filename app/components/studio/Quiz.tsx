@@ -370,7 +370,7 @@ export default function Quiz({
               {t('quiz.correct_count', { correct: correctCount, total: totalQuestions })}
             </div>
             {learnMode && questionResults.length > 0 && (
-              <div className="lr-quiz-breakdown text-left mb-6 space-y-2">
+              <div className="lr-quiz-breakdown text-left mb-6 flex flex-col gap-y-2">
                 {questionResults.map((r, i) => {
                   const q = data.questions.find((qq) => qq.id === r.questionId);
                   return (
