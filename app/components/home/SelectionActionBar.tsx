@@ -8,6 +8,9 @@ import {
   Cancel01Icon,
 } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface SelectionActionBarProps {
   count: number;
@@ -41,24 +44,38 @@ export default function SelectionActionBar({
     onClick: () => void,
     danger = false,
   ) => (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size={compact ? 'icon-sm' : 'sm'}
       onClick={onClick}
-      className={`selection-action-btn${danger ? ' selection-action-btn-danger' : ''}`}
+      className={cn(
+        !compact && 'gap-1.5',
+        danger && 'text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive',
+      )}
       aria-label={label}
       title={compact ? label : undefined}
     >
       {icon}
-      {!compact && <span>{label}</span>}
-    </button>
+      {!compact && label}
+    </Button>
   );
 
   return (
-    <div className={`selection-action-bar${compact ? ' selection-action-bar--compact' : ''}`}>
-      <span className="selection-action-bar-count" title={compact ? countLabel : undefined}>
+    <div
+      className={cn(
+        'flex animate-in fade-in items-center rounded-lg border bg-primary/10 shadow-sm duration-150',
+        compact ? 'gap-1.5 p-1.5' : 'mb-4 gap-3 px-4 py-2.5',
+      )}
+    >
+      <Badge
+        variant="secondary"
+        className={cn(compact && 'size-5 shrink-0 justify-center rounded-full p-0')}
+        title={compact ? countLabel : undefined}
+      >
         {compact ? count : countLabel}
-      </span>
-      <div className="selection-action-bar-actions">
+      </Badge>
+      <div className={cn('flex flex-wrap items-center', compact ? 'gap-1' : 'gap-2')}>
         {actionBtn(<HugeiconsIcon icon={FolderOpenIcon} size={compact ? 14 : 16} />, t('selection.move_to_folder'), onMoveToFolder)}
         {onMoveToProject
           ? actionBtn(<HugeiconsIcon icon={FolderInputIcon} size={compact ? 14 : 16} />, t('selection.move_to_project'), onMoveToProject)

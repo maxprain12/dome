@@ -20,6 +20,8 @@ import type { ResourceType } from '@/types';
 
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import type { ReactNode } from 'react';
 export type { ResourceType };
 
@@ -154,33 +156,24 @@ export function FilterBar({
       <div className="filter-bar-right">
         {/* Create Folder button */}
         {onCreateFolder && (
-          <button type="button" className="create-folder-btn min-h-[44px] cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" onClick={onCreateFolder} aria-label={t('filter.new_folder')}>
+          <Button type="button" size="sm" className="min-h-[44px]" onClick={onCreateFolder} aria-label={t('filter.new_folder')}>
             <HugeiconsIcon icon={FolderOpenIcon} size={16} />
-            <span>{t('filter.new_folder')}</span>
-          </button>
+            {t('filter.new_folder')}
+          </Button>
         )}
 
         {/* View mode toggle */}
-        <div className="view-mode-toggle">
-          <button
-            type="button"
-            className={`view-btn min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${viewMode === 'grid' ? 'active' : ''}`}
-            onClick={() => onViewModeChange('grid')}
-            aria-label={t('filter.grid_view')}
-            aria-pressed={viewMode === 'grid'}
-          >
+        <ToggleGroup
+          value={[viewMode]}
+          onValueChange={(values) => { const next = values[0] as 'grid' | 'list' | undefined; if (next) onViewModeChange(next); }}
+        >
+          <ToggleGroupItem value="grid" className="min-w-[44px] min-h-[44px]" aria-label={t('filter.grid_view')}>
             <HugeiconsIcon icon={Grid3X3Icon} size={16} />
-          </button>
-          <button
-            type="button"
-            className={`view-btn min-w-[44px] min-h-[44px] flex items-center justify-center focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 ${viewMode === 'list' ? 'active' : ''}`}
-            onClick={() => onViewModeChange('list')}
-            aria-label={t('filter.list_view')}
-            aria-pressed={viewMode === 'list'}
-          >
+          </ToggleGroupItem>
+          <ToggleGroupItem value="list" className="min-w-[44px] min-h-[44px]" aria-label={t('filter.list_view')}>
             <HugeiconsIcon icon={LeftToRightListBulletIcon} size={16} />
-          </button>
-        </div>
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
     </div>

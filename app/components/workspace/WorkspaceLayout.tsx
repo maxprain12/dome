@@ -321,9 +321,9 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   if (isLoading) {
     return (
       <div
-        className="flex items-center justify-center min-h-full animate-in bg-background"
+        className="flex items-center justify-center min-h-full animate-in fade-in bg-background"
       >
-        <div className="flex flex-col items-center gap-5 animate-slide-up">
+        <div className="flex flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <HugeiconsIcon icon={Loading03Icon} className="size-10 animate-spin text-primary" />
           <p className="text-sm font-medium text-muted-foreground">
             Loading workspace...
@@ -336,9 +336,9 @@ export default function WorkspaceLayout({ resourceId, initialPage }: WorkspaceLa
   if (error || !resource) {
     return (
       <div
-        className="flex flex-col items-center justify-center min-h-full p-8 animate-in bg-background"
+        className="flex flex-col items-center justify-center min-h-full p-8 animate-in fade-in bg-background"
       >
-        <div className="flex flex-col items-center gap-5 animate-slide-up">
+        <div className="flex flex-col items-center gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <HugeiconsIcon icon={AlertCircleIcon} className="size-16 shrink-0 text-muted-foreground" />
           <h1 className="text-xl font-display font-semibold text-center text-foreground">
             Failed to load resource

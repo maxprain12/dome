@@ -34,7 +34,7 @@ export default function CitationBadge({
       </button>
 
       {showTooltip && (sourceTitle || sourcePassage || pageLabel || nodeTitle) ? (
-        <Card className="p-3 absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 w-[280px] pointer-events-none shadow-lg animate-in" style={{ boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)' }}>
+        <Card className="p-3 absolute z-dropdown bottom-full left-1/2 -translate-x-1/2 mb-2 w-[280px] pointer-events-none shadow-lg animate-in fade-in zoom-in-95" style={{ boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)' }}>
           {sourceTitle && (
             <div className="text-xs font-semibold text-foreground mb-1">{sourceTitle}</div>
           )}
