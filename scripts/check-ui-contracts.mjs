@@ -27,17 +27,19 @@ const checks = [
   { label: 'transition-all', pattern: /\btransition-all\b|transition\s*:\s*all/g },
   { label: 'space-x/space-y', pattern: /\b-?space-[xy]-[^\s"'`]+/g },
   { label: 'Lucide or Tabler import', pattern: /from\s+["'](?:lucide-react|@tabler\/icons-react)["']/g },
+  { label: 'non-native icon contract', pattern: /lucide-adapter|\bLucide(?:Icon|Props)\b/g },
 ];
 
-for (const relativeRoot of strictRoots) {
-  for (const file of walk(path.join(root, relativeRoot))) {
-    if (!/\.(?:ts|tsx|css|scss)$/.test(file) || /\.test\.[jt]sx?$/.test(file)) continue;
-    const source = fs.readFileSync(file, 'utf8');
-    for (const check of checks) {
-      for (const match of source.matchAll(check.pattern)) {
-        const line = source.slice(0, match.index).split('\n').length;
-        violations.push(`${path.relative(root, file)}:${line} ${check.label}`);
-      }
+// App-wide: these four checks have zero legitimate exceptions anywhere in
+// the codebase (verified clean 2026-07 after the icon/CSS purge), so they
+// run unscoped instead of being limited to strictRoots.
+for (const file of walk(path.join(root, 'app'))) {
+  if (!/\.(?:ts|tsx|css|scss)$/.test(file) || /\.test\.[jt]sx?$/.test(file)) continue;
+  const source = fs.readFileSync(file, 'utf8');
+  for (const check of checks) {
+    for (const match of source.matchAll(check.pattern)) {
+      const line = source.slice(0, match.index).split('\n').length;
+      violations.push(`${path.relative(root, file)}:${line} ${check.label}`);
     }
   }
 }
@@ -47,9 +49,7 @@ for (const relativeRoot of nativeIconRoots) {
     if (!/\.(?:ts|tsx)$/.test(file) || /\.test\.[jt]sx?$/.test(file)) continue;
     const source = fs.readFileSync(file, 'utf8');
     const settingsChecks = [
-      { label: 'non-native icon contract', pattern: /lucide-adapter|lucide-react|@tabler\/icons-react|\bLucide(?:Icon|Props)\b/g },
       { label: 'raw Settings control', pattern: /<(?:button|input|select|textarea)\b/g },
-      { label: 'Settings space-x/space-y', pattern: /\b-?space-[xy]-[^\s"'`]+/g },
       { label: 'legacy Settings stylesheet', pattern: /(?:ai-settings|settings-layout)\.css/g },
       { label: 'inline Settings style', pattern: /\bstyle\s*=\s*\{/g },
       { label: 'legacy Settings class', pattern: /\b(?:settings-(?:segmented|toggle-row|split-row|field-grid|action-row|choice-grid|provider-card)|ai-provider-picker__)\b/g },
@@ -68,10 +68,8 @@ for (const file of walk(path.join(root, 'app/components/shell'))) {
   if (!/\.(?:ts|tsx)$/.test(file) || /\.test\.[jt]sx?$/.test(file)) continue;
   const source = fs.readFileSync(file, 'utf8');
   const shellChecks = [
-    { label: 'non-native shell icon contract', pattern: /lucide-adapter|lucide-react|@tabler\/icons-react|\bLucide(?:Icon|Props)\b/g },
     { label: 'raw shell control', pattern: /<(?:button|input|select|textarea)\b/g },
     { label: 'inline shell svg', pattern: /<svg\b/g },
-    { label: 'shell transition-all', pattern: /\btransition-all\b|transition\s*:\s*all/g },
   ];
   for (const check of shellChecks) {
     for (const match of source.matchAll(check.pattern)) {
@@ -90,10 +88,8 @@ for (const relativePath of redesignedSurfaceFiles) {
     if (!fs.existsSync(file) || !/\.(?:ts|tsx)$/.test(file) || /\.test\.[jt]sx?$/.test(file)) continue;
     const source = fs.readFileSync(file, 'utf8');
     const surfaceChecks = [
-      { label: 'non-native redesigned-surface icon contract', pattern: /lucide-adapter|lucide-react|@tabler\/icons-react|\bLucide(?:Icon|Props)\b/g },
       { label: 'raw redesigned-surface control', pattern: /<(?:button|input|select|textarea)\b/g },
       { label: 'inline redesigned-surface style', pattern: /\bstyle\s*=\s*\{/g },
-      { label: 'redesigned-surface space-x/space-y', pattern: /\b-?space-[xy]-[^\s"'`]+/g },
     ];
     for (const check of surfaceChecks) {
       for (const match of source.matchAll(check.pattern)) {

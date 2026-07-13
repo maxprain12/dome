@@ -97,7 +97,7 @@
   border-radius: 8px;
   border: none;
   cursor: pointer;
-  transition: all 120ms ease-in-out;
+  transition: background-color 120ms ease-in-out, color 120ms ease-in-out;
   flex-shrink: 0;
   background: transparent;
   color: var(--muted-foreground);

@@ -505,7 +505,7 @@ function SpreadsheetViewerComponent({ resource }: SpreadsheetViewerProps) {
         .spreadsheet-csv-hint{flex-shrink:0;padding:6px 16px;font-size:12px;color:var(--muted-foreground);background:var(--card);border-bottom:1px solid var(--border)}
         .spreadsheet-save-error{flex-shrink:0;padding:8px 16px;font-size:12px;color:var(--destructive);background:color-mix(in srgb, var(--destructive) 12%, transparent)}
         .sheet-tabs{display:flex;gap:0;padding:0 16px;border-bottom:1px solid var(--border);background:var(--card);flex-shrink:0;overflow-x:auto}
-        .sheet-tab{padding:10px 20px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;border-bottom:2px solid transparent;transition:all var(--transition-fast);white-space:nowrap}
+        .sheet-tab{padding:10px 20px;border:none;background:transparent;font-size:13px;font-weight:500;color:var(--muted-foreground);cursor:pointer;border-bottom:2px solid transparent;transition:color var(--transition-fast),background-color var(--transition-fast),border-color var(--transition-fast);white-space:nowrap}
         .sheet-tab:hover{color:var(--foreground);background:var(--accent)}
         .sheet-tab.active{color:var(--primary);border-bottom-color:var(--primary)}
         .table-container{flex:1;overflow:auto;padding:0}

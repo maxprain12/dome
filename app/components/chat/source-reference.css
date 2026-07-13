@@ -52,7 +52,7 @@
   border: 1px solid var(--border);
   cursor: pointer;
   flex-shrink: 0;
-  transition: all 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .source-ref-pin-btn.is-pinned {
