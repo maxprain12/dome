@@ -6,7 +6,7 @@
   background: var(--card, var(--background));
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-lg);
   max-height: 240px;
   min-width: 240px;
   overflow-y: auto;
