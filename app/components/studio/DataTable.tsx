@@ -1,6 +1,15 @@
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ArrowUpDownIcon,
+  ArrowUp02Icon,
+  ArrowDown02Icon,
+  Download04Icon,
+  Search01Icon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useMemo, useCallback } from 'react';
-import { ArrowUpDown, ArrowUp, ArrowDown, Download, Search, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import type { DataTableData } from '@/types';
 
@@ -21,9 +30,9 @@ function DataTableSortIcon({
   sortKey: string | null;
   sortDir: SortDirection;
 }) {
-  if (sortKey !== columnKey) return <ArrowUpDown size={12} className="opacity-30" />;
-  if (sortDir === 'asc') return <ArrowUp size={12} style={{ color: 'var(--dome-accent)' }} />;
-  return <ArrowDown size={12} style={{ color: 'var(--dome-accent)' }} />;
+  if (sortKey !== columnKey) return <HugeiconsIcon icon={ArrowUpDownIcon} size={12} className="opacity-30" />;
+  if (sortDir === 'asc') return <HugeiconsIcon icon={ArrowUp02Icon} size={12} className="text-primary" />;
+  return <HugeiconsIcon icon={ArrowDown02Icon} size={12} className="text-primary" />;
 }
 
 export default function DataTable({ data, title, onClose }: DataTableProps) {
@@ -86,39 +95,39 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
   }, [data.columns, filteredAndSorted, title]);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border">
+        <h3 className="text-sm font-semibold text-foreground">
           {title || t('studio.data_table')}
         </h3>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={handleExportCSV} className="btn btn-ghost p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.export_csv_aria')} title={t('studio.export_csv')}>
-            <Download size={14} />
+          <Button type="button" onClick={handleExportCSV} variant="ghost" className="p-2 min-h-[44px] flex items-center gap-1 text-xs rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.export_csv_aria')} title={t('studio.export_csv')}>
+            <HugeiconsIcon icon={Download04Icon} size={14} />
             <span>CSV</span>
-          </button>
+          </Button>
           {onClose && (
-            <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('ui.close')} title={t('ui.close')}><X size={16} /></button>
+            <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('ui.close')} title={t('ui.close')}><HugeiconsIcon icon={Cancel01Icon} size={16} /></Button>
           )}
         </div>
       </div>
 
       {/* Filter */}
-      <div className="px-4 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="px-4 py-2 border-b border-border">
         <div className="relative">
           <label htmlFor="datatable-filter-rows" className="sr-only">{t('studio.filter_rows_label')}</label>
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--tertiary-text)' }} />
+          <HugeiconsIcon icon={Search01Icon} size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
             id="datatable-filter-rows"
             type="text"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             placeholder={t('studio.filter_rows_placeholder')}
-            className="w-full pl-8 pr-3 py-1.5 rounded-md text-xs focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            className="w-full pl-8 pr-3 py-1.5 rounded-md text-xs focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             style={{
-              background: 'var(--bg-secondary)',
+              background: 'var(--card)',
               border: '1px solid var(--border)',
-              color: 'var(--primary-text)',
+              color: 'var(--foreground)',
             }}
           />
         </div>
@@ -135,9 +144,9 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
                   onClick={() => handleSort(col.key)}
                   className="sticky top-0 px-4 py-2.5 text-left font-semibold cursor-pointer select-none whitespace-nowrap"
                   style={{
-                    background: 'var(--bg-secondary)',
+                    background: 'var(--card)',
                     borderBottom: '2px solid var(--border)',
-                    color: sortKey === col.key ? 'var(--dome-accent)' : 'var(--secondary-text)',
+                    color: sortKey === col.key ? 'var(--primary)' : 'var(--muted-foreground)',
                   }}
                 >
                   <div className="flex items-center gap-1">
@@ -153,9 +162,9 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
               <tr
                 key={rowIdx}
                 className="transition-colors"
-                style={{ background: rowIdx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--dome-accent-bg)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = rowIdx % 2 === 0 ? 'transparent' : 'var(--bg-secondary)'; }}
+                style={{ background: rowIdx % 2 === 0 ? 'transparent' : 'var(--card)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in srgb, var(--primary) 12%, transparent)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = rowIdx % 2 === 0 ? 'transparent' : 'var(--card)'; }}
               >
                 {data.columns.map(col => (
                   <td
@@ -163,7 +172,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
                     className="px-4 py-2 whitespace-nowrap"
                     style={{
                       borderBottom: '1px solid var(--border)',
-                      color: 'var(--primary-text)',
+                      color: 'var(--foreground)',
                     }}
                   >
                     {String(row[col.key] ?? '')}
@@ -175,8 +184,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
               <tr>
                 <td
                   colSpan={data.columns.length}
-                  className="px-4 py-8 text-center"
-                  style={{ color: 'var(--tertiary-text)' }}
+                  className="px-4 py-8 text-center text-muted-foreground"
                 >
                   {filterText ? t('studio.no_matching_rows') : t('studio.no_data')}
                 </td>
@@ -187,7 +195,7 @@ export default function DataTable({ data, title, onClose }: DataTableProps) {
       </div>
 
       {/* Footer */}
-      <div className="px-4 py-2 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--tertiary-text)' }}>
+      <div className="px-4 py-2 border-t text-xs" style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}>
         {t('studio.rows_progress', { shown: filteredAndSorted.length, total: data.rows.length })}
         {filterText ? ` (${t('studio.filtered_hint')})` : ''}
       </div>

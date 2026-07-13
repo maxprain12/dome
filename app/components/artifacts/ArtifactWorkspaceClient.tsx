@@ -1,8 +1,17 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Layers01Icon,
+  Download04Icon,
+  FileDownIcon,
+  SaveIcon,
+  RefreshIcon,
+  DatabaseIcon,
+  DashboardSquare01Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Layers, Download, FileDown, Save, RefreshCw, Database, LayoutDashboard } from 'lucide-react';
-import DomeSubpageHeader from '@/components/ui/DomeSubpageHeader';
-import HubListState from '@/components/ui/HubListState';
+import SubpageHeader from '@/components/shared/SubpageHeader';
+import ListState from '@/components/shared/ListState';
 import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import type { ArtifactRecord } from '@/types';
 import { useDomeThemeSnapshot, buildDomeThemeStyleContent } from '@/lib/chat/useDomeThemeSnapshot';
@@ -13,7 +22,7 @@ import {
   handleArtifactNavigateMessage,
   openArtifactExternalUrl,
 } from '@/lib/chat/artifactIframeNavigate';
-import { notifications } from '@mantine/notifications';
+import { notifications } from '@/lib/notifications';
 import FeedersPanel from '@/components/feeders/FeedersPanel';
 
 interface Props {
@@ -235,7 +244,7 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
     const bodyHtml =
       stHtml.trim().length > 0
         ? stHtml
-        : '<p style="color:var(--secondary-text);padding:1rem">Empty artifact — ask Many to generate content.</p>';
+        : '<p style="color:var(--muted-foreground);padding:1rem">Empty artifact — ask Many to generate content.</p>';
     const domePayload = mergedDomeDataPayload(artifactRef.current);
     return buildSrcdocFromParts(bodyHtml, domePayload, initialThemeCssRef.current ?? '', stCss);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- data reads artifactRef on purpose
@@ -475,25 +484,24 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
   }, [resourceId, t]);
 
   if (loading) {
-    return <HubListState variant="loading" loadingLabel={t('common.loading')} />;
+    return <ListState variant="loading" loadingLabel={t('common.loading')} />;
   }
   if (error || !artifact) {
-    return <HubListState variant="error" errorMessage={error ?? t('common.error')} />;
+    return <ListState variant="error" errorMessage={error ?? t('common.error')} />;
   }
 
   return (
     <div
-      className="flex flex-col h-full min-h-0 overflow-hidden"
-      style={{ background: 'var(--bg)' }}
+      className="flex flex-col h-full min-h-0 overflow-hidden bg-background"
     >
-      <DomeSubpageHeader>
-        <DomeSubpageHeader.Title>
+      <SubpageHeader>
+        <SubpageHeader.Title>
           <span className="flex items-center gap-2">
-            <Layers className="size-4 shrink-0" style={{ color: 'var(--accent)' }} />
-            <span style={{ color: 'var(--primary-text)' }}>{artifact.title}</span>
+            <HugeiconsIcon icon={Layers01Icon} className="size-4 shrink-0 text-primary" />
+            <span className="text-foreground">{artifact.title}</span>
           </span>
-        </DomeSubpageHeader.Title>
-        <DomeSubpageHeader.Trailing>
+        </SubpageHeader.Title>
+        <SubpageHeader.Trailing>
           <>
             <IndexStatusBadge resourceId={resourceId} resourceType="artifact" />
             {artifact.linkedResourceId && (
@@ -504,12 +512,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
                 title={t('artifacts.refresh_linked_title')}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50"
                 style={{
-                  color: 'var(--accent)',
-                  background: 'var(--bg-secondary)',
+                  color: 'var(--primary)',
+                  background: 'var(--card)',
                   border: '1px solid var(--border)',
                 }}
               >
-                <RefreshCw className={`size-3.5${refreshing ? ' animate-spin' : ''}`} />
+                <HugeiconsIcon icon={RefreshIcon} className={`size-3.5${refreshing ? ' animate-spin' : ''}`} />
                 {t('artifacts.refresh_linked')}
               </button>
             )}
@@ -520,12 +528,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
               title={t('artifacts.save_state_title')}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50"
               style={{
-                color: 'var(--primary-text)',
-                background: 'var(--bg-secondary)',
+                color: 'var(--foreground)',
+                background: 'var(--card)',
                 border: '1px solid var(--border)',
               }}
             >
-              <Save className="size-3.5" />
+              <HugeiconsIcon icon={SaveIcon} className="size-3.5" />
               {saving ? t('common.saving') : t('artifacts.save_state')}
             </button>
             <button
@@ -534,12 +542,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
               title={t('artifacts.export_artifact')}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
               style={{
-                color: 'var(--secondary-text)',
-                background: 'var(--bg-secondary)',
+                color: 'var(--muted-foreground)',
+                background: 'var(--card)',
                 border: '1px solid var(--border)',
               }}
             >
-              <Download className="size-3.5" />
+              <HugeiconsIcon icon={Download04Icon} className="size-3.5" />
               {t('artifacts.export_artifact')}
             </button>
             <button
@@ -548,32 +556,32 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
               title={t('artifacts.export_html')}
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
               style={{
-                color: 'var(--secondary-text)',
-                background: 'var(--bg-secondary)',
+                color: 'var(--muted-foreground)',
+                background: 'var(--card)',
                 border: '1px solid var(--border)',
               }}
             >
-              <FileDown className="size-3.5" />
+              <HugeiconsIcon icon={FileDownIcon} className="size-3.5" />
               {t('artifacts.export_html')}
             </button>
           </>
-        </DomeSubpageHeader.Trailing>
-      </DomeSubpageHeader>
+        </SubpageHeader.Trailing>
+      </SubpageHeader>
       <div
         className="flex items-center gap-1 px-4 py-2 border-b shrink-0"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
       >
         <button
           type="button"
           onClick={() => setWorkspaceTab('dashboard')}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
           style={{
-            color: workspaceTab === 'dashboard' ? 'var(--accent)' : 'var(--secondary-text)',
-            background: workspaceTab === 'dashboard' ? 'var(--bg)' : 'transparent',
+            color: workspaceTab === 'dashboard' ? 'var(--primary)' : 'var(--muted-foreground)',
+            background: workspaceTab === 'dashboard' ? 'var(--background)' : 'transparent',
             border: workspaceTab === 'dashboard' ? '1px solid var(--border)' : '1px solid transparent',
           }}
         >
-          <LayoutDashboard className="size-3.5" />
+          <HugeiconsIcon icon={DashboardSquare01Icon} className="size-3.5" />
           {t('feeders.tab_dashboard')}
         </button>
         <button
@@ -581,12 +589,12 @@ export default function ArtifactWorkspaceClient({ resourceId }: Props) {
           onClick={() => setWorkspaceTab('feeders')}
           className="flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-colors"
           style={{
-            color: workspaceTab === 'feeders' ? 'var(--accent)' : 'var(--secondary-text)',
-            background: workspaceTab === 'feeders' ? 'var(--bg)' : 'transparent',
+            color: workspaceTab === 'feeders' ? 'var(--primary)' : 'var(--muted-foreground)',
+            background: workspaceTab === 'feeders' ? 'var(--background)' : 'transparent',
             border: workspaceTab === 'feeders' ? '1px solid var(--border)' : '1px solid transparent',
           }}
         >
-          <Database className="size-3.5" />
+          <HugeiconsIcon icon={DatabaseIcon} className="size-3.5" />
           {t('feeders.tab_feeders')}
         </button>
       </div>

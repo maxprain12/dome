@@ -1,5 +1,8 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronRightIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { ChevronRight } from 'lucide-react';
 import type { PendingTodayItem } from '@/lib/hooks/useDashboardData';
 
 export function TodayBrief({
@@ -56,7 +59,7 @@ export function TodayBrief({
                   ) : null}
                 </div>
               </div>
-              <ChevronRight className="h-feed-arrow" size={16} strokeWidth={2} aria-hidden />
+              <HugeiconsIcon icon={ChevronRightIcon} className="h-feed-arrow" size={16} strokeWidth={2} aria-hidden />
             </button>
           ))}
         </div>

@@ -1,3 +1,7 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Search01Icon,
+} from '@hugeicons/core-free-icons';
 import {
   useState,
   useRef,
@@ -7,7 +11,6 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Search } from 'lucide-react';
 import type { Resource } from '@/types';
 import { useAppStore } from '@/lib/store/useAppStore';
 import './mention-header-input.css';
@@ -294,7 +297,7 @@ export default function MentionHeaderInput({
   return (
     <div className="space-y-2 shrink-0">
       <div ref={wrapRef} className="relative">
-        <Search
+        <HugeiconsIcon icon={Search01Icon}
           size={14}
           className="mention-header-search-icon absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
         />
@@ -313,7 +316,7 @@ export default function MentionHeaderInput({
           }}
           onKeyDown={(e) => void onKeyDown(e)}
           placeholder={t('workspace.relations_placeholder')}
-          className="mention-header-input w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] focus-visible:ring-offset-2"
+          className="mention-header-input w-full pl-9 pr-3 py-2 text-sm rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
           aria-label={t('workspace.relations_input_aria')}
           autoComplete="off"
         />

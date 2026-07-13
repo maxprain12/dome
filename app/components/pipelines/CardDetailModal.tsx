@@ -1,40 +1,49 @@
 import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import {
-  Trash2,
-  Play,
-  Plus,
-  X,
-  Check,
-  CheckCircle2,
-  XCircle,
-  ArrowRightLeft,
-  ChevronRight,
-  FileText,
-  Circle,
-  Pencil,
-  Eye,
-  Loader2,
-  CheckSquare,
-  StickyNote,
-  ExternalLink,
-  CalendarClock,
-  type LucideIcon,
-} from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeDatePicker } from '@/components/ui/DomeDatePicker';
-import { DomeTextarea } from '@/components/ui/DomeInput';
-import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
-import DomeContextMenu from '@/components/ui/DomeContextMenu';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { ArrowLeftRightIcon, CalendarClockIcon, Cancel01Icon, CancelCircleIcon, CheckIcon, CheckmarkCircle02Icon, CheckmarkSquare02Icon, ChevronRightIcon, CircleIcon, Delete02Icon, ExternalLinkIcon, EyeIcon, File02Icon, Loading03Icon, PencilIcon, PlayIcon, PlusSignIcon, StickyNote02Icon } from '@hugeicons/core-free-icons';
+import { cn } from '@/lib/utils';
+import { DatePicker } from '@/components/shared/DatePicker';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { pipelinesClient, pipelinesEvents } from '@/lib/pipelines/client';
 import type { PipelineItem, PipelineStage, PipelineItemEvent } from '@/lib/pipelines/types';
+import { MANY_EXECUTOR_ID } from '@/lib/pipelines/types';
+import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
 import { showToast } from '@/lib/store/useToastStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
+import { typesetDocsClass } from '@/lib/typeset';
 import RunSummaryModal from './RunSummaryModal';
-
+import {
+  DetailDrawer,
+  DetailDrawerBadge,
+  DetailDrawerBody,
+  DetailDrawerContent,
+  DetailDrawerFooter,
+  DetailDrawerHeader,
+  DetailDrawerMetaGrid,
+  DetailDrawerPanel,
+  DetailDrawerSection,
+} from '@/components/shared/DetailDrawer';
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger , DropdownMenuGroup } from '@/components/ui/dropdown-menu';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import type { ReactNode } from 'react';
 interface TodoItem {
   id: string;
   text: string;
@@ -118,24 +127,62 @@ function migrateFields(data?: Record<string, unknown> | null): CardField[] {
   return fields;
 }
 
-function eventVisual(eventType: string): { Icon: LucideIcon; color: string } {
+function countTodos(fields: CardField[]): { done: number; total: number } {
+  let done = 0;
+  let total = 0;
+  for (const field of fields) {
+    if (field.type !== 'todos' || !field.todos) continue;
+    for (const todo of field.todos) {
+      if (!todo.text.trim()) continue;
+      total += 1;
+      if (todo.done) done += 1;
+    }
+  }
+  return { done, total };
+}
+
+function formatWhenRange(startAt?: number | null, endAt?: number | null): string {
+  if (!startAt && !endAt) return '—';
+  const fmt = (ms: number) =>
+    new Date(ms).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'short' });
+  if (startAt && endAt) return `${fmt(startAt)} → ${fmt(endAt)}`;
+  if (startAt) return fmt(startAt);
+  return fmt(endAt as number);
+}
+
+function resolveAgentLabel(
+  item: PipelineItem,
+  stage: PipelineStage | undefined,
+  agents: ExecutorOption[],
+  t: (key: string) => string,
+): string {
+  const agentId = item.assignedAgentId ?? stage?.assignedAgentId;
+  if (!agentId) {
+    if (stage?.executionPolicy === 'manual_resolve') return t('pipelines.assigned_manual');
+    return t('pipelines.assigned_unassigned');
+  }
+  if (agentId === MANY_EXECUTOR_ID) return 'Many';
+  return agents.find((agent) => agent.id === agentId)?.name ?? agentId;
+}
+
+function eventVisual(eventType: string): { icon: IconSvgElement; colorClass: string } {
   switch (eventType) {
     case 'run_started':
-      return { Icon: Play, color: 'var(--accent)' };
+      return { icon: PlayIcon, colorClass: 'text-primary' };
     case 'run_completed':
-      return { Icon: CheckCircle2, color: 'var(--success)' };
+      return { icon: CheckmarkCircle02Icon, colorClass: 'text-primary' };
     case 'run_failed':
-      return { Icon: XCircle, color: 'var(--error)' };
+      return { icon: CancelCircleIcon, colorClass: 'text-destructive' };
     case 'card_created':
-      return { Icon: Plus, color: 'var(--accent)' };
+      return { icon: PlusSignIcon, colorClass: 'text-primary' };
     case 'card_moved':
-      return { Icon: ArrowRightLeft, color: 'var(--secondary-text)' };
+      return { icon: ArrowLeftRightIcon, colorClass: 'text-muted-foreground' };
     case 'auto_advanced':
-      return { Icon: ChevronRight, color: 'var(--secondary-text)' };
+      return { icon: ChevronRightIcon, colorClass: 'text-muted-foreground' };
     case 'report_generated':
-      return { Icon: FileText, color: 'var(--accent)' };
+      return { icon: File02Icon, colorClass: 'text-primary' };
     default:
-      return { Icon: Circle, color: 'var(--tertiary-text)' };
+      return { icon: CircleIcon, colorClass: 'text-muted-foreground' };
   }
 }
 
@@ -143,13 +190,24 @@ function eventVisual(eventType: string): { Icon: LucideIcon; color: string } {
 interface Props {
   item: PipelineItem;
   stage: PipelineStage | undefined;
+  pipelineName?: string;
+  agents?: ExecutorOption[];
   onClose: () => void;
   onSave: (patch: Partial<PipelineItem>) => Promise<void>;
   onDelete: () => Promise<void>;
   onRun: () => void | Promise<void>;
 }
 
-export default function CardDetailModal({ item, stage, onClose, onSave, onDelete, onRun }: Props) {
+export default function CardDetailModal({
+  item,
+  stage,
+  pipelineName,
+  agents = [],
+  onClose,
+  onSave,
+  onDelete,
+  onRun,
+}: Props) {
   const { t } = useTranslation();
   const [title, setTitle] = useState(item.title);
   const [startInput, setStartInput] = useState(toDateInput(item.startAt));
@@ -166,6 +224,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const [generating, setGenerating] = useState(false);
   const [launching, setLaunching] = useState(false);
   const [tab, setTab] = useState<DetailTab>('details');
+  const [editing, setEditing] = useState(false);
   const [events, setEvents] = useState<PipelineItemEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [eventsReloadKey, setEventsReloadKey] = useState(0);
@@ -357,17 +416,17 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
   const addFieldItems = [
     {
       label: t('pipelines.field_description'),
-      icon: <FileText size={14} />,
+      icon: <HugeiconsIcon icon={File02Icon} size={14} />,
       onClick: () => addField('description'),
     },
     {
       label: t('pipelines.field_todos'),
-      icon: <CheckSquare size={14} />,
+      icon: <HugeiconsIcon icon={CheckmarkSquare02Icon} size={14} />,
       onClick: () => addField('todos'),
     },
     {
       label: t('pipelines.field_note'),
-      icon: <StickyNote size={14} />,
+      icon: <HugeiconsIcon icon={StickyNote02Icon} size={14} />,
       onClick: () => addField('note'),
     },
   ];
@@ -378,90 +437,68 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
     return t('pipelines.field_description');
   };
 
+  const { done: todosDone, total: todosTotal } = countTodos(fields);
+  const descriptionMarkdown = fields
+    .filter((f) => (f.type === 'description' || f.type === 'note') && (f.text ?? '').trim())
+    .map((f) => f.text ?? '')
+    .join('\n\n');
+  const headerTitle = stage?.title
+    ? `${stage.title} — ${title.trim() || item.title}`
+    : title.trim() || item.title;
+  const badgeLabel = [pipelineName, stage?.title].filter(Boolean).join(' — ');
+  const metaItems = [
+    {
+      label: t('pipelines.meta_when'),
+      value: formatWhenRange(item.startAt, item.endAt),
+      icon: <HugeiconsIcon icon={CalendarClockIcon} className="size-3.5" />,
+    },
+    {
+      label: t('pipelines.assigned_agent'),
+      value: resolveAgentLabel(item, stage, agents, t),
+    },
+    {
+      label: t('pipelines.meta_status'),
+      value: t(`pipelines.status_${item.execStatus}`),
+    },
+    {
+      label: t('pipelines.meta_tasks'),
+      value:
+        todosTotal > 0
+          ? t('pipelines.meta_tasks_progress', { done: todosDone, total: todosTotal })
+          : '—',
+    },
+  ];
+
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={item.title}
-      subtitle={stage?.title}
-      size="md"
-      footer={
-        <>
-          <DomeButton
-            variant="ghost"
-            size="sm"
-            onClick={() => void onDelete()}
-            leftIcon={<Trash2 className="size-4" />}
-          >
-            {t('pipelines.delete')}
-          </DomeButton>
-          <div style={{ flex: 1 }} />
-          {canRun && (
-            <DomeButton
-              variant="outline"
-              size="sm"
-              onClick={() => void handleRun()}
-              disabled={generating || agentBusy || saving}
-              loading={agentBusy}
-              leftIcon={agentBusy ? undefined : <Play className="size-4" />}
-            >
-              {launching
-                ? t('pipelines.run_launching')
-                : isRunning
-                  ? t('pipelines.status_running')
-                  : t('pipelines.run_now')}
-            </DomeButton>
-          )}
-          <DomeButton
-            variant="outline"
-            size="sm"
-            onClick={() => void generateReport()}
-            loading={generating}
-            disabled={saving || agentBusy}
-            leftIcon={<FileText className="size-4" />}
-          >
-            {t('pipelines.generate_report')}
-          </DomeButton>
-          <DomeButton
-            variant="primary"
-            size="sm"
-            onClick={() => void save()}
-            disabled={saving || agentBusy}
-            loading={saving}
-          >
-            {saving ? t('pipelines.saving') : t('pipelines.save')}
-          </DomeButton>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          <span
-            className="text-[11px] font-medium uppercase tracking-wide"
-            style={{ color: 'var(--tertiary-text)' }}
-          >
-            {t('pipelines.card_title_placeholder')}
-          </span>
-          <input
+    <>
+      <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }}>
+        <DetailDrawerContent size="lg">
+          <DetailDrawerHeader
+            title={headerTitle}
+            badge={
+              badgeLabel ? <DetailDrawerBadge>{badgeLabel}</DetailDrawerBadge> : undefined
+            }
+          />
+          <DetailDrawerBody>
+            {editing ? (
+              <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="card-title">{t('pipelines.card_title_placeholder')}</Label>
+          <Input
+            id="card-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="text-sm rounded-md px-2 py-1.5 outline-none"
-            style={{
-              background: 'var(--bg)',
-              color: 'var(--primary-text)',
-              border: '1px solid var(--border)',
-            }}
           />
-        </label>
+        </div>
 
         <div className="flex gap-3">
-          <DomeDatePicker
+          <DatePicker
             className="flex-1"
             label={t('pipelines.start_date')}
             value={startInput}
             onChange={setStartInput}
           />
-          <DomeDatePicker
+          <DatePicker
             className="flex-1"
             label={t('pipelines.end_date')}
             value={endInput}
@@ -469,245 +506,161 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
           />
         </div>
 
-        <DomeSegmentedControl
-          options={tabOptions}
-          value={tab}
-          onChange={(v) => setTab(v as DetailTab)}
-          size="sm"
-          aria-label={t('pipelines.tab_details')}
-        />
+        <Tabs value={tab} onValueChange={(v) => setTab(v as DetailTab)} className="min-w-0"><TabsList aria-label={t('pipelines.tab_details')} className="h-auto w-full max-w-full flex-wrap">{(tabOptions).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
 
         {agentBusy && (
           <output
-            className="flex items-center gap-2 rounded-md px-3 py-2"
-            style={{
-              background: 'var(--bg-secondary)',
-              border: '1px solid var(--accent)',
-            }}
+            className="flex items-center gap-2 rounded-xl border border-primary/30 bg-muted px-3 py-2"
             aria-live="polite"
           >
-            <Loader2 className="size-4 animate-spin shrink-0" style={{ color: 'var(--accent)' }} aria-hidden />
-            <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+            <HugeiconsIcon icon={Loading03Icon} className="size-4 shrink-0 animate-spin text-primary" aria-hidden />
+            <span className="text-sm font-medium text-foreground">
               {launching ? t('pipelines.run_launching') : t('pipelines.agent_running_overlay')}
             </span>
           </output>
         )}
 
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
           {generating && (
-            <div
-              className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md"
-              style={{ background: 'var(--overlay-bg, rgba(0,0,0,0.55))' }}
-            >
-              <Loader2 className="size-6 animate-spin" style={{ color: 'var(--accent)' }} />
-              <span className="text-sm" style={{ color: 'var(--primary-text)' }}>
-                {t('pipelines.report_generating')}
-              </span>
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-xl bg-background/80 backdrop-blur-sm">
+              <HugeiconsIcon icon={Loading03Icon} className="size-6 animate-spin text-primary" />
+              <span className="text-sm text-foreground">{t('pipelines.report_generating')}</span>
             </div>
           )}
 
           <div
-            style={
-              generating
-                ? { filter: 'blur(2px)', opacity: 0.4, pointerEvents: 'none' }
-                : undefined
-            }
+            className={cn(
+              generating && 'pointer-events-none opacity-40 blur-[2px]',
+            )}
           >
             {tab === 'details' && (
               <>
                 {fields.length === 0 && (
-                  <span className="text-xs py-2" style={{ color: 'var(--tertiary-text)' }}>
-                    {t('pipelines.field_empty')}
-                  </span>
+                  <span className="py-2 text-xs text-muted-foreground">{t('pipelines.field_empty')}</span>
                 )}
 
                 {fields.map((f) => (
                   <div
                     key={f.id}
-                    className="flex flex-col gap-1.5 rounded-md p-2 mb-2"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+                    className="mb-2 flex flex-col gap-1.5 rounded-xl border bg-card p-3"
                   >
                     <div className="flex items-center justify-between">
-                      <span
-                        className="text-[11px] font-medium uppercase tracking-wide"
-                        style={{ color: 'var(--tertiary-text)' }}
-                      >
+                      <span className="text-xs font-medium text-muted-foreground">
                         {fieldLabel(f.type)}
                       </span>
                       <div className="flex items-center gap-1">
                         {f.type === 'description' && (
-                          <DomeButton
-                            iconOnly
-                            variant="ghost"
-                            size="xs"
-                            aria-label={
+                          <Button variant="ghost" aria-label={
                               descView[f.id]
                                 ? t('pipelines.edit_mode')
                                 : t('pipelines.view_mode')
-                            }
-                            onClick={() => toggleDescView(f.id)}
-                          >
-                            {descView[f.id] ? <Pencil size={14} /> : <Eye size={14} />}
-                          </DomeButton>
+                            } onClick={() => toggleDescView(f.id)} size="icon-xs">
+                            {descView[f.id] ? <HugeiconsIcon icon={PencilIcon} size={14} /> : <HugeiconsIcon icon={EyeIcon} size={14} />}
+                          </Button>
                         )}
-                        <DomeButton
-                          iconOnly
-                          variant="ghost"
-                          size="xs"
-                          aria-label={t('pipelines.remove_field')}
-                          className="!text-[var(--tertiary-text)] hover:!text-[var(--error)]"
-                          onClick={() => removeField(f.id)}
-                        >
-                          <X size={14} />
-                        </DomeButton>
+                        <Button variant="ghost" aria-label={t('pipelines.remove_field')} className="text-muted-foreground hover:text-destructive" onClick={() => removeField(f.id)} size="icon-xs">
+                          <HugeiconsIcon icon={Cancel01Icon} size={14} />
+                        </Button>
                       </div>
                     </div>
 
                     {f.type === 'description' &&
                       (descView[f.id] ? (
                         (f.text ?? '').trim() ? (
-                          <div
-                            className="rounded-md px-2 py-1.5 max-h-60 overflow-y-auto prose-sm"
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              border: '1px solid var(--border)',
-                            }}
-                          >
+                          <DetailDrawerPanel className={cn(typesetDocsClass, 'max-h-60 overflow-y-auto text-foreground')}>
                             <MarkdownRenderer content={f.text ?? ''} />
-                          </div>
+                          </DetailDrawerPanel>
                         ) : (
-                          <span className="text-xs py-2" style={{ color: 'var(--tertiary-text)' }}>
+                          <span className="py-2 text-xs text-muted-foreground">
                             {t('pipelines.card_data_placeholder')}
                           </span>
                         )
                       ) : (
-                        <DomeTextarea
-                          value={f.text ?? ''}
-                          onChange={(e) => updateField(f.id, { text: e.target.value })}
-                          rows={5}
-                          textareaClassName="resize-y text-sm"
-                          placeholder={t('pipelines.card_data_placeholder')}
-                        />
+                        <Textarea className="min-h-24 resize-y resize-y text-sm" value={f.text ?? ''} onChange={(e) => updateField(f.id, { text: e.target.value })} rows={5} placeholder={t('pipelines.card_data_placeholder')} />
                       ))}
 
                     {f.type === 'note' && (
-                      <DomeTextarea
-                        value={f.text ?? ''}
-                        onChange={(e) => updateField(f.id, { text: e.target.value })}
-                        rows={3}
-                        textareaClassName="resize-y text-sm"
-                        placeholder={t('pipelines.card_data_placeholder')}
-                      />
+                      <Textarea className="min-h-24 resize-y resize-y text-sm" value={f.text ?? ''} onChange={(e) => updateField(f.id, { text: e.target.value })} rows={3} placeholder={t('pipelines.card_data_placeholder')} />
                     )}
 
                     {f.type === 'todos' && (
                       <div className="flex flex-col gap-1.5">
                         {(f.todos ?? []).length === 0 && (
-                          <span
-                            className="text-xs py-2"
-                            style={{ color: 'var(--tertiary-text)' }}
-                          >
+                          <span className="py-2 text-xs text-muted-foreground">
                             {t('pipelines.card_todo_empty')}
                           </span>
                         )}
                         {(f.todos ?? []).map((td) => (
                           <div
                             key={td.id}
-                            className="flex items-center gap-2 rounded-md px-2 py-1.5"
-                            style={{
-                              background: 'var(--bg-secondary)',
-                              border: '1px solid var(--border)',
-                            }}
+                            className="flex items-center gap-2 rounded-lg border bg-muted/50 px-2 py-1.5"
                           >
-                            <button
+                            <Button
                               type="button"
                               role="checkbox"
                               aria-checked={td.done}
                               onClick={() =>
                                 updateTodo(f.id, td.id, { done: !td.done })
                               }
-                              className="flex size-5 shrink-0 items-center justify-center rounded border transition-colors"
-                              style={{
-                                borderColor: td.done ? 'var(--accent)' : 'var(--border)',
-                                background: td.done ? 'var(--accent)' : 'transparent',
-                                cursor: 'pointer',
-                              }}
+                              className={cn(
+                                'flex size-5 shrink-0 cursor-pointer items-center justify-center rounded border transition-colors',
+                                td.done
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-input bg-transparent',
+                              )}
                             >
                               {td.done && (
-                                <Check size={13} style={{ color: 'var(--base-text)' }} aria-hidden />
+                                <HugeiconsIcon icon={CheckIcon} size={13} aria-hidden />
                               )}
-                            </button>
-                            <input
+                            </Button>
+                            <Input
                               value={td.text}
                               onChange={(e) =>
                                 updateTodo(f.id, td.id, { text: e.target.value })
                               }
                               placeholder={t('pipelines.card_todo_placeholder')}
                               aria-label={t('pipelines.card_todo_placeholder')}
-                              className="flex-1 min-w-0 text-sm bg-transparent outline-none"
-                              style={{
-                                color: td.done
-                                  ? 'var(--tertiary-text)'
-                                  : 'var(--primary-text)',
-                                textDecoration: td.done ? 'line-through' : 'none',
-                              }}
+                              className={cn(
+                                'min-w-0 flex-1 bg-transparent text-sm outline-none',
+                                td.done && 'text-muted-foreground line-through',
+                              )}
                             />
-                            <DomeButton
-                              iconOnly
-                              variant="ghost"
-                              size="xs"
-                              aria-label={t('pipelines.delete')}
-                              className="!text-[var(--tertiary-text)] hover:!text-[var(--error)]"
-                              onClick={() => removeTodo(f.id, td.id)}
-                            >
-                              <X size={14} />
-                            </DomeButton>
+                            <Button variant="ghost" aria-label={t('pipelines.delete')} className="text-muted-foreground hover:text-destructive" onClick={() => removeTodo(f.id, td.id)} size="icon-xs">
+                              <HugeiconsIcon icon={Cancel01Icon} size={14} />
+                            </Button>
                           </div>
                         ))}
-                        <DomeButton
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<Plus size={14} />}
-                          onClick={() => addTodo(f.id)}
-                        >
+                        <Button variant="outline" onClick={() => addTodo(f.id)} size="sm">{<HugeiconsIcon icon={PlusSignIcon} size={14} />}
                           {t('pipelines.card_add_todo')}
-                        </DomeButton>
+                        </Button>
                       </div>
                     )}
                   </div>
                 ))}
 
                 <div className="mb-2">
-                  <DomeContextMenu
-                    trigger={
-                      <DomeButton variant="outline" size="sm" leftIcon={<Plus size={14} />}>
-                        {t('pipelines.add_field')}
-                      </DomeButton>
-                    }
-                    align="start"
-                    items={addFieldItems}
-                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger render={<Button variant="outline" size="sm" />}>
+                      <HugeiconsIcon icon={PlusSignIcon} size={14} />
+                      {t('pipelines.add_field')}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="min-w-40"><DropdownMenuGroup>
+                      {addFieldItems.map((menuItem) => (
+                        <DropdownMenuItem key={menuItem.label} onClick={menuItem.onClick}>
+                          {menuItem.icon}
+                          {menuItem.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuGroup></DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
                 {item.lastOutput && (
-                  <div className="flex flex-col gap-1">
-                    <span
-                      className="text-[11px] font-medium uppercase tracking-wide"
-                      style={{ color: 'var(--tertiary-text)' }}
-                    >
-                      {t('pipelines.history')}
-                    </span>
-                    <div
-                      className="text-xs rounded-md px-3 py-2 max-h-64 overflow-y-auto"
-                      style={{
-                        background: 'var(--bg)',
-                        color: 'var(--secondary-text)',
-                        border: '1px solid var(--border)',
-                      }}
-                    >
+                  <DetailDrawerSection label={t('pipelines.history')}>
+                    <DetailDrawerPanel className={cn(typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}>
                       <MarkdownRenderer content={item.lastOutput} />
-                    </div>
-                  </div>
+                    </DetailDrawerPanel>
+                  </DetailDrawerSection>
                 )}
               </>
             )}
@@ -715,32 +668,27 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
             {tab === 'activity' && (
               <div className="flex flex-col gap-2">
                 {item.calendarEventId && (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => openCalendarTab()}
-                    className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left"
-                    style={{ background: 'var(--bg)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                    className="flex cursor-pointer items-center gap-2 rounded-xl border bg-card px-2 py-1.5 text-left"
                   >
-                    <CalendarClock size={16} className="shrink-0" style={{ color: 'var(--accent)' }} />
-                    <span className="text-sm flex-1" style={{ color: 'var(--primary-text)' }}>
+                    <HugeiconsIcon icon={CalendarClockIcon} size={16} className="shrink-0 text-primary" />
+                    <span className="flex-1 text-sm text-foreground">
                       {t('pipelines.open_calendar_event')}
                     </span>
-                    <ExternalLink size={12} style={{ color: 'var(--tertiary-text)' }} />
-                  </button>
+                    <HugeiconsIcon icon={ExternalLinkIcon} size={12} className="text-muted-foreground" />
+                  </Button>
                 )}
                 {eventsLoading && (
-                  <span className="text-xs py-2" style={{ color: 'var(--tertiary-text)' }}>
-                    {t('pipelines.saving')}
-                  </span>
+                  <span className="py-2 text-xs text-muted-foreground">{t('pipelines.saving')}</span>
                 )}
                 {!eventsLoading && events.length === 0 && (
-                  <span className="text-xs py-2" style={{ color: 'var(--tertiary-text)' }}>
-                    {t('pipelines.activity_empty')}
-                  </span>
+                  <span className="py-2 text-xs text-muted-foreground">{t('pipelines.activity_empty')}</span>
                 )}
                 {!eventsLoading &&
                   events.map((ev) => {
-                    const { Icon, color } = eventVisual(ev.eventType);
+                    const { icon: eventIcon, colorClass } = eventVisual(ev.eventType);
                     const actorLabel =
                       ev.actor && ev.actor !== 'system' && ev.actor !== 'user'
                         ? ev.actor
@@ -765,33 +713,22 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
                     return (
                       <div
                         key={ev.id}
-                        className="flex items-start gap-2 rounded-md px-2 py-1.5"
-                        style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}
+                        className="flex items-start gap-2 rounded-xl border bg-card px-2 py-1.5"
                       >
-                        <Icon size={16} className="shrink-0 mt-0.5" style={{ color }} />
-                        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        <HugeiconsIcon icon={eventIcon} size={16} className={cn('mt-0.5 shrink-0', colorClass)} />
+                        <div className="min-w-0 flex-1 flex-col gap-0.5">
                           {richBody ? (
-                            <div
-                              className="text-sm max-h-56 overflow-y-auto"
-                              style={{ color: 'var(--primary-text)' }}
-                            >
+                            <div className="max-h-56 overflow-y-auto text-sm text-foreground">
                               <MarkdownRenderer content={richBody} />
                             </div>
                           ) : (
-                            <span className="text-sm" style={{ color: 'var(--primary-text)' }}>
-                              {ev.summary ?? ev.eventType}
-                            </span>
+                            <span className="text-sm text-foreground">{ev.summary ?? ev.eventType}</span>
                           )}
                           {actorLabel && (
-                            <span
-                              className="text-[11px]"
-                              style={{ color: 'var(--tertiary-text)' }}
-                            >
-                              {actorLabel}
-                            </span>
+                            <span className="text-[11px] text-muted-foreground">{actorLabel}</span>
                           )}
                           {reportResourceId && (
-                            <button
+                            <Button
                               type="button"
                               onClick={() =>
                                 setSummary({
@@ -800,18 +737,14 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
                                   runId: ev.runId ?? undefined,
                                 })
                               }
-                              className="inline-flex items-center gap-1 text-[11px] font-medium mt-0.5 self-start"
-                              style={{ color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                              className="mt-0.5 inline-flex cursor-pointer items-center gap-1 self-start border-none bg-transparent text-[11px] font-medium text-primary"
                             >
-                              <ExternalLink size={11} />
+                              <HugeiconsIcon icon={ExternalLinkIcon} size={11} />
                               {t('pipelines.view_summary')}
-                            </button>
+                            </Button>
                           )}
                         </div>
-                        <span
-                          className="text-[11px] shrink-0"
-                          style={{ color: 'var(--tertiary-text)' }}
-                        >
+                        <span className="shrink-0 text-[11px] text-muted-foreground">
                           {new Date(ev.createdAt).toLocaleDateString(undefined, {
                             dateStyle: 'medium',
                           })}
@@ -823,8 +756,118 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
             )}
           </div>
         </div>
-      </div>
-      {summary && (
+              </div>
+            ) : (
+              <div className="flex flex-col gap-5">
+                <DetailDrawerMetaGrid items={metaItems} />
+                {descriptionMarkdown ? (
+                  <>
+                    <Separator />
+                    <DetailDrawerSection label={t('pipelines.field_description')}>
+                      <div className={cn(typesetDocsClass, 'text-sm text-foreground')}>
+                        <MarkdownRenderer content={descriptionMarkdown} />
+                      </div>
+                    </DetailDrawerSection>
+                  </>
+                ) : null}
+                {item.lastOutput ? (
+                  <>
+                    <Separator />
+                    <DetailDrawerSection label={t('pipelines.history')}>
+                      <DetailDrawerPanel
+                        className={cn(typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}
+                      >
+                        <MarkdownRenderer content={item.lastOutput} />
+                      </DetailDrawerPanel>
+                    </DetailDrawerSection>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </DetailDrawerBody>
+          <DetailDrawerFooter>
+            {editing ? (
+              <>
+                <AlertDialog>
+                  <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" size="sm" />}>
+                    <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+                    {t('pipelines.delete')}
+                  </AlertDialogTrigger>
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
+                      <AlertDialogDescription>{item.title}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <div className="flex-1" />
+                <Button variant="outline" onClick={() => setEditing(false)} size="sm">
+                  {t('pipelines.cancel')}
+                </Button>
+                {canRun ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleRun()}
+                    disabled={generating || agentBusy || saving}
+                    size="sm"
+                  >
+                    {agentBusy ? <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" /> : <HugeiconsIcon icon={PlayIcon} data-icon="inline-start" />}
+                    {launching
+                      ? t('pipelines.run_launching')
+                      : isRunning
+                        ? t('pipelines.status_running')
+                        : t('pipelines.run_now')}
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  onClick={() => void generateReport()}
+                  disabled={saving || agentBusy}
+                  size="sm"
+                >
+                  {generating ? <HugeiconsIcon icon={Loading03Icon} data-icon="inline-start" className="animate-spin" /> : <HugeiconsIcon icon={File02Icon} data-icon="inline-start" />}
+                  {t('pipelines.generate_report')}
+                </Button>
+                <Button onClick={() => void save()} disabled={saving || agentBusy} size="sm">
+                  {saving ? t('pipelines.saving') : t('pipelines.save')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <AlertDialog>
+                  <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" size="sm" />}>
+                    <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+                    {t('pipelines.delete')}
+                  </AlertDialogTrigger>
+                  <AlertDialogContent size="sm">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
+                      <AlertDialogDescription>{item.title}</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+                <div className="flex-1" />
+                <Button variant="outline" onClick={() => setEditing(true)} size="sm">
+                  <HugeiconsIcon icon={PencilIcon} className="size-4" />
+                  {t('pipelines.edit')}
+                </Button>
+                <Button onClick={onClose} size="sm">
+                  {t('pipelines.close')}
+                </Button>
+              </>
+            )}
+          </DetailDrawerFooter>
+        </DetailDrawerContent>
+      </DetailDrawer>
+      {summary ? (
         <RunSummaryModal
           runId={summary.runId}
           resourceId={summary.resourceId}
@@ -836,7 +879,7 @@ export default function CardDetailModal({ item, stage, onClose, onSave, onDelete
           onOpenCalendar={() => openCalendarTab()}
           onClose={() => setSummary(null)}
         />
-      )}
-    </DomeModal>
+      ) : null}
+    </>
   );
 }

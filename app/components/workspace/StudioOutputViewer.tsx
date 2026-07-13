@@ -1,7 +1,12 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  AlertCircleIcon,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons';
 import { useMemo, lazy, Suspense } from 'react';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import type { StudioOutput } from '@/types';
 
@@ -18,8 +23,8 @@ const FlashPlayerSession = lazy(() => import('@/components/learn/flash/FlashPlay
 function StudioOutputFallback() {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-col items-center justify-center h-full p-8" style={{ color: 'var(--tertiary-text)' }}>
-      <Loader2 className="size-8 animate-spin mb-4" />
+    <div className="flex flex-col items-center justify-center h-full p-8 text-muted-foreground">
+      <HugeiconsIcon icon={Loading03Icon} className="size-8 animate-spin mb-4" />
       <span>{t('studio.loading')}</span>
     </div>
   );
@@ -59,25 +64,22 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
     if (!parsedContent && output.type !== 'flashcards') {
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
-          <AlertCircle
-            className="size-12 mb-4"
-            style={{ color: 'var(--tertiary-text)' }}
+          <HugeiconsIcon icon={AlertCircleIcon}
+            className="size-12 mb-4 text-muted-foreground"
           />
           <p
-            className="text-lg font-medium"
-            style={{ color: 'var(--primary-text)' }}
+            className="text-lg font-medium text-foreground"
           >
             {t('studio.unable_to_display')}
           </p>
           <p
-            className="text-sm mt-2"
-            style={{ color: 'var(--secondary-text)' }}
+            className="text-sm mt-2 text-muted-foreground"
           >
             {t('studio.content_parse_error')}
           </p>
-          <button type="button" onClick={onClose} className="btn btn-secondary mt-6">
+          <Button type="button" onClick={onClose} variant="secondary" className="mt-6">
             {t('ui.close')}
-          </button>
+          </Button>
         </div>
       );
     }
@@ -98,12 +100,12 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
       case 'flashcards':
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
-            <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+            <p className="text-sm text-muted-foreground">
               {t('studio.deck_not_found')}
             </p>
-            <button type="button" onClick={onClose} className="btn btn-secondary mt-4">
+            <Button type="button" onClick={onClose} variant="secondary" className="mt-4">
               {t('ui.close')}
-            </button>
+            </Button>
           </div>
         );
       case 'audio':
@@ -117,25 +119,22 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
       default:
         return (
           <div className="flex flex-col items-center justify-center h-full p-8">
-            <AlertCircle
-              className="size-12 mb-4"
-              style={{ color: 'var(--tertiary-text)' }}
+            <HugeiconsIcon icon={AlertCircleIcon}
+              className="size-12 mb-4 text-muted-foreground"
             />
             <p
-              className="text-lg font-medium"
-              style={{ color: 'var(--primary-text)' }}
+              className="text-lg font-medium text-foreground"
             >
               {t('studio.unsupported_type')}
             </p>
             <p
-              className="text-sm mt-2"
-              style={{ color: 'var(--secondary-text)' }}
+              className="text-sm mt-2 text-muted-foreground"
             >
               {t('studio.unsupported_type_hint', { type: output.type })}
             </p>
-            <button type="button" onClick={onClose} className="btn btn-secondary mt-6">
+            <Button type="button" onClick={onClose} variant="secondary" className="mt-6">
               {t('ui.close')}
-            </button>
+            </Button>
           </div>
         );
     }
@@ -143,8 +142,7 @@ export default function StudioOutputViewer({ output, onClose, overlayContext = '
 
   return (
     <div
-      className="absolute inset-0 z-modal flex flex-col min-h-0 overflow-hidden"
-      style={{ background: 'var(--bg)' }}
+      className="absolute inset-0 z-modal flex flex-col min-h-0 overflow-hidden bg-background"
     >
       <Suspense fallback={<StudioOutputFallback />}>
         {renderOutput()}

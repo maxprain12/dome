@@ -1,9 +1,8 @@
+import { Button } from '@/components/ui/button';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Bot, LayoutGrid, Loader2, Plus, Workflow,
-  Zap, Activity, ChevronRight, Columns3,
-} from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Activity01Icon, BotIcon, ChevronRightIcon, LayoutGridIcon, LayoutThreeColumnIcon, Loading03Icon, PlusSignIcon, WorkflowSquare01Icon, ZapIcon } from '@hugeicons/core-free-icons';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { listAutomations, listRuns, type AutomationDefinition } from '@/lib/automations/api';
@@ -22,7 +21,7 @@ interface DashboardProps {
   onOpenRuns?: () => void;
 }
 
-const pipelineDashboardCardStyle = { background: 'var(--bg-secondary)', border: '1px solid var(--border)' } as const;
+const pipelineDashboardCardStyle = { background: 'var(--card)', border: '1px solid var(--border)' } as const;
 
 /**
  * Pipelines hub. The landing screen for the Pipelines tab: it surfaces metrics
@@ -73,17 +72,17 @@ export default function PipelinesDashboard({
   const navCards = [
     {
       key: 'kanban',
-      icon: Columns3,
+      icon: LayoutThreeColumnIcon,
       label: t('pipelines.nav_kanban'),
       desc: t('pipelines.nav_kanban_desc'),
       count: pipelines.length,
       onClick: openFirstPipeline,
       disabled: pipelines.length === 0,
     },
-    { key: 'agents', icon: Bot, label: t('pipelines.manage_agents'), desc: t('pipelines.nav_agents_desc'), count: agents.length, onClick: onOpenAgents },
-    { key: 'workflows', icon: Workflow, label: t('pipelines.manage_workflows'), desc: t('pipelines.nav_workflows_desc'), count: workflows.length, onClick: onOpenWorkflows },
-    { key: 'automations', icon: Zap, label: t('pipelines.manage_automations'), desc: t('pipelines.nav_automations_desc'), count: automations.length, onClick: onOpenAutomations },
-    { key: 'runs', icon: Activity, label: t('pipelines.segment_runs'), desc: t('pipelines.nav_runs_desc'), count: runsCount, onClick: onOpenRuns },
+    { key: 'agents', icon: BotIcon, label: t('pipelines.manage_agents'), desc: t('pipelines.nav_agents_desc'), count: agents.length, onClick: onOpenAgents },
+    { key: 'workflows', icon: WorkflowSquare01Icon, label: t('pipelines.manage_workflows'), desc: t('pipelines.nav_workflows_desc'), count: workflows.length, onClick: onOpenWorkflows },
+    { key: 'automations', icon: ZapIcon, label: t('pipelines.manage_automations'), desc: t('pipelines.nav_automations_desc'), count: automations.length, onClick: onOpenAutomations },
+    { key: 'runs', icon: Activity01Icon, label: t('pipelines.segment_runs'), desc: t('pipelines.nav_runs_desc'), count: runsCount, onClick: onOpenRuns },
   ];
 
   // Quick-access lists — only for entities that actually have items, so the
@@ -91,9 +90,9 @@ export default function PipelinesDashboard({
   const quickAccess = useMemo(
     () =>
       [
-        { key: 'agents', label: t('pipelines.manage_agents'), icon: Bot, items: agents.slice(0, 6).map((a) => a.name), onOpen: onOpenAgents },
-        { key: 'workflows', label: t('pipelines.manage_workflows'), icon: Workflow, items: workflows.slice(0, 6).map((w) => w.name), onOpen: onOpenWorkflows },
-        { key: 'automations', label: t('pipelines.manage_automations'), icon: Zap, items: automations.slice(0, 6).map((a) => a.title), onOpen: onOpenAutomations },
+        { key: 'agents', label: t('pipelines.manage_agents'), icon: BotIcon, items: agents.slice(0, 6).map((a) => a.name), onOpen: onOpenAgents },
+        { key: 'workflows', label: t('pipelines.manage_workflows'), icon: WorkflowSquare01Icon, items: workflows.slice(0, 6).map((w) => w.name), onOpen: onOpenWorkflows },
+        { key: 'automations', label: t('pipelines.manage_automations'), icon: ZapIcon, items: automations.slice(0, 6).map((a) => a.title), onOpen: onOpenAutomations },
       ].filter((qa) => qa.items.length > 0),
     [agents, workflows, automations, t, onOpenAgents, onOpenWorkflows, onOpenAutomations],
   );
@@ -149,10 +148,10 @@ export default function PipelinesDashboard({
   return (
     <div className="flex flex-col h-full overflow-y-auto" style={{ minWidth: 0 }}>
       <div className="px-6 pt-6 pb-2">
-        <h1 className="text-xl font-semibold" style={{ color: 'var(--primary-text)' }}>
+        <h1 className="text-xl font-semibold text-foreground">
           {t('pipelines.dashboard_title')}
         </h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--secondary-text)' }}>
+        <p className="text-sm mt-1 text-muted-foreground">
           {t('pipelines.dashboard_subtitle')}
         </p>
       </div>
@@ -160,9 +159,9 @@ export default function PipelinesDashboard({
       {/* Navigation hub */}
       <div className="px-6 py-3 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
         {navCards.map((n) => {
-          const Icon = n.icon;
+          const navIcon = n.icon;
           return (
-            <button
+            <Button
               key={n.key}
               type="button"
               onClick={n.onClick}
@@ -173,22 +172,22 @@ export default function PipelinesDashboard({
               <div className="flex items-center justify-between">
                 <span
                   className="inline-flex items-center justify-center rounded-lg"
-                  style={{ width: 34, height: 34, background: 'var(--bg-tertiary)', color: 'var(--accent)' }}
+                  style={{ width: 34, height: 34, background: 'var(--muted)', color: 'var(--primary)' }}
                 >
-                  <Icon size={18} />
+                  <HugeiconsIcon icon={navIcon} size={18} />
                 </span>
-                <span className="text-xl font-semibold tabular-nums" style={{ color: 'var(--primary-text)' }}>
+                <span className="text-xl font-semibold tabular-nums text-foreground">
                   {n.count}
                 </span>
               </div>
-              <span className="inline-flex items-center gap-1 text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-foreground">
                 {n.label}
-                <ChevronRight size={14} style={{ color: 'var(--tertiary-text)' }} />
+                <HugeiconsIcon icon={ChevronRightIcon} size={14} className="text-muted-foreground" />
               </span>
-              <span className="text-xs leading-snug" style={{ color: 'var(--secondary-text)' }}>
+              <span className="text-xs leading-snug text-muted-foreground">
                 {n.desc}
               </span>
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -196,39 +195,39 @@ export default function PipelinesDashboard({
       {/* Quick access to created entities — only rendered when something exists */}
       {quickAccess.length > 0 && (
         <div className="px-6 py-3">
-          <h2 className="text-sm font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
+          <h2 className="text-sm font-semibold mb-2 text-foreground">
             {t('pipelines.quick_access', { defaultValue: 'Quick access' })}
           </h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
             {quickAccess.map((qa) => {
-              const Icon = qa.icon;
+              const qaIcon = qa.icon;
               return (
                 <div key={qa.key} className="rounded-lg p-3 flex flex-col gap-2" style={pipelineDashboardCardStyle}>
                   <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-                      <Icon size={14} style={{ color: 'var(--accent)' }} />
+                    <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                      <HugeiconsIcon icon={qaIcon} size={14} className="text-primary" />
                       {qa.label}
                     </span>
-                    <button
+                    <Button
                       type="button"
                       onClick={qa.onOpen}
                       className="text-[11px] font-medium"
-                      style={{ color: 'var(--accent)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                      style={{ color: 'var(--primary)', background: 'transparent', border: 'none', cursor: 'pointer' }}
                     >
                       {t('common.view', { defaultValue: 'View all' })}
-                    </button>
+                    </Button>
                   </div>
                   <ul className="flex flex-col">
                     {qa.items.map((name, i) => (
                       <li key={i}>
-                        <button
+                        <Button
                           type="button"
                           onClick={qa.onOpen}
-                          className="w-full text-left text-xs py-1 px-1.5 rounded truncate transition-colors hover:bg-[var(--bg-hover)]"
-                          style={{ color: 'var(--secondary-text)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                          className="w-full text-left text-xs py-1 px-1.5 rounded truncate transition-colors hover:bg-accent"
+                          style={{ color: 'var(--muted-foreground)', background: 'transparent', border: 'none', cursor: 'pointer' }}
                         >
                           {name}
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
@@ -242,23 +241,23 @@ export default function PipelinesDashboard({
       {/* Existing pipelines */}
       {pipelines.length > 0 && (
         <div className="px-6 py-3">
-          <h2 className="text-sm font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
+          <h2 className="text-sm font-semibold mb-2 text-foreground">
             {t('pipelines.kpi_pipelines')}
           </h2>
           <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
             {pipelines.map((p) => (
-              <button
+              <Button
                 key={p.id}
                 type="button"
                 onClick={() => onOpenPipeline?.(p.id)}
                 className="text-left rounded-lg p-3 flex items-center gap-2 transition-colors"
                 style={{ ...pipelineDashboardCardStyle, cursor: 'pointer' }}
               >
-                <LayoutGrid size={15} style={{ color: 'var(--accent)' }} />
-                <span className="text-sm font-medium truncate" style={{ color: 'var(--primary-text)' }}>
+                <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
+                <span className="text-sm font-medium truncate text-foreground">
                   {p.name}
                 </span>
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -266,28 +265,28 @@ export default function PipelinesDashboard({
 
       {/* Quick start */}
       <div className="px-6 py-3 pb-6">
-        <h2 className="text-sm font-semibold mb-2" style={{ color: 'var(--primary-text)' }}>
+        <h2 className="text-sm font-semibold mb-2 text-foreground">
           {t('pipelines.quick_start')}
         </h2>
         <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
-          <button
+          <Button
             type="button"
             onClick={() => void createBlank()}
             disabled={busy !== null}
             className="text-left rounded-lg p-3 flex flex-col gap-1 transition-colors"
-            style={{ background: 'var(--bg-secondary)', border: '1px dashed var(--border)', cursor: busy ? 'wait' : 'pointer' }}
+            style={{ background: 'var(--card)', border: '1px dashed var(--border)', cursor: busy ? 'wait' : 'pointer' }}
           >
-            <span className="inline-flex items-center gap-1.5 font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
-              {busy === 'blank' ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} style={{ color: 'var(--accent)' }} />}
+            <span className="inline-flex items-center gap-1.5 font-medium text-sm text-foreground">
+              {busy === 'blank' ? <HugeiconsIcon icon={Loading03Icon} size={15} className="animate-spin" /> : <HugeiconsIcon icon={PlusSignIcon} size={15} className="text-primary" />}
               {t('pipelines.template_blank')}
             </span>
-            <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+            <span className="text-xs text-muted-foreground">
               {t('pipelines.template_blank_desc')}
             </span>
-          </button>
+          </Button>
 
           {templates.map((tpl) => (
-            <button
+            <Button
               key={tpl.key}
               type="button"
               onClick={() => void runTemplate(tpl)}
@@ -295,15 +294,15 @@ export default function PipelinesDashboard({
               className="text-left rounded-lg p-3 flex flex-col gap-1 transition-colors"
               style={{ ...pipelineDashboardCardStyle, cursor: busy ? 'wait' : 'pointer' }}
             >
-              <span className="inline-flex items-center gap-1.5 font-medium text-sm" style={{ color: 'var(--primary-text)' }}>
+              <span className="inline-flex items-center gap-1.5 font-medium text-sm text-foreground">
                 {busy === tpl.key ? (
-                  <Loader2 size={15} className="animate-spin" />
+                  <HugeiconsIcon icon={Loading03Icon} size={15} className="animate-spin" />
                 ) : (
-                  <LayoutGrid size={15} style={{ color: 'var(--accent)' }} />
+                  <HugeiconsIcon icon={LayoutGridIcon} size={15} className="text-primary" />
                 )}
                 {t(`pipelines.template_${tpl.key}`)}
               </span>
-              <span className="text-xs" style={{ color: 'var(--secondary-text)' }}>
+              <span className="text-xs text-muted-foreground">
                 {t(`pipelines.template_${tpl.key}_desc`)}
               </span>
               <span className="text-[11px] mt-1 inline-flex flex-wrap gap-1">
@@ -311,13 +310,13 @@ export default function PipelinesDashboard({
                   <span
                     key={i}
                     className="px-1.5 py-0.5 rounded-full"
-                    style={{ background: 'var(--bg-hover)', color: 'var(--secondary-text)' }}
+                    style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
                   >
                     {s.title}
                   </span>
                 ))}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       </div>

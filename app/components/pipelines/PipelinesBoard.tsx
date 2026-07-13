@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Database, Download, LayoutDashboard, Loader2, MoreVertical, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { DashboardSquare01Icon, DatabaseIcon, Delete02Icon, Download04Icon, Loading03Icon, MoreVerticalIcon, PencilIcon, PlusSignIcon, Upload04Icon } from '@hugeicons/core-free-icons';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import { showToast } from '@/lib/store/useToastStore';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeContextMenu from '@/components/ui/DomeContextMenu';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
 import type { PipelineItem, PipelineStage } from '@/lib/pipelines/types';
 import StageColumn from './StageColumn';
 import NewStageColumn from './NewStageColumn';
@@ -19,15 +17,28 @@ import DataSourcePanel from './DataSourcePanel';
 import PipelinesDashboard from './PipelinesDashboard';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
 
-function pipelineToolbarBtnStyle(active: boolean) {
-  return {
-    background: active ? 'var(--bg-hover)' : 'transparent',
-    color: active ? 'var(--accent)' : 'var(--secondary-text)',
-    border: '1px solid var(--border)',
-    cursor: 'pointer',
-  };
-}
-
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import type { ReactNode } from 'react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator , DropdownMenuGroup } from '@/components/ui/dropdown-menu';
 export default function PipelinesBoard() {
   const { t } = useTranslation();
   const {
@@ -161,8 +172,8 @@ export default function PipelinesBoard() {
 
   if (loadingList && pipelines.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full" style={{ color: 'var(--tertiary-text)' }}>
-        <Loader2 className="animate-spin" size={20} />
+      <div className="flex items-center justify-center h-full text-muted-foreground">
+        <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
       </div>
     );
   }
@@ -170,23 +181,22 @@ export default function PipelinesBoard() {
   return (
     <div className="flex flex-col h-full min-h-0 min-w-0">
       {/* Header toolbar */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
-        <button
-          type="button"
+      <div className="flex items-center gap-2 px-4 py-2 border-b shrink-0 border-border">
+        <Button
+          variant={showDashboard ? 'secondary' : 'outline'}
+          size="sm"
           onClick={() => setShowDashboard(true)}
-          className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md"
-          style={pipelineToolbarBtnStyle(showDashboard)}
           title={t('pipelines.dashboard_title')}
         >
-          <LayoutDashboard size={14} />
+          <HugeiconsIcon icon={DashboardSquare01Icon} data-icon="inline-start" />
           {t('pipelines.overview')}
-        </button>
+        </Button>
 
         <SectionGuideHelp sectionKey="pipelines" />
 
         {renaming ? (
           <div className="flex items-center gap-1.5">
-            <input
+            <Input
               // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the rename field the user just opened.
               autoFocus
               value={renameValue}
@@ -197,97 +207,79 @@ export default function PipelinesBoard() {
               }}
               placeholder={t('pipelines.pipeline_name_placeholder')}
               aria-label={t('pipelines.pipeline_name_placeholder')}
-              className="text-sm rounded-md px-2 py-1 outline-none"
-              style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--accent)' }}
+              className="h-8"
             />
-            <button
+            <Button
               type="button"
               onClick={() => void handleRename()}
-              className="text-xs px-2 py-1 rounded-md"
-              style={{ background: 'var(--accent)', color: 'var(--dome-on-accent)', border: 'none', cursor: 'pointer' }}
+              size="sm"
             >
               {t('pipelines.save')}
-            </button>
+            </Button>
           </div>
         ) : (
           <div style={{ minWidth: 180 }}>
-            <DomeSelectMenu
-              value={activePipelineId ?? ''}
-              onChange={(id) => {
+            <Select value={activePipelineId ?? ''} onValueChange={(next) => { if (next != null) ((id) => {
                 setShowDashboard(false);
                 void selectPipeline(id);
-              }}
-              placeholder={t('pipelines.title')}
-              options={pipelines.map((p) => ({ value: p.id, label: p.name }))}
-            />
+              })(next); }} items={pipelines.map((p) => ({ value: p.id, label: p.name }))}><SelectTrigger className="w-full"><SelectValue placeholder={t('pipelines.title')} /></SelectTrigger><SelectContent><SelectGroup>{(pipelines.map((p) => ({ value: p.id, label: p.name }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
           </div>
         )}
 
-        {creatingPipeline ? (
-          <div className="flex items-center gap-1.5">
-            <input
-              // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the pipeline-name field the user just opened.
-              autoFocus
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') void handleCreatePipeline();
-                if (e.key === 'Escape') setCreatingPipeline(false);
-              }}
-              placeholder={t('pipelines.pipeline_name_placeholder')}
-              aria-label={t('pipelines.pipeline_name_placeholder')}
-              className="text-sm rounded-md px-2 py-1 outline-none"
-              style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--accent)' }}
-            />
-            <button
-              type="button"
-              onClick={() => void handleCreatePipeline()}
-              className="text-xs px-2 py-1 rounded-md"
-              style={{ background: 'var(--accent)', color: 'var(--dome-on-accent)', border: 'none', cursor: 'pointer' }}
-            >
-              {t('pipelines.create')}
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setCreatingPipeline(true)}
-            className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md"
-            style={pipelineToolbarBtnStyle(false)}
-            title={t('pipelines.new_pipeline')}
+        <Button
+          type="button"
+          onClick={() => setCreatingPipeline(true)}
+          variant="outline"
+          size="icon-sm"
+          title={t('pipelines.new_pipeline')}
+        >
+          <HugeiconsIcon icon={PlusSignIcon} />
+          <span className="sr-only">{t('pipelines.new_pipeline')}</span>
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" aria-label={t('pipelines.pipeline_actions')} disabled={busy} size="icon-sm" />
+            }
           >
-            <Plus size={14} />
-          </button>
-        )}
-
-        <DomeContextMenu
-          align="start"
-          trigger={
-            <DomeButton iconOnly variant="ghost" size="sm" aria-label={t('pipelines.pipeline_actions')} disabled={busy}>
-              <MoreVertical size={14} />
-            </DomeButton>
-          }
-          items={[
-            { label: t('pipelines.rename'), icon: <Pencil size={14} />, onClick: startRename, disabled: !activePipeline },
-            { label: t('pipelines.export'), icon: <Download size={14} />, onClick: () => void handleExport(), disabled: !activePipeline },
-            { label: t('pipelines.import'), icon: <Upload size={14} />, onClick: () => void handleImport(), separator: true },
-            { label: t('pipelines.delete'), icon: <Trash2 size={14} />, onClick: () => setConfirmDelete(true), variant: 'danger', disabled: !activePipeline, separator: true },
-          ]}
-        />
+            <HugeiconsIcon icon={MoreVerticalIcon} size={14} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-40"><DropdownMenuGroup>
+            <DropdownMenuItem disabled={!activePipeline} onClick={startRename}>
+              <HugeiconsIcon icon={PencilIcon} size={14} />
+              {t('pipelines.rename')}
+            </DropdownMenuItem>
+            <DropdownMenuItem disabled={!activePipeline} onClick={() => void handleExport()}>
+              <HugeiconsIcon icon={Download04Icon} size={14} />
+              {t('pipelines.export')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => void handleImport()}>
+              <HugeiconsIcon icon={Upload04Icon} size={14} />
+              {t('pipelines.import')}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" disabled={!activePipeline} onClick={() => setConfirmDelete(true)}>
+              <HugeiconsIcon icon={Delete02Icon} size={14} />
+              {t('pipelines.delete')}
+            </DropdownMenuItem>
+          </DropdownMenuGroup></DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="flex-1" />
 
         {!showDashboard && (
-          <button
+          <Button
             type="button"
             onClick={() => setSourcesOpen((v) => !v)}
-            className="inline-flex items-center gap-1.5 text-sm px-2 py-1 rounded-md"
-            style={pipelineToolbarBtnStyle(sourcesOpen)}
+            variant={sourcesOpen ? 'secondary' : 'outline'}
+            size="sm"
             title={t('pipelines.data_sources')}
           >
-            <Database size={14} />
+            <HugeiconsIcon icon={DatabaseIcon} data-icon="inline-start" />
             {t('pipelines.data_sources')}
-          </button>
+          </Button>
         )}
 
       </div>
@@ -302,8 +294,8 @@ export default function PipelinesBoard() {
           onOpenRuns={openRunsTab}
         />
       ) : loadingBoard ? (
-        <div className="flex items-center justify-center flex-1" style={{ color: 'var(--tertiary-text)' }}>
-          <Loader2 className="animate-spin" size={20} />
+        <div className="flex items-center justify-center flex-1 text-muted-foreground">
+          <HugeiconsIcon icon={Loading03Icon} className="animate-spin" size={20} />
         </div>
       ) : (
         <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
@@ -342,6 +334,8 @@ export default function PipelinesBoard() {
         <CardDetailModal
           item={liveOpenItem}
           stage={stages.find((s) => s.id === liveOpenItem.stageId)}
+          pipelineName={pipelines.find((p) => p.id === liveOpenItem.pipelineId)?.name}
+          agents={agents}
           onClose={() => setOpenItem(null)}
           onSave={(patch) => updateItem({ id: liveOpenItem.id, ...patch })}
           onDelete={async () => {
@@ -372,28 +366,46 @@ export default function PipelinesBoard() {
         />
       )}
 
-      {confirmDelete && activePipeline && (
-        <DomeModal
-          open
-          onClose={() => setConfirmDelete(false)}
-          title={t('pipelines.delete')}
-          size="sm"
-          footer={
-            <>
-              <DomeButton variant="ghost" onClick={() => setConfirmDelete(false)} disabled={busy}>
-                {t('pipelines.cancel')}
-              </DomeButton>
-              <DomeButton variant="danger" onClick={() => void handleDelete()} disabled={busy}>
-                {t('pipelines.delete')}
-              </DomeButton>
-            </>
-          }
-        >
-          <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
-            {t('pipelines.confirm_delete_pipeline')}
-          </p>
-        </DomeModal>
-      )}
+      <AlertDialog open={confirmDelete && Boolean(activePipeline)} onOpenChange={setConfirmDelete}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('pipelines.confirm_delete_pipeline')}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busy}>{t('pipelines.cancel')}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={busy} onClick={() => void handleDelete()}>
+              {t('pipelines.delete')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Dialog open={creatingPipeline} onOpenChange={setCreatingPipeline}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('pipelines.new_pipeline')}</DialogTitle>
+            <DialogDescription>{t('pipelines.pipeline_name_placeholder')}</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={newName}
+            onChange={(event) => setNewName(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') void handleCreatePipeline();
+            }}
+            placeholder={t('pipelines.pipeline_name_placeholder')}
+            aria-label={t('pipelines.pipeline_name_placeholder')}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreatingPipeline(false)}>
+              {t('pipelines.cancel')}
+            </Button>
+            <Button onClick={() => void handleCreatePipeline()} disabled={!newName.trim()}>
+              {t('pipelines.create')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

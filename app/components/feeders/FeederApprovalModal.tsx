@@ -1,11 +1,16 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  SecurityCheckIcon,
+  Key01Icon,
+  CodeIcon,
+  Alert02Icon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { ShieldCheck, KeyRound, Code2, AlertTriangle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { FeederRecord } from '@/lib/feeders/api';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeBadge from '@/components/ui/DomeBadge';
-import DomeCallout from '@/components/ui/DomeCallout';
-
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 type Props = {
   feeder: FeederRecord | null;
   opened: boolean;
@@ -21,53 +26,18 @@ export default function FeederApprovalModal({ feeder, opened, onClose, onApprove
   const secretRefs = (feeder.envSecretRefs ?? []).filter((r) => r?.envName && r?.secretName);
 
   return (
-    <DomeModal
-      open={opened}
-      onClose={onClose}
-      title={t('feeders.approve_title', { name: feeder.name })}
-      size="lg"
-      footer={
-        <>
-          <DomeButton variant="ghost" onClick={onClose}>
-            {t('common.cancel')}
-          </DomeButton>
-          <DomeButton
-            variant="primary"
-            onClick={onApprove}
-            loading={approving}
-            leftIcon={<ShieldCheck className="size-4" />}
-          >
-            {t('feeders.approve_action')}
-          </DomeButton>
-        </>
-      }
-    >
+    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('feeders.approve_title', { name: feeder.name })}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <div className="flex flex-col gap-4">
         {/* Metadata pills */}
         <div className="flex flex-wrap items-center gap-1.5">
-          <DomeBadge label={feeder.interpreter} variant="soft" size="sm" />
-          <DomeBadge
-            label={feeder.updatePolicy}
-            variant="outline"
-            size="sm"
-            color="var(--secondary-text)"
-          />
-          <DomeBadge
-            label={feeder.outputMode}
-            variant="outline"
-            size="sm"
-            color="var(--secondary-text)"
-          />
-          <DomeBadge
-            label={`${(feeder.timeoutMs / 1000).toFixed(0)}s timeout`}
-            variant="outline"
-            size="sm"
-            color="var(--secondary-text)"
-          />
+          <Badge variant="secondary" className="max-w-full font-semibold text-xs px-2 py-0.5 gap-1 h-auto" style={{ background: 'color-mix(in srgb, var(--primary) 18%, transparent)', color: 'var(--primary)', borderColor: 'transparent' }}><span className="truncate">{feeder.interpreter}</span></Badge>
+          <Badge variant="outline" className="max-w-full font-semibold text-xs px-2 py-0.5 gap-1 h-auto" style={{ borderColor: 'var(--muted-foreground)', color: 'var(--muted-foreground)', background: 'transparent' }}><span className="truncate">{feeder.updatePolicy}</span></Badge>
+          <Badge variant="outline" className="max-w-full font-semibold text-xs px-2 py-0.5 gap-1 h-auto" style={{ borderColor: 'var(--muted-foreground)', color: 'var(--muted-foreground)', background: 'transparent' }}><span className="truncate">{feeder.outputMode}</span></Badge>
+          <Badge variant="outline" className="max-w-full font-semibold text-xs px-2 py-0.5 gap-1 h-auto" style={{ borderColor: 'var(--muted-foreground)', color: 'var(--muted-foreground)', background: 'transparent' }}><span className="truncate">{`${(feeder.timeoutMs / 1000).toFixed(0)}s timeout`}</span></Badge>
         </div>
 
         {feeder.description ? (
-          <p className="text-xs text-[var(--secondary-text)] leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed">
             {feeder.description}
           </p>
         ) : null}
@@ -76,8 +46,8 @@ export default function FeederApprovalModal({ feeder, opened, onClose, onApprove
         {secretRefs.length > 0 ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-1.5">
-              <KeyRound className="size-3.5 text-[var(--accent)]" aria-hidden />
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--secondary-text)]">
+              <HugeiconsIcon icon={Key01Icon} className="size-3.5 text-primary" aria-hidden />
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('feeders.required_secrets')}
               </p>
             </div>
@@ -85,37 +55,44 @@ export default function FeederApprovalModal({ feeder, opened, onClose, onApprove
               {secretRefs.map((r) => (
                 <li
                   key={`${r.envName}-${r.secretName}`}
-                  className="flex items-center gap-2 text-xs font-mono rounded-md border border-[var(--border)] bg-[var(--bg)] px-2.5 py-1.5"
+                  className="flex items-center gap-2 text-xs font-mono rounded-md border border-border bg-background px-2.5 py-1.5"
                 >
-                  <code className="text-[var(--primary-text)] font-semibold">{r.envName}</code>
-                  <span className="text-[var(--secondary-text)]">←</span>
-                  <code className="text-[var(--accent)]">{r.secretName}</code>
+                  <code className="text-foreground font-semibold">{r.envName}</code>
+                  <span className="text-muted-foreground">←</span>
+                  <code className="text-primary">{r.secretName}</code>
                 </li>
               ))}
             </ul>
           </div>
         ) : null}
 
-        <DomeCallout tone="warning" icon={AlertTriangle}>
+        <Alert role="note"><HugeiconsIcon icon={Alert02Icon} aria-hidden /><AlertDescription className="text-xs">
           {t('feeders.approve_hint')}
-        </DomeCallout>
+        </AlertDescription></Alert>
 
         {/* Script */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
-            <Code2 className="size-3.5 text-[var(--secondary-text)]" aria-hidden />
-            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--secondary-text)]">
+            <HugeiconsIcon icon={CodeIcon} className="size-3.5 text-muted-foreground" aria-hidden />
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('feeders.script', { defaultValue: 'Script' })}
             </p>
           </div>
           <pre
-            className="rounded-lg border border-[var(--border)] bg-[var(--bg-tertiary)] p-3 overflow-auto text-[11px] leading-relaxed font-mono text-[var(--primary-text)]"
+            className="rounded-lg border border-border bg-muted p-3 overflow-auto text-[11px] leading-relaxed font-mono text-foreground"
             style={{ maxHeight: 320 }}
           >
             <code>{feeder.script}</code>
           </pre>
         </div>
       </div>
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<>
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={onApprove} loading={approving}>{<HugeiconsIcon icon={SecurityCheckIcon} className="size-4" />}
+            {t('feeders.approve_action')}
+          </Button>
+        </>}</DialogFooter></DialogContent></Dialog>
   );
 }

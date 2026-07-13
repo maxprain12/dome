@@ -1,6 +1,14 @@
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Download04Icon,
+  ZoomInAreaIcon,
+  ZoomOutAreaIcon,
+  Maximize02Icon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useCallback, useRef } from 'react';
-import { Download, ZoomIn, ZoomOut, Maximize2, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import type { MindMapData } from '@/types';
 import { useTranslation } from 'react-i18next';
 
@@ -24,11 +32,11 @@ const LINE_HEIGHT = 16;
 
 /** Neutral depth gradient for mind map nodes (accent family, not semantic status colors). */
 const MIND_MAP_DEPTH_COLORS = [
-  'var(--accent)',
-  'var(--accent-hover)',
-  'var(--bg-tertiary)',
-  'var(--secondary-text)',
-  'var(--primary-text)',
+  'var(--primary)',
+  'color-mix(in oklch, var(--primary) 85%, var(--background))',
+  'var(--muted)',
+  'var(--muted-foreground)',
+  'var(--foreground)',
 ] as const;
 
 /** Estimate node dimensions from label (rough: ~8px per char at 12px font) */
@@ -165,64 +173,64 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
   const selectedNode = selectedNodeId ? data.nodes.find((n) => n.id === selectedNodeId) : null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0" style={{ borderColor: 'var(--border)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+      <div className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border">
+        <h3 className="text-sm font-semibold text-foreground">
           {title || 'Mind Map'}
         </h3>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
             onClick={() => setZoom((z) => Math.min(z + 0.2, 3))}
-            className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label="Zoom in"
             title="Zoom in"
           >
-            <ZoomIn size={16} />
-          </button>
-          <button
+            <HugeiconsIcon icon={ZoomInAreaIcon} size={16} />
+          </Button>
+          <Button
             type="button"
             onClick={() => setZoom((z) => Math.max(z - 0.2, 0.3))}
-            className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label="Zoom out"
             title="Zoom out"
           >
-            <ZoomOut size={16} />
-          </button>
-          <button
+            <HugeiconsIcon icon={ZoomOutAreaIcon} size={16} />
+          </Button>
+          <Button
             type="button"
             onClick={() => {
               setZoom(1);
               setPan({ x: 50, y: 50 });
             }}
-            className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+            variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             aria-label="Reset view"
             title="Reset view"
           >
-            <Maximize2 size={16} />
-          </button>
+            <HugeiconsIcon icon={Maximize02Icon} size={16} />
+          </Button>
           {onExport && (
-            <button
+            <Button
               type="button"
               onClick={onExport}
-              className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+              variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               aria-label="Export"
               title="Export"
             >
-              <Download size={16} />
-            </button>
+              <HugeiconsIcon icon={Download04Icon} size={16} />
+            </Button>
           )}
           {onClose && (
-            <button
+            <Button
               type="button"
               onClick={onClose}
-              className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+              variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
               aria-label={t('studio.close_button')}
               title={t('studio.close_button')}
             >
-              <X size={16} />
-            </button>
+              <HugeiconsIcon icon={Cancel01Icon} size={16} />
+            </Button>
           )}
         </div>
       </div>
@@ -291,7 +299,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
                       width={pos.w}
                       height={pos.h}
                       rx={8}
-                      fill="var(--bg-secondary)"
+                      fill="var(--card)"
                       stroke={color}
                       strokeWidth={isSelected ? 3 : 2}
                       opacity={isSelected ? 1 : 1}
@@ -304,7 +312,7 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
                       style={{ overflow: 'hidden', pointerEvents: 'none' }}
                     >
                       <div
-                        className="flex size-full items-center justify-center break-words px-3 py-2 text-center text-xs font-medium leading-[1.25] text-[var(--primary-text)] [overflow-wrap:anywhere]"
+                        className="flex size-full items-center justify-center break-words px-3 py-2 text-center text-xs font-medium leading-[1.25] text-foreground [overflow-wrap:anywhere]"
                       >
                         {node.label}
                       </div>
@@ -322,44 +330,40 @@ export default function MindMap({ data, title, onClose, onExport, onSelectedNode
             className="w-72 shrink-0 flex flex-col border-l overflow-hidden"
             style={{
               borderColor: 'var(--border)',
-              background: 'var(--bg-secondary)',
+              background: 'var(--card)',
             }}
           >
-            <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <span
-                className="text-xs font-semibold uppercase tracking-wider"
-                style={{ color: 'var(--secondary-text)' }}
+                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground"
               >
                 Detalle del nodo
               </span>
-              <button
+              <Button
                 type="button"
                 onClick={() => setSelectedNodeId(null)}
-                className="btn btn-ghost p-1.5 rounded"
+                variant="ghost" className="p-1.5 rounded"
                 aria-label="Cerrar"
                 title="Cerrar"
               >
-                <X size={14} style={{ color: 'var(--secondary-text)' }} />
-              </button>
+                <HugeiconsIcon icon={Cancel01Icon} size={14} className="text-muted-foreground" />
+              </Button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               <h4
-                className="text-sm font-semibold mb-2"
-                style={{ color: 'var(--primary-text)' }}
+                className="text-sm font-semibold mb-2 text-foreground"
               >
                 {selectedNode.label}
               </h4>
               {selectedNode.description ? (
                 <p
-                  className="text-xs leading-relaxed whitespace-pre-wrap"
-                  style={{ color: 'var(--secondary-text)' }}
+                  className="text-xs leading-relaxed whitespace-pre-wrap text-muted-foreground"
                 >
                   {selectedNode.description}
                 </p>
               ) : (
                 <p
-                  className="text-xs italic"
-                  style={{ color: 'var(--tertiary-text)' }}
+                  className="text-xs italic text-muted-foreground"
                 >
                   Sin descripción adicional
                 </p>

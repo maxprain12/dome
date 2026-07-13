@@ -1,18 +1,25 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronRightIcon,
+  EyeIcon,
+  InformationCircleIcon,
+  Maximize02Icon,
+  Comment01Icon,
+  MoreHorizontalIcon,
+  PanelRightIcon,
+  BookOpen01Icon,
+  Share08Icon,
+  SplitIcon,
+} from '@hugeicons/core-free-icons';
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  ChevronRight,
-  Eye,
-  Info,
-  Maximize2,
-  MessageSquare,
-  MoreHorizontal,
-  PanelRight,
-  BookOpen,
-  Share2,
-  SplitSquareHorizontal,
-} from 'lucide-react';
-import { Menu } from '@mantine/core';
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import NoteSavePill, { type NoteSavePillState } from '@/components/notes/NoteSavePill';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { showToast } from '@/lib/store/useToastStore';
@@ -103,7 +110,7 @@ export default function NoteActionBar({
         {crumbs.map((c, i) => (
           <Fragment key={`${c.label}-${i}`}>
             {i > 0 ? (
-              <ChevronRight size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
+              <HugeiconsIcon icon={ChevronRightIcon} size={12} strokeWidth={2} className="note-crumb-sep" aria-hidden />
             ) : null}
             {c.current ? (
               <span
@@ -157,7 +164,7 @@ export default function NoteActionBar({
         aria-label={t('notes.toolbar_backlinks')}
         onClick={() => onOpenBacklinksPanel?.()}
       >
-        <MessageSquare size={14} strokeWidth={2} />
+        <HugeiconsIcon icon={Comment01Icon} size={14} strokeWidth={2} />
       </button>
 
       <button
@@ -167,7 +174,7 @@ export default function NoteActionBar({
         aria-label={t('notes.metadata')}
         onClick={() => onOpenMetadata()}
       >
-        <Info size={14} strokeWidth={2} />
+        <HugeiconsIcon icon={InformationCircleIcon} size={14} strokeWidth={2} />
       </button>
 
       <button
@@ -178,7 +185,7 @@ export default function NoteActionBar({
         disabled={!domeLinkToCopy}
         onClick={handleCopyShareLink}
       >
-        <Share2 size={14} strokeWidth={2} />
+        <HugeiconsIcon icon={Share08Icon} size={14} strokeWidth={2} />
       </button>
 
       <span className="note-actionbar-sep" aria-hidden />
@@ -192,7 +199,7 @@ export default function NoteActionBar({
           disabled={!canOpenSplit}
           onClick={onOpenSplit}
         >
-          <SplitSquareHorizontal size={14} strokeWidth={2} />
+          <HugeiconsIcon icon={SplitIcon} size={14} strokeWidth={2} />
         </button>
       ) : null}
 
@@ -203,7 +210,7 @@ export default function NoteActionBar({
         aria-pressed={viewMode === 'focused'}
         onClick={() => onViewModeChange(viewMode === 'focused' ? 'standard' : 'focused')}
       >
-        <Eye size={14} strokeWidth={2} />
+        <HugeiconsIcon icon={EyeIcon} size={14} strokeWidth={2} />
       </button>
 
       <button
@@ -213,11 +220,11 @@ export default function NoteActionBar({
         aria-label={sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
         aria-pressed={sourcesOpen}
         style={
-          sourcesOpen ? { color: 'var(--dome-accent)', background: 'var(--dome-accent-bg)' } : undefined
+          sourcesOpen ? { color: 'var(--primary)', background: 'color-mix(in srgb, var(--primary) 12%, transparent)' } : undefined
         }
         onClick={() => toggleSources()}
       >
-        <PanelRight size={14} strokeWidth={2} />
+        <HugeiconsIcon icon={PanelRightIcon} size={14} strokeWidth={2} />
       </button>
 
       {!hideWindowControls ? (
@@ -228,7 +235,7 @@ export default function NoteActionBar({
           aria-label={t('notes.popout_tooltip')}
           onClick={onOpenPopout}
         >
-          <Maximize2 size={14} strokeWidth={2} />
+          <HugeiconsIcon icon={Maximize02Icon} size={14} strokeWidth={2} />
         </button>
       ) : null}
 
@@ -240,46 +247,36 @@ export default function NoteActionBar({
         aria-pressed={sidePanelOpen}
         onClick={onToggleSidePanel}
       >
-        <BookOpen size={14} strokeWidth={2} />
+        <HugeiconsIcon icon={BookOpen01Icon} size={14} strokeWidth={2} />
       </button>
 
-      <Menu shadow="md" width={220} position="bottom-end">
-        <Menu.Target>
-          <button
-            type="button"
-            className="note-icon-btn note-icon-btn-sm no-drag"
-            aria-label={t('notes.more_actions')}
-            title={t('notes.more_actions')}
-          >
-            <MoreHorizontal size={14} strokeWidth={2} />
-          </button>
-        </Menu.Target>
-        <Menu.Dropdown>
-          <Menu.Item
-            leftSection={<Info size={14} />}
-            onClick={() => {
-              onOpenMetadata();
-            }}
-          >
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className="note-icon-btn note-icon-btn-sm no-drag"
+              aria-label={t('notes.more_actions')}
+              title={t('notes.more_actions')}
+            />
+          }
+        >
+          <HugeiconsIcon icon={MoreHorizontalIcon} size={14} strokeWidth={2} />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent side="bottom" align="end" className="min-w-[220px]">
+          <DropdownMenuItem onClick={() => onOpenMetadata()}>
+            <HugeiconsIcon icon={InformationCircleIcon} size={14} />
             {t('notes.metadata')}
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => {
-              toggleSources();
-            }}
-          >
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => toggleSources()}>
             {sourcesOpen ? t('notes.hide_sources_panel') : t('notes.show_sources_panel')}
-          </Menu.Item>
-          <Menu.Item
-            onClick={() => {
-              onToggleSidePanel();
-            }}
-          >
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onToggleSidePanel()}>
             {sidePanelOpen ? t('notes.hide_insights_panel') : t('notes.show_insights_panel')}
-          </Menu.Item>
-          <Menu.Divider />
-        </Menu.Dropdown>
-      </Menu>
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

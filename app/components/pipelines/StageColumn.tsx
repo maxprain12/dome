@@ -1,6 +1,9 @@
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import { useState, type DragEvent as ReactDragEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bot, Plus, Settings2, Zap } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { BotIcon, PlusSignIcon, SlidersHorizontalIcon, ZapIcon } from '@hugeicons/core-free-icons';
 import type { PipelineItem, PipelineStage } from '@/lib/pipelines/types';
 import { MANY_EXECUTOR_ID, PIPELINE_ITEM_DRAG_TYPE } from '@/lib/pipelines/types';
 import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
@@ -61,40 +64,40 @@ export default function StageColumn({
     setAdding(false);
   };
 
-  const PolicyIcon = stage.executionPolicy === 'auto_agent' ? Zap : stage.executionPolicy === 'manual_agent' ? Bot : null;
+  const policyIcon = stage.executionPolicy === 'auto_agent' ? ZapIcon : stage.executionPolicy === 'manual_agent' ? BotIcon : null;
 
   return (
     <div
       className="flex flex-col rounded-lg shrink-0 w-72 transition-colors"
       style={{
-        background: 'var(--bg-secondary)',
-        border: `1px solid ${isOver ? 'var(--accent)' : 'var(--border)'}`,
-        boxShadow: isOver ? '0 0 0 1px var(--accent) inset' : undefined,
+        background: 'var(--card)',
+        border: `1px solid ${isOver ? 'var(--primary)' : 'var(--border)'}`,
+        boxShadow: isOver ? '0 0 0 1px var(--primary) inset' : undefined,
         maxHeight: '100%',
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--border)' }}>
+      <div className="px-3 py-2 border-b border-border">
         <div className="flex items-center justify-between gap-1">
-          <span className="font-semibold text-sm truncate flex items-center gap-1.5" style={{ color: 'var(--primary-text)' }}>
-            {PolicyIcon && <PolicyIcon size={13} style={{ color: 'var(--accent)' }} aria-hidden />}
+          <span className="font-semibold text-sm truncate flex items-center gap-1.5 text-foreground">
+            {policyIcon && <HugeiconsIcon icon={policyIcon} size={13} className="text-primary" aria-hidden />}
             {stage.title}
           </span>
           <div className="flex items-center gap-1 shrink-0">
-            <span className="text-xs px-1.5 rounded" style={{ background: 'var(--bg-hover)', color: 'var(--secondary-text)' }}>
+            <span className="text-xs px-1.5 rounded" style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}>
               {items.length}
             </span>
-            <button
+            <Button
               type="button"
               onClick={onConfigure}
               title={t('pipelines.configure')}
               aria-label={t('pipelines.configure')}
-              style={{ background: 'transparent', border: 'none', color: 'var(--tertiary-text)', cursor: 'pointer', padding: 2 }}
+              style={{ background: 'transparent', border: 'none', color: 'var(--muted-foreground)', cursor: 'pointer', padding: 2 }}
             >
-              <Settings2 size={13} />
-            </button>
+              <HugeiconsIcon icon={SlidersHorizontalIcon} size={13} />
+            </Button>
           </div>
         </div>
       </div>
@@ -118,14 +121,14 @@ export default function StageColumn({
           />
         ))}
         {items.length === 0 && !adding && (
-          <span className="text-xs text-center py-3" style={{ color: 'var(--tertiary-text)' }}>
+          <span className="text-xs text-center py-3 text-muted-foreground">
             {isOver ? '↧ ' + t('pipelines.drop_here') : t('pipelines.no_cards')}
           </span>
         )}
 
         {adding ? (
           <div className="flex flex-col gap-1.5">
-            <textarea
+            <Textarea
               // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the inline card composer the user just opened.
               autoFocus
               value={draft}
@@ -142,41 +145,40 @@ export default function StageColumn({
               placeholder={t('pipelines.card_title_placeholder')}
               aria-label={t('pipelines.card_title_placeholder')}
               rows={2}
-              className="text-sm rounded-md px-2 py-1 outline-none resize-none"
-              style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--accent)' }}
+              className="resize-none text-sm"
             />
             <div className="flex items-center gap-1.5">
-              <button
+              <Button
                 type="button"
                 onClick={submitCard}
                 className="text-xs px-2 py-1 rounded-md"
-                style={{ background: 'var(--accent)', color: 'var(--dome-on-accent)', border: 'none', cursor: 'pointer' }}
+                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)', border: 'none', cursor: 'pointer' }}
               >
                 {t('pipelines.add_card')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={() => {
                   setAdding(false);
                   setDraft('');
                 }}
                 className="text-xs px-2 py-1 rounded-md"
-                style={{ background: 'transparent', color: 'var(--secondary-text)', border: '1px solid var(--border)', cursor: 'pointer' }}
+                style={{ background: 'transparent', color: 'var(--muted-foreground)', border: '1px solid var(--border)', cursor: 'pointer' }}
               >
                 {t('pipelines.cancel')}
-              </button>
+              </Button>
             </div>
           </div>
         ) : (
-          <button
+          <Button
             type="button"
             onClick={() => setAdding(true)}
             className="flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-md transition-colors"
-            style={{ background: 'transparent', color: 'var(--secondary-text)', border: '1px dashed var(--border)', cursor: 'pointer' }}
+            style={{ background: 'transparent', color: 'var(--muted-foreground)', border: '1px dashed var(--border)', cursor: 'pointer' }}
           >
-            <Plus size={13} />
+            <HugeiconsIcon icon={PlusSignIcon} size={13} />
             {t('pipelines.add_card')}
-          </button>
+          </Button>
         )}
       </div>
     </div>

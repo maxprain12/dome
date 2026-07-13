@@ -1,18 +1,24 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Calendar03Icon,
+  WalletCardsIcon,
+  PlayCircleIcon,
+  ChevronRightIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { Calendar, WalletCards, PlayCircle, ChevronRight } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import type { PendingTodayItem } from '@/lib/hooks/useDashboardData';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
 
 function pendingItemIcon(kind: PendingTodayItem['kind']) {
   const cls = 'size-4 shrink-0';
   switch (kind) {
     case 'flashcards':
-      return <WalletCards className={cls} strokeWidth={2} aria-hidden />;
+      return <HugeiconsIcon icon={WalletCardsIcon} className={cls} strokeWidth={2} aria-hidden />;
     case 'calendar':
-      return <Calendar className={cls} strokeWidth={2} aria-hidden />;
+      return <HugeiconsIcon icon={Calendar03Icon} className={cls} strokeWidth={2} aria-hidden />;
     case 'run':
-      return <PlayCircle className={cls} strokeWidth={2} aria-hidden />;
+      return <HugeiconsIcon icon={PlayCircleIcon} className={cls} strokeWidth={2} aria-hidden />;
     default:
       return null;
   }
@@ -44,14 +50,11 @@ export function DashboardPending({
     return (
       <section className="mb-8">
         <DashboardSectionLabel>{t('dashboard.section_pending')}</DashboardSectionLabel>
-        <DomeCard
-          padding="md"
-          className="border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))]"
-        >
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
+        <Card className="p-4 border-[var(--border)] bg-[var(--card)]">
+          <p className="text-sm text-muted-foreground">
             {t('dashboard.pending_empty')}
           </p>
-        </DomeCard>
+        </Card>
       </section>
     );
   }
@@ -62,13 +65,9 @@ export function DashboardPending({
       {loading ? (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <DomeCard
-              key={i}
-              padding="sm"
-              className="h-14 animate-pulse motion-reduce:animate-none border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))]"
-            >
+            <Card className="p-3 h-14 animate-pulse motion-reduce:animate-none border-[var(--border)] bg-[var(--card)]" key={i}>
               <span className="sr-only">{t('common.loading')}</span>
-            </DomeCard>
+            </Card>
           ))}
         </div>
       ) : (
@@ -80,32 +79,31 @@ export function DashboardPending({
                 onClick={() => onItemClick(item)}
                 className="flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors duration-150 hover:opacity-95"
                 style={{
-                  borderColor: 'var(--dome-border, var(--border))',
-                  background: 'var(--dome-surface, var(--bg-secondary))',
+                  borderColor: 'var(--border)',
+                  background: 'var(--card)',
                 }}
               >
                 <span
                   className="flex size-9 shrink-0 items-center justify-center rounded-lg"
                   style={{
-                    background: 'var(--dome-bg, var(--bg))',
-                    color: 'var(--dome-accent, var(--accent))',
+                    background: 'var(--background)',
+                    color: 'var(--primary)',
                   }}
                 >
                   {pendingItemIcon(item.kind)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium" style={{ color: 'var(--dome-text, var(--primary-text))' }}>
+                  <p className="truncate text-sm font-medium text-foreground">
                     {titleFor(item)}
                   </p>
                   {item.kind === 'run' && item.subtitle ? (
-                    <p className="truncate text-xs capitalize" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
+                    <p className="truncate text-xs capitalize text-muted-foreground">
                       {item.subtitle}
                     </p>
                   ) : null}
                 </div>
-                <ChevronRight
-                  className="size-4 shrink-0"
-                  style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
+                <HugeiconsIcon icon={ChevronRightIcon}
+                  className="size-4 shrink-0 text-muted-foreground"
                   aria-hidden
                 />
               </button>

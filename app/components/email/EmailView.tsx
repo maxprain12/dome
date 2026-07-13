@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
   AlertDiamondIcon, ArchiveIcon, ArrowTurnBackwardIcon, ArrowTurnForwardIcon,
-  Cancel01Icon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
-  Delete02Icon, File02Icon, Folder01Icon, InboxIcon, Loading03Icon, Mail01Icon,
+  CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon,
+  Delete02Icon, File02Icon, Folder01Icon, InboxIcon, Mail01Icon,
   MailReplyAll02Icon, MoreHorizontalIcon, NoteEditIcon, RefreshIcon, Search01Icon,
   SentIcon, StarIcon,
 } from '@hugeicons/core-free-icons';

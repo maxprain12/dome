@@ -1,5 +1,10 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Calendar03Icon,
+  Layers01Icon,
+  File02Icon,
+} from '@hugeicons/core-free-icons';
 import type { ReactNode } from 'react';
-import { Calendar, Layers, FileText } from 'lucide-react';
 import { extractCalendarEventFromToolResult, unwrapToolResultPayload } from '@/lib/chat/calendarToolArtifact';
 
 export function renderToolSuccessHighlight(
@@ -14,26 +19,26 @@ export function renderToolSuccessHighlight(
         className="rounded-md border p-2.5 space-y-1"
         style={{
           borderColor: 'var(--border)',
-          background: 'color-mix(in srgb, var(--accent) 8%, transparent)',
+          background: 'color-mix(in srgb, var(--primary) 8%, transparent)',
         }}
       >
-        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
-          <Calendar className="size-3.5 shrink-0 text-[var(--accent)]" aria-hidden />
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <HugeiconsIcon icon={Calendar03Icon} className="size-3.5 shrink-0 text-primary" aria-hidden />
           <span className="truncate">{cal.title || t('chat.calendar_event_untitled', { defaultValue: 'Evento' })}</span>
         </div>
         {cal.startLabel ? (
-          <p className="text-[12px]" style={{ color: 'var(--secondary-text)' }}>
+          <p className="text-[12px] text-muted-foreground">
             {cal.startLabel}
             {cal.endLabel && cal.endLabel !== cal.startLabel ? ` → ${cal.endLabel}` : ''}
           </p>
         ) : null}
         {cal.location ? (
-          <p className="text-[12px]" style={{ color: 'var(--tertiary-text)' }}>
+          <p className="text-[12px] text-muted-foreground">
             {cal.location}
           </p>
         ) : null}
         {cal.id ? (
-          <p className="text-[12px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
+          <p className="text-[12px] font-mono opacity-70 truncate text-muted-foreground">
             {cal.id}
           </p>
         ) : null}
@@ -58,11 +63,11 @@ export function renderToolSuccessHighlight(
           background: 'color-mix(in srgb, var(--success) 8%, transparent)',
         }}
       >
-        <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: 'var(--primary-text)' }}>
-          <Layers className="size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
+        <div className="flex items-center gap-2 text-xs font-semibold text-foreground">
+          <HugeiconsIcon icon={Layers01Icon} className="size-3.5 shrink-0 text-[var(--success)]" aria-hidden />
           <span className="truncate">{title}</span>
         </div>
-        <p className="text-[12px]" style={{ color: 'var(--secondary-text)' }}>
+        <p className="text-[12px] text-muted-foreground">
           {t('chat.flashcard_deck_count', { count, defaultValue: '{{count}} tarjetas' })}
         </p>
       </div>
@@ -77,14 +82,14 @@ export function renderToolSuccessHighlight(
     return (
       <div
         className="rounded-md border p-2.5 flex gap-2 items-start"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-tertiary)' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--muted)' }}
       >
-        <FileText className="size-3.5 shrink-0 mt-0.5 text-[var(--accent)]" aria-hidden />
+        <HugeiconsIcon icon={File02Icon} className="size-3.5 shrink-0 mt-0.5 text-primary" aria-hidden />
         <div className="min-w-0">
-          <p className="text-xs font-semibold truncate" style={{ color: 'var(--primary-text)' }}>
+          <p className="text-xs font-semibold truncate text-foreground">
             {title}
           </p>
-          <p className="text-[12px] font-mono opacity-70 truncate" style={{ color: 'var(--tertiary-text)' }}>
+          <p className="text-[12px] font-mono opacity-70 truncate text-muted-foreground">
             {typ} · {id}
           </p>
         </div>
@@ -102,7 +107,7 @@ export function renderToolSuccessHighlight(
         <img
           src={src}
           alt=""
-          className="max-w-[220px] max-h-[160px] object-contain rounded-md border border-[var(--border)]"
+          className="max-w-[220px] max-h-[160px] object-contain rounded-md border border-border"
         />
       );
     }

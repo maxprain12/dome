@@ -1,6 +1,16 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  EyeIcon,
+  EyeOffIcon,
+  Key01Icon,
+  SecurityBlockIcon,
+  Delete02Icon,
+  SecurityCheckIcon,
+  AlertCircleIcon,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useId, useState, useRef } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff, KeyRound, ShieldOff, Trash2, ShieldCheck } from 'lucide-react';
 import type { FeederSecretMeta } from '@/lib/feeders/api';
 import {
   deleteFeederSecret,
@@ -8,14 +18,14 @@ import {
   listFeederSecrets,
   setFeederSecret,
 } from '@/lib/feeders/api';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import { DomeInput } from '@/components/ui/DomeInput';
-import DomeCallout from '@/components/ui/DomeCallout';
-import DomeListState from '@/components/ui/DomeListState';
-import { notifications } from '@mantine/notifications';
+import ListState from '@/components/shared/ListState';
+import { notifications } from '@/lib/notifications';
 import { cn } from '@/lib/utils';
 
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Field, FieldLabel, FieldDescription } from '@/components/ui/field';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 type Props = {
   opened: boolean;
   onClose: () => void;
@@ -109,58 +119,42 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
   const canSave = name.trim().length > 0 && value.length > 0 && !saving;
 
   return (
-    <DomeModal
-      open={opened}
-      onClose={onClose}
-      title={t('feeders.secrets_title')}
-      size="md"
-      footer={
-        <DomeButton variant="ghost" onClick={onClose}>
-          {t('common.close')}
-        </DomeButton>
-      }
-    >
+    <Dialog open={opened} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{t('feeders.secrets_title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       {!vaultAvailable ? (
-        <DomeCallout tone="error" title={t('feeders.vault_unavailable_title', { defaultValue: 'Encrypted vault unavailable' })}>
+        <Alert variant="destructive" role="note"><HugeiconsIcon icon={AlertCircleIcon} aria-hidden /><AlertTitle className="text-xs">{t('feeders.vault_unavailable_title', { defaultValue: 'Encrypted vault unavailable' })}</AlertTitle><AlertDescription className="text-xs">
           {t('feeders.vault_unavailable')}
-        </DomeCallout>
+        </AlertDescription></Alert>
       ) : (
         <div className="flex flex-col gap-4">
-          <DomeCallout tone="info" icon={ShieldCheck} title="Auto-injected into feeders">
+          <Alert role="note"><HugeiconsIcon icon={SecurityCheckIcon} aria-hidden /><AlertTitle className="text-xs">Auto-injected into feeders</AlertTitle><AlertDescription className="text-xs">
             {t('feeders.secrets_hint')}
             <br />
-            <span className="text-[var(--secondary-text)]">
+            <span className="text-muted-foreground">
               Every secret here is exposed to feeder scripts as{' '}
-              <code className="font-mono text-[var(--accent)]">process.env.&lt;name&gt;</code>{' '}
+              <code className="font-mono text-primary">process.env.&lt;name&gt;</code>{' '}
               automatically. Names are case-sensitive.
             </span>
-          </DomeCallout>
+          </AlertDescription></Alert>
 
           <div className="flex flex-col gap-3">
-            <DomeInput
-              label={t('feeders.secret_name')}
-              value={name}
-              onChange={(e) => setName(e.currentTarget.value)}
-              placeholder="IDRAC_PASSWORD"
-              hint={t('feeders.secret_name_hint', {
+            <Field className="gap-1.5"><FieldLabel htmlFor="fld-input-11" className="text-xs">{t('feeders.secret_name')}</FieldLabel><Input id="fld-input-11" value={name} onChange={(e) => setName(e.currentTarget.value)} placeholder="IDRAC_PASSWORD" /><FieldDescription className="text-xs">{t('feeders.secret_name_hint', {
                 defaultValue: 'Referenced from scripts as process.env.NAME (case-sensitive).',
-              })}
-            />
+              })}</FieldDescription></Field>
 
             <div className="flex flex-col gap-1.5 min-w-0">
               <label
                 htmlFor={passwordInputId}
-                className="text-xs font-medium text-[var(--primary-text)]"
+                className="text-xs font-medium text-foreground"
               >
                 {t('feeders.secret_value')}
               </label>
               <div className="relative">
-                <input
+                <Input
                   id={passwordInputId}
                   type={showValue ? 'text' : 'password'}
                   value={value}
                   onChange={(e) => setValue(e.currentTarget.value)}
-                  className="input pr-10"
+                  className="pr-10"
                   autoComplete="off"
                   spellCheck={false}
                 />
@@ -170,47 +164,40 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
                   className={cn(
                     'absolute right-2 top-1/2 -translate-y-1/2',
                     'inline-flex items-center justify-center p-1 rounded',
-                    'text-[var(--secondary-text)] hover:text-[var(--primary-text)]',
-                    'hover:bg-[var(--bg-hover)] transition-colors',
-                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]',
+                    'text-muted-foreground hover:text-foreground',
+                    'hover:bg-accent transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                   )}
                   aria-label={showValue ? 'Hide value' : 'Show value'}
                   tabIndex={-1}
                 >
-                  {showValue ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                  {showValue ? <HugeiconsIcon icon={EyeOffIcon} className="size-3.5" /> : <HugeiconsIcon icon={EyeIcon} className="size-3.5" />}
                 </button>
               </div>
             </div>
 
-            <DomeButton
-              variant="primary"
-              size="sm"
-              onClick={handleSave}
-              disabled={!canSave}
-              loading={saving}
-              leftIcon={<KeyRound className="size-3.5" />}
-            >
+            <Button onClick={handleSave} disabled={!canSave} loading={saving} size="sm">{<HugeiconsIcon icon={Key01Icon} className="size-3.5" />}
               {t('feeders.secret_save')}
-            </DomeButton>
+            </Button>
           </div>
 
-          <div className="border-t border-[var(--border-soft)] pt-3">
+          <div className="border-t border-border pt-3">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-[var(--secondary-text)]">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {t('feeders.secrets_list')}
               </p>
               {secrets.length > 0 ? (
-                <span className="text-xs text-[var(--secondary-text)]">{secrets.length}</span>
+                <span className="text-xs text-muted-foreground">{secrets.length}</span>
               ) : null}
             </div>
 
             {loading ? (
-              <DomeListState variant="loading" compact />
+              <ListState variant="loading" compact />
             ) : secrets.length === 0 ? (
-              <DomeListState
+              <ListState
                 variant="empty"
                 compact
-                icon={<ShieldOff className="size-5 text-[var(--secondary-text)]" />}
+                icon={<HugeiconsIcon icon={SecurityBlockIcon} className="size-5 text-muted-foreground" />}
                 description={t('feeders.secrets_empty')}
               />
             ) : (
@@ -222,35 +209,28 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
                       key={s.id}
                       className={cn(
                         'flex items-center justify-between gap-2 rounded-lg border px-2.5 py-1.5',
-                        'border-[var(--border)] bg-[var(--bg)]',
-                        'hover:bg-[var(--bg-hover)] transition-colors',
+                        'border-border bg-background',
+                        'hover:bg-accent transition-colors',
                       )}
                     >
                       <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <KeyRound
-                          className="size-3.5 shrink-0 text-[var(--accent)]"
+                        <HugeiconsIcon icon={Key01Icon}
+                          className="size-3.5 shrink-0 text-primary"
                           aria-hidden
                         />
-                        <code className="text-xs font-mono text-[var(--primary-text)] truncate">
+                        <code className="text-xs font-mono text-foreground truncate">
                           {s.name}
                         </code>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {lastUsed ? (
-                          <span className="text-[10px] text-[var(--secondary-text)]">
+                          <span className="text-[10px] text-muted-foreground">
                             {lastUsed}
                           </span>
                         ) : null}
-                        <DomeButton
-                          variant="ghost"
-                          size="xs"
-                          iconOnly
-                          onClick={() => void handleDelete(s.id)}
-                          aria-label={t('common.delete')}
-                          className="text-[var(--secondary-text)] hover:text-[var(--error)]"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </DomeButton>
+                        <Button variant="ghost" onClick={() => void handleDelete(s.id)} aria-label={t('common.delete')} className="text-muted-foreground hover:text-destructive" size="icon-xs">
+                          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+                        </Button>
                       </div>
                     </li>
                   );
@@ -260,6 +240,8 @@ export default function SecretsManager({ opened, onClose, initialName }: Props) 
           </div>
         </div>
       )}
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<Button variant="ghost" onClick={onClose}>
+          {t('common.close')}
+        </Button>}</DialogFooter></DialogContent></Dialog>
   );
 }

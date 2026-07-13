@@ -1,11 +1,23 @@
 
 import { useState, useCallback } from 'react';
-import { Save, FileText, Calendar, HardDrive, Hash, FolderOpen, ExternalLink, Loader2 } from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  SaveIcon,
+  File02Icon,
+  Calendar03Icon,
+  HardDriveIcon,
+  HashIcon,
+  FolderOpenIcon,
+  ExternalLinkIcon,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons';
 import { type Resource } from '@/types';
 import { formatDateFull, getResourceTypeLabel } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 interface MetadataModalProps {
   resource: Resource;
   isOpen: boolean;
@@ -84,53 +96,27 @@ export default function MetadataModal({
   };
 
   return (
-    <DomeModal
-      open={isOpen}
-      onClose={onClose}
-      title="Resource Info"
-      size="md"
-      footer={
-        <>
-          <button type="button" onClick={onClose} className="btn btn-ghost">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={isSaving || title === resource.title}
-            className="btn btn-primary flex items-center gap-1.5"
-          >
-            {isSaving ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <Save size={14} />
-            )}
-            Save Changes
-          </button>
-        </>
-      }
-    >
+    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">Resource Info</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <div className="space-y-4">
           <div>
-            <label htmlFor="metadata-title" className="block text-xs font-medium mb-1.5" style={{ color: 'var(--secondary-text)' }}>
+            <label htmlFor="metadata-title" className="block text-xs font-medium mb-1.5 text-muted-foreground">
               Title
             </label>
-            <input
+            <Input
               id="metadata-title"
               type="text"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="input"
             />
           </div>
 
           <div className="flex items-center gap-3">
-            <FileText size={16} style={{ color: 'var(--secondary-text)' }} />
+            <HugeiconsIcon icon={File02Icon} size={16} className="text-muted-foreground" />
             <div>
-              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+              <p className="text-xs text-muted-foreground">
                 Type
               </p>
-              <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+              <p className="text-sm font-medium text-foreground">
                 {getResourceTypeLabel(resource.type)}
               </p>
             </div>
@@ -138,12 +124,12 @@ export default function MetadataModal({
 
           {resource.file_size ? (
             <div className="flex items-center gap-3">
-              <HardDrive size={16} style={{ color: 'var(--secondary-text)' }} />
+              <HugeiconsIcon icon={HardDriveIcon} size={16} className="text-muted-foreground" />
               <div>
-                <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                <p className="text-xs text-muted-foreground">
                   File Size
                 </p>
-                <p className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+                <p className="text-sm font-medium text-foreground">
                   {formatMetadataFileSize(resource.file_size)}
                 </p>
               </div>
@@ -152,14 +138,13 @@ export default function MetadataModal({
 
           {resource.file_hash ? (
             <div className="flex items-center gap-3">
-              <Hash size={16} style={{ color: 'var(--secondary-text)' }} />
+              <HugeiconsIcon icon={HashIcon} size={16} className="text-muted-foreground" />
               <div>
-                <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                <p className="text-xs text-muted-foreground">
                   Hash
                 </p>
                 <p
-                  className="text-sm font-mono"
-                  style={{ color: 'var(--primary-text)' }}
+                  className="text-sm font-mono text-foreground"
                 >
                   {resource.file_hash}
                 </p>
@@ -169,12 +154,12 @@ export default function MetadataModal({
 
           {resource.original_filename ? (
             <div className="flex items-center gap-3">
-              <FileText size={16} style={{ color: 'var(--secondary-text)' }} />
+              <HugeiconsIcon icon={File02Icon} size={16} className="text-muted-foreground" />
               <div>
-                <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+                <p className="text-xs text-muted-foreground">
                   Original Filename
                 </p>
-                <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+                <p className="text-sm text-foreground">
                   {resource.original_filename}
                 </p>
               </div>
@@ -182,24 +167,24 @@ export default function MetadataModal({
           ) : null}
 
           <div className="flex items-center gap-3">
-            <Calendar size={16} style={{ color: 'var(--secondary-text)' }} />
+            <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-muted-foreground" />
             <div>
-              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+              <p className="text-xs text-muted-foreground">
                 Created
               </p>
-              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+              <p className="text-sm text-foreground">
                 {formatMetadataDate(resource.created_at)}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <Calendar size={16} style={{ color: 'var(--secondary-text)' }} />
+            <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-muted-foreground" />
             <div>
-              <p className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+              <p className="text-xs text-muted-foreground">
                 Modified
               </p>
-              <p className="text-sm" style={{ color: 'var(--primary-text)' }}>
+              <p className="text-sm text-foreground">
                 {formatMetadataDate(resource.updated_at)}
               </p>
             </div>
@@ -207,17 +192,34 @@ export default function MetadataModal({
 
           {(resource.internal_path || resource.file_path) ? (
             <div className="flex gap-2 pt-2">
-              <button type="button" onClick={handleOpenFile} className="btn btn-secondary flex items-center gap-1.5">
-                <ExternalLink size={14} />
+              <Button type="button" onClick={handleOpenFile} variant="secondary" className="flex items-center gap-1.5">
+                <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
                 Open with default app
-              </button>
-              <button type="button" onClick={handleShowInFolder} className="btn btn-secondary flex items-center gap-1.5">
-                <FolderOpen size={14} />
+              </Button>
+              <Button type="button" onClick={handleShowInFolder} variant="secondary" className="flex items-center gap-1.5">
+                <HugeiconsIcon icon={FolderOpenIcon} size={14} />
                 Show in Finder
-              </button>
+              </Button>
             </div>
           ) : null}
       </div>
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<>
+          <Button type="button" onClick={onClose} variant="ghost">
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={isSaving || title === resource.title}
+            className="flex items-center gap-1.5"
+          >
+            {isSaving ? (
+              <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
+            ) : (
+              <HugeiconsIcon icon={SaveIcon} size={14} />
+            )}
+            Save Changes
+          </Button>
+        </>}</DialogFooter></DialogContent></Dialog>
   );
 }

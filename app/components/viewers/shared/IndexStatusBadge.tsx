@@ -1,9 +1,14 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  BrainIcon,
+  Loading03Icon,
+  HelpCircleIcon,
+  RefreshIcon,
+} from '@hugeicons/core-free-icons';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Brain, Loader2, HelpCircle, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeBadge from '@/components/ui/DomeBadge';
-
+import { Badge } from '@/components/ui/badge';
 const INDEXABLE = new Set(['pdf', 'note', 'document', 'url', 'notebook', 'ppt', 'excel', 'image', 'artifact']);
 
 interface IndexStatusBadgeProps {
@@ -115,7 +120,7 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   if (hasChunks === null) {
     return (
       <span className="inline-flex items-center gap-1">
-        <Loader2 size={12} className="animate-spin shrink-0 opacity-50" aria-hidden />
+        <HugeiconsIcon icon={Loading03Icon} size={12} className="animate-spin shrink-0 opacity-50" aria-hidden />
       </span>
     );
   }
@@ -123,8 +128,8 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   if (busy || globalIndexing) {
     return (
       <span className="inline-flex items-center gap-1.5 max-w-full min-w-0">
-        <Loader2 size={12} className="animate-spin shrink-0 text-[var(--accent)]" aria-hidden />
-        <DomeBadge label={t('viewer.indexing')} color="var(--accent)" size="xs" />
+        <HugeiconsIcon icon={Loading03Icon} size={12} className="animate-spin shrink-0 text-primary" aria-hidden />
+        <Badge variant="secondary" className="max-w-full font-semibold text-[10px] px-1.5 py-0.5 gap-1 h-auto" style={{ background: 'color-mix(in srgb, var(--primary) 18%, transparent)', color: 'var(--primary)', borderColor: 'transparent' }}><span className="truncate">{t('viewer.indexing')}</span></Badge>
       </span>
     );
   }
@@ -132,8 +137,8 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
   if (hasChunks) {
     return (
       <span className="inline-flex items-center gap-1 min-w-0" title={t('viewer.ready_for_ai_title')}>
-        <Brain size={12} className="shrink-0 text-[var(--success)]" aria-hidden />
-        <DomeBadge label={t('viewer.ready_for_ai')} color="var(--success)" size="xs" />
+        <HugeiconsIcon icon={BrainIcon} size={12} className="shrink-0 text-[var(--success)]" aria-hidden />
+        <Badge variant="secondary" className="max-w-full font-semibold text-[10px] px-1.5 py-0.5 gap-1 h-auto" style={{ background: 'color-mix(in srgb, var(--success) 18%, transparent)', color: 'var(--success)', borderColor: 'transparent' }}><span className="truncate">{t('viewer.ready_for_ai')}</span></Badge>
       </span>
     );
   }
@@ -143,21 +148,18 @@ export default function IndexStatusBadge({ resourceId, resourceType }: IndexStat
       className="inline-flex items-center gap-1 min-w-0"
       title={error || t('viewer.not_indexed_title')}
     >
-      <HelpCircle size={12} className="shrink-0 text-[var(--tertiary-text)]" aria-hidden />
-      <DomeBadge label={t('viewer.not_indexed')} variant="outline" color="var(--tertiary-text)" size="xs" />
-      <DomeButton
-        type="button"
-        variant="ghost"
-        size="xs"
-        iconOnly
-        onClick={handleRetry}
-        disabled={busy}
-        title={t('viewer.retry_indexing')}
-        className="!p-0.5 ml-0.5 min-w-0 h-auto text-inherit opacity-70 hover:opacity-100"
-        aria-label={t('viewer.retry_indexing')}
-      >
-        <RefreshCw size={11} className={busy ? 'animate-spin' : ''} />
-      </DomeButton>
+      <HugeiconsIcon icon={HelpCircleIcon} size={12} className="shrink-0 text-muted-foreground" aria-hidden />
+      <Badge variant="outline" className="max-w-full font-semibold text-[10px] px-1.5 py-0.5 gap-1 h-auto" style={{ borderColor: 'var(--muted-foreground)', color: 'var(--muted-foreground)', background: 'transparent' }}><span className="truncate">{t('viewer.not_indexed')}</span></Badge>
+      <Button type="button"
+  variant="ghost"
+  onClick={handleRetry}
+  disabled={busy}
+  title={t('viewer.retry_indexing')}
+  className="!p-0.5 ml-0.5 min-w-0 h-auto text-inherit opacity-70 hover:opacity-100"
+  aria-label={t('viewer.retry_indexing')}
+  size="icon-xs">
+        <HugeiconsIcon icon={RefreshIcon} size={11} className={busy ? 'animate-spin' : ''} />
+      </Button>
     </span>
   );
 }

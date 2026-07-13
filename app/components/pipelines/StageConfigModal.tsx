@@ -1,10 +1,9 @@
 import { lazy, Suspense, useRef, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import { Plus, Trash2 } from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
-import HorizontalScrollArea from '@/components/ui/HorizontalScrollArea';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Delete02Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
+import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import ManyIcon from '@/components/many/ManyIcon';
 import { MANY_EXECUTOR_ID } from '@/lib/pipelines/types';
 import {
@@ -17,6 +16,32 @@ import type { ExecutionPolicy, PipelineStage, StageDeliverable } from '@/lib/pip
 import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
 import type { ManyAgent } from '@/types';
 
+import {
+  DetailDrawer,
+  DetailDrawerBody,
+  DetailDrawerContent,
+  DetailDrawerFooter,
+  DetailDrawerHeader,
+} from '@/components/shared/DetailDrawer';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Field, FieldLabel } from '@/components/ui/field';
+import { Checkbox } from '@/components/ui/checkbox';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import type { ReactNode } from 'react';
 const AgentOnboarding = lazy(() => import('@/components/orchestration/AgentEditor'));
 
 interface Props {
@@ -63,6 +88,8 @@ export default function StageConfigModal({
   const [creatingAgent, setCreatingAgent] = useState(false);
   const [saving, setSaving] = useState(false);
   const templateRef = useRef<HTMLTextAreaElement>(null);
+  const macroScrollRef = useRef<HTMLDivElement>(null);
+  useHorizontalScroll(macroScrollRef);
 
   const insertMacro = (key: string) => {
     const token = macroToken(key);
@@ -129,135 +156,97 @@ export default function StageConfigModal({
 
   const showTemplate = policy !== 'manual_resolve';
 
+  const agentOptions: { value: string; label: string; icon?: ReactNode }[] = [
+    { value: MANY_EXECUTOR_ID, label: t('pipelines.use_many'), icon: <ManyIcon size={14} /> },
+    // Inline-created agents first; the board list may already
+    // include them after a refresh, so dedupe by id.
+    ...extraAgents.map((a) => ({ value: a.id, label: a.name })),
+    ...agents
+      .filter((a) => !extraAgents.some((e) => e.id === a.id))
+      .map((a) => ({ value: a.id, label: a.name })),
+  ];
+
   if (creatingAgent) {
     return (
-      <DomeModal open onClose={() => setCreatingAgent(false)} title={t('agents.new_agent')} size="full">
-        <div className="h-full min-h-0">
-          <Suspense fallback={null}>
-            <AgentOnboarding
-              projectId={projectId}
-              onComplete={handleAgentCreated}
-              onCancel={() => setCreatingAgent(false)}
-            />
-          </Suspense>
-        </div>
-      </DomeModal>
+      <DetailDrawer open onOpenChange={(next) => { if (!next) setCreatingAgent(false); }}>
+        <DetailDrawerContent size="xl" className="h-[85vh] max-h-[85vh]">
+          <DetailDrawerHeader title={t('agents.new_agent')} />
+          <DetailDrawerBody className="min-h-0 flex-1">
+            <div className="h-full min-h-0">
+              <Suspense fallback={null}>
+                <AgentOnboarding
+                  projectId={projectId}
+                  onComplete={handleAgentCreated}
+                  onCancel={() => setCreatingAgent(false)}
+                />
+              </Suspense>
+            </div>
+          </DetailDrawerBody>
+        </DetailDrawerContent>
+      </DetailDrawer>
     );
   }
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={t('pipelines.configure')}
-      subtitle={stage.title}
-      size="lg"
-      footer={
-        <>
-          <DomeButton variant="ghost" onClick={() => void onDelete()}>
-            <Trash2 className="size-4" />
-            {t('pipelines.delete')}
-          </DomeButton>
-          <div style={{ flex: 1 }} />
-          <DomeButton variant="primary" onClick={() => void save()} disabled={saving}>
-            {saving ? t('pipelines.saving') : t('pipelines.save')}
-          </DomeButton>
-        </>
-      }
-    >
+    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DetailDrawerContent size="lg">
+        <DetailDrawerHeader title={t('pipelines.configure')} description={stage.title || undefined} />
+        <DetailDrawerBody>
       <div className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-            {t('pipelines.stage_title_placeholder')}
-          </span>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-sm rounded-md px-2 py-1.5 outline-none"
-            style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
-          />
-        </label>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="stage-title">{t('pipelines.stage_title_placeholder')}</Label>
+          <Input id="stage-title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        </div>
 
-        <DomeSelectMenu<ExecutionPolicy>
-          label={t('pipelines.execution_policy')}
-          value={policy}
-          onChange={setPolicy}
-          options={[
+        <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.execution_policy')}</FieldLabel><Select value={policy ?? null} onValueChange={(next) => { if (next != null) (setPolicy)(next); }} items={[
             { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
             { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
             { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
-          ]}
-        />
+          ]}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+            { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
+            { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
+            { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
+          ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
 
         {showTemplate && (
-          <div className="flex flex-col gap-2 rounded-md p-2" style={{ background: 'var(--bg)', border: '1px solid var(--border)' }}>
-            <div className="flex gap-3">
-              <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--primary-text)' }}>
-                <input
-                  type="radio"
-                  name="executor-kind"
-                  checked={executorKind === 'agent'}
-                  onChange={() => setExecutorKind('agent')}
-                />
-                {t('pipelines.stage_agent')}
-              </label>
-              <label className="inline-flex items-center gap-1.5 text-sm cursor-pointer" style={{ color: 'var(--primary-text)' }}>
-                <input
-                  type="radio"
-                  name="executor-kind"
-                  checked={executorKind === 'workflow'}
-                  onChange={() => setExecutorKind('workflow')}
-                />
-                Workflow
-              </label>
-            </div>
+          <div className="flex flex-col gap-2 rounded-xl border bg-card p-3">
+            <RadioGroup value={executorKind} onValueChange={(value) => setExecutorKind(value as 'agent' | 'workflow')} className="flex gap-3">
+              <Field orientation="horizontal">
+                <RadioGroupItem value="agent" id="executor-agent" />
+                <FieldLabel htmlFor="executor-agent">{t('pipelines.stage_agent')}</FieldLabel>
+              </Field>
+              <Field orientation="horizontal">
+                <RadioGroupItem value="workflow" id="executor-workflow" />
+                <FieldLabel htmlFor="executor-workflow">Workflow</FieldLabel>
+              </Field>
+            </RadioGroup>
 
             {executorKind === 'agent' ? (
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
-                  <DomeSelectMenu
-                    value={agentId ?? MANY_EXECUTOR_ID}
-                    onChange={(v) => setAgentId(v || null)}
-                    placeholder={t('pipelines.select_agent')}
-                    options={[
-                      { value: MANY_EXECUTOR_ID, label: t('pipelines.use_many'), icon: <ManyIcon size={14} /> },
-                      // Inline-created agents first; the board list may already
-                      // include them after a refresh, so dedupe by id.
-                      ...extraAgents.map((a) => ({ value: a.id, label: a.name })),
-                      ...(() => {
-                        const opts: { value: string; label: string }[] = [];
-                        for (const a of agents) {
-                          if (extraAgents.some((e) => e.id === a.id)) continue;
-                          opts.push({ value: a.id, label: a.name });
-                        }
-                        return opts;
-                      })(),
-                    ]}
-                  />
+                  <Select value={agentId ?? MANY_EXECUTOR_ID} onValueChange={(next) => { if (next != null) ((v) => setAgentId(v || null))(next); }} items={agentOptions}><SelectTrigger className="w-full"><SelectValue placeholder={t('pipelines.select_agent')} /></SelectTrigger><SelectContent><SelectGroup>{agentOptions.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span></span></SelectItem>))}</SelectGroup></SelectContent></Select>
                 </div>
-                <DomeButton variant="outline" size="sm" onClick={() => setCreatingAgent(true)}>
-                  <Plus className="size-3.5" />
+                <Button variant="outline" onClick={() => setCreatingAgent(true)} size="sm">
+                  <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
                   {t('pipelines.new_agent')}
-                </DomeButton>
+                </Button>
               </div>
             ) : (
               <div className="flex items-center gap-2">
                 <div className="flex-1 min-w-0">
-                  <DomeSelectMenu
-                    value={workflowId ?? ''}
-                    onChange={(v) => setWorkflowId(v || null)}
-                    placeholder={t('pipelines.select_workflow')}
-                    options={[
+                  <Select value={workflowId ?? ''} onValueChange={(next) => { if (next != null) ((v) => setWorkflowId(v || null))(next); }} items={[
                       { value: '', label: t('pipelines.select_workflow') },
                       ...workflows.map((w) => ({ value: w.id, label: w.name })),
-                    ]}
-                  />
+                    ]}><SelectTrigger className="w-full"><SelectValue placeholder={t('pipelines.select_workflow')} /></SelectTrigger><SelectContent><SelectGroup>{([
+                      { value: '', label: t('pipelines.select_workflow') },
+                      ...workflows.map((w) => ({ value: w.id, label: w.name })),
+                    ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
                 </div>
                 {onCreateWorkflow && (
-                  <DomeButton variant="outline" size="sm" onClick={onCreateWorkflow}>
-                    <Plus className="size-3.5" />
+                  <Button variant="outline" onClick={onCreateWorkflow} size="sm">
+                    <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
                     {t('pipelines.new_workflow')}
-                  </DomeButton>
+                  </Button>
                 )}
               </div>
             )}
@@ -265,40 +254,37 @@ export default function StageConfigModal({
         )}
 
         {showTemplate && (
-          <DomeSelectMenu<StageDeliverable>
-            label={t('pipelines.stage_deliverable')}
-            value={deliverable}
-            onChange={setDeliverable}
-            options={[
+          <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.stage_deliverable')}</FieldLabel><Select value={deliverable ?? null} onValueChange={(next) => { if (next != null) (setDeliverable)(next); }} items={[
               { value: 'auto', label: t('pipelines.deliverable_auto') },
               { value: 'artifact', label: t('pipelines.deliverable_artifact') },
               { value: 'text', label: t('pipelines.deliverable_text') },
-            ]}
-          />
+            ]}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+              { value: 'auto', label: t('pipelines.deliverable_auto') },
+              { value: 'artifact', label: t('pipelines.deliverable_artifact') },
+              { value: 'text', label: t('pipelines.deliverable_text') },
+            ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
         )}
 
         {showTemplate && (
           <div className="flex flex-col gap-2">
-            <label className="flex flex-col gap-1">
-              <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
-                {t('pipelines.run_input_template')}
-              </span>
-              <textarea
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="run-input-template">{t('pipelines.run_input_template')}</Label>
+              <Textarea
+                id="run-input-template"
                 ref={templateRef}
                 value={runInputTemplate}
                 onChange={(e) => setRunInputTemplate(e.target.value)}
                 rows={4}
                 placeholder={t('pipelines.run_input_template_hint')}
-                className="text-xs font-mono rounded-md px-2 py-1.5 outline-none resize-y"
-                style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+                className="font-mono text-xs"
               />
-              <span className="text-[11px]" style={{ color: 'var(--tertiary-text)' }}>
+              <span className="text-[11px] text-muted-foreground">
                 {t('pipelines.run_input_context_auto_note')}
               </span>
-            </label>
+            </div>
 
             <div className="flex flex-col gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: 'var(--tertiary-text)' }}>
+              <span className="text-xs font-medium text-muted-foreground">
                 {t('pipelines.run_input_macros_title')}
               </span>
               {PIPELINE_TEMPLATE_MACRO_GROUPS.map((group) => {
@@ -306,28 +292,24 @@ export default function StageConfigModal({
                 if (macros.length === 0) return null;
                 return (
                   <div key={group} className="flex flex-col gap-1">
-                    <span className="text-[10px] font-medium" style={{ color: 'var(--tertiary-text)' }}>
+                    <span className="text-[10px] font-medium text-muted-foreground">
                       {macroGroupLabel(group)}
                     </span>
-                    <HorizontalScrollArea>
+                    <div ref={macroScrollRef} className="flex flex-nowrap gap-1 overflow-x-auto overflow-y-hidden overscroll-x-contain pb-0.5">
                       {macros.map((macro) => (
-                        <button
+                        <Button
                           key={macro.key}
                           type="button"
+                          variant="outline"
+                          size="xs"
                           onClick={() => insertMacro(macro.key)}
-                          className="text-[11px] font-mono rounded px-1.5 py-0.5 transition-colors shrink-0"
-                          style={{
-                            background: 'var(--bg)',
-                            color: 'var(--secondary-text)',
-                            border: '1px solid var(--border)',
-                            cursor: 'pointer',
-                          }}
+                          className="shrink-0 font-mono text-[11px]"
                           title={macroToken(macro.key)}
                         >
                           {t(`pipelines.${macro.labelKey}`)}
-                        </button>
+                        </Button>
                       ))}
-                    </HorizontalScrollArea>
+                    </div>
                   </div>
                 );
               })}
@@ -335,13 +317,35 @@ export default function StageConfigModal({
           </div>
         )}
 
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={isTerminal} onChange={(e) => setIsTerminal(e.target.checked)} />
-          <span className="text-sm" style={{ color: 'var(--primary-text)' }}>
-            {t('pipelines.terminal_stage')}
-          </span>
-        </label>
+        <Field orientation="horizontal">
+          <Checkbox id="terminal-stage" checked={isTerminal} onCheckedChange={setIsTerminal} />
+          <FieldLabel htmlFor="terminal-stage">{t('pipelines.terminal_stage')}</FieldLabel>
+        </Field>
       </div>
-    </DomeModal>
+        </DetailDrawerBody>
+        <DetailDrawerFooter>
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" />}>
+              <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
+              {t('pipelines.delete')}
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('pipelines.delete')}</AlertDialogTitle>
+                <AlertDialogDescription>{stage.title}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('pipelines.cancel')}</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={() => void onDelete()}>{t('pipelines.delete')}</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <div className="flex-1" />
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? t('pipelines.saving') : t('pipelines.save')}
+          </Button>
+        </DetailDrawerFooter>
+      </DetailDrawerContent>
+    </DetailDrawer>
   );
 }

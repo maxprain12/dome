@@ -1,27 +1,26 @@
 import { useTranslation } from 'react-i18next';
-import {
-  CircleDot, CheckCircle2, GitMerge, GitPullRequest, AtSign, Tag, Link2, UserPlus, Pencil, History,
-} from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AtSignIcon, CheckmarkCircle02Icon, CircleDotIcon, GitMergeIcon, GitPullRequestIcon, HistoryIcon, Link02Icon, PencilIcon, Tag01Icon, UserAdd01Icon } from '@hugeicons/core-free-icons';
 import type { TFunction } from 'i18next';
 
 function eventIcon(event: string) {
   const c = 'size-3.5 shrink-0';
   switch (event) {
-    case 'closed': return <CheckCircle2 className={c} style={{ color: 'var(--dome-text-muted)' }} />;
-    case 'reopened': return <CircleDot className={c} style={{ color: 'var(--success)' }} />;
-    case 'merged': return <GitMerge className={c} style={{ color: 'var(--dome-accent)' }} />;
+    case 'closed': return <HugeiconsIcon icon={CheckmarkCircle02Icon} className={c} style={{ color: 'var(--muted-foreground)' }} />;
+    case 'reopened': return <HugeiconsIcon icon={CircleDotIcon} className={c} style={{ color: 'var(--success)' }} />;
+    case 'merged': return <HugeiconsIcon icon={GitMergeIcon} className={c} style={{ color: 'var(--primary)' }} />;
     case 'cross-referenced':
     case 'referenced':
     case 'connected':
-    case 'disconnected': return <GitPullRequest className={c} style={{ color: 'var(--dome-accent)' }} />;
-    case 'mentioned': return <AtSign className={c} style={{ color: 'var(--dome-text-muted)' }} />;
+    case 'disconnected': return <HugeiconsIcon icon={GitPullRequestIcon} className={c} style={{ color: 'var(--primary)' }} />;
+    case 'mentioned': return <HugeiconsIcon icon={AtSignIcon} className={c} style={{ color: 'var(--muted-foreground)' }} />;
     case 'labeled':
-    case 'unlabeled': return <Tag className={c} style={{ color: 'var(--dome-text-muted)' }} />;
+    case 'unlabeled': return <HugeiconsIcon icon={Tag01Icon} className={c} style={{ color: 'var(--muted-foreground)' }} />;
     case 'assigned':
     case 'unassigned':
-    case 'review_requested': return <UserPlus className={c} style={{ color: 'var(--dome-text-muted)' }} />;
-    case 'renamed': return <Pencil className={c} style={{ color: 'var(--dome-text-muted)' }} />;
-    default: return <Link2 className={c} style={{ color: 'var(--dome-text-muted)' }} />;
+    case 'review_requested': return <HugeiconsIcon icon={UserAdd01Icon} className={c} style={{ color: 'var(--muted-foreground)' }} />;
+    case 'renamed': return <HugeiconsIcon icon={PencilIcon} className={c} style={{ color: 'var(--muted-foreground)' }} />;
+    default: return <HugeiconsIcon icon={Link02Icon} className={c} style={{ color: 'var(--muted-foreground)' }} />;
   }
 }
 
@@ -54,8 +53,8 @@ export default function IssueTimeline({ events }: { events: GitHubTimelineEvent[
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-2 px-1">
-        <History size={15} style={{ color: 'var(--dome-text-muted)' }} />
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--dome-text)' }}>
+        <HugeiconsIcon icon={HistoryIcon} size={15} className="text-muted-foreground" />
+        <h3 className="text-sm font-semibold text-foreground">
           {t('github.timeline.title')}
         </h3>
       </div>
@@ -63,8 +62,7 @@ export default function IssueTimeline({ events }: { events: GitHubTimelineEvent[
         {events.map((ev) => (
           <li
             key={ev.id}
-            className="flex items-start gap-2.5 text-[13px] py-1.5 rounded-md"
-            style={{ color: 'var(--dome-text-secondary, var(--dome-text-muted))' }}
+            className="flex items-start gap-2.5 text-[13px] py-1.5 rounded-md text-muted-foreground"
           >
             <span className="mt-0.5 shrink-0">{eventIcon(ev.event)}</span>
             <span className="flex-1 min-w-0 leading-relaxed">
@@ -74,21 +72,20 @@ export default function IssueTimeline({ events }: { events: GitHubTimelineEvent[
                   href={ev.source.html_url}
                   target="_blank"
                   rel="noreferrer"
-                  className="ml-1 inline-flex items-center gap-1 underline"
-                  style={{ color: 'var(--dome-accent)' }}
+                  className="ml-1 inline-flex items-center gap-1 underline text-primary"
                   title={ev.source.title}
                 >
                   {ev.source.is_pull_request ? (
-                    <GitPullRequest className="size-3" style={{ color: ev.source.merged ? 'var(--dome-accent)' : undefined }} />
+                    <HugeiconsIcon icon={GitPullRequestIcon} className="size-3" style={{ color: ev.source.merged ? 'var(--primary)' : undefined }} />
                   ) : (
-                    <CircleDot className="size-3" />
+                    <HugeiconsIcon icon={CircleDotIcon} className="size-3" />
                   )}
                   #{ev.source.number}
                   {ev.source.merged ? ` · ${t('github.timeline.merged_tag')}` : ''}
                 </a>
               )}
               {ev.created_at && (
-                <span className="ml-1 text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+                <span className="ml-1 text-[11px] text-muted-foreground">
                   · {relTime(ev.created_at)}
                 </span>
               )}

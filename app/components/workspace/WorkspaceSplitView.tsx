@@ -1,6 +1,20 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ArrowLeftRightIcon,
+  FileEditIcon,
+  File02Icon,
+  Image01Icon,
+  Maximize02Icon,
+  MusicNote01Icon,
+  NotebookIcon,
+  Presentation01Icon,
+  Video01Icon,
+  Link01Icon,
+  PanelRightCloseIcon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftRight, FileEdit, FileText, Image as ImageIcon, Maximize2, Music, Notebook, Presentation, Video, Link as LinkIcon, PanelRightClose, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useTabStore, type DomeTab } from '@/lib/store/useTabStore';
 import { collectCompoundSlots, defineSlot } from '@/lib/utils/compoundSlots';
@@ -22,25 +36,25 @@ function getReferenceMeta(resourceType: string, t: ReturnType<typeof useTranslat
   const iconProps = { size: 11, strokeWidth: 2 };
   switch (resourceType) {
     case 'note':
-      return { icon: <FileEdit {...iconProps} />, label: t('focused_editor.ref_type_note', 'Nota') };
+      return { icon: <HugeiconsIcon icon={FileEditIcon} {...iconProps} />, label: t('focused_editor.ref_type_note', 'Nota') };
     case 'pdf':
     case 'document':
-      return { icon: <FileText {...iconProps} />, label: t('focused_editor.ref_type_doc', 'Documento') };
+      return { icon: <HugeiconsIcon icon={File02Icon} {...iconProps} />, label: t('focused_editor.ref_type_doc', 'Documento') };
     case 'video':
-      return { icon: <Video {...iconProps} />, label: t('focused_editor.ref_type_video', 'Video') };
+      return { icon: <HugeiconsIcon icon={Video01Icon} {...iconProps} />, label: t('focused_editor.ref_type_video', 'Video') };
     case 'audio':
-      return { icon: <Music {...iconProps} />, label: t('focused_editor.ref_type_audio', 'Audio') };
+      return { icon: <HugeiconsIcon icon={MusicNote01Icon} {...iconProps} />, label: t('focused_editor.ref_type_audio', 'Audio') };
     case 'image':
-      return { icon: <ImageIcon {...iconProps} />, label: t('focused_editor.ref_type_image', 'Imagen') };
+      return { icon: <HugeiconsIcon icon={Image01Icon} {...iconProps} />, label: t('focused_editor.ref_type_image', 'Imagen') };
     case 'notebook':
-      return { icon: <Notebook {...iconProps} />, label: t('focused_editor.ref_type_notebook', 'Notebook') };
+      return { icon: <HugeiconsIcon icon={NotebookIcon} {...iconProps} />, label: t('focused_editor.ref_type_notebook', 'Notebook') };
     case 'ppt':
-      return { icon: <Presentation {...iconProps} />, label: t('focused_editor.ref_type_ppt', 'Presentación') };
+      return { icon: <HugeiconsIcon icon={Presentation01Icon} {...iconProps} />, label: t('focused_editor.ref_type_ppt', 'Presentación') };
     case 'url':
     case 'youtube':
-      return { icon: <LinkIcon {...iconProps} />, label: t('focused_editor.ref_type_link', 'Enlace') };
+      return { icon: <HugeiconsIcon icon={Link01Icon} {...iconProps} />, label: t('focused_editor.ref_type_link', 'Enlace') };
     default:
-      return { icon: <FileText {...iconProps} />, label: t('focused_editor.ref_type_resource', 'Recurso') };
+      return { icon: <HugeiconsIcon icon={File02Icon} {...iconProps} />, label: t('focused_editor.ref_type_resource', 'Recurso') };
   }
 }
 
@@ -121,7 +135,7 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
     : 760;
 
   return (
-    <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden" style={{ background: 'var(--dome-surface)' }}>
+    <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden bg-card">
       <div className="flex flex-col flex-1 min-w-0 min-h-0 overflow-hidden">
         {primary}
       </div>
@@ -131,14 +145,14 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
         aria-label={t('focused_editor.resize_reference')}
         className="w-1.5 shrink-0 cursor-col-resize transition-colors duration-150 border-0 p-0 m-0 min-w-0 self-stretch"
         style={{
-          background: isResizing ? 'var(--dome-accent)' : 'var(--dome-border)',
+          background: isResizing ? 'var(--primary)' : 'var(--border)',
           height: 'auto',
         }}
         onMouseEnter={(e) => {
-          if (!isResizing) (e.currentTarget as HTMLElement).style.background = 'var(--border-hover)';
+          if (!isResizing) (e.currentTarget as HTMLElement).style.background = 'var(--ring)';
         }}
         onMouseLeave={(e) => {
-          if (!isResizing) (e.currentTarget as HTMLElement).style.background = 'var(--dome-border)';
+          if (!isResizing) (e.currentTarget as HTMLElement).style.background = 'var(--border)';
         }}
         onPointerDown={handlePointerDown}
       />
@@ -149,22 +163,22 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
           width: Math.min(splitWidth, responsiveMax),
           minWidth: 320,
           maxWidth: responsiveMax,
-          borderLeft: '1px solid var(--dome-border)',
-          background: 'var(--dome-bg)',
+          borderLeft: '1px solid var(--border)',
+          background: 'var(--background)',
         }}
       >
         <div
           className="flex h-9 shrink-0 items-center gap-2 px-3"
-          style={{ borderBottom: '1px solid var(--dome-border)' }}
+          style={{ borderBottom: '1px solid var(--border)' }}
         >
-          <PanelRightClose size={14} strokeWidth={1.8} style={{ color: 'var(--dome-text-muted)' }} />
+          <HugeiconsIcon icon={PanelRightCloseIcon} size={14} strokeWidth={1.8} className="text-muted-foreground" />
 
           {/* Type badge */}
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide"
             style={{
-              background: 'var(--dome-bg-hover)',
-              color: 'var(--dome-text-muted)',
+              background: 'var(--accent)',
+              color: 'var(--muted-foreground)',
               letterSpacing: '0.04em',
             }}
             title={refMeta.label}
@@ -174,7 +188,7 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
           </span>
 
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-medium" style={{ color: 'var(--dome-text)' }}>
+            <p className="truncate text-xs font-medium text-foreground">
               {splitResource.title || t('focused_editor.reference')}
             </p>
           </div>
@@ -188,7 +202,7 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
               title={t('focused_editor.swap_panes', 'Intercambiar paneles')}
               aria-label={t('focused_editor.swap_panes', 'Intercambiar paneles')}
             >
-              <ArrowLeftRight size={13} strokeWidth={1.8} />
+              <HugeiconsIcon icon={ArrowLeftRightIcon} size={13} strokeWidth={1.8} />
             </button>
           )}
           <button
@@ -198,7 +212,7 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
             title={t('focused_editor.open_reference_tab')}
             aria-label={t('focused_editor.open_reference_tab')}
           >
-            <Maximize2 size={13} strokeWidth={1.8} />
+            <HugeiconsIcon icon={Maximize02Icon} size={13} strokeWidth={1.8} />
           </button>
           <button
             type="button"
@@ -207,7 +221,7 @@ function WorkspaceSplitView({ tab, children }: WorkspaceSplitViewProps) {
             title={t('focused_editor.close_reference')}
             aria-label={t('focused_editor.close_reference')}
           >
-            <X size={13} strokeWidth={1.8} />
+            <HugeiconsIcon icon={Cancel01Icon} size={13} strokeWidth={1.8} />
           </button>
         </div>
         <div className="flex flex-1 min-h-0 overflow-hidden">

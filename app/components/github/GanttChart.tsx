@@ -1,5 +1,7 @@
+import { Button } from '@/components/ui/button';
 import { useMemo } from 'react';
-import { ExternalLink, PanelRightOpen } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ExternalLinkIcon, PanelRightOpenIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 
@@ -37,7 +39,7 @@ export default function GanttChart({
 
   if (dated.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
         {t('github.gantt_no_dated_milestones')}
       </div>
     );
@@ -49,9 +51,9 @@ export default function GanttChart({
         {/* Today marker */}
         <div
           className="absolute top-0 bottom-0 w-px z-10"
-          style={{ left: `${pct(Date.now())}%`, background: 'var(--dome-accent)' }}
+          style={{ left: `${pct(Date.now())}%`, background: 'var(--primary)' }}
         >
-          <span className="absolute -top-4 -translate-x-1/2 text-[10px]" style={{ color: 'var(--dome-accent)' }}>{t('github.gantt_today')}</span>
+          <span className="absolute -top-4 -translate-x-1/2 text-[10px] text-primary">{t('github.gantt_today')}</span>
         </div>
 
         <div className="flex flex-col gap-2 mt-5">
@@ -64,46 +66,46 @@ export default function GanttChart({
                 : 0;
               return (
                 <div key={m.id} className="flex items-center gap-3 group">
-                  <div className="w-40 shrink-0 text-sm truncate flex items-center gap-1" style={{ color: 'var(--dome-text)' }}>
+                  <div className="w-40 shrink-0 text-sm truncate flex items-center gap-1 text-foreground">
                     {onOpenMilestone ? (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => onOpenMilestone(m.id)}
                         className="truncate text-left hover:underline"
                         title={t('github.milestone_detail_open')}
                       >
                         {m.title}
-                      </button>
+                      </Button>
                     ) : (
                       <span className="truncate">{m.title}</span>
                     )}
                     {onOpenMilestone ? (
-                      <button
+                      <Button
                         type="button"
                         onClick={() => onOpenMilestone(m.id)}
                         className="shrink-0 inline-flex items-center justify-center rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: 'var(--dome-text-muted)' }}
+                        style={{ color: 'var(--muted-foreground)' }}
                         title={t('github.milestone_detail_open')}
                         aria-label={t('github.milestone_detail_open')}
                         onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
+                          (e.currentTarget as HTMLButtonElement).style.background = 'var(--accent)';
                         }}
                         onMouseLeave={(e) => {
                           (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
                         }}
                       >
-                        <PanelRightOpen size={12} />
-                      </button>
+                        <HugeiconsIcon icon={PanelRightOpenIcon} size={12} />
+                      </Button>
                     ) : null}
                     {m.html_url && (
-                      <a href={m.html_url} target="_blank" rel="noreferrer" title={t('github.open_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
-                        <ExternalLink size={12} />
+                      <a href={m.html_url} target="_blank" rel="noreferrer" title={t('github.open_on_github')} className="text-muted-foreground">
+                        <HugeiconsIcon icon={ExternalLinkIcon} size={12} />
                       </a>
                     )}
                   </div>
                   <div
                     className="relative flex-1 h-7 rounded"
-                    style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)', cursor: onOpenMilestone ? 'pointer' : undefined }}
+                    style={{ background: 'var(--card)', border: '1px solid var(--border)', cursor: onOpenMilestone ? 'pointer' : undefined }}
                     onClick={onOpenMilestone ? () => onOpenMilestone(m.id) : undefined}
                     role={onOpenMilestone ? 'button' : undefined}
                     tabIndex={onOpenMilestone ? 0 : undefined}
@@ -122,8 +124,8 @@ export default function GanttChart({
                       className="absolute top-0 bottom-0 flex items-center rounded px-2 text-[11px] whitespace-nowrap"
                       style={{
                         left: `${Math.min(pct(m.due_on as number), 92)}%`,
-                        background: m.state === 'closed' ? 'var(--dome-bg-hover)' : 'var(--dome-accent)',
-                        color: m.state === 'closed' ? 'var(--dome-text-muted)' : 'var(--dome-on-accent)',
+                        background: m.state === 'closed' ? 'var(--accent)' : 'var(--primary)',
+                        color: m.state === 'closed' ? 'var(--muted-foreground)' : 'var(--primary-foreground)',
                       }}
                     >
                       {new Date(m.due_on as number).toLocaleDateString()} · {progress}%

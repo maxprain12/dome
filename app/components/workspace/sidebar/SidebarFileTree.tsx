@@ -1,8 +1,17 @@
 /** Sidebar file tree: recursive TreeNode + FileTree (03/T02 — extracted from UnifiedSidebar.tsx). */
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+  Search01Icon,
+  Folder01Icon,
+  FolderOpenIcon,
+  Cancel01Icon,
+  MoreHorizontalIcon,
+  CheckIcon,
+} from '@hugeicons/core-free-icons';
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Search, Folder, FolderOpen, X, MoreHorizontal, Check } from 'lucide-react';
 import type { Resource } from '@/lib/hooks/useResources';
 import { useTabStore } from '@/lib/store/useTabStore';
 import MoveToProjectModal from '@/components/workspace/MoveToProjectModal';
@@ -11,7 +20,7 @@ import SelectionActionBar from '@/components/home/SelectionActionBar';
 import { filterMoveProjectRoots } from '@/lib/workspace/filterMoveProjectRoots';
 import { useAppStore } from '@/lib/store/useAppStore';
 
-import DomeResourceIcon from '@/components/ui/DomeResourceIcon';
+import ResourceIcon from '@/components/shared/ResourceIcon';
 import { pickFolderColor, parseMeta, getFolderColor, buildTree, type TreeNodeData, type CtxState } from './sidebarHelpers';
 import ContextMenu from './SidebarContextMenu';
 import { BulkDeleteConfirmModal, DeleteConfirmModal, NewFolderModal } from './SidebarModals';
@@ -72,15 +81,15 @@ export function TreeNode({
     if (e.key === 'Escape') onRenameCancel();
   };
 
-  const folderColor = isFolder && node.resource ? getFolderColor(node.resource) : 'var(--dome-accent)';
+  const folderColor = isFolder && node.resource ? getFolderColor(node.resource) : 'var(--primary)';
 
   const isSelected = selectedIds?.has(node.id) ?? false;
   const inSelectionMode = Boolean(onToggleSelect);
 
   let rowBg = 'transparent';
-  if (isSelected) rowBg = 'color-mix(in srgb, var(--dome-accent) 10%, transparent)';
+  if (isSelected) rowBg = 'color-mix(in srgb, var(--primary) 10%, transparent)';
   else if (isDragOver && isFolder) rowBg = `${folderColor}22`;
-  else if (hovered) rowBg = 'var(--dome-bg-hover)';
+  else if (hovered) rowBg = 'var(--accent)';
 
   return (
     <div>
@@ -92,7 +101,7 @@ export function TreeNode({
           height: 28,
           background: rowBg,
           minWidth: 0,
-          outline: isSelected ? '1px solid color-mix(in srgb, var(--dome-accent) 40%, transparent)' : isDragOver && isFolder ? `1.5px dashed ${folderColor}` : 'none',
+          outline: isSelected ? '1px solid color-mix(in srgb, var(--primary) 40%, transparent)' : isDragOver && isFolder ? `1.5px dashed ${folderColor}` : 'none',
           outlineOffset: -1,
         }}
         draggable={!isRenaming && !inSelectionMode}
@@ -114,8 +123,8 @@ export function TreeNode({
             className="shrink-0 flex items-center justify-center rounded mr-1 transition-colors"
             style={{
               width: 14, height: 14,
-              border: `1.5px solid ${isSelected ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-              background: isSelected ? 'var(--dome-accent)' : 'var(--dome-bg)',
+              border: `1.5px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+              background: isSelected ? 'var(--primary)' : 'var(--background)',
               flexShrink: 0,
             }}
             aria-checked={isSelected}
@@ -132,11 +141,11 @@ export function TreeNode({
           type="button"
           onClick={inSelectionMode ? () => onToggleSelect!(node.id) : handleClick}
           className="flex items-center flex-1 text-left min-w-0"
-          style={{ gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: hovered ? 'var(--dome-text)' : 'var(--dome-text-secondary)', padding: 0, minWidth: 0 }}
+          style={{ gap: 5, background: 'none', border: 'none', cursor: 'pointer', color: hovered ? 'var(--foreground)' : 'var(--muted-foreground)', padding: 0, minWidth: 0 }}
         >
           <span className="shrink-0 flex items-center justify-center" style={{ width: 14, height: 14 }}>
             {isFolder
-              ? <ChevronDown className={`size-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
+              ? <HugeiconsIcon icon={ChevronDownIcon} className={`size-3 transition-transform ${isExpanded ? '' : '-rotate-90'}`} strokeWidth={2.5} />
               : null}
           </span>
 
@@ -144,14 +153,14 @@ export function TreeNode({
           {isFolder ? (
             <span className="shrink-0 relative flex items-center justify-center">
               {isExpanded && hasChildren ? (
-                <FolderOpen className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
+                <HugeiconsIcon icon={FolderOpenIcon} className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
               ) : (
-                <Folder className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
+                <HugeiconsIcon icon={Folder01Icon} className="size-3.5" style={{ color: folderColor }} strokeWidth={1.75} fill={`${folderColor}33`} />
               )}
             </span>
           ) : (
-            <span className="shrink-0" style={{ color: 'var(--dome-text-muted)' }}>
-              <DomeResourceIcon type={node.type} name={node.name} size={14} className="size-3.5" strokeWidth={1.75} />
+            <span className="shrink-0 text-muted-foreground">
+              <ResourceIcon type={node.type} name={node.name} size={14} className="size-3.5" strokeWidth={1.75} />
             </span>
           )}
 
@@ -166,7 +175,7 @@ export function TreeNode({
               onClick={(e) => e.stopPropagation()}
               aria-label="Rename"
               className="flex-1 outline-none rounded px-1"
-              style={{ fontSize: 12, background: 'var(--dome-surface)', border: '1px solid var(--dome-accent)', color: 'var(--dome-text)', minWidth: 0 }}
+              style={{ fontSize: 12, background: 'var(--card)', border: '1px solid var(--primary)', color: 'var(--foreground)', minWidth: 0 }}
             />
           ) : (
             <span className="truncate flex-1 dome-fs-tree-name" style={{ fontSize: 12, fontWeight: isFolder ? 500 : 400 }}>{node.name}</span>
@@ -178,17 +187,17 @@ export function TreeNode({
             type="button"
             onClick={(e) => { e.stopPropagation(); if (node.resource) onContextMenu(e, node.resource); }}
             className="shrink-0 flex items-center justify-center rounded-md transition-all"
-            style={{ width: 20, height: 20, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--dome-text-muted)', flexShrink: 0 }}
+            style={{ width: 20, height: 20, background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--muted-foreground)', flexShrink: 0 }}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg)';
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text)';
+              (e.currentTarget as HTMLButtonElement).style.background = 'var(--background)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--foreground)';
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-              (e.currentTarget as HTMLButtonElement).style.color = 'var(--dome-text-muted)';
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted-foreground)';
             }}
           >
-            <MoreHorizontal className="size-3.5" />
+            <HugeiconsIcon icon={MoreHorizontalIcon} className="size-3.5" />
           </button>
         )}
       </div>
@@ -196,7 +205,7 @@ export function TreeNode({
       {isExpanded && hasChildren && (
         // Constant per-level offset (containers nest, so indentation stays
         // linear even in deep trees); the guide line sits under the chevron.
-        <div style={{ borderLeft: '1px solid var(--dome-border)', marginLeft: 13, minWidth: 0 }}>
+        <div style={{ borderLeft: '1px solid var(--border)', marginLeft: 13, minWidth: 0 }}>
           {node.children!.map((child) => (
             <TreeNode
               key={child.id}
@@ -520,14 +529,14 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
     <div className="flex flex-col h-full">
       {/* Search + selection toggle */}
       <div className="px-3 pt-2 pb-1.5 flex items-center gap-1.5">
-        <div className="flex-1 flex items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)' }}>
-          <Search className="size-3 shrink-0" style={{ color: 'var(--dome-text-muted)' }} strokeWidth={2} />
+        <div className="flex-1 flex items-center gap-1.5 rounded px-2" style={{ height: 26, background: 'var(--accent)', border: '1px solid var(--border)' }}>
+          <HugeiconsIcon icon={Search01Icon} className="size-3 shrink-0 text-muted-foreground" strokeWidth={2} />
           <input
             type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
             placeholder={t('workspace.search_workspace')}
             aria-label={t('workspace.search_workspace')}
             className="flex-1 bg-transparent outline-none border-none"
-            style={{ fontSize: 12, color: 'var(--dome-text)', caretColor: 'var(--dome-accent)' }}
+            style={{ fontSize: 12, color: 'var(--foreground)', caretColor: 'var(--primary)' }}
           />
         </div>
         {!selectionMode ? (
@@ -536,9 +545,9 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
             title={t('common.select')}
             onClick={() => setSelectionMode(true)}
             className="shrink-0 flex items-center justify-center rounded"
-            style={{ width: 24, height: 26, background: 'var(--dome-bg-hover)', border: '1px solid var(--dome-border)', cursor: 'pointer', color: 'var(--dome-text-muted)' }}
+            style={{ width: 24, height: 26, background: 'var(--accent)', border: '1px solid var(--border)', cursor: 'pointer', color: 'var(--muted-foreground)' }}
           >
-            <Check className="size-3" />
+            <HugeiconsIcon icon={CheckIcon} className="size-3" />
           </button>
         ) : (
           <button
@@ -546,9 +555,9 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
             title={t('common.cancel')}
             onClick={exitSelectionMode}
             className="shrink-0 flex items-center justify-center rounded"
-            style={{ width: 24, height: 26, background: 'color-mix(in srgb, var(--dome-accent) 12%, transparent)', border: '1px solid var(--dome-accent)', cursor: 'pointer', color: 'var(--dome-accent)' }}
+            style={{ width: 24, height: 26, background: 'color-mix(in srgb, var(--primary) 12%, transparent)', border: '1px solid var(--primary)', cursor: 'pointer', color: 'var(--primary)' }}
           >
-            <X className="size-3" />
+            <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
           </button>
         )}
       </div>
@@ -569,7 +578,7 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         </div>
       ) : selectionMode ? (
         <div className="px-3 pb-1.5 flex items-center gap-1.5">
-          <span className="flex-1 text-[12px]" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="flex-1 text-[12px] text-muted-foreground">
             {t('common.select')}
           </span>
         </div>
@@ -582,12 +591,12 @@ export default function FileTree({ resources, onRefresh, autoExpandFolderIds = [
         onDragLeave={() => setRootDragOver(false)}
         onDrop={(e) => void handleRootDrop(e)}
         style={{
-          outline: rootDragOver ? '1.5px dashed var(--dome-accent)' : 'none',
+          outline: rootDragOver ? '1.5px dashed var(--primary)' : 'none',
           outlineOffset: -2,
         }}
       >
         {filteredTree.length === 0 ? (
-          <p className="text-center py-4" style={{ fontSize: 12, color: 'var(--dome-text-muted)' }}>
+          <p className="text-center py-4" style={{ fontSize: 12, color: 'var(--muted-foreground)' }}>
             {t('ui.no_results')}
           </p>
         ) : (

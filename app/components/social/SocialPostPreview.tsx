@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Heart, MessageCircle, Send, Repeat2, ThumbsUp, Share2, Film, ImageIcon, Globe, Bookmark } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Bookmark01Icon, BubbleChatIcon, Film01Icon, GlobeIcon, HeartIcon, Image01Icon, RepeatIcon, SentIcon, Share08Icon, ThumbsUpIcon } from '@hugeicons/core-free-icons';
 import type { SocialAccount, SocialMediaItem, SocialProvider } from '@/components/social/socialTypes';
 
 export type SocialPostFormat = 'post' | 'image' | 'carousel' | 'article' | 'reel' | 'video';
@@ -49,7 +50,7 @@ function Avatar({ name, size = 32 }: { name: string; size?: number }) {
       style={{
         width: size,
         height: size,
-        background: 'var(--dome-accent)',
+        background: 'var(--primary)',
         color: 'white',
         fontSize: size * 0.42,
       }}
@@ -80,7 +81,7 @@ function MediaThumb({
   return (
     <div
       className={`flex items-center justify-center overflow-hidden ${className ?? ''}`}
-      style={{ background: 'var(--dome-bg-tertiary, var(--dome-bg-secondary))', ...style }}
+      style={{ background: 'var(--muted, var(--card))', ...style }}
     >
       {videoSrc && !failed ? (
         <video
@@ -94,9 +95,9 @@ function MediaThumb({
       ) : src && !failed ? (
         <img src={src} alt="" className="w-full h-full object-cover" onError={() => setFailedSrc(src)} />
       ) : isVideo ? (
-        <Film className="size-6" style={{ color: 'var(--dome-text-muted)' }} />
+        <HugeiconsIcon icon={Film01Icon} className="size-6 text-muted-foreground" />
       ) : (
-        <ImageIcon className="size-6" style={{ color: 'var(--dome-text-muted)' }} />
+        <HugeiconsIcon icon={Image01Icon} className="size-6 text-muted-foreground" />
       )}
     </div>
   );
@@ -144,13 +145,13 @@ export default function SocialPostPreview({ provider, format, body, media, linkU
     return (
       <div
         className="relative rounded-xl overflow-hidden mx-auto"
-        style={{ aspectRatio: '9/16', maxHeight: 380, width: 'auto', background: 'var(--dome-bg-tertiary, var(--dome-bg-secondary))', border: '1px solid var(--dome-border)' }}
+        style={{ aspectRatio: '9/16', maxHeight: 380, width: 'auto', background: 'var(--muted, var(--card))', border: '1px solid var(--border)' }}
       >
         <MediaThumb item={firstMedia} thumbnails={thumbnails} className="absolute inset-0" style={{ background: 'transparent' }} />
         {/* Right action rail */}
         <div className="absolute right-2 bottom-16 flex flex-col items-center gap-3">
-          {[Heart, MessageCircle, Send].map((Icon, i) => (
-            <Icon key={i} className="size-5" style={{ color: 'white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
+          {[HeartIcon, BubbleChatIcon, SentIcon].map((icon, i) => (
+            <HugeiconsIcon key={i} icon={icon} className="size-5" style={{ color: 'white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }} />
           ))}
         </div>
         {/* Bottom caption overlay */}
@@ -173,20 +174,20 @@ export default function SocialPostPreview({ provider, format, body, media, linkU
   // ── Instagram feed post: square card ──────────────────────────────────────
   if (provider === 'instagram') {
     return (
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}>
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--background)' }}>
         <div className="flex items-center gap-2 px-3 py-2">
           <Avatar name={name} size={26} />
-          <span className="text-xs font-semibold" style={{ color: 'var(--dome-text)' }}>{handle}</span>
+          <span className="text-xs font-semibold text-foreground">{handle}</span>
         </div>
         <MediaThumb item={firstMedia} thumbnails={thumbnails} style={{ aspectRatio: '1/1' }} />
-        <div className="px-3 py-2 space-y-1.5">
+        <div className="px-3 py-2 flex flex-col gap-1.5">
           <div className="flex items-center gap-3">
-            <Heart className="size-4" style={{ color: 'var(--dome-text)' }} />
-            <MessageCircle className="size-4" style={{ color: 'var(--dome-text)' }} />
-            <Send className="size-4" style={{ color: 'var(--dome-text)' }} />
-            <Bookmark className="size-4 ml-auto" style={{ color: 'var(--dome-text)' }} />
+            <HugeiconsIcon icon={HeartIcon} className="size-4 text-foreground" />
+            <HugeiconsIcon icon={BubbleChatIcon} className="size-4 text-foreground" />
+            <HugeiconsIcon icon={SentIcon} className="size-4 text-foreground" />
+            <HugeiconsIcon icon={Bookmark01Icon} className="size-4 ml-auto text-foreground" />
           </div>
-          <p className="text-xs leading-snug" style={{ color: 'var(--dome-text)' }}>
+          <p className="text-xs leading-snug text-foreground">
             <span className="font-semibold">{handle}</span>{' '}
             <span className="line-clamp-3">{text || t('social.preview.caption_placeholder')}</span>
           </p>
@@ -198,28 +199,28 @@ export default function SocialPostPreview({ provider, format, body, media, linkU
   // ── LinkedIn card ──────────────────────────────────────────────────────────
   if (provider === 'linkedin') {
     return (
-      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}>
+      <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border)', background: 'var(--background)' }}>
         <div className="flex items-start gap-2 px-3 pt-3">
           <Avatar name={name} size={34} />
           <div className="min-w-0">
-            <div className="text-xs font-semibold truncate" style={{ color: 'var(--dome-text)' }}>{name}</div>
-            <div className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>
-              {t('social.preview.now')} · <Globe className="size-2.5" />
+            <div className="text-xs font-semibold truncate text-foreground">{name}</div>
+            <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+              {t('social.preview.now')} · <HugeiconsIcon icon={GlobeIcon} className="size-2.5" />
             </div>
           </div>
         </div>
-        <p className="px-3 pt-2 text-xs leading-snug whitespace-pre-wrap line-clamp-5" style={{ color: 'var(--dome-text)' }}>
+        <p className="px-3 pt-2 text-xs leading-snug whitespace-pre-wrap line-clamp-5 text-foreground">
           {text || t('social.preview.text_placeholder')}
         </p>
         <div className="px-3 pb-1">
           {format === 'article' && linkUrl ? (
-            <div className="rounded-lg overflow-hidden mt-2" style={{ border: '1px solid var(--dome-border)' }}>
-              <div style={{ aspectRatio: '1.91/1', background: 'var(--dome-bg-tertiary, var(--dome-bg-secondary))' }} className="flex items-center justify-center">
-                <Globe className="size-6" style={{ color: 'var(--dome-text-muted)' }} />
+            <div className="rounded-lg overflow-hidden mt-2" style={{ border: '1px solid var(--border)' }}>
+              <div style={{ aspectRatio: '1.91/1', background: 'var(--muted, var(--card))' }} className="flex items-center justify-center">
+                <HugeiconsIcon icon={GlobeIcon} className="size-6 text-muted-foreground" />
               </div>
-              <div className="px-2.5 py-1.5" style={{ background: 'var(--dome-bg-secondary)' }}>
-                <div className="text-[11px] font-semibold truncate" style={{ color: 'var(--dome-text)' }}>{linkDomain(linkUrl)}</div>
-                <div className="text-[10px]" style={{ color: 'var(--dome-text-muted)' }}>{linkUrl.slice(0, 60)}</div>
+              <div className="px-2.5 py-1.5" style={{ background: 'var(--card)' }}>
+                <div className="text-[11px] font-semibold truncate text-foreground">{linkDomain(linkUrl)}</div>
+                <div className="text-[10px] text-muted-foreground">{linkUrl.slice(0, 60)}</div>
               </div>
             </div>
           ) : format === 'carousel' ? (
@@ -240,12 +241,12 @@ export default function SocialPostPreview({ provider, format, body, media, linkU
         </div>
         <div
           className="flex items-center justify-around px-3 py-1.5 mt-1 text-[10px]"
-          style={{ borderTop: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
+          style={{ borderTop: '1px solid var(--border)', color: 'var(--muted-foreground)' }}
         >
-          <span className="flex items-center gap-1"><ThumbsUp className="size-3" />{t('social.preview.like')}</span>
-          <span className="flex items-center gap-1"><MessageCircle className="size-3" />{t('social.preview.comment')}</span>
-          <span className="flex items-center gap-1"><Repeat2 className="size-3" />{t('social.preview.repost')}</span>
-          <span className="flex items-center gap-1"><Send className="size-3" />{t('social.preview.send')}</span>
+          <span className="flex items-center gap-1"><HugeiconsIcon icon={ThumbsUpIcon} className="size-3" />{t('social.preview.like')}</span>
+          <span className="flex items-center gap-1"><HugeiconsIcon icon={BubbleChatIcon} className="size-3" />{t('social.preview.comment')}</span>
+          <span className="flex items-center gap-1"><HugeiconsIcon icon={RepeatIcon} className="size-3" />{t('social.preview.repost')}</span>
+          <span className="flex items-center gap-1"><HugeiconsIcon icon={SentIcon} className="size-3" />{t('social.preview.send')}</span>
         </div>
       </div>
     );
@@ -253,35 +254,35 @@ export default function SocialPostPreview({ provider, format, body, media, linkU
 
   // ── X tweet card ───────────────────────────────────────────────────────────
   return (
-    <div className="rounded-xl px-3 py-3" style={{ border: '1px solid var(--dome-border)', background: 'var(--dome-bg)' }}>
+    <div className="rounded-xl px-3 py-3" style={{ border: '1px solid var(--border)', background: 'var(--background)' }}>
       <div className="flex items-start gap-2">
         <Avatar name={name} size={32} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 text-xs">
-            <span className="font-bold truncate" style={{ color: 'var(--dome-text)' }}>{name}</span>
-            <span className="truncate" style={{ color: 'var(--dome-text-muted)' }}>{handle} · {t('social.preview.now')}</span>
+            <span className="font-bold truncate text-foreground">{name}</span>
+            <span className="truncate text-muted-foreground">{handle} · {t('social.preview.now')}</span>
           </div>
-          <p className="text-xs leading-snug whitespace-pre-wrap mt-0.5" style={{ color: 'var(--dome-text)' }}>
+          <p className="text-xs leading-snug whitespace-pre-wrap mt-0.5 text-foreground">
             {text || t('social.preview.text_placeholder')}
-            {linkUrl ? <span style={{ color: 'var(--dome-accent)' }}> {linkUrl.slice(0, 40)}</span> : null}
+            {linkUrl ? <span className="text-primary"> {linkUrl.slice(0, 40)}</span> : null}
           </p>
           {format === 'video' ? (
             <div className="rounded-lg overflow-hidden mt-2 relative" style={{ aspectRatio: '16/9' }}>
               <MediaThumb item={media.find((m) => m.type === 'video') ?? firstMedia} thumbnails={thumbnails} className="absolute inset-0" />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="rounded-full p-2.5" style={{ background: 'rgba(0,0,0,0.55)' }}>
-                  <Film className="size-4" style={{ color: 'white' }} />
+                  <HugeiconsIcon icon={Film01Icon} className="size-4" style={{ color: 'white' }} />
                 </div>
               </div>
             </div>
           ) : (
             <MediaGrid media={format === 'image' ? media : []} thumbnails={thumbnails} max={4} />
           )}
-          <div className="flex items-center justify-between mt-2 pr-6" style={{ color: 'var(--dome-text-muted)' }}>
-            <MessageCircle className="size-3.5" />
-            <Repeat2 className="size-3.5" />
-            <Heart className="size-3.5" />
-            <Share2 className="size-3.5" />
+          <div className="flex items-center justify-between mt-2 pr-6 text-muted-foreground">
+            <HugeiconsIcon icon={BubbleChatIcon} className="size-3.5" />
+            <HugeiconsIcon icon={RepeatIcon} className="size-3.5" />
+            <HugeiconsIcon icon={HeartIcon} className="size-3.5" />
+            <HugeiconsIcon icon={Share08Icon} className="size-3.5" />
           </div>
         </div>
       </div>

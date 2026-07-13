@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  AlertCircle,
-  ExternalLink,
-  Loader2,
-  RefreshCw,
-  Circle,
-  CircleDot,
-} from 'lucide-react';
+  AlertCircleIcon,
+  ExternalLinkIcon,
+  Loading03Icon,
+  RefreshIcon,
+  CircleIcon,
+  CircleDotIcon,
+} from '@hugeicons/core-free-icons';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { type Resource } from '@/types';
-import LoadingState from '@/components/ui/LoadingState';
-import ErrorState from '@/components/ui/ErrorState';
+import ListState from '@/components/shared/ListState';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import { useMountAction } from '@/lib/hooks/useMountAction';
 
@@ -63,15 +63,15 @@ function urlPipelineStep(done: boolean, active: boolean, label: string) {
   return (
     <div className="flex items-center gap-2 min-w-0">
       {active ? (
-        <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+        <HugeiconsIcon icon={Loading03Icon} className="size-4 shrink-0 animate-spin text-primary" aria-hidden />
       ) : done ? (
-        <CircleDot className="size-4 shrink-0" style={{ color: 'var(--dome-accent)' }} aria-hidden />
+        <HugeiconsIcon icon={CircleDotIcon} className="size-4 shrink-0 text-primary" aria-hidden />
       ) : (
-        <Circle className="size-4 shrink-0" style={{ color: 'var(--dome-border)' }} aria-hidden />
+        <HugeiconsIcon icon={CircleIcon} className="size-4 shrink-0" style={{ color: 'var(--border)' }} aria-hidden />
       )}
       <span
         className="text-xs font-medium truncate"
-        style={{ color: active || done ? 'var(--dome-text)' : 'var(--dome-text-muted)' }}
+        style={{ color: active || done ? 'var(--foreground)' : 'var(--muted-foreground)' }}
       >
         {label}
       </span>
@@ -220,33 +220,32 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
   };
 
   if (error && !effectiveUrl) {
-    return <ErrorState error={error} onRetry={() => { void onRunUrlProcess(); }} />;
+    return <ListState variant="error" errorMessage={error} onRetry={() => { void onRunUrlProcess(); }} fullHeight />;
   }
 
   return (
-    <div ref={mountRef} className="flex flex-col flex-1 min-h-0 w-full" style={{ background: 'var(--dome-bg)' }}>
+    <div ref={mountRef} className="flex flex-col flex-1 min-h-0 w-full bg-background">
       {isLoading && !error ? (
-        <LoadingState message={t('viewer.loading_url')} />
+        <ListState variant="loading" loadingLabel={t('viewer.loading_url')} fullHeight />
       ) : (
         <>
       {/* Unified in-view chrome: one light row; all URL actions live here */}
       <div
         className="shrink-0 flex items-center justify-between gap-3 px-4 py-2.5 border-b"
         style={{
-          borderColor: 'var(--dome-border)',
-          background: 'var(--dome-bg)',
+          borderColor: 'var(--border)',
+          background: 'var(--background)',
         }}
       >
         <div className="min-w-0 flex items-baseline gap-2">
-          <span className="text-xs font-medium truncate" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-xs font-medium truncate text-muted-foreground">
             {hostname || t('viewer.web_page_context')}
           </span>
           {effectiveUrl && (
             <button
               type="button"
               onClick={openOriginal}
-              className="text-xs truncate max-w-[min(100%,280px)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)] rounded"
-              style={{ color: 'var(--dome-accent)' }}
+              className="text-xs truncate max-w-[min(100%,280px)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded text-primary"
               title={effectiveUrl}
             >
               {t('viewer.web_open_original')}
@@ -255,7 +254,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {isBusy && (
-            <span className="text-xs mr-1 hidden sm:inline" style={{ color: 'var(--dome-text-muted)' }}>
+            <span className="text-xs mr-1 hidden sm:inline text-muted-foreground">
               {t('viewer.web_step_extracting')}…
             </span>
           )}
@@ -263,23 +262,22 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             type="button"
             onClick={() => { void onRunUrlProcess(); }}
             disabled={isBusy}
-            className="p-2 rounded-lg transition-colors hover:bg-[var(--dome-bg-hover)] disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-            style={{ color: 'var(--dome-text-muted)' }}
+            className="p-2 rounded-lg transition-colors hover:bg-accent disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            style={{ color: 'var(--muted-foreground)' }}
             title={t('viewer.web_reextract')}
             aria-label={t('viewer.web_reextract_aria')}
           >
-            <RefreshCw className={`size-4 ${isBusy ? 'animate-spin' : ''}`} aria-hidden />
+            <HugeiconsIcon icon={RefreshIcon} className={`size-4 ${isBusy ? 'animate-spin' : ''}`} aria-hidden />
           </button>
           <button
             type="button"
             onClick={openOriginal}
             disabled={!effectiveUrl}
-            className="p-2 rounded-lg transition-colors hover:bg-[var(--dome-bg-hover)] disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-            style={{ color: 'var(--dome-text-muted)' }}
+            className="p-2 rounded-lg transition-colors hover:bg-accent disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-muted-foreground"
             title={t('viewer.open_in_browser')}
             aria-label={t('viewer.open_in_browser')}
           >
-            <ExternalLink className="size-4" aria-hidden />
+            <HugeiconsIcon icon={ExternalLinkIcon} className="size-4" aria-hidden />
           </button>
         </div>
       </div>
@@ -288,55 +286,55 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
         <div className="max-w-3xl mx-auto px-4 sm:p-6 space-y-6">
           {processingStatus === 'processing' || (processingStatus === 'pending' && isBusy) ? (
             <div className="space-y-6">
-              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 {t('viewer.web_pipeline_title')}
               </p>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {urlPipelineStep(true, false, t('viewer.web_step_saved'))}
-                <span style={{ color: 'var(--dome-border)' }} aria-hidden>—</span>
+                <span style={{ color: 'var(--border)' }} aria-hidden>—</span>
                 {urlPipelineStep(false, true, t('viewer.web_step_extracting'))}
-                <span style={{ color: 'var(--dome-border)' }} aria-hidden>—</span>
+                <span style={{ color: 'var(--border)' }} aria-hidden>—</span>
                 {urlPipelineStep(false, false, t('viewer.web_step_ready'))}
               </div>
-              <LoadingState message={t('viewer.processing_content')} />
+              <ListState variant="loading" loadingLabel={t('viewer.processing_content')} fullHeight />
             </div>
           ) : processingStatus === 'failed' ? (
             <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
-              <AlertCircle className="size-12" style={{ color: 'var(--dome-error)' }} aria-hidden />
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+              <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-destructive" aria-hidden />
+              <h2 className="text-lg font-semibold text-foreground">
                 {t('viewer.scrape_status_failed')}
               </h2>
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-sm text-muted-foreground">
                 {t('viewer.content_not_processed_desc')}
               </p>
               {scrapeError && (
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs text-muted-foreground">
                   {scrapeError}
                 </p>
               )}
               <button
                 type="button"
                 onClick={() => { void onRunUrlProcess(); }}
-                className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-                style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
               >
                 {t('viewer.reprocess')}
               </button>
             </div>
           ) : processingStatus !== 'completed' ? (
             <div className="flex flex-col items-center justify-center py-14 text-center space-y-4 max-w-md mx-auto">
-              <AlertCircle className="size-12" style={{ color: 'var(--warning)' }} aria-hidden />
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--dome-text)' }}>
+              <HugeiconsIcon icon={AlertCircleIcon} className="size-12 text-[var(--warning)]" aria-hidden />
+              <h2 className="text-lg font-semibold text-foreground">
                 {t('viewer.content_not_processed')}
               </h2>
-              <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+              <p className="text-sm text-muted-foreground">
                 {t('viewer.content_not_processed_desc')}
               </p>
               <button
                 type="button"
                 onClick={() => { void onRunUrlProcess(); }}
-                className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--dome-accent)]"
-                style={{ background: 'var(--dome-accent)', color: 'var(--base-text)' }}
+                className="px-4 py-2.5 rounded-lg text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                style={{ background: 'var(--primary)', color: 'var(--primary-foreground)' }}
               >
                 {t('viewer.process_now')}
               </button>
@@ -345,12 +343,12 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
             <article
               className="rounded-2xl border overflow-hidden"
               style={{
-                borderColor: 'var(--dome-border)',
-                background: 'var(--dome-surface)',
+                borderColor: 'var(--border)',
+                background: 'var(--card)',
               }}
             >
               {previewImage && (
-                <div className="border-b" style={{ borderColor: 'var(--dome-border)' }}>
+                <div className="border-b border-border">
                   <img
                     src={previewImage}
                     alt=""
@@ -361,22 +359,22 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
               <div className="px-5 py-6 sm:p-8 space-y-5">
                 <header className="space-y-2">
-                  <h1 className="text-xl sm:text-2xl font-semibold font-display leading-tight" style={{ color: 'var(--dome-text)' }}>
+                  <h1 className="text-xl sm:text-2xl font-semibold font-display leading-tight text-foreground">
                     {displayTitle}
                   </h1>
                   {bylineParts.length > 0 && (
-                    <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+                    <p className="text-sm text-muted-foreground">
                       {bylineParts.join(' · ')}
                     </p>
                   )}
                   {article.description && (
-                    <p className="text-sm leading-relaxed pt-1" style={{ color: 'var(--dome-text-muted)' }}>
+                    <p className="text-sm leading-relaxed pt-1 text-muted-foreground">
                       {article.description}
                     </p>
                   )}
                 </header>
 
-                <div className="h-px w-full" style={{ background: 'var(--dome-border)' }} />
+                <div className="h-px w-full bg-border" />
 
                 <section aria-label={t('viewer.web_reading_label')}>
                   {scrapedContent ? (
@@ -384,7 +382,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                       <MarkdownRenderer content={scrapedContent} />
                     </div>
                   ) : (
-                    <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+                    <p className="text-sm text-muted-foreground">
                       {t('viewer.no_content')}
                     </p>
                   )}
@@ -392,13 +390,13 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
 
                 <footer
                   className="pt-4 mt-2 border-t space-y-3 text-sm"
-                  style={{ borderColor: 'var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                  style={{ borderColor: 'var(--border)', color: 'var(--muted-foreground)' }}
                 >
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--dome-text-muted)' }}>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                     {t('viewer.web_details')}
                   </p>
                   {processedAt && (
-                    <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                    <p className="text-xs text-muted-foreground">
                       {t('viewer.web_extracted_at', { date: processedAt })}
                     </p>
                   )}
@@ -410,8 +408,7 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                           <button
                             type="button"
                             onClick={openOriginal}
-                            className="text-left break-all underline-offset-2 hover:underline"
-                            style={{ color: 'var(--dome-accent)' }}
+                            className="text-left break-all underline-offset-2 hover:underline text-primary"
                           >
                             {effectiveUrl}
                           </button>
@@ -421,19 +418,19 @@ function URLViewerComponent({ resource, onRunUrlProcess, pageUrl, processBusy }:
                     {safeUrlDate(article.published_date) && (
                       <>
                         <dt>{t('viewer.published')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{safeUrlDate(article.published_date)}</dd>
+                        <dd className="text-foreground">{safeUrlDate(article.published_date)}</dd>
                       </>
                     )}
                     {safeUrlDate(article.modified_date) && (
                       <>
                         <dt>{t('viewer.date_modified')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{safeUrlDate(article.modified_date)}</dd>
+                        <dd className="text-foreground">{safeUrlDate(article.modified_date)}</dd>
                       </>
                     )}
                     {article.tags && (
                       <>
                         <dt>{t('viewer.web_tags')}</dt>
-                        <dd style={{ color: 'var(--dome-text)' }}>{article.tags}</dd>
+                        <dd className="text-foreground">{article.tags}</dd>
                       </>
                     )}
                   </dl>

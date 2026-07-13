@@ -1,11 +1,16 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Home01Icon,
+  Folder01Icon,
+  File02Icon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useRef, useMemo, type RefObject } from 'react';
 import type { TFunction } from 'i18next';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { enUS, es, fr, ptBR } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
-import { Home, Folder, FileText } from 'lucide-react';
 import MarkdownNoteEditor, {
   type MarkdownNoteEditorHandle,
 } from '@/components/markdown/MarkdownNoteEditor';
@@ -145,7 +150,7 @@ function renderEditorBlock(args: EditorBlockArgs) {
         />
       </div>
       {args.saveError ? (
-        <div role="alert" className="px-4 pb-6 text-xs" style={{ color: 'var(--dome-error)' }}>
+        <div role="alert" className="px-4 pb-6 text-xs text-destructive">
           {args.saveError}
         </div>
       ) : null}
@@ -532,29 +537,29 @@ export default function MarkdownNoteWorkspace({
     const projectName = projectLabel.trim() || t('notes.folder_unfiled');
     const segments: ActionBarCrumbSegment[] = [
       {
-        icon: <Home size={13} strokeWidth={2} />,
+        icon: <HugeiconsIcon icon={Home01Icon} size={13} strokeWidth={2} />,
         label: t('notes.workspace_nav'),
         onClick: () => useTabStore.getState().activateTab(HOME_TAB_ID),
       },
       {
-        icon: <Folder size={13} strokeWidth={2} />,
+        icon: <HugeiconsIcon icon={Folder01Icon} size={13} strokeWidth={2} />,
         label: projectName,
         onClick: resource.project_id
-          ? () => openFolderTab(resource.project_id, projectName, 'var(--dome-accent)', resource.project_id)
+          ? () => openFolderTab(resource.project_id, projectName, 'var(--primary)', resource.project_id)
           : undefined,
       },
     ];
 
     for (const folder of folderPath) {
       segments.push({
-        icon: <Folder size={13} strokeWidth={2} />,
+        icon: <HugeiconsIcon icon={Folder01Icon} size={13} strokeWidth={2} />,
         label: folder.title,
         onClick: () => openFolderTab(folder.id, folder.title, undefined, resource.project_id),
       });
     }
 
     segments.push({
-      icon: <FileText size={13} strokeWidth={2} />,
+      icon: <HugeiconsIcon icon={File02Icon} size={13} strokeWidth={2} />,
       label: t('notes.crumb_note'),
       current: true,
     });
@@ -564,7 +569,7 @@ export default function MarkdownNoteWorkspace({
 
   if (loading) {
     return (
-      <div className="flex flex-1 items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex flex-1 items-center justify-center h-full text-muted-foreground">
         <span className="text-sm">{t('common.loading')}</span>
       </div>
     );
@@ -572,7 +577,7 @@ export default function MarkdownNoteWorkspace({
 
   if (error || !resource) {
     return (
-      <div className="flex flex-1 items-center justify-center h-full" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex flex-1 items-center justify-center h-full text-muted-foreground">
         <span className="text-sm">{error ?? 'Note not found'}</span>
       </div>
     );
@@ -610,9 +615,8 @@ export default function MarkdownNoteWorkspace({
   if (compact) {
     return (
       <div
-        className="note-area flex flex-col h-full min-h-0 overflow-hidden"
+        className="note-area flex flex-col h-full min-h-0 overflow-hidden bg-background"
         data-note-mode="standard"
-        style={{ background: 'var(--dome-bg)' }}
       >
         <div className="note-scroll flex-1 overflow-y-auto min-h-0">
           <div className="note-doc">
@@ -638,7 +642,7 @@ export default function MarkdownNoteWorkspace({
     <div
       className={`note-area flex flex-col h-full min-h-0 overflow-hidden${isPopout ? ' note-area--popout' : ''}`}
       data-note-mode={viewMode === 'focused' ? 'focused' : 'standard'}
-      style={{ background: 'var(--dome-bg)' }}
+      style={{ background: 'var(--background)' }}
     >
       <NoteActionBar
         crumbs={crumbs}

@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import {
   useCallback,
   useEffect,
@@ -8,8 +9,11 @@ import {
   type CSSProperties,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { AtSign } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { AtSignIcon } from '@hugeicons/core-free-icons';
 import { getCaretCoordinates } from '@/lib/dom/getCaretCoordinates';
+import { Textarea } from '@/components/ui/textarea';
+import { useTranslation } from 'react-i18next';
 
 export interface Mentionable {
   login: string;
@@ -58,6 +62,7 @@ export default function MentionTextarea({
   className?: string;
   style?: CSSProperties;
 }) {
+  const { t } = useTranslation();
   const ref = useRef<HTMLTextAreaElement>(null);
   const [query, setQuery] = useState<string | null>(null);
   const [active, setActive] = useState(0);
@@ -225,7 +230,7 @@ export default function MentionTextarea({
           const isActive = i === active;
           return (
             <li key={u.login} role="option" aria-selected={isActive}>
-              <button
+              <Button
                 type="button"
                 className={
                   'dome-mention-popup__item'
@@ -251,11 +256,11 @@ export default function MentionTextarea({
                 <span className="dome-mention-popup__login">@{u.login}</span>
                 {isFeatured && (
                   <span className="dome-mention-popup__badge">
-                    <AtSign size={9} />
-                    assignee
+                    <HugeiconsIcon icon={AtSignIcon} size={9} />
+                    {t('github.assignees')}
                   </span>
                 )}
-              </button>
+              </Button>
             </li>
           );
         })}
@@ -266,7 +271,7 @@ export default function MentionTextarea({
 
   return (
     <>
-      <textarea
+      <Textarea
         ref={ref}
         value={value}
         onChange={(e) => {

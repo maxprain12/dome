@@ -1,5 +1,16 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ChevronLeftIcon,
+  ZoomInAreaIcon,
+  ZoomOutAreaIcon,
+  LeftToRightListBulletIcon,
+  Image01Icon,
+  HighlighterIcon,
+  StickyNote02Icon,
+} from '@hugeicons/core-free-icons';
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronLeft, ZoomIn, ZoomOut, List, Image, Highlighter, StickyNote } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePDFViewerStore } from '@/lib/store/usePDFViewerStore';
 import PDFOutline from '../viewers/pdf/PDFOutline';
@@ -13,7 +24,7 @@ type SectionId = 'toc' | 'thumbnails' | 'highlights' | 'notes';
 // They are UI accent colors (not text/background colors) and need a proper design
 // treatment. Consider replacing with a dedicated annotation color palette if this
 // feature is expanded.
-const COLORS = ['var(--warning)', 'var(--success)', 'var(--accent)', 'var(--error)'];
+const COLORS = ['var(--warning)', 'var(--success)', 'var(--primary)', 'var(--destructive)'];
 
 export default function PDFTab() {
   const { t } = useTranslation();
@@ -23,16 +34,16 @@ export default function PDFTab() {
   );
 
   const SECTION_CONFIG: Array<{ id: SectionId; label: string; icon: React.ReactNode }> = [
-    { id: 'toc', label: t('viewer.toc'), icon: <List size={12} /> },
-    { id: 'thumbnails', label: t('viewer.pages'), icon: <Image size={12} /> },
-    { id: 'highlights', label: t('viewer.highlights'), icon: <Highlighter size={12} /> },
-    { id: 'notes', label: t('viewer.notes'), icon: <StickyNote size={12} /> },
+    { id: 'toc', label: t('viewer.toc'), icon: <HugeiconsIcon icon={LeftToRightListBulletIcon} size={12} /> },
+    { id: 'thumbnails', label: t('viewer.pages'), icon: <HugeiconsIcon icon={Image01Icon} size={12} /> },
+    { id: 'highlights', label: t('viewer.highlights'), icon: <HugeiconsIcon icon={HighlighterIcon} size={12} /> },
+    { id: 'notes', label: t('viewer.notes'), icon: <HugeiconsIcon icon={StickyNote02Icon} size={12} /> },
   ];
 
   if (!pdfState) {
     return (
       <div className="p-4 text-center">
-        <p className="text-sm" style={{ color: 'var(--tertiary-text)' }}>
+        <p className="text-sm text-muted-foreground">
           {t('viewer.loading_pdf')}
         </p>
       </div>
@@ -53,19 +64,18 @@ export default function PDFTab() {
       {/* Compact nav: page + zoom */}
       <div
         className="flex items-center gap-1 px-2 py-1.5 border-b shrink-0"
-        style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+        style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
       >
         <button
           type="button"
           onClick={() => pdfState.onPageChange(Math.max(1, pdfState.currentPage - 1))}
           disabled={pdfState.currentPage <= 1}
-          className="p-1 rounded disabled:opacity-40"
-          style={{ color: 'var(--secondary-text)' }}
+          className="p-1 rounded disabled:opacity-40 text-muted-foreground"
           aria-label={t('viewer.previous_page')}
         >
-          <ChevronLeft size={14} />
+          <HugeiconsIcon icon={ChevronLeftIcon} size={14} />
         </button>
-        <span className="text-xs flex-1 text-center" style={{ color: 'var(--primary-text)' }}>
+        <span className="text-xs flex-1 text-center text-foreground">
           {pdfState.currentPage} / {pdfState.totalPages}
         </span>
         <button
@@ -73,65 +83,62 @@ export default function PDFTab() {
           onClick={() => pdfState.onPageChange(Math.min(pdfState.totalPages, pdfState.currentPage + 1))}
           disabled={pdfState.currentPage >= pdfState.totalPages}
           className="p-1 rounded disabled:opacity-40"
-          style={{ color: 'var(--secondary-text)' }}
+          style={{ color: 'var(--muted-foreground)' }}
           aria-label={t('viewer.next_page')}
         >
-          <ChevronRight size={14} />
+          <HugeiconsIcon icon={ChevronRightIcon} size={14} />
         </button>
-        <div className="w-px h-4" style={{ background: 'var(--border)' }} />
+        <div className="w-px h-4 bg-border" />
         <button
           type="button"
           onClick={pdfState.onZoomOut}
-          className="p-1 rounded"
-          style={{ color: 'var(--secondary-text)' }}
+          className="p-1 rounded text-muted-foreground"
           aria-label={t('viewer.zoom_out')}
         >
-          <ZoomOut size={14} />
+          <HugeiconsIcon icon={ZoomOutAreaIcon} size={14} />
         </button>
-        <span className="text-xs w-8 text-center" style={{ color: 'var(--secondary-text)' }}>
+        <span className="text-xs w-8 text-center text-muted-foreground">
           {Math.round(pdfState.zoom * 100)}%
         </span>
         <button
           type="button"
           onClick={pdfState.onZoomIn}
-          className="p-1 rounded"
-          style={{ color: 'var(--secondary-text)' }}
+          className="p-1 rounded text-muted-foreground"
           aria-label={t('viewer.zoom_in')}
         >
-          <ZoomIn size={14} />
+          <HugeiconsIcon icon={ZoomInAreaIcon} size={14} />
         </button>
       </div>
 
       {/* Annotations: highlight + note + colors */}
       <div
-        className="flex items-center gap-1 px-2 py-1 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center gap-1 px-2 py-1 border-b shrink-0 border-border"
       >
         <button
           type="button"
           onClick={() => pdfState.onToolSelect(pdfState.activeTool === 'highlight' ? null : 'highlight')}
           className="p-1.5 rounded"
           style={{
-            background: pdfState.activeTool === 'highlight' ? 'var(--bg-tertiary)' : 'transparent',
-            color: pdfState.activeTool === 'highlight' ? 'var(--accent)' : 'var(--secondary-text)',
+            background: pdfState.activeTool === 'highlight' ? 'var(--muted)' : 'transparent',
+            color: pdfState.activeTool === 'highlight' ? 'var(--primary)' : 'var(--muted-foreground)',
           }}
           title={t('viewer.highlight')}
           aria-label={t('viewer.highlight')}
         >
-          <Highlighter size={14} />
+          <HugeiconsIcon icon={HighlighterIcon} size={14} />
         </button>
         <button
           type="button"
           onClick={() => pdfState.onToolSelect(pdfState.activeTool === 'note' ? null : 'note')}
           className="p-1.5 rounded"
           style={{
-            background: pdfState.activeTool === 'note' ? 'var(--bg-tertiary)' : 'transparent',
-            color: pdfState.activeTool === 'note' ? 'var(--accent)' : 'var(--secondary-text)',
+            background: pdfState.activeTool === 'note' ? 'var(--muted)' : 'transparent',
+            color: pdfState.activeTool === 'note' ? 'var(--primary)' : 'var(--muted-foreground)',
           }}
           title={t('viewer.note')}
           aria-label={t('viewer.note')}
         >
-          <StickyNote size={14} />
+          <HugeiconsIcon icon={StickyNote02Icon} size={14} />
         </button>
         {(pdfState.activeTool === 'highlight' || pdfState.activeTool === 'note') && (
           <div className="flex gap-0.5 ml-1">
@@ -143,7 +150,7 @@ export default function PDFTab() {
                 className="size-4 rounded border"
                 style={{
                   background: c,
-                  borderColor: pdfState.color === c ? 'var(--accent)' : 'var(--border)',
+                  borderColor: pdfState.color === c ? 'var(--primary)' : 'var(--border)',
                 }}
                 aria-label={`${t('viewer.color')} ${c}`}
               />
@@ -159,17 +166,16 @@ export default function PDFTab() {
           return (
             <div
               key={id}
-              className="border-b"
-              style={{ borderColor: 'var(--border)' }}
+              className="border-b border-border"
             >
               <button
                 type="button"
                 onClick={() => toggleSection(id)}
                 className="w-full flex items-center gap-2 px-2 py-1.5 text-left"
-                style={{ color: 'var(--secondary-text)' }}
+                style={{ color: 'var(--muted-foreground)' }}
                 title={label}
               >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                {isExpanded ? <HugeiconsIcon icon={ChevronDownIcon} size={12} /> : <HugeiconsIcon icon={ChevronRightIcon} size={12} />}
                 {icon}
                 <span className="text-xs">{label}</span>
               </button>

@@ -1,5 +1,8 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { Check } from 'lucide-react';
 import type { DailyGoalId } from '@/lib/hooks/dashboardGamification';
 import type { HomeGamification } from '@/lib/hooks/useDashboardData';
 
@@ -53,7 +56,7 @@ export function DailyGoals({
         >
           <div className="h-goal-head">
             <span className="ribbon">{t(RIBBON_KEYS[goal.id])}</span>
-            <span className="check">{goal.done ? <Check size={14} strokeWidth={2.2} /> : null}</span>
+            <span className="check">{goal.done ? <HugeiconsIcon icon={CheckIcon} size={14} strokeWidth={2.2} /> : null}</span>
           </div>
           <div className="title">{t(TITLE_KEYS[goal.id])}</div>
           <div className="sub">{t(SUB_KEYS[goal.id])}</div>

@@ -1,5 +1,10 @@
 
-import { X, Calendar } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Cancel01Icon,
+  Calendar03Icon,
+} from '@hugeicons/core-free-icons';
+import { Button } from '@/components/ui/button';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { TimelineData } from '@/types';
 import { useTranslation } from 'react-i18next';
@@ -15,22 +20,21 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
   const events = data.events;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border"
       >
         <div className="flex items-center gap-2">
-          <Calendar size={16} style={{ color: 'var(--dome-accent)' }} />
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
+          <HugeiconsIcon icon={Calendar03Icon} size={16} className="text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">
             {title || 'Timeline'}
           </h3>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
-            <X size={16} />
-          </button>
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+            <HugeiconsIcon icon={Cancel01Icon} size={16} />
+          </Button>
         )}
       </div>
 
@@ -39,8 +43,7 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
         <div className="max-w-2xl mx-auto relative">
           {/* Vertical line */}
           <div
-            className="absolute left-[19px] top-0 bottom-0 w-[2px]"
-            style={{ background: 'var(--border)' }}
+            className="absolute left-[19px] top-0 bottom-0 w-[2px] bg-border"
           />
 
           {events.map((event, index) => (
@@ -51,15 +54,15 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
                   className="size-10 rounded-full flex items-center justify-center"
                   style={{
                     background: index === 0
-                      ? 'var(--dome-accent)'
-                      : 'var(--bg-secondary)',
-                    border: `2px solid ${index === 0 ? 'var(--dome-accent)' : 'var(--border)'}`,
+                      ? 'var(--primary)'
+                      : 'var(--card)',
+                    border: `2px solid ${index === 0 ? 'var(--primary)' : 'var(--border)'}`,
                   }}
                 >
                   <span
                     className="text-xs font-bold"
                     style={{
-                      color: index === 0 ? 'var(--base-text)' : 'var(--secondary-text)',
+                      color: index === 0 ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                     }}
                   >
                     {index + 1}
@@ -70,21 +73,16 @@ export default function Timeline({ data, title, onClose }: TimelineProps) {
               {/* Content */}
               <div className="flex-1 pt-1">
                 <div
-                  className="text-xs font-medium mb-1"
-                  style={{ color: 'var(--dome-accent)' }}
+                  className="text-xs font-medium mb-1 text-primary"
                 >
                   {event.date}
                 </div>
                 <h4
-                  className="text-sm font-semibold mb-1"
-                  style={{ color: 'var(--primary-text)' }}
+                  className="text-sm font-semibold mb-1 text-foreground"
                 >
                   {event.title}
                 </h4>
-                <div
-                  className="text-sm leading-relaxed prose prose-sm max-w-none"
-                  style={{ color: 'var(--secondary-text)' }}
-                >
+                <div className="text-sm leading-relaxed">
                   <MarkdownRenderer content={event.description || ''} />
                 </div>
               </div>

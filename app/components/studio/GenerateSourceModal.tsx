@@ -1,38 +1,40 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  File,
-  Video,
-  Music,
-  Image,
-  Link2,
-  FolderOpen,
-  ChevronRight,
-  ChevronDown,
-  CheckSquare,
-  Square,
-  Loader2,
-} from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
+  File01Icon,
+  Video01Icon,
+  MusicNote01Icon,
+  Image01Icon,
+  Link02Icon,
+  FolderOpenIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  CheckmarkSquare02Icon,
+  SquareIcon,
+  Loading03Icon,
+} from '@hugeicons/core-free-icons';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { useTranslation } from 'react-i18next';
 import { type Resource } from '@/types';
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 function getTypeIcon(type: string, size = 14) {
   const props = { size, className: 'shrink-0' };
   switch (type) {
     case 'pdf':
-      return <File {...props} />;
+      return <HugeiconsIcon icon={File01Icon} {...props} />;
     case 'video':
-      return <Video {...props} />;
+      return <HugeiconsIcon icon={Video01Icon} {...props} />;
     case 'audio':
-      return <Music {...props} />;
+      return <HugeiconsIcon icon={MusicNote01Icon} {...props} />;
     case 'image':
-      return <Image {...props} />;
+      return <HugeiconsIcon icon={Image01Icon} {...props} />;
     case 'url':
-      return <Link2 {...props} />;
+      return <HugeiconsIcon icon={Link02Icon} {...props} />;
     default:
-      return <File {...props} />;
+      return <HugeiconsIcon icon={File01Icon} {...props} />;
   }
 }
 
@@ -249,7 +251,7 @@ export default function GenerateSourceModal({
               border: 'none',
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--bg-hover)';
+              e.currentTarget.style.background = 'var(--accent)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.background = 'transparent';
@@ -257,27 +259,26 @@ export default function GenerateSourceModal({
             aria-expanded={isExpanded}
             aria-label={`${t('studio.folder')} ${folder.title}`}
           >
-            <span className="shrink-0" style={{ color: 'var(--secondary-text)' }}>
+            <span className="shrink-0 text-muted-foreground">
               {hasChildren ? (
                 isExpanded ? (
-                  <ChevronDown size={14} />
+                  <HugeiconsIcon icon={ChevronDownIcon} size={14} />
                 ) : (
-                  <ChevronRight size={14} />
+                  <HugeiconsIcon icon={ChevronRightIcon} size={14} />
                 )
               ) : (
                 <span className="w-[14px]" />
               )}
             </span>
-            <FolderOpen
+            <HugeiconsIcon icon={FolderOpenIcon}
               size={14}
               className="shrink-0"
               style={{
-                color: (folder.metadata?.color as string) || 'var(--accent)',
+                color: (folder.metadata?.color as string) || 'var(--primary)',
               }}
             />
             <span
-              className="truncate flex-1 text-xs font-medium"
-              style={{ color: 'var(--primary-text)' }}
+              className="truncate flex-1 text-xs font-medium text-foreground"
               title={folder.title}
             >
               {folder.title}
@@ -301,12 +302,12 @@ export default function GenerateSourceModal({
         className="flex items-center gap-2 w-full text-left py-2 px-3 rounded transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-offset-1 min-h-[44px]"
         style={{
           paddingLeft: 12 + depth * 16,
-          background: isCurrent ? 'var(--bg-hover)' : 'transparent',
+          background: isCurrent ? 'var(--accent)' : 'transparent',
           border: 'none',
         }}
         onClick={() => handleToggle(res.id)}
         onMouseEnter={(e) => {
-          if (!isCurrent) e.currentTarget.style.background = 'var(--bg-hover)';
+          if (!isCurrent) e.currentTarget.style.background = 'var(--accent)';
         }}
         onMouseLeave={(e) => {
           if (!isCurrent) e.currentTarget.style.background = 'transparent';
@@ -315,18 +316,18 @@ export default function GenerateSourceModal({
       >
         <span className="shrink-0 w-[14px] flex items-center justify-center">
           {isSelected ? (
-            <CheckSquare size={14} style={{ color: 'var(--accent)' }} />
+            <HugeiconsIcon icon={CheckmarkSquare02Icon} size={14} className="text-primary" />
           ) : (
-            <Square size={14} style={{ color: 'var(--tertiary-text)' }} />
+            <HugeiconsIcon icon={SquareIcon} size={14} className="text-muted-foreground" />
           )}
         </span>
-        <span style={{ color: 'var(--secondary-text)' }} className="shrink-0">
+        <span className="shrink-0 text-muted-foreground">
           {getTypeIcon(res.type)}
         </span>
         <span
           className="truncate flex-1 text-xs"
           style={{
-            color: isCurrent ? 'var(--primary-text)' : 'var(--secondary-text)',
+            color: isCurrent ? 'var(--foreground)' : 'var(--muted-foreground)',
             fontWeight: isCurrent ? 500 : 400,
           }}
           title={res.title}
@@ -338,51 +339,24 @@ export default function GenerateSourceModal({
   }
 
   return (
-    <DomeModal
-      open={isOpen}
-      onClose={onClose}
-      title={
-        titleOverride ??
-        t('studio.generate_title', { tileTitle })
-      }
-      size="lg"
-      footer={
-        <>
-          <button
-            type="button"
-            onClick={onClose}
-            className="btn btn-ghost min-h-[44px] px-4"
-          >
-            {t('common.cancel')}
-          </button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={confirmDisabled}
-            className="btn btn-primary min-h-[44px] px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {t('learn.generate')}
-          </button>
-        </>
-      }
-    >
+    <Dialog open={isOpen} onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{titleOverride ??
+        t('studio.generate_title', { tileTitle })}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <div className="flex flex-col gap-4">
-        <p className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+        <p className="text-sm text-muted-foreground">
           {descriptionOverride ??
             (requireAtLeastOne
               ? t('studio.select_at_least_one_hint', { tileTitle })
               : t('studio.select_sources_hint', { tileTitle }))}
         </p>
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium" style={{ color: 'var(--secondary-text)' }}>
+          <span className="text-xs font-medium text-muted-foreground">
             {t('studio.sources_label')}
           </span>
           {allResourceIds.length > 0 && (
             <button
               type="button"
               onClick={handleSelectAll}
-              className="text-xs font-medium cursor-pointer hover:underline focus-visible:ring-2 focus-visible:ring-offset-1 rounded"
-              style={{ color: 'var(--accent)' }}
+              className="text-xs font-medium cursor-pointer hover:underline focus-visible:ring-2 focus-visible:ring-offset-1 rounded text-primary"
               aria-label={allSelected ? t('studio.deselect_all') : t('studio.select_all')}
             >
               {allSelected ? t('studio.deselect_all') : t('studio.select_all')}
@@ -391,14 +365,14 @@ export default function GenerateSourceModal({
         </div>
         <div
           className="border rounded-lg overflow-y-auto min-h-[200px] max-h-[320px] py-1"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 size={20} className="animate-spin" style={{ color: 'var(--tertiary-text)' }} />
+              <HugeiconsIcon icon={Loading03Icon} size={20} className="animate-spin text-muted-foreground" />
             </div>
           ) : tree.length === 0 ? (
-            <div className="px-4 py-8 text-center text-xs" style={{ color: 'var(--tertiary-text)' }}>
+            <div className="px-4 py-8 text-center text-xs text-muted-foreground">
               {projectId ? t('studio.no_sources_in_project') : t('studio.select_project')}
             </div>
           ) : (
@@ -406,6 +380,22 @@ export default function GenerateSourceModal({
           )}
         </div>
       </div>
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<>
+          <Button
+            type="button"
+            onClick={onClose}
+            variant="ghost" className="min-h-[44px] px-4"
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            type="button"
+            onClick={handleConfirm}
+            disabled={confirmDisabled}
+            className="min-h-[44px] px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {t('learn.generate')}
+          </Button>
+        </>}</DialogFooter></DialogContent></Dialog>
   );
 }

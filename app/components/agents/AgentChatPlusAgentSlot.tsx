@@ -1,20 +1,23 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Plug2 } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  Plug02Icon,
+} from '@hugeicons/core-free-icons';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import McpCapabilitiesSection from '@/components/chat/McpCapabilitiesSection';
 
 type Subview = null | { kind: 'mcp'; serverId: string };
 
 export function AgentChatPlusAgentSlot({
-  isOpen,
   mcpServerIds,
   disabledMcpIds,
   onToggleMcp,
   hasMcp,
 }: {
-  isOpen: boolean;
   mcpServerIds: string[];
   disabledMcpIds: Set<string>;
   onToggleMcp: (id: string) => void;
@@ -22,20 +25,15 @@ export function AgentChatPlusAgentSlot({
 }) {
   const { t } = useTranslation();
   const [subview, setSubview] = useState<Subview>(null);
-  const prevIsOpenRef = useRef(isOpen);
-  if (isOpen !== prevIsOpenRef.current) {
-    prevIsOpenRef.current = isOpen;
-    if (!isOpen) setSubview(null);
-  }
 
   const backRow = (
     <button
       type="button"
       onClick={() => setSubview(null)}
-      className="mb-1 flex w-full items-center gap-2 rounded-xl p-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+      className="mb-1 flex w-full items-center gap-2 rounded-xl p-2.5 text-left transition-colors hover:bg-accent"
     >
-      <ChevronLeft className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
-      <span className="text-[13px] font-medium text-[var(--primary-text)]">{t('agent.back')}</span>
+      <HugeiconsIcon icon={ChevronLeftIcon} className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+      <span className="text-[13px] font-medium text-foreground">{t('agent.back')}</span>
     </button>
   );
 
@@ -57,7 +55,7 @@ export function AgentChatPlusAgentSlot({
   return (
     <div className="space-y-1">
       <div className="px-0">
-        <p className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--tertiary-text)]">
+        <p className="px-1 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           {t('agent.mcp_servers')}
         </p>
         {mcpServerIds.length === 1 ? (
@@ -73,15 +71,15 @@ export function AgentChatPlusAgentSlot({
                 key={id}
                 type="button"
                 onClick={() => setSubview({ kind: 'mcp', serverId: id })}
-                className="flex w-full items-center justify-between gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-[var(--bg-hover)]"
+                className="flex w-full items-center justify-between gap-3 rounded-xl p-2.5 text-left transition-colors hover:bg-accent"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <Plug2 className="size-3.5 shrink-0 text-[var(--tertiary-text)]" />
-                  <span className="truncate text-[13px] font-medium text-[var(--primary-text)]" title={id}>
+                  <HugeiconsIcon icon={Plug02Icon} className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate text-[13px] font-medium text-foreground" title={id}>
                     {id}
                   </span>
                 </span>
-                <ChevronRight className="size-4 shrink-0 text-[var(--tertiary-text)]" strokeWidth={1.75} />
+                <HugeiconsIcon icon={ChevronRightIcon} className="size-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
               </button>
             ))}
           </div>

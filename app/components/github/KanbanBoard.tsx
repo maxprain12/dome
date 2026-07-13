@@ -1,12 +1,16 @@
+import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent } from 'react';
-import { CircleDot, CheckCircle2, Calendar, ExternalLink, GripVertical, Plus, X, Milestone, PanelRightOpen } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Calendar03Icon, Cancel01Icon, CheckmarkCircle02Icon, CircleDotIcon, ExternalLinkIcon, Flag02Icon, GripVerticalIcon, PanelRightOpenIcon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { useGitHubSortStore } from '@/lib/store/useGitHubSortStore';
 import { githubClient, parseLabels } from '@/lib/github/client';
 import { useHorizontalScroll } from '@/lib/hooks/useHorizontalScroll';
 import GitHubSortControls from './GitHubSortControls';
-import { DomeDatePicker } from '@/components/ui/DomeDatePicker';
+import { DatePicker } from '@/components/shared/DatePicker';
+import { Button } from '@/components/ui/button';
 
 /**
  * Kanban matching GitHub milestones ⇄ Dome columns.
@@ -35,9 +39,7 @@ export default function KanbanBoard({
 
   const q = query.trim().toLowerCase();
   const columnSort = useGitHubSortStore((s) => s.milestones);
-  const setColumnSort = useGitHubSortStore((s) => s.setMilestoneSort);
   const cardSort = useGitHubSortStore((s) => s.issues);
-  const setCardSort = useGitHubSortStore((s) => s.setIssueSort);
 
   const issues = useMemo(() => {
     if (!q) return allIssues;
@@ -139,8 +141,7 @@ export default function KanbanBoard({
     <div className="flex h-full flex-col overflow-hidden">
       {/* Sort filters bar — minimal icon-only buttons with dropdown menu */}
       <div
-        className="flex items-center gap-1 px-4 py-1.5 border-b shrink-0"
-        style={{ borderColor: 'var(--dome-border, var(--border))' }}
+        className="flex items-center gap-1 px-4 py-1.5 border-b shrink-0 border-border"
       >
         <GitHubSortControls />
       </div>
@@ -221,49 +222,43 @@ function KanbanColumn({
     <div
       className="flex flex-col rounded-lg shrink-0 w-72 transition-colors"
       style={{
-        background: 'var(--dome-surface)',
-        border: `1px solid ${isOver ? 'var(--dome-accent)' : 'var(--dome-border)'}`,
-        boxShadow: isOver ? '0 0 0 1px var(--dome-accent) inset' : undefined,
+        background: 'var(--card)',
+        border: `1px solid ${isOver ? 'var(--primary)' : 'var(--border)'}`,
+        boxShadow: isOver ? '0 0 0 1px var(--primary) inset' : undefined,
       }}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--dome-border)' }}>
+      <div className="px-3 py-2 border-b border-border">
         <div className="flex items-center justify-between gap-1">
-          <span className="font-semibold text-sm truncate" style={{ color: 'var(--dome-text)' }}>{title}</span>
+          <span className="font-semibold text-sm truncate text-foreground">{title}</span>
           <div className="flex items-center gap-1 shrink-0">
             {milestoneId && onOpenMilestone ? (
-              <button
+              <Button
                 type="button"
                 onClick={() => onOpenMilestone(milestoneId)}
-                className="inline-flex items-center justify-center rounded p-0.5"
-                style={{ color: 'var(--dome-text-muted)' }}
+                variant="ghost"
+                size="icon-xs"
                 title={t('github.milestone_detail_open')}
                 aria-label={t('github.milestone_detail_open')}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'var(--dome-bg-hover)';
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                }}
               >
-                <PanelRightOpen size={12} />
-              </button>
+                <HugeiconsIcon icon={PanelRightOpenIcon} size={12} />
+              </Button>
             ) : null}
             {url && (
-              <a href={url} target="_blank" rel="noreferrer" title={t('github.open_milestone_on_github')} style={{ color: 'var(--dome-text-muted)' }}>
-                <ExternalLink size={12} />
+              <a href={url} target="_blank" rel="noreferrer" title={t('github.open_milestone_on_github')} className="text-muted-foreground">
+                <HugeiconsIcon icon={ExternalLinkIcon} size={12} />
               </a>
             )}
-            <span className="text-xs px-1.5 rounded" style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}>
+            <span className="text-xs px-1.5 rounded" style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}>
               {issues.length}
             </span>
           </div>
         </div>
         {dueOn && (
-          <span className="flex items-center gap-1 text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>
-            <Calendar size={11} /> {new Date(dueOn).toLocaleDateString()}
+          <span className="flex items-center gap-1 text-xs mt-0.5 text-muted-foreground">
+            <HugeiconsIcon icon={Calendar03Icon} size={11} /> {new Date(dueOn).toLocaleDateString()}
           </span>
         )}
       </div>
@@ -278,7 +273,7 @@ function KanbanColumn({
           />
         ))}
         {issues.length === 0 && (
-          <span className="text-xs text-center py-3" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-xs text-center py-3 text-muted-foreground">
             {isOver ? '↧' : t('github.no_issues')}
           </span>
         )}
@@ -314,32 +309,31 @@ function KanbanCard({ issue, onOpen, onToggleState }: KanbanCardProps) {
       onDragEnd={handleDragEnd}
       className="rounded-md p-2.5 transition-opacity"
       style={{
-        background: 'var(--dome-bg)',
-        border: '1px solid var(--dome-border)',
+        background: 'var(--background)',
+        border: '1px solid var(--border)',
         opacity: dragging ? 0.55 : 1,
       }}
       aria-grabbed={dragging}
     >
       <div className="flex items-start gap-1.5">
-        <GripVertical size={12} className="shrink-0 mt-1" style={{ color: 'var(--dome-text-muted)' }} aria-hidden />
-        <button
+        <HugeiconsIcon icon={GripVerticalIcon} size={12} className="shrink-0 mt-1 text-muted-foreground" aria-hidden />
+        <Button
           type="button"
           draggable={false}
           onClick={(e) => { e.stopPropagation(); onToggleState(); }}
           title={issue.state === 'open' ? t('github.close_issue') : t('github.reopen_issue')}
           aria-label={issue.state === 'open' ? t('github.close_issue') : t('github.reopen_issue')}
-          style={{ color: issue.state === 'open' ? 'var(--success)' : 'var(--dome-text-muted)' }}
+          style={{ color: issue.state === 'open' ? 'var(--success)' : 'var(--muted-foreground)' }}
         >
-          {issue.state === 'open' ? <CircleDot size={15} /> : <CheckCircle2 size={15} />}
-        </button>
-        <button
+          {issue.state === 'open' ? <HugeiconsIcon icon={CircleDotIcon} size={15} /> : <HugeiconsIcon icon={CheckmarkCircle02Icon} size={15} />}
+        </Button>
+        <Button
           type="button"
           onClick={onOpen}
-          className="text-sm leading-snug flex-1 text-left border-0 bg-transparent p-0 cursor-grab active:cursor-grabbing"
-          style={{ color: 'var(--dome-text)' }}
+          className="text-sm leading-snug flex-1 text-left border-0 bg-transparent p-0 cursor-grab active:cursor-grabbing text-foreground"
         >
-          <span style={{ color: 'var(--dome-text-muted)' }}>#{issue.number}</span> {issue.title}
-        </button>
+          <span className="text-muted-foreground">#{issue.number}</span> {issue.title}
+        </Button>
         {issue.html_url && (
           <a
             href={issue.html_url}
@@ -348,9 +342,9 @@ function KanbanCard({ issue, onOpen, onToggleState }: KanbanCardProps) {
             title={t('github.open_issue_on_github')}
             aria-label={t('github.open_issue_on_github')}
             onClick={(e) => e.stopPropagation()}
-            style={{ color: 'var(--dome-text-muted)' }}
+            style={{ color: 'var(--muted-foreground)' }}
           >
-            <ExternalLink size={13} />
+            <HugeiconsIcon icon={ExternalLinkIcon} size={13} />
           </a>
         )}
       </div>
@@ -361,7 +355,7 @@ function KanbanCard({ issue, onOpen, onToggleState }: KanbanCardProps) {
             <span
               key={l}
               className="text-[10px] px-1.5 py-0.5 rounded-full"
-              style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}
+              style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}
             >
               {l}
             </span>
@@ -435,24 +429,24 @@ function NewMilestoneColumn({ onCreate }: NewMilestoneColumnProps) {
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         className="flex flex-col items-center justify-center gap-1.5 rounded-lg shrink-0 w-72 self-stretch min-h-[120px] transition-colors"
         style={{
           background: 'transparent',
-          border: '1px dashed var(--dome-border)',
-          color: 'var(--dome-text-muted)',
+          border: '1px dashed var(--border)',
+          color: 'var(--muted-foreground)',
           cursor: 'pointer',
         }}
         title={t('github.new_milestone_column')}
         aria-label={t('github.new_milestone_column')}
       >
-        <Plus size={18} />
-        <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+        <HugeiconsIcon icon={PlusSignIcon} size={18} />
+        <span className="text-sm font-medium text-foreground">
           {t('github.new_milestone_column')}
         </span>
-      </button>
+      </Button>
     );
   }
 
@@ -466,42 +460,41 @@ function NewMilestoneColumn({ onCreate }: NewMilestoneColumnProps) {
       onKeyDown={onKeyDown}
       className="flex flex-col rounded-lg shrink-0 w-72"
       style={{
-        background: 'var(--dome-surface)',
-        border: '1px solid var(--dome-accent)',
-        boxShadow: '0 0 0 1px var(--dome-accent) inset',
+        background: 'var(--card)',
+        border: '1px solid var(--primary)',
+        boxShadow: '0 0 0 1px var(--primary) inset',
       }}
       aria-label={t('github.new_milestone_column')}
     >
       <div
-        className="px-3 py-2 border-b flex items-center justify-between gap-1"
-        style={{ borderColor: 'var(--dome-border)' }}
+        className="px-3 py-2 border-b flex items-center justify-between gap-1 border-border"
       >
-        <span className="inline-flex items-center gap-1.5 font-semibold text-sm truncate" style={{ color: 'var(--dome-text)' }}>
-          <Milestone size={13} />
+        <span className="inline-flex items-center gap-1.5 font-semibold text-sm truncate text-foreground">
+          <HugeiconsIcon icon={Flag02Icon} size={13} />
           {t('github.new_milestone_column')}
         </span>
-        <button
+        <Button
           type="button"
           onClick={() => setOpen(false)}
           aria-label={t('github.new_milestone_cancel')}
           style={{
             background: 'transparent',
             border: 'none',
-            color: 'var(--dome-text-muted)',
+            color: 'var(--muted-foreground)',
             cursor: 'pointer',
             padding: 2,
           }}
         >
-          <X size={13} />
-        </button>
+          <HugeiconsIcon icon={Cancel01Icon} size={13} />
+        </Button>
       </div>
 
       <div className="flex flex-col gap-2 p-2.5">
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('github.new_milestone_title_label')}
           </span>
-          <input
+          <Input
             ref={titleRef}
             value={title}
             onChange={(e) => {
@@ -513,37 +506,37 @@ function NewMilestoneColumn({ onCreate }: NewMilestoneColumnProps) {
             aria-describedby={error ? 'new-milestone-error' : undefined}
             className="text-sm rounded-md px-2 py-1 outline-none"
             style={{
-              background: 'var(--dome-bg)',
-              color: 'var(--dome-text)',
-              border: `1px solid ${error ? 'var(--dome-error)' : 'var(--dome-border)'}`,
+              background: 'var(--background)',
+              color: 'var(--foreground)',
+              border: `1px solid ${error ? 'var(--destructive)' : 'var(--border)'}`,
             }}
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('github.new_milestone_description_label')}
           </span>
-          <textarea
+          <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('github.new_milestone_description_placeholder')}
             rows={3}
             className="text-sm rounded-md px-2 py-1 outline-none resize-none"
             style={{
-              background: 'var(--dome-bg)',
-              color: 'var(--dome-text)',
-              border: '1px solid var(--dome-border)',
+              background: 'var(--background)',
+              color: 'var(--foreground)',
+              border: '1px solid var(--border)',
             }}
           />
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] font-medium uppercase tracking-wide inline-flex items-center gap-1" style={{ color: 'var(--dome-text-muted)' }}>
-            <Calendar size={10} />
+          <span className="text-[10px] font-medium uppercase tracking-wide inline-flex items-center gap-1 text-muted-foreground">
+            <HugeiconsIcon icon={Calendar03Icon} size={10} />
             {t('github.new_milestone_due_label')}
           </span>
-          <DomeDatePicker
+          <DatePicker
             value={dueDate}
             onChange={setDueDate}
             placeholder={t('github.new_milestone_due_placeholder')}
@@ -551,43 +544,43 @@ function NewMilestoneColumn({ onCreate }: NewMilestoneColumnProps) {
         </label>
 
         {error && (
-          <p id="new-milestone-error" className="text-[11px] flex items-center gap-1" style={{ color: 'var(--dome-error)' }}>
-            <X size={10} />
+          <p id="new-milestone-error" className="text-[11px] flex items-center gap-1 text-destructive">
+            <HugeiconsIcon icon={Cancel01Icon} size={10} />
             {error}
           </p>
         )}
 
         <div className="flex items-center justify-end gap-1.5 pt-1">
-          <button
+          <Button
             type="button"
             onClick={() => setOpen(false)}
             disabled={submitting}
             className="text-xs px-2.5 py-1 rounded-md"
             style={{
               background: 'transparent',
-              border: '1px solid var(--dome-border)',
-              color: 'var(--dome-text-muted)',
+              border: '1px solid var(--border)',
+              color: 'var(--muted-foreground)',
               cursor: 'pointer',
               opacity: submitting ? 0.6 : 1,
             }}
           >
             {t('github.new_milestone_cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={submitting || !title.trim()}
             className="text-xs px-2.5 py-1 rounded-md inline-flex items-center gap-1"
             style={{
-              background: 'var(--dome-accent)',
-              color: 'var(--dome-on-accent)',
+              background: 'var(--primary)',
+              color: 'var(--primary-foreground)',
               border: 'none',
               cursor: submitting || !title.trim() ? 'not-allowed' : 'pointer',
               opacity: submitting || !title.trim() ? 0.6 : 1,
             }}
           >
-            <Plus size={12} />
+            <HugeiconsIcon icon={PlusSignIcon} size={12} />
             {submitting ? t('github.new_milestone_creating') : t('github.new_milestone_create')}
-          </button>
+          </Button>
         </div>
       </div>
     </form>

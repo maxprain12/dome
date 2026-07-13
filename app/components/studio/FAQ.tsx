@@ -1,8 +1,15 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  ChevronDownIcon,
+  Cancel01Icon,
+  BubbleChatIcon,
+} from '@hugeicons/core-free-icons';
 import { useState } from 'react';
-import { ChevronDown, X, MessageCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import MarkdownRenderer from '@/components/chat/MarkdownRenderer';
 import type { FAQData } from '@/types';
 import { useTranslation } from 'react-i18next';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface FAQProps {
   data: FAQData;
@@ -15,87 +22,81 @@ export default function FAQ({ data, title, onClose }: FAQProps) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border"
       >
         <div className="flex items-center gap-2">
-          <MessageCircle size={16} style={{ color: 'var(--dome-accent)' }} />
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--primary-text)' }}>
-            {title || 'Frequently Asked Questions'}
+          <HugeiconsIcon icon={BubbleChatIcon} size={16} className="text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">
+            {title || t('studio.faq_title')}
           </h3>
           <span
             className="text-xs px-2 py-0.5 rounded-full"
             style={{
-              background: 'var(--bg-secondary)',
-              color: 'var(--secondary-text)',
+              background: 'var(--card)',
+              color: 'var(--muted-foreground)',
             }}
           >
-            {data.pairs.length} questions
+            {t('studio.faq_question_count', { count: data.pairs.length })}
           </span>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
-            <X size={16} />
-          </button>
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+            <HugeiconsIcon icon={Cancel01Icon} size={16} />
+          </Button>
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto p-6">
-        <div className="max-w-2xl mx-auto space-y-3">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3">
           {data.pairs.map((pair, index) => {
             const isExpanded = expandedIndex === index;
 
             return (
-              <div
+              <Collapsible
                 key={index}
-                className="rounded-lg overflow-hidden transition-all"
-                style={{
-                  border: `1px solid ${isExpanded ? 'var(--dome-accent)' : 'var(--border)'}`,
-                  background: 'var(--bg-secondary)',
-                }}
+                open={isExpanded}
+                onOpenChange={(open) => setExpandedIndex(open ? index : null)}
+                className="overflow-hidden rounded-lg border border-border bg-card transition-colors duration-150 ease-[var(--ease-out)] data-open:border-primary"
               >
-                <button
-                  type="button"
-                  onClick={() => setExpandedIndex(isExpanded ? null : index)}
+                <CollapsibleTrigger
                   className="w-full flex items-center gap-3 px-4 py-3 text-left"
                 >
                   <span
                     className="size-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
                     style={{
                       background: isExpanded
-                        ? 'var(--dome-accent)'
-                        : 'var(--bg-tertiary)',
-                      color: isExpanded ? 'var(--base-text)' : 'var(--secondary-text)',
+                        ? 'var(--primary)'
+                        : 'var(--muted)',
+                      color: isExpanded ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                     }}
                   >
                     Q
                   </span>
                   <span
-                    className="text-sm font-medium flex-1"
-                    style={{ color: 'var(--primary-text)' }}
+                    className="text-sm font-medium flex-1 text-foreground"
                   >
                     {pair.question}
                   </span>
-                  <ChevronDown
+                  <HugeiconsIcon icon={ChevronDownIcon}
                     size={16}
                     className="shrink-0 transition-transform"
                     style={{
-                      color: 'var(--tertiary-text)',
+                      color: 'var(--muted-foreground)',
                       transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                     }}
                   />
-                </button>
+                </CollapsibleTrigger>
 
-                {isExpanded && (
-                  <div className="px-4 pb-4 pl-[52px] prose prose-sm max-w-none" style={{ color: 'var(--secondary-text)' }}>
+                <CollapsibleContent>
+                  <div className="px-4 pb-4 pl-[52px]">
                     <MarkdownRenderer content={pair.answer} />
                   </div>
-                )}
-              </div>
+                </CollapsibleContent>
+              </Collapsible>
             );
           })}
         </div>

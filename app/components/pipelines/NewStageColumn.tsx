@@ -1,9 +1,14 @@
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, X } from 'lucide-react';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Cancel01Icon, PlusSignIcon } from '@hugeicons/core-free-icons';
 import type { ExecutionPolicy } from '@/lib/pipelines/types';
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Field, FieldLabel } from '@/components/ui/field';
+import type { ReactNode } from 'react';
 interface Props {
   onCreate: (data: { title: string; executionPolicy: ExecutionPolicy }) => Promise<void> | void;
 }
@@ -40,19 +45,19 @@ export default function NewStageColumn({ onCreate }: Props) {
 
   if (!open) {
     return (
-      <button
+      <Button
         type="button"
         onClick={() => setOpen(true)}
         className="flex flex-col items-center justify-center gap-1.5 rounded-lg shrink-0 w-72 self-start min-h-[120px] transition-colors"
-        style={{ background: 'transparent', border: '1px dashed var(--border)', color: 'var(--secondary-text)', cursor: 'pointer' }}
+        style={{ background: 'transparent', border: '1px dashed var(--border)', color: 'var(--muted-foreground)', cursor: 'pointer' }}
         title={t('pipelines.add_stage')}
         aria-label={t('pipelines.add_stage')}
       >
-        <Plus size={18} />
-        <span className="text-sm font-medium" style={{ color: 'var(--primary-text)' }}>
+        <HugeiconsIcon icon={PlusSignIcon} size={18} />
+        <span className="text-sm font-medium text-foreground">
           {t('pipelines.add_stage')}
         </span>
-      </button>
+      </Button>
     );
   }
 
@@ -70,25 +75,25 @@ export default function NewStageColumn({ onCreate }: Props) {
         }
       }}
       className="flex flex-col rounded-lg shrink-0 w-72 self-start"
-      style={{ background: 'var(--bg-secondary)', border: '1px solid var(--accent)', boxShadow: '0 0 0 1px var(--accent) inset' }}
+      style={{ background: 'var(--card)', border: '1px solid var(--primary)', boxShadow: '0 0 0 1px var(--primary) inset' }}
       aria-label={t('pipelines.add_stage')}
     >
-      <div className="px-3 py-2 border-b flex items-center justify-between gap-1" style={{ borderColor: 'var(--border)' }}>
-        <span className="font-semibold text-sm" style={{ color: 'var(--primary-text)' }}>
+      <div className="px-3 py-2 border-b flex items-center justify-between gap-1 border-border">
+        <span className="font-semibold text-sm text-foreground">
           {t('pipelines.add_stage')}
         </span>
-        <button
+        <Button
           type="button"
           onClick={reset}
           aria-label={t('pipelines.cancel')}
-          style={{ background: 'transparent', border: 'none', color: 'var(--tertiary-text)', cursor: 'pointer', padding: 2 }}
+          style={{ background: 'transparent', border: 'none', color: 'var(--muted-foreground)', cursor: 'pointer', padding: 2 }}
         >
-          <X size={13} />
-        </button>
+          <HugeiconsIcon icon={Cancel01Icon} size={13} />
+        </Button>
       </div>
 
       <div className="flex flex-col gap-2 p-2.5">
-        <input
+        <Input
           // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the field the user just opened.
           autoFocus
           value={title}
@@ -96,44 +101,43 @@ export default function NewStageColumn({ onCreate }: Props) {
           placeholder={t('pipelines.stage_title_placeholder')}
           aria-label={t('pipelines.stage_title_placeholder')}
           className="text-sm rounded-md px-2 py-1 outline-none"
-          style={{ background: 'var(--bg)', color: 'var(--primary-text)', border: '1px solid var(--border)' }}
+          style={{ background: 'var(--background)', color: 'var(--foreground)', border: '1px solid var(--border)' }}
         />
-        <DomeSelectMenu<ExecutionPolicy>
-          label={t('pipelines.execution_policy')}
-          value={policy}
-          onChange={setPolicy}
-          options={[
+        <Field className="gap-1.5"><FieldLabel className="text-xs">{t('pipelines.execution_policy')}</FieldLabel><Select value={policy ?? null} onValueChange={(next) => { if (next != null) (setPolicy)(next); }} items={[
             { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
             { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
             { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
-          ]}
-        />
+          ]}><SelectTrigger className="w-full"><SelectValue placeholder="—" /></SelectTrigger><SelectContent><SelectGroup>{([
+            { value: 'manual_resolve', label: t('pipelines.policy_manual_resolve') },
+            { value: 'manual_agent', label: t('pipelines.policy_manual_agent') },
+            { value: 'auto_agent', label: t('pipelines.policy_auto_agent') },
+          ]).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select></Field>
 
         <div className="flex items-center justify-end gap-1.5 pt-1">
-          <button
+          <Button
             type="button"
             onClick={reset}
             disabled={submitting}
             className="text-xs px-2.5 py-1 rounded-md"
-            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--secondary-text)', cursor: 'pointer' }}
+            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted-foreground)', cursor: 'pointer' }}
           >
             {t('pipelines.cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={submitting || !title.trim()}
             className="text-xs px-2.5 py-1 rounded-md inline-flex items-center gap-1"
             style={{
-              background: 'var(--accent)',
-              color: 'var(--dome-on-accent)',
+              background: 'var(--primary)',
+              color: 'var(--primary-foreground)',
               border: 'none',
               cursor: submitting || !title.trim() ? 'not-allowed' : 'pointer',
               opacity: submitting || !title.trim() ? 0.6 : 1,
             }}
           >
-            <Plus size={12} />
+            <HugeiconsIcon icon={PlusSignIcon} size={12} />
             {submitting ? t('pipelines.creating') : t('pipelines.create')}
-          </button>
+          </Button>
         </div>
       </div>
     </form>

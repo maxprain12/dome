@@ -1,19 +1,21 @@
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Cancel01Icon,
+  PlayIcon,
+  PauseIcon,
+  VolumeHighIcon,
+  VolumeOffIcon,
+  Loading03Icon,
+  Mic01Icon,
+  PreviousIcon,
+  NextIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
 import { useReducedMotion } from '@/lib/hooks/useReducedMotion';
 import { lazyRef } from '@/lib/utils/lazyRef';
 import { useTranslation } from 'react-i18next';
-import {
-  X,
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Loader2,
-  Mic,
-  SkipBack,
-  SkipForward,
-} from 'lucide-react';
 
 // =============================================================================
 // Types
@@ -64,9 +66,9 @@ function getFormatLabel(format: AudioTranscript['format']): string {
 
 function getSpeakerColor(speaker: string): string {
   if (speaker.toLowerCase().includes('1') || speaker.toLowerCase() === 'host a') {
-    return 'var(--accent)';
+    return 'var(--primary)';
   }
-  return 'var(--secondary)';
+  return 'var(--muted-foreground)';
 }
 
 // =============================================================================
@@ -289,34 +291,32 @@ export default function AudioOverview({
   const hasAudio = !!audioUrl && isAudioLoaded;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: 'var(--bg)' }}>
+    <div className="flex flex-col h-full bg-background">
       {/* Header */}
       <div
-        className="flex items-center justify-between px-4 py-3 border-b shrink-0"
-        style={{ borderColor: 'var(--border)' }}
+        className="flex items-center justify-between px-4 py-3 border-b shrink-0 border-border"
       >
         <div className="flex items-center gap-2 min-w-0">
-          <Mic size={16} style={{ color: 'var(--accent)' }} />
+          <HugeiconsIcon icon={Mic01Icon} size={16} className="text-primary" />
           <h3
-            className="text-sm font-semibold truncate"
-            style={{ color: 'var(--primary-text)' }}
+            className="text-sm font-semibold truncate text-foreground"
           >
             {title || 'Audio Overview'}
           </h3>
           <span
             className="text-xs px-2 py-0.5 rounded-full shrink-0"
             style={{
-              background: 'var(--bg-tertiary)',
-              color: 'var(--secondary-text)',
+              background: 'var(--muted)',
+              color: 'var(--muted-foreground)',
             }}
           >
             {getFormatLabel(transcript.format)}
           </span>
         </div>
         {onClose && (
-          <button type="button" onClick={onClose} className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
-            <X size={16} />
-          </button>
+          <Button type="button" onClick={onClose} variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label={t('studio.close_button')} title={t('studio.close_button')}>
+            <HugeiconsIcon icon={Cancel01Icon} size={16} />
+          </Button>
         )}
       </div>
 
@@ -324,21 +324,20 @@ export default function AudioOverview({
       {isGenerating ? (
         <div
           className="flex items-center justify-center gap-3 px-4 py-6 border-b shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
-          <Loader2
+          <HugeiconsIcon icon={Loading03Icon}
             size={20}
-            className="animate-spin"
-            style={{ color: 'var(--accent)' }}
+            className="animate-spin text-primary"
           />
-          <span className="text-sm" style={{ color: 'var(--secondary-text)' }}>
+          <span className="text-sm text-muted-foreground">
             Generating audio...
           </span>
         </div>
       ) : hasAudio ? (
         <div
           className="p-4 border-b shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
           {/* Progress bar */}
           <input
@@ -349,8 +348,7 @@ export default function AudioOverview({
             step={0.1}
             value={progress}
             aria-label={t('studio.seek_audio', { defaultValue: 'Buscar posición en audio' })}
-            className="w-full h-1.5 rounded-full cursor-pointer mb-3 accent-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
-            style={{ background: 'var(--bg-tertiary)' }}
+            className="w-full h-1.5 rounded-full cursor-pointer mb-3 accent-[var(--primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 bg-muted"
             onChange={handleSeek}
             onKeyDown={handleSeekKeyDown}
           />
@@ -359,69 +357,68 @@ export default function AudioOverview({
           <div className="flex items-center justify-between">
             {/* Time */}
             <span
-              className="text-xs font-mono tabular-nums w-20"
-              style={{ color: 'var(--secondary-text)' }}
+              className="text-xs font-mono tabular-nums w-20 text-muted-foreground"
             >
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
 
             {/* Center controls */}
             <div className="flex items-center gap-2">
-              <button
+              <Button
                 type="button"
                 onClick={skipBackward}
-                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 aria-label="Rewind 15 seconds"
                 title="Rewind 15s"
               >
-                <SkipBack size={16} style={{ color: 'var(--secondary-text)' }} />
-              </button>
+                <HugeiconsIcon icon={PreviousIcon} size={16} className="text-muted-foreground" />
+              </Button>
               <button
                 type="button"
                 onClick={togglePlay}
-                className="flex items-center justify-center size-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                className="flex items-center justify-center size-9 rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 style={{
-                  background: 'var(--accent)',
-                  color: 'var(--base-text)',
+                  background: 'var(--primary)',
+                  color: 'var(--primary-foreground)',
                 }}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 title={isPlaying ? 'Pause' : 'Play'}
               >
-                {isPlaying ? <Pause size={18} /> : <Play size={18} className="ml-0.5" />}
+                {isPlaying ? <HugeiconsIcon icon={PauseIcon} size={18} /> : <HugeiconsIcon icon={PlayIcon} size={18} className="ml-0.5" />}
               </button>
-              <button
+              <Button
                 type="button"
                 onClick={skipForward}
-                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 aria-label="Forward 15 seconds"
                 title="Forward 15s"
               >
-                <SkipForward size={16} style={{ color: 'var(--secondary-text)' }} />
-              </button>
+                <HugeiconsIcon icon={NextIcon} size={16} className="text-muted-foreground" />
+              </Button>
             </div>
 
             {/* Right controls */}
             <div className="flex items-center gap-2 w-20 justify-end">
-              <button
+              <Button
                 type="button"
                 onClick={() => setIsMuted(!isMuted)}
-                className="btn btn-ghost p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+                variant="ghost" className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                 aria-label={isMuted ? 'Unmute' : 'Mute'}
                 title={isMuted ? 'Unmute' : 'Mute'}
               >
                 {isMuted ? (
-                  <VolumeX size={14} style={{ color: 'var(--tertiary-text)' }} />
+                  <HugeiconsIcon icon={VolumeOffIcon} size={14} className="text-muted-foreground" />
                 ) : (
-                  <Volume2 size={14} style={{ color: 'var(--secondary-text)' }} />
+                  <HugeiconsIcon icon={VolumeHighIcon} size={14} className="text-muted-foreground" />
                 )}
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={cyclePlaybackSpeed}
                 className="text-xs font-semibold px-1.5 py-0.5 rounded transition-colors"
                 style={{
-                  color: 'var(--secondary-text)',
-                  background: 'var(--bg-tertiary)',
+                  color: 'var(--muted-foreground)',
+                  background: 'var(--muted)',
                 }}
                 title="Playback speed"
               >
@@ -434,10 +431,10 @@ export default function AudioOverview({
         /* No audio available - show message */
         <div
           className="flex items-center justify-center gap-2 p-4 border-b shrink-0"
-          style={{ borderColor: 'var(--border)', background: 'var(--bg-secondary)' }}
+          style={{ borderColor: 'var(--border)', background: 'var(--card)' }}
         >
-          <Mic size={16} style={{ color: 'var(--tertiary-text)' }} />
-          <span className="text-xs" style={{ color: 'var(--tertiary-text)' }}>
+          <HugeiconsIcon icon={Mic01Icon} size={16} className="text-muted-foreground" />
+          <span className="text-xs text-muted-foreground">
             No audio generated yet. Transcript only.
           </span>
         </div>
@@ -458,9 +455,9 @@ export default function AudioOverview({
                   if (el) lineRefMap.set(index, el);
                   else lineRefMap.delete(index);
                 }}
-                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 w-full text-left border-0"
+                className="flex gap-3 p-3 rounded-lg transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 w-full text-left border-0"
                 style={{
-                  background: isActive ? 'var(--bg-tertiary)' : 'transparent',
+                  background: isActive ? 'var(--muted)' : 'transparent',
                   borderLeft: isActive
                     ? `3px solid ${speakerColor}`
                     : '3px solid transparent',
@@ -474,9 +471,9 @@ export default function AudioOverview({
                     style={{
                       background: isActive
                         ? speakerColor
-                        : 'var(--bg-tertiary)',
+                        : 'var(--muted)',
                       color: isActive
-                        ? 'var(--base-text)'
+                        ? 'var(--primary-foreground)'
                         : speakerColor,
                     }}
                   >
@@ -490,16 +487,15 @@ export default function AudioOverview({
                     className="text-sm leading-relaxed"
                     style={{
                       color: isActive
-                        ? 'var(--primary-text)'
-                        : 'var(--secondary-text)',
+                        ? 'var(--foreground)'
+                        : 'var(--muted-foreground)',
                     }}
                   >
                     {line.text}
                   </p>
                   {line.startTime !== undefined && (
                     <span
-                      className="text-xs mt-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity"
-                      style={{ color: 'var(--tertiary-text)' }}
+                      className="text-xs mt-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground"
                     >
                       {formatTime(line.startTime)}
                     </span>

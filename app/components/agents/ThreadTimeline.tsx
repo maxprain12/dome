@@ -8,8 +8,15 @@
  *   <ThreadTimeline threadId="session_abc123" />
  */
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Clock01Icon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  GitBranchIcon,
+  RefreshIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback } from 'react';
-import { Clock, ChevronDown, ChevronUp, GitBranch, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface CheckpointEntry {
@@ -65,31 +72,31 @@ function CheckpointRow({
       <div
         className={`absolute left-0 top-1.5 size-3 rounded-full border-2 ${
           isLatest
-            ? 'border-[var(--accent)] bg-[var(--accent)]'
-            : 'border-[var(--border)] bg-[var(--bg-secondary)]'
+            ? 'border-primary bg-primary'
+            : 'border-border bg-card'
         }`}
       />
 
       <div className="flex items-start gap-1.5">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-medium ${isLatest ? 'text-[var(--accent)]' : 'text-[var(--primary-text)]'}`}>
+            <span className={`text-[11px] font-medium ${isLatest ? 'text-primary' : 'text-foreground'}`}>
               {stepLabel}
             </span>
             {source && (
-              <span className="rounded bg-[var(--bg-tertiary)] px-1 py-0.5 text-[9px] text-[var(--tertiary-text)]">
+              <span className="rounded bg-muted px-1 py-0.5 text-[9px] text-muted-foreground">
                 {source}
               </span>
             )}
             {isLatest && (
-              <span className="rounded bg-[var(--accent)]/15 px-1 py-0.5 text-[9px] text-[var(--accent)]">
+              <span className="rounded bg-primary/15 px-1 py-0.5 text-[9px] text-primary">
                 {t('threads.latest')}
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-[10px] text-[var(--tertiary-text)]">{formatTs(entry.createdAt)}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">{formatTs(entry.createdAt)}</p>
           {entry.checkpointId && (
-            <p className="mt-0.5 truncate text-[9px] font-mono text-[var(--tertiary-text)]">
+            <p className="mt-0.5 truncate text-[9px] font-mono text-muted-foreground">
               {entry.checkpointId.slice(0, 16)}…
             </p>
           )}
@@ -101,9 +108,9 @@ function CheckpointRow({
               type="button"
               title={t('threads.fork_from_here')}
               onClick={onFork}
-              className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)] hover:text-[var(--primary-text)]"
+              className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground"
             >
-              <GitBranch size={10} />
+              <HugeiconsIcon icon={GitBranchIcon} size={10} />
               {t('threads.fork')}
             </button>
           )}
@@ -112,16 +119,16 @@ function CheckpointRow({
               type="button"
               title={t('threads.view_state')}
               onClick={() => setExpanded((prev) => !prev)}
-              className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)]"
+              className="flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent"
             >
-              {expanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              {expanded ? <HugeiconsIcon icon={ChevronUpIcon} size={10} /> : <HugeiconsIcon icon={ChevronDownIcon} size={10} />}
             </button>
           )}
         </div>
       </div>
 
       {expanded && entry.channel_values && (
-        <pre className="mt-1.5 overflow-x-auto rounded border border-[var(--border)] bg-[var(--bg-secondary)] p-2 text-[9px] text-[var(--secondary-text)]">
+        <pre className="mt-1.5 overflow-x-auto rounded border border-border bg-card p-2 text-[9px] text-muted-foreground">
           {JSON.stringify(entry.channel_values, null, 2)}
         </pre>
       )}
@@ -161,12 +168,12 @@ export default function ThreadTimeline({ threadId, onFork, className }: ThreadTi
     <div className={className}>
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-1.5">
-          <Clock size={13} className="text-[var(--tertiary-text)]" />
-          <span className="text-[12px] font-medium text-[var(--primary-text)]">
+          <HugeiconsIcon icon={Clock01Icon} size={13} className="text-muted-foreground" />
+          <span className="text-[12px] font-medium text-foreground">
             {t('threads.timeline')}
           </span>
           {history.length > 0 && (
-            <span className="rounded-full bg-[var(--bg-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--tertiary-text)]">
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
               {history.length}
             </span>
           )}
@@ -175,28 +182,28 @@ export default function ThreadTimeline({ threadId, onFork, className }: ThreadTi
           type="button"
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-[var(--secondary-text)] hover:bg-[var(--bg-hover)] disabled:opacity-50"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent disabled:opacity-50"
         >
-          <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
+          <HugeiconsIcon icon={RefreshIcon} size={10} className={loading ? 'animate-spin' : ''} />
           {t('common.refresh')}
         </button>
       </div>
 
       {loading && history.length === 0 && (
-        <div className="flex items-center gap-1.5 py-4 text-[11px] text-[var(--tertiary-text)]">
-          <RefreshCw size={11} className="animate-spin" />
+        <div className="flex items-center gap-1.5 py-4 text-[11px] text-muted-foreground">
+          <HugeiconsIcon icon={RefreshIcon} size={11} className="animate-spin" />
           {t('common.loading')}
         </div>
       )}
 
       {error && (
-        <p className="rounded border border-[var(--error)]/30 bg-[var(--error)]/5 px-2 py-1.5 text-[11px] text-[var(--error)]">
+        <p className="rounded border border-[var(--destructive)]/30 bg-destructive/5 px-2 py-1.5 text-[11px] text-destructive">
           {error}
         </p>
       )}
 
       {!loading && !error && history.length === 0 && (
-        <p className="py-4 text-center text-[11px] text-[var(--tertiary-text)]">
+        <p className="py-4 text-center text-[11px] text-muted-foreground">
           {t('threads.no_history')}
         </p>
       )}

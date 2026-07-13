@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
-import { RefreshCw, LayoutGrid, GanttChartSquare, GitBranch, Settings as SettingsIcon, ListTodo, Search, ExternalLink, Calendar, Leaf, Code2, Github } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { Calendar03Icon, CodeIcon, ExternalLinkIcon, GitBranchIcon, GithubIcon, LayoutGridIcon, Leaf01Icon, RefreshIcon, Search01Icon, Settings01Icon, SquareChartGanttIcon, Task01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -11,13 +13,12 @@ import IssueDetailPanel from './IssueDetailPanel';
 import MilestoneDetailModal from './MilestoneDetailModal';
 import GitHubSettings from './GitHubSettings';
 import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard';
-import DomeIconBox from '@/components/ui/DomeIconBox';
-import { DomeSelectMenu } from '@/components/ui/DomeSelectMenu';
-import { DomeInput } from '@/components/ui/DomeInput';
-import DomeButton from '@/components/ui/DomeButton';
-import DomeSegmentedControl from '@/components/ui/DomeSegmentedControl';
 import '@/styles/github-view.css';
 
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import type { ReactNode } from 'react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 type ViewMode = 'minimal' | 'developer';
 const MODE_KEY = 'dome:github:mode';
 
@@ -32,7 +33,7 @@ type GitHubTab = 'kanban' | 'gantt' | 'branches';
 function openStandalone(id: string, route: string, title: string) {
   let backgroundColor: string | undefined;
   if (typeof document !== 'undefined') {
-    backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--dome-bg').trim() || undefined;
+    backgroundColor = getComputedStyle(document.documentElement).getPropertyValue('--background').trim() || undefined;
   }
   void window.electron.invoke('window:create', {
     id,
@@ -71,9 +72,9 @@ export default function GitHubView() {
   const tabs = useMemo(
     () =>
       [
-        { key: 'kanban' as const, label: t('github.tab_kanban'), icon: LayoutGrid },
-        { key: 'gantt' as const, label: t('github.tab_gantt'), icon: GanttChartSquare },
-        { key: 'branches' as const, label: t('github.tab_branches'), icon: GitBranch },
+        { key: 'kanban' as const, label: t('github.tab_kanban'), icon: LayoutGridIcon },
+        { key: 'gantt' as const, label: t('github.tab_gantt'), icon: SquareChartGanttIcon },
+        { key: 'branches' as const, label: t('github.tab_branches'), icon: GitBranchIcon },
       ] as const,
     [t],
   );
@@ -106,7 +107,7 @@ export default function GitHubView() {
 
   if (checkingAuth) {
     return (
-      <div className="flex items-center justify-center h-full text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
         {t('github.loading')}
       </div>
     );
@@ -117,49 +118,43 @@ export default function GitHubView() {
   const selectedRepo = repos.find((r) => r.id === selectedRepoId) ?? null;
 
   return (
-    <div className="dome-github-view" style={{ color: 'var(--dome-text)' }}>
+    <div className="dome-github-view text-foreground">
       <div className="dome-github-view__header">
         {/* Row 1 — identity: app icon + title + repo selector + open-on-github */}
         <div className="dome-github-view__row-identity">
           <div className="dome-github-view__identity-leading">
-            <DomeIconBox size="sm">
-              <ListTodo size={16} strokeWidth={2} className="text-[var(--accent)]" />
-            </DomeIconBox>
-            <h1 className="dome-github-view__title" style={{ color: 'var(--dome-text)' }}>
+            <div className="flex shrink-0 items-center justify-center size-7 rounded-md" style={{ background: 'color-mix(in srgb, var(--primary) 15%, var(--card))' }}>
+              <HugeiconsIcon icon={Task01Icon} size={16} strokeWidth={2} className="text-primary" />
+            </div>
+            <h1 className="dome-github-view__title text-foreground">
               <span className="dome-github-view__title-text">{t('github.tab_title')}</span>
               <SectionGuideHelp sectionKey="github" />
             </h1>
             <span className="dome-github-view__divider" aria-hidden />
             <div className="dome-github-view__repo-wrap">
-              <DomeSelectMenu
-                value={selectedRepoId ?? ''}
-                onChange={(id) => void selectRepo(id)}
-                aria-label={t('github.tab_title')}
-                className="min-w-0"
-                placeholder={selectedRepos.length === 0 ? t('github.select_repos_in_settings') : t('github.tab_title')}
-                options={selectedRepos.map((r) => ({
+              <Select value={selectedRepoId ?? ''} onValueChange={(next) => { if (next != null) ((id) => void selectRepo(id))(next); }} items={selectedRepos.map((r) => ({
                   value: r.id,
                   label: r.full_name,
-                  icon: <Github size={13} className="shrink-0 text-[var(--tertiary-text)]" aria-hidden />,
-                }))}
-              />
+                  icon: <HugeiconsIcon icon={GithubIcon} size={13} className="shrink-0 text-muted-foreground" aria-hidden />,
+                }))}><SelectTrigger className="w-full min-w-0" aria-label={t('github.tab_title')}><SelectValue placeholder={selectedRepos.length === 0 ? t('github.select_repos_in_settings') : t('github.tab_title')} /></SelectTrigger><SelectContent><SelectGroup>{(selectedRepos.map((r) => ({
+                  value: r.id,
+                  label: r.full_name,
+                  icon: <HugeiconsIcon icon={GithubIcon} size={13} className="shrink-0 text-muted-foreground" aria-hidden />,
+                }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
             </div>
           </div>
 
           <div className="dome-github-view__identity-trailing">
-            <DomeButton
-              className="dome-github-view__action-btn"
-              iconOnly
-              variant="outline"
-              size="sm"
-              aria-label={t('github.open_repo_on_github')}
-              disabled={!selectedRepo?.html_url}
-              onClick={() => {
+            <Button className="dome-github-view__action-btn"
+  variant="outline"
+  aria-label={t('github.open_repo_on_github')}
+  disabled={!selectedRepo?.html_url}
+  onClick={() => {
                 if (selectedRepo?.html_url) window.open(selectedRepo.html_url, '_blank', 'noreferrer');
               }}
-            >
-              <ExternalLink size={14} />
-            </DomeButton>
+  size="icon-sm">
+              <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
+            </Button>
           </div>
         </div>
 
@@ -167,34 +162,21 @@ export default function GitHubView() {
         <div className="dome-github-view__row-tools">
           {!settingsOpen && (mode === 'minimal' || tab !== 'branches') && (
             <div className="dome-github-view__search-wrap">
-              <Search
+              <HugeiconsIcon icon={Search01Icon}
                 size={13}
-                className="shrink-0 absolute top-1/2 -translate-y-1/2 text-[var(--tertiary-text)]"
+                className="shrink-0 absolute top-1/2 -translate-y-1/2 text-muted-foreground"
                 style={{ left: 10 }}
                 aria-hidden
               />
-              <DomeInput
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('github.search_issue_milestone')}
-                inputClassName="dome-github-view__search-input pl-7 py-1 text-sm"
-                aria-label={t('github.search_issue_milestone')}
-              />
+              <Input className="dome-github-view__search-input pl-7 py-1 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('github.search_issue_milestone')} aria-label={t('github.search_issue_milestone')} />
             </div>
           )}
 
           <div className="dome-github-view__tools-group">
-            <DomeSegmentedControl
-              className="dome-github-view__segmented"
-              size="sm"
-              aria-label={t('github.mode_minimal_title')}
-              value={mode}
-              onChange={(v) => changeMode(v as ViewMode)}
-              options={[
-                { value: 'minimal', label: t('github.mode_minimal'), icon: <Leaf size={13} /> },
-                { value: 'developer', label: t('github.mode_developer'), icon: <Code2 size={13} /> },
-              ]}
-            />
+            <Tabs value={mode} onValueChange={(v) => changeMode(v as ViewMode)} className="min-w-0 dome-github-view__segmented"><TabsList aria-label={t('github.mode_minimal_title')} className="h-auto w-full max-w-full flex-wrap">{([
+                { value: 'minimal', label: t('github.mode_minimal'), icon: <HugeiconsIcon icon={Leaf01Icon} size={13} /> },
+                { value: 'developer', label: t('github.mode_developer'), icon: <HugeiconsIcon icon={CodeIcon} size={13} /> },
+              ]).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
 
             {/*
              * The dev-mode segmented control is always rendered so the row
@@ -203,78 +185,53 @@ export default function GitHubView() {
              * intrinsic width (visibility: hidden keeps layout space).
              */}
             {mode === 'developer' && !settingsOpen ? (
-              <DomeSegmentedControl
-                className="dome-github-view__segmented"
-                size="sm"
-                aria-label={t('github.mode_developer_title')}
-                value={tab}
-                onChange={(v) => setTab(v as GitHubTab)}
-                options={tabs.map(({ key, label, icon: Icon }) => ({
+              <Tabs value={tab} onValueChange={(v) => setTab(v as GitHubTab)} className="min-w-0 dome-github-view__segmented"><TabsList aria-label={t('github.mode_developer_title')} className="h-auto w-full max-w-full flex-wrap">{(tabs.map(({ key, label, icon }) => ({
                   value: key,
                   label,
-                  icon: <Icon size={13} />,
-                }))}
-              />
+                  icon: <HugeiconsIcon icon={icon} size={13} />,
+                }))).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
             ) : (
               <div className="dome-github-view__segmented-placeholder" aria-hidden="true">
-                <DomeSegmentedControl
-                  className="dome-github-view__segmented"
-                  size="sm"
-                  value={tab}
-                  onChange={() => undefined}
-                  options={tabs.map(({ key, label, icon: Icon }) => ({
+                <Tabs value={tab} onValueChange={() => undefined} className="min-w-0 dome-github-view__segmented"><TabsList className="h-auto w-full max-w-full flex-wrap">{(tabs.map(({ key, label, icon }) => ({
                     value: key,
                     label,
-                    icon: <Icon size={13} />,
-                  }))}
-                />
+                    icon: <HugeiconsIcon icon={icon} size={13} />,
+                  }))).map((opt: { value: string; label: string; icon?: ReactNode }) => (<TabsTrigger key={opt.value} value={opt.value} className="min-w-0 flex-1 px-2.5 py-1 text-xs">{opt.icon != null ? <span className="shrink-0 [&_svg]:size-3.5">{opt.icon}</span> : null}<span className="truncate">{opt.label}</span></TabsTrigger>))}</TabsList></Tabs>
               </div>
             )}
 
-            <DomeButton
-              className="dome-github-view__action-btn"
-              iconOnly
-              variant={settingsOpen ? 'secondary' : 'outline'}
-              size="sm"
-              aria-label={t('github.settings_title')}
-              aria-pressed={settingsOpen}
-              onClick={() => setSettingsOpen((v) => !v)}
-            >
-              <SettingsIcon size={14} />
-            </DomeButton>
-            <DomeButton
-              className="dome-github-view__action-btn"
-              iconOnly
-              variant="outline"
-              size="sm"
-              aria-label={t('github.sync_now')}
-              onClick={handleSyncClick}
-            >
-              <RefreshCw
+            <Button className="dome-github-view__action-btn"
+  variant={settingsOpen ? 'secondary' : 'outline'}
+  aria-label={t('github.settings_title')}
+  aria-pressed={settingsOpen}
+  onClick={() => setSettingsOpen((v) => !v)}
+  size="icon-sm">
+              <HugeiconsIcon icon={Settings01Icon} size={14} />
+            </Button>
+            <Button className="dome-github-view__action-btn"
+  variant="outline"
+  aria-label={t('github.sync_now')}
+  onClick={handleSyncClick}
+  size="icon-sm">
+              <HugeiconsIcon icon={RefreshIcon}
                 size={14}
-                className={manualSyncing ? 'animate-spin text-[var(--accent)]' : undefined}
+                className={manualSyncing ? 'animate-spin text-primary' : undefined}
               />
-            </DomeButton>
-            <DomeButton
-              className="dome-github-view__action-btn"
-              iconOnly
-              variant="outline"
-              size="sm"
-              aria-label={t('github.open_popout')}
-              onClick={() => openStandalone('seguimiento-popout', '/standalone/github', t('github.tab_title'))}
-            >
-              <ExternalLink size={14} />
-            </DomeButton>
-            <DomeButton
-              className="dome-github-view__action-btn"
-              iconOnly
-              variant="outline"
-              size="sm"
-              aria-label={t('github.open_calendar_popout')}
-              onClick={() => openStandalone('calendar-popout', '/standalone/calendar', t('tabs.calendar'))}
-            >
-              <Calendar size={14} />
-            </DomeButton>
+            </Button>
+            <Button className="dome-github-view__action-btn"
+  variant="outline"
+  aria-label={t('github.open_popout')}
+  onClick={() => openStandalone('seguimiento-popout', '/standalone/github', t('github.tab_title'))}
+  size="icon-sm">
+              <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
+            </Button>
+            <Button className="dome-github-view__action-btn"
+  variant="outline"
+  aria-label={t('github.open_calendar_popout')}
+  onClick={() => openStandalone('calendar-popout', '/standalone/calendar', t('tabs.calendar'))}
+  size="icon-sm">
+              <HugeiconsIcon icon={Calendar03Icon} size={14} />
+            </Button>
           </div>
         </div>
       </div>
@@ -301,18 +258,18 @@ export default function GitHubView() {
             {tab === 'branches' && (
               <div className="p-4 overflow-auto h-full">
                 {branches.length === 0 ? (
-                  <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('github.no_branches')}</p>
+                  <p className="text-sm text-muted-foreground">{t('github.no_branches')}</p>
                 ) : (
                   <ul className="flex flex-col gap-1">
                     {branches.map((b) => (
                       <li key={b.id} className="flex items-center gap-2 text-sm px-3 py-2 rounded-md"
-                        style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-                        <GitBranch size={14} style={{ color: 'var(--dome-text-muted)' }} />
-                        <span style={{ color: 'var(--dome-text)' }}>{b.name}</span>
+                        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+                        <HugeiconsIcon icon={GitBranchIcon} size={14} className="text-muted-foreground" />
+                        <span className="text-foreground">{b.name}</span>
                         {b.linked_issue_number && (
-                          <span className="text-xs" style={{ color: 'var(--dome-accent)' }}>#{b.linked_issue_number}</span>
+                          <span className="text-xs text-primary">#{b.linked_issue_number}</span>
                         )}
-                        {b.sha && <span className="ml-auto text-xs font-mono" style={{ color: 'var(--dome-text-muted)' }}>{b.sha.slice(0, 7)}</span>}
+                        {b.sha && <span className="ml-auto text-xs font-mono text-muted-foreground">{b.sha.slice(0, 7)}</span>}
                       </li>
                     ))}
                   </ul>

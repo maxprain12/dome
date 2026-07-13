@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Share2, Plus, RefreshCw, Linkedin, Instagram, Twitter, Trash2, Send,
-  CalendarClock, Pencil, ExternalLink, Loader2, Settings as SettingsIcon,
-  BarChart3, FileText, LayoutDashboard, Sparkles, Building2, Cloud,
-} from 'lucide-react';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { Building2Icon, CalendarClockIcon, ChartColumnIcon, CloudIcon, DashboardSquare01Icon, Delete02Icon, ExternalLinkIcon, File02Icon, InstagramIcon, Linkedin01Icon, PencilIcon, PlusSignIcon, RefreshIcon, SentIcon, Settings01Icon, Share08Icon, SparklesIcon, TwitterIcon } from '@hugeicons/core-free-icons';
 import { useTabStore } from '@/lib/store/useTabStore';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Spinner } from '@/components/ui/spinner';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { cn } from '@/lib/utils';
 import SocialComposerModal from '@/components/social/SocialComposerModal';
 import SocialGrowthCards from '@/components/social/SocialGrowthCards';
 import SocialReportsSection from '@/components/social/SocialReportsSection';
@@ -13,15 +28,15 @@ import type { SocialAccount, SocialGrowthAccount, SocialPost, SocialProvider, So
 
 type HubSection = 'dashboard' | 'posts' | 'analytics' | 'reports';
 
-const PROVIDER_ICONS = { linkedin: Linkedin, instagram: Instagram, x: Twitter } as const;
+const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = { linkedin: Linkedin01Icon, instagram: InstagramIcon, x: TwitterIcon };
 const PROVIDER_LABELS = { linkedin: 'LinkedIn', instagram: 'Instagram', x: 'X' } as const;
 
 const STATUS_COLORS: Record<SocialPost['status'], string> = {
-  draft: 'var(--dome-text-muted)',
-  scheduled: 'var(--dome-accent)',
-  publishing: 'var(--dome-accent)',
+  draft: 'var(--muted-foreground)',
+  scheduled: 'var(--primary)',
+  publishing: 'var(--primary)',
   published: 'var(--success)',
-  failed: 'var(--dome-error)',
+  failed: 'var(--destructive)',
 };
 
 export default function SocialHubView() {
@@ -128,109 +143,95 @@ export default function SocialHubView() {
   return (
     <div className="flex flex-col h-full min-w-0 overflow-hidden">
       {/* Header */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-5 py-3 shrink-0"
-        style={{ borderBottom: '1px solid var(--dome-border)' }}
-      >
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b px-5 py-3">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <Share2 className="size-5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-          <h1 className="text-base font-semibold truncate" style={{ color: 'var(--dome-text)' }}>
+          <HugeiconsIcon icon={Share08Icon} className="size-5 shrink-0 text-primary" />
+          <h1 className="text-base font-semibold truncate text-foreground">
             {t('social.hub.title')}
           </h1>
-          <nav className="flex items-center gap-1 ml-4">
-            {(
-              [
-                ['dashboard', LayoutDashboard],
-                ['posts', FileText],
-                ['analytics', BarChart3],
-                ['reports', Sparkles],
-              ] as const
-            ).map(([id, Icon]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setSection(id)}
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap"
-                style={{
-                  background: section === id ? 'var(--dome-bg-secondary)' : 'transparent',
-                  color: section === id ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                  border: section === id ? '1px solid var(--dome-border)' : '1px solid transparent',
-                }}
-              >
-                <Icon className="size-3.5" />
-                {t(`social.hub.section_${id}`)}
-              </button>
-            ))}
-          </nav>
+          <Tabs value={section} onValueChange={(v) => setSection(v as HubSection)} className="ml-4">
+            <TabsList className="h-8">
+              {(
+                [
+                  ['dashboard', DashboardSquare01Icon],
+                  ['posts', File02Icon],
+                  ['analytics', ChartColumnIcon],
+                  ['reports', SparklesIcon],
+                ] as const
+              ).map(([id, icon]) => (
+                <TabsTrigger key={id} value={id} className="gap-1.5 px-2.5 text-xs">
+                  <HugeiconsIcon icon={icon} className="size-3.5" />
+                  {t(`social.hub.section_${id}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button
+          <Button
             type="button"
+            size="sm"
+            variant="outline"
+            className="text-xs text-muted-foreground"
             onClick={() => void refreshMetrics()}
             disabled={refreshing}
-            className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium whitespace-nowrap"
-            style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
             title={t('social.hub.refresh_metrics')}
           >
-            <RefreshCw className={`size-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <HugeiconsIcon icon={RefreshIcon} className={cn('size-3.5', refreshing && 'animate-spin')} />
             {t('social.hub.refresh_metrics')}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            size="sm"
+            className="text-xs"
             onClick={() => {
               setEditingPost(null);
               setComposerOpen(true);
             }}
-            className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium whitespace-nowrap"
-            style={{ background: 'var(--dome-accent)', color: 'white' }}
           >
-            <Plus className="size-3.5" />
+            <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
             {t('social.hub.new_post')}
-          </button>
+          </Button>
         </div>
       </div>
 
       {error && (
-        <div className="px-5 py-2 text-xs shrink-0" style={{ color: 'var(--dome-error)' }}>
+        <div className="px-5 py-2 text-xs shrink-0 text-destructive">
           {error}
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto px-5 py-4 min-w-0">
         {section === 'dashboard' && (
-          <div className="space-y-5 max-w-5xl">
+          <div className="flex flex-col gap-5 max-w-5xl">
             {/* Connected accounts strip */}
             <div className="flex flex-wrap items-center gap-2">
               {accountStrip.map(({ key, provider: p, account: acc }) => {
-                const Icon = acc?.accountKind === 'organization' ? Building2 : PROVIDER_ICONS[p];
+                const icon = acc?.accountKind === 'organization' ? Building2Icon : PROVIDER_ICONS[p];
                 const label = acc
                   ? `${acc.displayName || acc.handle || PROVIDER_LABELS[p]}${acc.status !== 'active' ? ` · ${t(`social.settings.status_${acc.status}`)}` : ''}`
                   : t('social.hub.not_connected', { provider: PROVIDER_LABELS[p] });
                 return (
-                  <div
+                  <Badge
                     key={key}
-                    className="flex items-center gap-2 rounded-full px-3 py-1.5 text-xs"
-                    style={{
-                      background: 'var(--dome-bg-secondary)',
-                      border: '1px solid var(--dome-border)',
-                      color: acc ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                      opacity: acc ? 1 : 0.7,
-                    }}
+                    variant="outline"
+                    className={cn('gap-2 bg-card px-3 py-1.5 font-normal', !acc && 'text-muted-foreground opacity-70')}
                   >
-                    <Icon className="size-3.5" style={{ color: acc ? 'var(--dome-accent)' : undefined }} />
+                    <HugeiconsIcon icon={icon} className={cn('size-3.5', acc && 'text-primary')} />
                     {label}
-                  </div>
+                  </Badge>
                 );
               })}
-              <button
+              <Button
                 type="button"
+                size="sm"
+                variant="outline"
+                className="rounded-full border-dashed text-xs text-primary"
                 onClick={goToSettings}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium"
-                style={{ border: '1px dashed var(--dome-border)', color: 'var(--dome-accent)' }}
               >
-                <SettingsIcon className="size-3.5" />
+                <HugeiconsIcon icon={Settings01Icon} className="size-3.5" />
                 {t('social.hub.manage_accounts')}
-              </button>
+              </Button>
             </div>
 
             {/* KPI cards */}
@@ -255,7 +256,7 @@ export default function SocialHubView() {
                   }}
                 />
               ) : (
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   {posts
                     .filter((p) => p.status === 'scheduled')
                     .sort((a, b) => (a.scheduledAt ?? 0) - (b.scheduledAt ?? 0))
@@ -281,7 +282,7 @@ export default function SocialHubView() {
             {/* Top posts */}
             <SectionCard title={t('social.hub.top_posts')}>
               {!summary || summary.topPosts.length === 0 ? (
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs text-muted-foreground">
                   {t('social.hub.top_posts_empty')}
                 </p>
               ) : (
@@ -292,22 +293,19 @@ export default function SocialHubView() {
         )}
 
         {section === 'posts' && (
-          <div className="space-y-3 max-w-5xl">
+          <div className="flex flex-col gap-3 max-w-5xl">
             <div className="flex items-center gap-1.5 flex-wrap">
               {['all', 'draft', 'scheduled', 'published', 'failed'].map((s) => (
-                <button
+                <Button
                   key={s}
                   type="button"
+                  size="xs"
+                  variant={statusFilter === s ? 'default' : 'outline'}
+                  className="rounded-full text-xs"
                   onClick={() => setStatusFilter(s)}
-                  className="rounded-full px-3 py-1 text-xs font-medium"
-                  style={{
-                    background: statusFilter === s ? 'var(--dome-accent)' : 'var(--dome-bg-secondary)',
-                    color: statusFilter === s ? 'white' : 'var(--dome-text-muted)',
-                    border: '1px solid var(--dome-border)',
-                  }}
                 >
                   {t(`social.hub.filter_${s}`)}
-                </button>
+                </Button>
               ))}
             </div>
             {filteredPosts.length === 0 ? (
@@ -320,7 +318,7 @@ export default function SocialHubView() {
                 }}
               />
             ) : (
-              <div className="space-y-2">
+              <div className="flex flex-col gap-2">
                 {filteredPosts.map((post) => (
                   <PostRow
                     key={post.id}
@@ -341,7 +339,7 @@ export default function SocialHubView() {
         )}
 
         {section === 'analytics' && (
-          <div className="space-y-5 max-w-5xl">
+          <div className="flex flex-col gap-5 max-w-5xl">
             <SectionCard title={t('social.hub.growth_title')}>
               <SocialGrowthCards accounts={growth} />
             </SectionCard>
@@ -349,33 +347,31 @@ export default function SocialHubView() {
             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
               {(['linkedin', 'instagram', 'x'] as const).map((p) => {
                 const agg = summary?.byProvider?.[p];
-                const Icon = PROVIDER_ICONS[p];
+                const icon = PROVIDER_ICONS[p];
                 return (
-                  <div
-                    key={p}
-                    className="rounded-lg px-4 py-3"
-                    style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-                  >
+                  <Card key={p} size="sm" className="gap-0 rounded-xl px-4 py-3 shadow-none">
+                    <CardContent className="p-0">
                     <div className="flex items-center gap-2 mb-2">
-                      <Icon className="size-4" style={{ color: 'var(--dome-accent)' }} />
-                      <span className="text-sm font-medium" style={{ color: 'var(--dome-text)' }}>
+                      <HugeiconsIcon icon={icon} className="size-4 text-primary" />
+                      <span className="text-sm font-medium text-foreground">
                         {PROVIDER_LABELS[p]}
                       </span>
                     </div>
-                    <div className="text-xs space-y-1" style={{ color: 'var(--dome-text-muted)' }}>
-                      <div>{t('social.hub.kpi_published')}: <strong style={{ color: 'var(--dome-text)' }}>{agg?.posts ?? 0}</strong></div>
-                      <div>{t('social.hub.kpi_impressions')}: <strong style={{ color: 'var(--dome-text)' }}>{agg?.impressions ?? 0}</strong></div>
-                      <div>{t('social.hub.kpi_likes')}: <strong style={{ color: 'var(--dome-text)' }}>{agg?.likes ?? 0}</strong></div>
-                      <div>{t('social.hub.kpi_comments')}: <strong style={{ color: 'var(--dome-text)' }}>{agg?.comments ?? 0}</strong></div>
+                    <div className="text-xs flex flex-col gap-1 text-muted-foreground">
+                      <div>{t('social.hub.kpi_published')}: <strong className="text-foreground">{agg?.posts ?? 0}</strong></div>
+                      <div>{t('social.hub.kpi_impressions')}: <strong className="text-foreground">{agg?.impressions ?? 0}</strong></div>
+                      <div>{t('social.hub.kpi_likes')}: <strong className="text-foreground">{agg?.likes ?? 0}</strong></div>
+                      <div>{t('social.hub.kpi_comments')}: <strong className="text-foreground">{agg?.comments ?? 0}</strong></div>
                     </div>
-                  </div>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
 
             <SectionCard title={t('social.hub.recent_performance')}>
               {!summary || summary.recentPosts.length === 0 ? (
-                <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                <p className="text-xs text-muted-foreground">
                   {t('social.hub.analytics_empty')}
                 </p>
               ) : (
@@ -409,43 +405,36 @@ export default function SocialHubView() {
 
 function KpiCard({ label, value }: { label: string; value: number }) {
   return (
-    <div
-      className="rounded-lg px-4 py-3"
-      style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-    >
-      <div className="text-xl font-semibold" style={{ color: 'var(--dome-text)' }}>
+    <Card size="sm" className="gap-0.5 rounded-xl px-4 py-3 shadow-none">
+      <CardContent className="p-0">
+      <div className="text-xl font-semibold text-foreground">
         {Intl.NumberFormat().format(value || 0)}
       </div>
-      <div className="text-xs mt-0.5" style={{ color: 'var(--dome-text-muted)' }}>{label}</div>
-    </div>
+      <div className="text-xs text-muted-foreground">{label}</div>
+      </CardContent>
+    </Card>
   );
 }
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      className="rounded-lg px-4 py-3"
-      style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-    >
-      <div className="text-sm font-medium mb-3" style={{ color: 'var(--dome-text)' }}>{title}</div>
-      {children}
-    </div>
+    <Card size="sm" className="gap-0 rounded-xl px-4 py-3 shadow-none">
+      <CardHeader className="p-0 pb-3">
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">{children}</CardContent>
+    </Card>
   );
 }
 
 function EmptyHint({ text, actionLabel, onAction }: { text: string; actionLabel: string; onAction: () => void }) {
   return (
     <div className="flex items-center justify-between gap-3 flex-wrap">
-      <p className="text-xs" style={{ color: 'var(--dome-text-muted)' }}>{text}</p>
-      <button
-        type="button"
-        onClick={onAction}
-        className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium"
-        style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-accent)' }}
-      >
-        <Plus className="size-3.5" />
+      <p className="text-xs text-muted-foreground">{text}</p>
+      <Button type="button" size="sm" variant="outline" className="text-xs text-primary" onClick={onAction}>
+        <HugeiconsIcon icon={PlusSignIcon} className="size-3.5" />
         {actionLabel}
-      </button>
+      </Button>
     </div>
   );
 }
@@ -466,35 +455,32 @@ function PostRow({
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
-  const Icon = PROVIDER_ICONS[post.provider];
+  const icon = PROVIDER_ICONS[post.provider];
   const editable = post.status === 'draft' || post.status === 'scheduled' || post.status === 'failed';
   return (
-    <div
-      className="flex items-start gap-3 rounded-md px-3 py-2.5"
-      style={{ background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
-    >
-      <Icon className="size-4 mt-0.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+    <div className="flex items-start gap-3 rounded-md border bg-background px-3 py-2.5">
+      <HugeiconsIcon icon={icon} className="size-4 mt-0.5 shrink-0 text-primary" />
       <div className="flex-1 min-w-0">
-        <p className="text-sm line-clamp-2 break-words" style={{ color: 'var(--dome-text)' }}>
-          {post.body || <em style={{ color: 'var(--dome-text-muted)' }}>{t('social.hub.no_text')}</em>}
+        <p className="text-sm line-clamp-2 break-words text-foreground">
+          {post.body || <em className="text-muted-foreground">{t('social.hub.no_text')}</em>}
         </p>
-        <div className="flex items-center gap-2 mt-1 text-xs flex-wrap" style={{ color: 'var(--dome-text-muted)' }}>
+        <div className="flex items-center gap-2 mt-1 text-xs flex-wrap text-muted-foreground">
           <span style={{ color: STATUS_COLORS[post.status] }}>{t(`social.hub.status_${post.status}`)}</span>
           {isCloud && post.status === 'scheduled' && (
             <span className="inline-flex items-center gap-0.5" title={t('social.hub.cloud_scheduled')}>
-              <Cloud className="size-3" style={{ color: 'var(--dome-accent)' }} />
+              <HugeiconsIcon icon={CloudIcon} className="size-3 text-primary" />
             </span>
           )}
           {post.scheduledAt && post.status === 'scheduled' && (
             <span className="flex items-center gap-1">
-              <CalendarClock className="size-3" />
+              <HugeiconsIcon icon={CalendarClockIcon} className="size-3" />
               {new Date(post.scheduledAt).toLocaleString()}
             </span>
           )}
           {post.publishedAt && <span>{new Date(post.publishedAt).toLocaleString()}</span>}
           {post.campaign && <span>· {post.campaign}</span>}
           {post.topics.length > 0 && <span>· {post.topics.join(', ')}</span>}
-          {post.error && <span style={{ color: 'var(--dome-error)' }}>· {post.error}</span>}
+          {post.error && <span className="text-destructive">· {post.error}</span>}
         </div>
       </div>
       <div className="flex items-center gap-1 shrink-0">
@@ -503,44 +489,56 @@ function PostRow({
             href={post.externalUrl}
             target="_blank"
             rel="noreferrer"
-            className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)]"
+            className="p-1.5 rounded-md hover:bg-accent"
             title={t('social.hub.open_post')}
           >
-            <ExternalLink className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
+            <HugeiconsIcon icon={ExternalLinkIcon} className="size-3.5 text-muted-foreground" />
           </a>
         )}
         {editable && (
           <>
-            <button
+            <Button
               type="button"
+              size="icon-xs"
+              variant="ghost"
               onClick={onPublish}
               disabled={busy}
-              className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)]"
               title={t('social.hub.publish_now')}
+              aria-label={t('social.hub.publish_now')}
             >
-              {busy
-                ? <Loader2 className="size-3.5 animate-spin" style={{ color: 'var(--dome-accent)' }} />
-                : <Send className="size-3.5" style={{ color: 'var(--dome-accent)' }} />}
-            </button>
-            <button
+              {busy ? <Spinner className="size-3.5 text-primary" /> : <HugeiconsIcon icon={SentIcon} className="size-3.5 text-primary" />}
+            </Button>
+            <Button
               type="button"
+              size="icon-xs"
+              variant="ghost"
               onClick={onEdit}
-              className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)]"
               title={t('social.hub.edit')}
+              aria-label={t('social.hub.edit')}
             >
-              <Pencil className="size-3.5" style={{ color: 'var(--dome-text-muted)' }} />
-            </button>
+              <HugeiconsIcon icon={PencilIcon} className="size-3.5 text-muted-foreground" />
+            </Button>
           </>
         )}
         {post.status !== 'publishing' && (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="p-1.5 rounded-md hover:bg-[var(--dome-bg-hover)]"
-            title={t('social.hub.delete')}
-          >
-            <Trash2 className="size-3.5" style={{ color: 'var(--dome-error)' }} />
-          </button>
+          <AlertDialog>
+            <AlertDialogTrigger render={<Button type="button" size="icon-xs" variant="ghost" />}>
+              <HugeiconsIcon icon={Delete02Icon} className="text-destructive" />
+              <span className="sr-only">{t('social.hub.delete')}</span>
+            </AlertDialogTrigger>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('social.hub.delete')}</AlertDialogTitle>
+                <AlertDialogDescription>{t('social.hub.no_text')}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={onDelete}>
+                  {t('social.hub.delete')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
     </div>
@@ -550,41 +548,41 @@ function PostRow({
 function MetricsTable({ posts, t }: { posts: SocialPost[]; t: (k: string) => string }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs" style={{ color: 'var(--dome-text)' }}>
-        <thead>
-          <tr style={{ color: 'var(--dome-text-muted)' }}>
-            <th className="text-left font-medium py-1.5 pr-3">{t('social.hub.col_post')}</th>
-            <th className="text-right font-medium py-1.5 px-2">{t('social.hub.kpi_impressions')}</th>
-            <th className="text-right font-medium py-1.5 px-2">{t('social.hub.kpi_likes')}</th>
-            <th className="text-right font-medium py-1.5 px-2">{t('social.hub.kpi_comments')}</th>
-            <th className="text-right font-medium py-1.5 pl-2">{t('social.hub.col_shares')}</th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{t('social.hub.col_post')}</TableHead>
+            <TableHead className="text-right">{t('social.hub.kpi_impressions')}</TableHead>
+            <TableHead className="text-right">{t('social.hub.kpi_likes')}</TableHead>
+            <TableHead className="text-right">{t('social.hub.kpi_comments')}</TableHead>
+            <TableHead className="text-right">{t('social.hub.col_shares')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {posts.map((post) => {
-            const Icon = PROVIDER_ICONS[post.provider];
+            const icon = PROVIDER_ICONS[post.provider];
             return (
-              <tr key={post.id} style={{ borderTop: '1px solid var(--dome-border)' }}>
-                <td className="py-2 pr-3">
+              <TableRow key={post.id}>
+                <TableCell>
                   <div className="flex items-center gap-2 min-w-0 max-w-md">
-                    <Icon className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
+                    <HugeiconsIcon icon={icon} className="size-3.5 shrink-0 text-primary" />
                     <span className="truncate">{post.body || '—'}</span>
                     {post.externalUrl && (
                       <a href={post.externalUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                        <ExternalLink className="size-3" style={{ color: 'var(--dome-text-muted)' }} />
+                        <HugeiconsIcon icon={ExternalLinkIcon} className="size-3 text-muted-foreground" />
                       </a>
                     )}
                   </div>
-                </td>
-                <td className="text-right py-2 px-2">{post.metrics?.impressions ?? '—'}</td>
-                <td className="text-right py-2 px-2">{post.metrics?.likes ?? '—'}</td>
-                <td className="text-right py-2 px-2">{post.metrics?.comments ?? '—'}</td>
-                <td className="text-right py-2 pl-2">{post.metrics?.shares ?? '—'}</td>
-              </tr>
+                </TableCell>
+                <TableCell className="text-right">{post.metrics?.impressions ?? '—'}</TableCell>
+                <TableCell className="text-right">{post.metrics?.likes ?? '—'}</TableCell>
+                <TableCell className="text-right">{post.metrics?.comments ?? '—'}</TableCell>
+                <TableCell className="text-right">{post.metrics?.shares ?? '—'}</TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }

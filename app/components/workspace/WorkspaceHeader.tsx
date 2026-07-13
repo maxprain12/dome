@@ -1,33 +1,34 @@
-import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
-import ReactDOM from 'react-dom';
-import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  Info,
-  FileText,
-  Video,
-  Music,
-  Image,
-  FileEdit,
-  Folder,
-  Notebook,
-  ExternalLink,
-  FolderOpen,
-  BookOpen,
-  Sparkles,
-  Network,
-  PanelRight,
-  PanelRightOpen,
-  MoreHorizontal,
-  FileDown,
-  Presentation,
-  Maximize2,
-} from 'lucide-react';
+  InformationCircleIcon,
+  File02Icon,
+  Video01Icon,
+  MusicNote01Icon,
+  Image01Icon,
+  FileEditIcon,
+  Folder01Icon,
+  NotebookIcon,
+  ExternalLinkIcon,
+  FolderOpenIcon,
+  BookOpen01Icon,
+  SparklesIcon,
+  HierarchySquare01Icon,
+  PanelRightIcon,
+  PanelRightOpenIcon,
+  MoreHorizontalIcon,
+  FileDownIcon,
+  Presentation01Icon,
+  Maximize02Icon,
+} from '@hugeicons/core-free-icons';
+import { useState, useRef, useEffect, useCallback, type CSSProperties } from 'react';
+import IndexStatusBadge from '@/components/viewers/shared/IndexStatusBadge';
 import { useTranslation } from 'react-i18next';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useTabStore } from '@/lib/store/useTabStore';
 import SplitResourcePicker from '@/components/workspace/SplitResourcePicker';
 import { type Resource } from '@/types';
 import './workspace-header.css';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 interface EditableTitle {
   value: string;
@@ -66,16 +67,16 @@ interface TypeMeta {
 function getTypeMeta(type: string): TypeMeta {
   const base = { size: 13, strokeWidth: 2 };
   switch (type) {
-    case 'note':     return { icon: <FileEdit {...base} />,   color: 'var(--dome-accent)',   bg: 'var(--dome-accent-bg)',  label: 'Nota' };
-    case 'pdf':      return { icon: <FileText {...base} />,   color: 'var(--dome-error)',              bg: 'rgba(232,92,74,0.1)',    label: 'PDF' };
-    case 'video':    return { icon: <Video {...base} />,      color: 'var(--accent)',              bg: 'rgba(124,111,205,0.1)',  label: 'Video' };
-    case 'audio':    return { icon: <Music {...base} />,      color: 'var(--secondary)',           bg: 'rgba(155,111,205,0.1)', label: 'Audio' };
-    case 'image':    return { icon: <Image {...base} />,       color: 'var(--success)',            bg: 'rgba(59,166,141,0.1)',   label: 'Imagen' };
-    case 'notebook': return { icon: <Notebook {...base} />,   color: 'var(--accent)',                            bg: 'rgba(74,144,217,0.1)',   label: 'Notebook' };
-    case 'ppt':      return { icon: <Presentation {...base}/>, color: 'var(--warning)',          bg: 'rgba(232,146,74,0.1)',   label: 'Presentación' };
-    case 'url':      return { icon: <ExternalLink {...base} />, color: 'var(--accent)',                         bg: 'rgba(74,144,217,0.1)',   label: 'URL' };
-    case 'excel':    return { icon: <FileText {...base} />,   color: 'var(--success)',                            bg: 'rgba(59,166,104,0.1)',   label: 'Excel' };
-    default:         return { icon: <Folder {...base} />,     color: 'var(--dome-text-muted)', bg: 'var(--dome-bg-hover)', label: 'Recurso' };
+    case 'note':     return { icon: <HugeiconsIcon icon={FileEditIcon} {...base} />,   color: 'var(--primary)',   bg: 'color-mix(in srgb, var(--primary) 12%, transparent)',  label: 'Nota' };
+    case 'pdf':      return { icon: <HugeiconsIcon icon={File02Icon} {...base} />,   color: 'var(--destructive)',              bg: 'rgba(232,92,74,0.1)',    label: 'PDF' };
+    case 'video':    return { icon: <HugeiconsIcon icon={Video01Icon} {...base} />,      color: 'var(--primary)',              bg: 'rgba(124,111,205,0.1)',  label: 'Video' };
+    case 'audio':    return { icon: <HugeiconsIcon icon={MusicNote01Icon} {...base} />,      color: 'var(--muted-foreground)',           bg: 'rgba(155,111,205,0.1)', label: 'Audio' };
+    case 'image':    return { icon: <HugeiconsIcon icon={Image01Icon} {...base} />,       color: 'var(--success)',            bg: 'rgba(59,166,141,0.1)',   label: 'Imagen' };
+    case 'notebook': return { icon: <HugeiconsIcon icon={NotebookIcon} {...base} />,   color: 'var(--primary)',                            bg: 'rgba(74,144,217,0.1)',   label: 'Notebook' };
+    case 'ppt':      return { icon: <HugeiconsIcon icon={Presentation01Icon} {...base}/>, color: 'var(--warning)',          bg: 'rgba(232,146,74,0.1)',   label: 'Presentación' };
+    case 'url':      return { icon: <HugeiconsIcon icon={ExternalLinkIcon} {...base} />, color: 'var(--primary)',                         bg: 'rgba(74,144,217,0.1)',   label: 'URL' };
+    case 'excel':    return { icon: <HugeiconsIcon icon={File02Icon} {...base} />,   color: 'var(--success)',                            bg: 'rgba(59,166,104,0.1)',   label: 'Excel' };
+    default:         return { icon: <HugeiconsIcon icon={Folder01Icon} {...base} />,     color: 'var(--muted-foreground)', bg: 'var(--accent)', label: 'Recurso' };
   }
 }
 
@@ -138,7 +139,6 @@ export default function WorkspaceHeader({
   const { t } = useTranslation();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuBtnRef = useRef<HTMLButtonElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 });
 
   const sourcesPanelOpen = useAppStore((s) => s.sourcesPanelOpen);
@@ -158,20 +158,6 @@ export default function WorkspaceHeader({
   const isWindows = typeof window !== 'undefined' && window.electron?.isWindows;
   const isLinux = typeof window !== 'undefined' && window.electron?.isLinux;
   const needsChromeRightInset = Boolean(isWindows || isLinux);
-
-  // Close menu on outside click / Escape
-  useEffect(() => {
-    if (!menuOpen) return;
-    const down = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node) && !menuBtnRef.current?.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
-    document.addEventListener('mousedown', down);
-    document.addEventListener('keydown', key);
-    return () => { document.removeEventListener('mousedown', down); document.removeEventListener('keydown', key); };
-  }, [menuOpen]);
 
   const openMenu = useCallback(() => {
     if (!menuBtnRef.current) return;
@@ -282,7 +268,7 @@ export default function WorkspaceHeader({
               onBlur={editableTitle.onBlur}
               placeholder={editableTitle.placeholder ?? 'Sin título'}
               aria-label="Título del recurso"
-              className="workspace-title-input focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2"
+              className="workspace-title-input focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
             />
           ) : (
             <div className="flex items-baseline gap-2 min-w-0">
@@ -312,7 +298,7 @@ export default function WorkspaceHeader({
             className={`workspace-notebook-btn${notebookWorkspacePath || notebookVenvPath ? ' is-configured' : ' is-unconfigured'}`}
             title="Configurar carpeta de trabajo y entorno Python"
           >
-            <FolderOpen size={12} />
+            <HugeiconsIcon icon={FolderOpenIcon} size={12} />
             <span>
               {notebookWorkspacePath ? 'Carpeta' : notebookVenvPath ? 'Venv' : 'Workspace'}
             </span>
@@ -331,29 +317,29 @@ export default function WorkspaceHeader({
         {!mediaFocusMode && (
           <>
             <HeaderIconBtn
-              icon={<BookOpen size={14} strokeWidth={2} />}
+              icon={<HugeiconsIcon icon={BookOpen01Icon} size={14} strokeWidth={2} />}
               label={t('workspace.sources')}
               active={sourcesPanelOpen}
               onClick={toggleSourcesPanel}
             />
             <HeaderIconBtn
-              icon={<Sparkles size={14} strokeWidth={2} />}
+              icon={<HugeiconsIcon icon={SparklesIcon} size={14} strokeWidth={2} />}
               label={t('workspace.studio')}
               active={studioPanelOpen}
-              activeColor="var(--accent)"
+              activeColor="var(--primary)"
               onClick={toggleStudioPanel}
             />
             <HeaderIconBtn
-              icon={<Network size={14} strokeWidth={2} />}
+              icon={<HugeiconsIcon icon={HierarchySquare01Icon} size={14} strokeWidth={2} />}
               label={t('workspace.graph')}
               active={false}
-              activeColor="var(--accent)"
+              activeColor="var(--primary)"
               onClick={() => openSemanticGraphTab(resource.id, resource.project_id)}
             />
           </>
         )}
         <HeaderIconBtn
-          icon={<PanelRight size={14} strokeWidth={2} />}
+          icon={<HugeiconsIcon icon={PanelRightIcon} size={14} strokeWidth={2} />}
           label={t('workspace.sidePanel')}
           active={sidePanelOpen}
           onClick={onToggleSidePanel}
@@ -368,13 +354,13 @@ export default function WorkspaceHeader({
             <HDivider />
             {currentProject?.id && (
               <HeaderIconBtn
-                icon={<PanelRightOpen size={14} strokeWidth={2} />}
+                icon={<HugeiconsIcon icon={PanelRightOpenIcon} size={14} strokeWidth={2} />}
                 label={t('focused_editor.open_reference', 'Abrir referencia')}
                 onClick={() => setSplitPickerOpen(true)}
               />
             )}
             <HeaderIconBtn
-              icon={<Maximize2 size={14} strokeWidth={2} />}
+              icon={<HugeiconsIcon icon={Maximize02Icon} size={14} strokeWidth={2} />}
               label={t('focused_editor.popout', 'Abrir en ventana')}
               onClick={handlePopoutNote}
             />
@@ -386,7 +372,7 @@ export default function WorkspaceHeader({
         {/* Presentation mode */}
         {resource.type === 'ppt' && onPresentationMode && (
           <HeaderIconBtn
-            icon={<Presentation size={14} strokeWidth={2} />}
+            icon={<HugeiconsIcon icon={Presentation01Icon} size={14} strokeWidth={2} />}
             label={t('workspace.presentation_mode')}
             onClick={onPresentationMode}
           />
@@ -394,7 +380,7 @@ export default function WorkspaceHeader({
 
         {/* More options */}
         <HeaderIconBtn
-          icon={<MoreHorizontal size={14} strokeWidth={2} />}
+          icon={<HugeiconsIcon icon={MoreHorizontalIcon} size={14} strokeWidth={2} />}
           label={t('workspace.more_options')}
           active={menuOpen}
           forwardRef={menuBtnRef}
@@ -403,20 +389,17 @@ export default function WorkspaceHeader({
       </div>
 
       {/* ── Dropdown menu (portal) ─────────────────────────────────────── */}
-      {menuOpen && ReactDOM.createPortal(
-        <div
-          ref={menuRef}
-          className="workspace-header-menu"
-          style={{ top: menuPos.top, right: menuPos.right }}
-          role="menu"
-        >
-          <MenuItem icon={<Info size={14} />} label={t('viewer.resource_info')} onClick={() => { setMenuOpen(false); onShowMetadata(); }} />
+      {menuOpen ? (
+        <DropdownMenu open onOpenChange={setMenuOpen}>
+          <DropdownMenuTrigger render={<span className="fixed size-px" style={{ top: menuPos.top, right: menuPos.right }} aria-hidden />} />
+          <DropdownMenuContent align="end" side="bottom" sideOffset={0} className="workspace-header-menu">
+          <MenuItem icon={<HugeiconsIcon icon={InformationCircleIcon} size={14} />} label={t('viewer.resource_info')} onClick={() => { setMenuOpen(false); onShowMetadata(); }} />
 
           {resource.type === 'ppt' && onExportDocx && (
             <>
               <MenuDivider />
               <MenuItem
-                icon={<FileDown size={14} />}
+                icon={<HugeiconsIcon icon={FileDownIcon} size={14} />}
                 label="Exportar a PPTX"
                 onClick={async () => { setMenuOpen(false); await onExportDocx(); }}
               />
@@ -426,13 +409,13 @@ export default function WorkspaceHeader({
           {hasFile && (
             <>
               <MenuDivider />
-              <MenuItem icon={<ExternalLink size={14} />} label={t('viewer.open_with_default_app')} onClick={handleOpenExternal} />
-              <MenuItem icon={<FolderOpen size={14} />} label={t('viewer.show_in_finder')} onClick={handleShowInFinder} />
+              <MenuItem icon={<HugeiconsIcon icon={ExternalLinkIcon} size={14} />} label={t('viewer.open_with_default_app')} onClick={handleOpenExternal} />
+              <MenuItem icon={<HugeiconsIcon icon={FolderOpenIcon} size={14} />} label={t('viewer.show_in_finder')} onClick={handleShowInFinder} />
             </>
           )}
-        </div>,
-        document.body,
-      )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
 
       {/* Picker modal for opening a sibling resource as a split reference. */}
       {currentProject?.id && (

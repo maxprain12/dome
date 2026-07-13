@@ -1,9 +1,14 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  File02Icon,
+  Comment01Icon,
+  ArrowRight02Icon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
-import { FileText, MessageSquare, ArrowRight } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import type { ActivityItem } from '@/lib/hooks/useDashboardData';
 import { formatDistanceToNow } from '@/lib/utils';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
 
 export function DashboardActivityContinue({
   activity,
@@ -22,27 +27,20 @@ export function DashboardActivityContinue({
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <DomeCard
-              key={i}
-              padding="sm"
-              className="h-12 animate-pulse motion-reduce:animate-none border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))]"
-            >
+            <Card className="p-3 h-12 animate-pulse motion-reduce:animate-none border-[var(--border)] bg-[var(--card)]" key={i}>
               <span className="sr-only">{t('common.loading')}</span>
-            </DomeCard>
+            </Card>
           ))}
         </div>
       ) : activity.length === 0 ? (
-        <DomeCard
-          padding="lg"
-          className="border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))] text-center"
-        >
-          <p className="text-sm font-medium" style={{ color: 'var(--dome-text, var(--primary-text))' }}>
+        <Card className="p-6 border-[var(--border)] bg-[var(--card)] text-center">
+          <p className="text-sm font-medium text-foreground">
             {t('dashboard.no_activity')}
           </p>
-          <p className="mt-1 text-xs" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
+          <p className="mt-1 text-xs text-muted-foreground">
             {t('dashboard.no_recent_hint')}
           </p>
-        </DomeCard>
+        </Card>
       ) : (
         <ul className="space-y-2">
           {activity.slice(0, 8).map((item) => (
@@ -52,38 +50,38 @@ export function DashboardActivityContinue({
                 onClick={() => onContinue(item)}
                 className="flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3 text-left transition-colors duration-150 hover:opacity-95"
                 style={{
-                  borderColor: 'var(--dome-border, var(--border))',
-                  background: 'var(--dome-surface, var(--bg-secondary))',
+                  borderColor: 'var(--border)',
+                  background: 'var(--card)',
                 }}
                 disabled={item.kind === 'resource' ? !item.resourceId : !item.sessionId}
               >
                 <span
                   className="flex size-8 shrink-0 items-center justify-center rounded-lg"
                   style={{
-                    background: 'var(--dome-bg, var(--bg))',
-                    color: 'var(--dome-accent, var(--accent))',
+                    background: 'var(--background)',
+                    color: 'var(--primary)',
                   }}
                 >
                   {item.kind === 'resource' ? (
-                    <FileText className="size-4" strokeWidth={2} aria-hidden />
+                    <HugeiconsIcon icon={File02Icon} className="size-4" strokeWidth={2} aria-hidden />
                   ) : (
-                    <MessageSquare className="size-4" strokeWidth={2} aria-hidden />
+                    <HugeiconsIcon icon={Comment01Icon} className="size-4" strokeWidth={2} aria-hidden />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium" style={{ color: 'var(--dome-text, var(--primary-text))' }}>
+                  <p className="truncate text-sm font-medium text-foreground">
                     {item.title}
                   </p>
                   {item.subtitle ? (
-                    <p className="truncate text-xs capitalize" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
+                    <p className="truncate text-xs capitalize text-muted-foreground">
                       {item.subtitle}
                     </p>
                   ) : null}
                 </div>
-                <span className="shrink-0 tabular-nums text-xs" style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}>
+                <span className="shrink-0 tabular-nums text-xs text-muted-foreground">
                   {formatDistanceToNow(item.timestamp)}
                 </span>
-                <ArrowRight className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} aria-hidden />
+                <HugeiconsIcon icon={ArrowRight02Icon} className="size-3.5 shrink-0 text-primary" aria-hidden />
               </button>
             </li>
           ))}

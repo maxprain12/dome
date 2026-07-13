@@ -1,5 +1,10 @@
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  CheckIcon,
+  SlidersHorizontalIcon,
+  SparklesIcon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation, Trans } from 'react-i18next';
-import { Check, Settings2, Sparkles } from 'lucide-react';
 import type { HomeGamification } from '@/lib/hooks/useDashboardData';
 
 function getGreeting(t: (k: string) => string): string {
@@ -83,17 +88,17 @@ export function EditorialHero({
         <div className="h-hero-actions">
           {isEditing ? (
             <button type="button" className="h-pill-btn primary" onClick={onDoneEditing}>
-              <Check size={12} strokeWidth={2.2} aria-hidden />
+              <HugeiconsIcon icon={CheckIcon} size={12} strokeWidth={2.2} aria-hidden />
               {t('dashboard.edit_mode_done')}
             </button>
           ) : (
             <button type="button" className="h-pill-btn" onClick={onStartCustomize}>
-              <Settings2 size={12} strokeWidth={2} aria-hidden />
+              <HugeiconsIcon icon={SlidersHorizontalIcon} size={12} strokeWidth={2} aria-hidden />
               {t('dashboard.customize_home_short')}
             </button>
           )}
           <button type="button" className="h-pill-btn" onClick={onAskMany}>
-            <Sparkles size={12} strokeWidth={2} aria-hidden />
+            <HugeiconsIcon icon={SparklesIcon} size={12} strokeWidth={2} aria-hidden />
             {t('dashboard.ask_many_short')}
           </button>
         </div>

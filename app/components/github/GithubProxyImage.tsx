@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { ExternalLink } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ExternalLinkIcon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { githubClient, isGithubHostedImageUrl } from '@/lib/github/client';
 
@@ -64,7 +65,7 @@ export default function GithubProxyImage({ src, alt }: { src?: string | null; al
     return (
       <span
         className="inline-block text-xs italic py-2 px-3 rounded-md my-1"
-        style={{ color: 'var(--dome-text-muted)', background: 'var(--dome-bg)', border: '1px solid var(--dome-border)' }}
+        style={{ color: 'var(--muted-foreground)', background: 'var(--background)', border: '1px solid var(--border)' }}
       >
         {t('github.image_loading')}
       </span>
@@ -79,9 +80,9 @@ export default function GithubProxyImage({ src, alt }: { src?: string | null; al
         target="_blank"
         rel="noreferrer"
         className="inline-flex items-center gap-1.5 text-sm my-1 px-2 py-1 rounded-md"
-        style={{ color: 'var(--dome-accent)', border: '1px solid var(--dome-border)' }}
+        style={{ color: 'var(--primary)', border: '1px solid var(--border)' }}
       >
-        <ExternalLink size={14} />
+        <HugeiconsIcon icon={ExternalLinkIcon} size={14} />
         {alt?.trim() || t('github.view_image_on_github')}
       </a>
     );
@@ -96,7 +97,7 @@ export default function GithubProxyImage({ src, alt }: { src?: string | null; al
         maxWidth: '100%',
         height: 'auto',
         borderRadius: 6,
-        border: '1px solid var(--dome-border)',
+        border: '1px solid var(--border)',
         display: 'block',
         margin: '8px 0',
       }}

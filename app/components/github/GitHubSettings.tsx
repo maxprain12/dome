@@ -1,5 +1,8 @@
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useMemo, useState } from 'react';
-import { RefreshCw, LogOut, Check, Search } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { CheckIcon, Logout01Icon, RefreshIcon, Search01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { githubClient } from '@/lib/github/client';
@@ -78,59 +81,59 @@ export default function GitHubSettings({ projectId }: { projectId: string }) {
   };
 
   return (
-    <div className="p-5 overflow-y-auto h-full" style={{ color: 'var(--dome-text)' }}>
+    <div className="p-5 overflow-y-auto h-full text-foreground">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-semibold">{t('github.settings_account')}</h3>
-          <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>
+          <p className="text-sm text-muted-foreground">
             {t('github.settings_connected_as', { login: login || '—' })}
           </p>
         </div>
-        <button
+        <Button
           type="button"
           onClick={() => void disconnect()}
           className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md"
-          style={{ border: '1px solid var(--dome-border)', color: 'var(--error)' }}
+          style={{ border: '1px solid var(--border)', color: 'var(--destructive)' }}
         >
-          <LogOut size={14} /> {t('github.settings_disconnect')}
-        </button>
+          <HugeiconsIcon icon={Logout01Icon} size={14} /> {t('github.settings_disconnect')}
+        </Button>
       </div>
 
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-base font-semibold">{t('github.settings_repos_title')}</h3>
-        <button
+        <Button
           type="button"
           onClick={refresh}
           className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md"
-          style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
+          style={{ border: '1px solid var(--border)', color: 'var(--muted-foreground)' }}
         >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} /> {t('github.settings_refresh_list')}
-        </button>
+          <HugeiconsIcon icon={RefreshIcon} size={14} className={refreshing ? 'animate-spin' : ''} /> {t('github.settings_refresh_list')}
+        </Button>
       </div>
 
       {displayRepos.length > 0 && (
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md mb-2" style={{ background: 'var(--dome-surface)', border: '1px solid var(--dome-border)' }}>
-          <Search size={14} style={{ color: 'var(--dome-text-muted)' }} />
-          <input
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-md mb-2" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
+          <HugeiconsIcon icon={Search01Icon} size={14} className="text-muted-foreground" />
+          <Input
             value={repoQuery}
             onChange={(e) => setRepoQuery(e.target.value)}
             placeholder={t('github.settings_search_repo')}
             aria-label={t('github.settings_search_repo')}
             className="text-sm bg-transparent outline-none flex-1"
-            style={{ color: 'var(--dome-text)' }}
+            style={{ color: 'var(--foreground)' }}
           />
         </div>
       )}
 
       {error && (
-        <p className="text-sm mb-3" style={{ color: 'var(--error)' }}>
+        <p className="text-sm mb-3 text-destructive">
           {error}
         </p>
       )}
 
-      <div className="flex flex-col gap-1 rounded-lg" style={{ border: '1px solid var(--dome-border)' }}>
+      <div className="flex flex-col gap-1 rounded-lg" style={{ border: '1px solid var(--border)' }}>
         {displayRepos.length === 0 && (
-          <span className="text-sm p-4 text-center" style={{ color: 'var(--dome-text-muted)' }}>
+          <span className="text-sm p-4 text-center text-muted-foreground">
             {t('github.settings_refresh_hint')}
           </span>
         )}
@@ -138,27 +141,27 @@ export default function GitHubSettings({ projectId }: { projectId: string }) {
           <div
             key={r.key}
             className="flex items-center justify-between px-3 py-2 gap-2"
-            style={{ borderBottom: '1px solid var(--dome-border)' }}
+            style={{ borderBottom: '1px solid var(--border)' }}
           >
             <div className="min-w-0">
               <span className="text-sm">{r.full_name}</span>
               {r.private === 1 && (
-                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}>
+                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}>
                   {t('github.private_badge')}
                 </span>
               )}
               {r.selected && (
-                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}>
+                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}>
                   {t('github.settings_repo_assigned_here')}
                 </span>
               )}
               {r.otherVaults.length > 0 && (
-                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--dome-bg-hover)', color: 'var(--dome-text-muted)' }}>
+                <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'var(--accent)', color: 'var(--muted-foreground)' }}>
                   {t('github.settings_repo_in_other_vault', { count: r.otherVaults.length })}
                 </span>
               )}
             </div>
-            <button
+            <Button
               type="button"
               aria-label={t('github.sync_repo_aria', { repo: r.full_name })}
               aria-pressed={r.selected}
@@ -174,13 +177,13 @@ export default function GitHubSettings({ projectId }: { projectId: string }) {
               }
               className="flex items-center justify-center w-5 h-5 rounded shrink-0"
               style={{
-                background: r.selected ? 'var(--dome-accent)' : 'transparent',
-                border: '1px solid var(--dome-border)',
-                color: 'var(--dome-on-accent)',
+                background: r.selected ? 'var(--primary)' : 'transparent',
+                border: '1px solid var(--border)',
+                color: 'var(--primary-foreground)',
               }}
             >
-              {r.selected && <Check size={14} />}
-            </button>
+              {r.selected && <HugeiconsIcon icon={CheckIcon} size={14} />}
+            </Button>
           </div>
         ))}
       </div>

@@ -1,6 +1,12 @@
 'use client';
 
-import { FolderInput, FolderOpen, Trash2, X } from 'lucide-react';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  FolderInputIcon,
+  FolderOpenIcon,
+  Delete02Icon,
+  Cancel01Icon,
+} from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 
 interface SelectionActionBarProps {
@@ -53,12 +59,12 @@ export default function SelectionActionBar({
         {compact ? count : countLabel}
       </span>
       <div className="selection-action-bar-actions">
-        {actionBtn(<FolderOpen size={compact ? 14 : 16} />, t('selection.move_to_folder'), onMoveToFolder)}
+        {actionBtn(<HugeiconsIcon icon={FolderOpenIcon} size={compact ? 14 : 16} />, t('selection.move_to_folder'), onMoveToFolder)}
         {onMoveToProject
-          ? actionBtn(<FolderInput size={compact ? 14 : 16} />, t('selection.move_to_project'), onMoveToProject)
+          ? actionBtn(<HugeiconsIcon icon={FolderInputIcon} size={compact ? 14 : 16} />, t('selection.move_to_project'), onMoveToProject)
           : null}
-        {actionBtn(<Trash2 size={compact ? 14 : 16} />, t('selection.delete'), onDelete, true)}
-        {actionBtn(<X size={compact ? 14 : 16} />, t('selection.deselect'), onDeselect)}
+        {actionBtn(<HugeiconsIcon icon={Delete02Icon} size={compact ? 14 : 16} />, t('selection.delete'), onDelete, true)}
+        {actionBtn(<HugeiconsIcon icon={Cancel01Icon} size={compact ? 14 : 16} />, t('selection.deselect'), onDeselect)}
       </div>
     </div>
   );

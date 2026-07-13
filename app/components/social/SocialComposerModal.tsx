@@ -1,12 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
-import {
-  Linkedin, Instagram, Twitter, Loader2, ImagePlus, Trash2,
-  Monitor, Library, Link2, Image as ImageIcon, Film,
-  Sparkles, Hash, Scissors, Wand2, CalendarDays, X as XIcon, Building2,
-} from 'lucide-react';
-import DomeModal from '@/components/ui/DomeModal';
-import DomeButton from '@/components/ui/DomeButton';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { Building2Icon, CalendarDaysIcon, Cancel01Icon, ComputerIcon, Delete02Icon, Film01Icon, HashIcon, Image01Icon, ImageAdd01Icon, InstagramIcon, LibraryIcon, Link02Icon, Linkedin01Icon, MagicWand01Icon, Scissor01Icon, SparklesIcon, TwitterIcon } from '@hugeicons/core-free-icons';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { chat } from '@/lib/ai/client';
 import SocialLibraryTree from '@/components/social/SocialLibraryTree';
@@ -25,7 +21,15 @@ import {
   type SocialProvider,
 } from '@/components/social/socialTypes';
 
-const PROVIDER_ICONS = { linkedin: Linkedin, instagram: Instagram, x: Twitter } as const;
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
+import { Textarea } from '@/components/ui/textarea';
+import { DateTimePicker } from '@/components/shared/DateTimePicker';
+import { cn } from '@/lib/utils';
+
+const PROVIDER_ICONS: Record<SocialProvider, IconSvgElement> = { linkedin: Linkedin01Icon, instagram: InstagramIcon, x: TwitterIcon };
 const PROVIDER_LABELS = { linkedin: 'LinkedIn', instagram: 'Instagram', x: 'X' } as const;
 const ALL_PROVIDERS: SocialProvider[] = ['linkedin', 'instagram', 'x'];
 
@@ -53,7 +57,7 @@ function toLocalInputValue(ts: number | null): string {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+    <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
       {children}
     </div>
   );
@@ -376,84 +380,62 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
     }
   };
 
-  const aiButtons: Array<{ action: AiAction; icon: typeof Sparkles; label: string }> = [
-    { action: 'improve', icon: Sparkles, label: t('social.composer.ai_improve') },
-    { action: 'shorten', icon: Scissors, label: t('social.composer.ai_shorten') },
-    { action: 'hashtags', icon: Hash, label: t('social.composer.ai_hashtags') },
-    { action: 'generate', icon: Wand2, label: t('social.composer.ai_generate') },
+  const aiButtons: Array<{ action: AiAction; icon: IconSvgElement; label: string }> = [
+    { action: 'improve', icon: SparklesIcon, label: t('social.composer.ai_improve') },
+    { action: 'shorten', icon: Scissor01Icon, label: t('social.composer.ai_shorten') },
+    { action: 'hashtags', icon: HashIcon, label: t('social.composer.ai_hashtags') },
+    { action: 'generate', icon: MagicWand01Icon, label: t('social.composer.ai_generate') },
   ];
 
   return (
-    <DomeModal
-      open
-      onClose={onClose}
-      title={isEditing ? t('social.composer.edit_title') : t('social.composer.title')}
-      size="xl"
-      footer={
-        <div className="flex items-center justify-end gap-2">
-          <DomeButton variant="secondary" onClick={onClose}>
-            {t('social.composer.cancel')}
-          </DomeButton>
-          <DomeButton variant="primary" onClick={() => void save()} disabled={saving}>
-            {saving && <Loader2 className="size-3.5 animate-spin" />}
-            {scheduleAt ? t('social.composer.save_scheduled') : t('social.composer.save_draft')}
-          </DomeButton>
-        </div>
-      }
-    >
+    <Dialog open onOpenChange={(next) => { if (!next) (onClose)(); }}><DialogContent className="flex max-h-[min(90vh,640px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"><DialogHeader className="flex shrink-0 flex-row items-center justify-between gap-3 border-b px-4 py-3"><div className="flex min-w-0 items-center gap-3"><div className="min-w-0"><DialogTitle className="truncate">{isEditing ? t('social.composer.edit_title') : t('social.composer.title')}</DialogTitle></div></div></DialogHeader><div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
       <div className="grid gap-5 md:grid-cols-[minmax(0,1fr)_300px]">
-      <div className="space-y-5 min-w-0">
+      <div className="flex flex-col gap-5 min-w-0">
           {/* Provider selector */}
           <div className="flex items-center gap-2 flex-wrap">
             {ALL_PROVIDERS.map((p) => {
-              const Icon = PROVIDER_ICONS[p];
+              const icon = PROVIDER_ICONS[p];
               const active = selectedProviders.includes(p);
               const hasAccount = accounts.some((a) => a.provider === p && a.status === 'active');
               return (
-                <button
+                <Button
                   key={p}
                   type="button"
+                  size="sm"
+                  variant={active ? 'default' : 'outline'}
                   onClick={() => toggleProvider(p)}
                   disabled={isEditing && p !== editingPost?.provider}
-                  className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40"
-                  style={{
-                    background: active ? 'var(--dome-accent)' : 'var(--dome-bg-secondary)',
-                    color: active ? 'white' : 'var(--dome-text-muted)',
-                    border: '1px solid var(--dome-border)',
-                  }}
+                  className="text-xs"
                   title={hasAccount ? PROVIDER_LABELS[p] : t('social.composer.no_account', { provider: PROVIDER_LABELS[p] })}
                 >
-                  <Icon className="size-3.5" />
+                  <HugeiconsIcon icon={icon} className="size-3.5" />
                   {PROVIDER_LABELS[p]}
                   {!hasAccount && ' ⚠︎'}
-                </button>
+                </Button>
               );
             })}
           </div>
 
           {selectedProviders.includes('linkedin') && linkedInAccounts.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <SectionLabel>{t('social.composer.linkedin_account_label')}</SectionLabel>
               <div className="flex items-center gap-1.5 flex-wrap">
                 {linkedInAccounts.map((acc) => {
                   const isOrg = acc.accountKind === 'organization';
                   const active = linkedInAccountId === acc.id;
                   return (
-                    <button
+                    <Button
                       key={acc.id}
                       type="button"
+                      size="sm"
+                      variant={active ? 'default' : 'outline'}
                       onClick={() => setLinkedInAccountId(acc.id)}
                       disabled={isEditing}
-                      className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-60"
-                      style={{
-                        background: active ? 'var(--dome-accent)' : 'var(--dome-bg-secondary)',
-                        color: active ? 'white' : 'var(--dome-text-muted)',
-                        border: '1px solid var(--dome-border)',
-                      }}
+                      className="text-xs"
                     >
-                      {isOrg ? <Building2 className="size-3.5" /> : <Linkedin className="size-3.5" />}
-                      <span className="truncate max-w-[180px]">{acc.displayName || acc.handle || acc.id}</span>
-                    </button>
+                      {isOrg ? <HugeiconsIcon icon={Building2Icon} className="size-3.5" /> : <HugeiconsIcon icon={Linkedin01Icon} className="size-3.5" />}
+                      <span className="max-w-[180px] truncate">{acc.displayName || acc.handle || acc.id}</span>
+                    </Button>
                   );
                 })}
               </div>
@@ -461,146 +443,127 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
           )}
 
           {/* Post type filter (per network shown in the preview) */}
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <SectionLabel>
               {t('social.composer.format_label')}
               {selectedProviders.length > 1 ? ` · ${PROVIDER_LABELS[previewProvider]}` : ''}
             </SectionLabel>
             <div className="flex items-center gap-1.5 flex-wrap">
               {PROVIDER_FORMATS[previewProvider].map((f) => (
-                <button
+                <Button
                   key={f}
                   type="button"
+                  size="xs"
+                  variant={previewFormat === f ? 'default' : 'outline'}
+                  className="rounded-full text-xs"
                   onClick={() => setFormatOverrides((prev) => ({ ...prev, [previewProvider]: f }))}
-                  className="rounded-full px-3 py-1 text-xs font-medium"
-                  style={{
-                    background: previewFormat === f ? 'var(--dome-accent)' : 'var(--dome-bg-secondary)',
-                    color: previewFormat === f ? 'white' : 'var(--dome-text-muted)',
-                    border: '1px solid var(--dome-border)',
-                  }}
                 >
                   {t(`social.preview.format_${f}`)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
           {/* Body + AI assistant */}
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <SectionLabel>{t('social.composer.section_content')}</SectionLabel>
               <div className="flex items-center gap-1 flex-wrap">
-                <select
+                <Select
                   value={aiTone}
-                  onChange={(e) => setAiTone(e.target.value as AiTone)}
-                  className="rounded-md px-1.5 py-1 text-[11px]"
-                  style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
-                  title={t('social.composer.ai_assist_label')}
+                  onValueChange={(v) => { if (v != null) setAiTone(v as AiTone); }}
+                  items={AI_TONES.map((tone) => ({ value: tone, label: t(`social.composer.ai_tone_${tone}`) }))}
                 >
-                  {AI_TONES.map((tone) => (
-                    <option key={tone} value={tone}>{t(`social.composer.ai_tone_${tone}`)}</option>
-                  ))}
-                </select>
-                {aiButtons.map(({ action, icon: Icon, label }) => (
-                  <button
+                  <SelectTrigger size="sm" className="h-7 text-[11px]" title={t('social.composer.ai_assist_label')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent><SelectGroup>
+                    {AI_TONES.map((tone) => (
+                      <SelectItem key={tone} value={tone}>{t(`social.composer.ai_tone_${tone}`)}</SelectItem>
+                    ))}
+                  </SelectGroup></SelectContent>
+                </Select>
+                {aiButtons.map(({ action, icon, label }) => (
+                  <Button
                     key={action}
                     type="button"
+                    size="xs"
+                    variant="outline"
                     onClick={() => void runAiAssist(action)}
                     disabled={aiBusy !== null}
-                    className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium disabled:opacity-50"
-                    style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-accent)', background: 'var(--dome-bg-secondary)' }}
+                    className="text-[11px] text-primary"
                     title={label}
                   >
-                    {aiBusy === action
-                      ? <Loader2 className="size-3 animate-spin" />
-                      : <Icon className="size-3" />}
+                    {aiBusy === action ? <Spinner className="size-3" /> : <HugeiconsIcon icon={icon} className="size-3" />}
                     {label}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
-            <textarea
+            <Textarea
               value={body}
               onChange={(e) => setBody(e.target.value)}
               rows={6}
               placeholder={t('social.composer.body_placeholder')}
-              className="w-full rounded-md px-3 py-2 text-sm resize-y"
-              style={{
-                background: 'var(--dome-bg-secondary)',
-                border: `1px solid ${overLimit ? 'var(--dome-error)' : 'var(--dome-border)'}`,
-                color: 'var(--dome-text)',
-              }}
+              className="resize-y"
+              aria-invalid={overLimit || undefined}
             />
             <div className="flex items-center justify-between text-xs">
-              <span className="flex items-center gap-2" style={{ color: 'var(--dome-text-muted)' }}>
+              <span className="flex items-center gap-2 text-muted-foreground">
                 {selectedProviders.length > 1 && selectedProviders.map((p) => (
                   <span
                     key={p}
-                    style={{ color: body.length > PROVIDER_CHAR_LIMITS[p] ? 'var(--dome-error)' : 'var(--dome-text-muted)' }}
+                    className={cn(body.length > PROVIDER_CHAR_LIMITS[p] ? 'text-destructive' : 'text-muted-foreground')}
                   >
                     {PROVIDER_LABELS[p]} {body.length}/{PROVIDER_CHAR_LIMITS[p]}
                   </span>
                 ))}
               </span>
-              <span style={{ color: overLimit ? 'var(--dome-error)' : 'var(--dome-text-muted)' }}>
+              <span className={cn(overLimit ? 'text-destructive' : 'text-muted-foreground')}>
                 {body.length} / {minLimit}
               </span>
             </div>
           </div>
 
           {/* Media — local files, vault resources, or public URL */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <SectionLabel>{t('social.composer.section_media')}</SectionLabel>
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => void pickLocalFiles()}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-                style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
-              >
-                <Monitor className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
+              <Button type="button" size="sm" variant="outline" className="text-xs" onClick={() => void pickLocalFiles()}>
+                <HugeiconsIcon icon={ComputerIcon} className="size-3.5 text-primary" />
                 {t('social.composer.media_from_computer')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant={showLibrary ? 'secondary' : 'outline'}
+                className="text-xs"
                 onClick={() => setShowLibrary((v) => !v)}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-                style={{
-                  border: '1px solid var(--dome-border)',
-                  color: 'var(--dome-text)',
-                  background: showLibrary ? 'var(--dome-bg-secondary)' : 'transparent',
-                }}
               >
-                <Library className="size-3.5" style={{ color: 'var(--dome-accent)' }} />
+                <HugeiconsIcon icon={LibraryIcon} className="size-3.5 text-primary" />
                 {t('social.composer.media_from_library')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="sm"
+                variant={showUrlInput ? 'secondary' : 'outline'}
+                className="text-xs text-muted-foreground"
                 onClick={() => setShowUrlInput((v) => !v)}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium"
-                style={{
-                  border: '1px solid var(--dome-border)',
-                  color: 'var(--dome-text-muted)',
-                  background: showUrlInput ? 'var(--dome-bg-secondary)' : 'transparent',
-                }}
               >
-                <Link2 className="size-3.5" />
+                <HugeiconsIcon icon={Link02Icon} className="size-3.5" />
                 {t('social.composer.media_from_url')}
-              </button>
+              </Button>
             </div>
 
             {showLibrary && (
-              <div
-                className="rounded-md max-h-64 overflow-y-auto"
-                style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)' }}
-              >
+              <div className="max-h-64 overflow-y-auto rounded-md border bg-card">
                 {library === null ? (
-                  <div className="flex items-center gap-2 px-3 py-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
-                    <Loader2 className="size-3.5 animate-spin" />
+                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
+                    <Spinner className="size-3.5" />
                     {t('common.loading')}
                   </div>
                 ) : library.length === 0 ? (
-                  <p className="px-3 py-2 text-xs" style={{ color: 'var(--dome-text-muted)' }}>
+                  <p className="px-3 py-2 text-xs text-muted-foreground">
                     {t('social.composer.library_empty')}
                   </p>
                 ) : (
@@ -615,23 +578,24 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
 
             {showUrlInput && (
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   value={mediaUrl}
                   onChange={(e) => setMediaUrl(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addMedia()}
                   placeholder={t('social.composer.media_placeholder')}
-                  className="flex-1 min-w-0 rounded-md px-3 py-2 text-sm"
-                  style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                  className="min-w-0 flex-1"
                 />
-                <button
+                <Button
                   type="button"
+                  size="icon-sm"
+                  variant="outline"
+                  className="text-primary"
                   onClick={addMedia}
-                  className="p-2 rounded-md"
-                  style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-accent)' }}
                   title={t('social.composer.add_media')}
+                  aria-label={t('social.composer.add_media')}
                 >
-                  <ImagePlus className="size-4" />
-                </button>
+                  <HugeiconsIcon icon={ImageAdd01Icon} className="size-4" />
+                </Button>
               </div>
             )}
 
@@ -640,26 +604,24 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
               return (
                 <div
                   key={`${m.url ?? m.path ?? m.resourceId}-${i}`}
-                  className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs"
-                  style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
+                  className="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-xs text-muted-foreground"
                 >
                   {m.url ? (
-                    <button
+                    <Button
                       type="button"
                       onClick={() => toggleMediaType(i)}
-                      className="flex items-center gap-1 shrink-0 rounded px-1 py-0.5"
+                      className="flex shrink-0 items-center gap-1 rounded px-1 py-0.5 text-primary hover:bg-accent"
                       title={t('social.composer.media_toggle_type')}
-                      style={{ color: 'var(--dome-accent)' }}
                     >
-                      {isVideo ? <Film className="size-3.5" /> : <ImageIcon className="size-3.5" />}
+                      {isVideo ? <HugeiconsIcon icon={Film01Icon} className="size-3.5" /> : <HugeiconsIcon icon={Image01Icon} className="size-3.5" />}
                       <span className="text-[10px]">
                         {isVideo ? t('social.composer.media_type_video') : t('social.composer.media_type_image')}
                       </span>
-                    </button>
+                    </Button>
                   ) : isVideo
-                    ? <Film className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />
-                    : <ImageIcon className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent)' }} />}
-                  <span className="flex-1 truncate" style={{ color: 'var(--dome-text)' }}>
+                    ? <HugeiconsIcon icon={Film01Icon} className="size-3.5 shrink-0 text-primary" />
+                    : <HugeiconsIcon icon={Image01Icon} className="size-3.5 shrink-0 text-primary" />}
+                  <span className="flex-1 truncate text-foreground">
                     {m.name || m.url || m.path || m.resourceId}
                   </span>
                   <span className="shrink-0">
@@ -669,139 +631,136 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
                         ? t('social.composer.media_source_library')
                         : t('social.composer.media_source_local')}
                   </span>
-                  <button type="button" onClick={() => setMedia((prev) => prev.filter((_, j) => j !== i))}>
-                    <Trash2 className="size-3.5" style={{ color: 'var(--dome-error)' }} />
-                  </button>
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    onClick={() => setMedia((prev) => prev.filter((_, j) => j !== i))}
+                    aria-label={t('common.delete')}
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} className="size-3.5 text-destructive" />
+                  </Button>
                 </div>
               );
             })}
 
             {needsMedia && (
-              <p className="text-xs" style={{ color: 'var(--dome-error)' }}>
+              <p className="text-xs text-destructive">
                 {t('social.composer.error_instagram_media')}
               </p>
             )}
             {igLocalMediaWarning && (
-              <p className="text-xs" style={{ color: 'var(--warning-text, var(--dome-text-muted))' }}>
+              <p className="text-xs" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
                 {t('social.composer.warning_instagram_local_image')}
               </p>
             )}
           </div>
 
           {/* Details: link, topics, campaign */}
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <SectionLabel>{t('social.composer.section_details')}</SectionLabel>
-            <input
+            <Input
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
               placeholder={t('social.composer.link_placeholder')}
-              className="w-full rounded-md px-3 py-2 text-sm"
-              style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
             />
             <div className="grid grid-cols-2 gap-3">
-              <input
+              <Input
                 value={topics}
                 onChange={(e) => setTopics(e.target.value)}
                 placeholder={t('social.composer.topics_placeholder')}
-                className="min-w-0 rounded-md px-3 py-2 text-sm"
-                style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                className="min-w-0"
               />
-              <input
+              <Input
                 value={campaign}
                 onChange={(e) => setCampaign(e.target.value)}
                 placeholder={t('social.composer.campaign_placeholder')}
-                className="min-w-0 rounded-md px-3 py-2 text-sm"
-                style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
+                className="min-w-0"
               />
             </div>
           </div>
 
           {/* Schedule */}
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <SectionLabel>{t('social.composer.section_schedule')}</SectionLabel>
-            <div className="flex items-center gap-2 flex-wrap">
-              <input
-                type="datetime-local"
-                value={scheduleAt}
-                onChange={(e) => setScheduleAt(e.target.value)}
-                className="rounded-md px-3 py-2 text-sm"
-                style={{ background: 'var(--dome-bg-secondary)', border: '1px solid var(--dome-border)', color: 'var(--dome-text)' }}
-              />
-              <button
+            <div className="flex flex-wrap items-center gap-2">
+              <DateTimePicker value={scheduleAt} onChange={setScheduleAt} className="shrink-0" />
+              <Button
                 type="button"
+                size="xs"
+                variant="outline"
+                className="rounded-full text-[11px] text-muted-foreground"
                 onClick={() => setQuickSchedule('today')}
-                className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
                 {t('social.composer.schedule_today_evening')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="xs"
+                variant="outline"
+                className="rounded-full text-[11px] text-muted-foreground"
                 onClick={() => setQuickSchedule('tomorrow')}
-                className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
                 {t('social.composer.schedule_tomorrow_morning')}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                size="xs"
+                variant="outline"
+                className="rounded-full text-[11px] text-muted-foreground"
                 onClick={() => setQuickSchedule('nextweek')}
-                className="rounded-full px-2.5 py-1 text-[11px] font-medium"
-                style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-text-muted)' }}
               >
                 {t('social.composer.schedule_next_week')}
-              </button>
+              </Button>
               {scheduleAt && (
-                <button
+                <Button
                   type="button"
+                  size="xs"
+                  variant="outline"
+                  className="rounded-full text-[11px] text-destructive"
                   onClick={() => setScheduleAt('')}
-                  className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium"
-                  style={{ border: '1px solid var(--dome-border)', color: 'var(--dome-error)' }}
                 >
-                  <XIcon className="size-3" />
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
                   {t('social.composer.schedule_clear')}
-                </button>
+                </Button>
               )}
             </div>
-            <p className="text-[11px]" style={{ color: 'var(--dome-text-muted)' }}>
+            <p className="text-[11px] text-muted-foreground">
               {t('social.composer.schedule_label')}
             </p>
             {scheduleAt && (
-              <p className="flex items-center gap-1.5 text-[11px]" style={{ color: 'var(--dome-accent)' }}>
-                <CalendarDays className="size-3.5" />
+              <p className="flex items-center gap-1.5 text-[11px] text-primary">
+                <HugeiconsIcon icon={CalendarDaysIcon} className="size-3.5" />
                 {t('social.composer.schedule_calendar_note')}
               </p>
             )}
           </div>
 
-          {error && <p className="text-xs" style={{ color: 'var(--dome-error)' }}>{error}</p>}
+          {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
 
       {/* Live preview panel */}
-      <aside className="min-w-0 space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--dome-text-muted)' }}>
+      <aside className="min-w-0 flex flex-col gap-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           {t('social.preview.title')}
         </div>
 
         {selectedProviders.length > 1 && (
           <div className="flex items-center gap-1 flex-wrap">
             {selectedProviders.map((p) => {
-              const Icon = PROVIDER_ICONS[p];
+              const icon = PROVIDER_ICONS[p];
               return (
-                <button
+                <Button
                   key={p}
                   type="button"
+                  size="xs"
+                  variant={previewProvider === p ? 'secondary' : 'ghost'}
+                  className="text-[11px]"
                   onClick={() => setPreviewProvider(p)}
-                  className="flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium"
-                  style={{
-                    background: previewProvider === p ? 'var(--dome-bg-secondary)' : 'transparent',
-                    border: `1px solid ${previewProvider === p ? 'var(--dome-border)' : 'transparent'}`,
-                    color: previewProvider === p ? 'var(--dome-text)' : 'var(--dome-text-muted)',
-                  }}
                 >
-                  <Icon className="size-3" />
+                  <HugeiconsIcon icon={icon} className="size-3" />
                   {PROVIDER_LABELS[p]}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -819,27 +778,36 @@ export default function SocialComposerModal({ accounts, editingPost, onClose, on
 
         {/* Format-specific hints */}
         {previewProvider === 'instagram' && previewFormat === 'reel' && !previewHasVideo && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--dome-text-muted))' }}>
+          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
             {t('social.preview.hint_reel_needs_video')}
           </p>
         )}
         {previewFormat === 'article' && !linkUrl.trim() && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--dome-text-muted))' }}>
+          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
             {t('social.preview.hint_article_needs_link')}
           </p>
         )}
         {previewFormat === 'carousel' && media.length < 2 && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--dome-text-muted))' }}>
+          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
             {t('social.preview.hint_carousel_needs_images')}
           </p>
         )}
         {(previewFormat === 'video' || previewFormat === 'image') && media.length === 0 && (
-          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--dome-text-muted))' }}>
+          <p className="text-[11px]" style={{ color: 'var(--warning-text, var(--muted-foreground))' }}>
             {t('social.preview.hint_needs_media')}
           </p>
         )}
       </aside>
       </div>
-    </DomeModal>
+    </div><DialogFooter className="border-t px-4 py-3">{<div className="flex items-center justify-end gap-2">
+          <Button variant="secondary"
+  onClick={onClose}>
+            {t('social.composer.cancel')}
+          </Button>
+          <Button onClick={() => void save()} disabled={saving}>
+            {saving ? <Spinner data-icon="inline-start" /> : null}
+            {scheduleAt ? t('social.composer.save_scheduled') : t('social.composer.save_draft')}
+          </Button>
+        </div>}</DialogFooter></DialogContent></Dialog>
   );
 }

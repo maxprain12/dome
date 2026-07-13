@@ -1,7 +1,11 @@
 'use client';
 
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Loading03Icon,
+  AlertCircleIcon,
+} from '@hugeicons/core-free-icons';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import URLViewer from '@/components/viewers/URLViewer';
@@ -193,21 +197,20 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     return (
       <div
         ref={mountRef}
-        className="flex flex-col items-center justify-center min-h-full p-8"
-        style={{ background: 'var(--dome-bg)' }}
+        className="flex flex-col items-center justify-center min-h-full p-8 bg-background"
       >
-        <AlertCircle className="size-12 mb-4" style={{ color: 'var(--dome-error)' }} />
-        <h2 className="text-lg font-semibold mb-2" style={{ color: 'var(--dome-text)' }}>
+        <HugeiconsIcon icon={AlertCircleIcon} className="size-12 mb-4 text-destructive" />
+        <h2 className="text-lg font-semibold mb-2 text-foreground">
           {t('workspace.error_loading')}
         </h2>
-        <p className="text-sm mb-4" style={{ color: 'var(--dome-text-muted)' }}>
+        <p className="text-sm mb-4 text-muted-foreground">
           {error || t('workspace.no_resources')}
         </p>
         <button
           type="button"
           onClick={() => navigate('/')}
           className="px-4 py-2 rounded-lg text-sm font-medium"
-          style={{ backgroundColor: 'var(--dome-accent)', color: 'var(--base-text)' }}
+          style={{ backgroundColor: 'var(--primary)', color: 'var(--primary-foreground)' }}
         >
           {t('workspace.home')}
         </button>
@@ -222,12 +225,12 @@ export default function URLWorkspaceClient({ resourceId }: URLWorkspaceClientPro
     : null;
 
   return (
-    <div ref={mountRef} className="flex flex-col h-full" style={{ background: 'var(--dome-bg)' }}>
+    <div ref={mountRef} className="flex flex-col h-full bg-background">
       {isLoading || !resource ? (
         <div className="flex items-center justify-center min-h-full flex-1">
           <div className="flex flex-col items-center gap-4">
-            <Loader2 className="size-8 animate-spin" style={{ color: 'var(--dome-accent)' }} />
-            <p className="text-sm" style={{ color: 'var(--dome-text-muted)' }}>{t('workspace.loading_resources')}</p>
+            <HugeiconsIcon icon={Loading03Icon} className="size-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">{t('workspace.loading_resources')}</p>
           </div>
         </div>
       ) : (

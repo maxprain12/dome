@@ -1,21 +1,21 @@
 import { useTranslation } from 'react-i18next';
-import { FileText, MessageSquare, Zap, WalletCards } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Card } from '@/components/ui/card';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
+import { File02Icon, Comment01Icon, ZapIcon, WalletCardsIcon } from '@hugeicons/core-free-icons';
 import type { DashboardStats, HomeGamification } from '@/lib/hooks/useDashboardData';
 import { DashboardSectionLabel } from '@/components/home/dashboard/DashboardSectionLabel';
-import DomeCard from '@/components/ui/DomeCard';
 
 function MiniStat({
   label,
   value,
-  icon: Icon,
+  icon,
   iconTint,
   loading,
 }: {
   label: string;
   value: string | number;
-  icon: LucideIcon;
-  /**1–4: intensidad relativa sobre `var(--dome-accent)` */
+  icon: IconSvgElement;
+  /**1–4: intensidad relativa sobre `var(--primary)` */
   iconTint: 1 | 2 | 3 | 4;
   loading?: boolean;
 }) {
@@ -23,35 +23,31 @@ function MiniStat({
     iconTint === 1 ? '14%' : iconTint === 2 ? '22%' : iconTint === 3 ? '34%' : '48%';
 
   return (
-    <DomeCard
-      padding="lg"
-      className="rounded-[20px] border-[var(--dome-border,var(--border))] bg-[var(--dome-surface,var(--bg-secondary))]"
-    >
+    <Card className="p-6 rounded-[20px] border-[var(--border)] bg-[var(--card)]">
       <span
         className="flex size-8 items-center justify-center rounded-lg"
         style={{
-          background: `color-mix(in srgb, var(--dome-accent, var(--accent)) ${mix}, var(--dome-bg, var(--bg)))`,
-          color: 'var(--dome-accent, var(--accent))',
+          background: `color-mix(in srgb, var(--primary) ${mix}, var(--background))`,
+          color: 'var(--primary)',
         }}
       >
-        <Icon className="size-4 shrink-0" strokeWidth={2.5} />
+        <HugeiconsIcon icon={icon} className="size-4 shrink-0" strokeWidth={2.5} />
       </span>
       <div className="mt-2">
         {loading ? (
           <span
-            className="inline-block h-8 w-12 animate-pulse motion-reduce:animate-none rounded-md"
-            style={{ background: 'var(--dome-border, var(--border))' }}
+            className="inline-block h-8 w-12 animate-pulse motion-reduce:animate-none rounded-md bg-border"
           />
         ) : (
-          <span className="text-2xl font-bold tabular-nums sm:text-3xl" style={{ color: 'var(--dome-text, var(--primary-text))' }}>
+          <span className="text-2xl font-bold tabular-nums sm:text-3xl text-foreground">
             {value}
           </span>
         )}
-        <p className="mt-1 text-xs font-medium" style={{ color: 'var(--dome-text-secondary, var(--tertiary-text))' }}>
+        <p className="mt-1 text-xs font-medium text-muted-foreground">
           {label}
         </p>
       </div>
-    </DomeCard>
+    </Card>
   );
 }
 
@@ -73,13 +69,13 @@ export function DashboardMomentum({
         <MiniStat
           label={t('dashboard.momentum_label')}
           value={`${gamification.momentumPercent}%`}
-          icon={Zap}
+          icon={ZapIcon}
           iconTint={4}
           loading={loading}
         />
-        <MiniStat label={t('dashboard.stat_resources')} value={stats.resourceCount} icon={FileText} iconTint={3} loading={loading} />
-        <MiniStat label={t('dashboard.stat_chats')} value={stats.recentChats} icon={MessageSquare} iconTint={2} loading={loading} />
-        <MiniStat label={t('dashboard.stat_flashcards')} value={stats.dueFlashcards} icon={WalletCards} iconTint={1} loading={loading} />
+        <MiniStat label={t('dashboard.stat_resources')} value={stats.resourceCount} icon={File02Icon} iconTint={3} loading={loading} />
+        <MiniStat label={t('dashboard.stat_chats')} value={stats.recentChats} icon={Comment01Icon} iconTint={2} loading={loading} />
+        <MiniStat label={t('dashboard.stat_flashcards')} value={stats.dueFlashcards} icon={WalletCardsIcon} iconTint={1} loading={loading} />
       </div>
     </section>
   );

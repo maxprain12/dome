@@ -14,27 +14,27 @@
 import { useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react';
 import {
-  ChevronDown,
-  ChevronUp,
-  EyeOff,
-  Eye,
-  GripVertical,
-  Plus,
-  Calendar,
-  MessageSquarePlus,
-  Upload,
-  WalletCards,
-  Pencil,
-  Layers,
-  Search,
-  Zap,
-  BarChart2,
-  PlayCircle,
-  Target,
-  Columns2,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+  ChevronDownIcon,
+  ChevronUpIcon,
+  EyeOffIcon,
+  EyeIcon,
+  GripVerticalIcon,
+  PlusSignIcon,
+  Calendar03Icon,
+  CommentAdd01Icon,
+  Upload04Icon,
+  WalletCardsIcon,
+  PencilEdit02Icon,
+  Layers01Icon,
+  Search01Icon,
+  ZapIcon,
+  BarChartIcon,
+  PlayCircleIcon,
+  Target02Icon,
+  LayoutTwoColumnIcon,
+} from '@hugeicons/core-free-icons';
 import type {
   DashboardLayoutWidgetId,
   HomeDashboardPreferences,
@@ -54,22 +54,22 @@ const ALL_QUICK_IDS: HomeQuickActionId[] = [
   'calendar',
 ];
 
-const ACTION_ICONS: Record<HomeQuickActionId, LucideIcon> = {
-  newNote: Plus,
-  upload: Upload,
-  newChat: MessageSquarePlus,
-  learn: WalletCards,
-  calendar: Calendar,
+const ACTION_ICONS: Record<HomeQuickActionId, IconSvgElement> = {
+  newNote: PlusSignIcon,
+  upload: Upload04Icon,
+  newChat: CommentAdd01Icon,
+  learn: WalletCardsIcon,
+  calendar: Calendar03Icon,
 };
 
-const SECTION_ICONS: Record<string, LucideIcon> = {
-  hero: Pencil,
-  dailyGoals: Target,
-  todayColumns: Columns2,
-  search: Search,
-  quickActions: Zap,
-  momentum: BarChart2,
-  continueActivity: PlayCircle,
+const SECTION_ICONS: Record<string, IconSvgElement> = {
+  hero: PencilEdit02Icon,
+  dailyGoals: Target02Icon,
+  todayColumns: LayoutTwoColumnIcon,
+  search: Search01Icon,
+  quickActions: ZapIcon,
+  momentum: BarChartIcon,
+  continueActivity: PlayCircleIcon,
 };
 
 type WidgetKey = keyof HomeDashboardWidgets;
@@ -116,8 +116,8 @@ function CountBadge({ count, muted = false }: { count: number; muted?: boolean }
       className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums"
       style={
         muted
-          ? { background: 'var(--dome-border, var(--border))', color: 'var(--dome-text-secondary, var(--secondary-text))' }
-          : { background: 'var(--dome-accent, var(--accent))', color: 'var(--base-text)' }
+          ? { background: 'var(--border)', color: 'var(--muted-foreground)' }
+          : { background: 'var(--primary)', color: 'var(--primary-foreground)' }
       }
     >
       {count}
@@ -129,8 +129,7 @@ function CountBadge({ count, muted = false }: { count: number; muted?: boolean }
 function PanelHeading({ children, count, muted }: { children: ReactNode; count?: number; muted?: boolean }) {
   return (
     <p
-      className="mb-3 flex items-center text-[11px] font-bold uppercase tracking-widest"
-      style={{ color: 'var(--dome-text-secondary, var(--secondary-text))' }}
+      className="mb-3 flex items-center text-[11px] font-bold uppercase tracking-widest text-muted-foreground"
     >
       {children}
       {count !== undefined && <CountBadge count={count} muted={muted} />}
@@ -278,20 +277,20 @@ export function DashboardCanvas({
         <div
           className="mb-5 overflow-hidden rounded-2xl border"
           style={{
-            borderColor: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 30%, var(--dome-border, var(--border)))',
-            background: 'var(--dome-surface, var(--bg-secondary))',
+            borderColor: 'color-mix(in srgb, var(--primary) 30%, var(--border))',
+            background: 'var(--card)',
           }}
         >
           {/* Panel title */}
           <div
             className="flex items-center gap-2 px-4 py-2.5"
             style={{
-              background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 8%, var(--dome-surface, var(--bg-secondary)))',
-              borderBottom: '1px solid color-mix(in srgb, var(--dome-accent, var(--accent)) 20%, var(--dome-border, var(--border)))',
+              background: 'color-mix(in srgb, var(--primary) 8%, var(--card))',
+              borderBottom: '1px solid color-mix(in srgb, var(--primary) 20%, var(--border))',
             }}
           >
-            <Pencil className="size-3.5 shrink-0" style={{ color: 'var(--dome-accent, var(--accent))' }} aria-hidden />
-            <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: 'var(--dome-accent, var(--accent))' }}>
+            <HugeiconsIcon icon={PencilEdit02Icon} className="size-3.5 shrink-0 text-primary" aria-hidden />
+            <p className="text-[11px] font-bold uppercase tracking-widest text-primary">
               {t('dashboard.edit_mode_hint')}
             </p>
           </div>
@@ -302,7 +301,7 @@ export function DashboardCanvas({
             {/* ── Left: Sections order & visibility ── */}
             <div
               className="p-4"
-              style={{ borderRight: '1px solid var(--dome-border, var(--border))' }}
+              style={{ borderRight: '1px solid var(--border)' }}
             >
               <PanelHeading count={reorderableVisible.length}>
                 {t('dashboard.customize_widgets')}
@@ -313,7 +312,7 @@ export function DashboardCanvas({
                 {reorderableSections.map((id, _i) => {
                   const isVisible = visibleIds.has(id) && slots[id] != null;
                   const canHide = id === 'todayColumns' || widgetKeyForId(id as DashboardLayoutWidgetId) != null;
-                  const Icon = SECTION_ICONS[id] ?? Layers;
+                  const sectionIcon = SECTION_ICONS[id] ?? Layers01Icon;
                   // index within reorderable (for move buttons)
                   const posInVisible = reorderableVisible.indexOf(id);
                   return (
@@ -322,34 +321,32 @@ export function DashboardCanvas({
                       className="flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-all"
                       style={{
                         borderColor: isVisible
-                          ? 'var(--dome-border, var(--border))'
-                          : 'color-mix(in srgb, var(--dome-border, var(--border)) 60%, transparent)',
-                        background: isVisible ? 'var(--dome-bg, var(--bg))' : 'transparent',
+                          ? 'var(--border)'
+                          : 'color-mix(in srgb, var(--border) 60%, transparent)',
+                        background: isVisible ? 'var(--background)' : 'transparent',
                         opacity: isVisible ? 1 : 0.55,
                       }}
                     >
-                      <GripVertical
-                        className="size-3.5 shrink-0"
-                        style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
+                      <HugeiconsIcon icon={GripVerticalIcon}
+                        className="size-3.5 shrink-0 text-muted-foreground"
                         aria-hidden
                       />
                       <span
                         className="flex size-5 shrink-0 items-center justify-center rounded-md"
                         style={{
                           background: isVisible
-                            ? 'color-mix(in srgb, var(--dome-accent, var(--accent)) 12%, transparent)'
+                            ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
                             : 'transparent',
                         }}
                       >
-                        <Icon
+                        <HugeiconsIcon icon={sectionIcon}
                           className="size-3"
-                          style={{ color: isVisible ? 'var(--dome-accent, var(--accent))' : 'var(--dome-text-muted)' }}
+                          style={{ color: isVisible ? 'var(--primary)' : 'var(--muted-foreground)' }}
                           aria-hidden
                         />
                       </span>
                       <span
-                        className="flex-1 truncate text-sm font-medium"
-                        style={{ color: 'var(--dome-text, var(--primary-text))' }}
+                        className="flex-1 truncate text-sm font-medium text-foreground"
                       >
                         {t(`dashboard.layout_label_${id}`)}
                       </span>
@@ -362,9 +359,9 @@ export function DashboardCanvas({
                               disabled={posInVisible <= 0}
                               onClick={() => moveSection(id as DashboardLayoutWidgetId, -1)}
                               aria-label={t('dashboard.move_up')}
-                              style={{ color: 'var(--dome-text-secondary)' }}
+                              style={{ color: 'var(--muted-foreground)' }}
                             >
-                              <ChevronUp className="size-3.5" />
+                              <HugeiconsIcon icon={ChevronUpIcon} className="size-3.5" />
                             </button>
                             <button
                               type="button"
@@ -372,9 +369,9 @@ export function DashboardCanvas({
                               disabled={posInVisible >= reorderableVisible.length - 1}
                               onClick={() => moveSection(id as DashboardLayoutWidgetId, 1)}
                               aria-label={t('dashboard.move_down')}
-                              style={{ color: 'var(--dome-text-secondary)' }}
+                              style={{ color: 'var(--muted-foreground)' }}
                             >
-                              <ChevronDown className="size-3.5" />
+                              <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5" />
                             </button>
                           </>
                         )}
@@ -388,9 +385,9 @@ export function DashboardCanvas({
                                 : showSection(id as DashboardLayoutWidgetId)
                             }
                             aria-label={isVisible ? t('dashboard.hide_widget') : t('dashboard.show_widget')}
-                            style={{ color: isVisible ? 'var(--dome-text-muted)' : 'var(--dome-accent, var(--accent))' }}
+                            style={{ color: isVisible ? 'var(--muted-foreground)' : 'var(--primary)' }}
                           >
-                            {isVisible ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                            {isVisible ? <HugeiconsIcon icon={EyeOffIcon} className="size-3.5" /> : <HugeiconsIcon icon={EyeIcon} className="size-3.5" />}
                           </button>
                         )}
                       </div>
@@ -400,8 +397,7 @@ export function DashboardCanvas({
               </ul>
 
               <p
-                className="mt-3 text-[11px] leading-relaxed"
-                style={{ color: 'var(--dome-text-muted, var(--tertiary-text))' }}
+                className="mt-3 text-[11px] leading-relaxed text-muted-foreground"
               >
                 {t('dashboard.reorder_hint')}
               </p>
@@ -416,26 +412,23 @@ export function DashboardCanvas({
               {/* Active actions */}
               <ul className="space-y-1.5">
                 {preferences.quickActions.map((id, index) => {
-                  const Icon = ACTION_ICONS[id];
+                  const actionIcon = ACTION_ICONS[id];
                   return (
                     <li
                       key={id}
                       className="flex items-center gap-2 rounded-xl border px-2.5 py-2 transition-colors"
-                      style={{ borderColor: 'var(--dome-border, var(--border))', background: 'var(--dome-bg, var(--bg))' }}
+                      style={{ borderColor: 'var(--border)', background: 'var(--background)' }}
                     >
-                      <GripVertical
-                        className="size-3.5 shrink-0"
-                        style={{ color: 'var(--dome-text-muted)' }}
+                      <HugeiconsIcon icon={GripVerticalIcon}
+                        className="size-3.5 shrink-0 text-muted-foreground"
                         aria-hidden
                       />
-                      <Icon
-                        className="size-3.5 shrink-0"
-                        style={{ color: 'var(--dome-accent, var(--accent))' }}
+                      <HugeiconsIcon icon={actionIcon}
+                        className="size-3.5 shrink-0 text-primary"
                         aria-hidden
                       />
                       <span
-                        className="flex-1 truncate text-sm font-medium"
-                        style={{ color: 'var(--dome-text, var(--primary-text))' }}
+                        className="flex-1 truncate text-sm font-medium text-foreground"
                       >
                         {t(`dashboard.action_label_${id}`)}
                       </span>
@@ -446,9 +439,9 @@ export function DashboardCanvas({
                           disabled={index === 0}
                           onClick={() => moveQuickAction(index, -1)}
                           aria-label={t('dashboard.move_up')}
-                          style={{ color: 'var(--dome-text-secondary)' }}
+                          style={{ color: 'var(--muted-foreground)' }}
                         >
-                          <ChevronUp className="size-3.5" />
+                          <HugeiconsIcon icon={ChevronUpIcon} className="size-3.5" />
                         </button>
                         <button
                           type="button"
@@ -456,18 +449,18 @@ export function DashboardCanvas({
                           disabled={index === preferences.quickActions.length - 1}
                           onClick={() => moveQuickAction(index, 1)}
                           aria-label={t('dashboard.move_down')}
-                          style={{ color: 'var(--dome-text-secondary)' }}
+                          style={{ color: 'var(--muted-foreground)' }}
                         >
-                          <ChevronDown className="size-3.5" />
+                          <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5" />
                         </button>
                         <button
                           type="button"
                           className="rounded-lg p-1 transition-colors"
                           onClick={() => toggleQuickAction(id)}
                           aria-label={t('dashboard.hide_widget')}
-                          style={{ color: 'var(--dome-text-muted)' }}
+                          style={{ color: 'var(--muted-foreground)' }}
                         >
-                          <EyeOff className="size-3.5" />
+                          <HugeiconsIcon icon={EyeOffIcon} className="size-3.5" />
                         </button>
                       </div>
                     </li>
@@ -479,7 +472,7 @@ export function DashboardCanvas({
               {availableQuickIds.length > 0 && (
                 <div className="mt-2 space-y-1">
                   {availableQuickIds.map((id) => {
-                    const Icon = ACTION_ICONS[id];
+                    const actionIcon = ACTION_ICONS[id];
                     return (
                       <button
                         key={id}
@@ -491,10 +484,10 @@ export function DashboardCanvas({
                           });
                         }}
                         className="flex w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left text-sm transition-colors"
-                        style={{ borderColor: 'var(--dome-border)', borderStyle: 'dashed', color: 'var(--dome-text-secondary)' }}
+                        style={{ borderColor: 'var(--border)', borderStyle: 'dashed', color: 'var(--muted-foreground)' }}
                       >
-                        <Plus className="size-3.5 shrink-0 opacity-50" aria-hidden />
-                        <Icon className="size-3.5 shrink-0 opacity-60" aria-hidden />
+                        <HugeiconsIcon icon={PlusSignIcon} className="size-3.5 shrink-0 opacity-50" aria-hidden />
+                        <HugeiconsIcon icon={actionIcon} className="size-3.5 shrink-0 opacity-60" aria-hidden />
                         <span className="font-medium opacity-70">{t(`dashboard.action_label_${id}`)}</span>
                       </button>
                     );
@@ -523,8 +516,8 @@ export function DashboardCanvas({
               style={
                 isEditing
                   ? {
-                      border: '1.5px dashed color-mix(in srgb, var(--dome-accent, var(--accent)) 35%, var(--dome-border, var(--border)))',
-                      boxShadow: '0 0 0 3px color-mix(in srgb, var(--dome-accent, var(--accent)) 5%, transparent)',
+                      border: '1.5px dashed color-mix(in srgb, var(--primary) 35%, var(--border))',
+                      boxShadow: '0 0 0 3px color-mix(in srgb, var(--primary) 5%, transparent)',
                     }
                   : undefined
               }
@@ -534,15 +527,14 @@ export function DashboardCanvas({
                 <div
                   className="flex cursor-default items-center justify-between gap-2 rounded-t-2xl px-3 py-2"
                   style={{
-                    background: 'color-mix(in srgb, var(--dome-accent, var(--accent)) 5%, var(--dome-surface, var(--bg-secondary)))',
-                    borderBottom: '1px solid color-mix(in srgb, var(--dome-accent, var(--accent)) 18%, var(--dome-border, var(--border)))',
+                    background: 'color-mix(in srgb, var(--primary) 5%, var(--card))',
+                    borderBottom: '1px solid color-mix(in srgb, var(--primary) 18%, var(--border))',
                   }}
                 >
                   <span
-                    className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: 'var(--dome-accent, var(--accent))' }}
+                    className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary"
                   >
-                    <GripVertical className="size-3.5 opacity-60" aria-hidden />
+                    <HugeiconsIcon icon={GripVerticalIcon} className="size-3.5 opacity-60" aria-hidden />
                     {t(`dashboard.layout_label_${id}`)}
                   </span>
                   <div className="flex items-center gap-1">
@@ -552,9 +544,9 @@ export function DashboardCanvas({
                       disabled={posInReorderable <= 0}
                       onClick={() => moveSection(id as DashboardLayoutWidgetId, -1)}
                       aria-label={t('dashboard.move_up')}
-                      style={{ color: 'var(--dome-text-secondary)', border: '1px solid var(--dome-border)' }}
+                      style={{ color: 'var(--muted-foreground)', border: '1px solid var(--border)' }}
                     >
-                      <ChevronUp className="size-3.5" />
+                      <HugeiconsIcon icon={ChevronUpIcon} className="size-3.5" />
                     </button>
                     <button
                       type="button"
@@ -562,9 +554,9 @@ export function DashboardCanvas({
                       disabled={posInReorderable >= reorderableVisible.length - 1}
                       onClick={() => moveSection(id as DashboardLayoutWidgetId, 1)}
                       aria-label={t('dashboard.move_down')}
-                      style={{ color: 'var(--dome-text-secondary)', border: '1px solid var(--dome-border)' }}
+                      style={{ color: 'var(--muted-foreground)', border: '1px solid var(--border)' }}
                     >
-                      <ChevronDown className="size-3.5" />
+                      <HugeiconsIcon icon={ChevronDownIcon} className="size-3.5" />
                     </button>
                     {canHide && (
                       <button
@@ -572,12 +564,12 @@ export function DashboardCanvas({
                         onClick={() => hideSection(id as DashboardLayoutWidgetId)}
                         className="flex items-center gap-1 rounded-lg px-2 py-1 text-[10px] font-semibold transition-colors"
                         style={{
-                          color: 'var(--dome-text-secondary)',
-                          border: '1px solid var(--dome-border)',
-                          background: 'var(--dome-bg, var(--bg))',
+                          color: 'var(--muted-foreground)',
+                          border: '1px solid var(--border)',
+                          background: 'var(--background)',
                         }}
                       >
-                        <EyeOff className="size-3" aria-hidden />
+                        <HugeiconsIcon icon={EyeOffIcon} className="size-3" aria-hidden />
                         {t('dashboard.hide_widget')}
                       </button>
                     )}
