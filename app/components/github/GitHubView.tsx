@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { Calendar03Icon, CodeIcon, ExternalLinkIcon, GitBranchIcon, GithubIcon, LayoutGridIcon, Leaf01Icon, RefreshIcon, Search01Icon, Settings01Icon, SquareChartGanttIcon, Task01Icon } from '@hugeicons/core-free-icons';
+import { Calendar03Icon, ChevronDownIcon, CodeIcon, ExternalLinkIcon, GitBranchIcon, GithubIcon, LayoutGridIcon, Leaf01Icon, RefreshIcon, Search01Icon, Settings01Icon, SquareChartGanttIcon, Task01Icon } from '@hugeicons/core-free-icons';
 import { useTranslation } from 'react-i18next';
 import { useGitHubStore } from '@/lib/store/useGitHubStore';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -16,7 +16,8 @@ import { SectionGuideHelp } from '@/components/onboarding/SectionOnboardingCard'
 import '@/styles/github-view.css';
 
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ReactNode } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 type ViewMode = 'minimal' | 'developer';
@@ -62,6 +63,7 @@ export default function GitHubView() {
   const syncNow = useGitHubStore((s) => s.syncNow);
   const branches = useGitHubStore((s) => s.branches);
   const [manualSyncing, setManualSyncing] = useState(false);
+  const [repoPickerOpen, setRepoPickerOpen] = useState(false);
 
   const handleSyncClick = useCallback(() => {
     if (manualSyncing) return;
@@ -132,15 +134,40 @@ export default function GitHubView() {
             </h1>
             <span className="dome-github-view__divider" aria-hidden />
             <div className="dome-github-view__repo-wrap">
-              <Select value={selectedRepoId ?? ''} onValueChange={(next) => { if (next != null) ((id) => void selectRepo(id))(next); }} items={selectedRepos.map((r) => ({
-                  value: r.id,
-                  label: r.full_name,
-                  icon: <HugeiconsIcon icon={GithubIcon} size={13} className="shrink-0 text-muted-foreground" aria-hidden />,
-                }))}><SelectTrigger className="w-full min-w-0" aria-label={t('github.tab_title')}><SelectValue placeholder={selectedRepos.length === 0 ? t('github.select_repos_in_settings') : t('github.tab_title')} /></SelectTrigger><SelectContent><SelectGroup>{(selectedRepos.map((r) => ({
-                  value: r.id,
-                  label: r.full_name,
-                  icon: <HugeiconsIcon icon={GithubIcon} size={13} className="shrink-0 text-muted-foreground" aria-hidden />,
-                }))).map((opt: { value: string; label: ReactNode; icon?: ReactNode; description?: ReactNode }) => (<SelectItem key={opt.value} value={opt.value}>{opt.icon}<span className="min-w-0 flex-1"><span className="block truncate">{opt.label}</span>{opt.description ? <span className="block truncate text-xs text-muted-foreground">{opt.description}</span> : null}</span></SelectItem>))}</SelectGroup></SelectContent></Select>
+              <Popover open={repoPickerOpen} onOpenChange={setRepoPickerOpen}>
+                <PopoverTrigger render={<Button type="button"
+  variant="outline"
+  className="w-full min-w-0 justify-between gap-1.5"
+  aria-label={t('github.tab_title')} />}>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <HugeiconsIcon icon={GithubIcon} size={13} className="shrink-0 text-muted-foreground" aria-hidden />
+                    <span className="truncate">
+                      {selectedRepo?.full_name ?? (selectedRepos.length === 0 ? t('github.select_repos_in_settings') : t('github.tab_title'))}
+                    </span>
+                  </span>
+                  <HugeiconsIcon icon={ChevronDownIcon} size={14} className="shrink-0 text-muted-foreground" aria-hidden />
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[var(--anchor-width)] min-w-64 gap-0 overflow-hidden p-0">
+                  <Command>
+                    <CommandInput placeholder={t('github.tab_title')} />
+                    <CommandList>
+                      <CommandEmpty>{t('github.select_repos_in_settings')}</CommandEmpty>
+                      <CommandGroup>
+                        {selectedRepos.map((r) => (
+                          <CommandItem
+                            key={r.id}
+                            value={r.full_name}
+                            onSelect={() => { void selectRepo(r.id); setRepoPickerOpen(false); }}
+                          >
+                            <HugeiconsIcon icon={GithubIcon} size={13} className="shrink-0 text-muted-foreground" aria-hidden />
+                            <span className="truncate">{r.full_name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

@@ -17,12 +17,12 @@ import type { ExecutorOption } from '@/lib/store/usePipelinesStore';
 import type { ManyAgent } from '@/types';
 
 import {
-  DetailDrawer,
-  DetailDrawerBody,
-  DetailDrawerContent,
-  DetailDrawerFooter,
-  DetailDrawerHeader,
-} from '@/components/shared/DetailDrawer';
+  DetailSheet,
+  DetailSheetBody,
+  DetailSheetContent,
+  DetailSheetFooter,
+  DetailSheetHeader,
+} from '@/components/shared/DetailSheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue , SelectGroup } from '@/components/ui/select';
 import { Field, FieldLabel } from '@/components/ui/field';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -168,10 +168,10 @@ export default function StageConfigModal({
 
   if (creatingAgent) {
     return (
-      <DetailDrawer open onOpenChange={(next) => { if (!next) setCreatingAgent(false); }}>
-        <DetailDrawerContent size="xl" className="h-[85vh] max-h-[85vh]">
-          <DetailDrawerHeader title={t('agents.new_agent')} />
-          <DetailDrawerBody className="min-h-0 flex-1">
+      <DetailSheet open onOpenChange={(next) => { if (!next) setCreatingAgent(false); }}>
+        <DetailSheetContent size="xl" className="h-[85vh] max-h-[85vh]">
+          <DetailSheetHeader title={t('agents.new_agent')} />
+          <DetailSheetBody className="min-h-0 flex-1">
             <div className="h-full min-h-0">
               <Suspense fallback={null}>
                 <AgentOnboarding
@@ -181,17 +181,17 @@ export default function StageConfigModal({
                 />
               </Suspense>
             </div>
-          </DetailDrawerBody>
-        </DetailDrawerContent>
-      </DetailDrawer>
+          </DetailSheetBody>
+        </DetailSheetContent>
+      </DetailSheet>
     );
   }
 
   return (
-    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DetailDrawerContent size="lg">
-        <DetailDrawerHeader title={t('pipelines.configure')} description={stage.title || undefined} />
-        <DetailDrawerBody>
+    <DetailSheet open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DetailSheetContent size="lg">
+        <DetailSheetHeader title={t('pipelines.configure')} description={stage.title || undefined} />
+        <DetailSheetBody>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="stage-title">{t('pipelines.stage_title_placeholder')}</Label>
@@ -322,8 +322,8 @@ export default function StageConfigModal({
           <FieldLabel htmlFor="terminal-stage">{t('pipelines.terminal_stage')}</FieldLabel>
         </Field>
       </div>
-        </DetailDrawerBody>
-        <DetailDrawerFooter>
+        </DetailSheetBody>
+        <DetailSheetFooter>
           <AlertDialog>
             <AlertDialogTrigger render={<Button variant="ghost" className="text-destructive hover:text-destructive" />}>
               <HugeiconsIcon icon={Delete02Icon} data-icon="inline-start" />
@@ -344,8 +344,8 @@ export default function StageConfigModal({
           <Button onClick={() => void save()} disabled={saving}>
             {saving ? t('pipelines.saving') : t('pipelines.save')}
           </Button>
-        </DetailDrawerFooter>
-      </DetailDrawerContent>
-    </DetailDrawer>
+        </DetailSheetFooter>
+      </DetailSheetContent>
+    </DetailSheet>
   );
 }

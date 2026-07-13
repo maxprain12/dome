@@ -8,14 +8,14 @@ import type { PipelineItemEvent } from '@/lib/pipelines/types';
 import { cn } from '@/lib/utils';
 import { typesetDocsClass } from '@/lib/typeset';
 import {
-  DetailDrawer,
-  DetailDrawerBody,
-  DetailDrawerContent,
-  DetailDrawerFooter,
-  DetailDrawerHeader,
-  DetailDrawerPanel,
-  DetailDrawerSection,
-} from '@/components/shared/DetailDrawer';
+  DetailSheet,
+  DetailSheetBody,
+  DetailSheetContent,
+  DetailSheetFooter,
+  DetailSheetHeader,
+  DetailSheetPanel,
+  DetailSheetSection,
+} from '@/components/shared/DetailSheet';
 
 interface RunStep {
   id: string;
@@ -117,29 +117,29 @@ export default function RunSummaryModal({
   }, [run?.steps, events]);
 
   return (
-    <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DetailDrawerContent size="lg">
-        <DetailDrawerHeader title={cardTitle} description={t('pipelines.run_summary')} />
-        <DetailDrawerBody>
+    <DetailSheet open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DetailSheetContent size="lg">
+        <DetailSheetHeader title={cardTitle} description={t('pipelines.run_summary')} />
+        <DetailSheetBody>
           <div className="flex flex-col gap-5">
-            <DetailDrawerSection label={t('pipelines.report_section')}>
+            <DetailSheetSection label={t('pipelines.report_section')}>
               {loading && !reportMd ? (
                 <div className="flex items-center gap-2 py-3 text-sm text-muted-foreground">
                   <HugeiconsIcon icon={Loading03Icon} className="size-4 animate-spin" />
                   {t('pipelines.report_generating')}
                 </div>
               ) : reportMd ? (
-                <DetailDrawerPanel
+                <DetailSheetPanel
                   className={cn(typesetDocsClass, 'max-h-72 overflow-y-auto text-foreground')}
                 >
                   <MarkdownRenderer content={reportMd} />
-                </DetailDrawerPanel>
+                </DetailSheetPanel>
               ) : (
                 <p className="py-2 text-sm text-muted-foreground">{t('pipelines.no_history')}</p>
               )}
-            </DetailDrawerSection>
+            </DetailSheetSection>
 
-            <DetailDrawerSection label={t('pipelines.steps_section')}>
+            <DetailSheetSection label={t('pipelines.steps_section')}>
               <div className="flex flex-col gap-1.5">
                 {timeline.length === 0 ? (
                   <p className="py-1 text-sm text-muted-foreground">{t('pipelines.activity_empty')}</p>
@@ -171,10 +171,10 @@ export default function RunSummaryModal({
                   </div>
                 ))}
               </div>
-            </DetailDrawerSection>
+            </DetailSheetSection>
           </div>
-        </DetailDrawerBody>
-        <DetailDrawerFooter>
+        </DetailSheetBody>
+        <DetailSheetFooter>
           {hasCalendar && onOpenCalendar ? (
             <Button variant="ghost" onClick={onOpenCalendar} size="sm">
               <HugeiconsIcon icon={CalendarClockIcon} className="size-4" />
@@ -195,8 +195,8 @@ export default function RunSummaryModal({
           <Button onClick={onClose} size="sm">
             {t('pipelines.close')}
           </Button>
-        </DetailDrawerFooter>
-      </DetailDrawerContent>
-    </DetailDrawer>
+        </DetailSheetFooter>
+      </DetailSheetContent>
+    </DetailSheet>
   );
 }

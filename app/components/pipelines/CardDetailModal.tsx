@@ -16,16 +16,16 @@ import { usePipelinesStore } from '@/lib/store/usePipelinesStore';
 import { typesetDocsClass } from '@/lib/typeset';
 import RunSummaryModal from './RunSummaryModal';
 import {
-  DetailDrawer,
-  DetailDrawerBadge,
-  DetailDrawerBody,
-  DetailDrawerContent,
-  DetailDrawerFooter,
-  DetailDrawerHeader,
-  DetailDrawerMetaGrid,
-  DetailDrawerPanel,
-  DetailDrawerSection,
-} from '@/components/shared/DetailDrawer';
+  DetailSheet,
+  DetailSheetBadge,
+  DetailSheetBody,
+  DetailSheetContent,
+  DetailSheetFooter,
+  DetailSheetHeader,
+  DetailSheetMetaGrid,
+  DetailSheetPanel,
+  DetailSheetSection,
+} from '@/components/shared/DetailSheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -471,15 +471,15 @@ export default function CardDetailModal({
 
   return (
     <>
-      <DetailDrawer open onOpenChange={(next) => { if (!next) onClose(); }}>
-        <DetailDrawerContent size="lg">
-          <DetailDrawerHeader
+      <DetailSheet open onOpenChange={(next) => { if (!next) onClose(); }}>
+        <DetailSheetContent size="lg">
+          <DetailSheetHeader
             title={headerTitle}
             badge={
-              badgeLabel ? <DetailDrawerBadge>{badgeLabel}</DetailDrawerBadge> : undefined
+              badgeLabel ? <DetailSheetBadge>{badgeLabel}</DetailSheetBadge> : undefined
             }
           />
-          <DetailDrawerBody>
+          <DetailSheetBody>
             {editing ? (
               <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1.5">
@@ -567,9 +567,9 @@ export default function CardDetailModal({
                     {f.type === 'description' &&
                       (descView[f.id] ? (
                         (f.text ?? '').trim() ? (
-                          <DetailDrawerPanel className={cn(typesetDocsClass, 'max-h-60 overflow-y-auto text-foreground')}>
+                          <DetailSheetPanel className={cn(typesetDocsClass, 'max-h-60 overflow-y-auto text-foreground')}>
                             <MarkdownRenderer content={f.text ?? ''} />
-                          </DetailDrawerPanel>
+                          </DetailSheetPanel>
                         ) : (
                           <span className="py-2 text-xs text-muted-foreground">
                             {t('pipelines.card_data_placeholder')}
@@ -656,11 +656,11 @@ export default function CardDetailModal({
                 </div>
 
                 {item.lastOutput && (
-                  <DetailDrawerSection label={t('pipelines.history')}>
-                    <DetailDrawerPanel className={cn(typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}>
+                  <DetailSheetSection label={t('pipelines.history')}>
+                    <DetailSheetPanel className={cn(typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}>
                       <MarkdownRenderer content={item.lastOutput} />
-                    </DetailDrawerPanel>
-                  </DetailDrawerSection>
+                    </DetailSheetPanel>
+                  </DetailSheetSection>
                 )}
               </>
             )}
@@ -759,33 +759,33 @@ export default function CardDetailModal({
               </div>
             ) : (
               <div className="flex flex-col gap-5">
-                <DetailDrawerMetaGrid items={metaItems} />
+                <DetailSheetMetaGrid items={metaItems} />
                 {descriptionMarkdown ? (
                   <>
                     <Separator />
-                    <DetailDrawerSection label={t('pipelines.field_description')}>
+                    <DetailSheetSection label={t('pipelines.field_description')}>
                       <div className={cn(typesetDocsClass, 'text-sm text-foreground')}>
                         <MarkdownRenderer content={descriptionMarkdown} />
                       </div>
-                    </DetailDrawerSection>
+                    </DetailSheetSection>
                   </>
                 ) : null}
                 {item.lastOutput ? (
                   <>
                     <Separator />
-                    <DetailDrawerSection label={t('pipelines.history')}>
-                      <DetailDrawerPanel
+                    <DetailSheetSection label={t('pipelines.history')}>
+                      <DetailSheetPanel
                         className={cn(typesetDocsClass, 'max-h-64 overflow-y-auto text-foreground')}
                       >
                         <MarkdownRenderer content={item.lastOutput} />
-                      </DetailDrawerPanel>
-                    </DetailDrawerSection>
+                      </DetailSheetPanel>
+                    </DetailSheetSection>
                   </>
                 ) : null}
               </div>
             )}
-          </DetailDrawerBody>
-          <DetailDrawerFooter>
+          </DetailSheetBody>
+          <DetailSheetFooter>
             {editing ? (
               <>
                 <AlertDialog>
@@ -864,9 +864,9 @@ export default function CardDetailModal({
                 </Button>
               </>
             )}
-          </DetailDrawerFooter>
-        </DetailDrawerContent>
-      </DetailDrawer>
+          </DetailSheetFooter>
+        </DetailSheetContent>
+      </DetailSheet>
       {summary ? (
         <RunSummaryModal
           runId={summary.runId}
