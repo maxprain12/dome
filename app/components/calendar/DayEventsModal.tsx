@@ -47,7 +47,7 @@ export default function DayEventsModal({
         {events.map((event) => {
           const time = formatEventTime(event, locale);
           return (
-            <Item key={event.id} variant="outline" size="sm" render={<Button type="button" variant="ghost" className="h-auto justify-start text-left" />}
+            <Item key={event.id} variant="outline" size="sm" render={<button type="button" className="h-auto justify-start text-left" />}
                 onClick={() => onEventClick(event)}
               >
                 <ItemMedia><span className="size-2 rounded-full bg-primary" aria-hidden /></ItemMedia>

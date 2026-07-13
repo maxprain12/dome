@@ -149,7 +149,7 @@ export default function DashboardView() {
               {loading ? <div className="flex flex-col gap-2"><Skeleton className="h-14" /><Skeleton className="h-14" /></div> : activity.length ? (
                 <ItemGroup>
                   {activity.slice(0, 6).map((item) => (
-                    <Item key={item.id} variant="muted" size="sm" render={<Button type="button" variant="ghost" onClick={() => openActivity(item)} />}>
+                    <Item key={item.id} variant="muted" size="sm" render={<button type="button" onClick={() => openActivity(item)} />}>
                       <ItemMedia variant="icon"><HugeiconsIcon icon={item.kind === 'chat' ? Chat01Icon : Note01Icon} /></ItemMedia>
                       <ItemContent><ItemTitle>{item.title}</ItemTitle><ItemDescription>{item.subtitle || formatDistanceToNow(item.timestamp)}</ItemDescription></ItemContent>
                       <ItemActions><HugeiconsIcon icon={ArrowRight01Icon} className="text-muted-foreground" /></ItemActions>
@@ -166,10 +166,10 @@ export default function DashboardView() {
               <CardContent>
                 <ItemGroup>
                   {recentProjects.map((project) => (
-                    <Item key={project.id} size="sm" render={<Button type="button" variant="ghost" onClick={() => setCurrentProject(project)} />}>
+                    <Item key={project.id} size="sm" render={<button type="button" onClick={() => setCurrentProject(project)} />}>
                       <ItemMedia variant="icon"><HugeiconsIcon icon={Folder01Icon} /></ItemMedia>
                       <ItemContent><ItemTitle>{project.name}</ItemTitle><ItemDescription>{project.description || t('projects.vault_default_hint')}</ItemDescription></ItemContent>
-                      {project.id === currentProject?.id ? <Badge variant="secondary">{t('projects.active')}</Badge> : null}
+                      {project.id === currentProject?.id ? <ItemActions><Badge variant="secondary">{t('projects.active')}</Badge></ItemActions> : null}
                     </Item>
                   ))}
                 </ItemGroup>
@@ -181,9 +181,9 @@ export default function DashboardView() {
               <Card className="shadow-sm">
                 <CardHeader><CardTitle>{t('dashboard.pending_today')}</CardTitle></CardHeader>
                 <CardContent><ItemGroup>{pendingToday.slice(0, 3).map((item) => (
-                  <Item key={item.id} size="sm" render={<Button type="button" variant="ghost" onClick={() => openPending(item)} />}>
+                  <Item key={item.id} size="sm" render={<button type="button" onClick={() => openPending(item)} />}>
                     <ItemContent><ItemTitle>{item.title}</ItemTitle><ItemDescription>{item.subtitle || item.timeLabel}</ItemDescription></ItemContent>
-                    {item.tag ? <Badge variant="outline">{item.tag}</Badge> : null}
+                    {item.tag ? <ItemActions><Badge variant="outline">{item.tag}</Badge></ItemActions> : null}
                   </Item>
                 ))}</ItemGroup></CardContent>
               </Card>
